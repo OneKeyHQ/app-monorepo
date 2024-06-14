@@ -217,16 +217,16 @@ class ProviderApiCosmos extends ProviderApiBase {
     const account = await this._getAccount(request, networkId);
 
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: txWrapper.toObject(),
         networkId,
         accountId: account?.account.id ?? '',
         signOnly: true,
-      })) as string;
+      });
 
     const txInfo = deserializeTx(
-      hexToBytes(Buffer.from(result, 'base64').toString('hex')),
+      hexToBytes(Buffer.from(result.rawTx, 'base64').toString('hex')),
     );
 
     const signDoc = getAminoSignDoc(txWrapper);
@@ -292,16 +292,16 @@ class ProviderApiCosmos extends ProviderApiBase {
       undefined,
     );
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: txWrapper.toObject(),
         networkId,
         accountId: account?.account.id ?? '',
         signOnly: true,
-      })) as string;
+      });
 
     const txInfo = deserializeTx(
-      hexToBytes(Buffer.from(result, 'base64').toString('hex')),
+      hexToBytes(Buffer.from(result.rawTx, 'base64').toString('hex')),
     );
 
     const [signerInfo] = txInfo.authInfo.signerInfos;

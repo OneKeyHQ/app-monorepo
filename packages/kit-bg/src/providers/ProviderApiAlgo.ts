@@ -105,15 +105,15 @@ class ProviderApiAlgo extends ProviderApiBase {
     )[0];
 
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: txsToSign,
         accountId: accountId ?? '',
         networkId: networkId ?? '',
         signOnly: true,
-      })) as string;
+      });
 
-    const signedTxs = result.split(',');
+    const signedTxs = result.rawTx?.split(',');
 
     return walletTransactions.map((tx) => {
       if (Array.isArray(tx.signers)) {

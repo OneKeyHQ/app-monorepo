@@ -115,15 +115,15 @@ class ProviderApiSolana extends ProviderApiBase {
     }
 
     const rawTx =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         accountId: accountId ?? '',
         networkId: networkId ?? '',
         request,
         encodedTx: params.message,
         signOnly: true,
-      })) as string;
+      });
     // Signed transaction is base64 encoded, inpage provider expects base58.
-    return bs58.encode(Buffer.from(rawTx, 'base64'));
+    return bs58.encode(Buffer.from(rawTx.rawTx, 'base64'));
   }
 
   @providerApiMethod()
@@ -167,16 +167,16 @@ class ProviderApiSolana extends ProviderApiBase {
     )[0];
 
     const txid =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         accountId: accountId ?? '',
         networkId: networkId ?? '',
         request,
         encodedTx: message,
         signOnly: false,
-      })) as string;
+      });
     console.log('solana signTransaction', request, params);
     return {
-      signature: txid,
+      signature: txid.txid,
       publicKey: address ?? '',
     };
   }

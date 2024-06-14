@@ -3,12 +3,12 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import type IVaultSui from '@onekeyhq/kit-bg/src/vaults/impls/sui/Vault';
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 import type {
   ISignAndExecuteTransactionBlockInput,
@@ -150,18 +150,19 @@ class ProviderApiSui extends ProviderApiBase {
       sender: address ?? '',
     };
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx,
         accountId: accountId ?? '',
         networkId: networkId ?? '',
-      })) as string;
+      });
 
     const vault = (await vaultFactory.getVault({
       accountId: accountId ?? '',
       networkId: networkId ?? '',
     })) as IVaultSui;
-    const tx = await vault.waitPendingTransaction(result, params.options);
+
+    const tx = await vault.waitPendingTransaction(result.txid, params.options);
 
     if (!tx) throw new Error('Transaction not found');
 
@@ -182,13 +183,13 @@ class ProviderApiSui extends ProviderApiBase {
     };
 
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx,
         accountId: accountId ?? '',
         networkId: networkId ?? '',
         signOnly: true,
-      })) as ISignedTxPro;
+      });
 
     if (!result.signature) throw web3Errors.provider.unauthorized();
 
@@ -212,15 +213,30 @@ class ProviderApiSui extends ProviderApiBase {
       accountId: accountId ?? '',
       networkId: networkId ?? '',
       unsignedMessage: {
-        type: EMessageTypesCommon.SIGN_MESSAGE,
+        type: EMessageTypesCommon.SIMPLE_SIGN,
         message: params.messageSerialize,
-        secure: false,
+        secure: true,
       },
     })) as string;
 
     return {
-      messageBytes: params.messageSerialize,
+      messageBytes: bufferUtils.hexToText(params.messageSerialize, 'base64'),
       signature: result,
+    };
+  }
+
+  @providerApiMethod()
+  public async signPersonalMessage(
+    request: IJsBridgeMessagePayload,
+    params: ISignMessageInput,
+  ): Promise<{
+    bytes: string;
+    signature: string;
+  }> {
+    const result = await this.signMessage(request, params);
+    return {
+      bytes: result.messageBytes,
+      signature: result.signature,
     };
   }
 }

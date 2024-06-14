@@ -227,7 +227,7 @@ class ProviderApiConflux extends ProviderApiBase {
 
     console.log('cfx_sendTransaction DONE', result, request, transaction);
 
-    return result;
+    return result.txid;
   }
 
   @providerApiMethod()

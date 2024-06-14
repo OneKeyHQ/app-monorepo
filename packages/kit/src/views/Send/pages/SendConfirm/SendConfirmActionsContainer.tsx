@@ -60,10 +60,6 @@ function SendConfirmActionsContainer(props: IProps) {
     closeWindowAfterResolved: true,
   });
 
-  const vaultSettings = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
-    [networkId],
-  ).result;
   const handleOnConfirm = useCallback(async () => {
     setIsSubmitting(true);
     isSubmitted.current = true;
@@ -90,15 +86,7 @@ function SendConfirmActionsContainer(props: IProps) {
 
       const signedTx = result[0].signedTx;
 
-      if (signOnly) {
-        if (vaultSettings?.signOnlyFullTxRequired) {
-          void dappApprove.resolve({ result: signedTx });
-        } else {
-          void dappApprove.resolve({ result: signedTx.rawTx });
-        }
-      } else {
-        void dappApprove.resolve({ result: signedTx.txid });
-      }
+      void dappApprove.resolve({ result: signedTx });
 
       navigation.popStack();
     } catch (e: any) {
@@ -126,7 +114,6 @@ function SendConfirmActionsContainer(props: IProps) {
     signOnly,
     unsignedTxs,
     sourceInfo,
-    vaultSettings?.signOnlyFullTxRequired,
   ]);
 
   const handleOnCancel = useCallback(

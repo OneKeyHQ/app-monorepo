@@ -275,7 +275,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
     console.log('eth_sendTransaction DONE', result, request, transaction);
 
-    return result;
+    return result.txid;
   }
 
   @providerApiMethod()

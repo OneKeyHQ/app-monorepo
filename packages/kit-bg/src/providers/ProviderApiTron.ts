@@ -195,7 +195,7 @@ class ProviderApiTron extends ProviderApiBase {
 
     console.log('tron_signTransaction DONE', result, request, transaction);
 
-    return JSON.parse(result as string) as SignedTransaction;
+    return JSON.parse(result.txid) as SignedTransaction;
   }
 
   @providerApiMethod()
