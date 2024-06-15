@@ -61,6 +61,9 @@ export interface IOneKeyError<
   payload?: IOneKeyHardwareErrorPayload; // raw payload from hardware sdk error response
   reconnect?: boolean;
   $isHardwareError?: boolean;
+
+  // ---server props
+  requestId?: string;
 }
 
 export type IOneKeyHardwareErrorPayload = {

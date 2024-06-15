@@ -69,6 +69,7 @@ export class BackgroundApiProxyBase
         appEventBus.emit(EAppEventBusNames.ShowToast, {
           method: 'error',
           title: error?.message ?? 'Error',
+          message: error?.requestId,
         });
       }
     });

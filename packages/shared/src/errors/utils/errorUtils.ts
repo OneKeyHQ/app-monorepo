@@ -31,6 +31,7 @@ export function toPlainErrorObject(error: IOneKeyError) {
       code: error.code,
       message: error.message,
       autoToast: error.autoToast,
+      requestId: error.requestId,
       data: error.data,
       info: error.info,
       payload: error.payload,
@@ -149,6 +150,7 @@ export function normalizeErrorProps(
     message: msg,
     key,
     autoToast: (props as IOneKeyError)?.autoToast ?? config?.defaultAutoToast,
+    requestId: (props as IOneKeyError)?.requestId,
     ...(isString(props) ? {} : props),
   };
 }
