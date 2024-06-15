@@ -237,10 +237,11 @@ function DAppAccountListStandAloneItem({
 }
 
 function DAppAccountListStandAloneItemForHomeScene() {
+  const intl = useIntl();
   return (
     <YStack space="$2" testID="DAppAccountListStandAloneItem">
       <SizableText size="$headingMd" color="$text">
-        Accounts
+        {intl.formatMessage({ id: ETranslations.global_accounts })}
       </SizableText>
       <AccountSelectorProviderMirror
         config={{

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type {
+  IButtonProps,
   IKeyOfIcons,
   IPageScreenProps,
   IXStackProps,
@@ -25,6 +26,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -128,69 +130,56 @@ export function V4MigrationGetStarted({
   return (
     <Page>
       <Page.Header headerShown={false} />
-      <Page.Body>
-        <Stack flex={1}>
-          <ThemeableStack
-            fullscreen
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Image
-              w={360}
-              h={360}
-              source={require('@onekeyhq/kit/assets/logo-press.png')}
-            />
-          </ThemeableStack>
-
-          <Stack px="$5" pt="$10" mt="auto">
-            <LinearGradient
-              position="absolute"
-              top="$0"
-              left="$0"
-              right="$0"
-              bottom="$0"
-              colors={['transparent', '$bgApp']}
-              $platform-native={{
-                display: 'none',
-              }}
-            />
-            <Stack zIndex={1}>
-              {/* Welcome to OneKey
-              Simple, secure crypto management */}
-              <Heading size="$heading4xl" textAlign="center">
-                OneKey 5.0 is here!
-              </Heading>
-              <SizableText
-                size="$bodyLg"
-                textAlign="center"
-                color="$textSubdued"
-              >
-                Follow the simple steps to securely migrate your data. Quick and
-                safe, ensuring your assets are transferred smoothly. Ready to
-                start?
-              </SizableText>
-            </Stack>
+      <Page.Body flex={1} justifyContent="center" alignItems="center">
+        <Image
+          w={360}
+          h={360}
+          source={require('@onekeyhq/kit/assets/logo-press.png')}
+        />
+        <Stack p="$5" pb="$0" mt="$-16" maxWidth="$96">
+          <LinearGradient
+            position="absolute"
+            top="$0"
+            left="$0"
+            right="$0"
+            bottom="$0"
+            colors={['transparent', '$bgApp']}
+            $platform-native={{
+              display: 'none',
+            }}
+          />
+          <Stack zIndex={1}>
+            <Heading size="$heading4xl" textAlign="center">
+              {intl.formatMessage({
+                id: ETranslations.v4_migration_welcome_message,
+              })}
+            </Heading>
+            <SizableText
+              mt="$3"
+              size="$bodyLg"
+              textAlign="center"
+              color="$textSubdued"
+            >
+              {intl.formatMessage({
+                id: ETranslations.v4_migration_welcome_message_desc,
+              })}
+            </SizableText>
           </Stack>
         </Stack>
-        <Stack
-          py="$6"
-          px="$5"
-          space="$2.5"
-          $gtMd={{
-            maxWidth: '$96',
-          }}
-          alignSelf="center"
-          w="100%"
+        <Button
+          mt="$8"
+          size="large"
+          $gtMd={
+            {
+              size: 'medium',
+            } as IButtonProps
+          }
+          variant="primary"
+          loading={isLoading}
+          onPress={handleNavigateToV4MigrationPreview}
         >
-          <Button
-            size="large"
-            variant="primary"
-            loading={isLoading}
-            onPress={handleNavigateToV4MigrationPreview}
-          >
-            Start Migration
-          </Button>
-        </Stack>
+          {intl.formatMessage({ id: ETranslations.global_start_migration })}
+        </Button>
       </Page.Body>
     </Page>
   );
