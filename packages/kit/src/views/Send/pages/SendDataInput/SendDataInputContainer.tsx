@@ -314,6 +314,9 @@ function SendDataInputContainer() {
       await sendConfirm.navigationToSendConfirm({
         transfersInfo,
         sameModal: true,
+        transferPayload: {
+          amountToSend: realAmount,
+        },
       });
       setIsSubmitting(false);
     } catch (e: any) {

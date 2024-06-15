@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -39,7 +40,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
   } = useActiveAccount({ num: 0 });
 
   const handleHistoryItemPress = useCallback(
-    (history: IAccountHistoryTx) => {
+    async (history: IAccountHistoryTx) => {
       if (!account || !network) return;
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.HistoryDetails,
@@ -47,6 +48,10 @@ function TxHistoryListContainer(props: ITabPageProps) {
           networkId: network.id,
           accountAddress: account.address,
           historyTx: history,
+          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
+            accountId: account.id,
+            networkId: network.id,
+          }),
         },
       });
     },

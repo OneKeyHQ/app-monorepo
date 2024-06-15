@@ -132,7 +132,8 @@ export type IFetchAccountHistoryResp = {
 export type IFetchHistoryTxDetailsParams = {
   networkId: string;
   txid: string;
-  accountAddress: string;
+  accountAddress?: string;
+  xpub?: string;
 };
 
 export type IFetchTxDetailsParams = {
