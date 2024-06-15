@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IStackProps, IXStackProps } from '@onekeyhq/components';
@@ -23,7 +23,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import {
@@ -31,8 +31,15 @@ import {
   getOnChainHistoryTxAssetInfo,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
-import { type IOnChainHistoryTxTransfer } from '@onekeyhq/shared/types/history';
-import type { IDecodedTxTransferInfo } from '@onekeyhq/shared/types/tx';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import type {
+  IOnChainHistoryTxApprove,
+  IOnChainHistoryTxTransfer,
+} from '@onekeyhq/shared/types/history';
+import type {
+  IDecodedTxActionTokenApprove,
+  IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
@@ -53,7 +60,7 @@ function getTxStatusTextProps(status: EDecodedTxStatus): {
 } {
   if (status === EDecodedTxStatus.Pending) {
     return {
-      key: 'transaction__pending',
+      key: ETranslations.global_pending,
       color: '$textCaution',
     };
   }
@@ -88,7 +95,7 @@ export function InfoItem({
   disabledCopy = false,
   ...rest
 }: {
-  label: string;
+  label?: string;
   renderContent: ReactNode;
   compact?: boolean;
   disabledCopy?: boolean;
@@ -109,7 +116,7 @@ export function InfoItem({
       })}
       {...rest}
     >
-      <SizableText size="$bodyMdMedium">{label}</SizableText>
+      {label ? <SizableText size="$bodyMdMedium">{label}</SizableText> : null}
       {typeof renderContent === 'string' ? (
         <YStack
           gap="$1.5"
@@ -158,6 +165,8 @@ export function AssetItem({
   amount,
   networkIcon,
   currencySymbol,
+  isApprove,
+  isApproveUnlimited,
 }: {
   asset: {
     name: string;
@@ -168,11 +177,14 @@ export function AssetItem({
     price: string;
   };
   index: number;
-  direction: EDecodedTxDirection;
+  direction?: EDecodedTxDirection;
   amount: string;
   networkIcon: string;
   currencySymbol: string;
+  isApprove?: boolean;
+  isApproveUnlimited?: boolean;
 }) {
+  const intl = useIntl();
   return (
     <ListItem key={index}>
       <Token
@@ -183,31 +195,53 @@ export function AssetItem({
       <ListItem.Text primary={asset.symbol} secondary={asset.name} flex={1} />
       <ListItem.Text
         primary={
-          <NumberSizeableText
-            textAlign="right"
-            size="$bodyLgMedium"
-            color={
-              direction === EDecodedTxDirection.IN ? '$textSuccess' : '$text'
-            }
-            formatter="balance"
-            formatterOptions={{
-              tokenSymbol: asset.isNFT ? '' : asset.symbol,
-              showPlusMinusSigns: true,
-            }}
-          >
-            {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amount}`}
-          </NumberSizeableText>
+          isApprove ? (
+            <SizableText
+              textAlign="right"
+              size="$bodyLgMedium"
+              color="$textSuccess"
+            >
+              {isApproveUnlimited
+                ? intl.formatMessage({
+                    id: ETranslations.swap_page_button_approve_unlimited,
+                  })
+                : intl.formatMessage(
+                    { id: ETranslations.form__approve_str },
+                    {
+                      amount,
+                      symbol: asset.symbol,
+                    },
+                  )}
+            </SizableText>
+          ) : (
+            <NumberSizeableText
+              textAlign="right"
+              size="$bodyLgMedium"
+              color={
+                direction === EDecodedTxDirection.IN ? '$textSuccess' : '$text'
+              }
+              formatter="balance"
+              formatterOptions={{
+                tokenSymbol: asset.isNFT ? '' : asset.symbol,
+                showPlusMinusSigns: true,
+              }}
+            >
+              {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amount}`}
+            </NumberSizeableText>
+          )
         }
         secondary={
-          <NumberSizeableText
-            textAlign="right"
-            size="$bodyMd"
-            color="$textSubdued"
-            formatter="value"
-            formatterOptions={{ currency: currencySymbol }}
-          >
-            {new BigNumber(amount).times(asset.price ?? 0).toString()}
-          </NumberSizeableText>
+          isApproveUnlimited ? null : (
+            <NumberSizeableText
+              textAlign="right"
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{ currency: currencySymbol }}
+            >
+              {new BigNumber(amount).times(asset.price ?? 0).toString()}
+            </NumberSizeableText>
+          )
         }
         align="right"
       />
@@ -254,7 +288,7 @@ function HistoryDetails() {
   const { data: txDetails, tokens = {}, nfts = {} } = txDetailsResp ?? {};
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleOnViewUTXOsPress = useCallback(() => {
+  const handleViewUTXOsOnPress = useCallback(() => {
     if (!txDetails) return;
     const { inputs: onChainInputs, outputs: onChainOutputs } = txDetails;
 
@@ -274,12 +308,61 @@ function HistoryDetails() {
     ({
       transfers,
       localTransfers,
+      approve,
+      localApprove,
       direction,
     }: {
       transfers: IOnChainHistoryTxTransfer[] | undefined;
       localTransfers: IDecodedTxTransferInfo[] | undefined;
-      direction: EDecodedTxDirection;
+      approve: IOnChainHistoryTxApprove | undefined;
+      localApprove: IDecodedTxActionTokenApprove | undefined;
+      direction: EDecodedTxDirection | undefined;
     }) => {
+      if (approve) {
+        const asset = getOnChainHistoryTxAssetInfo({
+          tokenAddress: approve.token,
+          tokens,
+          nfts,
+        });
+
+        return (
+          <AssetItem
+            index={0}
+            asset={asset}
+            direction={direction}
+            amount={new BigNumber(approve.amount)
+              .shiftedBy(-asset.decimals)
+              .toFixed()}
+            isApprove
+            isApproveUnlimited={approve.isInfiniteAmount}
+            networkIcon={network?.logoURI ?? ''}
+            currencySymbol={settings.currencyInfo.symbol}
+          />
+        );
+      }
+
+      if (localApprove) {
+        const asset = {
+          name: localApprove.name,
+          symbol: localApprove.symbol,
+          icon: localApprove.icon ?? '',
+          price: '0',
+        };
+
+        return (
+          <AssetItem
+            index={0}
+            asset={asset}
+            direction={direction}
+            isApprove
+            isApproveUnlimited={localApprove.isInfiniteAmount}
+            amount={localApprove.amount}
+            networkIcon={network?.logoURI ?? ''}
+            currencySymbol={settings.currencyInfo.symbol}
+          />
+        );
+      }
+
       if (transfers) {
         return transfers?.map((transfer, index) => {
           const asset = getOnChainHistoryTxAssetInfo({
@@ -327,6 +410,137 @@ function HistoryDetails() {
     [network?.logoURI, nfts, settings.currencyInfo.symbol, tokens],
   );
 
+  const transfersToRender = useMemo(() => {
+    let transfers: {
+      transfers?: IOnChainHistoryTxTransfer[];
+      localTransfers?: IDecodedTxTransferInfo[];
+      approve?: IOnChainHistoryTxApprove;
+      localApprove?: IDecodedTxActionTokenApprove;
+      direction?: EDecodedTxDirection;
+    }[] = [];
+
+    let sends = txDetails?.sends;
+    let receives = txDetails?.receives;
+    const localSends = historyTx.decodedTx.actions[0].assetTransfer?.sends;
+    const localReceives =
+      historyTx.decodedTx.actions[0].assetTransfer?.receives;
+
+    if (vaultSettings?.isUtxo && txDetails) {
+      sends = sends?.filter((send) => send.isOwn);
+      receives = receives?.filter((receive) => receive.isOwn);
+
+      if (
+        txDetails.type === EOnChainHistoryTxType.Send &&
+        sends &&
+        !isEmpty(sends)
+      ) {
+        sends = [
+          {
+            ...sends[0],
+            from: txDetails.from,
+            to: txDetails.to,
+            amount: txDetails.value,
+          },
+        ];
+        receives = [];
+      } else if (
+        txDetails.type === EOnChainHistoryTxType.Receive &&
+        receives &&
+        !isEmpty(receives)
+      ) {
+        receives = [
+          {
+            ...receives[0],
+            from: txDetails.from,
+            to: txDetails.to,
+            amount: txDetails.value,
+          },
+        ];
+        sends = [];
+      }
+    }
+
+    const approve = txDetails?.tokenApprove;
+    const localApprove = historyTx.decodedTx.actions[0].tokenApprove;
+    transfers = [
+      {
+        transfers: sends,
+        localTransfers: localSends,
+        direction: EDecodedTxDirection.OUT,
+      },
+      {
+        transfers: receives,
+        localTransfers: localReceives,
+        direction: EDecodedTxDirection.IN,
+      },
+      {
+        approve,
+        localApprove,
+      },
+    ];
+
+    return transfers.filter(Boolean);
+  }, [historyTx.decodedTx.actions, txDetails, vaultSettings?.isUtxo]);
+
+  const txAddresses = useMemo(() => {
+    if (!txDetails) {
+      const { decodedTx } = historyTx;
+      const sends = historyTx.decodedTx.actions[0].assetTransfer?.sends ?? [];
+      if (vaultSettings?.isUtxo) {
+        return {
+          from: historyTx.decodedTx.signer,
+          to: sends?.map((send) => send.to).join('/n'),
+          isSingleTransfer: sends?.length === 1,
+        };
+      }
+
+      return {
+        from: decodedTx.signer,
+        to: decodedTx.to ?? decodedTx.actions[0].assetTransfer?.to,
+        isSingleTransfer:
+          decodedTx.actions[0].assetTransfer?.sends?.length === 1,
+      };
+    }
+
+    if (vaultSettings?.isUtxo) {
+      const utxoSends = txDetails.sends.filter(
+        (send) => send.from !== accountAddress,
+      );
+      const utxoReceives = txDetails.receives.filter(
+        (receive) => receive.to !== accountAddress,
+      );
+
+      const from =
+        utxoSends.length > 1
+          ? `${utxoSends.length} addresses`
+          : utxoSends[0]?.from ?? txDetails.sends[0]?.from ?? txDetails.from;
+
+      const to =
+        utxoReceives.length > 1
+          ? `${utxoReceives.length} addresses`
+          : utxoReceives[0]?.to ?? txDetails.receives[0]?.to ?? txDetails.to;
+
+      return {
+        from,
+        to,
+        isSingleTransfer:
+          from === to
+            ? true
+            : new BigNumber(utxoSends.length ?? 0)
+                .plus(utxoReceives.length ?? 0)
+                .eq(1),
+      };
+    }
+
+    return {
+      from: txDetails?.from,
+      to: txDetails?.to,
+      isSingleTransfer: new BigNumber(txDetails.sends?.length ?? 0)
+        .plus(txDetails.receives?.length ?? 0)
+        .eq(1),
+    };
+  }, [accountAddress, historyTx, txDetails, vaultSettings?.isUtxo]);
+
   const renderTxStatus = useCallback(() => {
     const { key, color } = getTxStatusTextProps(historyTx.decodedTx.status);
     return (
@@ -349,87 +563,33 @@ function HistoryDetails() {
     );
   }, [historyTx.decodedTx.status, intl, vaultSettings?.replaceTxEnabled]);
 
-  const transfersToRender = useMemo(() => {
-    let transfers: {
-      transfers?: IOnChainHistoryTxTransfer[];
-      localTransfers?: IDecodedTxTransferInfo[];
-      direction: EDecodedTxDirection;
-    }[] = [];
+  const renderTxFlow = useCallback(() => {
+    if (vaultSettings?.isUtxo && !txAddresses.isSingleTransfer) return null;
 
-    let sends = txDetails?.sends;
-    let receives = txDetails?.receives;
-    const localSends = historyTx.decodedTx.actions[0].assetTransfer?.sends;
-    const localReceives =
-      historyTx.decodedTx.actions[0].assetTransfer?.receives;
-
-    if (vaultSettings?.isUtxo) {
-      sends = sends?.filter((send) => send.isOwn);
-      receives = receives?.filter((receive) => receive.isOwn);
+    if (txAddresses.from && txAddresses.to && txAddresses.isSingleTransfer) {
+      return (
+        <>
+          <InfoItem label="From" renderContent={txAddresses.from} showCopy />
+          <InfoItem label="To" renderContent={txAddresses.to} showCopy />
+        </>
+      );
     }
-    transfers = [
-      {
-        transfers: sends,
-        localTransfers: localSends,
-        direction: EDecodedTxDirection.OUT,
-      },
-      {
-        transfers: receives,
-        localTransfers: localReceives,
-        direction: EDecodedTxDirection.IN,
-      },
-    ];
 
-    return transfers.filter(Boolean);
+    if (txAddresses.to) {
+      return (
+        <InfoItem
+          label="Interact with Contract"
+          renderContent={txAddresses.to}
+          showCopy
+        />
+      );
+    }
   }, [
-    historyTx.decodedTx.actions,
-    txDetails?.receives,
-    txDetails?.sends,
+    txAddresses.from,
+    txAddresses.isSingleTransfer,
+    txAddresses.to,
     vaultSettings?.isUtxo,
   ]);
-
-  const txAddresses = useMemo(() => {
-    if (!txDetails) {
-      const { decodedTx } = historyTx;
-      if (vaultSettings?.isUtxo) {
-        return {
-          from: historyTx.decodedTx.signer,
-          to: historyTx.decodedTx.actions[0].assetTransfer?.sends
-            .map((send) => send.to)
-            .join('/n'),
-        };
-      }
-
-      return {
-        from: decodedTx.signer,
-        to: decodedTx.to ?? decodedTx.actions[0].assetTransfer?.to,
-      };
-    }
-
-    if (vaultSettings?.isUtxo) {
-      const utxoSends = txDetails.sends.filter(
-        (send) => send.from !== accountAddress,
-      );
-      const utxoReceives = txDetails.receives.filter(
-        (receive) => receive.to !== accountAddress,
-      );
-      return {
-        from:
-          utxoSends.length > 1
-            ? `${utxoSends.length} addresses`
-            : utxoSends[0]?.from ?? txDetails.sends[0]?.from ?? txDetails.from,
-
-        to:
-          utxoReceives.length > 1
-            ? `${utxoReceives.length} addresses`
-            : utxoReceives[0]?.to ?? txDetails.receives[0]?.to ?? txDetails.to,
-      };
-    }
-
-    return {
-      from: txDetails?.from,
-      to: txDetails?.to,
-    };
-  }, [accountAddress, historyTx, txDetails, vaultSettings?.isUtxo]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,
@@ -488,6 +648,8 @@ function HistoryDetails() {
             renderAssetsChange({
               localTransfers: block.localTransfers,
               transfers: block.transfers,
+              approve: block.approve,
+              localApprove: block.localApprove,
               direction: block.direction,
             }),
           )}
@@ -503,8 +665,20 @@ function HistoryDetails() {
           {/* Secondary */}
           <Divider mx="$5" />
           <InfoItemGroup>
-            <InfoItem label="From" renderContent={txAddresses.from} showCopy />
-            <InfoItem label="To" renderContent={txAddresses.to} showCopy />
+            {renderTxFlow()}
+            {vaultSettings?.isUtxo ? (
+              <InfoItem
+                renderContent={
+                  <Button
+                    size="medium"
+                    onPress={handleViewUTXOsOnPress}
+                    variant="secondary"
+                  >
+                    View Inputs & Outputs
+                  </Button>
+                }
+              />
+            ) : null}
             <InfoItem
               label="Transaction ID"
               renderContent={txInfo.txid}
@@ -577,20 +751,21 @@ function HistoryDetails() {
       </>
     );
   }, [
-    renderAssetsChange,
-    renderFeeInfo,
-    renderTxStatus,
     resp.isLoading,
     transfersToRender,
-    txAddresses.from,
-    txAddresses.to,
-    txInfo.confirmations,
+    renderTxStatus,
     txInfo.date,
-    txInfo.nonce,
-    txInfo.swapInfo,
     txInfo.txid,
-    network,
+    txInfo.nonce,
+    txInfo.confirmations,
+    txInfo.swapInfo,
+    renderTxFlow,
+    vaultSettings?.isUtxo,
     vaultSettings?.nonceRequired,
+    handleViewUTXOsOnPress,
+    network,
+    renderFeeInfo,
+    renderAssetsChange,
   ]);
 
   return (
