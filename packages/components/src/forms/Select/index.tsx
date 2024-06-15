@@ -23,9 +23,15 @@ import type { IListViewProps, ISectionListProps } from '../../layouts';
 
 const useTriggerLabel = (value: string) => {
   const { selectedItemRef, sections, items } = useContext(SelectContext);
-  if (!value || selectedItemRef.current.value !== value) {
+
+  if (!value) {
     return '';
   }
+
+  if (selectedItemRef.current.value !== value) {
+    selectedItemRef.current.label = '';
+  }
+
   if (selectedItemRef.current.label) {
     return selectedItemRef.current.label;
   }
