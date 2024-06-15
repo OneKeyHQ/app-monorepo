@@ -1,11 +1,12 @@
 import BigNumber from 'bignumber.js';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EFeeType,
-  type IFeeInfoUnit,
-  type IGasEIP1559,
-  type IGasLegacy,
+import { EFeeType } from '@onekeyhq/shared/types/fee';
+import type {
+  IEstimateFeeParams,
+  IFeeInfoUnit,
+  IGasEIP1559,
+  IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
 
 const PRESET_FEE_ICON = ['🚀', '🚗', '🐢'];
@@ -26,12 +27,35 @@ function nanToZeroString(value: string | number | unknown) {
   return value as string;
 }
 
+export function calculateSolTotalFee({
+  computeUnitPrice,
+  computeUnitLimit,
+  computeUnitPriceDecimals,
+  baseFee,
+  feeInfo,
+}: {
+  computeUnitPrice: string | BigNumber;
+  computeUnitLimit: string | BigNumber;
+  computeUnitPriceDecimals: number | BigNumber;
+  baseFee: string | BigNumber;
+  feeInfo: IFeeInfoUnit;
+}) {
+  return new BigNumber(computeUnitPrice)
+    .times(computeUnitLimit)
+    .shiftedBy(-computeUnitPriceDecimals)
+    .plus(baseFee)
+    .shiftedBy(-feeInfo.common.feeDecimals)
+    .toFixed();
+}
+
 export function calculateTotalFeeRange({
   feeInfo,
   txSize,
+  estimateFeeParams,
 }: {
   feeInfo: IFeeInfoUnit;
   txSize?: number;
+  estimateFeeParams?: IEstimateFeeParams;
 }) {
   const { gas, gasEIP1559 } = feeInfo;
   if (feeInfo.gasEIP1559) {
@@ -108,6 +132,26 @@ export function calculateTotalFeeRange({
       maxForDisplay: nanToZeroString(max),
     };
   }
+  if (feeInfo.feeSol && estimateFeeParams?.estimateFeeParamsSol) {
+    const { computeUnitPrice } = feeInfo.feeSol;
+    const { computeUnitLimit, baseFee, computeUnitPriceDecimals } =
+      estimateFeeParams.estimateFeeParamsSol;
+    const max = calculateSolTotalFee({
+      computeUnitLimit,
+      computeUnitPrice,
+      computeUnitPriceDecimals,
+      baseFee,
+      feeInfo,
+    });
+
+    return {
+      min: nanToZeroString(max),
+      max: nanToZeroString(max),
+      minForDisplay: nanToZeroString(max),
+      maxForDisplay: nanToZeroString(max),
+      withoutBaseFee: true,
+    };
+  }
 
   return {
     min: '0',
@@ -119,13 +163,15 @@ export function calculateTotalFeeRange({
 export function calculateTotalFeeNative({
   amount, // in GWEI
   feeInfo,
+  withoutBaseFee,
 }: {
   amount: string | BigNumber;
   feeInfo: IFeeInfoUnit;
+  withoutBaseFee?: boolean;
 }) {
   const { common } = feeInfo;
   return new BigNumber(amount)
-    .plus(common?.baseFee ?? 0)
+    .plus(withoutBaseFee ? 0 : common?.baseFee ?? 0)
     .shiftedBy(
       common?.feeDecimals ??
         nilError('calculateTotalFeeNative ERROR: info.feeDecimals missing'),
@@ -143,24 +189,29 @@ export function calculateFeeForSend({
   feeInfo,
   nativeTokenPrice,
   txSize,
+  estimateFeeParams,
 }: {
   feeInfo: IFeeInfoUnit;
   nativeTokenPrice: number;
   txSize?: number;
+  estimateFeeParams?: IEstimateFeeParams;
 }) {
   const feeRange = calculateTotalFeeRange({
     feeInfo,
     txSize,
+    estimateFeeParams,
   });
   const total = feeRange.max;
   const totalForDisplay = feeRange.maxForDisplay;
   const totalNative = calculateTotalFeeNative({
     amount: total,
     feeInfo,
+    withoutBaseFee: feeRange.withoutBaseFee,
   });
   const totalNativeForDisplay = calculateTotalFeeNative({
     amount: totalForDisplay,
     feeInfo,
+    withoutBaseFee: feeRange.withoutBaseFee,
   });
   const totalFiat = new BigNumber(totalNative)
     .multipliedBy(nativeTokenPrice)
@@ -188,7 +239,7 @@ export function getFeeLabel({
   presetIndex?: number;
 }) {
   if (feeType === EFeeType.Custom) {
-    return ETranslations.content__custom;
+    return ETranslations.global_advanced;
   }
 
   return PRESET_FEE_LABEL[presetIndex ?? 1] ?? PRESET_FEE_LABEL[0];
@@ -236,5 +287,9 @@ export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
 
   if (feeInfo.feeUTXO) {
     return feeInfo.feeUTXO.feeRate;
+  }
+
+  if (feeInfo.feeSol) {
+    return feeInfo.common.baseFee;
   }
 }

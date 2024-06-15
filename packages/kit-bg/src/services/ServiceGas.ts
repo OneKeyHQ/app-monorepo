@@ -42,6 +42,13 @@ class ServiceGas extends ServiceBase {
       feeUTXO: feeInfo.feeUTXO,
       feeTron: feeInfo.feeTron,
       gasFil: feeInfo.gasFil,
+      feeSol: feeInfo.computeUnitPrice
+        ? [
+            {
+              computeUnitPrice: feeInfo.computeUnitPrice,
+            },
+          ]
+        : undefined,
     };
   }
 
@@ -49,7 +56,7 @@ class ServiceGas extends ServiceBase {
   async buildEstimateFeeParams(params: {
     networkId: string;
     accountId: string;
-    encodedTx: IEncodedTx | undefined;
+    encodedTx: IEncodedTx;
   }) {
     const { networkId, accountId, encodedTx } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });

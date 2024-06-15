@@ -78,6 +78,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import { IEstimateFeeParams, IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
@@ -288,9 +289,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async buildEstimateFeeParams({
     encodedTx,
   }: {
-    encodedTx: IEncodedTx | undefined;
-  }) {
-    return Promise.resolve(encodedTx);
+    encodedTx: IEncodedTx;
+  }): Promise<{
+    encodedTx: IEncodedTx;
+    estimateFeeParams?: IEstimateFeeParams;
+  }> {
+    return Promise.resolve({
+      encodedTx,
+    });
   }
 
   async buildFetchHistoryListParams(params: IFetchAccountHistoryParams) {

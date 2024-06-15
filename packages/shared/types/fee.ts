@@ -40,8 +40,7 @@ export type IFeeTron = {
 };
 
 export type IFeeSol = {
-  price: string;
-  limit: string;
+  computeUnitPrice: string;
 };
 
 export type IFeeFil = {
@@ -70,6 +69,17 @@ export type IFeeInfoUnit = {
   feeUTXO?: IFeeUTXO;
   feeTron?: IFeeTron;
   gasFil?: IFeeFil;
+  feeSol?: IFeeSol;
+};
+
+export type IEstimateFeeParamsSol = {
+  computeUnitLimit: string;
+  baseFee: string; // lamports
+  computeUnitPriceDecimals: number;
+};
+
+export type IEstimateFeeParams = {
+  estimateFeeParamsSol?: IEstimateFeeParamsSol;
 };
 
 export type ISendSelectedFeeInfo = {
@@ -88,6 +98,7 @@ export type IEstimateGasResp = {
   nativeDecimals: number;
   nativeSymbol: string;
   baseFee?: string;
+  computeUnitPrice?: string;
   gas?: IGasLegacy[];
   gasEIP1559?: IGasEIP1559[];
   feeUTXO?: IFeeUTXO[];

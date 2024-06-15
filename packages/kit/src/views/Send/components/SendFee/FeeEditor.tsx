@@ -22,11 +22,13 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  calculateSolTotalFee,
   calculateTotalFeeNative,
   getFeePriceNumber,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
+  IEstimateFeeParams,
   IFeeInfoUnit,
   IFeeSelectorItem,
   ISendSelectedFeeInfo,
@@ -54,6 +56,7 @@ type IProps = {
   originalCustomFee: IFeeInfoUnit | undefined;
   selectedFee: ISendSelectedFeeInfo | undefined;
   unsignedTxs: IUnsignedTxPro[];
+  estimateFeeParams?: IEstimateFeeParams;
   onApplyFeeInfo: ({
     feeType,
     presetIndex,
@@ -151,6 +154,7 @@ function FeeEditor(props: IProps) {
     selectedFee,
     unsignedTxs,
     onApplyFeeInfo,
+    estimateFeeParams,
   } = props;
   const intl = useIntl();
   const isVerticalLayout = useMedia().md;
@@ -158,9 +162,7 @@ function FeeEditor(props: IProps) {
   const [currentFeeIndex, setCurrentFeeIndex] = useState(
     getPresetIndex(sendSelectedFee, feeSelectorItems),
   );
-  const [customTouched, setCustomTouched] = useState(
-    sendSelectedFee.feeType === EFeeType.Custom,
-  );
+
   const [currentFeeType, setCurrentFeeType] = useState<EFeeType>(
     sendSelectedFee.feeType,
   );
@@ -168,10 +170,15 @@ function FeeEditor(props: IProps) {
 
   const { feeSymbol, nativeSymbol, nativeTokenPrice } = customFee?.common ?? {};
 
-  const vaultSettings = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
-    [networkId],
-  ).result;
+  const [vaultSettings, network] =
+    usePromiseResult(
+      () =>
+        Promise.all([
+          backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+          backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+        ]),
+      [networkId],
+    ).result ?? [];
 
   const form = useForm({
     defaultValues: {
@@ -189,6 +196,10 @@ function FeeEditor(props: IProps) {
         .toFixed(),
       // fee utxo
       feeRate: new BigNumber(customFee.feeUTXO?.feeRate ?? '0').toFixed(),
+      // fee sol
+      computeUnitPrice: new BigNumber(
+        customFee.feeSol?.computeUnitPrice ?? '0',
+      ).toFixed(),
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -216,12 +227,18 @@ function FeeEditor(props: IProps) {
       feeUTXO: customFee.feeUTXO && {
         feeRate: watchAllFields.feeRate,
       },
+
+      feeSol: customFee.feeSol && {
+        computeUnitPrice: watchAllFields.computeUnitPrice,
+      },
     }),
     [
       customFee.common,
+      customFee.feeSol,
       customFee.feeUTXO,
       customFee.gas,
       customFee.gasEIP1559,
+      watchAllFields.computeUnitPrice,
       watchAllFields.feeRate,
       watchAllFields.gasLimit,
       watchAllFields.gasPrice,
@@ -292,6 +309,14 @@ function FeeEditor(props: IProps) {
     return true;
   }, []);
 
+  const handleValidateComputeUnitPrice = useCallback((value: string) => {
+    const feeRate = new BigNumber(value || 0);
+    if (feeRate.isNaN() || feeRate.isLessThan(0)) {
+      return 'ComputeUnitPrice must be greater than 0';
+    }
+    return true;
+  }, []);
+
   const handleApplyFeeInfo = useCallback(() => {
     onApplyFeeInfo({
       feeType: currentFeeType,
@@ -315,7 +340,10 @@ function FeeEditor(props: IProps) {
     if (customFee.feeUTXO) {
       feeTitle = 'Fee Rate (sat/vB)';
     } else {
-      feeTitle = `Gas Price (${feeSymbol})`;
+      feeTitle = intl.formatMessage(
+        { id: ETranslations.content__gas_price },
+        { 'network': feeSymbol },
+      );
     }
 
     return (
@@ -330,9 +358,6 @@ function FeeEditor(props: IProps) {
             const feeType = feeSelectorItems[Number(v)].type;
             setCurrentFeeIndex(Number(v));
             setCurrentFeeType(feeType);
-            if (feeType === EFeeType.Custom) {
-              setCustomTouched(true);
-            }
           }}
           options={feeSelectorItems.map((item, index) => ({
             ...item,
@@ -354,10 +379,11 @@ function FeeEditor(props: IProps) {
                   textAlign="center"
                   formatter="value"
                 >
-                  {getFeePriceNumber({ feeInfo: item.feeInfo }) ||
-                    (customTouched
-                      ? getFeePriceNumber({ feeInfo: customFeeInfo })
-                      : '-')}
+                  {item.type === EFeeType.Custom
+                    ? intl.formatMessage({ id: ETranslations.content__custom })
+                    : getFeePriceNumber({
+                        feeInfo: item.feeInfo,
+                      })}
                 </NumberSizeableText>
               </YStack>
             ),
@@ -368,10 +394,9 @@ function FeeEditor(props: IProps) {
   }, [
     currentFeeIndex,
     customFee.feeUTXO,
-    customFeeInfo,
-    customTouched,
     feeSelectorItems,
     feeSymbol,
+    intl,
     vaultSettings?.editFeeEnabled,
   ]);
 
@@ -405,7 +430,7 @@ function FeeEditor(props: IProps) {
             </Form.Field>
             <Form.Field
               label={`${intl.formatMessage({
-                id: 'form__priority_fee',
+                id: ETranslations.form__priority_fee,
               })}`}
               name="priorityFee"
               rules={{
@@ -425,7 +450,7 @@ function FeeEditor(props: IProps) {
             </Form.Field>
             <Form.Field
               label={intl.formatMessage({
-                id: 'content__gas_limit',
+                id: ETranslations.content__gas_limit,
               })}
               name="gasLimit"
               description={gasLimitDescription}
@@ -462,7 +487,7 @@ function FeeEditor(props: IProps) {
           <YStack space="$5">
             <Form.Field
               label={`${intl.formatMessage({
-                id: 'content__gas_price',
+                id: ETranslations.content__gas_price,
               })}(${feeSymbol})`}
               name="gasPrice"
               rules={{
@@ -475,7 +500,7 @@ function FeeEditor(props: IProps) {
             </Form.Field>
             <Form.Field
               label={intl.formatMessage({
-                id: 'content__gas_limit',
+                id: ETranslations.content__gas_limit,
               })}
               name="gasLimit"
               description={gasLimitDescription}
@@ -522,12 +547,32 @@ function FeeEditor(props: IProps) {
         </Form>
       );
     }
+
+    if (customFee.feeSol) {
+      return (
+        <Form form={form}>
+          <YStack space="$5">
+            <Form.Field
+              label="Prioritization Fee"
+              name="computeUnitPrice"
+              rules={{
+                required: true,
+                validate: handleValidateComputeUnitPrice,
+              }}
+            >
+              <Input flex={1} />
+            </Form.Field>
+          </YStack>
+        </Form>
+      );
+    }
   }, [
     currentFeeType,
     customFee,
     feeSymbol,
     form,
     gasLimitDescription,
+    handleValidateComputeUnitPrice,
     handleValidateFeeRate,
     handleValidateGasLimit,
     handleValidateGasPrice,
@@ -674,6 +719,40 @@ function FeeEditor(props: IProps) {
             .toFixed(),
         },
       ];
+    } else if (fee.feeSol && estimateFeeParams?.estimateFeeParamsSol) {
+      let computeUnitPrice = new BigNumber(0);
+      if (currentFeeType === EFeeType.Custom) {
+        computeUnitPrice = new BigNumber(watchAllFields.computeUnitPrice || 0);
+      } else {
+        computeUnitPrice = new BigNumber(fee.feeSol?.computeUnitPrice || 0);
+      }
+
+      const { computeUnitLimit, baseFee, computeUnitPriceDecimals } =
+        estimateFeeParams.estimateFeeParamsSol;
+      const max = calculateSolTotalFee({
+        computeUnitPrice,
+        computeUnitLimit,
+        baseFee,
+        computeUnitPriceDecimals,
+        feeInfo: fee,
+      });
+
+      const maxFeeInNative = calculateTotalFeeNative({
+        amount: max,
+        feeInfo: fee,
+        withoutBaseFee: true,
+      });
+
+      feeInfoItems = [
+        {
+          label: 'Fee',
+          nativeValue: maxFeeInNative,
+          nativeSymbol,
+          fiatValue: new BigNumber(maxFeeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
+        },
+      ];
     }
 
     return (
@@ -694,6 +773,7 @@ function FeeEditor(props: IProps) {
     currentFeeIndex,
     currentFeeType,
     customFee,
+    estimateFeeParams?.estimateFeeParamsSol,
     feeSelectorItems,
     feeSymbol,
     handleApplyFeeInfo,
@@ -703,6 +783,7 @@ function FeeEditor(props: IProps) {
     unsignedTxs,
     vaultSettings?.editFeeEnabled,
     vaultSettings?.withL1BaseFee,
+    watchAllFields.computeUnitPrice,
     watchAllFields.feeRate,
     watchAllFields.gasLimit,
     watchAllFields.gasPrice,
