@@ -10,7 +10,7 @@ import type { IUtxoAddressInfo } from '../../types/tx';
 export enum EModalAssetDetailRoutes {
   TokenDetails = 'TokenDetails',
   NFTDetails = 'NFTDetails',
-  HistoryDetails = 'HistoryDetail',
+  HistoryDetails = 'HistoryDetails',
   UTXODetails = 'UTXODetails',
 }
 
@@ -36,10 +36,12 @@ export type IModalAssetDetailsParamList = {
   [EModalAssetDetailRoutes.HistoryDetails]: {
     networkId: string;
     accountAddress: string;
+    xpub?: string;
     historyTx: IAccountHistoryTx;
   };
   [EModalAssetDetailRoutes.UTXODetails]: {
     networkId: string;
+    txId: string;
     inputs?: IUtxoAddressInfo[];
     outputs?: IUtxoAddressInfo[];
   };

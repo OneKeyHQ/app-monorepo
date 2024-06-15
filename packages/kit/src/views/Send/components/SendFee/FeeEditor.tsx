@@ -486,9 +486,14 @@ function FeeEditor(props: IProps) {
         <Form form={form}>
           <YStack space="$5">
             <Form.Field
-              label={`${intl.formatMessage({
-                id: ETranslations.content__gas_price,
-              })}(${feeSymbol})`}
+              label={intl.formatMessage(
+                {
+                  id: ETranslations.content__gas_price,
+                },
+                {
+                  'network': feeSymbol,
+                },
+              )}
               name="gasPrice"
               rules={{
                 required: true,

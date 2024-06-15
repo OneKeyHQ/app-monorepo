@@ -10,6 +10,8 @@ import {
   Page,
   SectionList,
   SizableText,
+  Spinner,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -18,9 +20,10 @@ import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
-import type { IUtxoAddressInfo } from '@onekeyhq/shared/types/tx';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -36,12 +39,47 @@ function UTXODetails() {
 
   const tableLayout = useMedia().gtMd;
 
-  const { inputs, outputs, networkId } = route.params;
+  const { inputs, outputs, networkId, txId } = route.params;
 
   const { network } = useAccountData({ networkId });
 
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      if (inputs && outputs) {
+        return Promise.resolve({ inputs, outputs });
+      }
+
+      const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
+        networkId,
+        txid: txId,
+      });
+
+      if (r) {
+        return {
+          inputs: r.data.sends?.map((send) => ({
+            address: send.from,
+            balance: send.amount,
+          })),
+          outputs: r.data.receives?.map((receive) => ({
+            address: receive.to,
+            balance: receive.amount,
+          })),
+        };
+      }
+
+      return {
+        inputs: [],
+        outputs: [],
+      };
+    },
+    [inputs, networkId, outputs, txId],
+    {
+      watchLoading: true,
+    },
+  );
+
   const renderUTXOList = useCallback(
-    (utxos: IUtxoAddressInfo[]) => (
+    (utxos: { address: string; balance: string }[]) => (
       <DescriptionList px="$5" paddingBottom="$2">
         {utxos.map((utxo, index) => (
           <XStack key={index} space="$2">
@@ -63,53 +101,75 @@ function UTXODetails() {
     [network?.symbol],
   );
 
-  return (
-    <Page scrollEnabled>
-      <Page.Header
-        title={intl.formatMessage({ id: 'title__inputs_and_outputs' })}
-      />
-      <Page.Body>
-        {tableLayout ? (
-          <XStack>
-            <YStack flex={1}>
-              <SectionList.SectionHeader
-                title={intl.formatMessage(
-                  { id: 'form__inputs_int__uppercase' },
-                  { 0: inputs?.length ?? 0 },
-                )}
-              />
-              {renderUTXOList(inputs ?? [])}
-            </YStack>
-            <YStack flex={1}>
-              <SectionList.SectionHeader
-                title={intl.formatMessage(
-                  { id: 'form__outputs_int__uppercase' },
-                  { 0: outputs?.length ?? 0 },
-                )}
-              />
-              {renderUTXOList(outputs ?? [])}
-            </YStack>
-          </XStack>
-        ) : (
-          <>
+  const renderUTXODetails = useCallback(() => {
+    if (isLoading) {
+      return (
+        <Stack pt={240} justifyContent="center" alignContent="center">
+          <Spinner size="large" />
+        </Stack>
+      );
+    }
+
+    if (tableLayout)
+      return (
+        <XStack>
+          <YStack flex={1}>
             <SectionList.SectionHeader
               title={intl.formatMessage(
                 { id: 'form__inputs_int__uppercase' },
                 { 0: inputs?.length ?? 0 },
               )}
             />
-            {renderUTXOList(inputs ?? [])}
-            <Divider my="$5" />
+            {renderUTXOList(result?.inputs ?? [])}
+          </YStack>
+          <YStack flex={1}>
             <SectionList.SectionHeader
               title={intl.formatMessage(
                 { id: 'form__outputs_int__uppercase' },
                 { 0: outputs?.length ?? 0 },
               )}
             />
-            {renderUTXOList(outputs ?? [])}
-          </>
-        )}
-      </Page.Body>
+            {renderUTXOList(result?.outputs ?? [])}
+          </YStack>
+        </XStack>
+      );
+
+    return (
+      <>
+        <SectionList.SectionHeader
+          title={intl.formatMessage(
+            { id: 'form__inputs_int__uppercase' },
+            { 0: inputs?.length ?? 0 },
+          )}
+        />
+        {renderUTXOList(result?.inputs ?? [])}
+        <Divider my="$5" />
+        <SectionList.SectionHeader
+          title={intl.formatMessage(
+            { id: 'form__outputs_int__uppercase' },
+            { 0: outputs?.length ?? 0 },
+          )}
+        />
+        {renderUTXOList(result?.outputs ?? [])}
+      </>
+    );
+  }, [
+    inputs?.length,
+    intl,
+    isLoading,
+    outputs?.length,
+    renderUTXOList,
+    result?.inputs,
+    result?.outputs,
+    tableLayout,
+  ]);
+
+  return (
+    <Page scrollEnabled>
+      <Page.Header
+        title={intl.formatMessage({ id: 'title__inputs_and_outputs' })}
+      />
+      <Page.Body>{renderUTXODetails()}</Page.Body>
     </Page>
   );
 }

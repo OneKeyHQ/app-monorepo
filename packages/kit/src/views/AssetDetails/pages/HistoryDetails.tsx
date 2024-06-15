@@ -259,7 +259,7 @@ function HistoryDetails() {
       >
     >();
 
-  const { networkId, accountAddress, historyTx } = route.params;
+  const { networkId, accountAddress, historyTx, xpub } = route.params;
 
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
@@ -271,6 +271,7 @@ function HistoryDetails() {
         backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
           networkId,
           accountAddress,
+          xpub,
           txid: historyTx.decodedTx.txid,
         }),
         backgroundApiProxy.serviceToken.getNativeToken({
@@ -278,7 +279,7 @@ function HistoryDetails() {
           accountAddress,
         }),
       ]),
-    [accountAddress, historyTx.decodedTx.txid, networkId],
+    [accountAddress, historyTx.decodedTx.txid, networkId, xpub],
     { watchLoading: true },
   );
 
@@ -290,10 +291,16 @@ function HistoryDetails() {
   const handleViewUTXOsOnPress = useCallback(() => {
     navigation.push(EModalAssetDetailRoutes.UTXODetails, {
       networkId,
+      txId: historyTx.decodedTx.txid,
       inputs: historyTx.decodedTx.actions[0].assetTransfer?.utxoFrom,
       outputs: historyTx.decodedTx.actions[0].assetTransfer?.utxoTo,
     });
-  }, [historyTx.decodedTx.actions, navigation, networkId]);
+  }, [
+    historyTx.decodedTx.actions,
+    historyTx.decodedTx.txid,
+    navigation,
+    networkId,
+  ]);
 
   const renderAssetsChange = useCallback(
     ({
