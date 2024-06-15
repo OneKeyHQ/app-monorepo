@@ -273,9 +273,11 @@ class ServiceAccountProfile extends ServiceBase {
   async sendProxyRequest<T>({
     networkId,
     body,
+    returnRawData,
   }: {
     networkId: string;
     body: IProxyRequestItem[];
+    returnRawData?: boolean;
   }): Promise<T[]> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const request: IProxyRequest = { networkId, body };
@@ -285,6 +287,10 @@ class ServiceAccountProfile extends ServiceBase {
     );
     const data = resp.data.data.data;
     if (data.some((item) => !item.success)) {
+      if (returnRawData) {
+        // @ts-expect-error
+        return data;
+      }
       throw new Error('Failed to send proxy request');
     }
     return data.map((item) => item.data);
