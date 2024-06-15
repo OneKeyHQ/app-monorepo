@@ -270,39 +270,33 @@ export default class Vault extends VaultBase {
 
   private _getAccountInfo = memoizee(
     async (address: string) => {
-      try {
-        const [accountInfo] =
-          await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
-            success: boolean;
-            error: string;
-          }>({
-            networkId: this.networkId,
-            body: [
-              {
-                route: 'rpc',
-                params: {
-                  method: 'request',
-                  params: [
-                    {
-                      'command': 'account_info',
-                      'account': address,
-                      'ledger_index': 'validated',
-                    },
-                  ],
-                },
+      const [accountInfo] =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+          success: boolean;
+          error: string;
+        }>({
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: 'request',
+                params: [
+                  {
+                    'command': 'account_info',
+                    'account': address,
+                    'ledger_index': 'validated',
+                  },
+                ],
               },
-            ],
-            returnRawData: true,
-          });
-        if (accountInfo.success === false) {
-          throw new Error(accountInfo.error);
-        }
-        return accountInfo;
-      } catch (error) {
-        console.log('xrp vault getAccountInfo error: ', error);
-        throw error;
-        // ignore
+            },
+          ],
+          returnRawData: true,
+        });
+      if (accountInfo.success === false) {
+        throw new Error(accountInfo.error);
       }
+      return accountInfo;
     },
     {
       promise: true,
