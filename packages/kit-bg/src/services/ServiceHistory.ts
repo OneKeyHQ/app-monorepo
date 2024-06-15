@@ -227,7 +227,7 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
-      const { networkId, txid, accountAddress } = params;
+      const { networkId, txid, accountAddress, xpub } = params;
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
         '/wallet/v1/account/history/detail',
@@ -235,6 +235,7 @@ class ServiceHistory extends ServiceBase {
           params: {
             networkId,
             txid,
+            xpub,
             accountAddress,
           },
         },

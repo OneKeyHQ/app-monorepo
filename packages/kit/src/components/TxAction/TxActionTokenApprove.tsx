@@ -75,9 +75,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       color="$textSubdued"
       numberOfLines={1}
     >
-      {approveIsMax
-        ? intl.formatMessage({ id: 'form__unlimited_allowance' })
-        : approveAmount}
+      {approveIsMax ? 'Unlimited' : approveAmount}
     </NumberSizeableText>
   );
 

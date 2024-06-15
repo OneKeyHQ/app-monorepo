@@ -642,18 +642,23 @@ export default class Vault extends VaultBase {
   }: {
     encodedTx: IEncodedTxCfx | undefined;
   }) {
-    if (!encodedTx) return;
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+
     const { chainId, nonce, from, to, data, value, epochHeight, storageLimit } =
       encodedTx;
     return Promise.resolve({
-      chainId,
-      nonce,
-      from,
-      to,
-      data,
-      value,
-      epochHeight,
-      storageLimit,
+      encodedTx: {
+        chainId,
+        nonce,
+        from,
+        to,
+        data,
+        value,
+        epochHeight,
+        storageLimit,
+      },
     });
   }
 }
