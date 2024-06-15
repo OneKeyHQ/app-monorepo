@@ -443,23 +443,10 @@ function SendDataInputContainer() {
 
   const maxAmount = useMemo(() => {
     if (isUseFiat) {
-      if (hasFrozenBalance) {
-        return tokenDetails?.availableBalanceFiatValue ?? '0';
-      }
       return tokenDetails?.fiatValue ?? '0';
     }
-    if (hasFrozenBalance) {
-      return tokenDetails?.availableBalanceParsed ?? '0';
-    }
     return tokenDetails?.balanceParsed ?? '0';
-  }, [
-    isUseFiat,
-    tokenDetails?.balanceParsed,
-    tokenDetails?.availableBalanceParsed,
-    tokenDetails?.fiatValue,
-    tokenDetails?.availableBalanceFiatValue,
-    hasFrozenBalance,
-  ]);
+  }, [isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue]);
 
   const renderTokenDataInputForm = useCallback(
     () => (
