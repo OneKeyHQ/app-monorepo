@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, max } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -27,10 +27,13 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import {
   calculateFeeForSend,
+  getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type {
   IFeeInfoUnit,
@@ -84,60 +87,66 @@ function TxFeeContainer(props: IProps) {
       ]);
     }, [accountId, networkId]);
 
-  const { result: txFee } = usePromiseResult(
-    async () => {
-      try {
-        updateSendFeeStatus({
-          status: ESendFeeStatus.Loading,
-        });
-        const accountAddress =
-          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-            networkId,
-            accountId,
+  const { r: txFee, e: estimateFeeParams } =
+    usePromiseResult(
+      async () => {
+        try {
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Loading,
           });
-        const r = await backgroundApiProxy.serviceGas.estimateFee({
-          networkId,
-          encodedTx: await backgroundApiProxy.serviceGas.buildEstimateFeeParams(
-            {
+          const accountAddress =
+            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+              networkId,
+              accountId,
+            });
+
+          const { encodedTx, estimateFeeParams: e } =
+            await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
               accountId,
               networkId,
               encodedTx: unsignedTxs[0].encodedTx,
-            },
-          ),
-          accountAddress,
-        });
-        // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
-        // these five levels are also provided as predictions on the custom fee page for users to choose
-        if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
-          r.gasEIP1559 = [r.gasEIP1559[0], r.gasEIP1559[2], r.gasEIP1559[4]];
-        } else if (r.gasEIP1559) {
-          r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
-        }
+            });
 
-        updateSendFeeStatus({
-          status: ESendFeeStatus.Success,
-          errMessage: '',
-        });
-        txFeeInit.current = true;
-        return r;
-      } catch (e) {
-        updateSendFeeStatus({
-          status: ESendFeeStatus.Error,
-          errMessage:
-            (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
-              ?.message ??
-            (e as Error).message ??
+          const r = await backgroundApiProxy.serviceGas.estimateFee({
+            networkId,
+            encodedTx,
+            accountAddress,
+          });
+          // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
+          // these five levels are also provided as predictions on the custom fee page for users to choose
+          if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
+            r.gasEIP1559 = [r.gasEIP1559[0], r.gasEIP1559[2], r.gasEIP1559[4]];
+          } else if (r.gasEIP1559) {
+            r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
+          }
+
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Success,
+            errMessage: '',
+          });
+          txFeeInit.current = true;
+          return {
+            r,
             e,
-        });
-      }
-    },
-    [accountId, networkId, unsignedTxs, updateSendFeeStatus],
-    {
-      pollingInterval: 6000,
-      overrideIsFocused: (isPageFocused) =>
-        isPageFocused && sendSelectedFee.feeType !== EFeeType.Custom,
-    },
-  );
+          };
+        } catch (e) {
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Error,
+            errMessage:
+              (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
+                ?.message ??
+              (e as Error).message ??
+              e,
+          });
+        }
+      },
+      [accountId, networkId, unsignedTxs, updateSendFeeStatus],
+      {
+        pollingInterval: 6000,
+        overrideIsFocused: (isPageFocused) =>
+          isPageFocused && sendSelectedFee.feeType !== EFeeType.Custom,
+      },
+    ).result ?? {};
 
   const openFeeEditorEnabled =
     !!vaultSettings?.editFeeEnabled || !!vaultSettings?.checkFeeDetailEnabled;
@@ -151,6 +160,7 @@ function TxFeeContainer(props: IProps) {
         txFee.feeUTXO?.length ||
         txFee.feeTron?.length ||
         txFee.gasFil?.length ||
+        txFee.feeSol?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
@@ -161,12 +171,14 @@ function TxFeeContainer(props: IProps) {
           feeUTXO: txFee.feeUTXO?.[i],
           feeTron: txFee.feeTron?.[i],
           gasFil: txFee.gasFil?.[i],
+          feeSol: txFee.feeSol?.[i],
         };
 
         items.push({
           label: intl.formatMessage({
             id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: i }),
           }),
+          icon: getFeeIcon({ feeType: EFeeType.Standard, presetIndex: i }),
           value: i,
           feeInfo,
           type: EFeeType.Standard,
@@ -179,6 +191,7 @@ function TxFeeContainer(props: IProps) {
           label: intl.formatMessage({
             id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: 0 }),
           }),
+          icon: getFeeIcon({ feeType: EFeeType.Standard, presetIndex: 0 }),
           value: 1,
           feeInfo: {
             common: txFee.common,
@@ -213,7 +226,14 @@ function TxFeeContainer(props: IProps) {
           };
         }
 
-        if (useFeeInTx) {
+        if (txFee.feeSol) {
+          customFeeInfo.feeSol = {
+            ...txFee.feeSol[sendSelectedFee.presetIndex],
+            ...(customFee?.feeSol ?? {}),
+          };
+        }
+
+        if (useFeeInTx && network && !feeInTxUpdated.current) {
           const {
             gas,
             gasLimit,
@@ -229,8 +249,14 @@ function TxFeeContainer(props: IProps) {
           ) {
             customFeeInfo.gasEIP1559 = {
               ...customFeeInfo.gasEIP1559,
-              maxFeePerGas,
-              maxPriorityFeePerGas,
+              maxFeePerGas: chainValueUtils.convertChainValueToGwei({
+                value: maxFeePerGas,
+                network,
+              }),
+              maxPriorityFeePerGas: chainValueUtils.convertChainValueToGwei({
+                value: maxPriorityFeePerGas,
+                network,
+              }),
               gasLimit: limit ?? customFeeInfo.gasEIP1559?.gasLimit,
               gasLimitForDisplay:
                 limit ?? customFeeInfo.gasEIP1559?.gasLimitForDisplay,
@@ -238,7 +264,10 @@ function TxFeeContainer(props: IProps) {
           } else if (gasPrice && customFeeInfo.gas) {
             customFeeInfo.gas = {
               ...customFeeInfo.gas,
-              gasPrice,
+              gasPrice: chainValueUtils.convertChainValueToGwei({
+                value: gasPrice,
+                network,
+              }),
               gasLimit: limit ?? customFeeInfo.gas?.gasLimit,
               gasLimitForDisplay:
                 limit ?? customFeeInfo.gas?.gasLimitForDisplay,
@@ -260,12 +289,10 @@ function TxFeeContainer(props: IProps) {
             }
           }
 
-          if (!feeInTxUpdated.current) {
-            updateSendSelectedFee({
-              feeType: EFeeType.Custom,
-              presetIndex: 0,
-            });
-          }
+          updateSendSelectedFee({
+            feeType: EFeeType.Custom,
+            presetIndex: 0,
+          });
 
           feeInTxUpdated.current = true;
         }
@@ -274,6 +301,7 @@ function TxFeeContainer(props: IProps) {
           label: intl.formatMessage({
             id: getFeeLabel({ feeType: EFeeType.Custom }),
           }),
+          icon: getFeeIcon({ feeType: EFeeType.Custom }),
           value: items.length,
           feeInfo: customFeeInfo,
           type: EFeeType.Custom,
@@ -288,11 +316,13 @@ function TxFeeContainer(props: IProps) {
     txFee,
     vaultSettings?.editFeeEnabled,
     intl,
+    useFeeInTx,
+    network,
+    sendSelectedFee.presetIndex,
     customFee?.gas,
     customFee?.gasEIP1559,
     customFee?.feeUTXO,
-    useFeeInTx,
-    sendSelectedFee.presetIndex,
+    customFee?.feeSol,
     unsignedTxs,
     updateSendSelectedFee,
   ]);
@@ -323,6 +353,7 @@ function TxFeeContainer(props: IProps) {
       feeInfo: selectedFeeInfo,
       nativeTokenPrice: txFee?.common.nativeTokenPrice ?? 0,
       txSize: unsignedTxs[0]?.txSize,
+      estimateFeeParams,
     });
 
     return {
@@ -336,6 +367,7 @@ function TxFeeContainer(props: IProps) {
       },
     };
   }, [
+    estimateFeeParams,
     feeSelectorItems,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
@@ -433,7 +465,7 @@ function TxFeeContainer(props: IProps) {
 
     return (
       <Popover
-        title={intl.formatMessage({ id: 'title__edit_fee' })}
+        title={intl.formatMessage({ id: ETranslations.title__edit_fee })}
         open={isEditFeeActive}
         onOpenChange={setIsEditFeeActive}
         allowFlip={false}
@@ -447,6 +479,7 @@ function TxFeeContainer(props: IProps) {
             unsignedTxs={unsignedTxs}
             originalCustomFee={customFee}
             onApplyFeeInfo={handleApplyFeeInfo}
+            estimateFeeParams={estimateFeeParams}
           />
         }
         renderTrigger={
@@ -462,6 +495,7 @@ function TxFeeContainer(props: IProps) {
     );
   }, [
     customFee,
+    estimateFeeParams,
     feeSelectorItems,
     handleApplyFeeInfo,
     intl,

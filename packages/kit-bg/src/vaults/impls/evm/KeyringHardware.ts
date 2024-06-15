@@ -264,10 +264,10 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
-        const publicKeys = await this.baseGetDeviceAccountPublicKeys({
+        const publicKeys = await this.baseGetDeviceAccountAddresses({
           params,
           usedIndexes,
-          sdkGetPublicKeysFn: async ({
+          sdkGetAddressFn: async ({
             connectId,
             deviceId,
             pathPrefix,

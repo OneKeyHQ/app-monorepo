@@ -42,6 +42,13 @@ class ServiceGas extends ServiceBase {
       feeUTXO: feeInfo.feeUTXO,
       feeTron: feeInfo.feeTron,
       gasFil: feeInfo.gasFil,
+      feeSol: feeInfo.computeUnitPrice
+        ? [
+            {
+              computeUnitPrice: feeInfo.computeUnitPrice,
+            },
+          ]
+        : undefined,
     };
   }
 

@@ -28,6 +28,9 @@ export const TOKEN_AUTH_RULES_ID = new PublicKey(
 );
 
 export const MIN_PRIORITY_FEE = 100000;
+export const DEFAULT_COMPUTE_UNIT_LIMIT = 200000;
+export const BASE_FEE = 5000; // lamports
+export const COMPUTE_UNIT_PRICE_DECIMALS = 6;
 
 export function metadataAddress(mint: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
@@ -144,6 +147,25 @@ export function parseComputeUnitPrice(instructions: TransactionInstruction[]) {
     }
   }
   return computeUnitPrice;
+}
+
+export function parseComputeUnitLimit(instructions: TransactionInstruction[]) {
+  let computeUnitLimit = DEFAULT_COMPUTE_UNIT_LIMIT;
+  for (const instruction of instructions) {
+    if (
+      instruction.programId.toString() ===
+      ComputeBudgetProgram.programId.toString()
+    ) {
+      const type = ComputeBudgetInstruction.decodeInstructionType(instruction);
+      if (type === 'SetComputeUnitLimit') {
+        const { units } =
+          ComputeBudgetInstruction.decodeSetComputeUnitLimit(instruction);
+        computeUnitLimit = units;
+        break;
+      }
+    }
+  }
+  return computeUnitLimit;
 }
 
 export function parseToNativeTx(

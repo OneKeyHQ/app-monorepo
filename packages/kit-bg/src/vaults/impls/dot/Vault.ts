@@ -608,16 +608,24 @@ export default class VaultDot extends VaultBase {
   override async buildEstimateFeeParams({
     encodedTx,
   }: {
-    encodedTx: IEncodedTx | undefined;
-  }): Promise<IEncodedTx | undefined> {
+    encodedTx: IEncodedTxDot | undefined;
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+
     const fakeSignature = Buffer.concat([
       Buffer.from([0x01]),
       Buffer.alloc(64).fill(0x42),
     ]);
     const tx = await serializeSignedTransaction(
-      encodedTx as IEncodedTxDot,
+      encodedTx,
       fakeSignature.toString('hex'),
     );
-    return bufferUtils.toBuffer(tx).toString('base64') as unknown as IEncodedTx;
+    return {
+      encodedTx: bufferUtils
+        .toBuffer(tx)
+        .toString('base64') as unknown as IEncodedTx,
+    };
   }
 }

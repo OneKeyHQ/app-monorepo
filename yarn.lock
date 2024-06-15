@@ -1923,120 +1923,120 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ckb-lumos/base@npm:0.22.2":
-  version: 0.22.2
-  resolution: "@ckb-lumos/base@npm:0.22.2"
+"@ckb-lumos/base@npm:0.23.0":
+  version: 0.23.0
+  resolution: "@ckb-lumos/base@npm:0.23.0"
   dependencies:
-    "@ckb-lumos/bi": "npm:0.22.2"
-    "@ckb-lumos/codec": "npm:0.22.2"
-    "@ckb-lumos/toolkit": "npm:0.22.2"
+    "@ckb-lumos/bi": "npm:0.23.0"
+    "@ckb-lumos/codec": "npm:0.23.0"
+    "@ckb-lumos/toolkit": "npm:0.23.0"
     "@types/blake2b": "npm:^2.1.0"
     "@types/lodash.isequal": "npm:^4.5.5"
     blake2b: "npm:^2.1.3"
     js-xxhash: "npm:^1.0.4"
     lodash.isequal: "npm:^4.5.0"
-  checksum: 10/2812af316a19364028fd049c5d42ecc0c452ea4be4c69e2ee0f56bf66249ce6667f9b08e038cb7eb88b1ac4f00f4cf4c6b83f41f78b4008c89479ff5fd3479e8
+  checksum: 10/b42e77ab65aee4bb303c6e9d00c422d0678c75ef7864052ac4759ddba15406ec73df0eb0ed8f87bf96b577b0e19174ca883fb0ce2c32329b8286b53e61958bde
   languageName: node
   linkType: hard
 
-"@ckb-lumos/bi@npm:0.22.2":
-  version: 0.22.2
-  resolution: "@ckb-lumos/bi@npm:0.22.2"
+"@ckb-lumos/bi@npm:0.23.0":
+  version: 0.23.0
+  resolution: "@ckb-lumos/bi@npm:0.23.0"
   dependencies:
     jsbi: "npm:^4.1.0"
-  checksum: 10/e71047bbb551ca7e1fd7ff3d9224f6bde2a5e5a69fa9dee90aaf2626e0b019c7c9c38e0511a4bff5d83ddff701f457edd8bba338962413f468fd8b174cdfdba5
+  checksum: 10/25ba36c0eedd28f92e28758eca06bbbc9498ea98d0fc463cf309edca38f92a68a6141ac5a11de5d05898943654343d262d019843088f23d67c1454b2a580cb31
   languageName: node
   linkType: hard
 
-"@ckb-lumos/ckb-indexer@npm:^0.22.2":
-  version: 0.22.2
-  resolution: "@ckb-lumos/ckb-indexer@npm:0.22.2"
+"@ckb-lumos/ckb-indexer@npm:^0.23.0":
+  version: 0.23.0
+  resolution: "@ckb-lumos/ckb-indexer@npm:0.23.0"
   dependencies:
-    "@ckb-lumos/base": "npm:0.22.2"
-    "@ckb-lumos/bi": "npm:0.22.2"
-    "@ckb-lumos/codec": "npm:0.22.2"
-    "@ckb-lumos/rpc": "npm:0.22.2"
-    "@ckb-lumos/toolkit": "npm:0.22.2"
+    "@ckb-lumos/base": "npm:0.23.0"
+    "@ckb-lumos/bi": "npm:0.23.0"
+    "@ckb-lumos/codec": "npm:0.23.0"
+    "@ckb-lumos/rpc": "npm:0.23.0"
+    "@ckb-lumos/toolkit": "npm:0.23.0"
     cross-fetch: "npm:^3.1.5"
     events: "npm:^3.3.0"
-  checksum: 10/c7a4359c754d783427a4402b42a5a74043473e46a2eb47b1f37bff1a71e758a35da5012c683fb4e3b0c5e8ea3456df0f65ee1778d27115c4bc988a691feb1bbf
+  checksum: 10/a0c83b32a517fb0be079d9e8c137d5d923af2378108abe6e90d94a25913e331f58312a63816856c08f2dc9e2319670eb2b50de49f94a34c7b3b2a38de6687d76
   languageName: node
   linkType: hard
 
-"@ckb-lumos/codec@npm:0.22.2":
-  version: 0.22.2
-  resolution: "@ckb-lumos/codec@npm:0.22.2"
+"@ckb-lumos/codec@npm:0.23.0":
+  version: 0.23.0
+  resolution: "@ckb-lumos/codec@npm:0.23.0"
   dependencies:
-    "@ckb-lumos/bi": "npm:0.22.2"
-  checksum: 10/9bc91dfe573dfd864a172cfb9c47f331ec2b8508d7becc7bcd6312e21e452c3559bb7fa63fbb203ff48449ed356d4546b0fb7634d6223693f1f7e6542d817e9a
+    "@ckb-lumos/bi": "npm:0.23.0"
+  checksum: 10/9393f4ef1d6fc8772fc549929f465185f7adac920d9b768fda1d8edc354d2239eeb17b27f61fa16f0c61677196f72df7b975ef4077defa63b38dd2055570a9e2
   languageName: node
   linkType: hard
 
-"@ckb-lumos/common-scripts@npm:^0.22.2":
-  version: 0.22.2
-  resolution: "@ckb-lumos/common-scripts@npm:0.22.2"
+"@ckb-lumos/common-scripts@npm:^0.23.0":
+  version: 0.23.0
+  resolution: "@ckb-lumos/common-scripts@npm:0.23.0"
   dependencies:
-    "@ckb-lumos/base": "npm:0.22.2"
-    "@ckb-lumos/bi": "npm:0.22.2"
-    "@ckb-lumos/codec": "npm:0.22.2"
-    "@ckb-lumos/config-manager": "npm:0.22.2"
-    "@ckb-lumos/helpers": "npm:0.22.2"
-    "@ckb-lumos/rpc": "npm:0.22.2"
-    "@ckb-lumos/toolkit": "npm:0.22.2"
+    "@ckb-lumos/base": "npm:0.23.0"
+    "@ckb-lumos/bi": "npm:0.23.0"
+    "@ckb-lumos/codec": "npm:0.23.0"
+    "@ckb-lumos/config-manager": "npm:0.23.0"
+    "@ckb-lumos/helpers": "npm:0.23.0"
+    "@ckb-lumos/rpc": "npm:0.23.0"
+    "@ckb-lumos/toolkit": "npm:0.23.0"
     bech32: "npm:^2.0.0"
     bs58: "npm:^5.0.0"
     immutable: "npm:^4.3.0"
-  checksum: 10/533a1a776cac585a21e953d556a3ba7b0baf74bf35c64bec92fc371f5840be0c7778190d7b5925bd03935bd31d7b379e38848967919659c53fff23465c078727
+  checksum: 10/0d665f749ae3d2ee3a631aec5fc626ec0573df140bb71fe5cf0bbeda1a462c23089c6de99184eb688fcbf062794dc9e226f37fe31e818484ebd023a441a34bae
   languageName: node
   linkType: hard
 
-"@ckb-lumos/config-manager@npm:0.22.2":
-  version: 0.22.2
-  resolution: "@ckb-lumos/config-manager@npm:0.22.2"
+"@ckb-lumos/config-manager@npm:0.23.0":
+  version: 0.23.0
+  resolution: "@ckb-lumos/config-manager@npm:0.23.0"
   dependencies:
-    "@ckb-lumos/base": "npm:0.22.2"
-    "@ckb-lumos/bi": "npm:0.22.2"
-    "@ckb-lumos/codec": "npm:0.22.2"
-    "@ckb-lumos/rpc": "npm:0.22.2"
+    "@ckb-lumos/base": "npm:0.23.0"
+    "@ckb-lumos/bi": "npm:0.23.0"
+    "@ckb-lumos/codec": "npm:0.23.0"
+    "@ckb-lumos/rpc": "npm:0.23.0"
     "@types/deep-freeze-strict": "npm:^1.1.0"
     deep-freeze-strict: "npm:^1.1.1"
-  checksum: 10/6f87644d137525e8cd8234b6e744ff14f917a92c02a93c1d227ce9e3e3ef35be0d6904033efba0eb71d8119f0b37390c03463f2649500e78c8a981ae6826e251
+  checksum: 10/39b1ff3b17276a600fe08ad24e40073158092cf564935ccfcf7213e4a524659cbeaa9d9a1cecaf6cf67100b264521e6e1c345b83b404d05d9e4dffa99d586282
   languageName: node
   linkType: hard
 
-"@ckb-lumos/helpers@npm:0.22.2":
-  version: 0.22.2
-  resolution: "@ckb-lumos/helpers@npm:0.22.2"
+"@ckb-lumos/helpers@npm:0.23.0":
+  version: 0.23.0
+  resolution: "@ckb-lumos/helpers@npm:0.23.0"
   dependencies:
-    "@ckb-lumos/base": "npm:0.22.2"
-    "@ckb-lumos/bi": "npm:0.22.2"
-    "@ckb-lumos/codec": "npm:0.22.2"
-    "@ckb-lumos/config-manager": "npm:0.22.2"
-    "@ckb-lumos/toolkit": "npm:0.22.2"
+    "@ckb-lumos/base": "npm:0.23.0"
+    "@ckb-lumos/bi": "npm:0.23.0"
+    "@ckb-lumos/codec": "npm:0.23.0"
+    "@ckb-lumos/config-manager": "npm:0.23.0"
+    "@ckb-lumos/toolkit": "npm:0.23.0"
     bech32: "npm:^2.0.0"
     immutable: "npm:^4.3.0"
-  checksum: 10/6176a41891374bd060cbf3d547367acaaffc9ea6d2eba0e64dbd43c26fb9287a808574af682bcd8f485e41412f9aa512434efc0dab7611b7b930fa5cfe4a8f54
+  checksum: 10/968753e58049435a10401d887e82165bfc76b6036bbe2d0481554574458af9e66de7d8185a9585af0320cf375be87765d47500ad5f898a26844a5541fa131882
   languageName: node
   linkType: hard
 
-"@ckb-lumos/rpc@npm:0.22.2":
-  version: 0.22.2
-  resolution: "@ckb-lumos/rpc@npm:0.22.2"
+"@ckb-lumos/rpc@npm:0.23.0":
+  version: 0.23.0
+  resolution: "@ckb-lumos/rpc@npm:0.23.0"
   dependencies:
-    "@ckb-lumos/base": "npm:0.22.2"
-    "@ckb-lumos/bi": "npm:0.22.2"
+    "@ckb-lumos/base": "npm:0.23.0"
+    "@ckb-lumos/bi": "npm:0.23.0"
     abort-controller: "npm:^3.0.0"
     cross-fetch: "npm:^3.1.5"
-  checksum: 10/62ac97e12e9e311e16138289f9dd7883844c2dec79272c1ef81a9eb01391b6d50ec0330e61accd0f517c70a8847695dc833840daf2e400e3230087ece4ab3233
+  checksum: 10/453f1f632b978916749f88d30841ce7a14d06dd347c4205b32188f412bdc1ecd6e8c9824f568d5fa21c84d5327324dc3e4711a43f8bfaa62cbd9f7e4966c5f21
   languageName: node
   linkType: hard
 
-"@ckb-lumos/toolkit@npm:0.22.2":
-  version: 0.22.2
-  resolution: "@ckb-lumos/toolkit@npm:0.22.2"
+"@ckb-lumos/toolkit@npm:0.23.0":
+  version: 0.23.0
+  resolution: "@ckb-lumos/toolkit@npm:0.23.0"
   dependencies:
-    "@ckb-lumos/bi": "npm:0.22.2"
-  checksum: 10/64f92d00c8d1435f8a92880755a1cb5c85da1a054063bce8d904816d73c3a15799f0f3ac7f63df7c1cac7d112b9f8429a0bb1900b4187fab3c3ad1a28cf9743f
+    "@ckb-lumos/bi": "npm:0.23.0"
+  checksum: 10/01b13ab1c2256435ca71870e05381acf3310caf34ec3ccd87a1f747a4410bdb56fc1fb7c12ddbe35a8463e9680fd256d20f2ead2eae4ed715a255626af05946f
   languageName: node
   linkType: hard
 
@@ -5878,8 +5878,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/core@workspace:packages/core"
   dependencies:
-    "@ckb-lumos/ckb-indexer": "npm:^0.22.2"
-    "@ckb-lumos/common-scripts": "npm:^0.22.2"
+    "@ckb-lumos/ckb-indexer": "npm:^0.23.0"
+    "@ckb-lumos/common-scripts": "npm:^0.23.0"
     "@conflux-dev/conflux-address-js": "npm:^1.3.16"
     "@glif/filecoin-address": "npm:^2.0.43"
     "@glif/filecoin-message": "npm:^2.0.44"

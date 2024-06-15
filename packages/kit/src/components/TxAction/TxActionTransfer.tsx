@@ -363,10 +363,9 @@ function buildTransfersBlock(
   transferGroup: Record<string, IDecodedTxTransferInfo[]>,
 ) {
   const transfersBlock: ITransferBlock[] = [];
-
   forOwn(transferGroup, (transfers, target) => {
     const transfersInfo: IDecodedTxTransferInfo[] = [];
-    const tokenGroup = groupBy(transfers, 'token');
+    const tokenGroup = groupBy(transfers, 'tokenIdOnNetwork');
     forOwn(tokenGroup, (tokens) => {
       const token = tokens[0];
       const tokensAmount = tokens.reduce(
@@ -391,6 +390,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
   const intl = useIntl();
   const { decodedTx, nativeTokenTransferAmountToUpdate, isSendNativeToken } =
     props;
+
   const { sends, receives, from } = getTxActionTransferInfo(props);
 
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));

@@ -569,13 +569,17 @@ class ProviderApiBtc extends ProviderApiBase {
         networkId,
         accountId,
       });
-    const result = await this.backgroundApi.serviceGas.estimateFee({
-      networkId,
-      encodedTx: await this.backgroundApi.serviceGas.buildEstimateFeeParams({
+
+    const { encodedTx } =
+      await this.backgroundApi.serviceGas.buildEstimateFeeParams({
         accountId,
         networkId,
         encodedTx: {} as IEncodedTx,
-      }),
+      });
+
+    const result = await this.backgroundApi.serviceGas.estimateFee({
+      networkId,
+      encodedTx,
       accountAddress,
     });
     if (result.feeUTXO && result.feeUTXO.length === 3) {

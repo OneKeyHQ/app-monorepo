@@ -154,6 +154,8 @@ export type IVaultSettings = {
   hideFeeInfoInHistoryList?: boolean;
 
   hasFrozenBalance?: boolean;
+
+  withL1BaseFee?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -307,6 +309,10 @@ export type IApproveInfo = {
   amount: string;
   isMax?: boolean;
   tokenInfo?: IToken;
+};
+
+export type ITransferPayload = {
+  amountToSend: string;
 };
 
 export enum EWrappedType {
