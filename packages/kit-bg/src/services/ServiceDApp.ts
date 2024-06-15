@@ -2,7 +2,11 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { Semaphore } from 'async-mutex';
 import { debounce } from 'lodash';
 
-import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedMessage,
+} from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -246,11 +250,13 @@ class ServiceDApp extends ServiceBase {
     unsignedMessage,
     accountId,
     networkId,
+    sceneName,
   }: {
     request: IJsBridgeMessagePayload;
     unsignedMessage: IUnsignedMessage;
     accountId: string;
     networkId: string;
+    sceneName?: EAccountSelectorSceneName;
   }) {
     if (!accountId || !networkId) {
       throw new Error('accountId and networkId required');
@@ -262,6 +268,7 @@ class ServiceDApp extends ServiceBase {
         unsignedMessage,
         accountId,
         networkId,
+        sceneName,
       },
       fullScreen: true,
     });
@@ -282,7 +289,7 @@ class ServiceDApp extends ServiceBase {
     networkId: string;
     transfersInfo?: ITransferInfo[];
     signOnly?: boolean;
-  }) {
+  }): Promise<ISignedTxPro> {
     return this.openModal({
       request,
       screens: [EModalRoutes.SendModal, EModalSendRoutes.SendConfirmFromDApp],
@@ -294,7 +301,7 @@ class ServiceDApp extends ServiceBase {
         signOnly,
       },
       fullScreen: true,
-    });
+    }) as Promise<ISignedTxPro>;
   }
 
   // connection allowance

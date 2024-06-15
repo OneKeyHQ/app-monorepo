@@ -14,10 +14,13 @@ import {
   IMPL_EVM,
   IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import type { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { LOCALES } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
+import {
+  getDefaultLocale,
+  getLocaleMessages,
+} from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -49,18 +52,8 @@ class ServiceSetting extends ServiceBase {
 
   async refreshLocaleMessages() {
     const { locale: rawLocale } = await settingsPersistAtom.get();
-    const locale: ILocaleSymbol =
-      rawLocale === 'system' ? getDefaultLocale() : rawLocale;
-
-    const messagesBuilder = await (LOCALES[locale] as unknown as Promise<
-      (() => Promise<Record<string, string>>) | Promise<Record<string, string>>
-    >);
-    let messages: Record<string, string> = {};
-    if (isFunction(messagesBuilder)) {
-      messages = await messagesBuilder();
-    } else {
-      messages = messagesBuilder;
-    }
+    const locale = rawLocale === 'system' ? getDefaultLocale() : rawLocale;
+    const messages = await getLocaleMessages(locale);
     appLocale.setLocale(locale, messages);
   }
 
@@ -135,9 +128,11 @@ class ServiceSetting extends ServiceBase {
   public async clearCacheOnApp(values: IClearCacheOnAppState) {
     if (values.tokenAndNFT) {
       // clear token and nft
+      await this.backgroundApi.simpleDb.localTokens.clearRawData();
     }
     if (values.transactionHistory) {
       // clear transaction history
+      await this.backgroundApi.simpleDb.localHistory.clearRawData();
     }
     if (values.swapHistory) {
       // clear swap history
@@ -243,7 +238,7 @@ class ServiceSetting extends ServiceBase {
         defaultNetworkId: getNetworkIdsMap().tbtc,
       });
     }
-    return {
+    const data = {
       enabledNum: config.map((o) => o.num),
       availableNetworksMap: config.reduce((result, item) => {
         result[item.num] = {
@@ -254,6 +249,7 @@ class ServiceSetting extends ServiceBase {
       }, {} as IAccountSelectorAvailableNetworksMap),
       items: config,
     };
+    return data;
   }
 
   @backgroundMethod()

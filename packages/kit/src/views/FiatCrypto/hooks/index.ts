@@ -27,7 +27,7 @@ export const useGetTokensList = (params: IGetTokensListParams) =>
       const data = await backgroundApiProxy.serviceFiatCrypto.getTokensList(
         params,
       );
-      return data.sort((a, b) => a.symbol.localeCompare(b.symbol));
+      return data;
     },
     [params],
     { initResult: [] },

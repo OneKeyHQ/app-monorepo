@@ -457,11 +457,21 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     }
   }
 
-  removeEntries(
-    connectionItem: IConnectionItem,
-    key: keyof IConnectionAccountInfo,
-    value: string,
-  ) {
+  removeEntries({
+    connectionData,
+    providerType,
+    origin,
+    connectionItem,
+    key,
+    value,
+  }: {
+    connectionData: IDappConnectionData['data'];
+    providerType: keyof IDappConnectionData['data'];
+    origin: string;
+    connectionItem: IConnectionItem;
+    key: keyof IConnectionAccountInfo; // 'walletId'
+    value: string; // hd--0
+  }) {
     Object.keys(connectionItem.connectionMap).forEach((i) => {
       const index = parseInt(i);
       const item = connectionItem.connectionMap[index];
@@ -471,6 +481,11 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         delete connectionItem.connectionMap[index];
       }
     });
+
+    if (Object.keys(connectionItem.connectionMap).length === 0) {
+      // If empty, delete the entire connectionItem from the parent provider
+      delete connectionData[providerType][origin];
+    }
   }
 
   @backgroundMethod()
@@ -480,11 +495,18 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         return rawData as IDappConnectionData;
       }
 
-      Object.keys(rawData.data).forEach((providerType) => {
-        const providers =
-          rawData.data[providerType as keyof IDappConnectionData['data']];
-        Object.values(providers).forEach((provider) => {
-          this.removeEntries(provider, 'walletId', walletId);
+      Object.keys(rawData.data).forEach((type) => {
+        const providerType = type as keyof IDappConnectionData['data'];
+        const providers = rawData.data[providerType];
+        Object.entries(providers).forEach(([origin, connectionItem]) => {
+          this.removeEntries({
+            connectionData: rawData.data,
+            providerType,
+            origin,
+            connectionItem,
+            key: 'walletId',
+            value: walletId,
+          });
         });
       });
 
@@ -522,12 +544,19 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         return rawData;
       }
 
-      Object.keys(rawData.data).forEach((providerType) => {
-        const providers =
-          rawData.data[providerType as keyof IDappConnectionData['data']];
-        Object.values(providers).forEach((provider) => {
-          if (provider && key && value) {
-            this.removeEntries(provider, key, value);
+      Object.keys(rawData.data).forEach((type) => {
+        const providerType = type as keyof IDappConnectionData['data'];
+        const providers = rawData.data[providerType];
+        Object.entries(providers).forEach(([origin, connectionItem]) => {
+          if (origin && connectionItem && key && value) {
+            this.removeEntries({
+              connectionData: rawData.data,
+              providerType,
+              origin,
+              connectionItem,
+              key,
+              value,
+            });
           }
         });
       });

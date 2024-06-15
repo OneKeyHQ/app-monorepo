@@ -1330,7 +1330,7 @@
   "v4_migration.backup_private_key_reveal_alert": "点击查看私钥，确保没有人在看你的屏幕",
   "v4_migration.backup_recovery_phrase_reveal_alert": "确保您处于隐私环境后，点击查看助记词",
   "v4_migration.backup_title": "备份您的数据",
-  "v4_migration.completed_desc": "立即探索 OneKey v5 的激动人心的新功能！",
+  "v4_migration.completed_desc": "马上探索 OneKey v5 带来的全新体验吧！",
   "v4_migration.completed_title": "迁移完成",
   "v4_migration.update_in_progress": "正在更新中",
   "v4_migration.update_in_progress_alert_description": "对于拥有多个钱包的用户来说，迁移可能需要几分钟的时间。",

@@ -11,6 +11,7 @@ import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -68,52 +69,72 @@ function LnurlAuthModal() {
   const { result: textMap } = usePromiseResult(async () => {
     if (lnurlDetails.action === 'reigster') {
       return {
-        allowText: intl.formatMessage({
-          id: 'content__allow_dapp_to_register_with_onekey',
-        }),
+        allowText: intl.formatMessage(
+          {
+            id: ETranslations.dapp_connect_allow_to_access_your_chain_register,
+          },
+          {
+            chain: 'Lightning Network',
+          },
+        ),
         title: intl.formatMessage({
-          id: 'title__lnurl_register',
+          id: ETranslations.dapp_connect_lnurl_register_request,
         }),
         successText: intl.formatMessage({
-          id: 'msg__lnurl_register_successful',
+          id: ETranslations.dapp_connect_registration_successful,
         }),
       };
     }
     if (lnurlDetails.action === 'link') {
       return {
-        allowText: intl.formatMessage({
-          id: 'content__allow_dapp_to_link_with_onekey',
-        }),
+        allowText: intl.formatMessage(
+          {
+            id: ETranslations.dapp_connect_allow_to_access_your_chain_link,
+          },
+          {
+            chain: 'Lightning Network',
+          },
+        ),
         title: intl.formatMessage({
-          id: 'title__lnurl_link',
+          id: ETranslations.dapp_connect_lnurl_connect_request,
         }),
         successText: intl.formatMessage({
-          id: 'msg__lnurl_link_successful',
+          id: ETranslations.dapp_connect_link_successful,
         }),
       };
     }
     if (lnurlDetails.action === 'auth') {
       return {
-        allowText: intl.formatMessage({
-          id: 'content__allow_dapp_to_connect_with_onekey',
-        }),
+        allowText: intl.formatMessage(
+          {
+            id: ETranslations.dapp_connect_allow_to_access_your_chain_auth,
+          },
+          {
+            chain: 'Lightning Network',
+          },
+        ),
         title: intl.formatMessage({
-          id: 'title__lnurl_authentication',
+          id: ETranslations.dapp_connect_lnurl_approve_request,
         }),
         successText: intl.formatMessage({
-          id: 'msg__lnurl_authorization_successful',
+          id: ETranslations.dapp_connect_authorization_successful,
         }),
       };
     }
     return {
-      allowText: intl.formatMessage({
-        id: 'content__allow_dapp_to_login_with_onekey',
-      }),
+      allowText: intl.formatMessage(
+        {
+          id: ETranslations.dapp_connect_allow_to_access_your_chain_login,
+        },
+        {
+          chain: 'Lightning Network',
+        },
+      ),
       title: intl.formatMessage({
-        id: 'title__lnurl_login',
+        id: ETranslations.dapp_connect_lnurl_login_request,
       }),
       successText: intl.formatMessage({
-        id: 'msg__lnurl_login_successful',
+        id: ETranslations.dapp_connect_login_successful,
       }),
     };
   }, [lnurlDetails?.action, intl]);
@@ -121,19 +142,19 @@ function LnurlAuthModal() {
   const renderRequestPermissions = useCallback(() => {
     let permissions = [
       intl.formatMessage({
-        id: 'content__request_lnurl_linkingkey',
+        id: ETranslations.dapp_connect_request_for_lnurl_linking_key,
       }),
     ];
     if (lnurlDetails.action === 'auth') {
       permissions = [
         intl.formatMessage({
-          id: 'content__watch_your_account_balance_and_activity',
+          id: ETranslations.dapp_connect_watch_your_account_balance_and_activity,
         }),
         intl.formatMessage({
-          id: 'content__allow_dapp_to_register_with_onekey',
+          id: ETranslations.dapp_connect_request_for_lnurl_linking_key,
         }),
         intl.formatMessage({
-          id: 'content__request_invoices_and_send_transaction',
+          id: ETranslations.dapp_connect_request_invoices_and_lightning_information,
         }),
       ];
     }

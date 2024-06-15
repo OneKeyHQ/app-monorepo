@@ -12,6 +12,7 @@ import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DAppAccountListStandAloneItem } from '../../../DAppConnection/components/DAppAccountList';
 import {
@@ -154,7 +155,9 @@ function WeblnSendPaymentModal() {
         <Page.Header headerShown={false} />
         <Page.Body>
           <DAppRequestLayout
-            title={intl.formatMessage({ id: 'title__lnurl_pay' })}
+            title={intl.formatMessage({
+              id: ETranslations.dapp_connect_invoice_payment_request,
+            })}
             subtitleShown={false}
             origin={$sourceInfo?.origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}
@@ -167,7 +170,6 @@ function WeblnSendPaymentModal() {
               useFormReturn={useFormReturn}
               amount={amount.toNumber()}
               amountReadOnly={amount.toNumber() !== 0}
-              descriptionLabelId="title__invoice_description"
               commentAllowedLength={Number.MAX_SAFE_INTEGER}
               commentReadOnly
             />
@@ -175,7 +177,9 @@ function WeblnSendPaymentModal() {
         </Page.Body>
         <Page.Footer>
           <DAppRequestFooter
-            confirmText="Continue"
+            confirmText={intl.formatMessage({
+              id: ETranslations.global_continue,
+            })}
             continueOperate={continueOperate}
             setContinueOperate={(checked) => {
               setContinueOperate(!!checked);

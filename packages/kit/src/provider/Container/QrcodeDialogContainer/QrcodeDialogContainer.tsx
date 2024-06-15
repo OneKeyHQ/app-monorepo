@@ -27,6 +27,7 @@ export function QrcodeDialogContainer() {
         title,
         valueUr,
         drawType,
+        dismissOnOverlayPress: false,
         onConfirmText: 'Next',
         showConfirmButton: Boolean(event.promiseId),
         onConfirm: async () => {
