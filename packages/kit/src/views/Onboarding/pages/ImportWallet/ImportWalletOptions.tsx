@@ -198,8 +198,8 @@ export function ImportWalletOptions() {
                 icon: 'CloudOutline',
                 title: intl.formatMessage({
                   id: platformEnv.isNativeAndroid
-                    ? ETranslations.settings_google_drive_backup
-                    : ETranslations.settings_icloud_backup,
+                    ? ETranslations.global_google_drive
+                    : ETranslations.global_icloud,
                 }),
                 onPress: handleImportFromCloud,
               } as IOptionItem,
@@ -225,7 +225,9 @@ export function ImportWalletOptions() {
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_import_wallet })}
+        title={intl.formatMessage({
+          id: ETranslations.onboarding_choose_import_method,
+        })}
       />
       <Page.Body>
         {options.map(({ sectionTitle, data }, index) => (

@@ -74,6 +74,7 @@
   "backup.data_already_present": "جميع البيانات في هذا النسخ الاحتياطي موجودة بالفعل على الجهاز الحالي.",
   "backup.delete_this_backup": "هل تريد حذف هذه النسخة الاحتياطية؟",
   "backup.enable_feature_download_google_drive": "لتمكين هذه الميزة، يرجى تنزيل Google Drive، وتسجيل الدخول، والتأكد من أن OneKey لديه الصلاحيات اللازمة.",
+  "backup.encrypted_backup_contents": "محتويات النسخ الاحتياطي المشفرة",
   "backup.file_permanently_deleted": "سيتم حذف هذا الملف نهائيًا من iCloud. تأكد من كتابة عبارات الاسترداد لأنك لن تتمكن من استعادة المحافظ بطريقة أخرى.",
   "backup.go_system_settings": "اذهب إلى إعدادات النظام",
   "backup.google_drive_auto_backup_paused": "تم إيقاف النسخ الاحتياطي التلقائي لـ Google Drive",
@@ -88,11 +89,11 @@
   "backup.no_available_google_drive_backups_to_import": "ليس لديك نسخ احتياطية متاحة من Google Drive للقيام بالاستيراد.",
   "backup.no_available_icloud_backups_to_import": "ليس لديك نسخ احتياطية متاحة من iCloud للاستيراد.",
   "backup.no_data": "لا يوجد بيانات",
-  "backup.number_wallets_number_accounts": "{number} محافظ · {number} حسابات",
+  "backup.number_wallets_number_accounts": "{number0} محافظ · {number1} حسابات",
   "backup.off_device": "خارج الجهاز ( {number} )",
   "backup.on_device": "على الجهاز",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKey لا يقوم بنسخ احتياطي لمحافظ الأجهزة، يرجى تسجيل وحماية عبارة الاستعادة الخاصة بك.",
-  "backup.only_accounts_with_addresses_will_be_backed_up": "سيتم الاحتفاظ بنسخة احتياطية من الحسابات ذات العناوين فقط.",
+  "backup.only_accounts_with_addresses_will_be_backed_up": "لن يتم النسخ الاحتياطي إلا للحسابات التي لديها عناوين في محفظة التطبيق.",
   "backup.please_log_in_to_your_apple_account_and_activate_icloud_drive": "يرجى تسجيل الدخول إلى حساب Apple الخاص بك وتفعيل ميزة iCloud Drive قبل المتابعة.",
   "backup.please_upgrade_app_to_import_data": "يرجى ترقية تطبيقك لاستيراد البيانات من إصدار أحدث.",
   "backup.securely_store_recent_backups": "سنقوم بتخزين 30 نسخة احتياطية يومية أخيرة بشكل آمن بالإضافة إلى آخر نسخة احتياطية شهرية لكل من الأشهر الـ24 الماضية، جاهزة للإستعادة في أي وقت.",
@@ -162,6 +163,7 @@
   "dapp_connect.decrypted_request": "طلب مشفر",
   "dapp_connect.description_optional": "الوصف (اختياري)",
   "dapp_connect.detected_malicious_behavior_warning": "تم اكتشاف سلوك ضار على هذا الموقع من قبل مصادر موثوقة متعددة، يوصى بشدة برفض أي طلب من هذا الموقع.",
+  "dapp_connect.do_not_ask_again": "لا تسأل مرة أخرى.",
   "dapp_connect.encrypted_request": "طلب مشفر",
   "dapp_connect.enter_amount": "أدخل المبلغ",
   "dapp_connect.export": "تصدير",
@@ -185,6 +187,35 @@
   "dapp_connect.malicious_site_warning": "موقع ضار.",
   "dapp_connect.message": "رسالة",
   "dapp_connect.message_to_the_payer": "رسالة إلى الدافع",
+  "dapp_connect.msg_authentication_failed_verify_again": "فشلت عملية المصادقة، يرجى التحقق مرة أخرى.",
+  "dapp_connect.msg_description_can_be_up_to_int_characters": "يمكن أن يصل الوصف إلى {number} حرفًا.",
+  "dapp_connect.msg_invalid_lightning_payment_request": "طلب دفع بالبرق غير صالح.",
+  "dapp_connect.msg_no_content": "لا يوجد محتوى.",
+  "dapp_connect.nostr_event_kind_0": "البيانات الوصفية",
+  "dapp_connect.nostr_event_kind_1": "ملاحظة نصية قصيرة",
+  "dapp_connect.nostr_event_kind_10002": "قائمة بيانات التتابع",
+  "dapp_connect.nostr_event_kind_1984": "التقارير",
+  "dapp_connect.nostr_event_kind_2": "أوصي بالريلاي",
+  "dapp_connect.nostr_event_kind_22242": "المصادقة على العميل",
+  "dapp_connect.nostr_event_kind_24133": "نوستر كونيكت",
+  "dapp_connect.nostr_event_kind_3": "يتبع",
+  "dapp_connect.nostr_event_kind_30008": "شارات الملف الشخصي",
+  "dapp_connect.nostr_event_kind_30009": "تعريف الشارة",
+  "dapp_connect.nostr_event_kind_30023": "المحتوى طويل النمط",
+  "dapp_connect.nostr_event_kind_30078": "بيانات محددة للتطبيق",
+  "dapp_connect.nostr_event_kind_4": "رسائل مباشرة مشفرة",
+  "dapp_connect.nostr_event_kind_40": "إنشاء القناة",
+  "dapp_connect.nostr_event_kind_41": "بيانات القناة الوصفية",
+  "dapp_connect.nostr_event_kind_42": "رسالة القناة",
+  "dapp_connect.nostr_event_kind_43": "رسالة إخفاء القناة",
+  "dapp_connect.nostr_event_kind_44": "كتم المستخدم في القناة",
+  "dapp_connect.nostr_event_kind_5": "حذف الحدث",
+  "dapp_connect.nostr_event_kind_7": "رد الفعل",
+  "dapp_connect.nostr_event_kind_8": "جائزة الشارة",
+  "dapp_connect.nostr_event_kind_9734": "طلب زاب",
+  "dapp_connect.nostr_event_kind_9735": "زاب",
+  "dapp_connect.nostr_event_kind_unknown": "حدث نوستر {kind}",
+  "dapp_connect.nostr_plaintext": "نص عادي",
   "dapp_connect.pay_to_node": "الدفع إلى Lightning Node",
   "dapp_connect.proceed_at_my_own_risk": "المضي قدما على مسؤوليتي الخاصة",
   "dapp_connect.registration_successful": "تم التسجيل بنجاح",
@@ -193,7 +224,7 @@
   "dapp_connect.requested_permissions": "الأذونات المطلوبة",
   "dapp_connect.retrieve_your_encryption_public_key": "استرجع مفتاح التشفير العام الخاص بك",
   "dapp_connect.risk_sign": "يمكن أحيانًا استخدام هذا النوع من طلبات التوقيع لأغراض ضارة. قم بالتوقيع فقط إذا كنت تثق تمامًا في الموقع الإلكتروني.",
-  "dapp_connect.sats_between": "بين {number} و {number} سات",
+  "dapp_connect.sats_between": "بين {max} و {min} سات",
   "dapp_connect.send_approval_requests": "إرسال طلبات الموافقة",
   "dapp_connect.signature_request": "طلب التوقيع",
   "dapp_connect.site_not_using_private_connection_warning": "الموقع لا يستخدم اتصالًا خاصًا، قد يتمكن المهاجمون من عرض وتغيير المعلومات التي ترسل وتتلقى عبر هذا الموقع.",
@@ -426,11 +457,12 @@
   "global.apr": "APR",
   "global.asset": "الأصول",
   "global.auto": "آلي",
+  "global.backed_up": "تم النسخ الاحتياطي",
   "global.backup": "احتياطي",
   "global.balance": "الرصيد",
   "global.bluetooth": "بلوتوث",
   "global.bluetooth_firmware": "برنامج البلوتوث الثابت",
-  "global.bootloader": "محمل الإقلاع",
+  "global.bootloader": "Bootloader",
   "global.browser": "متصفح",
   "global.buy": "شراء",
   "global.buy_one": "اشتر واحدة",
@@ -463,6 +495,7 @@
   "global.copy": "نسخ",
   "global.copy_address": "نسخ العنوان",
   "global.copy_recovery_phrase": "نسخ عبارة الاستعادة",
+  "global.count_accounts": "{count} حسابات",
   "global.create_address": "إنشاء عنوان",
   "global.create_invoice": "إنشاء فاتورة",
   "global.create_wallet": "إنشاء محفظة",
@@ -563,6 +596,7 @@
   "global.pair_contract": "عقد الزوج:",
   "global.passphrase": "Passphrase",
   "global.passphrase_desc": "تضيف الـPassphrase عبارة مخصصة إلى عبارة الاستعادة الخاصة بك لإنشاء محفظة مخفية. كل محفظة مخفية لها Passphrase الخاصة بها. لا تنسها، لأنه لا يمكن استردادها وسيتم فقد الأموال بشكل دائم.",
+  "global.pct_complete": "{ptc}% مكتمل",
   "global.pending": "قيد الانتظار",
   "global.pools": "مجمعات",
   "global.popular": "جمع",
@@ -635,6 +669,7 @@
   "global.visit_website": "زيارة الموقع",
   "global.wallet": "محفظة",
   "global.wallet_avatar": "صورة رمزية للمحفظة",
+  "global.wallets": "محافظ",
   "global.watched": "شاهد",
   "global.watchlist": "قائمة المراقبة",
   "global.website": "موقع الكتروني",
@@ -662,6 +697,7 @@
   "hardware.device_connected_keep_card_in_place": "الجهاز متصل ، يرجى الاحتفاظ بالبطاقة في مكانها وعدم تحريكها.",
   "hardware.device_contains_backup": "هذا الجهاز يحتوي على نسخة احتياطية",
   "hardware.device_contains_backup_desc": "إذا تابعت ، فسيتم استبدال النسخة الاحتياطية السابقة بالكامل وستفقد إلى الأبد.",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "معلومات الجهاز غير متناسقة. قد يكون هذا نتيجة لإعادة تعيين الجهاز. يمكنك إعادة إضافة جهازك لحل هذه المشكلة.",
   "hardware.device_need_restart": "فشل الاتصال بالأجهزة، يرجى إعادة تشغيل الجهاز والمحاولة مرة أخرى",
   "hardware.device_not_find_error": "الجهاز غير موجود",
   "hardware.device_passphrase_state_error": "Passphrase لا يتطابق مع المحفظة الحالية، يرجى المحاولة مرة أخرى",
@@ -670,22 +706,29 @@
   "hardware.enter_onekey_lite_pin": "أدخل رقم OneKey Lite السري",
   "hardware.enter_onekey_lite_pin_desc": "رقم OneKey Lite PIN هو رقم مكون من 6 أرقام ولا يمكن استرجاعه إذا نسيته، حيث أننا لا نخزن أي معلومات للمستخدم.",
   "hardware.failed_to_search_devices": "فشل البحث",
+  "hardware.file_already_exists": "الملف موجود بالفعل",
   "hardware.firmware_download_error": "فشل تحميل البرنامج الثابت",
+  "hardware.hardware_device_not_find_error": "الجهاز غير موجود",
+  "hardware.incomplete_file": "ملف غير مكتمل",
   "hardware.init_iframe_load_error": "فشل تهيئة SDK للأجهزة. يرجى التحقق من شبكتك أو تغيير البروكسي والمحاولة مرة أخرى.",
   "hardware.invalid_pin_error": "رقم التعريف الشخصي غير صالح",
   "hardware.keep_lite_placed_until_found": "يرجى الاحتفاظ بـ Lite في مكان قريب من الهاتف حتى يتم العثور على الجهاز.",
   "hardware.manually_enter_boot": "مطلوب إدخال التشغيل اليدوي",
+  "hardware.need_force_upgrade_firmware": "يجب ترقية البرنامج الثابت",
   "hardware.no_backup_inside": "لا يوجد نسخة احتياطية داخل",
   "hardware.no_backup_inside_desc": "لا يوجد نسخة احتياطية في هذا OneKey Lite. استبدل بـ OneKey Lite آخر وأعد المحاولة.",
+  "hardware.no_connection_desc": "يرجى المحاولة مرة أخرى أو التحقق من شبكتك",
   "hardware.no_pin_change_needed": "لا حاجة لتغيير رمز PIN على هذه البطاقة OneKey Lite الجديدة.",
   "hardware.not_opened_passphrase": "يرجى تمكين Passphrase على الجهاز لاستخدام المحفظة المخفية",
   "hardware.not_same": "عدم التطابق، يرجى توصيل الجهاز الصحيح",
   "hardware.not_support": "هذه الطريقة تحمل مخاطر أمنية ولا يدعمها الجهاز",
+  "hardware.not_support_passphrase_need_upgrade": "استخدام Passphrase يتطلب ترقية البرنامج الثابت إلى الإصدار {0} أو أعلى.",
   "hardware.onekey_lite_pin_changed": "تم تغيير رقم التعريف الشخصي لـ OneKey Lite!",
   "hardware.onekey_lite_pin_changed_desc": "تم تغيير رقم التعريف الشخصي لـ OneKey Lite. \nتذكر هذا الرقم التعريفي الشخصي لأنه لا يمكن استرداده إذا فقد، حيث أننا لا نخزن أي معلومات للمستخدم.",
   "hardware.onekey_lite_pin_error": "خطأ في رمز OneKey Lite",
   "hardware.onekey_lite_pin_error_desc": "بعد <red>{number}</red> محاولات خاطئة أخرى، سيتم مسح البيانات على هذا OneKey Lite.",
   "hardware.onekey_lite_reset": "تم إعادة تعيين OneKey Lite",
+  "hardware.only_one_device_can_be_connected_desc": "يرجى توصيل جهاز واحد فقط للترقية.",
   "hardware.open_blind_sign_error": "تنسيق التوقيع غير معروف، يرجى الانتقال إلى الأمان / التوقيع العمياء لتمكين التوقيع المتقدم SOL",
   "hardware.opened_passphrase": "يرجى تعطيل Passphrase على الجهاز لاستخدام المحفظة القياسية",
   "hardware.params_bytes_overload": "حجم البيانات يتجاوز الحد المسموح به في الجهاز. يرجى تحديث البرنامج الثابت والمحاولة مرة أخرى أو الاتصال بدعم العملاء",
@@ -707,6 +750,8 @@
   "hardware.software_cannot_be_upgrade": "لا يمكن للعميل تحديث الأجهزة. تحتاج إلى الذهاب إلى <url>https://firmware.onekey.so](https://firmware.onekey.so/)</url> للتحديث",
   "hardware.status_connected": "متصل",
   "hardware.status_update_available": "تحديث متاح",
+  "hardware.str_not_supported_by_hardware_wallets": "في انتظار تحديث البرامج الثابتة، المحافظ الأجهزة غير مدعومة في هذا الوقت.",
+  "hardware.transaction_signing_error_not_in_signing_mode": "خطأ في توقيع المعاملة: لست في وضع التوقيع",
   "hardware.transferring_data": "جاري نقل البيانات...",
   "hardware.two_onekey_lite_not_same": "الاثنين OneKey Lite المستخدمين للاتصال ليسوا متشابهين.",
   "hardware.unknown_message_error": "البرنامج الثابت الحالي غير مدعوم، يرجى محاولة الترقية",
@@ -802,6 +847,7 @@
   "onboarding.bullet_never_share_recovery_phrase": "أبداً لا تشاركه مع أي شخص أو تدخله في أي نموذج.",
   "onboarding.bullet_onekey_support_no_recovery_phrase": "لن يطلب منك دعم OneKey عبارة الاستعادة أبدًا.",
   "onboarding.bullet_recovery_phrase_full_access": "العبارة الاستعادية لوحدها تمنحك الوصول الكامل إلى محافظك وأموالك.",
+  "onboarding.choose_import_method": "اختر طريقة الاستيراد",
   "onboarding.connect_your_device": "قم بتوصيل جهازك",
   "onboarding.create_qr_wallet_desc": "لعرض الرمز الشريطي QR الخاص بك في الجهاز، انتقل إلى \"توصيل محفظة التطبيق\" > \"الرمز الشريطي QR\" > \"OneKey Wallet\"",
   "onboarding.create_qr_wallet_title": "أنشئ محفظة بناءً على QR باستخدام OneKey Pro",
@@ -827,7 +873,7 @@
   "onboarding.import_recovery_phrase_warning_help_text": "من أجل سلامة أصولك، تجنب استيراد عبارة الاستعادة لمحفظتك الأجهزة واستخدم \"ربط محفظة الأجهزة\" للحصول على الأمان الأمثل.",
   "onboarding.install_onekey_bridge": "تثبيت OneKey Bridge",
   "onboarding.install_onekey_bridge_help_text": "يسهل جسر OneKey التواصل السلس بين OneKey ومتصفحك لتجربة أفضل.",
-  "onboarding.migrate_from_v4": "الانتقال من الإصدار 4",
+  "onboarding.migrate_from_v4": "الانتقال من OneKey v4",
   "onboarding.onekey_hw": "محفظة OneKey الأجهزة",
   "onboarding.onekey_hw_intro_desc": "محفظة OneKey Hardware، حل آمن وسهل الاستخدام لإدارة العملات المشفرة. تدعم العديد من العملات المشفرة وتضمن التشفير القوي للمعاملات الآمنة.",
   "onboarding.onekey_hw_intro_title": "حلك الآمن للعملات الرقمية المشفرة",
@@ -889,23 +935,56 @@
   "send.address_exists": "العنوان موجود بالفعل",
   "send.address_invalid ": "عنوان غير صالح. يرجى التحقق وإعادة الإدخال",
   "send.amount": "المبلغ",
+  "send.amount_invalid": "رصيد غير كافي لـ {0}.",
+  "send.amount_too_small": "مبلغ التحويل صغير جدا.",
+  "send.authentication_failed_verify_again": "فشلت عملية التحقق من الهوية، يرجى التحقق من اتصالك بالشبكة والمحاولة مرة أخرى.",
+  "send.available": "متاح: {number}",
   "send.balance": "الرصيد: {number}",
   "send.cannot_send_to_self": "لا يمكن الإرسال إلى نفسك",
   "send.check_request_error": "خطأ في طلب الفحص، يرجى التحديث مرة أخرى",
   "send.description_balance_info": "الرصيد لا يتضمن UTXOs المغلقة أو الصغيرة",
   "send.description_frozen_funds_info": "الرصيد لا يتضمن الأموال المجمدة",
+  "send.engine_account_not_activated": "الحساب غير مفعل.",
+  "send.engine_failed_to_transfer": "فشلت عملية النقل.",
+  "send.engine_incorrect_address": "عنوان غير صحيح.",
+  "send.engine_incorrect_password": "كلمة المرور غير صحيحة.",
+  "send.engine_incorrect_token_address": "عنوان الرمز غير صحيح.",
+  "send.engine_incorrect_transfer_value": "مبلغ التحويل غير صحيح.",
+  "send.engine_internal_error": "خطأ في الخدمة.",
+  "send.engine_not_implemented": "الوظيفة لم يتم تنفيذها بعد.",
+  "send.engine_password_not_set": "لم يتم تعيين كلمة المرور.",
+  "send.engine_pending_queue_too_long": "الكثير من المعاملات المعلقة في الطابور.",
+  "send.engine_too_many_derived_accounts": "عدد الحسابات يتجاوز الحد المسموح به.",
   "send.ens_choose_address_title": "اختر عنوان",
   "send.error_insufficient_balance": "رصيد {token} غير كاف",
   "send.error_minimum_amount": "الحد الأدنى {amount} {token}",
   "send.error_recipient_requires_activation": "المستلم يحتاج إلى {amount} {token} للتفعيل",
+  "send.estimated_gas_failure": "فشل تقدير الغاز.",
+  "send.field_large_than": "يجب أن يكون أكبر من {0}.",
+  "send.field_only_integer": "يجب أن يكون عدد صحيح موجب.",
+  "send.field_too_large": "لا يمكن أن يكون أكبر من {0}.",
+  "send.field_too_small": "يجب ألا يكون أقل من {0}.",
+  "send.insufficient_liquidity_of_lightning_node_channels": "سيولة غير كافية في قنوات عقدة البرق.",
+  "send.invalid_address_ordinal_can_only_be_sent_to_taproot_address": "عنوان غير صالح! يمكن إرسال الأصول الترتيبية فقط إلى عناوين Taproot.",
+  "send.invalid_lightning_payment_request": "طلب دفع Lightning غير صالح.",
+  "send.invoice_is_already_paid": "الفاتورة مدفوعة بالفعل.",
   "send.label_first_transfer": "التحويل الأول",
   "send.label_transferred": "تم التحويل",
   "send.label_wallet_name": "اسم المحفظة / اسم الحساب",
   "send.max": "الحد الأقصى",
+  "send.nft_does_not_exist": "الـ NFT غير موجود.",
+  "send.no_route_found": "لم يتم العثور على طريق.",
+  "send.password_validation": "يجب أن تتراوح الرقم السري بين 8 و 128 حرفًا.",
   "send.preview_button": "معاينة",
   "send.recipient_invalid": "المستلم غير صالح. يرجى التحقق وإعادة الإدخال",
+  "send.sending_str_requires_an_account_balance_of_at_least_str_str": "إرسال {0} يتطلب رصيد حساب لا يقل عن {1} {2}.",
+  "send.str_minimum_balance_is_str": "فشل الإرسال. الحد الأدنى للرصيد لـ {token} هو {amount}.",
+  "send.str_minimum_transfer": "الحد الأدنى للتحويل هو {0}.",
+  "send.suggest_reserving_str_as_gas_fee": "أقترح حجز {0} كرسوم للشبكة.",
   "send.tag": "وسم",
   "send.tag_placeholder": "مطلوب للإرسال إلى البورصات المركزية",
+  "send.the_invoice_has_expired": "انتهت صلاحية الفاتورة.",
+  "send.the_minimum_value_for_transffering_to_a_new_account_is_str_str": "الحد الأدنى للتحويل إلى حساب جديد هو {amount} {symbol}.",
   "send.title": "إرسال",
   "send.to": "إلى",
   "send.to_contacts_selecor_account": "حسابي",
@@ -916,6 +995,7 @@
   "send.to_paste_tooltip": "لصق",
   "send.to_placeholder": "أدخل العنوان أو اسم النطاق",
   "send.to_scan_tooltip": "مسح",
+  "send.verification_failure": "فشل التحقق.",
   "send_token_selector.no_match_found": "لم يتم العثور على تطابق لبحثك.",
   "send_token_selector.no_results": "لا توجد نتائج",
   "send_token_selector.search_placeholder": "ابحث عن الرمز أو عنوان العقد",
@@ -1039,7 +1119,7 @@
   "swap_history_detail.date": "التاريخ",
   "swap_history_detail.delete_confirm": "يمسح",
   "swap_history_detail.delete_title": "هل أنت متأكد من حذف كل السجلات؟",
-  "swap_history_detail.from": "من",
+  "swap_history_detail.from": "عنوان الدفع",
   "swap_history_detail.network_fee": "رسوم الشبكة",
   "swap_history_detail.order_status": "حالة الطلب",
   "swap_history_detail.protocol_fee": "رسوم البروتوكول",
@@ -1051,7 +1131,7 @@
   "swap_history_detail.status_pending": "قيد الانتظار",
   "swap_history_detail.swap_duration": "مدة الاستبدال",
   "swap_history_detail.title": "المعاملة",
-  "swap_history_detail.to": "إلى",
+  "swap_history_detail.to": "العنوان المستلم",
   "swap_history_detail.toast_copy": "تم النسخ",
   "swap_history_detail.transaction_hash": "تجزئة المعاملة",
   "swap_history_detail.transaction_price": "سعر المعاملة",
@@ -1070,10 +1150,13 @@
   "swap_page.button_approve_amount": "وافق {number}",
   "swap_page.button_approve_unlimited": "وافق بلا حدود",
   "swap_page.button_cross_chain": "جسر",
+  "swap_page.button_enter_amount": "أدخل المبلغ",
   "swap_page.button_fetching_quotes": "جاري جلب الاقتباسات",
   "swap_page.button_insufficient_balance": "رصيد غير كاف",
+  "swap_page.button_no_connected_wallet": "لا يوجد محفظة متصلة",
   "swap_page.button_no_enough_fee": "لا يكفي لتغطية رسوم الشبكة",
   "swap_page.button_no_liquidity": "لا يوجد سيولة لهذه الصفقة",
+  "swap_page.button_select_token": "حدد الرمز",
   "swap_page.button_wrap": "مغلف",
   "swap_page.from": "من",
   "swap_page.limit": "حد",
@@ -1239,17 +1322,33 @@
   "update.updating_ui_resources": "جاري تحديث موارد واجهة المستخدم...",
   "update.verify_status_and_continue": "تحقق من الحالة واستمر",
   "update.whats_new_in_onekey_version": "ما الجديد في OneKey {version} 👋🏻",
-  "v4_migration.backed_up_warning": "تأكد من النسخ الاحتياطي لتجنب فقدان الأصول",
-  "v4_migration.backed_up_warning_desc": "تأكد من أنك قمت بعمل نسخة احتياطية لعبارات الاستعادة والمفاتيح الخاصة لتجنب فقدان الأصول أثناء ترحيل البيانات.",
-  "v4_migration.backup_alert_desc": "قبل أن تتابع، تأكد من أنك قمت بالنسخ الاحتياطي لعبارات الاستعادة أو المفاتيح الخاصة لجميع حساباتك.",
-  "v4_migration.backup_alert_title": "مهم: احتفظ بنسخ احتياطية من جميع محافظك",
+  "v4_migration.backed_up_warning": "هل قمت بنسخ احتياطي لكل شيء؟",
+  "v4_migration.backed_up_warning_desc": "تأكد من أنك قمت بنسخ جميع عبارات الاستعادة والمفاتيح الخاصة لتجنب أي فقدان للأصول بسبب المشكلات غير المتوقعة أثناء ترحيل البيانات.",
+  "v4_migration.backup_alert_desc": "قبل أن تتابع، تأكد من أنك قمت بنسخ جميع العبارات الاستعادية أو المفاتيح الخاصة.",
+  "v4_migration.backup_alert_title": "مهم: احتفظ بنسخة احتياطية من جميع بياناتك",
   "v4_migration.backup_primary_action": "قمت بدعمهم",
   "v4_migration.backup_private_key_reveal_alert": "انقر لعرض المفتاح الخاص، تأكد من أن لا أحد يراقب شاشتك",
   "v4_migration.backup_recovery_phrase_reveal_alert": "انقر لعرض عبارة الاستعادة، تأكد من أنه لا أحد يراقب شاشتك",
-  "v4_migration.backup_title": "أحمي محافظك",
-  "v4_migration.completed_desc": "أنت جاهز الآن لاستكشاف ميزاتنا الجديدة والتحسينات",
+  "v4_migration.backup_title": "احفظ بياناتك",
+  "v4_migration.completed_desc": "استكشف الميزات الجديدة المثيرة لـ OneKey v5 الآن!",
   "v4_migration.completed_title": "تم الانتقال",
+  "v4_migration.update_in_progress": "التحديث جارٍ",
+  "v4_migration.update_in_progress_alert_description": "الترحيل للمستخدمين الذين لديهم العديد من المحافظ قد يستغرق عدة دقائق.",
+  "v4_migration.update_in_progress_alert_title": "لا تغلق تطبيقك أثناء التحديث",
   "v4_migration.welcome_message": "OneKey 5.0 هنا!",
   "v4_migration.welcome_message_desc": "اتبع الخطوات البسيطة لنقل بياناتك بأمان. سريع وآمن، لضمان نقل أصولك بسلاسة. هل أنت مستعد للبدء؟",
+  "wallet.currently_supports_up_to_str_all_networks_accounts": "يدعم حاليًا حتى {0} حسابات عبر جميع الشبكات.",
+  "wallet.engine_account_already_exists": "الحساب موجود بالفعل.",
+  "wallet.engine_account_name_length_error": "طول اسم الحساب يتجاوز الحد المسموح به.",
+  "wallet.engine_too_many_hd_wallets": "عدد المحافظ يتجاوز الحد.",
+  "wallet.engine_too_many_hw_passphrase_wallets": "عدد محافظ Passphrase في المحفظة الصلبة يتجاوز الحد.",
+  "wallet.engine_too_many_hw_wallets": "عدد المحافظ الصلبة يتجاوز الحد.",
+  "wallet.engine_too_many_imported_accounts": "عدد حسابات السلسلة الواحدة يتجاوز الحد.",
+  "wallet.engine_too_many_watching_accounts": "عدد حسابات المحفظة المراقبة تجاوز الحد.",
+  "wallet.engine_ttoo_many_external_accounts": "عدد حسابات المحفظة الخارجية يتجاوز الحد المسموح به.",
+  "wallet.engine_wallet_name_length_error": "طول اسم المحفظة يتجاوز الحد المسموح به.",
+  "wallet.error_trade_with_watched_acocunt": "لا يمكن التداول مع حساب تحت المراقبة.",
+  "wallet.generic_string_length_requirement": "طول اسم الحساب يتجاوز الحد المسموح به.",
+  "wallet.you_need_str_accounts_on_any_network_to_create": "تحتاج على الأقل إلى {0} حسابات على أي شبكة واحدة للإنشاء.",
   "word": "كلمة"
 }
