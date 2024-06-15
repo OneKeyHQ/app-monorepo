@@ -326,6 +326,20 @@ function SelectFrame<T extends string | ISelectItem>({
           value: value as string,
         },
   );
+
+  const itemsRef = useRef(items);
+  const sectionsRef = useRef(sections);
+
+  if (items !== itemsRef.current) {
+    itemsRef.current = items;
+    selectedItemRef.current.label = '';
+  }
+
+  if (sections !== sectionsRef.current) {
+    sectionsRef.current = sections;
+    selectedItemRef.current.label = '';
+  }
+
   const [isOpen, setIsOpen] = useState(false);
   const changeOpenStatus = useCallback(
     (openStatus: boolean) => {
