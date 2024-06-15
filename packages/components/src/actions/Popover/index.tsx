@@ -15,7 +15,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite';
 import { Portal } from '../../hocs';
-import { useBackHandler, useSafeAreaInsets } from '../../hooks';
+import {
+  useBackHandler,
+  useKeyboardHeight,
+  useSafeAreaInsets,
+} from '../../hooks';
 import { SizableText, XStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
@@ -224,6 +228,7 @@ function RawPopover({
     [handleClosePopover],
   );
   const display = useContentDisplay(isOpen, props.keepChildrenMounted);
+  const keyboardHeight = useKeyboardHeight();
   const content = (
     <PopoverContext.Provider value={popoverContextValue}>
       <PopoverContent isOpen={isOpen} closePopover={handleClosePopover}>
@@ -304,7 +309,7 @@ function RawPopover({
               enterStyle={{ opacity: 0 }}
               exitStyle={{ opacity: 0 }}
             />
-            <TMPopover.Sheet.Frame unstyled>
+            <TMPopover.Sheet.Frame unstyled paddingBottom={keyboardHeight}>
               {/* header */}
               <XStack
                 borderTopLeftRadius="$6"
