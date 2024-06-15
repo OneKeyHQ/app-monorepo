@@ -34,6 +34,8 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
+import { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IFetchAccountHistoryParams,
@@ -293,8 +295,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     encodedTx,
   }: {
     encodedTx: IEncodedTx | undefined;
-  }) {
-    return Promise.resolve(encodedTx);
+  }): Promise<{
+    encodedTx: IEncodedTx | undefined;
+    estimateFeeParams?: IEstimateFeeParams;
+  }> {
+    return Promise.resolve({
+      encodedTx,
+    });
   }
 
   async buildFetchHistoryListParams(params: IFetchAccountHistoryParams) {

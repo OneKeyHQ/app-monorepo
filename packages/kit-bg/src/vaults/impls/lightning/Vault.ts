@@ -355,14 +355,16 @@ export default class Vault extends VaultBase {
     encodedTx,
   }: {
     encodedTx: IEncodedTxLightning | undefined;
-  }): Promise<IEncodedTx | undefined> {
+  }) {
     if (!encodedTx) {
-      return {} as IEncodedTxLightning;
+      return { encodedTx };
     }
     return Promise.resolve({
-      dest: encodedTx?.decodedInvoice?.payeeNodeKey ?? '',
-      amt: encodedTx?.amount,
-    } as unknown as IEncodedTxLightning);
+      encodedTx: {
+        dest: encodedTx?.decodedInvoice?.payeeNodeKey ?? '',
+        amt: encodedTx?.amount,
+      } as unknown as IEncodedTxLightning,
+    });
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {

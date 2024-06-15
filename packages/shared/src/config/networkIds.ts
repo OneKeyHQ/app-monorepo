@@ -50,7 +50,8 @@ export type INetworkShortCode =
   | 'ltc'
   | 'trx'
   | 'neurai'
-  | 'sepolia';
+  | 'sepolia'
+  | 'fevm';
 
 const checkErrors: string[] = [];
 // TODO generate getNetworkIdsMap in build time
