@@ -97,14 +97,6 @@ class ServiceMarket extends ServiceBase {
       },
     });
     const { data } = response.data;
-    const newDetailPlatforms: IMarketDetailPlatform = {};
-    Object.keys(data.detailPlatforms).forEach((key) => {
-      const item = data.detailPlatforms[key];
-      if (!item?.hideContractAddress) {
-        newDetailPlatforms[key] = item;
-      }
-    });
-    data.detailPlatforms = newDetailPlatforms;
     return data;
   }
 
