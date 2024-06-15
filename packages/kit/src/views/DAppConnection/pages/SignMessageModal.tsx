@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Page, Toast } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
@@ -12,7 +13,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
+import {
+  DAppAccountListStandAloneItem,
+  DAppAccountListStandAloneItemForHomeScene,
+} from '../components/DAppAccountList';
 import { DAppSignMessageContent } from '../components/DAppRequestContent';
 import {
   DAppRequestFooter,
@@ -24,12 +28,14 @@ import DappOpenModalPage from './DappOpenModalPage';
 
 function SignMessageModal() {
   const intl = useIntl();
-  const { $sourceInfo, unsignedMessage, accountId, networkId } = useDappQuery<{
-    unsignedMessage: IUnsignedMessage;
-    accountId: string;
-    networkId: string;
-    indexedAccountId: string;
-  }>();
+  const { $sourceInfo, unsignedMessage, accountId, networkId, sceneName } =
+    useDappQuery<{
+      unsignedMessage: IUnsignedMessage;
+      accountId: string;
+      networkId: string;
+      indexedAccountId: string;
+      sceneName: EAccountSelectorSceneName;
+    }>();
 
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
@@ -103,7 +109,11 @@ function SignMessageModal() {
             urlSecurityInfo={urlSecurityInfo}
             isRiskSignMethod={isRiskSignMethod}
           >
-            <DAppAccountListStandAloneItem readonly />
+            {sceneName === EAccountSelectorSceneName.home ? (
+              <DAppAccountListStandAloneItemForHomeScene />
+            ) : (
+              <DAppAccountListStandAloneItem readonly />
+            )}
             <DAppSignMessageContent content={unsignedMessage.message} />
           </DAppRequestLayout>
         </Page.Body>

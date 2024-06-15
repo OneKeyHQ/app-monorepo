@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 
@@ -87,6 +88,7 @@ export function useLidoWithdraw({
             type: EMessageTypesEth.TYPED_DATA_V4,
             message,
           },
+          sceneName: EAccountSelectorSceneName.home,
         })) as string;
 
       const serverTx =

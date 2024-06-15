@@ -28,6 +28,7 @@ const settings: IVaultSettings = {
   impl: IMPL_BCH,
   coinTypeDefault: COINTYPE_BCH,
   minTransferAmount: '0.00000546',
+  hasFrozenBalance: false,
 };
 
 export default Object.freeze(settings);

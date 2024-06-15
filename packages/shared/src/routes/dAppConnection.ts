@@ -1,6 +1,7 @@
 import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 
+import type { EAccountSelectorSceneName } from '../../types';
 import type {
   IRequestInvoiceArgs,
   IVerifyMessageArgs,
@@ -32,6 +33,7 @@ export type IDAppConnectionModalParamList = {
     unsignedMessage: IUnsignedMessage;
     accountId: string;
     networkId: string;
+    sceneName?: EAccountSelectorSceneName;
   };
   [EDAppConnectionModal.CurrentConnectionModal]: {
     origin: string;
