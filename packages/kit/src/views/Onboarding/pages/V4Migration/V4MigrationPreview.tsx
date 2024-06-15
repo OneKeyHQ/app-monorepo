@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  Alert,
   Button,
   Dialog,
+  Icon,
   Page,
   SectionList,
   SizableText,
@@ -22,10 +25,9 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type { IV4MigrationBackupItem } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/types';
 import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
-
-import { V4MigrationWarningMessage } from './V4MigrationWarningMessage';
 
 function BackupDialogContent({
   item,
@@ -34,6 +36,7 @@ function BackupDialogContent({
   item: IV4MigrationBackupItem;
   confirmText: string;
 }) {
+  const intl = useIntl();
   const [migrationData, setMigrationData] = useV4migrationAtom();
   const [isMasked, setIsMasked] = useState(true);
   const { copyText } = useClipboard();
@@ -46,6 +49,7 @@ function BackupDialogContent({
       </SizableText>
     </XStack>
   ) : null;
+
   const confirmButton = (
     <Dialog.Footer
       showCancelButton={false}
@@ -68,22 +72,40 @@ function BackupDialogContent({
     let maskText =
       'Click to view the content, make sure no one is looking your screen';
     if (item.hdWallet) {
-      maskText =
-        'Click to view the recovery phrase, make sure no one is looking your screen';
+      maskText = intl.formatMessage({
+        id: ETranslations.v4_migration_backup_recovery_phrase_reveal_alert,
+      });
     }
     if (item.importedAccount) {
-      maskText =
-        'Click to view the private key, make sure no one is looking your screen';
+      maskText = intl.formatMessage({
+        id: ETranslations.v4_migration_backup_private_key_reveal_alert,
+      });
     }
     return (
       <Stack>
-        {networkInfo}
-        {confirmButton}
         <Stack
-          p="$4"
-          borderWidth={1}
+          p="$5"
+          userSelect="none"
+          borderRadius="$3"
+          borderCurve="continuous"
+          borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
           backgroundColor="$bgSubdued"
+          alignItems="center"
+          justifyContent="center"
+          hoverStyle={{
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            bg: '$bgActive',
+          }}
+          focusable
+          focusStyle={{
+            outlineWidth: 2,
+            outlineColor: '$focusRing',
+            outlineStyle: 'solid',
+            outlineOffset: 2,
+          }}
           onPress={async () => {
             if (item?.hdWallet?.id) {
               const r =
@@ -104,38 +126,71 @@ function BackupDialogContent({
             setIsMasked(false);
           }}
         >
-          <SizableText color="$textSubdued">{maskText}</SizableText>
+          <Icon size="$8" name="EyeOutline" />
+          <SizableText pt="$5" color="$textSubdued" textAlign="center">
+            {maskText}
+          </SizableText>
         </Stack>
+        {confirmButton}
       </Stack>
     );
   }
   return (
     <Stack>
-      {networkInfo}
-      {confirmButton}
       <Stack
-        p="$4"
-        borderWidth={1}
+        py="$1"
+        px="$2.5"
+        borderRadius="$3"
+        borderCurve="continuous"
+        borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         backgroundColor="$bgSubdued"
       >
-        <SizableText color="$text" size="$headingLg">
-          {secretText}
-        </SizableText>
-        <Button
-          onPress={() => copyText(secretText)}
-          mt="$2"
-          size="small"
-          variant="tertiary"
-        >
-          Copy
-        </Button>
+        {item?.hdWallet?.id ? (
+          <XStack flexWrap="wrap">
+            {secretText.split(' ').map((word, index) => (
+              <XStack
+                minWidth="33.33%"
+                alignItems="baseline"
+                key={index}
+                p="$1.5"
+                borderBottomWidth={StyleSheet.hairlineWidth}
+                borderBottomColor="$borderSubdued"
+              >
+                <SizableText
+                  size="$bodyMd"
+                  color="$textDisabled"
+                  minWidth="$4"
+                  mr="$1"
+                >
+                  {index + 1}
+                </SizableText>
+                <SizableText flex={1} size="$bodyLg">
+                  {word}
+                </SizableText>
+              </XStack>
+            ))}
+          </XStack>
+        ) : null}
+        {item?.importedAccount?.id ? (
+          <SizableText mt="$2" mx="$1.5" color="$text" size="$bodyLg">
+            {secretText}
+          </SizableText>
+        ) : null}
+
+        <Stack p="$2">
+          <Button onPress={() => copyText(secretText)} variant="tertiary">
+            {intl.formatMessage({ id: ETranslations.global_copy })}
+          </Button>
+        </Stack>
       </Stack>
+      {confirmButton}
     </Stack>
   );
 }
 
 function AccountsSectionList() {
+  const intl = useIntl();
   const { serviceV4Migration } = backgroundApiProxy;
   const [migrationData, setMigrationData] = useV4migrationAtom();
   const { result: walletsForBackup = [] } = usePromiseResult(
@@ -149,12 +204,17 @@ function AccountsSectionList() {
       let confirmText = `I've backed up`;
       let description: string | undefined;
       if (item.hdWallet) {
-        confirmText = `I've saved the phrases`;
-        description =
-          'Write down each phrase in order and store them in a secure location';
+        confirmText = intl.formatMessage({
+          id: ETranslations.global_saved_the_phrases,
+        });
+        description = intl.formatMessage({
+          id: ETranslations.onboarding_backup_recovery_phrase_help_text,
+        });
       }
       if (item.importedAccount) {
-        confirmText = `I've saved the private key`;
+        confirmText = intl.formatMessage({
+          id: ETranslations.global_saved_the_private_key,
+        });
       }
 
       Dialog.show({
@@ -168,7 +228,7 @@ function AccountsSectionList() {
         ),
       });
     },
-    [],
+    [intl],
   );
 
   return (
@@ -195,12 +255,24 @@ function AccountsSectionList() {
           drillIn
           renderAvatar={
             item?.network?.id ? (
-              <NetworkAvatar networkId={item.network.id} />
-            ) : undefined
+              <NetworkAvatar size="$8" networkId={item.network.id} />
+            ) : (
+              <Stack w="$8" h="$8" justifyContent="center" alignItems="center">
+                <SizableText size="$heading3xl">🦄</SizableText>
+              </Stack>
+            )
           }
         >
           {migrationData?.backedUpMark?.[item?.backupId] ? (
-            <ListItem.Text align="right" secondary="Backed up" />
+            <ListItem.Text
+              align="right"
+              secondary={intl.formatMessage({
+                id: ETranslations.global_backed_up,
+              })}
+              secondaryTextProps={{
+                size: '$bodyLg',
+              }}
+            />
           ) : null}
         </ListItem>
       )}
@@ -214,27 +286,45 @@ function ConfirmMigrationContent({
   navigation: IAppNavigation;
 }) {
   const [confirmDisabled, setConfirmDisabled] = useState(true);
-
+  const [timer, setTimer] = useState(3);
+  const intl = useIntl();
   useEffect(() => {
-    setTimeout(() => {
-      setConfirmDisabled(false);
-    }, 2000);
+    const intervalId = setInterval(() => {
+      setTimer((prevTimer) => {
+        if (prevTimer === 1) {
+          setConfirmDisabled(false);
+          clearInterval(intervalId);
+          return prevTimer;
+        }
+        return prevTimer - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
   }, []);
 
   return (
     <Stack>
       <SizableText>
-        Ensure you have backed up your recovery phrases and private keys to
-        avoid asset loss during data migration.
+        {intl.formatMessage({
+          id: ETranslations.v4_migration_backed_up_warning_desc,
+        })}
       </SizableText>
 
       <Dialog.Footer
         key={confirmDisabled ? 'disabled' : 'enabled'}
-        onCancelText="Review again"
-        onConfirmText={confirmDisabled ? 'Checking' : 'Confirm'}
+        onCancelText={intl.formatMessage({
+          id: ETranslations.global_review_again,
+        })}
+        onConfirmText={
+          confirmDisabled
+            ? `${timer}s`
+            : intl.formatMessage({ id: ETranslations.global_confirm })
+        }
         confirmButtonProps={{
           disabled: confirmDisabled,
-          loading: confirmDisabled,
         }}
         onConfirm={() => {
           navigation.push(EOnboardingPages.V4MigrationProcess);
@@ -258,21 +348,34 @@ export function V4MigrationPreview({
       Dialog.show({
         tone: 'warning',
         icon: 'ErrorOutline',
-        title: 'Ensure backup to avoid asset loss',
+        title: intl.formatMessage({
+          id: ETranslations.v4_migration_backed_up_warning,
+        }),
         renderContent: <ConfirmMigrationContent navigation={navigation} />,
       });
     } finally {
       setMigrateLoading(false);
     }
-  }, [navigation]);
+  }, [intl, navigation]);
 
   return (
-    <Page>
-      <Page.Header headerTitle="Secure your wallets" />
+    <Page scrollEnabled>
+      <Page.Header
+        headerTitle={intl.formatMessage({
+          id: ETranslations.v4_migration_backup_title,
+        })}
+      />
       <Page.Body>
-        <V4MigrationWarningMessage
-          title="IMPORTANT: Back up all of your wallets"
-          description="Before you proceed, make sure you've backed up the recovery phrases or private keys for all your wallets."
+        <Alert
+          m="$5"
+          mt="$2.5"
+          type="warning"
+          title={intl.formatMessage({
+            id: ETranslations.v4_migration_backup_alert_title,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.v4_migration_backup_alert_desc,
+          })}
         />
         <AccountsSectionList />
       </Page.Body>
@@ -282,7 +385,9 @@ export function V4MigrationPreview({
             loading={migrateLoading}
             onConfirm={handleMigrateFromV4}
           >
-            I backed them up
+            {intl.formatMessage({
+              id: ETranslations.v4_migration_backup_primary_action,
+            })}
           </Page.ConfirmButton>
         }
       />
