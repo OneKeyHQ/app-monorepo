@@ -46,8 +46,8 @@ axios.interceptors.response.use(async (response) => {
   const data = response.data as IOneKeyAPIBaseResponse;
 
   if (data.code !== 0) {
+    const requestIdKey = normalizeHeaderKey('X-Onekey-Request-ID');
     if (platformEnv.isDev) {
-      const requestIdKey = normalizeHeaderKey('X-Onekey-Request-ID');
       console.error(requestIdKey, config.headers[requestIdKey]);
     }
 
@@ -56,6 +56,7 @@ axios.interceptors.response.use(async (response) => {
       message: data.message,
       code: data.code,
       data,
+      requestId: config.headers[requestIdKey],
     });
   }
   return response;
