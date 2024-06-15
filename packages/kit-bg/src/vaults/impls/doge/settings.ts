@@ -29,6 +29,7 @@ const settings: IVaultSettings = {
   coinTypeDefault: COINTYPE_DOGE,
   minTransferAmount: '0.01',
   utxoDustAmount: '0.0099999',
+  hasFrozenBalance: false,
 };
 
 export default Object.freeze(settings);
