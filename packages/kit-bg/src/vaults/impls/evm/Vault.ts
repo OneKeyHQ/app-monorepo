@@ -1,3 +1,4 @@
+import { IEndExpectation } from '@aivenio/tsc-output-parser';
 import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
@@ -906,7 +907,9 @@ export default class Vault extends VaultBase {
   }: {
     encodedTx: IEncodedTxEvm | undefined;
   }) {
-    if (!encodedTx) return;
+    if (!encodedTx) {
+      return { encodedTx };
+    }
     const { chainId, nonce, from, to, data, value } = encodedTx;
     let transferValue = value;
 
@@ -920,12 +923,14 @@ export default class Vault extends VaultBase {
     }
 
     return Promise.resolve({
-      chainId,
-      nonce,
-      from,
-      to,
-      data,
-      value: transferValue,
+      encodedTx: {
+        chainId,
+        nonce,
+        from,
+        to,
+        data,
+        value: transferValue,
+      },
     });
   }
 }

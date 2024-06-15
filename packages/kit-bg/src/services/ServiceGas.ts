@@ -56,7 +56,7 @@ class ServiceGas extends ServiceBase {
   async buildEstimateFeeParams(params: {
     networkId: string;
     accountId: string;
-    encodedTx: IEncodedTx;
+    encodedTx: IEncodedTx | undefined;
   }) {
     const { networkId, accountId, encodedTx } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });

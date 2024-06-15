@@ -468,15 +468,15 @@ export default class VaultCosmos extends VaultBase {
   override async buildEstimateFeeParams({
     encodedTx,
   }: {
-    encodedTx: IEncodedTx | undefined;
-  }): Promise<IEncodedTx | undefined> {
+    encodedTx: IEncodedTxCosmos | undefined;
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+
     const account = await this.getAccount();
-    const encodedTxCosmos = encodedTx as IEncodedTxCosmos;
     const rawTx = serializeSignedTx({
-      txWrapper: new TransactionWrapper(
-        encodedTxCosmos?.signDoc,
-        encodedTxCosmos?.msg,
-      ),
+      txWrapper: new TransactionWrapper(encodedTx?.signDoc, encodedTx?.msg),
       signature: {
         signatures: [Buffer.alloc(64, 0)],
       },
@@ -484,6 +484,8 @@ export default class VaultCosmos extends VaultBase {
         pubKey: account.pub ?? '',
       },
     });
-    return bufferUtils.bytesToHex(rawTx) as unknown as IEncodedTx;
+    return {
+      encodedTx: bufferUtils.bytesToHex(rawTx) as unknown as IEncodedTx,
+    };
   }
 }

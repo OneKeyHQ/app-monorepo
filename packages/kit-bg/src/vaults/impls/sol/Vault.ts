@@ -1122,11 +1122,12 @@ export default class Vault extends VaultBase {
   override async buildEstimateFeeParams({
     encodedTx,
   }: {
-    encodedTx: IEncodedTxSol;
-  }): Promise<{
-    encodedTx: IEncodedTxSol;
-    estimateFeeParams?: IEstimateFeeParams | undefined;
-  }> {
+    encodedTx: IEncodedTxSol | undefined;
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+
     const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
     const client = await this.getClient();
     const { instructions } = await parseNativeTxDetail({

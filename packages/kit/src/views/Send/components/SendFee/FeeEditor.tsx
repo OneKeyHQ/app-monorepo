@@ -27,6 +27,7 @@ import {
   getFeePriceNumber,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEstimateFeeParams,
   IFeeInfoUnit,
@@ -34,7 +35,6 @@ import type {
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IFeeInfoItem = {
   label: string;

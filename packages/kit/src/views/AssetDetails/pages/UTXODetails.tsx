@@ -60,7 +60,7 @@ function UTXODetails() {
         ))}
       </DescriptionList>
     ),
-    [],
+    [network?.symbol],
   );
 
   return (

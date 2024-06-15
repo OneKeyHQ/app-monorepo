@@ -935,6 +935,8 @@ export default class VaultBtc extends VaultBase {
   }
 
   override async buildEstimateFeeParams() {
-    return Promise.resolve(undefined);
+    return Promise.resolve({
+      encodedTx: undefined,
+    });
   }
 }

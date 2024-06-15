@@ -435,7 +435,11 @@ export default class VaultAptos extends VaultBase {
     encodedTx,
   }: {
     encodedTx: IEncodedTx | undefined;
-  }): Promise<IEncodedTx | undefined> {
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+
     let rawTx: TxnBuilderTypes.RawTransaction;
     const unSignedEncodedTx = encodedTx as IEncodedTxAptos;
     if (unSignedEncodedTx.bscTxn && unSignedEncodedTx.bscTxn?.length > 0) {
@@ -457,8 +461,10 @@ export default class VaultAptos extends VaultBase {
       bufferUtils.bytesToHex(invalidSigBytes),
     );
     return {
-      ...(encodedTx as object),
-      rawSignTx,
-    } as unknown as IEncodedTx;
+      encodedTx: {
+        ...(encodedTx as object),
+        rawSignTx,
+      } as unknown as IEncodedTx,
+    };
   }
 }

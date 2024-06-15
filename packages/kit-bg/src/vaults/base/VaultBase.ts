@@ -34,6 +34,8 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
+import { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IFetchAccountHistoryParams,
@@ -78,7 +80,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import { IEstimateFeeParams, IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
@@ -289,9 +290,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async buildEstimateFeeParams({
     encodedTx,
   }: {
-    encodedTx: IEncodedTx;
+    encodedTx: IEncodedTx | undefined;
   }): Promise<{
-    encodedTx: IEncodedTx;
+    encodedTx: IEncodedTx | undefined;
     estimateFeeParams?: IEstimateFeeParams;
   }> {
     return Promise.resolve({
