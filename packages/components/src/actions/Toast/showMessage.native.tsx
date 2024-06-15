@@ -5,7 +5,7 @@ import { View, XStack } from '../../primitives';
 
 import type { IToastMessageOptions } from './type';
 
-const GAP = 68;
+const GAP = 104;
 export function showMessage({ title, duration }: IToastMessageOptions) {
   const windowWidth = Dimensions.get('window').width;
   toast('', {
