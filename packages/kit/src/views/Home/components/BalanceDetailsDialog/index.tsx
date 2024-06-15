@@ -106,7 +106,7 @@ function BalanceDetailsContent({
             tokenSymbol: network.symbol,
           }}
         >
-          {overview?.availableBalanceParsed ?? '-'}
+          {overview?.balanceParsed ?? '-'}
         </NumberSizeableText>
       )}
       <YStack>
@@ -127,7 +127,7 @@ function BalanceDetailsContent({
                 tokenSymbol: network.symbol,
               }}
             >
-              {overview?.balanceParsed ?? '-'}
+              {overview?.totalBalanceParsed ?? '-'}
             </NumberSizeableText>
           )}
         </XStack>

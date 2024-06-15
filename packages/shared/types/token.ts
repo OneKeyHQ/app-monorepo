@@ -12,13 +12,13 @@ export type IToken = {
 export type ITokenFiat = {
   balance: string;
   balanceParsed: string;
-  availableBalance?: string;
-  availableBalanceParsed?: string;
   frozenBalance?: string;
   frozenBalanceParsed?: string;
+  totalBalance?: string;
+  totalBalanceParsed?: string;
   fiatValue: string;
-  availableBalanceFiatValue?: string;
   frozenBalanceFiatValue?: string;
+  totalBalanceFiatValue?: string;
   price: number;
   price24h?: number;
 };

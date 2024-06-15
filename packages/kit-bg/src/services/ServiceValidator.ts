@@ -30,13 +30,28 @@ class ServiceValidator extends ServiceBase {
   }
 
   @backgroundMethod()
-  async validateSendAmount({ amount }: { amount: string }): Promise<boolean> {
-    noopObject(amount);
+  async validateSendAmount({
+    accountId,
+    networkId,
+    amount,
+    tokenBalance,
+    to,
+  }: {
+    accountId: string;
+    networkId: string;
+    amount: string;
+    tokenBalance: string;
+    to: string;
+  }): Promise<boolean> {
     const vault = await vaultFactory.getVault({
-      networkId: 'evm--5',
-      accountId: "hd-1--m/44'/60'/0'/0/0",
+      networkId,
+      accountId,
     });
-    const validation = await vault.validateSendAmount();
+    const validation = await vault.validateSendAmount({
+      amount,
+      tokenBalance,
+      to,
+    });
     return validation;
   }
 

@@ -17,12 +17,15 @@ import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   ChannelInsufficientLiquidityError,
   InvalidLightningPaymentRequest,
+  InvalidTransferValue,
   InvoiceAlreadyPaid,
   InvoiceExpiredError,
   NoRouteFoundError,
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -555,6 +558,30 @@ export default class Vault extends VaultBase {
       signature,
       address: account.addressDetail.normalizedAddress,
     });
+  }
+
+  override validateSendAmount(params: {
+    amount: string;
+    tokenBalance: string;
+    to: string;
+  }): Promise<boolean> {
+    const ZeroInvoiceMaxSendAmount = 1000000;
+    if (new BigNumber(params.amount).isGreaterThan(ZeroInvoiceMaxSendAmount)) {
+      const satsText = appLocale.intl.formatMessage({
+        id: ETranslations.global_sats,
+      });
+      throw new InvalidTransferValue(
+        appLocale.intl.formatMessage(
+          {
+            id: ETranslations.dapp_connect_amount_should_not_exceed,
+          },
+          {
+            0: `${ZeroInvoiceMaxSendAmount} ${satsText}`,
+          },
+        ),
+      );
+    }
+    return Promise.resolve(true);
   }
 
   async _getAuthorization({

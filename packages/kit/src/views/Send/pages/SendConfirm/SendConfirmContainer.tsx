@@ -69,20 +69,24 @@ function SendConfirmContainer() {
       }),
       backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
     ]);
-    const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId,
-    });
+    const checkInscriptionProtectionEnabled =
+      await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        {
+          networkId,
+          accountId,
+        },
+      );
+    const withCheckInscription =
+      checkInscriptionProtectionEnabled && settings.inscriptionProtection;
     const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       networkId,
       accountAddress,
       contractList: [nativeTokenAddress],
       xpub,
       withFrozenBalance: true,
-      withCheckInscription: settings.inscriptionProtection,
+      withCheckInscription,
     });
-    const balance = vs.hasFrozenBalance
-      ? r[0].availableBalanceParsed ?? '0'
-      : r[0].balanceParsed;
+    const balance = r[0].balanceParsed;
     updateNativeTokenInfo({
       isLoading: false,
       balance,
