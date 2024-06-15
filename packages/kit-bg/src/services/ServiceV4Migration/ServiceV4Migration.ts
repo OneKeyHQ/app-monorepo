@@ -4,6 +4,8 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -158,14 +160,16 @@ class ServiceV4Migration extends ServiceBase {
     const wallets = this.migrationPayload?.walletsForBackup || [];
 
     const hdWalletSectionData: IV4MigrationBackupSectionDataItem = {
-      title: 'Wallets',
+      title: appLocale.intl.formatMessage({ id: ETranslations.global_wallets }),
       data: [
         // { hdWallet: undefined }
       ],
     };
 
     const importedAccountsSectionData: IV4MigrationBackupSectionDataItem = {
-      title: 'Private key',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.global_private_key,
+      }),
       data: [
         // { importedAccount: undefined }
       ],
@@ -177,7 +181,12 @@ class ServiceV4Migration extends ServiceBase {
           hdWallet: w.wallet,
           backupId: `v4-hd-backup:${w.wallet.id}`,
           title: w.wallet.name || '--',
-          subTitle: `${w?.wallet?.accounts?.length || 0} accounts`,
+          subTitle: appLocale.intl.formatMessage(
+            { id: ETranslations.global_count_accounts },
+            {
+              count: w?.wallet?.accounts?.length || 0,
+            },
+          ),
         });
       }
       if (w.isImported) {

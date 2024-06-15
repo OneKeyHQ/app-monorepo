@@ -135,7 +135,7 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
         </Stack>
       ) : null}
       <YStack flex={1} space="$1">
-        {title ? <SizableText size="$bodyMd">{title}</SizableText> : null}
+        {title ? <SizableText size="$bodyMdMedium">{title}</SizableText> : null}
         {description ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             {description}

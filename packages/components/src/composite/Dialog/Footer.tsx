@@ -116,7 +116,8 @@ export function Footer(props: IDialogFooterProps) {
     <XStack p="$5" pt="$0" space="$2.5" {...footerProps}>
       {showCancelButton ? (
         <Button
-          flex={1}
+          flexGrow={1}
+          flexBasis={0}
           $md={
             {
               size: 'large',
@@ -132,7 +133,8 @@ export function Footer(props: IDialogFooterProps) {
       {showConfirmButton ? (
         <Button
           variant={tone === 'destructive' ? 'destructive' : 'primary'}
-          flex={1}
+          flexGrow={1}
+          flexBasis={0}
           disabled={confirmButtonDisabled}
           $md={
             {
