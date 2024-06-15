@@ -10,10 +10,12 @@ import {
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InvalidAddress,
+  InvalidTransferValue,
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -264,5 +266,80 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  private _getAccountInfo = memoizee(
+    async (address: string) => {
+      try {
+        const [accountInfo] =
+          await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+            success: boolean;
+            error: string;
+          }>({
+            networkId: this.networkId,
+            body: [
+              {
+                route: 'rpc',
+                params: {
+                  method: 'request',
+                  params: [
+                    {
+                      'command': 'account_info',
+                      'account': address,
+                      'ledger_index': 'validated',
+                    },
+                  ],
+                },
+              },
+            ],
+            returnRawData: true,
+          });
+        if (accountInfo.success === false) {
+          throw new Error(accountInfo.error);
+        }
+        return accountInfo;
+      } catch (error) {
+        console.log('xrp vault getAccountInfo error: ', error);
+        throw error;
+        // ignore
+      }
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: 1000 * 30,
+    },
+  );
+
+  override async validateSendAmount({
+    amount,
+    to,
+  }: {
+    amount: string;
+    tokenBalance: string;
+    to: string;
+  }): Promise<boolean> {
+    if (!to) return true;
+
+    const amountBN = new BigNumber(amount);
+    try {
+      await this._getAccountInfo(to);
+    } catch (e) {
+      const error = (e as Error).message ?? '';
+      if (error.includes('Account not found')) {
+        if (amountBN.lt(10)) {
+          // throw new InvalidTransferValue('Minimum transfer value is 10 drops', {
+          //   amount: '10',
+          //   unit: 'XRP',
+          // });
+          throw new InvalidTransferValue();
+        } else {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    return true;
   }
 }

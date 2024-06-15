@@ -337,7 +337,7 @@ function SendDataInputContainer() {
     tokenDetails,
   ]);
   const handleValidateTokenAmount = useCallback(
-    (value: string) => {
+    async (value: string) => {
       const amountBN = new BigNumber(value ?? 0);
       let isInsufficientBalance = false;
       let isLessThanMinTransferAmount = false;
@@ -385,6 +385,20 @@ function SendDataInputContainer() {
           },
         );
 
+      try {
+        const toRaw = form.getValues('to').raw;
+        await backgroundApiProxy.serviceValidator.validateSendAmount({
+          accountId,
+          networkId,
+          amount: amountBN.toString(),
+          tokenBalance: tokenDetails?.balanceParsed ?? '0',
+          to: toRaw ?? '',
+        });
+      } catch (e) {
+        console.log('error: ', e);
+        return (e as Error).message;
+      }
+
       return true;
     },
     [
@@ -395,6 +409,9 @@ function SendDataInputContainer() {
       tokenDetails?.price,
       tokenSymbol,
       vaultSettings?.minTransferAmount,
+      form,
+      accountId,
+      networkId,
     ],
   );
 
