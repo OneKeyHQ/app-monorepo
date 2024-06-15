@@ -6,7 +6,7 @@ import { View, XStack } from '../../primitives';
 import type { IToastMessageOptions } from './type';
 
 const GAP = 104;
-export function showMessage({ title, duration }: IToastMessageOptions) {
+export function showMessage({ renderContent, duration }: IToastMessageOptions) {
   const windowWidth = Dimensions.get('window').width;
   toast('', {
     width: windowWidth - GAP * 2,
@@ -33,7 +33,7 @@ export function showMessage({ title, duration }: IToastMessageOptions) {
           shadowRadius={4.65}
           elevationAndroid={7}
         >
-          {title}
+          {renderContent({ width })}
         </View>
       </XStack>
     ),
