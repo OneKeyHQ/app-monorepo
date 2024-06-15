@@ -134,6 +134,17 @@ export default class VaultBtc extends VaultBase {
       symbol: network.symbol,
       isMine: true,
     }));
+
+    const originalUtxoTo = outputs.map((output) => ({
+      address: output.address,
+      balance: new BigNumber(output.value)
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      balanceValue: output.value,
+      symbol: network.symbol,
+      isMine: output.address === account.address,
+    }));
+
     const utxoTo = outputs
       .filter((output) => !output.payload?.isCharge)
       .map((output) => ({
@@ -176,7 +187,7 @@ export default class VaultBtc extends VaultBase {
           }),
           receives: [],
           utxoFrom,
-          utxoTo,
+          utxoTo: originalUtxoTo,
         },
       },
     ];

@@ -287,22 +287,13 @@ function HistoryDetails() {
 
   const { data: txDetails, tokens = {}, nfts = {} } = txDetailsResp ?? {};
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleViewUTXOsOnPress = useCallback(() => {
-    if (!txDetails) return;
-    const { inputs: onChainInputs, outputs: onChainOutputs } = txDetails;
-
     navigation.push(EModalAssetDetailRoutes.UTXODetails, {
-      inputs: onChainInputs?.map((input) => ({
-        address: input.addresses[0],
-        value: input.value,
-      })),
-      outputs: onChainOutputs?.map((output) => ({
-        address: output.addresses[0],
-        value: output.value,
-      })),
+      networkId,
+      inputs: historyTx.decodedTx.actions[0].assetTransfer?.utxoFrom,
+      outputs: historyTx.decodedTx.actions[0].assetTransfer?.utxoTo,
     });
-  }, [navigation, txDetails]);
+  }, [historyTx.decodedTx.actions, navigation, networkId]);
 
   const renderAssetsChange = useCallback(
     ({
