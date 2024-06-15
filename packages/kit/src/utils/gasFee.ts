@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EFeeType,
   type IFeeInfoUnit,
@@ -8,8 +8,12 @@ import {
   type IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
 
-const PRESET_FEE_ICON = ['🚅️', '🚗', '🚴‍♂️'];
-const PRESET_FEE_LABEL = ['content__fast', 'content__normal', 'content__slow'];
+const PRESET_FEE_ICON = ['🚀', '🚗', '🐢'];
+const PRESET_FEE_LABEL = [
+  ETranslations.content__fast,
+  ETranslations.content__normal,
+  ETranslations.content__slow,
+];
 
 function nilError(message: string): number {
   throw new Error(message);
@@ -184,11 +188,10 @@ export function getFeeLabel({
   presetIndex?: number;
 }) {
   if (feeType === EFeeType.Custom) {
-    return 'content__custom';
+    return ETranslations.content__custom;
   }
 
-  return (PRESET_FEE_LABEL[presetIndex ?? 1] ??
-    PRESET_FEE_LABEL[0]) as ETranslations;
+  return PRESET_FEE_LABEL[presetIndex ?? 1] ?? PRESET_FEE_LABEL[0];
 }
 export function getFeeIcon({
   feeType,
@@ -198,7 +201,7 @@ export function getFeeIcon({
   presetIndex?: number;
 }) {
   if (feeType === EFeeType.Custom) {
-    return '⚙️';
+    return '🔧';
   }
 
   return PRESET_FEE_ICON[presetIndex ?? 1];

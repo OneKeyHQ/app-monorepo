@@ -32,6 +32,7 @@ import type {
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IFeeInfoItem = {
   label: string;
@@ -337,6 +338,9 @@ function FeeEditor(props: IProps) {
             ...item,
             label: (
               <YStack>
+                <SizableText size="$bodyMdMedium" textAlign="center">
+                  {item.icon}
+                </SizableText>
                 <SizableText
                   color={currentFeeIndex === index ? '$text' : '$textSubdued'}
                   size="$bodyMdMedium"
@@ -568,6 +572,14 @@ function FeeEditor(props: IProps) {
       });
 
       feeInfoItems = [
+        vaultSettings?.withL1BaseFee &&
+        new BigNumber(fee.common.baseFee ?? 0).gt(0)
+          ? {
+              label: 'L1 Base Fee',
+              customValue: fee.common.baseFee,
+              customSymbol: feeSymbol,
+            }
+          : null,
         {
           label: 'Expected Fee',
           nativeValue: expectedFeeInNative,
@@ -584,7 +596,7 @@ function FeeEditor(props: IProps) {
             .times(nativeTokenPrice || 0)
             .toFixed(),
         },
-      ];
+      ].filter(Boolean) as IFeeInfoItem[];
     } else if (fee.gas) {
       let limit = new BigNumber(0);
       let gasPrice = new BigNumber(0);
@@ -602,6 +614,14 @@ function FeeEditor(props: IProps) {
       });
 
       feeInfoItems = [
+        vaultSettings?.withL1BaseFee &&
+        new BigNumber(fee.common.baseFee ?? 0).gt(0)
+          ? {
+              label: 'L1 Base Fee',
+              customValue: fee.common.baseFee,
+              customSymbol: feeSymbol,
+            }
+          : null,
         {
           label: 'Max Fee',
           nativeValue: maxFeeInNative,
@@ -610,7 +630,7 @@ function FeeEditor(props: IProps) {
             .times(nativeTokenPrice || 0)
             .toFixed(),
         },
-      ];
+      ].filter(Boolean) as IFeeInfoItem[];
     } else if (fee.feeUTXO) {
       let feeRate = new BigNumber(0);
       if (currentFeeType === EFeeType.Custom) {
@@ -665,7 +685,7 @@ function FeeEditor(props: IProps) {
         </YStack>
         {vaultSettings?.editFeeEnabled ? (
           <Button variant="primary" size="medium" onPress={handleApplyFeeInfo}>
-            {intl.formatMessage({ id: 'action__save' })}
+            {intl.formatMessage({ id: ETranslations.action_save })}
           </Button>
         ) : null}
       </Stack>
@@ -675,12 +695,14 @@ function FeeEditor(props: IProps) {
     currentFeeType,
     customFee,
     feeSelectorItems,
+    feeSymbol,
     handleApplyFeeInfo,
     intl,
     nativeSymbol,
     nativeTokenPrice,
     unsignedTxs,
     vaultSettings?.editFeeEnabled,
+    vaultSettings?.withL1BaseFee,
     watchAllFields.feeRate,
     watchAllFields.gasLimit,
     watchAllFields.gasPrice,

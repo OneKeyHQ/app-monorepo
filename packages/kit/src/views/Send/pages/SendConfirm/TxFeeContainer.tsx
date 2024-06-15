@@ -27,6 +27,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import {
   calculateFeeForSend,
+  getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -168,6 +169,7 @@ function TxFeeContainer(props: IProps) {
           label: intl.formatMessage({
             id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: i }),
           }),
+          icon: getFeeIcon({ feeType: EFeeType.Standard, presetIndex: i }),
           value: i,
           feeInfo,
           type: EFeeType.Standard,
@@ -180,6 +182,7 @@ function TxFeeContainer(props: IProps) {
           label: intl.formatMessage({
             id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: 0 }),
           }),
+          icon: getFeeIcon({ feeType: EFeeType.Standard, presetIndex: i }),
           value: 1,
           feeInfo: {
             common: txFee.common,
@@ -284,6 +287,7 @@ function TxFeeContainer(props: IProps) {
           label: intl.formatMessage({
             id: getFeeLabel({ feeType: EFeeType.Custom }),
           }),
+          icon: getFeeIcon({ feeType: EFeeType.Custom }),
           value: items.length,
           feeInfo: customFeeInfo,
           type: EFeeType.Custom,

@@ -101,6 +101,7 @@ export type IEstimateGasResp = {
 
 export type IFeeSelectorItem = {
   label: string;
+  icon: string;
   value: number;
   feeInfo: IFeeInfoUnit;
   type: EFeeType;

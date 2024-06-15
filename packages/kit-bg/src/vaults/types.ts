@@ -154,6 +154,8 @@ export type IVaultSettings = {
   hideFeeInfoInHistoryList?: boolean;
 
   hasFrozenBalance?: boolean;
+
+  withL1BaseFee?: boolean;
 };
 
 export type IVaultFactoryOptions = {
