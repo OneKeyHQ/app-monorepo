@@ -9,10 +9,13 @@ const getSecureItem = async (key: string) =>
 const removeSecureItem = async (key: string) =>
   window?.desktopApi.secureDelItemAsync(key);
 
+const supportSecureStorage = () => true;
+
 const storage: ISecureStorage = {
   setSecureItem,
   getSecureItem,
   removeSecureItem,
+  supportSecureStorage,
 };
 
 export default storage;
