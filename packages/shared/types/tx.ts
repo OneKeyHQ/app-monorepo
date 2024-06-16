@@ -2,7 +2,7 @@ import type { IDecodedTxExtraAlgo } from '@onekeyhq/core/src/chains/algo/types';
 import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import type { IFeeInfoUnit } from './fee';
-import { EOnChainHistoryTxType } from './history';
+import type { EOnChainHistoryTxType } from './history';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received

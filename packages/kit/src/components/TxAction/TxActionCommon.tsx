@@ -11,6 +11,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Container } from '../Container';
@@ -20,7 +21,6 @@ import type {
   ITxActionCommonDetailViewProps,
   ITxActionCommonListViewProps,
 } from './types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function TxActionCommonAvatar({
   avatar,

@@ -4,6 +4,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
+import { AddressInfo } from '../AddressInfo';
 
 import {
   TxActionCommonDetailView,
@@ -11,7 +12,6 @@ import {
 } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
-import { AddressInfo } from '../AddressInfo';
 
 function getTxActionFunctionCallInfo(props: ITxActionProps) {
   const { action } = props;

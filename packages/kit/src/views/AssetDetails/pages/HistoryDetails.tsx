@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AddressInfo } from '../../../components/AddressInfo';
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -46,7 +47,6 @@ import { openUrl } from '../../../utils/openUrl';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
-import { AddressInfo } from '../../../components/AddressInfo';
 
 function getTxStatusTextProps(status: EDecodedTxStatus): {
   key: ETranslations;
