@@ -34,7 +34,9 @@ class BiologyAuthUtils implements IBiologyAuth {
   };
 
   getPassword = async () => {
-    if (!secureStorage.supportSecureStorage()) return;
+    if (!secureStorage.supportSecureStorage()) {
+      throw new Error('No password');
+    }
     let text = await secureStorage.getSecureItem('password');
     if (text) {
       const settings = await settingsPersistAtom.get();
