@@ -87,7 +87,7 @@ function UTXODetails() {
               {`#${padStart(String(index), 2, '0')}`}
             </SizableText>
             <YStack flex={1}>
-              <SizableText flex={1} numberOfLines={999} size="$bodyMdMedium">
+              <SizableText flex={1} size="$bodyMdMedium">
                 {utxo.address}
               </SizableText>
               <SizableText color="$textSubdued" size="$bodyMd">
