@@ -584,6 +584,12 @@ export default class Vault extends VaultBase {
     return Promise.resolve(true);
   }
 
+  override precheckUnsignedTx(params: {
+    unsignedTx: IUnsignedTxPro;
+  }): Promise<boolean> {
+    throw new InvalidTransferValue();
+  }
+
   async _getAuthorization({
     accountId,
     networkId,
