@@ -52,8 +52,8 @@ export type IFetchAccountDetailsResp = {
   };
   frozenBalance?: string;
   frozenBalanceParsed?: string;
-  availableBalance?: string;
-  availableBalanceParsed?: string;
+  totalBalance?: string;
+  totalBalanceParsed?: string;
 };
 
 export type IValidateAddressResp = {

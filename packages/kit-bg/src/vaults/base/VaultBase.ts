@@ -283,7 +283,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
-  async validateSendAmount() {
+  async validateSendAmount(params: {
+    amount: string;
+    tokenBalance: string;
+    to: string;
+  }) {
     return Promise.resolve(true);
   }
 
