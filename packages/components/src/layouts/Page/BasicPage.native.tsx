@@ -1,10 +1,15 @@
 import type { PropsWithChildren } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { Dimensions, type LayoutChangeEvent } from 'react-native';
 import { AnimatePresence } from 'tamagui';
 
-import { OptimizationView } from '../../optimization';
-import { Spinner, Stack } from '../../primitives';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { EPageType, usePageType } from '../../hocs';
+import { Spinner, Stack, View } from '../../primitives';
+
+import { useTabBarHeight } from './hooks';
 
 import type { IBasicPageProps } from './type';
 
@@ -15,6 +20,20 @@ function Loading() {
     </Stack>
   );
 }
+
+// On iOS, in the tab container, when initializing the page,
+//  the elements cannot fill the container space, so a minimum height needs to be set
+const useMinHeight = () => {
+  const pageType = usePageType();
+  const tabHeight = useTabBarHeight();
+  if (!platformEnv.isNativeIOS) {
+    return undefined;
+  }
+  if (pageType !== EPageType.modal) {
+    return Dimensions.get('window').height - tabHeight;
+  }
+  return undefined;
+};
 
 function LoadingScreen({ children }: PropsWithChildren<unknown>) {
   const [showLoading, changeLoadingVisibleStatus] = useState(true);
@@ -29,12 +48,14 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
     }, 0);
   }, []);
 
+  const minHeight = useMinHeight();
   return (
-    <OptimizationView style={{ flex: 1 }}>
+    <View flex={1} minHeight={minHeight}>
       {showChildren ? children : null}
       <AnimatePresence>
         {showLoading ? (
           <Stack
+            bg="$bgApp"
             position="absolute"
             top={0}
             left={0}
@@ -51,7 +72,7 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
           </Stack>
         ) : null}
       </AnimatePresence>
-    </OptimizationView>
+    </View>
   );
 }
 
