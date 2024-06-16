@@ -20,6 +20,7 @@ import type {
   ITxActionCommonDetailViewProps,
   ITxActionCommonListViewProps,
 } from './types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function TxActionCommonAvatar({
   avatar,
@@ -292,7 +293,10 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
       />
       {target && target.content ? (
         <Container.Item
-          title={target.title ?? intl.formatMessage({ id: 'content__to' })}
+          title={
+            target.title ??
+            intl.formatMessage({ id: ETranslations.content__to })
+          }
           content={target.content}
           description={target.description}
         />
@@ -300,7 +304,10 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
 
       {source && source.content ? (
         <Container.Item
-          title={source.title ?? intl.formatMessage({ id: 'content__from' })}
+          title={
+            source.title ??
+            intl.formatMessage({ id: ETranslations.content__from })
+          }
           content={source.content}
         />
       ) : null}

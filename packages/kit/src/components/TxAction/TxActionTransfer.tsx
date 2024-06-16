@@ -54,6 +54,8 @@ function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
   const receivesWithToken = receives.filter((receive) => !receive.isNFT);
   const receivesWithNFT = receives.filter((receive) => receive.isNFT);
 
+  const isSendToSelf = from && to && from === to && !isEmpty(sends);
+
   if (!isEmpty(sends) && isEmpty(receives)) {
     const targets = uniq(map(sends, 'to'));
     if (targets.length === 1) {
@@ -92,7 +94,7 @@ function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
 
   return {
     sends,
-    receives,
+    receives: isSendToSelf ? [] : receives,
     from,
     to,
     label: label ?? '',
@@ -439,7 +441,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         transferElements.push(
           <Container.Item
             key={`${index}-amount`}
-            title={intl.formatMessage({ id: 'content__amount' })}
+            title={intl.formatMessage({ id: ETranslations.content__amount })}
             content={transfersContent}
           />,
         );
@@ -449,8 +451,8 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             title={intl.formatMessage({
               id:
                 direction === EDecodedTxDirection.OUT
-                  ? 'content__to'
-                  : 'content__from',
+                  ? ETranslations.content__to
+                  : ETranslations.content__from,
             })}
             content={target}
             description={
@@ -469,7 +471,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         transferElements.push(
           <Container.Item
             key="from"
-            title={intl.formatMessage({ id: 'content__from' })}
+            title={intl.formatMessage({ id: ETranslations.content__from })}
             content={from}
           />,
         );
@@ -477,7 +479,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
       transferElements.push(
         <Container.Item
-          title={intl.formatMessage({ id: 'network__network' })}
+          title={intl.formatMessage({ id: ETranslations.network__network })}
           content={
             <XStack alignItems="center" space="$1">
               <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />

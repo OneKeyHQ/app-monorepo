@@ -1,5 +1,6 @@
 import { useIntl } from 'react-intl';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
@@ -35,7 +36,7 @@ function TxActionUnknownListView(props: ITxActionProps) {
     });
 
   const title = intl.formatMessage({
-    id: 'transaction__contract_interaction',
+    id: ETranslations.transaction__contract_interaction,
   });
   const avatar: ITxActionCommonListViewProps['avatar'] = {
     src: unknownIcon,
@@ -70,13 +71,18 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
     <TxActionCommonDetailView
       overview={{
         content: intl.formatMessage({
-          id: 'transaction__contract_interaction',
+          id: ETranslations.transaction__contract_interaction,
         }),
         avatar: {
           src: unknownIcon,
         },
       }}
-      target={{ title: 'To Contract', content: unknownTo }}
+      target={{
+        title: intl.formatMessage({
+          id: ETranslations.transaction_to_contract,
+        }),
+        content: unknownTo,
+      }}
       source={{ content: unknownFrom }}
     />
   );

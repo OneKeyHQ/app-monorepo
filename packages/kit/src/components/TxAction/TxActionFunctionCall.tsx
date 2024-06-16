@@ -1,5 +1,6 @@
 import { useIntl } from 'react-intl';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
@@ -77,7 +78,9 @@ function TxActionFunctionCallDetailView(props: ITxActionProps) {
   return (
     <TxActionCommonDetailView
       overview={{
-        title: intl.formatMessage({ id: 'transaction__contract_interaction' }),
+        title: intl.formatMessage({
+          id: ETranslations.transaction__contract_interaction,
+        }),
         content: functionName,
         avatar: {
           src: functionIcon,

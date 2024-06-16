@@ -2,6 +2,7 @@ import type { IDecodedTxExtraAlgo } from '@onekeyhq/core/src/chains/algo/types';
 import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import type { IFeeInfoUnit } from './fee';
+import { EOnChainHistoryTxType } from './history';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received
@@ -58,6 +59,12 @@ export type IDecodedTxInteractInfo = {
   provider?: string;
 };
 
+export type IDecodedTxPayload = {
+  value: string;
+  label: string;
+  type: EOnChainHistoryTxType;
+};
+
 export type IUtxoAddressInfo = {
   address: string;
   balance: string;
@@ -99,7 +106,7 @@ export type IDecodedTx = {
   encodedTx?: IEncodedTx;
   // used for speed up double check if encodedTx modified by some bugs
   encodedTxEncrypted?: string;
-  payload?: any;
+  payload?: IDecodedTxPayload;
 
   tokenIdOnNetwork?: string; // indicates this tx belongs to which token
   nativeAmount?: string;
