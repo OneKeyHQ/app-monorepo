@@ -152,12 +152,28 @@ export function DeriveTypeSelectorTrigger({
 }: IDeriveTypeSelectorTriggerPropsBase & {
   num: number;
 }) {
+  const intl = useIntl();
   const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const {
     activeAccount: { deriveInfoItems, deriveInfo },
   } = useActiveAccount({ num });
+
+  const options = useMemo(
+    () =>
+      deriveInfoItems.map(({ value, label, item, ...i }) => ({
+        value,
+        label: item.labelKey
+          ? intl.formatMessage({ id: item.labelKey })
+          : label,
+        item,
+        ...i,
+      })),
+    [deriveInfoItems, intl],
+  );
+
+  console.log('__deriveInfoItems', deriveInfoItems);
 
   if (!selectedAccount.walletId) {
     return null;
@@ -180,7 +196,7 @@ export function DeriveTypeSelectorTrigger({
         { template: deriveInfo?.template || '' },
       )}`}
       value={selectedAccount.deriveType}
-      items={deriveInfoItems}
+      items={options}
       onChange={(type) =>
         actions.current.updateSelectedAccountDeriveType({
           num,
