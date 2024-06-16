@@ -23,6 +23,7 @@ class BiologyAuthUtils implements IBiologyAuth {
   }
 
   savePassword = async (password: string) => {
+    if (!secureStorage.supportSecureStorage()) return;
     let text = decodeSensitiveText({ encodedText: password });
     const settings = await settingsPersistAtom.get();
     text = encodeSensitiveText({
@@ -33,6 +34,7 @@ class BiologyAuthUtils implements IBiologyAuth {
   };
 
   getPassword = async () => {
+    if (!secureStorage.supportSecureStorage()) return;
     let text = await secureStorage.getSecureItem('password');
     if (text) {
       const settings = await settingsPersistAtom.get();
@@ -47,6 +49,7 @@ class BiologyAuthUtils implements IBiologyAuth {
   };
 
   deletePassword = async () => {
+    if (!secureStorage.supportSecureStorage()) return;
     await secureStorage.removeSecureItem('password');
   };
 }

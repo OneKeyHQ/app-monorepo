@@ -11,10 +11,13 @@ const getSecureItem: (key: string) => Promise<string | null> = async (
 const removeSecureItem = async (key: string) =>
   Promise.reject(new Error('no supported'));
 
+const supportSecureStorage = () => false;
+
 const storage: ISecureStorage = {
   setSecureItem,
   getSecureItem,
   removeSecureItem,
+  supportSecureStorage,
 };
 
 export default storage;
