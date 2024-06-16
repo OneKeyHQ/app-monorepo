@@ -53,10 +53,17 @@ const SecureQRToastBase = ({
     onConfirm?.();
   }, [onConfirm]);
   return (
-    <YStack p="$5" tabIndex={-1} minWidth={353} $md={{ minWidth: 300 }}>
+    <YStack
+      p="$5"
+      tabIndex={-1}
+      $gtMd={{
+        maxWidth: '$96',
+      }}
+    >
       <XStack ai="center" pb="$5">
         <SizableText size="$headingLg" flex={1}>
-          {title || 'Confirm on device'}
+          {title ||
+            intl.formatMessage({ id: ETranslations.global_confirm_on_device })}
         </SizableText>
         <Stack>
           <IconButton
@@ -91,7 +98,10 @@ const SecureQRToastBase = ({
         ) : null}
       </HeightTransition>
       <SizableText size="$bodyLg" pb="$5">
-        {message || 'Scan the QR code with your device to verify the details.'}
+        {message ||
+          intl.formatMessage({
+            id: ETranslations.san_qr_code_to_verify_details,
+          })}
       </SizableText>
       <XStack space="$2.5">
         <Button variant="secondary" onPress={handleCancel} flex={1}>
@@ -99,7 +109,10 @@ const SecureQRToastBase = ({
         </Button>
         {showConfirmButton ? (
           <Button variant="primary" onPress={handleConfirm} flex={1}>
-            {onConfirmText || 'Next'}
+            {onConfirmText ||
+              intl.formatMessage({
+                id: ETranslations.global_next,
+              })}
           </Button>
         ) : null}
       </XStack>

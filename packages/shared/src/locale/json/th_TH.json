@@ -1209,6 +1209,7 @@
   "title__edit_fee": "ค่าแก้ไข",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "โทเค็นที่คุณค้นหาไม่พบ",
   "token_selector.empty_content": "โทเค็นที่เลือกไม่สนับสนุนการโอนข้ามเชนไปยังเครือข่ายนี้",
   "token_selector.empty_title": "ไม่รองรับ",
   "token_selector.network": "เครือข่าย",

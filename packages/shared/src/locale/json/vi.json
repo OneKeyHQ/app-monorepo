@@ -1209,6 +1209,7 @@
   "title__edit_fee": "Phí Chỉnh sửa",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "Token bạn đã tìm kiếm không được tìm thấy",
   "token_selector.empty_content": "Token được chọn không hỗ trợ chuyển chuỗi sang mạng lưới này.",
   "token_selector.empty_title": "Không được hỗ trợ",
   "token_selector.network": "Mạng",

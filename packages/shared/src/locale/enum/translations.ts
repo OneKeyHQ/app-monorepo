@@ -1209,6 +1209,7 @@ export enum ETranslations {
   title__edit_fee = 'title__edit_fee',
   title__invoice_description = 'title__invoice_description',
   title__lnurl_pay = 'title__lnurl_pay',
+  token_no_search_results_desc = 'token_no_search_results_desc',
   token_selector_empty_content = 'token_selector.empty_content',
   token_selector_empty_title = 'token_selector.empty_title',
   token_selector_network = 'token_selector.network',
