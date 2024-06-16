@@ -291,16 +291,6 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
           </XStack>
         }
       />
-      {target && target.content ? (
-        <Container.Item
-          title={
-            target.title ??
-            intl.formatMessage({ id: ETranslations.content__to })
-          }
-          content={target.content}
-          description={target.description}
-        />
-      ) : null}
 
       {source && source.content ? (
         <Container.Item
@@ -309,6 +299,17 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
             intl.formatMessage({ id: ETranslations.content__from })
           }
           content={source.content}
+        />
+      ) : null}
+
+      {target && target.content ? (
+        <Container.Item
+          title={
+            target.title ??
+            intl.formatMessage({ id: ETranslations.content__to })
+          }
+          content={target.content}
+          description={target.description}
         />
       ) : null}
     </Container.Box>

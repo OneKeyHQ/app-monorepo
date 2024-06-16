@@ -11,6 +11,7 @@ import {
 } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
+import { AddressInfo } from '../AddressInfo';
 
 function getTxActionUnknownInfo(props: ITxActionProps) {
   const { action } = props;
@@ -65,6 +66,7 @@ function TxActionUnknownListView(props: ITxActionProps) {
 
 function TxActionUnknownDetailView(props: ITxActionProps) {
   const intl = useIntl();
+  const { decodedTx } = props;
   const { unknownFrom, unknownTo, unknownIcon } = getTxActionUnknownInfo(props);
 
   return (
@@ -82,8 +84,23 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
           id: ETranslations.transaction_to_contract,
         }),
         content: unknownTo,
+        description: {
+          content: (
+            <AddressInfo address={unknownTo} networkId={decodedTx.networkId} />
+          ),
+        },
       }}
-      source={{ content: unknownFrom }}
+      source={{
+        content: unknownFrom,
+        description: {
+          content: (
+            <AddressInfo
+              address={unknownFrom}
+              networkId={decodedTx.networkId}
+            />
+          ),
+        },
+      }}
     />
   );
 }

@@ -33,6 +33,7 @@ import { TxActionCommonListView } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
+import { AddressInfo } from '../AddressInfo';
 
 type ITransferBlock = {
   target: string;
@@ -445,6 +446,20 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             content={transfersContent}
           />,
         );
+        if (direction === EDecodedTxDirection.OUT) {
+          transferElements.push(
+            <Container.Item
+              key="from"
+              title={intl.formatMessage({ id: ETranslations.content__from })}
+              content={from}
+              description={{
+                content: (
+                  <AddressInfo address={from} networkId={decodedTx.networkId} />
+                ),
+              }}
+            />,
+          );
+        }
         transferElements.push(
           <Container.Item
             key={`${index}-target`}
@@ -455,27 +470,14 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   : ETranslations.content__from,
             })}
             content={target}
-            description={
-              decodedTx.toAddressLabel && direction === EDecodedTxDirection.OUT
-                ? {
-                    icon: 'NoteSolid',
-                    content: decodedTx.toAddressLabel,
-                  }
-                : undefined
-            }
+            description={{
+              content: (
+                <AddressInfo address={target} networkId={decodedTx.networkId} />
+              ),
+            }}
           />,
         );
       });
-
-      if (direction === EDecodedTxDirection.OUT) {
-        transferElements.push(
-          <Container.Item
-            key="from"
-            title={intl.formatMessage({ id: ETranslations.content__from })}
-            content={from}
-          />,
-        );
-      }
 
       transferElements.push(
         <Container.Item
@@ -492,7 +494,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       return <Container.Box>{transferElements}</Container.Box>;
     },
     [
-      decodedTx.toAddressLabel,
+      decodedTx.networkId,
       from,
       intl,
       isSendNativeToken,

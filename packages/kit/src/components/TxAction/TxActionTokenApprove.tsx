@@ -5,6 +5,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
+import { AddressInfo } from '../AddressInfo';
 
 import {
   TxActionCommonDetailView,
@@ -134,15 +135,19 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
         },
       }}
       target={{
-        content: approveSpender,
-        description: decodedTx.toAddressLabel
-          ? {
-              icon: 'NoteSolid',
-              content: decodedTx.toAddressLabel,
-            }
-          : undefined,
+        content: decodedTx.to ?? approveSpender,
       }}
-      source={{ content: approveOwner }}
+      source={{
+        content: approveOwner,
+        description: {
+          content: (
+            <AddressInfo
+              address={approveOwner}
+              networkId={decodedTx.networkId}
+            />
+          ),
+        },
+      }}
     />
   );
 }

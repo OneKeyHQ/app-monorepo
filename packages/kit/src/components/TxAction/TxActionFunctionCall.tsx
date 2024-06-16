@@ -11,6 +11,7 @@ import {
 } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
+import { AddressInfo } from '../AddressInfo';
 
 function getTxActionFunctionCallInfo(props: ITxActionProps) {
   const { action } = props;
@@ -72,6 +73,7 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
 
 function TxActionFunctionCallDetailView(props: ITxActionProps) {
   const intl = useIntl();
+  const { decodedTx } = props;
   const { functionFrom, functionTo, functionName, functionIcon } =
     getTxActionFunctionCallInfo(props);
 
@@ -87,7 +89,17 @@ function TxActionFunctionCallDetailView(props: ITxActionProps) {
         },
       }}
       target={{ title: 'To Contract', content: functionTo }}
-      source={{ content: functionFrom }}
+      source={{
+        content: functionFrom,
+        description: {
+          content: (
+            <AddressInfo
+              address={functionFrom}
+              networkId={decodedTx.networkId}
+            />
+          ),
+        },
+      }}
     />
   );
 }

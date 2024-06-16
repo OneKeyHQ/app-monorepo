@@ -46,6 +46,7 @@ import { openUrl } from '../../../utils/openUrl';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
+import { AddressInfo } from '../../../components/AddressInfo';
 
 function getTxStatusTextProps(status: EDecodedTxStatus): {
   key: ETranslations;
@@ -82,6 +83,7 @@ export function InfoItemGroup({ children, ...rest }: IXStackProps) {
 export function InfoItem({
   label,
   renderContent,
+  description,
   compact = false,
   showCopy = false,
   showOpenWithUrl = undefined,
@@ -90,6 +92,7 @@ export function InfoItem({
 }: {
   label?: string;
   renderContent: ReactNode;
+  description?: ReactNode;
   compact?: boolean;
   disabledCopy?: boolean;
   showCopy?: boolean;
@@ -127,6 +130,7 @@ export function InfoItem({
           >
             {renderContent}
           </SizableText>
+          {description || null}
           <XStack space="$2">
             {showCopy ? (
               <IconButton
@@ -546,8 +550,22 @@ function HistoryDetails() {
     if (txAddresses.from && txAddresses.to && txAddresses.isSingleTransfer) {
       return (
         <>
-          <InfoItem label="From" renderContent={txAddresses.from} showCopy />
-          <InfoItem label="To" renderContent={txAddresses.to} showCopy />
+          <InfoItem
+            label="From"
+            renderContent={txAddresses.from}
+            showCopy
+            description={
+              <AddressInfo address={txAddresses.from} networkId={networkId} />
+            }
+          />
+          <InfoItem
+            label="To"
+            renderContent={txAddresses.to}
+            showCopy
+            description={
+              <AddressInfo address={txAddresses.to} networkId={networkId} />
+            }
+          />
         </>
       );
     }
@@ -562,6 +580,7 @@ function HistoryDetails() {
       );
     }
   }, [
+    networkId,
     txAddresses.from,
     txAddresses.isSingleTransfer,
     txAddresses.to,
