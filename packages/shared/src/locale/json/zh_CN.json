@@ -1209,6 +1209,7 @@
   "title__edit_fee": "编辑费",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "您搜索的代币未找到",
   "token_selector.empty_content": "所选的代币不支持跨链到此网络。",
   "token_selector.empty_title": "不支持",
   "token_selector.network": "网络",

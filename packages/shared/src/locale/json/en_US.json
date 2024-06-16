@@ -1209,6 +1209,7 @@
   "title__edit_fee": "Edit Fee",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "The token you searched for was not found",
   "token_selector.empty_content": "The token selected does not support cross-chain to this network.",
   "token_selector.empty_title": "Unsupported",
   "token_selector.network": "Network",

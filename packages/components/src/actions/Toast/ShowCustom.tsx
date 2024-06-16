@@ -86,8 +86,8 @@ function BasicShowToaster(
         alignContent="center"
         multipleToasts={false}
         justifyContent="center"
-        px="$8"
-        py={top || '$12'}
+        px="$5"
+        py={top || '$5'}
       />
 
       <Stack
