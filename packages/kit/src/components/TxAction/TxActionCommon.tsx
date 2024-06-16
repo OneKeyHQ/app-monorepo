@@ -299,6 +299,7 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
             intl.formatMessage({ id: ETranslations.content__from })
           }
           content={source.content}
+          description={source.description}
         />
       ) : null}
 
