@@ -24,6 +24,7 @@ export type ILidoEthOverview = {
   eth: ILidoTokenItem;
   stETH: ILidoTokenItem;
   minWithdrawAmount: string;
+  minTransactionFee?: string;
 };
 
 export type ILidoMaticRequest = {
