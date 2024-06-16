@@ -24,7 +24,7 @@ const EthLidoWithdraw = () => {
   const lidoWithdraw = useLidoWithdraw({ accountId, networkId });
   const onConfirm = useCallback(
     async (value: string) => {
-      const amount = BigNumber(value).shiftedBy(token.decimals).toFixed();
+      const amount = BigNumber(value).shiftedBy(token.decimals).toFixed(0);
       await lidoWithdraw({
         amount,
         stakingInfo: {
