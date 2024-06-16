@@ -422,6 +422,7 @@
   "form.address_error_invalid": "Invalid address",
   "form.address_placeholder": "Address or domain",
   "form.amount_placeholder": "Enter amount",
+  "form.amount_recipient_activate": "Recipient requires reserve {amount} {unit} to activate",
   "form.confirm_passphrase": "Confirm passphrase",
   "form.confirm_passphrase_placeholder": "Re-enter your passphrase",
   "form.enter_private_key_placeholder": "Enter your private key",
