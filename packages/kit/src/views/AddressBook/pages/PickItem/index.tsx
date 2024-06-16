@@ -29,7 +29,6 @@ const PickItemPage = () => {
       >
     >();
   const { onPick, networkId } = route.params;
-  const [searchKey, setSearchKey] = useState<string>('');
   const { isLoading, result } = useAddressBookItems(networkId);
   const navigation = useAppNavigation();
 
@@ -53,20 +52,11 @@ const PickItemPage = () => {
         title={intl.formatMessage({
           id: ETranslations.address_book_select_title,
         })}
-        headerSearchBarOptions={{
-          placeholder: intl.formatMessage({
-            id: ETranslations.address_book_search_placeholder,
-          }),
-          onChangeText(e) {
-            setSearchKey(e.nativeEvent.text);
-          },
-        }}
       />
       <Page.Body px="$4">
         <AddressBookListContent
           onPressItem={onPressItem}
           items={result?.items ?? []}
-          searchKey={searchKey.trim()}
           hideEmptyAddButton
         />
       </Page.Body>
