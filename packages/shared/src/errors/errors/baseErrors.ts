@@ -39,6 +39,8 @@ export class OneKeyError<
 
   autoToast?: boolean | undefined;
 
+  requestId?: string | undefined;
+
   constructor(
     errorProps?: IOneKeyError<I18nInfoT, DataT> | string,
     info?: I18nInfoT,
@@ -50,6 +52,7 @@ export class OneKeyError<
     let infoData: I18nInfoT | undefined;
     let hardwareErrorPayload: IOneKeyHardwareErrorPayload | undefined;
     let autoToast: boolean | undefined;
+    let requestId: string | undefined;
     if (!isString(errorProps) && errorProps && isObject(errorProps)) {
       ({
         message: msg,
@@ -58,6 +61,7 @@ export class OneKeyError<
         info: infoData,
         key,
         autoToast,
+        requestId,
         payload: hardwareErrorPayload,
       } = errorProps);
     } else {
@@ -84,6 +88,7 @@ export class OneKeyError<
       this.payload = hardwareErrorPayload;
     }
     this.autoToast = autoToast;
+    this.requestId = requestId;
   }
 
   // for jest only: this is not stable, do not use it. may be different in compressed code
@@ -95,6 +100,7 @@ export class OneKeyError<
     const serialized: {
       code: number;
       message: string;
+      requestId?: string;
       data?: DataT;
       stack?: string;
     } = {
@@ -103,6 +109,9 @@ export class OneKeyError<
     };
     if (this.data !== undefined) {
       serialized.data = this.data;
+    }
+    if (this.requestId !== undefined) {
+      serialized.requestId = this.requestId;
     }
     // TODO read error.stack cause app crash
     // if (this.stack) {

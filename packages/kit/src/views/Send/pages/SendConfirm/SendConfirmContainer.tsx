@@ -45,6 +45,7 @@ function SendConfirmContainer() {
     sourceInfo,
     signOnly,
     useFeeInTx,
+    transferPayload,
   } = route.params;
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -68,20 +69,24 @@ function SendConfirmContainer() {
       }),
       backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
     ]);
-    const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId,
-    });
+    const checkInscriptionProtectionEnabled =
+      await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        {
+          networkId,
+          accountId,
+        },
+      );
+    const withCheckInscription =
+      checkInscriptionProtectionEnabled && settings.inscriptionProtection;
     const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       networkId,
       accountAddress,
       contractList: [nativeTokenAddress],
       xpub,
       withFrozenBalance: true,
-      withCheckInscription: settings.inscriptionProtection,
+      withCheckInscription,
     });
-    const balance = vs.hasFrozenBalance
-      ? r[0].availableBalanceParsed ?? '0'
-      : r[0].balanceParsed;
+    const balance = r[0].balanceParsed;
     updateNativeTokenInfo({
       isLoading: false,
       balance,
@@ -122,6 +127,7 @@ function SendConfirmContainer() {
                 accountId={accountId}
                 networkId={networkId}
                 tableLayout={tableLayout}
+                transferPayload={transferPayload}
               />
               <YStack>
                 <TxFeeContainer
@@ -151,7 +157,11 @@ function SendConfirmContainer() {
       <>
         <Page.Body px="$5" space="$4">
           <TxSourceInfoContainer sourceInfo={sourceInfo} />
-          <TxActionsContainer accountId={accountId} networkId={networkId} />
+          <TxActionsContainer
+            accountId={accountId}
+            networkId={networkId}
+            transferPayload={transferPayload}
+          />
           <TxFeeContainer
             accountId={accountId}
             networkId={networkId}
@@ -180,6 +190,7 @@ function SendConfirmContainer() {
     onSuccess,
     onFail,
     onCancel,
+    transferPayload,
   ]);
 
   return (

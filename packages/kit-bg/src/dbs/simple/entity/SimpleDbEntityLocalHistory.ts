@@ -96,11 +96,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
       const confirmedTx = confirmedTxs?.find((item) => item.id === tx.id);
 
-      if (
-        (!onChainHistoryTx ||
-          onChainHistoryTx.decodedTx.status === EDecodedTxStatus.Pending) &&
-        !confirmedTx
-      ) {
+      if (!onChainHistoryTx && !confirmedTx) {
         newPendingTxs.push(tx);
       }
     }

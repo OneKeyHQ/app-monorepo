@@ -250,11 +250,13 @@ class ServiceDApp extends ServiceBase {
     unsignedMessage,
     accountId,
     networkId,
+    sceneName,
   }: {
     request: IJsBridgeMessagePayload;
     unsignedMessage: IUnsignedMessage;
     accountId: string;
     networkId: string;
+    sceneName?: EAccountSelectorSceneName;
   }) {
     if (!accountId || !networkId) {
       throw new Error('accountId and networkId required');
@@ -266,6 +268,7 @@ class ServiceDApp extends ServiceBase {
         unsignedMessage,
         accountId,
         networkId,
+        sceneName,
       },
       fullScreen: true,
     });

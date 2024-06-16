@@ -8,6 +8,7 @@ import {
   ActionList,
   Empty,
   IconButton,
+  SearchBar,
   SectionList,
   SizableText,
   Stack,
@@ -195,7 +196,6 @@ type IAddressBookListContentProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   showActions?: boolean;
   onPressItem?: (item: IAddressItem) => void;
-  searchKey: string;
   hideEmptyAddButton?: boolean;
 };
 
@@ -204,9 +204,10 @@ export const AddressBookListContent = ({
   onContentSizeChange,
   showActions,
   onPressItem,
-  searchKey,
   hideEmptyAddButton,
 }: IAddressBookListContentProps) => {
+  const intl = useIntl();
+  const [searchKey, setSearchKey] = useState('');
   const [foldItems, setFoldItems] = useState<string[]>([]);
   const onToggle = useCallback(
     (o: string) =>
@@ -313,21 +314,31 @@ export const AddressBookListContent = ({
   }, [foldItems, items, searchKey]);
 
   return (
-    <SectionList
-      onContentSizeChange={onContentSizeChange}
-      estimatedItemSize="$6"
-      sections={memoSections}
-      renderSectionHeader={renderSectionHeader}
-      renderItem={renderItem}
-      SectionSeparatorComponent={null}
-      ListEmptyComponent={
-        items.length ? (
-          RenderNoSearchResult
-        ) : (
-          <RenderEmptyAddressBook hideAddItemButton={hideEmptyAddButton} />
-        )
-      }
-      keyExtractor={(item: unknown) => (item as IAddressItem).address}
-    />
+    <Stack flex={1}>
+      <Stack px="$5">
+        <SearchBar
+          placeholder={intl.formatMessage({ id: ETranslations.global_search })}
+          value={searchKey}
+          onChangeText={(text) => setSearchKey(text)}
+        />
+      </Stack>
+      <SectionList
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={onContentSizeChange}
+        estimatedItemSize="$6"
+        sections={memoSections}
+        renderSectionHeader={renderSectionHeader}
+        renderItem={renderItem}
+        SectionSeparatorComponent={null}
+        ListEmptyComponent={
+          items.length ? (
+            RenderNoSearchResult
+          ) : (
+            <RenderEmptyAddressBook hideAddItemButton={hideEmptyAddButton} />
+          )
+        }
+        keyExtractor={(item: unknown) => (item as IAddressItem).address}
+      />
+    </Stack>
   );
 };

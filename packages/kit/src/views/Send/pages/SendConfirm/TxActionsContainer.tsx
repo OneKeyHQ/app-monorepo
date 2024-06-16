@@ -2,8 +2,9 @@ import { memo, useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { YStack } from '@onekeyhq/components';
+import { Skeleton, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Container } from '@onekeyhq/kit/src/components/Container';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -13,6 +14,7 @@ import {
   useSendSelectedFeeInfoAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   calculateNativeAmountInActions,
   isSendNativeTokenAction,
@@ -23,10 +25,11 @@ type IProps = {
   accountId: string;
   networkId: string;
   tableLayout?: boolean;
+  transferPayload?: ITransferPayload;
 };
 
 function TxActionsContainer(props: IProps) {
-  const { accountId, networkId, tableLayout } = props;
+  const { accountId, networkId, tableLayout, transferPayload } = props;
   const {
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,
@@ -79,7 +82,6 @@ function TxActionsContainer(props: IProps) {
           nativeTokenTransferBN,
         );
         const amountToUpdate = transferAmountBN.minus(feeBN);
-
         if (amountToUpdate.gte(0)) {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: true,
@@ -88,13 +90,15 @@ function TxActionsContainer(props: IProps) {
         } else {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: false,
-            amountToUpdate: nativeTokenTransferBN.toFixed(),
+            amountToUpdate:
+              transferPayload?.amountToSend ?? nativeTokenTransferBN.toFixed(),
           });
         }
       } else {
         updateNativeTokenTransferAmountToUpdate({
           isMaxSend: false,
-          amountToUpdate: nativeTokenTransferBN.toFixed(),
+          amountToUpdate:
+            transferPayload?.amountToSend ?? nativeTokenTransferBN.toFixed(),
         });
       }
     }
@@ -106,12 +110,34 @@ function TxActionsContainer(props: IProps) {
     r.result,
     sendSelectedFeeInfo,
     sendSelectedFeeInfo?.totalNative,
+    transferPayload,
+    transferPayload?.amountToSend,
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,
   ]);
 
   const renderActions = useCallback(() => {
     const decodedTxs = r.result ?? [];
+
+    if (nativeTokenInfo.isLoading) {
+      return (
+        <Container.Box>
+          <Container.Item
+            title={<Skeleton h="$4" w="$48" />}
+            content={<Skeleton w="$80" />}
+          />
+          <Container.Item
+            title={<Skeleton h="$4" w="$48" />}
+            content={<Skeleton w="$80" />}
+          />
+          <Container.Item
+            title={<Skeleton h="$4" w="$48" />}
+            content={<Skeleton w="$80" />}
+          />
+        </Container.Box>
+      );
+    }
+
     return decodedTxs.map((decodedTx, index) => (
       <TxActionsListView
         key={index}
@@ -126,6 +152,7 @@ function TxActionsContainer(props: IProps) {
     ));
   }, [
     isSendNativeToken,
+    nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     r.result,
     tableLayout,

@@ -314,6 +314,9 @@ function SendDataInputContainer() {
       await sendConfirm.navigationToSendConfirm({
         transfersInfo,
         sameModal: true,
+        transferPayload: {
+          amountToSend: realAmount,
+        },
       });
       setIsSubmitting(false);
     } catch (e: any) {
@@ -337,7 +340,7 @@ function SendDataInputContainer() {
     tokenDetails,
   ]);
   const handleValidateTokenAmount = useCallback(
-    (value: string) => {
+    async (value: string) => {
       const amountBN = new BigNumber(value ?? 0);
       let isInsufficientBalance = false;
       let isLessThanMinTransferAmount = false;
@@ -385,6 +388,20 @@ function SendDataInputContainer() {
           },
         );
 
+      try {
+        const toRaw = form.getValues('to').raw;
+        await backgroundApiProxy.serviceValidator.validateSendAmount({
+          accountId,
+          networkId,
+          amount: amountBN.toString(),
+          tokenBalance: tokenDetails?.balanceParsed ?? '0',
+          to: toRaw ?? '',
+        });
+      } catch (e) {
+        console.log('error: ', e);
+        return (e as Error).message;
+      }
+
       return true;
     },
     [
@@ -395,6 +412,9 @@ function SendDataInputContainer() {
       tokenDetails?.price,
       tokenSymbol,
       vaultSettings?.minTransferAmount,
+      form,
+      accountId,
+      networkId,
     ],
   );
 
@@ -426,23 +446,10 @@ function SendDataInputContainer() {
 
   const maxAmount = useMemo(() => {
     if (isUseFiat) {
-      if (hasFrozenBalance) {
-        return tokenDetails?.availableBalanceFiatValue ?? '0';
-      }
       return tokenDetails?.fiatValue ?? '0';
     }
-    if (hasFrozenBalance) {
-      return tokenDetails?.availableBalanceParsed ?? '0';
-    }
     return tokenDetails?.balanceParsed ?? '0';
-  }, [
-    isUseFiat,
-    tokenDetails?.balanceParsed,
-    tokenDetails?.availableBalanceParsed,
-    tokenDetails?.fiatValue,
-    tokenDetails?.availableBalanceFiatValue,
-    hasFrozenBalance,
-  ]);
+  }, [isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue]);
 
   const renderTokenDataInputForm = useCallback(
     () => (

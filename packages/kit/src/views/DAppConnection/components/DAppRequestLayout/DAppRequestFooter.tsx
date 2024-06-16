@@ -60,7 +60,9 @@ function DAppRequestFooter({
     >
       {showContinueOperateCheckbox ? (
         <Checkbox
-          label="Proceed at my own risk"
+          label={intl.formatMessage({
+            id: ETranslations.dapp_connect_proceed_at_my_own_risk,
+          })}
           value={continueOperate}
           onChange={setContinueOperate}
         />

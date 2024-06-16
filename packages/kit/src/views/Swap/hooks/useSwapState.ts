@@ -152,19 +152,19 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount);
       const balanceBN = new BigNumber(selectedFromTokenBalance ?? 0);
-      const reserveBN = new BigNumber(fromToken?.reservationValue ?? 0);
-      const afterReserveBalance = balanceBN.minus(reserveBN);
-      if (
-        afterReserveBalance.lt(0) ||
-        fromTokenAmountBN.gt(afterReserveBalance)
-      ) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_page_button_no_enough_fee,
-        });
-        infoRes.disable = true;
-      }
+      const fromTokenAmountBN = new BigNumber(fromTokenAmount);
+      // const reserveBN = new BigNumber(fromToken?.reservationValue ?? 0);
+      // const afterReserveBalance = balanceBN.minus(reserveBN);
+      // if (
+      //   afterReserveBalance.lt(0) ||
+      //   fromTokenAmountBN.gt(afterReserveBalance)
+      // ) {
+      //   infoRes.label = intl.formatMessage({
+      //     id: ETranslations.swap_page_button_no_enough_fee,
+      //   });
+      //   infoRes.disable = true;
+      // }
       if (
         fromToken &&
         swapFromAddressInfo.address &&
@@ -172,6 +172,19 @@ export function useSwapActionState() {
       ) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_insufficient_balance,
+        });
+        infoRes.disable = true;
+      }
+
+      if (!fromToken || !toToken) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_select_token,
+        });
+        infoRes.disable = true;
+      }
+      if (!fromTokenAmount) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_enter_amount,
         });
         infoRes.disable = true;
       }

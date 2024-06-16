@@ -34,6 +34,7 @@ const settings: IVaultSettings = {
   impl: IMPL_NEURAI,
   coinTypeDefault: COINTYPE_NEURAI,
   minTransferAmount: '0.00000546',
+  hasFrozenBalance: false,
 };
 
 export default Object.freeze(settings);

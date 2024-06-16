@@ -19,9 +19,11 @@ export const UnsafeContent = () => {
   const onConfirm = useCallback(() => {
     Dialog.show({
       title: intl.formatMessage({ id: ETranslations.global_confirm }),
-      icon: 'PlaceholderOutline',
-      description: ETranslations.address_book_confirm_message,
-      tone: 'destructive',
+      icon: 'ShieldKeyholeOutline',
+      description: intl.formatMessage({
+        id: ETranslations.address_book_confirm_message,
+      }),
+      // tone: 'destructive',
       showConfirmButton: true,
       showCancelButton: true,
       onConfirm: async (inst) => {
