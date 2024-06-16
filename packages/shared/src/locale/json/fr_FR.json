@@ -1209,6 +1209,7 @@
   "title__edit_fee": "Frais de modification",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "Le jeton que vous avez recherché n'a pas été trouvé",
   "token_selector.empty_content": "Le jeton sélectionné ne prend pas en charge le transfert inter-chaînes vers ce réseau.",
   "token_selector.empty_title": "Non pris en charge",
   "token_selector.network": "Réseau",

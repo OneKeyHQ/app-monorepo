@@ -28,7 +28,6 @@ export function QrcodeDialogContainer() {
         valueUr,
         drawType,
         dismissOnOverlayPress: false,
-        onConfirmText: 'Next',
         showConfirmButton: Boolean(event.promiseId),
         onConfirm: async () => {
           await toast.close({ flag: 'skipReject' });

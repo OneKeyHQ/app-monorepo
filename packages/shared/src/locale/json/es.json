@@ -1209,6 +1209,7 @@
   "title__edit_fee": "Editar Tarifa",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "El token que buscaste no fue encontrado",
   "token_selector.empty_content": "El token seleccionado no admite el cruce de cadenas a esta red.",
   "token_selector.empty_title": "No compatible",
   "token_selector.network": "Red",

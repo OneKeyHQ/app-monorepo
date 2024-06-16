@@ -1209,6 +1209,7 @@
   "title__edit_fee": "Biaya Edit",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "Token yang Anda cari tidak ditemukan",
   "token_selector.empty_content": "Token yang dipilih tidak mendukung lintas-rantai ke jaringan ini.",
   "token_selector.empty_title": "Tidak didukung",
   "token_selector.network": "Jaringan",

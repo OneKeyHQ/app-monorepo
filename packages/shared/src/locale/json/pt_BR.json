@@ -1209,6 +1209,7 @@
   "title__edit_fee": "Taxa de Edição",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "O token que você procurou não foi encontrado",
   "token_selector.empty_content": "O token selecionado não suporta a transação entre cadeias para esta rede.",
   "token_selector.empty_title": "Não suportado",
   "token_selector.network": "Rede",

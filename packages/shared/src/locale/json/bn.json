@@ -1209,6 +1209,7 @@
   "title__edit_fee": "ফি সম্পাদনা করুন",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "আপনি যে টোকেনটি অনুসন্ধান করেছিলেন তা পাওয়া যায়নি",
   "token_selector.empty_content": "নির্বাচিত টোকেনটি এই নেটওয়ার্কে ক্রস-চেইন সমর্থন করে না।",
   "token_selector.empty_title": "অসমর্থিত",
   "token_selector.network": "নেটওয়ার্ক",

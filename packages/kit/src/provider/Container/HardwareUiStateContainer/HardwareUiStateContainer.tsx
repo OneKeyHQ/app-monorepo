@@ -59,12 +59,14 @@ function HardwareSingletonDialogCmp(
   );
 
   if (action === EHardwareUiStateAction.DeviceChecking) {
-    title.current = 'Checking Device';
+    title.current = intl.formatMessage({
+      id: ETranslations.global_checking_device,
+    });
     content.current = <CommonDeviceLoading />;
   }
 
   if (action === EHardwareUiStateAction.ProcessLoading) {
-    title.current = 'Processing';
+    title.current = intl.formatMessage({ id: ETranslations.global_processing });
     content.current = <CommonDeviceLoading />;
   }
 

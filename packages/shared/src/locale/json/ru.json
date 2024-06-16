@@ -1209,6 +1209,7 @@
   "title__edit_fee": "Редактирование платы",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "Токен, который вы искали, не был найден",
   "token_selector.empty_content": "Выбранный токен не поддерживает перекрестные транзакции в этой сети.",
   "token_selector.empty_title": "Не поддерживается",
   "token_selector.network": "Сеть",

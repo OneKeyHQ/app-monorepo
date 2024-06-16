@@ -135,7 +135,7 @@ function ReceiveToken() {
 
     return (
       <ActionList
-        title="Options"
+        title={intl.formatMessage({ id: ETranslations.global_more })}
         items={[
           {
             icon: isForceShowAction ? 'EyeOutline' : 'EyeOffOutline',

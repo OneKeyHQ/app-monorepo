@@ -16,6 +16,7 @@ import {
   useSendTxStatusAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -81,7 +82,9 @@ function SendConfirmActionsContainer(props: IProps) {
       onSuccess?.(result);
       setIsSubmitting(false);
       Toast.success({
-        title: intl.formatMessage({ id: 'msg__transaction_submitted' }),
+        title: intl.formatMessage({
+          id: ETranslations.feedback_transaction_submitted,
+        }),
       });
 
       const signedTx = result[0].signedTx;
@@ -163,7 +166,11 @@ function SendConfirmActionsContainer(props: IProps) {
           flex: 0,
           disabled: isSubmitting,
         }}
-        onConfirmText={signOnly ? 'Sign' : 'Sign and Broadcast'}
+        onConfirmText={
+          signOnly
+            ? 'Sign'
+            : intl.formatMessage({ id: ETranslations.global_confirm })
+        }
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
       />
@@ -179,7 +186,11 @@ function SendConfirmActionsContainer(props: IProps) {
       cancelButtonProps={{
         disabled: isSubmitting,
       }}
-      onConfirmText={signOnly ? 'Sign' : 'Sign and Broadcast'}
+      onConfirmText={
+        signOnly
+          ? 'Sign'
+          : intl.formatMessage({ id: ETranslations.global_confirm })
+      }
       onConfirm={handleOnConfirm}
       onCancel={handleOnCancel}
     />

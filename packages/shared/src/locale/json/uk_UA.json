@@ -1209,6 +1209,7 @@
   "title__edit_fee": "Плата за редагування",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "Токен, який ви шукали, не було знайдено",
   "token_selector.empty_content": "Вибраний токен не підтримує перехід між ланцюгами до цієї мережі.",
   "token_selector.empty_title": "Не підтримується",
   "token_selector.network": "Мережа",

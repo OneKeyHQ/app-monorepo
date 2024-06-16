@@ -1209,6 +1209,7 @@
   "title__edit_fee": "Modifica Tariffa",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "Il token che hai cercato non è stato trovato",
   "token_selector.empty_content": "Il token selezionato non supporta il cross-chain verso questa rete.",
   "token_selector.empty_title": "Non supportato",
   "token_selector.network": "Rete",

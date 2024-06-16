@@ -1209,6 +1209,7 @@
   "title__edit_fee": "編集料金",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "あなたが検索したトークンは見つかりませんでした",
   "token_selector.empty_content": "選択したトークンは、このネットワークへのクロスチェーンをサポートしていません。",
   "token_selector.empty_title": "サポートされていません",
   "token_selector.network": "ネットワーク",
