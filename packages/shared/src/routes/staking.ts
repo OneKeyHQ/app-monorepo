@@ -26,6 +26,7 @@ export type IModalStakingParamList = {
     token: IToken;
     stToken: IToken;
     apr?: number;
+    minTransactionFee?: string;
   };
   [EModalStakingRoutes.EthLidoWithdraw]: IBaseRouteParams & {
     balance: string;

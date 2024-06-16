@@ -21,8 +21,16 @@ const EthLidoStake = () => {
     IModalStakingParamList,
     EModalStakingRoutes.EthLidoStake
   >();
-  const { accountId, networkId, balance, price, token, apr, stToken } =
-    route.params;
+  const {
+    accountId,
+    networkId,
+    balance,
+    price,
+    token,
+    apr,
+    stToken,
+    minTransactionFee = '0',
+  } = route.params;
   const lidoStake = useLidoStake({ accountId, networkId });
   const appNavigation = useAppNavigation();
   const onConfirm = useCallback(
@@ -53,6 +61,7 @@ const EthLidoStake = () => {
       />
       <Page.Body>
         <LidoStake
+          minTransactionFee={minTransactionFee}
           apr={apr}
           price={price}
           balance={balance}
