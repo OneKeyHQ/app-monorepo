@@ -115,10 +115,12 @@ export const useSafeAreaBottom = () => {
   return safeAreaEnabled && pageType === EPageType.modal ? bottom : 0;
 };
 
+export const TAB_BAR_HEIGHT = 54;
+
 export const useTabBarHeight = () => {
   const { bottom } = useSafeAreaInsets();
   const pageType = usePageType();
-  return pageType === EPageType.modal ? 0 : 64 + bottom;
+  return pageType === EPageType.modal ? 0 : TAB_BAR_HEIGHT + bottom;
 };
 
 export const useSafeKeyboardAnimationStyle = () => {
