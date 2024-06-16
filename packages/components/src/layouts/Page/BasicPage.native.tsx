@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { Dimensions, type LayoutChangeEvent } from 'react-native';
+import { Dimensions } from 'react-native';
 import { AnimatePresence } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,10 +23,13 @@ function Loading() {
 
 // On iOS, in the tab container, when initializing the page,
 //  the elements cannot fill the container space, so a minimum height needs to be set
-const useMinHeight = () => {
+const useMinHeight = (isFullPage: boolean) => {
   const pageType = usePageType();
   const tabHeight = useTabBarHeight();
   if (!platformEnv.isNativeIOS) {
+    return undefined;
+  }
+  if (!isFullPage) {
     return undefined;
   }
   if (pageType !== EPageType.modal) {
@@ -35,7 +38,10 @@ const useMinHeight = () => {
   return undefined;
 };
 
-function LoadingScreen({ children }: PropsWithChildren<unknown>) {
+function LoadingScreen({
+  children,
+  fullPage,
+}: PropsWithChildren<{ fullPage: boolean }>) {
   const [showLoading, changeLoadingVisibleStatus] = useState(true);
   const [showChildren, changeChildrenVisibleStatus] = useState(false);
 
@@ -48,7 +54,7 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
     }, 0);
   }, []);
 
-  const minHeight = useMinHeight();
+  const minHeight = useMinHeight(fullPage);
   return (
     <View flex={1} minHeight={minHeight}>
       {showChildren ? children : null}
@@ -76,10 +82,18 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
   );
 }
 
-export function BasicPage({ children, skipLoading = false }: IBasicPageProps) {
+export function BasicPage({
+  children,
+  skipLoading = false,
+  fullPage = false,
+}: IBasicPageProps) {
   return (
     <Stack bg="$bgApp" flex={1}>
-      {skipLoading ? children : <LoadingScreen>{children}</LoadingScreen>}
+      {skipLoading ? (
+        children
+      ) : (
+        <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
+      )}
     </Stack>
   );
 }
