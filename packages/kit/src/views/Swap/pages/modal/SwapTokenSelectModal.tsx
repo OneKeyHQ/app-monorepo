@@ -411,7 +411,9 @@ const SwapTokenSelectPage = () => {
                   title={intl.formatMessage({
                     id: ETranslations.global_no_results,
                   })}
-                  description="The token you searched for was not found"
+                  description={intl.formatMessage({
+                    id: ETranslations.token_no_search_results_desc,
+                  })}
                 />
               }
             />
