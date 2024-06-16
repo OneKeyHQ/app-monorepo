@@ -991,9 +991,11 @@ function BasicMarketHomeList({
 
   const onSwitchMarketHomeTabCallback = useCallback(
     ({ tabIndex: currentTabIndex }: { tabIndex: number }) => {
-      if (currentTabIndex !== tabIndex) {
-        handleMdSortByTypeChange('Default');
-      }
+      setTimeout(() => {
+        if (currentTabIndex !== tabIndex) {
+          handleMdSortByTypeChange('Default');
+        }
+      });
     },
     [handleMdSortByTypeChange, tabIndex],
   );

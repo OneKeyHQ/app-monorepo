@@ -23,9 +23,15 @@ import type { IListViewProps, ISectionListProps } from '../../layouts';
 
 const useTriggerLabel = (value: string) => {
   const { selectedItemRef, sections, items } = useContext(SelectContext);
-  if (!value || selectedItemRef.current.value !== value) {
+
+  if (!value) {
     return '';
   }
+
+  if (selectedItemRef.current.value !== value) {
+    selectedItemRef.current.label = '';
+  }
+
   if (selectedItemRef.current.label) {
     return selectedItemRef.current.label;
   }
@@ -326,6 +332,20 @@ function SelectFrame<T extends string | ISelectItem>({
           value: value as string,
         },
   );
+
+  const itemsRef = useRef(items);
+  const sectionsRef = useRef(sections);
+
+  if (items !== itemsRef.current) {
+    itemsRef.current = items;
+    selectedItemRef.current.label = '';
+  }
+
+  if (sections !== sectionsRef.current) {
+    sectionsRef.current = sections;
+    selectedItemRef.current.label = '';
+  }
+
   const [isOpen, setIsOpen] = useState(false);
   const changeOpenStatus = useCallback(
     (openStatus: boolean) => {

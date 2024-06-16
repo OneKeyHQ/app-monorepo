@@ -1,5 +1,5 @@
 export type IToastMessageOptions = {
-  title: JSX.Element;
+  renderContent: (props?: { width?: number }) => JSX.Element;
   /**
    * Defaults to `done`.
    */
