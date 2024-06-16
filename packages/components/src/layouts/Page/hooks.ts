@@ -9,6 +9,7 @@ import {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { EPageType, usePageType } from '../../hocs';
 import { useKeyboardEvent, useSafeAreaInsets } from '../../hooks';
 
 import { PageContext } from './PageContext';
@@ -107,16 +108,33 @@ export const usePageUnMounted = (
   usePageLifeCycle({ onUnmounted });
 };
 
+export const useSafeAreaBottom = () => {
+  const pageType = usePageType();
+  const { safeAreaEnabled } = useContext(PageContext);
+  const { bottom } = useSafeAreaInsets();
+  return safeAreaEnabled && pageType === EPageType.modal ? bottom : 0;
+};
+
+export const useTabBarHeight = () => {
+  const { bottom } = useSafeAreaInsets();
+  const pageType = usePageType();
+  return pageType === EPageType.modal ? 0 : 64 + bottom;
+};
+
 export const useSafeKeyboardAnimationStyle = () => {
-  const { bottom: safeBottomHeight } = useSafeAreaInsets();
+  const safeBottomHeight = useSafeAreaBottom();
   const keyboardHeightValue = useSharedValue(0);
   const animatedStyles = useAnimatedStyle(() => ({
     paddingBottom: keyboardHeightValue.value + safeBottomHeight,
   }));
+
+  const tabBarHeight = useTabBarHeight();
   useKeyboardEvent({
     keyboardWillShow: (e) => {
       const keyboardHeight = e.endCoordinates.height;
-      keyboardHeightValue.value = withTiming(keyboardHeight - safeBottomHeight);
+      keyboardHeightValue.value = withTiming(
+        keyboardHeight - safeBottomHeight - tabBarHeight,
+      );
     },
     keyboardWillHide: () => {
       keyboardHeightValue.value = withTiming(0);
