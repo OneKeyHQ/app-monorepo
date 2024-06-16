@@ -46,6 +46,8 @@ const settings: IVaultSettings = {
 
   defaultFeePresetIndex: 1,
 
+  withMemo: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {

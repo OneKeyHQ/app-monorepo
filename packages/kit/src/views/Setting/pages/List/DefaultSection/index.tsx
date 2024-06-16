@@ -11,7 +11,6 @@ import {
   useAddressBookPersistAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -47,7 +46,10 @@ const AddressBookItem = () => {
         }),
         tone: 'default',
         showConfirmButton: true,
-        showCancelButton: true,
+        showCancelButton: false,
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.address_book_button_next,
+        }),
         onConfirm: async (inst) => {
           await inst.close();
           await showAddressBook();

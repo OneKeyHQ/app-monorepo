@@ -26,6 +26,7 @@ import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EModalReceiveRoutes,
@@ -169,14 +170,20 @@ export function TokenDetails() {
   }, [accountId, deriveInfo, deriveType, navigation, networkId, walletId]);
 
   const handleHistoryItemPress = useCallback(
-    (tx: IAccountHistoryTx) => {
+    async (tx: IAccountHistoryTx) => {
+      if (!account || !network) return;
+
       navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
         networkId,
-        accountAddress: account?.address,
+        accountAddress: account.address,
+        xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
+          accountId: account.id,
+          networkId: network.id,
+        }),
         historyTx: tx,
       });
     },
-    [account?.address, navigation, networkId],
+    [account, navigation, network, networkId],
   );
 
   const handleSendPress = useCallback(() => {
@@ -390,7 +397,7 @@ export function TokenDetails() {
                             size="$heading3xl"
                             formatter="balance"
                             formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
-                            numberOfLines={1}
+                            numberOfLines={999}
                           >
                             {tokenDetails?.balanceParsed ?? '0'}
                           </NumberSizeableText>

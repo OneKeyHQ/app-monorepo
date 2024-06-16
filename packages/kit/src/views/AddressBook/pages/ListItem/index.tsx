@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -29,7 +29,6 @@ const HeaderRightComponent = () => {
 
 function ListPage() {
   const intl = useIntl();
-  const [searchText, setSearchText] = useState<string>('');
   const { isLoading, result } = useAddressBookItems();
   if (isLoading) {
     return <PageLoading />;
@@ -42,17 +41,9 @@ function ListPage() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.address_book_title })}
         headerRight={HeaderRightComponent}
-        headerSearchBarOptions={{
-          placeholder: intl.formatMessage({ id: ETranslations.global_search }),
-          onChangeText: (e) => setSearchText(e.nativeEvent.text),
-        }}
       />
       <Page.Body>
-        <AddressBookListContent
-          items={result.items}
-          showActions
-          searchKey={searchText.trim()}
-        />
+        <AddressBookListContent items={result.items} showActions />
       </Page.Body>
     </Page>
   );

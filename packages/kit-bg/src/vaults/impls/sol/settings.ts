@@ -52,7 +52,7 @@ const settings: IVaultSettings = {
   NFTEnabled: true,
   nonceRequired: false,
   feeUTXORequired: false,
-  editFeeEnabled: false,
+  editFeeEnabled: true,
   replaceTxEnabled: false,
 
   accountDeriveInfo,
