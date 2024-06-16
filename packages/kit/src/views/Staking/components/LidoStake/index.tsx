@@ -29,6 +29,7 @@ type ILidoStakeProps = {
   tokenImageUri?: string;
   tokenSymbol: string;
   stTokenSymbol: string;
+  minTransactionFee?: string;
   apr?: number;
   onConfirm?: (amount: string) => Promise<void>;
 };
@@ -40,6 +41,7 @@ export const LidoStake = ({
   balance,
   apr = 4,
   minAmount = '0',
+  minTransactionFee = '0',
   tokenImageUri,
   tokenSymbol,
   stTokenSymbol,
@@ -74,6 +76,16 @@ export const LidoStake = ({
     }
   }, [onConfirm, amountValue]);
 
+  const onMax = useCallback(() => {
+    const balanceBN = new BigNumber(balance);
+    const remainBN = balanceBN.minus(minTransactionFee);
+    if (remainBN.gt(0)) {
+      onChangeAmountValue(remainBN.toFixed());
+    } else {
+      onChangeAmountValue(balance);
+    }
+  }, [onChangeAmountValue, balance, minTransactionFee]);
+
   const currentValue = useMemo<string | undefined>(() => {
     const amountValueBn = new BigNumber(amountValue);
     if (amountValueBn.isNaN()) return undefined;
@@ -81,7 +93,7 @@ export const LidoStake = ({
   }, [amountValue, price]);
 
   const isInsufficientBalance = useMemo<boolean>(
-    () => new BigNumber(amountValue).gte(balance),
+    () => new BigNumber(amountValue).gt(balance),
     [amountValue, balance],
   );
 
@@ -133,6 +145,7 @@ export const LidoStake = ({
           }}
           balanceProps={{
             value: balance,
+            onPress: onMax,
           }}
           inputProps={{
             placeholder: '0',
@@ -141,6 +154,7 @@ export const LidoStake = ({
             value: currentValue,
             currency: currentValue ? symbol : undefined,
           }}
+          enableMaxAmount
         />
         <YStack space="$1">
           {isLessThanMinAmount ? (
