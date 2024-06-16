@@ -131,7 +131,7 @@ const EthLidoOverviewContent = ({
   apr = 4,
   onRefresh,
 }: IEthLidoOverviewContentProps) => {
-  const { eth, stETH, requests } = overview;
+  const { eth, stETH, requests, minTransactionFee } = overview;
   const appNavigation = useAppNavigation();
   const intl = useIntl();
 
@@ -146,13 +146,23 @@ const EthLidoOverviewContent = ({
           price: eth.price,
           token: eth.info,
           stToken: stETH.info,
+          minTransactionFee,
           apr,
         });
       },
       onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
       showCancelButton: false,
     });
-  }, [appNavigation, accountId, networkId, eth, apr, stETH, intl]);
+  }, [
+    appNavigation,
+    accountId,
+    networkId,
+    eth,
+    apr,
+    stETH,
+    intl,
+    minTransactionFee,
+  ]);
   const onWithdraw = useCallback(async () => {
     Dialog.show({
       renderContent: <EthWithdrawShouldUnderstand />,
