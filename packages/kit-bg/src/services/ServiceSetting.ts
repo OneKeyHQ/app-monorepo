@@ -27,7 +27,10 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
+import {
+  EReasonForNeedPassword,
+  type IClearCacheOnAppState,
+} from '@onekeyhq/shared/types/setting';
 
 import {
   settingsLastActivityAtom,
@@ -70,6 +73,9 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async setProtectCreateTransaction(value: boolean) {
+    await this.backgroundApi.servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
+    });
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       protectCreateTransaction: value,
@@ -78,6 +84,9 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async setProtectCreateOrRemoveWallet(value: boolean) {
+    await this.backgroundApi.servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
+    });
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       protectCreateOrRemoveWallet: value,
