@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -8,11 +8,13 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Form,
   Input,
+  NumberSizeableText,
   Page,
   TextArea,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -42,30 +44,66 @@ function CreateInvoice() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const { accountId, networkId } = route.params;
+  const [settings] = useSettingsPersistAtom();
   const { serviceLightning } = backgroundApiProxy;
   const [isLoading, setIsLoading] = useState(false);
+
+  const amountValue = form.watch('amount');
 
   const { result: invoiceConfig } = usePromiseResult(
     () => serviceLightning.getInvoiceConfig({ networkId }),
     [networkId, serviceLightning],
   );
 
+  const { result } = usePromiseResult(async () => {
+    const accountAddress =
+      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+      networkId,
+      accountAddress,
+      contractList: [''],
+      xpub: '',
+      withFrozenBalance: false,
+      withCheckInscription: false,
+    });
+    // const price = r[0].price;
+    const price = 66598.0;
+    return {
+      price,
+    };
+  }, [networkId, accountId]);
+
+  const fiatValue = useMemo(() => {
+    const amountBN = new BigNumber(amountValue || '0');
+    const price = new BigNumber(result?.price || '0');
+    if (amountBN.isInteger() && price) {
+      return amountBN.multipliedBy(price).toFixed(2);
+    }
+    return '0.00';
+  }, [amountValue, result?.price]);
+
   const onSubmit = useCallback(
     async (values: IFormValues) => {
-      setIsLoading(true);
-      const response = await serviceLightning.createInvoice({
-        accountId,
-        networkId,
-        amount: values.amount,
-        description: values.description,
-      });
-      setIsLoading(false);
-      navigation.push(EModalReceiveRoutes.ReceiveInvoice, {
-        networkId,
-        accountId,
-        paymentHash: response.payment_hash,
-        paymentRequest: response.payment_request,
-      });
+      try {
+        setIsLoading(true);
+        const response = await serviceLightning.createInvoice({
+          accountId,
+          networkId,
+          amount: values.amount || '0',
+          description: values.description,
+        });
+        navigation.push(EModalReceiveRoutes.ReceiveInvoice, {
+          networkId,
+          accountId,
+          paymentHash: response.payment_hash,
+          paymentRequest: response.payment_request,
+        });
+      } finally {
+        setIsLoading(false);
+      }
     },
     [accountId, networkId, serviceLightning, navigation],
   );
@@ -80,7 +118,15 @@ function CreateInvoice() {
           <Form.Field
             label={intl.formatMessage({ id: ETranslations.send_amount })}
             name="amount"
-            description="$0.00"
+            description={
+              <NumberSizeableText
+                size="$bodyLgMedium"
+                formatter="value"
+                formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              >
+                {fiatValue}
+              </NumberSizeableText>
+            }
             rules={{
               min: {
                 value: 0,
