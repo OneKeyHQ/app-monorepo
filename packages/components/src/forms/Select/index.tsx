@@ -22,18 +22,10 @@ import type {
 import type { IListViewProps, ISectionListProps } from '../../layouts';
 
 const useTriggerLabel = (value: string) => {
-  const { selectedItemRef, sections, items } = useContext(SelectContext);
+  const { sections, items } = useContext(SelectContext);
 
   if (!value) {
     return '';
-  }
-
-  if (selectedItemRef.current.value !== value) {
-    selectedItemRef.current.label = '';
-  }
-
-  if (selectedItemRef.current.label) {
-    return selectedItemRef.current.label;
   }
 
   if (sections) {
@@ -42,7 +34,6 @@ const useTriggerLabel = (value: string) => {
       for (let j = 0; j < section.data.length; j += 1) {
         const item = section.data[j];
         if (item.value === value) {
-          selectedItemRef.current.label = item.label;
           return item.label;
         }
       }
@@ -53,7 +44,6 @@ const useTriggerLabel = (value: string) => {
     for (let i = 0; i < items.length; i += 1) {
       const item = items[i];
       if (item.value === value) {
-        selectedItemRef.current.label = item.label;
         return item.label;
       }
     }
@@ -197,17 +187,15 @@ function SelectContent() {
     floatingPanelProps,
     placement,
     labelInValue,
-    selectedItemRef,
   } = useContext(SelectContext);
   const handleSelect = useCallback(
     (item: ISelectItem) => {
       changeOpenStatus?.(false);
       requestIdleCallback(() => {
-        selectedItemRef.current = item;
         onValueChange?.(labelInValue ? item : item.value);
       });
     },
-    [changeOpenStatus, labelInValue, onValueChange, selectedItemRef],
+    [changeOpenStatus, labelInValue, onValueChange],
   );
 
   const handleOpenChange = useCallback(
@@ -324,28 +312,6 @@ function SelectFrame<T extends string | ISelectItem>({
   floatingPanelProps,
   placement = 'bottom-start',
 }: ISelectProps<T>) {
-  const selectedItemRef = useRef<ISelectItem>(
-    labelInValue
-      ? (value as ISelectItem)
-      : {
-          label: '',
-          value: value as string,
-        },
-  );
-
-  const itemsRef = useRef(items);
-  const sectionsRef = useRef(sections);
-
-  if (items !== itemsRef.current) {
-    itemsRef.current = items;
-    selectedItemRef.current.label = '';
-  }
-
-  if (sections !== sectionsRef.current) {
-    sectionsRef.current = sections;
-    selectedItemRef.current.label = '';
-  }
-
   const [isOpen, setIsOpen] = useState(false);
   const changeOpenStatus = useCallback(
     (openStatus: boolean) => {
@@ -366,7 +332,6 @@ function SelectFrame<T extends string | ISelectItem>({
       onValueChange: onChange,
       items,
       sections,
-      selectedItemRef,
       title,
       placeholder,
       disabled,
