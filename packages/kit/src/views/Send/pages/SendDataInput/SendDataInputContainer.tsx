@@ -12,6 +12,7 @@ import {
   Input,
   Page,
   SizableText,
+  TextArea,
   XStack,
   useForm,
 } from '@onekeyhq/components';
@@ -86,7 +87,13 @@ function SendDataInputContainer() {
   const sendConfirm = useSendConfirm({ accountId, networkId });
 
   const {
-    result: [tokenDetails, nftDetails, vaultSettings, hasFrozenBalance] = [],
+    result: [
+      tokenDetails,
+      nftDetails,
+      vaultSettings,
+      hasFrozenBalance,
+      displayMemoForm,
+    ] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
     async () => {
@@ -151,7 +158,13 @@ function SendDataInputContainer() {
           tokenDetails: tokenResp?.[0],
         });
 
-      return [tokenResp?.[0], nftResp?.[0], vs, frozenBalanceSettings];
+      return [
+        tokenResp?.[0],
+        nftResp?.[0],
+        vs,
+        frozenBalanceSettings,
+        vs.withMemo,
+      ];
     },
     [
       account,
@@ -182,6 +195,7 @@ function SendDataInputContainer() {
       to: { raw: address } as IAddressInputValue,
       amount: sendAmount,
       nftAmount: sendAmount || '1',
+      memo: '',
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -295,6 +309,7 @@ function SendDataInputContainer() {
         }
       }
 
+      const memoValue = form.getValues('memo');
       const transfersInfo: ITransferInfo[] = [
         {
           from: account.address,
@@ -309,6 +324,7 @@ function SendDataInputContainer() {
                 }
               : undefined,
           tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
+          memo: memoValue,
         },
       ];
       await sendConfirm.navigationToSendConfirm({
@@ -594,6 +610,57 @@ function SendDataInputContainer() {
     );
   }, [intl, hasFrozenBalance, accountId, networkId]);
 
+  const renderMemoForm = useCallback(() => {
+    if (!displayMemoForm) return null;
+
+    return (
+      <>
+        <XStack pt="$5" />
+        <Form.Field
+          label={intl.formatMessage({ id: ETranslations.send_tag })}
+          labelAddon={
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.form_optional_indicator,
+              })}
+            </SizableText>
+          }
+          name="memo"
+          rules={{
+            maxLength: {
+              value: 10,
+              message: intl.formatMessage(
+                {
+                  id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+                },
+                {
+                  number: 10,
+                },
+              ),
+            },
+            validate: (value) => {
+              if (!value) return undefined;
+              const result = !/^[0-9]+$/.test(value);
+              return result
+                ? intl.formatMessage({
+                    id: ETranslations.send_field_only_integer,
+                  })
+                : undefined;
+            },
+          }}
+        >
+          <TextArea
+            numberOfLines={2}
+            size="large"
+            placeholder={intl.formatMessage({
+              id: ETranslations.send_tag_placeholder,
+            })}
+          />
+        </Form.Field>
+      </>
+    );
+  }, [displayMemoForm, intl]);
+
   const renderDataInput = useCallback(() => {
     if (isNFT) {
       return renderNFTDataInputForm();
@@ -603,6 +670,7 @@ function SendDataInputContainer() {
         <>
           {renderTokenDataInputForm()}
           {renderFrozenBalance()}
+          {renderMemoForm()}
         </>
       );
     }
@@ -613,6 +681,7 @@ function SendDataInputContainer() {
     renderNFTDataInputForm,
     renderTokenDataInputForm,
     renderFrozenBalance,
+    renderMemoForm,
   ]);
 
   return (

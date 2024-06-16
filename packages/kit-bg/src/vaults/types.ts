@@ -147,6 +147,14 @@ export type IVaultSettings = {
 
   cannotSendToSelf?: boolean;
 
+  /**
+   * xrp destination tag
+   * cosmos memo
+   * https://xrpl.org/source-and-destination-tags.html
+   * https://support.ledger.com/hc/en-us/articles/4409603715217-What-is-a-Memo-Tag-?support=true
+   */
+  withMemo?: boolean;
+
   withPaymentId?: boolean;
 
   enabledOnClassicOnly?: boolean;
@@ -293,7 +301,7 @@ export type ITransferInfo = {
   useCustomAddressesBalance?: boolean;
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
-  destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
+  memo?: string; // Ripple chain destination tag, Cosmos chain memo
   keepAlive?: boolean; // Polkadot chain keep alive
 
   // Lightning network

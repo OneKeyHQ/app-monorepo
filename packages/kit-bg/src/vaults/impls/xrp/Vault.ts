@@ -14,6 +14,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type {
@@ -91,8 +92,8 @@ export default class Vault extends VaultBase {
     const { to, amount } = transferInfo;
     const dbAccount = await this.getAccount();
     let destination = to;
-    let destinationTag: number | undefined = transferInfo.destinationTag
-      ? Number(transferInfo.destinationTag)
+    let destinationTag: number | undefined = transferInfo.memo
+      ? Number(transferInfo.memo)
       : undefined;
     // Slice destination tag from swap address
     if (!XRPL.isValidAddress(to) && to.indexOf('#') > -1) {
@@ -322,11 +323,13 @@ export default class Vault extends VaultBase {
       const error = (e as Error).message ?? '';
       if (error.includes('Account not found')) {
         if (amountBN.lt(10)) {
-          // throw new InvalidTransferValue('Minimum transfer value is 10 drops', {
-          //   amount: '10',
-          //   unit: 'XRP',
-          // });
-          throw new InvalidTransferValue();
+          throw new InvalidTransferValue({
+            key: ETranslations.form_amount_recipient_activate,
+            info: {
+              amount: '10',
+              unit: 'XRP',
+            },
+          });
         } else {
           return true;
         }
