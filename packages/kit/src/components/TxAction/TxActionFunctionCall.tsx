@@ -88,7 +88,12 @@ function TxActionFunctionCallDetailView(props: ITxActionProps) {
           src: functionIcon,
         },
       }}
-      target={{ title: 'To Contract', content: functionTo }}
+      target={{
+        title: intl.formatMessage({
+          id: ETranslations.transaction_to_contract,
+        }),
+        content: functionTo,
+      }}
       source={{
         content: functionFrom,
         description: {
