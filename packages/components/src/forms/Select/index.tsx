@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useMemo, useState } from 'react';
 
 import { InteractionManager } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
@@ -23,33 +23,34 @@ import type { IListViewProps, ISectionListProps } from '../../layouts';
 
 const useTriggerLabel = (value: string) => {
   const { sections, items } = useContext(SelectContext);
+  return useMemo(() => {
+    if (!value) {
+      return '';
+    }
 
-  if (!value) {
-    return '';
-  }
+    if (sections) {
+      for (let i = 0; i < sections.length; i += 1) {
+        const section = sections[i];
+        for (let j = 0; j < section.data.length; j += 1) {
+          const item = section.data[j];
+          if (item.value === value) {
+            return item.label;
+          }
+        }
+      }
+    }
 
-  if (sections) {
-    for (let i = 0; i < sections.length; i += 1) {
-      const section = sections[i];
-      for (let j = 0; j < section.data.length; j += 1) {
-        const item = section.data[j];
+    if (items) {
+      for (let i = 0; i < items.length; i += 1) {
+        const item = items[i];
         if (item.value === value) {
           return item.label;
         }
       }
     }
-  }
 
-  if (items) {
-    for (let i = 0; i < items.length; i += 1) {
-      const item = items[i];
-      if (item.value === value) {
-        return item.label;
-      }
-    }
-  }
-
-  return '';
+    return '';
+  }, [items, sections, value]);
 };
 
 function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
