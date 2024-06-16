@@ -56,7 +56,7 @@ function LoadingScreen({
 
   const minHeight = useMinHeight(fullPage);
   return (
-    <View flex={1} minHeight={minHeight}>
+    <View flex={1} minHeight={minHeight} bg="$bgApp">
       {showChildren ? children : null}
       <AnimatePresence>
         {showLoading ? (
