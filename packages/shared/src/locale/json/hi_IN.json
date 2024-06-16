@@ -1209,6 +1209,7 @@
   "title__edit_fee": "शुल्क संपादित करें",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "आपके द्वारा खोजा गया टोकन नहीं मिला",
   "token_selector.empty_content": "चयनित टोकन इस नेटवर्क के लिए क्रॉस-चेन का समर्थन नहीं करता है।",
   "token_selector.empty_title": "असमर्थित",
   "token_selector.network": "नेटवर्क",

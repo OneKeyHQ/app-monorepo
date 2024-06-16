@@ -1209,6 +1209,7 @@
   "title__edit_fee": "Bearbeitungsgebühr",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
+  "token_no_search_results_desc": "Das von Ihnen gesuchte Token wurde nicht gefunden",
   "token_selector.empty_content": "Das ausgewählte Token unterstützt keine Cross-Chain zu diesem Netzwerk.",
   "token_selector.empty_title": "Nicht unterstützt",
   "token_selector.network": "Netzwerk",
