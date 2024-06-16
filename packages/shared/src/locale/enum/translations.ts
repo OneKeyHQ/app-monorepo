@@ -422,6 +422,7 @@ export enum ETranslations {
   form_address_error_invalid = 'form.address_error_invalid',
   form_address_placeholder = 'form.address_placeholder',
   form_amount_placeholder = 'form.amount_placeholder',
+  form_amount_recipient_activate = 'form.amount_recipient_activate',
   form_confirm_passphrase = 'form.confirm_passphrase',
   form_confirm_passphrase_placeholder = 'form.confirm_passphrase_placeholder',
   form_enter_private_key_placeholder = 'form.enter_private_key_placeholder',
