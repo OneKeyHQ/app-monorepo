@@ -397,6 +397,15 @@ class ServiceDApp extends ServiceBase {
         storageType,
       },
     );
+    await this.backgroundApi.serviceSignature.addConnectedSite({
+      url: origin,
+      items: [
+        {
+          networkId: updatedAccountInfo.networkId ?? '',
+          address: updatedAccountInfo.address,
+        },
+      ],
+    });
   }
 
   @backgroundMethod()
