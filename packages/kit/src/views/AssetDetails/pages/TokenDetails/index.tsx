@@ -7,6 +7,7 @@ import {
   ActionList,
   Alert,
   Divider,
+  Heading,
   NumberSizeableText,
   Page,
   Skeleton,
@@ -342,12 +343,18 @@ export function TokenDetails() {
   //   );
   // }, [media.gtMd, network?.logoURI, tokenInfo.address]);
 
+  const customHeaderTitle = useCallback(
+    () => (
+      <Heading size="$headingLg" numberOfLines={1}>
+        {tokenInfo.name ?? tokenDetails?.info.name}
+      </Heading>
+    ),
+    [tokenDetails?.info.name, tokenInfo.name],
+  );
+
   return (
     <Page>
-      <Page.Header
-        headerTitle={tokenInfo.name ?? tokenDetails?.info.name}
-        headerRight={headerRight}
-      />
+      <Page.Header headerTitle={customHeaderTitle} headerRight={headerRight} />
       <Page.Body>
         <ProviderJotaiContextHistoryList>
           <TxHistoryListView
@@ -397,7 +404,6 @@ export function TokenDetails() {
                             size="$heading3xl"
                             formatter="balance"
                             formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
-                            numberOfLines={999}
                           >
                             {tokenDetails?.balanceParsed ?? '0'}
                           </NumberSizeableText>

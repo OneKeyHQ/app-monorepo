@@ -14,6 +14,7 @@ import { OpenInAppButton } from '@onekeyhq/kit/src/components/OpenInAppButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -128,7 +129,7 @@ function ShareButton() {
           // https://docs.expo.dev/versions/latest/sdk/sharing/
           await ExpoSharing.shareAsync(text);
         } else {
-          copyText(text);
+          copyText(text, ETranslations.global_link_copied);
         }
       }}
       icon="ShareOutline"

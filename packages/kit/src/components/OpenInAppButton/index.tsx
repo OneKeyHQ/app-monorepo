@@ -11,6 +11,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -54,14 +55,14 @@ export function OpenInAppButton({
   const handlePress = useCallback(() => {
     const text = buildFullUrl();
     Dialog.show({
-      title: 'Scan to open in OneKey',
+      title: intl.formatMessage({ id: ETranslations.open_in_mobile_app }),
       floatingPanelProps: {
         overflow: 'hidden',
       },
       renderContent: (
         <Stack>
           <Stack alignItems="center" justifyContent="center" overflow="hidden">
-            {deepLinkUrl && openByAppButtonLabel ? (
+            {/* {deepLinkUrl && openByAppButtonLabel ? (
               <Button
                 mb="$4"
                 onPress={() => {
@@ -71,7 +72,7 @@ export function OpenInAppButton({
               >
                 {openByAppButtonLabel}
               </Button>
-            ) : null}
+            ) : null} */}
             <Stack
               p="$4"
               borderRadius="$6"
@@ -79,7 +80,7 @@ export function OpenInAppButton({
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
             >
-              <QRCode value={text} logoSvg="OnekeyBrand" size={224} />
+              <QRCode value={text} logo={Logo} logoSize={40} size={224} />
             </Stack>
           </Stack>
           <XStack
@@ -91,7 +92,9 @@ export function OpenInAppButton({
             alignItems="center"
           >
             <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
-              Don’t have the app yet?
+              {intl.formatMessage({
+                id: ETranslations.dont_have_mobile_app_yet,
+              })}
             </SizableText>
             <Button
               size="small"
@@ -106,11 +109,11 @@ export function OpenInAppButton({
       ),
       showFooter: false,
     });
-  }, [buildFullUrl, deepLinkUrl, intl, openByAppButtonLabel]);
+  }, [buildFullUrl, intl]);
 
   return (
     <Button size="small" onPress={handlePress}>
-      Open in the app
+      {intl.formatMessage({ id: ETranslations.open_in_mobile_app })}
     </Button>
   );
 }

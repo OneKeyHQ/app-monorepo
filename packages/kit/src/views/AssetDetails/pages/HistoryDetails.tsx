@@ -126,12 +126,7 @@ export function InfoItem({
             }
           }}
         >
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            flex={1}
-            numberOfLines={999}
-          >
+          <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
             {renderContent}
           </SizableText>
           <XStack space="$2">
