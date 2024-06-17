@@ -15,6 +15,7 @@ import v4dbHubs from '../../migrations/v4ToV5Migration/v4dbHubs';
 import { EV4LocalDBStoreNames } from '../../migrations/v4ToV5Migration/v4local/v4localDBStoreNames';
 import { V4MigrationForAccount } from '../../migrations/v4ToV5Migration/V4MigrationForAccount';
 import { V4MigrationForAddressBook } from '../../migrations/v4ToV5Migration/V4MigrationForAddressBook';
+import { V4MigrationForDiscover } from '../../migrations/v4ToV5Migration/V4MigrationForDiscover';
 import { V4MigrationForHistory } from '../../migrations/v4ToV5Migration/V4MigrationForHistory';
 import { v4migrationAtom } from '../../states/jotai/atoms/v4migration';
 import ServiceBase from '../ServiceBase';
@@ -42,6 +43,10 @@ class ServiceV4Migration extends ServiceBase {
   });
 
   migrationHistory = new V4MigrationForHistory({
+    backgroundApi: this.backgroundApi,
+  });
+
+  migrationDiscover = new V4MigrationForDiscover({
     backgroundApi: this.backgroundApi,
   });
 
@@ -334,6 +339,8 @@ class ServiceV4Migration extends ServiceBase {
     if (v5password) {
       await this.migrationAddressBook.convertV4ContactsToV5(v5password);
     }
+    // **** migrate discover
+    await this.migrationDiscover.convertV4DiscoverToV5();
 
     // TODO
 

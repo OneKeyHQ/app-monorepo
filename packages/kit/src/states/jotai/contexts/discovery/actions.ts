@@ -283,9 +283,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         throw new Error('buildBookmarkData: payload must be an array');
       }
       // set(browserBookmarkAtom(), payload);
-      void backgroundApiProxy.simpleDb.browserBookmarks.setRawData({
-        data: payload,
-      });
+
+      void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks(payload);
     },
   );
 

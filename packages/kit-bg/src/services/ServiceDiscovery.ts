@@ -254,6 +254,20 @@ class ServiceDiscovery extends ServiceBase {
       this._isUrlExistInRiskWhiteList.clear(),
     ]);
   }
+
+  @backgroundMethod()
+  async setBrowserBookmarks(bookmarks: IBrowserBookmark[]) {
+    await this.backgroundApi.simpleDb.browserBookmarks.setRawData({
+      data: bookmarks,
+    });
+  }
+
+  @backgroundMethod()
+  async getBrowserBookmarks() {
+    const data =
+      await this.backgroundApi.simpleDb.browserBookmarks.getRawData();
+    return data?.data ?? [];
+  }
 }
 
 export default ServiceDiscovery;
