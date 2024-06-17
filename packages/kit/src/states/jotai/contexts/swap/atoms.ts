@@ -266,11 +266,11 @@ export const {
   const quoteResult = get(swapQuoteCurrentSelectAtom());
   let autoValue = swapSlippageAutoValue;
   let value = swapSlippageAutoValue;
+  if (!isNil(quoteResult?.autoSuggestedSlippage)) {
+    autoValue = quoteResult.autoSuggestedSlippage;
+  }
   if (mode === ESwapSlippageSegmentKey.AUTO) {
-    if (!isNil(quoteResult?.autoSuggestedSlippage)) {
-      value = quoteResult.autoSuggestedSlippage;
-      autoValue = quoteResult.autoSuggestedSlippage;
-    }
+    value = autoValue;
   } else {
     value = get(swapSlippagePercentageCustomValueAtom());
   }
