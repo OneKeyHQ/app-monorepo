@@ -27,6 +27,8 @@ export type IUIProviderProps = PropsWithChildren<{
   locale: ILocaleSymbol;
 
   waitFontLoaded?: boolean;
+
+  onLocaleChange?: (locale: ILocaleSymbol) => void;
 }>;
 export type IFontProviderProps = PropsWithChildren;
 
@@ -40,7 +42,12 @@ function FontProvider({ children }: IFontProviderProps) {
   return children;
 }
 
-export function ConfigProvider({ children, theme, locale }: IUIProviderProps) {
+export function ConfigProvider({
+  children,
+  theme,
+  locale,
+  onLocaleChange,
+}: IUIProviderProps) {
   const providerValue = useMemo(
     () => ({
       theme,
@@ -54,6 +61,7 @@ export function ConfigProvider({ children, theme, locale }: IUIProviderProps) {
     <AppIntlProvider
       locale={locale}
       messages={LOCALES[locale] as Record<string, string>}
+      onLocaleChange={onLocaleChange}
     >
       <FontProvider>
         <Context.Provider value={providerValue}>
