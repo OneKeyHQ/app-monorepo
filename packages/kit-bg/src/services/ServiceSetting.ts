@@ -170,7 +170,7 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async clearPendingTransaction() {
-    // TODO: clear pending transaction
+    await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxs();
   }
 
   @backgroundMethod()

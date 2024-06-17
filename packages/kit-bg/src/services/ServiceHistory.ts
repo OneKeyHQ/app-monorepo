@@ -295,6 +295,11 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async clearLocalHistoryPendingTxs() {
+    return this.backgroundApi.simpleDb.localHistory.clearLocalHistoryPendingTxs();
+  }
+
+  @backgroundMethod()
   public async clearLocalHistory() {
     return this.backgroundApi.simpleDb.localHistory.clearLocalHistory();
   }
