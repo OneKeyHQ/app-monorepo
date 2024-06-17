@@ -120,13 +120,15 @@ export function DeriveTypeSelectorTriggerStaticInput(
   }, [items, networkId]);
   const options = useMemo(
     () =>
-      viewItems?.map(({ value, label, item, ...i }) => ({
+      viewItems?.map(({ value, label, item, description, descI18n }) => ({
         value,
         label: item.labelKey
           ? intl.formatMessage({ id: item.labelKey })
           : label,
+        description: descI18n
+          ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
+          : description,
         item,
-        ...i,
       })) || [],
     [intl, viewItems],
   );
@@ -175,18 +177,18 @@ export function DeriveTypeSelectorTrigger({
 
   const options = useMemo(
     () =>
-      deriveInfoItems.map(({ value, label, item, ...i }) => ({
+      deriveInfoItems.map(({ value, label, item, description, descI18n }) => ({
         value,
         label: item.labelKey
           ? intl.formatMessage({ id: item.labelKey })
           : label,
         item,
-        ...i,
+        description: descI18n
+          ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
+          : description,
       })),
     [deriveInfoItems, intl],
   );
-
-  console.log('__deriveInfoItems', deriveInfoItems);
 
   if (!selectedAccount.walletId) {
     return null;
