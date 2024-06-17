@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -31,6 +31,9 @@ interface IModalFlowNavigatorProps<
   P extends ParamListBase,
 > {
   config: IModalFlowNavigatorConfig<RouteName, P>[];
+  name?: string;
+  onMounted?: () => void;
+  onUnmounted?: () => void;
 }
 
 const ModalStack = hasStackNavigatorModal
@@ -39,6 +42,9 @@ const ModalStack = hasStackNavigatorModal
 
 function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
+  name: pageStackName,
+  onMounted,
+  onUnmounted,
 }: IModalFlowNavigatorProps<RouteName, P>) {
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
@@ -53,6 +59,13 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
     }),
     [bgColor, titleColor],
   );
+
+  useEffect(() => {
+    onMounted?.();
+    return () => {
+      onUnmounted?.();
+    };
+  }, [onMounted, onUnmounted]);
 
   return (
     // @ts-expect-error

@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { validateNpub } from '@onekeyhq/core/src/chains/nostr/sdkNostr';
 import type {
   IEncodedTx,
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { InvalidAddress, NotImplemented } from '@onekeyhq/shared/src/errors';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -93,7 +94,15 @@ export default class Vault extends VaultBase {
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {
-    throw new NotImplemented();
+    const valid = validateNpub(address);
+    if (valid) {
+      return Promise.resolve({
+        isValid: true,
+        normalizedAddress: address,
+        displayAddress: address,
+      });
+    }
+    return Promise.reject(new InvalidAddress());
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {

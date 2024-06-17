@@ -152,7 +152,7 @@ const SwapActionsState = ({
 
   const actionComponent = useMemo(
     () => (
-      <>
+      <YStack {...(pageType === EPageType.modal && !md ? {} : { flex: 1 })}>
         {approveStepComponent}
         <Button
           onPress={onActionHandler}
@@ -160,14 +160,14 @@ const SwapActionsState = ({
           variant="primary"
           disabled={swapActionState.disabled || swapActionState.isLoading}
           loading={swapActionState.isLoading}
-          {...(pageType !== EPageType.modal && { flex: 1 })}
         >
           {swapActionState.label}
         </Button>
-      </>
+      </YStack>
     ),
     [
       approveStepComponent,
+      md,
       onActionHandler,
       pageType,
       swapActionState.disabled,
