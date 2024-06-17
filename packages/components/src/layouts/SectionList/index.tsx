@@ -218,7 +218,7 @@ function BaseSectionList<T>(
       ListHeaderComponent={ListHeaderComponent}
       stickyHeaderIndices={reloadStickyHeaderIndices}
       getItemType={getItemType}
-      keyExtractor={reloadKeyExtractor}
+      keyExtractor={platformEnv.isNative ? reloadKeyExtractor : undefined}
       {...restProps}
     />
   );

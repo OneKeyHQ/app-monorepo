@@ -1333,7 +1333,7 @@
   "update.update_required_desc": "Die Version Ihrer Hardware-Wallet ist veraltet und muss aktualisiert werden, um fortzufahren.",
   "update.update_resource_failed": "Aktualisierung der Ressource fehlgeschlagen",
   "update.update_ui_resources_success": "Aktualisierung der UI-Ressourcen erfolgreich",
-  "update.updated_to_latest_version": "Aktualisiert auf die neueste Version {}",
+  "update.updated_to_latest_version": "Aktualisiert auf die neueste Version {version}",
   "update.updating_bootloader": "Bootloader aktualisieren",
   "update.updating_ui_resources": "Aktualisierung der UI-Ressourcen...",
   "update.verify_status_and_continue": "Status überprüfen und fortfahren",

@@ -1333,7 +1333,7 @@
   "update.update_required_desc": "আপনার হার্ডওয়্যার ওয়ালেটের সংস্করণটি অপ্রচলিত এবং চালিয়ে যেতে হলে এটি আপডেট করা আবশ্যক।",
   "update.update_resource_failed": "রিসোর্স আপডেট ব্যর্থ হয়েছে",
   "update.update_ui_resources_success": "ইউআই রিসোর্স আপডেট সফল",
-  "update.updated_to_latest_version": "সর্বশেষ সংস্করণে আপডেট করা হয়েছে {}",
+  "update.updated_to_latest_version": "সর্বশেষ সংস্করণে আপডেট করা হয়েছে {version}",
   "update.updating_bootloader": "বুটলোডার আপডেট করা হচ্ছে",
   "update.updating_ui_resources": "ইউআই সম্পদ আপডেট করা হচ্ছে...",
   "update.verify_status_and_continue": "স্থিতি যাচাই করুন এবং চালিয়ে যান",

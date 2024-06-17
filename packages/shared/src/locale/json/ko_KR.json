@@ -1333,7 +1333,7 @@
   "update.update_required_desc": "귀하의 하드웨어 지갑의 버전이 구식이며 계속하려면 업데이트해야 합니다.",
   "update.update_resource_failed": "리소스 업데이트 실패",
   "update.update_ui_resources_success": "UI 리소스 업데이트 성공",
-  "update.updated_to_latest_version": "최신 버전으로 업데이트되었습니다 {}",
+  "update.updated_to_latest_version": "최신 버전으로 업데이트되었습니다 {version}",
   "update.updating_bootloader": "부트로더 업데이트 중",
   "update.updating_ui_resources": "UI 리소스 업데이트 중...",
   "update.verify_status_and_continue": "상태를 확인하고 계속하십시오",

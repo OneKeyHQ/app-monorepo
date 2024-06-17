@@ -1333,7 +1333,7 @@
   "update.update_required_desc": "Your hardware wallet's version is outdated and must be updated to continue.",
   "update.update_resource_failed": "Update resource failed",
   "update.update_ui_resources_success": "Update UI resources success",
-  "update.updated_to_latest_version": "Updated to the latest version {}",
+  "update.updated_to_latest_version": "Updated to the latest version {version}",
   "update.updating_bootloader": "Updating bootloader",
   "update.updating_ui_resources": "Updating UI resources...",
   "update.verify_status_and_continue": "Verify status and continue",

@@ -1333,7 +1333,7 @@
   "update.update_required_desc": "La versione del tuo portafoglio hardware è obsoleta e deve essere aggiornata per continuare.",
   "update.update_resource_failed": "Aggiornamento risorsa non riuscito",
   "update.update_ui_resources_success": "Aggiornamento delle risorse dell'interfaccia utente riuscito",
-  "update.updated_to_latest_version": "Aggiornato all'ultima versione {}",
+  "update.updated_to_latest_version": "Aggiornato all'ultima versione {version}",
   "update.updating_bootloader": "Aggiornamento del bootloader",
   "update.updating_ui_resources": "Aggiornamento delle risorse dell'interfaccia utente...",
   "update.verify_status_and_continue": "Verifica lo stato e continua",
