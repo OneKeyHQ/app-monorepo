@@ -136,10 +136,14 @@ function TxActionCommonFee({
 }: Pick<ITxActionCommonListViewProps, 'fee' | 'feeFiatValue' | 'feeSymbol'> & {
   currencySymbol: string;
 }) {
+  const intl = useIntl();
+
   return (
     <Stack flexGrow={1} flexBasis={0}>
       <SizableText size="$bodyMd" color="$textSubdued">
-        Network Fee
+        {intl.formatMessage({
+          id: ETranslations.swap_history_detail_network_fee,
+        })}
       </SizableText>
       <XStack alignItems="center" space="$1">
         <NumberSizeableText

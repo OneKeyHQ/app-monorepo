@@ -1,13 +1,10 @@
-import { useState } from 'react';
+import { useIntl } from 'react-intl';
 
 import { Empty } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import {
-  useAccountSelectorActions,
-  useSelectedAccount,
-} from '../../states/jotai/contexts/accountSelector';
+import { useSelectedAccount } from '../../states/jotai/contexts/accountSelector';
 import { AccountSelectorCreateAddressButton } from '../AccountSelector/AccountSelectorCreateAddressButton';
-import { useAccountSelectorCreateAddress } from '../AccountSelector/hooks/useAccountSelectorCreateAddress';
 
 type IProps = {
   name: string;
@@ -19,16 +16,22 @@ const num = 0;
 
 function EmptyAccount(props: IProps) {
   const { name, chain, type } = props;
-  const actions = useAccountSelectorActions();
+  const intl = useIntl();
   const { selectedAccount } = useSelectedAccount({ num });
-  const { createAddress } = useAccountSelectorCreateAddress();
-  const [isLoading, setIsLoading] = useState(false);
 
   return (
     <Empty
       testID="Wallet-No-Address-Empty"
-      title="No Address"
-      description={`${name} does not have a ${chain} (${type}) address yet. Please create one to continue`}
+      title={intl.formatMessage({ id: ETranslations.wallet_no_address })}
+      description={intl.formatMessage(
+        {
+          id: ETranslations.wallet_no_address_desc,
+        },
+        {
+          name,
+          chain: `${chain} ${type ? `(${type})` : ''}`,
+        },
+      )}
       button={
         <AccountSelectorCreateAddressButton
           num={num}

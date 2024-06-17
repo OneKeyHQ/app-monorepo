@@ -1,9 +1,12 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Divider, Icon, NumberSizeableText, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalAssetListRoutes,
   EModalRoutes,
@@ -25,6 +28,7 @@ type IProps = {
 };
 
 function TokenListFooter(props: IProps) {
+  const intl = useIntl();
   const { tableLayout } = props;
   const navigation = useAppNavigation();
   const {
@@ -57,9 +61,10 @@ function TokenListFooter(props: IProps) {
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.TokenList,
       params: {
-        title: 'Low-value Assets',
-        helpText:
-          'Assets valued below 0.1% of your total holdings and less than $1,000 fall into this category.',
+        title: intl.formatMessage({ id: ETranslations.low_value_assets }),
+        helpText: intl.formatMessage({
+          id: ETranslations.low_value_assets_desc,
+        }),
         accountId: account.id,
         networkId: network.id,
         walletId: wallet.id,
@@ -72,6 +77,7 @@ function TokenListFooter(props: IProps) {
     });
   }, [
     account,
+    intl,
     navigation,
     network,
     smallBalanceTokenKeys,
@@ -85,7 +91,7 @@ function TokenListFooter(props: IProps) {
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.TokenList,
       params: {
-        title: 'Blocked Assets',
+        title: intl.formatMessage({ id: ETranslations.hidden_assets }),
         accountId: account.id,
         networkId: network.id,
         walletId: wallet.id,
@@ -99,6 +105,7 @@ function TokenListFooter(props: IProps) {
     });
   }, [
     account,
+    intl,
     navigation,
     network,
     riskyTokenKeys,
@@ -157,7 +164,12 @@ function TokenListFooter(props: IProps) {
           </Stack>
           <ListItem.Text
             flex={1}
-            primary={`${riskyTokens.length} Blocked Assets`}
+            primary={intl.formatMessage(
+              { id: ETranslations.count_hidden_assets },
+              {
+                count: riskyTokens.length,
+              },
+            )}
             {...(tableLayout && {
               primaryTextProps: { size: '$bodyMdMedium' },
             })}
