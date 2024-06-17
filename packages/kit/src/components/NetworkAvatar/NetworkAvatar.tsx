@@ -7,7 +7,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 export const AllNetworksAvatar = ({ size }: { size?: IImageProps['size'] }) => (
   <Image
     size={size}
-    source={require('@onekeyhq/kit/assets/all_network_logo.png')}
+    src="https://uni.onekey-asset.com/static/logo/chain_selector_logo.png"
   />
 );
 
