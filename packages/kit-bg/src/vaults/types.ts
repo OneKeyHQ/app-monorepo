@@ -120,6 +120,9 @@ export type IVaultSettings = {
   hardwareAccountEnabled: boolean;
   softwareAccountDisabled?: boolean;
 
+  disabledSwapAction?: boolean;
+  disabledSendAction?: boolean;
+
   isUtxo: boolean;
   isSingleToken: boolean;
   NFTEnabled: boolean;

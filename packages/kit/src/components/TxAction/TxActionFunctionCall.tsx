@@ -1,8 +1,10 @@
 import { useIntl } from 'react-intl';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
+import { AddressInfo } from '../AddressInfo';
 
 import {
   TxActionCommonDetailView,
@@ -71,20 +73,38 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
 
 function TxActionFunctionCallDetailView(props: ITxActionProps) {
   const intl = useIntl();
+  const { decodedTx } = props;
   const { functionFrom, functionTo, functionName, functionIcon } =
     getTxActionFunctionCallInfo(props);
 
   return (
     <TxActionCommonDetailView
       overview={{
-        title: intl.formatMessage({ id: 'transaction__contract_interaction' }),
+        title: intl.formatMessage({
+          id: ETranslations.transaction__contract_interaction,
+        }),
         content: functionName,
         avatar: {
           src: functionIcon,
         },
       }}
-      target={{ title: 'To Contract', content: functionTo }}
-      source={{ content: functionFrom }}
+      target={{
+        title: intl.formatMessage({
+          id: ETranslations.transaction_to_contract,
+        }),
+        content: functionTo,
+      }}
+      source={{
+        content: functionFrom,
+        description: {
+          content: (
+            <AddressInfo
+              address={functionFrom}
+              networkId={decodedTx.networkId}
+            />
+          ),
+        },
+      }}
     />
   );
 }

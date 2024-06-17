@@ -16,12 +16,14 @@ import type {
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   ChannelInsufficientLiquidityError,
+  InsufficientBalance,
   InvalidLightningPaymentRequest,
   InvalidTransferValue,
   InvoiceAlreadyPaid,
   InvoiceExpiredError,
   NoRouteFoundError,
   NotImplemented,
+  OneKeyError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -249,9 +251,6 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: null,
-      payload: {
-        type: EOnChainHistoryTxType.Send,
-      },
       encodedTx,
     };
 
@@ -582,6 +581,70 @@ export default class Vault extends VaultBase {
       );
     }
     return Promise.resolve(true);
+  }
+
+  override async precheckUnsignedTx(params: {
+    unsignedTx: IUnsignedTxPro;
+  }): Promise<boolean> {
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxLightning;
+    const { invoice: paymentRequest, amount } = encodedTx;
+    const invoice = await this._decodedInvoiceCache(paymentRequest);
+    const finalAmount = amount;
+    if (this._isZeroAmountInvoice(invoice)) {
+      if (new BigNumber(amount).isLessThan(1)) {
+        const satsText = appLocale.intl.formatMessage({
+          id: ETranslations.global_sats,
+        });
+
+        throw new InvalidTransferValue({
+          key: ETranslations.dapp_connect_amount_should_be_at_least,
+          info: {
+            // @ts-expect-error
+            0: `1 ${satsText}`,
+          },
+        });
+      }
+    }
+
+    const client = await this.getClient();
+    try {
+      await client.preCheckBolt11({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        amount: finalAmount,
+        paymentRequest,
+      });
+    } catch (e: any) {
+      console.log('===>E: ', e);
+      throw new Error((e as Error)?.message ?? e);
+    }
+
+    const paymentHash = invoice.tags.find(
+      (tag) => tag.tagName === 'payment_hash',
+    );
+    if (paymentHash?.data) {
+      try {
+        const existInvoice = await client.specialInvoice({
+          accountId: this.accountId,
+          networkId: this.networkId,
+          paymentHash: paymentHash.data as string,
+        });
+        if (existInvoice.is_paid) {
+          throw new OneKeyError({
+            key: ETranslations.send_invoice_is_already_paid,
+          });
+        }
+      } catch (e: any) {
+        if (
+          (e as OneKeyError)?.key === ETranslations.send_invoice_is_already_paid
+        ) {
+          throw new InvoiceAlreadyPaid();
+        }
+        // ignore other error
+      }
+    }
+
+    return true;
   }
 
   async _getAuthorization({

@@ -37,6 +37,7 @@ import {
   InsufficientBalance,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -207,9 +208,6 @@ export default class VaultBtc extends VaultBase {
       accountId: this.accountId,
       xpub: (account as IDBUtxoAccount).xpub,
       extraInfo: null,
-      payload: {
-        type: EOnChainHistoryTxType.Send,
-      },
       encodedTx,
       totalFeeInNative,
       nativeAmount: sendNativeTokenAmountBN.toFixed(),
@@ -429,7 +427,9 @@ export default class VaultBtc extends VaultBase {
       await this._buildTransferParamsWithCoinSelector(params);
 
     if (!inputs || !outputs || isNil(fee)) {
-      throw new InsufficientBalance({ message: 'Failed to select UTXOs' });
+      throw new InsufficientBalance({
+        message: ETranslations.earn_insufficient_balance,
+      });
     }
 
     return {
