@@ -324,12 +324,18 @@ function HistoryDetails() {
 
       const from =
         utxoSends.length > 1
-          ? `${utxoSends.length} addresses`
+          ? intl.formatMessage(
+              { id: ETranslations.explore_addresses_count },
+              { 'number': utxoSends.length },
+            )
           : utxoSends[0]?.from ?? sends[0]?.from ?? decodedTx.signer;
 
       const to =
         utxoReceives.length > 1
-          ? `${utxoReceives.length} addresses`
+          ? intl.formatMessage(
+              { id: ETranslations.explore_addresses_count },
+              { 'number': utxoReceives.length },
+            )
           : utxoReceives[0]?.to ??
             receives[0]?.to ??
             decodedTx.to ??
@@ -358,7 +364,7 @@ function HistoryDetails() {
           ? true
           : new BigNumber(sends?.length ?? 0).plus(receives?.length ?? 0).eq(1),
     };
-  }, [accountAddress, historyTx, vaultSettings?.isUtxo]);
+  }, [accountAddress, historyTx, intl, vaultSettings?.isUtxo]);
 
   const renderAssetsChange = useCallback(
     ({
@@ -677,13 +683,15 @@ function HistoryDetails() {
           {/* Primary */}
           <InfoItemGroup>
             <InfoItem
-              label={intl.formatMessage({
-                id: ETranslations.global_status,
-              })}
+              label={intl.formatMessage({ id: ETranslations.global_status })}
               renderContent={renderTxStatus()}
               compact
             />
-            <InfoItem label="Date" renderContent={txInfo.date} compact />
+            <InfoItem
+              label={intl.formatMessage({ id: ETranslations.global_date })}
+              renderContent={txInfo.date}
+              compact
+            />
           </InfoItemGroup>
           {/* Secondary */}
           <Divider mx="$5" />
