@@ -214,6 +214,18 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   return null;
 }
 
+export const createValidateAddressRule =
+  ({ defaultErrorMessage }: { defaultErrorMessage: string }) =>
+  (value: IAddressInputValue) => {
+    if (value.pending) {
+      return;
+    }
+    if (!value.resolved) {
+      return value.validateError?.message ?? defaultErrorMessage;
+    }
+    return undefined;
+  };
+
 export function AddressInput(props: IAddressInputProps) {
   const {
     name = '',
