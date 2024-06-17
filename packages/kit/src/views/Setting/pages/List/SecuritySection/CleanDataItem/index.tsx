@@ -64,6 +64,7 @@ const ClearCacheOnAppContent = () => {
             label={intl.formatMessage({
               id: ETranslations.settings_browser_history_bookmarks_pins_risk_dapp_whitelist,
             })}
+            labelProps={{ flex: 1 }}
           />
         </Dialog.FormField>
         <Dialog.FormField name="connectSites">

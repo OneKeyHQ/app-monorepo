@@ -1,14 +1,8 @@
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
-import { TouchableWithoutFeedback } from 'react-native';
 
-import {
-  Button,
-  Dialog,
-  SizableText,
-  useClipboard,
-} from '@onekeyhq/components';
+import { Dialog, SizableText, useClipboard } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -25,19 +19,23 @@ export const StateLogsItem = () => {
       renderContent: (
         <SizableText>
           <SizableText size="$bodyLg">
-            {intl.formatMessage({
-              id: ETranslations.settings_export_state_logs_desc,
-            })}
+            {intl.formatMessage(
+              {
+                id: ETranslations.settings_export_state_logs_desc,
+              },
+              {
+                email: (
+                  <SizableText
+                    size="$bodyLg"
+                    textDecorationLine="underline"
+                    onPress={() => copyText('hi@onekey.so')}
+                  >
+                    hi@onekey.so
+                  </SizableText>
+                ),
+              },
+            )}
           </SizableText>
-          <TouchableWithoutFeedback
-            onPress={() => {
-              copyText('hi@onekey.so');
-            }}
-          >
-            <Button variant="tertiary" size="medium" iconAfter="Copy1Outline">
-              hi@onekey.so
-            </Button>
-          </TouchableWithoutFeedback>
         </SizableText>
       ),
       confirmButtonProps: {
