@@ -1,7 +1,10 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { Icon, SizableText, Tooltip, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IProps = {
   name: string;
@@ -10,6 +13,7 @@ type IProps = {
 
 function TokenNameView(props: IProps) {
   const { name, isNative, ...rest } = props;
+  const intl = useIntl();
 
   const content = useMemo(
     () => (
@@ -19,7 +23,9 @@ function TokenNameView(props: IProps) {
         </SizableText>
         {isNative ? (
           <Tooltip
-            renderContent="This is the cryptocurrency used to pay for network fees"
+            renderContent={intl.formatMessage({
+              id: ETranslations.native_token_tooltip,
+            })}
             renderTrigger={
               <Icon
                 flexShrink={0}
@@ -32,7 +38,7 @@ function TokenNameView(props: IProps) {
         ) : null}
       </XStack>
     ),
-    [rest, name, isNative],
+    [rest, name, isNative, intl],
   );
   return content;
 }

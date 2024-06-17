@@ -57,7 +57,7 @@ export function Token({
       <Image.Fallback
         alignItems="center"
         justifyContent="center"
-        bg="$bgStrong"
+        bg="$gray5"
         delayMs={1000}
       >
         <Icon

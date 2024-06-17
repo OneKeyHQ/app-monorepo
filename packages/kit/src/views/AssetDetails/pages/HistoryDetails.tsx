@@ -18,7 +18,6 @@ import {
   Spinner,
   Stack,
   XStack,
-  YStack,
   useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -61,13 +60,13 @@ function getTxStatusTextProps(status: EDecodedTxStatus): {
 
   if (status === EDecodedTxStatus.Confirmed) {
     return {
-      key: 'transaction__success',
+      key: ETranslations.global_success,
       color: '$textSuccess',
     };
   }
 
   return {
-    key: 'transaction__failed',
+    key: ETranslations.global_failed,
     color: '$textCritical',
   };
 }
@@ -98,7 +97,9 @@ export function InfoItem({
   showCopy?: boolean;
   showOpenWithUrl?: string;
 } & IStackProps) {
+  const intl = useIntl();
   const { copyText } = useClipboard();
+
   return (
     <Stack
       flex={1}
@@ -114,35 +115,49 @@ export function InfoItem({
     >
       {label ? <SizableText size="$bodyMdMedium">{label}</SizableText> : null}
       {typeof renderContent === 'string' ? (
-        <YStack
-          gap="$1.5"
-          onPress={() => {
-            if (!disabledCopy) {
-              copyText(renderContent);
-            }
-          }}
-        >
-          <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
-            {renderContent}
-          </SizableText>
-          {description || null}
-          <XStack space="$2">
-            {showCopy ? (
-              <IconButton
-                icon="Copy2Outline"
-                size="small"
-                pointerEvents="none"
-              />
-            ) : null}
-            {showOpenWithUrl ? (
-              <IconButton
-                icon="OpenOutline"
-                size="small"
-                onPress={() => openUrl(showOpenWithUrl)}
-              />
-            ) : null}
-          </XStack>
-        </YStack>
+        <XStack alignItems="flex-start" justifyContent="space-between">
+          <Stack flex={1} maxWidth="$96">
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              flex={1}
+              {...(description && {
+                mb: '$1',
+              })}
+            >
+              {renderContent}
+            </SizableText>
+            {description || null}
+          </Stack>
+          {showCopy || showOpenWithUrl ? (
+            <XStack space="$3" ml="$5">
+              {showOpenWithUrl ? (
+                <IconButton
+                  title={intl.formatMessage({
+                    id: ETranslations.global_view_in_blockchain_explorer,
+                  })}
+                  variant="tertiary"
+                  icon="OpenOutline"
+                  size="small"
+                  onPress={() => openUrl(showOpenWithUrl)}
+                />
+              ) : null}
+              {showCopy ? (
+                <IconButton
+                  title={intl.formatMessage({ id: ETranslations.global_copy })}
+                  variant="tertiary"
+                  icon="Copy1Outline"
+                  size="small"
+                  onPress={() => {
+                    if (!disabledCopy) {
+                      copyText(renderContent);
+                    }
+                  }}
+                />
+              ) : null}
+            </XStack>
+          ) : null}
+        </XStack>
       ) : (
         renderContent
       )}
@@ -547,7 +562,7 @@ function HistoryDetails() {
       return (
         <>
           <InfoItem
-            label="From"
+            label={intl.formatMessage({ id: ETranslations.global_from })}
             renderContent={txAddresses.from}
             showCopy
             description={
@@ -559,7 +574,7 @@ function HistoryDetails() {
             }
           />
           <InfoItem
-            label="To"
+            label={intl.formatMessage({ id: ETranslations.global_to })}
             renderContent={txAddresses.to}
             showCopy
             description={
@@ -577,13 +592,16 @@ function HistoryDetails() {
     if (txAddresses.to) {
       return (
         <InfoItem
-          label="Interact with Contract"
+          label={intl.formatMessage({
+            id: ETranslations.interact_with_contract,
+          })}
           renderContent={txAddresses.to}
           showCopy
         />
       );
     }
   }, [
+    intl,
     accountId,
     networkId,
     txAddresses.from,
@@ -610,7 +628,7 @@ function HistoryDetails() {
         >
           {txInfo?.gasFee}
         </NumberSizeableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
           (
           <NumberSizeableText
             formatter="value"
@@ -658,7 +676,13 @@ function HistoryDetails() {
         <Stack>
           {/* Primary */}
           <InfoItemGroup>
-            <InfoItem label="Status" renderContent={renderTxStatus()} compact />
+            <InfoItem
+              label={intl.formatMessage({
+                id: ETranslations.global_status,
+              })}
+              renderContent={renderTxStatus()}
+              compact
+            />
             <InfoItem label="Date" renderContent={txInfo.date} compact />
           </InfoItemGroup>
           {/* Secondary */}
@@ -673,13 +697,21 @@ function HistoryDetails() {
                     onPress={handleViewUTXOsOnPress}
                     variant="secondary"
                   >
-                    View Inputs & Outputs
+                    {intl.formatMessage({
+                      id: ETranslations.global_inputs,
+                    })}{' '}
+                    &{' '}
+                    {intl.formatMessage({
+                      id: ETranslations.global_outputs,
+                    })}
                   </Button>
                 }
               />
             ) : null}
             <InfoItem
-              label="Transaction ID"
+              label={intl.formatMessage({
+                id: ETranslations.global_transaction_id,
+              })}
               renderContent={txInfo.txid}
               showCopy
               showOpenWithUrl={buildTransactionDetailsUrl({
@@ -688,7 +720,9 @@ function HistoryDetails() {
               })}
             />
             <InfoItem
-              label="Network Fee"
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_network_fee,
+              })}
               renderContent={renderFeeInfo()}
               compact
             />
@@ -701,7 +735,9 @@ function HistoryDetails() {
             ) : null}
             {!isNil(txInfo.confirmations) ? (
               <InfoItem
-                label="Confirmations"
+                label={intl.formatMessage({
+                  id: ETranslations.global_confirmations,
+                })}
                 renderContent={String(txInfo.confirmations)}
                 compact
               />
@@ -752,6 +788,7 @@ function HistoryDetails() {
   }, [
     resp.isLoading,
     transfersToRender,
+    intl,
     renderTxStatus,
     txInfo.date,
     txInfo.txid,

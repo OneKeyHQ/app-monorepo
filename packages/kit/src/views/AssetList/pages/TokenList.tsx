@@ -64,7 +64,7 @@ function TokenList() {
 
     return (
       <Popover
-        title="Define"
+        title={intl.formatMessage({ id: ETranslations.low_value_assets })}
         renderTrigger={<HeaderIconButton icon="QuestionmarkOutline" />}
         renderContent={
           <Stack p="$5">
@@ -73,7 +73,7 @@ function TokenList() {
         }
       />
     );
-  }, [helpText]);
+  }, [helpText, intl]);
 
   const handleOnPressToken = useCallback(
     (token: IToken) => {
