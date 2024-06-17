@@ -62,8 +62,23 @@ function SendConfirmActionsContainer(props: IProps) {
   });
 
   const handleOnConfirm = useCallback(async () => {
+    const { serviceSend } = backgroundApiProxy;
     setIsSubmitting(true);
     isSubmitted.current = true;
+    // Pre-check before submit
+    try {
+      await serviceSend.precheckUnsignedTxs({
+        networkId,
+        accountId,
+        unsignedTxs,
+      });
+    } catch (e: any) {
+      setIsSubmitting(false);
+      onFail?.(e as Error);
+      isSubmitted.current = false;
+      void dappApprove.reject(e);
+      throw e;
+    }
     try {
       const result =
         await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({

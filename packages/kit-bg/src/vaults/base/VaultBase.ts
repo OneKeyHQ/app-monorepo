@@ -291,6 +291,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(true);
   }
 
+  async precheckUnsignedTx(params: { unsignedTx: IUnsignedTxPro }) {
+    return Promise.resolve(true);
+  }
+
   async buildEstimateFeeParams({
     encodedTx,
   }: {

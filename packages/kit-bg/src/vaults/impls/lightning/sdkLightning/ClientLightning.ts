@@ -347,6 +347,51 @@ class ClientLightning {
     },
   );
 
+  async preCheckBolt11({
+    accountId,
+    networkId,
+    paymentRequest,
+    amount,
+  }: {
+    accountId: string;
+    networkId: string;
+    paymentRequest: string;
+    amount: string;
+  }) {
+    return this.retryOperation({
+      fn: async () => {
+        const res = await this.request.post<{
+          data: {
+            result: 'OK';
+          };
+        }>(
+          `${this.prefix}/payments/prepay-check`,
+          {
+            paymentRequest,
+            amount,
+            testnet: this.testnet,
+          },
+          {
+            headers: {
+              Authorization: await this.getAuthorization({
+                accountId,
+                networkId,
+              }),
+            },
+          },
+        );
+        return res.data.data;
+      },
+      shouldRetry: isAuthError,
+      onRetry: async () => {
+        await this.backgroundApi.serviceLightning.exchangeToken({
+          accountId,
+          networkId,
+        });
+      },
+    });
+  }
+
   async checkBolt11({
     accountId,
     networkId,

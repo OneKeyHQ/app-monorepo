@@ -23,3 +23,9 @@ export enum ELnPaymentStatusEnum {
   FAILED = 'FAILED',
   PENDING = 'PENDING',
 }
+
+export type IPreCheckBolt11Params = {
+  paymentRequest: string;
+  amount: string;
+  testnet: boolean;
+};
