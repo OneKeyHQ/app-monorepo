@@ -129,7 +129,7 @@ function MobileBrowser() {
   const { top } = useSafeAreaInsets();
 
   return (
-    <Page>
+    <Page fullPage>
       <Page.Header headerShown={false} />
       {/* custom header */}
       <XStack
