@@ -1,7 +1,10 @@
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
-import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type {
+  IUnsignedMessage,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -502,6 +505,24 @@ class ServiceSend extends ServiceBase {
       return tokenDetails.info.isNative;
     }
     return vaultSettings.hasFrozenBalance;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async precheckUnsignedTxs(params: {
+    networkId: string;
+    accountId: string;
+    unsignedTxs: IUnsignedTxPro[];
+  }) {
+    const vault = await vaultFactory.getVault({
+      networkId: params.networkId,
+      accountId: params.accountId,
+    });
+    for (const unsignedTx of params.unsignedTxs) {
+      await vault.precheckUnsignedTx({
+        unsignedTx,
+      });
+    }
   }
 }
 
