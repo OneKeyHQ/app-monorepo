@@ -17,21 +17,29 @@ import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 function WhatsNew() {
   const intl = useIntl();
   const { version = '' } = platformEnv;
-  const { gtMd } = useMedia();
   const changeLog = useAppChangeLog(version);
   return (
     <Page>
-      <Page.Header title="What's New" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.settings_whats_new })}
+      />
       <Page.Body m="$5">
         <YStack space="$3">
-          {gtMd ? (
-            <Heading size="$heading2xl">{`What’s New in OneKey ${version} 👋🏻`}</Heading>
-          ) : (
-            <>
-              <Heading size="$heading2xl">What’s New</Heading>
-              <Heading size="$heading2xl">{`in OneKey ${version} 👋🏻`}</Heading>
-            </>
-          )}
+          <>
+            {intl
+              .formatMessage(
+                { id: ETranslations.update_whats_new_in_onekey_version },
+                {
+                  version,
+                },
+              )
+              .split('\n')
+              .map((text) => (
+                <Heading key={text} size="$heading2xl">
+                  {text}
+                </Heading>
+              ))}
+          </>
         </YStack>
         {changeLog ? (
           <ScrollView

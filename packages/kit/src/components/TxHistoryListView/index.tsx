@@ -10,6 +10,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getFilteredHistoryBySearchKey } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -82,7 +83,7 @@ function TxHistoryListView(props: IProps) {
                   size="$headingSm"
                   color="$textCaution"
                 >
-                  {intl.formatMessage({ id: 'transaction__pending' })}
+                  {intl.formatMessage({ id: ETranslations.global_pending })}
                 </SizableText>
               </XStack>
             ) : null}

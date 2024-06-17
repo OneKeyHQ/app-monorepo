@@ -49,7 +49,7 @@ function ActionItem({
   }
 
   return (
-    <Stack>
+    <Stack alignItems="center">
       <IconButton size="large" icon={icon} {...rest} />
       <SizableText
         mt="$2"
