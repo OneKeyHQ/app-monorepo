@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { cloneDeep } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -16,6 +17,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -39,6 +41,7 @@ function UrlAccountPage() {
 }
 
 function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
+  const intl = useIntl();
   const route = useAppRoute();
   const navigation = useAppNavigation();
   const routeParams = route.params as
@@ -176,7 +179,9 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
     return (
       <Page>
         <Stack p="$6">
-          <SizableText my="$6">Sorry, something went wrong!</SizableText>
+          <SizableText my="$6">
+            {intl.formatMessage({ id: ETranslations.global_404_message })}
+          </SizableText>
           {process.env.NODE_ENV !== 'production' ? (
             <SizableText my="$6">{JSON.stringify(routeParams)}</SizableText>
           ) : null}
@@ -185,7 +190,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
               urlAccountNavigation.replaceHomePage(navigation);
             }}
           >
-            Back to Home
+            {intl.formatMessage({ id: ETranslations.explore_back_to_home })}
           </Button>
         </Stack>
       </Page>
