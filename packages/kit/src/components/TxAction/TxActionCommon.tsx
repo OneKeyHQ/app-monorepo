@@ -11,6 +11,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Container } from '../Container';
@@ -135,10 +136,14 @@ function TxActionCommonFee({
 }: Pick<ITxActionCommonListViewProps, 'fee' | 'feeFiatValue' | 'feeSymbol'> & {
   currencySymbol: string;
 }) {
+  const intl = useIntl();
+
   return (
     <Stack flexGrow={1} flexBasis={0}>
       <SizableText size="$bodyMd" color="$textSubdued">
-        Network Fee
+        {intl.formatMessage({
+          id: ETranslations.swap_history_detail_network_fee,
+        })}
       </SizableText>
       <XStack alignItems="center" space="$1">
         <NumberSizeableText
@@ -180,7 +185,7 @@ function TxActionCommonListView(
     hideFeeInfo,
     ...rest
   } = props;
-
+  const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
 
@@ -261,9 +266,11 @@ function TxActionCommonListView(
       {pending ? (
         <XStack pl={52} space="$3">
           <Button size="small" variant="primary">
-            Speed Up
+            {intl.formatMessage({ id: ETranslations.global_speed_up })}
           </Button>
-          <Button size="small">Cancel</Button>
+          <Button size="small">
+            {intl.formatMessage({ id: ETranslations.global_cancel })}
+          </Button>
         </XStack>
       ) : null}
     </ListItem>
@@ -290,18 +297,26 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
           </XStack>
         }
       />
-      {target && target.content ? (
-        <Container.Item
-          title={target.title ?? intl.formatMessage({ id: 'content__to' })}
-          content={target.content}
-          description={target.description}
-        />
-      ) : null}
 
       {source && source.content ? (
         <Container.Item
-          title={source.title ?? intl.formatMessage({ id: 'content__from' })}
+          title={
+            source.title ??
+            intl.formatMessage({ id: ETranslations.content__from })
+          }
           content={source.content}
+          description={source.description}
+        />
+      ) : null}
+
+      {target && target.content ? (
+        <Container.Item
+          title={
+            target.title ??
+            intl.formatMessage({ id: ETranslations.content__to })
+          }
+          content={target.content}
+          description={target.description}
         />
       ) : null}
     </Container.Box>

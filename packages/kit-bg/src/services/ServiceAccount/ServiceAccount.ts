@@ -776,7 +776,7 @@ class ServiceAccount extends ServiceBase {
     input: string;
     networkId: string;
     name?: string;
-    deriveType: IAccountDeriveTypes | undefined;
+    deriveType?: IAccountDeriveTypes;
     isUrlAccount?: boolean;
     skipAddIfNotEqualToAddress?: string;
   }): Promise<{

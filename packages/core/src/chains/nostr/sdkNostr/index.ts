@@ -109,3 +109,30 @@ export function signSchnorr(privateKey: string, sigHash: string): string {
   const signedHex = bufferUtils.bytesToHex(signature);
   return signedHex;
 }
+
+export function validateNpub(npub: string) {
+  // Check if the npub starts with 'npub'
+  if (!npub.startsWith('npub')) {
+    return false;
+  }
+
+  try {
+    // Decode the bech32 encoded npub
+    const { prefix, words } = bech32.decode(npub);
+    if (prefix !== 'npub') {
+      return false;
+    }
+
+    // Convert from words to bytes
+    const data = bech32.fromWords(words);
+
+    // A valid Nostr public key should be 32 bytes long
+    if (data.length !== 32) {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    return false;
+  }
+}

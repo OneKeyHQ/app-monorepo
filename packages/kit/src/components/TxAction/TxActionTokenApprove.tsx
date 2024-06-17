@@ -5,6 +5,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
+import { AddressInfo } from '../AddressInfo';
 
 import {
   TxActionCommonDetailView,
@@ -112,39 +113,42 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
   } = getTxActionTokenApproveInfo(props);
 
   const content =
-    approveLabel ||
-    intl.formatMessage(
-      {
-        id: 'form__approve_str',
-      },
-      {
-        0: `${
-          approveIsMax
-            ? intl.formatMessage({ id: 'form__unlimited_allowance' })
-            : approveAmount
-        } ${approveSymbol}`,
-      },
-    );
+    approveLabel || approveIsMax
+      ? intl.formatMessage({
+          id: ETranslations.swap_page_button_approve_unlimited,
+        })
+      : intl.formatMessage(
+          { id: ETranslations.form__approve_str },
+          {
+            amount: approveAmount,
+            symbol: approveSymbol,
+          },
+        );
 
   return (
     <TxActionCommonDetailView
       overview={{
-        title: intl.formatMessage({ id: 'content__amount' }),
+        title: intl.formatMessage({ id: ETranslations.content__amount }),
         content,
         avatar: {
           src: approveIcon,
         },
       }}
       target={{
-        content: approveSpender,
-        description: decodedTx.toAddressLabel
-          ? {
-              icon: 'NoteSolid',
-              content: decodedTx.toAddressLabel,
-            }
-          : undefined,
+        content: decodedTx.to ?? approveSpender,
       }}
-      source={{ content: approveOwner }}
+      source={{
+        content: approveOwner,
+        description: {
+          content: (
+            <AddressInfo
+              address={approveOwner}
+              networkId={decodedTx.networkId}
+              accountId={decodedTx.accountId}
+            />
+          ),
+        },
+      }}
     />
   );
 }

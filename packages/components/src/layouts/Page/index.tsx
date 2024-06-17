@@ -29,6 +29,7 @@ function PageProvider({
   scrollEnabled = false,
   scrollProps = { showsVerticalScrollIndicator: false },
   safeAreaEnabled = true,
+  fullPage,
   onMounted,
   onUnmounted,
   onClose,
@@ -60,7 +61,9 @@ function PageProvider({
   return (
     <>
       <PageContext.Provider value={value}>
-        <PageContainer skipLoading={skipLoading}>{children}</PageContainer>
+        <PageContainer skipLoading={skipLoading} fullPage={fullPage}>
+          {children}
+        </PageContainer>
       </PageContext.Provider>
       {isEnablePageLifeCycle ? (
         <PageLifeCycle

@@ -26,6 +26,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
+import { AddressInfo } from '../AddressInfo';
 import { Container } from '../Container';
 import { Token } from '../Token';
 
@@ -53,6 +54,8 @@ function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
   const sendsWithToken = sends.filter((send) => !send.isNFT);
   const receivesWithToken = receives.filter((receive) => !receive.isNFT);
   const receivesWithNFT = receives.filter((receive) => receive.isNFT);
+
+  const isSendToSelf = from && to && from === to && !isEmpty(sends);
 
   if (!isEmpty(sends) && isEmpty(receives)) {
     const targets = uniq(map(sends, 'to'));
@@ -92,7 +95,7 @@ function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
 
   return {
     sends,
-    receives,
+    receives: isSendToSelf ? [] : receives,
     from,
     to,
     label: label ?? '',
@@ -422,7 +425,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   isNFT={transfer.isNFT}
                   tokenImageUri={transfer.icon}
                 />
-                <SizableText size="$headingLg" numberOfLines={1}>{`${
+                <SizableText size="$headingLg" numberOfLines={2}>{`${
                   direction === EDecodedTxDirection.OUT ? '-' : '+'
                 }${
                   isSendNativeToken &&
@@ -439,45 +442,54 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         transferElements.push(
           <Container.Item
             key={`${index}-amount`}
-            title={intl.formatMessage({ id: 'content__amount' })}
+            title={intl.formatMessage({ id: ETranslations.content__amount })}
             content={transfersContent}
           />,
         );
+        if (direction === EDecodedTxDirection.OUT) {
+          transferElements.push(
+            <Container.Item
+              key="from"
+              title={intl.formatMessage({ id: ETranslations.content__from })}
+              content={from}
+              description={{
+                content: (
+                  <AddressInfo
+                    address={from}
+                    networkId={decodedTx.networkId}
+                    accountId={decodedTx.accountId}
+                  />
+                ),
+              }}
+            />,
+          );
+        }
         transferElements.push(
           <Container.Item
             key={`${index}-target`}
             title={intl.formatMessage({
               id:
                 direction === EDecodedTxDirection.OUT
-                  ? 'content__to'
-                  : 'content__from',
+                  ? ETranslations.content__to
+                  : ETranslations.content__from,
             })}
             content={target}
-            description={
-              decodedTx.toAddressLabel && direction === EDecodedTxDirection.OUT
-                ? {
-                    icon: 'NoteSolid',
-                    content: decodedTx.toAddressLabel,
-                  }
-                : undefined
-            }
+            description={{
+              content: (
+                <AddressInfo
+                  address={target}
+                  networkId={decodedTx.networkId}
+                  accountId={decodedTx.accountId}
+                />
+              ),
+            }}
           />,
         );
       });
 
-      if (direction === EDecodedTxDirection.OUT) {
-        transferElements.push(
-          <Container.Item
-            key="from"
-            title={intl.formatMessage({ id: 'content__from' })}
-            content={from}
-          />,
-        );
-      }
-
       transferElements.push(
         <Container.Item
-          title={intl.formatMessage({ id: 'network__network' })}
+          title={intl.formatMessage({ id: ETranslations.network__network })}
           content={
             <XStack alignItems="center" space="$1">
               <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
@@ -490,7 +502,8 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       return <Container.Box>{transferElements}</Container.Box>;
     },
     [
-      decodedTx.toAddressLabel,
+      decodedTx.accountId,
+      decodedTx.networkId,
       from,
       intl,
       isSendNativeToken,
