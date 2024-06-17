@@ -125,7 +125,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       txid: '',
       rawTx: signedTx,
       encodedTx,
-      signature,
+      signature: hexUtils.addHexPrefix(bufferUtils.bytesToHex(txSignature)),
     };
   }
 
