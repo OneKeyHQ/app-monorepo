@@ -9,6 +9,7 @@ import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
+  InvalidTransferValue,
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
@@ -627,5 +628,48 @@ export default class VaultDot extends VaultBase {
         .toBuffer(tx)
         .toString('base64') as unknown as IEncodedTx,
     };
+  }
+
+  override async validateSendAmount({
+    to,
+    amount,
+  }: {
+    to: string;
+    amount: string;
+  }): Promise<boolean> {
+    if (isNil(amount) || isEmpty(amount)) {
+      return true;
+    }
+    const network = await this.getNetwork();
+
+    const depositAmountOnChain =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<string>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'consts',
+            params: {
+              method: 'balances_existentialDeposit',
+              params: [],
+            },
+          },
+        ],
+      });
+    const depositAmount = new BigNumber(depositAmountOnChain[0]);
+    const sendAmount = new BigNumber(amount).shiftedBy(network.decimals);
+
+    const account =
+      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        networkId: this.networkId,
+        accountAddress: to,
+        withBalance: true,
+      });
+
+    const accountBalance = new BigNumber(account.balance ?? 0);
+
+    if (accountBalance.plus(sendAmount).lt(depositAmount)) {
+      throw new InvalidTransferValue();
+    }
+    return true;
   }
 }
