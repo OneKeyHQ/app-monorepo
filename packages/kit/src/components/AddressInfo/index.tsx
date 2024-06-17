@@ -36,12 +36,12 @@ function AddressInfo(props: IProps) {
   return (
     <XStack space="$2" flex={1} flexWrap="wrap">
       {addressQueryResult.walletAccountName ? (
-        <Badge badgeType="success" badgeSize="sm" mb="$1">
+        <Badge badgeType="success" badgeSize="sm">
           {addressQueryResult.walletAccountName}
         </Badge>
       ) : null}
       {addressQueryResult.addressBookName ? (
-        <Badge badgeType="success" badgeSize="sm" mb="$1">
+        <Badge badgeType="success" badgeSize="sm">
           {addressQueryResult.addressBookName}
         </Badge>
       ) : null}
