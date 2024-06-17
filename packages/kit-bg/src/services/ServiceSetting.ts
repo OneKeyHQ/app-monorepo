@@ -1,4 +1,4 @@
-import { flatten, groupBy, isFunction } from 'lodash';
+import { flatten, groupBy } from 'lodash';
 import semver from 'semver';
 
 import { isTaprootPath } from '@onekeyhq/core/src/chains/btc/sdkBtc';
