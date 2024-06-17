@@ -86,6 +86,14 @@ function SendDataInputContainer() {
   const { account, network } = useAccountData({ accountId, networkId });
   const sendConfirm = useSendConfirm({ accountId, networkId });
 
+  const tokenMinAmount = useMemo(() => {
+    if (!tokenInfo || isNaN(tokenInfo.decimals)) {
+      return 0;
+    }
+
+    return new BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
+  }, [tokenInfo]);
+
   const {
     result: [
       tokenDetails,
@@ -399,7 +407,10 @@ function SendDataInputContainer() {
             id: ETranslations.send_error_minimum_amount,
           },
           {
-            amount: vaultSettings?.minTransferAmount ?? '0',
+            amount: BigNumber.max(
+              tokenMinAmount,
+              vaultSettings?.minTransferAmount ?? '0',
+            ).toFixed(),
             token: tokenSymbol,
           },
         );
@@ -421,13 +432,14 @@ function SendDataInputContainer() {
       return true;
     },
     [
-      intl,
       isUseFiat,
-      tokenDetails?.balanceParsed,
+      intl,
+      tokenSymbol,
+      tokenMinAmount,
+      vaultSettings?.minTransferAmount,
       tokenDetails?.fiatValue,
       tokenDetails?.price,
-      tokenSymbol,
-      vaultSettings?.minTransferAmount,
+      tokenDetails?.balanceParsed,
       form,
       accountId,
       networkId,

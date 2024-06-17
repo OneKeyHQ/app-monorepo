@@ -313,13 +313,13 @@ export default class Vault extends VaultBase {
           const transfer: IDecodedTxTransferInfo = {
             from: assetSender ?? sender,
             to,
-            tokenIdOnNetwork: nativeToken.address,
-            icon: nativeToken.logoURI ?? '',
-            name: nativeToken.name,
-            symbol: nativeToken.symbol,
+            tokenIdOnNetwork: token.address,
+            icon: token.logoURI ?? '',
+            name: token.name,
+            symbol: token.symbol,
             amount: new BigNumber(amount).shiftedBy(-token.decimals).toFixed(),
             isNFT: false,
-            isNative: true,
+            isNative: false,
           };
           action = await this.buildTxTransferAssetAction({
             from: sender,

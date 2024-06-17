@@ -32,6 +32,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapSol = {
     coinType: COINTYPE_SOL,
     label: 'Ledger Live',
     desc: 'Ledger Live, Solflare, m/44’/501’/*’',
+    disableWalletTypes: ['hw'],
   },
 };
 

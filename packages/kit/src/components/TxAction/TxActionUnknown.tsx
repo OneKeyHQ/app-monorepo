@@ -86,7 +86,11 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
         content: unknownTo,
         description: {
           content: (
-            <AddressInfo address={unknownTo} networkId={decodedTx.networkId} />
+            <AddressInfo
+              address={unknownTo}
+              networkId={decodedTx.networkId}
+              accountId={decodedTx.accountId}
+            />
           ),
         },
       }}
@@ -97,6 +101,7 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
             <AddressInfo
               address={unknownFrom}
               networkId={decodedTx.networkId}
+              accountId={decodedTx.accountId}
             />
           ),
         },

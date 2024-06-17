@@ -38,6 +38,8 @@ const settings: IVaultSettings = {
 
   defaultFeePresetIndex: 0,
 
+  onChainHistoryDisabled: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {

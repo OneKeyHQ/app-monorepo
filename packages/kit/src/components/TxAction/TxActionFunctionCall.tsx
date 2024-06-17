@@ -101,6 +101,7 @@ function TxActionFunctionCallDetailView(props: ITxActionProps) {
             <AddressInfo
               address={functionFrom}
               networkId={decodedTx.networkId}
+              accountId={decodedTx.accountId}
             />
           ),
         },

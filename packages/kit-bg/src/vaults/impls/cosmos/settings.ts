@@ -44,6 +44,8 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   onChainHistoryDisabled: true,
 
+  minTransferAmount: '0.0000001',
+
   defaultFeePresetIndex: 1,
 
   withMemo: true,

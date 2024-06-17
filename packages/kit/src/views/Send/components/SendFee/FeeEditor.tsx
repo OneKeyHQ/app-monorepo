@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isNaN, isNil, isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -168,7 +168,8 @@ function FeeEditor(props: IProps) {
   );
   const customFee = (originalCustomFee ?? selectedFee?.feeInfo) as IFeeInfoUnit;
 
-  const { feeSymbol, nativeSymbol, nativeTokenPrice } = customFee?.common ?? {};
+  const { feeSymbol, feeDecimals, nativeSymbol, nativeTokenPrice } =
+    customFee?.common ?? {};
 
   const [vaultSettings, network] =
     usePromiseResult(
@@ -247,19 +248,62 @@ function FeeEditor(props: IProps) {
     ],
   );
 
-  const gasLimitDescription = useMemo(() => {
+  const recommendPriorityFee = useMemo(() => {
+    if (customFee.gasEIP1559) {
+      const priorityFee = new BigNumber(
+        customFee.gasEIP1559.maxPriorityFeePerGas ?? '0',
+      );
+
+      const maxFeeInfo = feeSelectorItems[0];
+      const minFeeInfo = feeSelectorItems[feeSelectorItems.length - 1];
+      const min = minFeeInfo.feeInfo.gasEIP1559?.maxPriorityFeePerGas ?? '0';
+      const max = new BigNumber(
+        maxFeeInfo.feeInfo.gasEIP1559?.maxPriorityFeePerGas ?? '0',
+      )
+        .times(100)
+        .toFixed();
+
+      return {
+        min,
+        max,
+        priorityFee: priorityFee.toFixed(),
+        description: `${intl.formatMessage({
+          id: ETranslations.provider_recommend,
+        })}: ${min} - ${max} ${feeSymbol}`,
+      };
+    }
+
+    return {
+      max: '',
+      min: '',
+      description: '',
+    };
+  }, [customFee.gasEIP1559, feeSelectorItems, feeSymbol, intl]);
+
+  const recommendGasLimit = useMemo(() => {
     const feeInfo = feeSelectorItems[0].feeInfo;
     const gasLimit = new BigNumber(
       feeInfo.gasEIP1559?.gasLimit ?? feeInfo.gas?.gasLimit ?? '0',
     );
     const gasLimitForDisplay = new BigNumber(
-      feeInfo.gasEIP1559?.gasLimitForDisplay ?? feeInfo.gas?.gasLimit ?? '0',
+      feeInfo.gasEIP1559?.gasLimitForDisplay ??
+        feeInfo.gas?.gasLimitForDisplay ??
+        '0',
     );
 
-    return `Estimate gas limit is ${gasLimitForDisplay.toFixed()}, recommend ${
-      gasLimitForDisplay.isEqualTo(gasLimit) ? '1.0x' : '1.2x'
-    }`;
+    return {
+      gasLimit: gasLimit.toFixed(),
+      description: `Estimate gas limit is ${gasLimit.toFixed()}, recommend ${
+        gasLimitForDisplay.isEqualTo(gasLimit) ? '1.0x' : '1.2x'
+      }`,
+    };
   }, [feeSelectorItems]);
+
+  const isSaveFeeDisabled = useMemo(() => {
+    if (currentFeeType === EFeeType.Standard) return false;
+
+    return !form.formState.isValid;
+  }, [currentFeeType, form.formState.isValid]);
 
   const handleValidateMaxBaseFee = useCallback(
     (value: string) => {
@@ -268,15 +312,15 @@ function FeeEditor(props: IProps) {
           customFee.gasEIP1559?.baseFeePerGas ?? '0',
         )
       )
-        return 'Max base fee is low for current network conditions';
+        return false;
     },
     [customFee.gasEIP1559?.baseFeePerGas],
   );
 
   const handleValidatePriorityFee = useCallback((value: string) => {
     const priorityFee = new BigNumber(value || 0);
-    if (priorityFee.isNaN() || priorityFee.isLessThan(0)) {
-      return 'Priority fee must be greater than 0';
+    if (priorityFee.isNaN() || priorityFee.isLessThanOrEqualTo(0)) {
+      return false;
     }
     return true;
   }, []);
@@ -295,24 +339,24 @@ function FeeEditor(props: IProps) {
 
   const handleValidateGasPrice = useCallback((value: string) => {
     const gasPrice = new BigNumber(value || 0);
-    if (gasPrice.isNaN() || gasPrice.isLessThan(0)) {
-      return 'Gas price must be greater than 0';
+    if (gasPrice.isNaN() || gasPrice.isLessThanOrEqualTo(0)) {
+      return false;
     }
     return true;
   }, []);
 
   const handleValidateFeeRate = useCallback((value: string) => {
     const feeRate = new BigNumber(value || 0);
-    if (feeRate.isNaN() || feeRate.isLessThan(0)) {
-      return 'Fee rate must be greater than 0';
+    if (feeRate.isNaN() || feeRate.isLessThanOrEqualTo(0)) {
+      return false;
     }
     return true;
   }, []);
 
   const handleValidateComputeUnitPrice = useCallback((value: string) => {
     const feeRate = new BigNumber(value || 0);
-    if (feeRate.isNaN() || feeRate.isLessThan(0)) {
-      return 'ComputeUnitPrice must be greater than 0';
+    if (feeRate.isNaN() || feeRate.isLessThanOrEqualTo(0)) {
+      return false;
     }
     return true;
   }, []);
@@ -400,23 +444,69 @@ function FeeEditor(props: IProps) {
     vaultSettings?.editFeeEnabled,
   ]);
 
+  const handleFormValueOnChange = useCallback(
+    ({
+      name,
+      value,
+      decimals,
+      intRequired,
+    }: {
+      name: string;
+      value: string;
+      decimals?: number;
+      intRequired?: boolean;
+    }) => {
+      const filedName = name as keyof typeof watchAllFields;
+      const valueBN = new BigNumber(value ?? 0);
+      if (valueBN.isNaN()) {
+        const formattedValue = parseFloat(value);
+        form.setValue(
+          filedName,
+          isNaN(formattedValue) ? '' : String(formattedValue),
+        );
+        return;
+      }
+      if (isNumber(decimals)) {
+        const dp = valueBN.decimalPlaces();
+        if (dp && dp > decimals) {
+          form.setValue(filedName, valueBN.toFixed(decimals));
+          return;
+        }
+      }
+
+      if (intRequired) {
+        form.setValue(filedName, valueBN.toFixed(0));
+      } else if (!value.includes('.')) {
+        form.setValue(filedName, valueBN.toFixed());
+      }
+    },
+    [form],
+  );
+
   const renderFeeEditorForm = useCallback(() => {
     if (!vaultSettings?.editFeeEnabled) return null;
     if (currentFeeType !== EFeeType.Custom || !customFee) return null;
 
     if (customFee.gasEIP1559) {
-      const originalLimit = customFee.gasEIP1559.gasLimit;
       return (
         <Form form={form}>
           <YStack space="$5">
             <Form.Field
-              label="Max Base Fee"
+              label={intl.formatMessage({
+                id: ETranslations.transaction_max_base_fee,
+              })}
               name="maxBaseFee"
               description={`Current: ${customFee.gasEIP1559.baseFeePerGas} ${feeSymbol}`}
               rules={{
                 required: true,
                 min: 0,
                 validate: handleValidateMaxBaseFee,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                    decimals: feeDecimals,
+                  }),
               }}
             >
               <Input
@@ -433,10 +523,17 @@ function FeeEditor(props: IProps) {
                 id: ETranslations.form__priority_fee,
               })}`}
               name="priorityFee"
+              description={recommendPriorityFee.description}
               rules={{
                 required: true,
                 validate: handleValidatePriorityFee,
                 min: 0,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                    decimals: feeDecimals,
+                  }),
               }}
             >
               <Input
@@ -453,10 +550,16 @@ function FeeEditor(props: IProps) {
                 id: ETranslations.content__gas_limit,
               })}
               name="gasLimit"
-              description={gasLimitDescription}
+              description={recommendGasLimit.description}
               rules={{
                 required: true,
                 validate: handleValidateGasLimit,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                    intRequired: true,
+                  }),
               }}
             >
               <Input
@@ -465,10 +568,7 @@ function FeeEditor(props: IProps) {
                   {
                     iconName: 'UndoOutline',
                     onPress: () => {
-                      form.setValue(
-                        'gasLimit',
-                        new BigNumber(originalLimit).toFixed(),
-                      );
+                      form.setValue('gasLimit', recommendGasLimit.gasLimit);
                       void form.trigger('gasLimit');
                     },
                   },
@@ -481,7 +581,6 @@ function FeeEditor(props: IProps) {
     }
 
     if (customFee.gas) {
-      const originalLimit = customFee.gas.gasLimit;
       return (
         <Form form={form}>
           <YStack space="$5">
@@ -499,6 +598,12 @@ function FeeEditor(props: IProps) {
                 required: true,
                 min: 0,
                 validate: handleValidateGasPrice,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                    decimals: feeDecimals,
+                  }),
               }}
             >
               <Input flex={1} />
@@ -508,10 +613,16 @@ function FeeEditor(props: IProps) {
                 id: ETranslations.content__gas_limit,
               })}
               name="gasLimit"
-              description={gasLimitDescription}
+              description={recommendGasLimit.description}
               rules={{
                 required: true,
                 validate: handleValidateGasLimit,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                    intRequired: true,
+                  }),
               }}
             >
               <Input
@@ -520,7 +631,7 @@ function FeeEditor(props: IProps) {
                   {
                     iconName: 'UndoOutline',
                     onPress: () => {
-                      form.setValue('gasLimit', originalLimit);
+                      form.setValue('gasLimit', recommendGasLimit.gasLimit);
                       void form.trigger('gasLimit');
                     },
                   },
@@ -544,6 +655,11 @@ function FeeEditor(props: IProps) {
               rules={{
                 required: true,
                 validate: handleValidateFeeRate,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                  }),
               }}
             >
               <Input flex={1} />
@@ -563,6 +679,12 @@ function FeeEditor(props: IProps) {
               rules={{
                 required: true,
                 validate: handleValidateComputeUnitPrice,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                    intRequired: true,
+                  }),
               }}
             >
               <Input flex={1} />
@@ -574,9 +696,10 @@ function FeeEditor(props: IProps) {
   }, [
     currentFeeType,
     customFee,
+    feeDecimals,
     feeSymbol,
     form,
-    gasLimitDescription,
+    handleFormValueOnChange,
     handleValidateComputeUnitPrice,
     handleValidateFeeRate,
     handleValidateGasLimit,
@@ -584,6 +707,9 @@ function FeeEditor(props: IProps) {
     handleValidateMaxBaseFee,
     handleValidatePriorityFee,
     intl,
+    recommendGasLimit.description,
+    recommendGasLimit.gasLimit,
+    recommendPriorityFee.description,
     vaultSettings?.editFeeEnabled,
   ]);
 
@@ -768,7 +894,12 @@ function FeeEditor(props: IProps) {
           ))}
         </YStack>
         {vaultSettings?.editFeeEnabled ? (
-          <Button variant="primary" size="medium" onPress={handleApplyFeeInfo}>
+          <Button
+            disabled={isSaveFeeDisabled}
+            variant="primary"
+            size="medium"
+            onPress={handleApplyFeeInfo}
+          >
             {intl.formatMessage({ id: ETranslations.action_save })}
           </Button>
         ) : null}
@@ -783,6 +914,7 @@ function FeeEditor(props: IProps) {
     feeSymbol,
     handleApplyFeeInfo,
     intl,
+    isSaveFeeDisabled,
     nativeSymbol,
     nativeTokenPrice,
     unsignedTxs,

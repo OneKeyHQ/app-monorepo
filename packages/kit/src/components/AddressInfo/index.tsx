@@ -4,21 +4,23 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 type IProps = {
+  accountId?: string;
   networkId: string;
   address: string;
 };
 
 function AddressInfo(props: IProps) {
-  const { networkId, address } = props;
+  const { accountId, networkId, address } = props;
   const addressQueryResult = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccountProfile.queryAddress({
+        accountId,
         networkId,
         address,
         enableAddressBook: true,
         enableWalletName: true,
       }),
-    [address, networkId],
+    [accountId, address, networkId],
   ).result;
 
   if (!addressQueryResult) {

@@ -1978,10 +1978,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     ],
     'explorers': [
       {
-        'address': 'https://algoexplorer.io/address/{address}',
-        'block': 'https://algoexplorer.io/block/{block}',
-        'name': 'https://algoexplorer.io/',
-        'transaction': 'https://algoexplorer.io/tx/{transaction}',
+        'address': 'https://allo.info/account/{address}',
+        'block': 'https://allo.info/block/{block}',
+        'name': 'https://allo.info',
+        'transaction': 'https://allo.info/tx/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,

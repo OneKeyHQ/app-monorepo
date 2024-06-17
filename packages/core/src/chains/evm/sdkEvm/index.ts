@@ -112,7 +112,7 @@ export function validateEvmAddress(
 
   return Promise.resolve({
     normalizedAddress: checksumAddress.toLowerCase() || '',
-    displayAddress: checksumAddress || '',
+    displayAddress: checksumAddress.toLowerCase() || '',
     isValid,
   });
 }

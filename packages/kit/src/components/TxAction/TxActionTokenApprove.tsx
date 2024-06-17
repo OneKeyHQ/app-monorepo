@@ -144,6 +144,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
             <AddressInfo
               address={approveOwner}
               networkId={decodedTx.networkId}
+              accountId={decodedTx.accountId}
             />
           ),
         },

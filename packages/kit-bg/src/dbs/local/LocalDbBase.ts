@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // eslint-disable-next-line max-classes-per-file
 
-import { isNil, uniq, uniqBy } from 'lodash';
+import { isEmpty, isNil, map, merge, uniq, uniqBy } from 'lodash';
 import natsort from 'natsort';
 
 import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
@@ -1635,6 +1635,43 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  async getAddressByNetworkId({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }) {
+    try {
+      const id = `${networkId}--${address}`;
+      return await this.getRecordById({
+        name: ELocalDBStoreNames.Address,
+        id,
+      });
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async getAddressByNetworkImpl({
+    networkId,
+    normalizedAddress,
+  }: {
+    networkId: string;
+    normalizedAddress: string;
+  }) {
+    try {
+      const impl = networkUtils.getNetworkImpl({ networkId });
+      const id = `${impl}--${normalizedAddress}`;
+      return await this.getRecordById({
+        name: ELocalDBStoreNames.Address,
+        id,
+      });
+    } catch (error) {
+      return null;
+    }
+  }
+
   async getAccountNameFromAddress({
     networkId,
     address,
@@ -1643,28 +1680,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     networkId: string;
     address: string;
     normalizedAddress: string;
-  }): Promise<Array<{ walletName: string; accountName: string }>> {
+  }): Promise<
+    Array<{ walletName: string; accountName: string; accountId: string }>
+  > {
     try {
       const db = await this.readyDb;
-      let info: IDBAddress | undefined;
-      try {
-        const id = `${networkId}--${address}`;
-        info = await this.getRecordById({
-          name: ELocalDBStoreNames.Address,
-          id,
-        });
-      } catch (error) {
-        const impl = networkUtils.getNetworkImpl({ networkId });
-        const id = `${impl}--${normalizedAddress}`;
-        info = await this.getRecordById({
-          name: ELocalDBStoreNames.Address,
-          id,
-        });
-      }
 
-      if (info) {
+      const info = (
+        await Promise.all([
+          this.getAddressByNetworkId({ networkId, address }),
+          this.getAddressByNetworkImpl({ networkId, normalizedAddress }),
+        ])
+      ).filter(Boolean);
+
+      if (!isEmpty(info)) {
         const result = [];
-        const items = Object.entries(info.wallets);
+        const wallets = map(info, 'wallets');
+        const items = Object.entries(merge({}, wallets[0], wallets[1]));
         for (const item of items) {
           const [walletId, accountId] = item;
           try {
@@ -1679,6 +1711,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               result.push({
                 walletName: wallet.name,
                 accountName: account.name,
+                accountId: account.id,
               });
             }
           } catch (error) {
