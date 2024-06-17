@@ -109,6 +109,7 @@ export function DeriveTypeSelectorTriggerStaticInput(
     onChange: onDeriveTypeChange,
     ...others
   } = props;
+  const intl = useIntl();
   const { result: viewItems } = usePromiseResult(async () => {
     const selectItems =
       await backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
@@ -117,6 +118,18 @@ export function DeriveTypeSelectorTriggerStaticInput(
       });
     return selectItems;
   }, [items, networkId]);
+  const options = useMemo(
+    () =>
+      viewItems?.map(({ value, label, item, ...i }) => ({
+        value,
+        label: item.labelKey
+          ? intl.formatMessage({ id: item.labelKey })
+          : label,
+        item,
+        ...i,
+      })),
+    [intl, viewItems],
+  );
 
   // autofix derivetype when it's not in the list
   useEffect(() => {
@@ -136,7 +149,7 @@ export function DeriveTypeSelectorTriggerStaticInput(
   return (
     <DeriveTypeSelectorTriggerView
       key={`${deriveType || ''}-${networkId || ''}`}
-      items={viewItems}
+      items={options}
       value={deriveType}
       onChange={onDeriveTypeChange}
       {...others}
