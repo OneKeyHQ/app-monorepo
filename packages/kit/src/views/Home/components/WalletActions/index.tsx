@@ -40,16 +40,16 @@ function WalletActionSend() {
   const [map] = useAllTokenListMapAtom();
   const [tokenListState] = useTokenListStateAtom();
 
-  const isSingleToken = usePromiseResult(async () => {
+  const vaultSettings = usePromiseResult(async () => {
     const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
       networkId: network?.id ?? '',
     });
-    return settings.isSingleToken;
+    return settings;
   }, [network?.id]).result;
 
   const handleOnSend = useCallback(async () => {
     if (!account || !network) return;
-    if (isSingleToken) {
+    if (vaultSettings?.isSingleToken) {
       const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
         networkId: network.id,
         accountAddress: account.address,
@@ -95,7 +95,7 @@ function WalletActionSend() {
     account,
     allTokens.keys,
     allTokens.tokens,
-    isSingleToken,
+    vaultSettings,
     map,
     navigation,
     network,
@@ -104,7 +104,9 @@ function WalletActionSend() {
   return (
     <RawActions.Send
       onPress={handleOnSend}
-      disabled={!tokenListState.initialized}
+      disabled={
+        vaultSettings?.disabledSendAction || !tokenListState.initialized
+      }
     />
   );
 }
@@ -112,13 +114,24 @@ function WalletActionSend() {
 function WalletActionSwap({ networkId }: { networkId?: string }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const vaultSettings = usePromiseResult(async () => {
+    const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId: networkId ?? '',
+    });
+    return settings;
+  }, [networkId]).result;
   const handleOnSwap = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: { importNetworkId: networkId },
     });
   }, [navigation, networkId]);
-  return <RawActions.Swap onPress={handleOnSwap} />;
+  return (
+    <RawActions.Swap
+      onPress={handleOnSwap}
+      disabled={vaultSettings?.disabledSwapAction}
+    />
+  );
 }
 
 function WalletActions({ ...rest }: IXStackProps) {

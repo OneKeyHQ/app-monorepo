@@ -161,6 +161,14 @@ function TokenListContainer({
     },
   );
 
+  const { result: vaultSettings } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId: network?.id ?? '',
+      }),
+    [network?.id],
+  );
+
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
       updateTokenListState({
@@ -211,7 +219,7 @@ function TokenListContainer({
         withHeader
         withFooter
         withPrice
-        withBuyAndReceive
+        withBuyAndReceive={!vaultSettings?.disabledSendAction}
         isBuyTokenSupported={isSupported}
         onBuyToken={handleOnBuy}
         onReceiveToken={handleOnReceive}
