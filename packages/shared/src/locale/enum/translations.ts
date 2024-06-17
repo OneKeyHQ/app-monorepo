@@ -1,3 +1,4 @@
+// This file is automatically created by `yarn fetch:locale`.
 export enum ETranslations {
   account_model_watched = 'account_model.watched',
   action_save = 'action_save',
@@ -782,12 +783,15 @@ export enum ETranslations {
   hardware_wallet_connection_is_not_currently_supported_but_we_are_working_on_it_stay_tuned = 'hardware.wallet_connection_is_not_currently_supported_but_we_are_working_on_it_stay_tuned',
   hardware_wallet_connection_is_only_available_on_the_official_app = 'hardware.wallet_connection_is_only_available_on_the_official_app',
   hardware_wallet_connection_is_only_available_on_the_third_party_apps = 'hardware.wallet_connection_is_only_available_on_the_third_party_apps',
+  hidden_assets = 'hidden_assets',
   lighting_invoice = 'lighting_invoice',
   litecoin_legacy_desc = 'litecoin_legacy_desc',
   litecoin_native_segwit_desc = 'litecoin_native_segwit_desc',
   litecoin_nested_segwit_desc = 'litecoin_nested_segwit_desc',
   login_forgot_password = 'login.forgot_password',
   login_welcome_message = 'login.welcome_message',
+  low_value_assets = 'low_value_assets',
+  low_value_assets_desc = 'low_value_assets_desc',
   manual_backup = 'manual_backup',
   market_1d = 'market.1d',
   market_1h = 'market.1h',
