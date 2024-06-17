@@ -432,13 +432,14 @@ function SendDataInputContainer() {
       return true;
     },
     [
-      intl,
       isUseFiat,
-      tokenDetails?.balanceParsed,
+      intl,
+      tokenSymbol,
+      tokenMinAmount,
+      vaultSettings?.minTransferAmount,
       tokenDetails?.fiatValue,
       tokenDetails?.price,
-      tokenSymbol,
-      vaultSettings?.minTransferAmount,
+      tokenDetails?.balanceParsed,
       form,
       accountId,
       networkId,

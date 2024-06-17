@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil, isNaN, isNumber } from 'lodash';
+import { isNaN, isNil, isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -456,11 +456,12 @@ function FeeEditor(props: IProps) {
       decimals?: number;
       intRequired?: boolean;
     }) => {
+      const filedName = name as keyof typeof watchAllFields;
       const valueBN = new BigNumber(value ?? 0);
       if (valueBN.isNaN()) {
         const formattedValue = parseFloat(value);
         form.setValue(
-          name,
+          filedName,
           isNaN(formattedValue) ? '' : String(formattedValue),
         );
         return;
@@ -468,15 +469,15 @@ function FeeEditor(props: IProps) {
       if (isNumber(decimals)) {
         const dp = valueBN.decimalPlaces();
         if (dp && dp > decimals) {
-          form.setValue(name, valueBN.toFixed(decimals));
+          form.setValue(filedName, valueBN.toFixed(decimals));
           return;
         }
       }
 
       if (intRequired) {
-        form.setValue(name, valueBN.toFixed(0));
+        form.setValue(filedName, valueBN.toFixed(0));
       } else if (!value.includes('.')) {
-        form.setValue(name, valueBN.toFixed());
+        form.setValue(filedName, valueBN.toFixed());
       }
     },
     [form],
