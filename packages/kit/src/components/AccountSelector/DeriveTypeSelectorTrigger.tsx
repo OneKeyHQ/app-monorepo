@@ -172,7 +172,7 @@ export function DeriveTypeSelectorTrigger({
           ...i,
         }))
         .filter((info) => {
-          if (info.item.disableWalletTypes) {
+          if (info.item.disableWalletTypes && wallet?.type) {
             return !info.item.disableWalletTypes.includes(wallet?.type);
           }
           return true;
