@@ -5,6 +5,8 @@ import {
   IMPL_LTC,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import settingsBtc from '../btc/settings';
 
@@ -26,10 +28,9 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinType: COINTYPE_LTC,
     coinName: COINNAME_LTC,
     label: 'Nested SegWit',
-    descI18n: {
-      id: 'form__bitcoin__nested_segwit_desc',
-      data: { 0: 'M' },
-    },
+    desc: `${appLocale.intl.formatMessage({
+      id: ETranslations.litecoin_nested_segwit_desc,
+    })} BIP49, P2SH-P2WPKH, Base58`,
     addressEncoding: EAddressEncodings.P2SH_P2WPKH,
   },
   BIP84: {
@@ -38,10 +39,9 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinType: COINTYPE_LTC,
     coinName: COINNAME_LTC,
     label: 'Native SegWit',
-    descI18n: {
-      id: 'form__bitcoin__native_segwit_desc',
-      data: { 0: 'ltc1' },
-    },
+    desc: `${appLocale.intl.formatMessage({
+      id: ETranslations.litecoin_native_segwit_desc,
+    })} BIP84, P2WPKH, Bech32`,
     addressEncoding: EAddressEncodings.P2WPKH,
   },
   BIP44: {
@@ -50,7 +50,9 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinType: COINTYPE_LTC,
     coinName: COINNAME_LTC,
     label: 'Legacy',
-    descI18n: { id: 'form__bitcoin__legacy_desc', data: { 0: 'L' } },
+    desc: `${appLocale.intl.formatMessage({
+      id: ETranslations.litecoin_legacy_desc,
+    })} BIP44, P2PKH, Base58`,
     addressEncoding: EAddressEncodings.P2PKH,
   },
 };
