@@ -119,7 +119,8 @@ function CreateInvoice() {
             name="amount"
             description={
               <NumberSizeableText
-                size="$bodyLgMedium"
+                size="$bodyMd"
+                color="$textSubdued"
                 formatter="value"
                 formatterOptions={{ currency: settings.currencyInfo.symbol }}
               >
@@ -184,6 +185,17 @@ function CreateInvoice() {
           <Form.Field
             label={intl.formatMessage({ id: ETranslations.global_description })}
             name="description"
+            rules={{
+              maxLength: {
+                value: 40,
+                message: intl.formatMessage(
+                  {
+                    id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+                  },
+                  { 0: '40' },
+                ),
+              },
+            }}
           >
             <TextArea
               size={media.gtMd ? 'medium' : 'large'}
