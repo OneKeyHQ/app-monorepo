@@ -246,7 +246,6 @@ export interface ISwapState {
 
 export interface ISwapCheckWarningDef {
   swapFromAddressInfo: ReturnType<typeof useSwapAddressInfo>;
-  swapToAddressInfo: ReturnType<typeof useSwapAddressInfo>;
 }
 
 export enum ESwapAlertLevel {
