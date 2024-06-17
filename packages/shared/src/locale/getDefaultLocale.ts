@@ -1,8 +1,8 @@
 import { LOCALES_OPTION } from '.';
 
-import { locale as LocalizationLocale } from 'expo-localization';
 import { isFunction } from 'lodash';
 
+import { locale as LocalizationLocale } from '@onekeyhq/shared/src/modules3rdParty/localization';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { LOCALES } from './localeJsonMap';
@@ -13,6 +13,7 @@ import type { ILocaleJSONSymbol, ILocaleSymbol } from './type';
 const getDefaultLocaleFunc = () => {
   const locales = LOCALES_OPTION.map((locale) => locale.value);
   const current = LocalizationLocale;
+
   for (let i = 0; i < locales.length; i += 1) {
     const locale = locales[i];
     if (locale === current) {
