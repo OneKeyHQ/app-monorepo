@@ -132,30 +132,17 @@ export function getHistoryTxDetailInfo({
   historyTx: IAccountHistoryTx;
 }) {
   const { decodedTx } = historyTx;
-  let date = '';
-  let txid = '';
-  let nonce;
-  let confirmations;
   let swapInfo;
-  let gasFee = '0';
-  let gasFeeFiatValue = '0';
 
-  if (txDetails) {
-    date = formatDate(new Date(txDetails.timestamp * 1000));
-    txid = txDetails.tx;
-    nonce = txDetails.nonce;
-    confirmations = txDetails.confirmations;
-    gasFee = txDetails.gasFee;
-    gasFeeFiatValue = txDetails.gasFeeFiatValue;
-  } else {
-    date = formatDate(
-      new Date(decodedTx.updatedAt ?? decodedTx.createdAt ?? 0),
-    );
-    txid = decodedTx.txid;
-    nonce = decodedTx.nonce;
-    gasFee = decodedTx.totalFeeInNative ?? '0';
-    gasFeeFiatValue = decodedTx.totalFeeFiatValue ?? '0';
-  }
+  const date = formatDate(
+    new Date(decodedTx.updatedAt ?? decodedTx.createdAt ?? 0),
+  );
+  const txid = decodedTx.txid;
+  const nonce = txDetails?.nonce ?? decodedTx.nonce;
+  const gasFee = txDetails?.gasFee ?? decodedTx.totalFeeInNative ?? '0';
+  const gasFeeFiatValue =
+    txDetails?.gasFeeFiatValue ?? decodedTx.totalFeeFiatValue ?? '0';
+  const confirmations = txDetails?.confirmations;
 
   return {
     txid,

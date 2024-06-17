@@ -11,6 +11,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Container } from '../Container';
@@ -290,18 +291,26 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
           </XStack>
         }
       />
-      {target && target.content ? (
-        <Container.Item
-          title={target.title ?? intl.formatMessage({ id: 'content__to' })}
-          content={target.content}
-          description={target.description}
-        />
-      ) : null}
 
       {source && source.content ? (
         <Container.Item
-          title={source.title ?? intl.formatMessage({ id: 'content__from' })}
+          title={
+            source.title ??
+            intl.formatMessage({ id: ETranslations.content__from })
+          }
           content={source.content}
+          description={source.description}
+        />
+      ) : null}
+
+      {target && target.content ? (
+        <Container.Item
+          title={
+            target.title ??
+            intl.formatMessage({ id: ETranslations.content__to })
+          }
+          content={target.content}
+          description={target.description}
         />
       ) : null}
     </Container.Box>

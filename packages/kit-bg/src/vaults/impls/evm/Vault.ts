@@ -489,7 +489,7 @@ export default class Vault extends VaultBase {
       .encode(['address', 'uint256'], [spender, amountHex])
       .slice(2)}`;
     return {
-      from: owner,
+      from: owner.toLowerCase(),
       to: tokenInfo.address,
       value: '0x0',
       data,

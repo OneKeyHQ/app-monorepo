@@ -379,7 +379,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         owner: accountAddress,
         signer: onChainHistoryTx.from,
-
+        to: onChainHistoryTx.to,
         nonce: onChainHistoryTx.nonce,
         actions: [action],
 
@@ -398,6 +398,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         extraInfo: null,
         payload: {
           type: onChainHistoryTx.type,
+          value: onChainHistoryTx.value,
+          label: onChainHistoryTx.label,
         },
       };
 

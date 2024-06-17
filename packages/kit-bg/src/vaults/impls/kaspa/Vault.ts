@@ -212,9 +212,6 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: null,
-      payload: {
-        type: EOnChainHistoryTxType.Send,
-      },
       encodedTx,
       totalFeeInNative: new BigNumber(encodedTx.feeInfo?.limit ?? '0')
         .multipliedBy(feeInfo?.price ?? '0.00000001')
