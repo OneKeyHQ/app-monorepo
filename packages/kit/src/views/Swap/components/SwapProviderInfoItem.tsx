@@ -43,18 +43,24 @@ const SwapProviderInfoItem = ({
   }, [rate]);
   const rateContent = useMemo(() => {
     if (!rateIsExit || !fromToken || !toToken)
-      return <SizableText>Insufficient liquidity</SizableText>;
+      return (
+        <SizableText>
+          {intl.formatMessage({
+            id: ETranslations.swap_page_provider_provider_insufficient_liquidity,
+          })}
+        </SizableText>
+      );
     const rateBN = new BigNumber(rate ?? 0);
     return (
       <SizableText size="$bodyMdMedium" pl="$1" maxWidth={177}>
         {`1 ${fromToken.symbol.toUpperCase()} =`}
         <NumberSizeableText formatter="balance">
           {rateBN.toFixed()}
-        </NumberSizeableText>
+        </NumberSizeableText>{' '}
         <SizableText>{toToken.symbol}</SizableText>
       </SizableText>
     );
-  }, [fromToken, rate, rateIsExit, toToken]);
+  }, [fromToken, intl, rate, rateIsExit, toToken]);
   return (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMd" color="$textSubdued">

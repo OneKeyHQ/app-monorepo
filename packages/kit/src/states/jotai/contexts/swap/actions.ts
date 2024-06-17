@@ -408,7 +408,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       get,
       set,
       swapFromAddressInfo: ReturnType<typeof useSwapAddressInfo>,
-      swapToAddressInfo: ReturnType<typeof useSwapAddressInfo>,
+      // swapToAddressInfo: ReturnType<typeof useSwapAddressInfo>,
     ) => {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
@@ -458,59 +458,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
           })) ||
           swapFromAddressInfo.networkId !== fromToken.networkId)
-      ) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: appLocale.intl.formatMessage(
-              {
-                id: ETranslations.swap_page_alert_account_does_not_support_swap,
-              },
-              {
-                network:
-                  networks.find((net) => net.networkId === fromToken?.networkId)
-                    ?.name ?? 'unknown',
-              },
-            ),
-            alertLevel: ESwapAlertLevel.ERROR,
-          },
-        ];
-      }
-
-      if (
-        toToken &&
-        ((!swapToAddressInfo.address &&
-          !accountUtils.isHdWallet({
-            walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-          }) &&
-          !accountUtils.isHwWallet({
-            walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-          })) ||
-          swapToAddressInfo.networkId !== toToken.networkId)
-      ) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: appLocale.intl.formatMessage(
-              {
-                id: ETranslations.swap_page_alert_account_does_not_support_swap,
-              },
-              {
-                network:
-                  networks.find((net) => net.networkId === toToken?.networkId)
-                    ?.name ?? 'unknown',
-              },
-            ),
-            alertLevel: ESwapAlertLevel.ERROR,
-          },
-        ];
-      }
-
-      if (
-        fromToken &&
-        accountUtils.isWatchingWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        })
       ) {
         alertsRes = [
           ...alertsRes,
