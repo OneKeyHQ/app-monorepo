@@ -210,7 +210,7 @@ export default class VaultCosmos extends VaultBase {
     const feeAmount = '1';
 
     const tx = txBuilder.makeTxWrapper(msgs, {
-      memo: '',
+      memo: transfersInfo[0].memo || '',
       gasLimit,
       feeAmount,
       pubkey,
