@@ -72,7 +72,8 @@ function EmptyToken(props: IProps) {
     <Empty
       testID="Wallet-No-Token-Empty"
       icon="CoinOutline"
-      title="No tokens found at this address"
+      title="No tokens"
+      description="No tokens found at this address"
     />
   );
 
