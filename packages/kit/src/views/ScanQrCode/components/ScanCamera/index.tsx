@@ -13,9 +13,9 @@ export function ScanCamera({
   ...rest
 }: IScanCameraProps) {
   if (!isActive) {
-    navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-      stream.getTracks().forEach((track) => track.stop());
-    });
+    // navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+    //   stream.getTracks().forEach((track) => track.stop());
+    // });
     return null;
   }
   return (
