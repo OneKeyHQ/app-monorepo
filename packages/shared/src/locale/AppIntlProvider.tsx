@@ -16,13 +16,13 @@ export function AppIntlProvider({
 }: PropsWithChildren<{
   locale: ResolvedIntlConfig['locale'];
   messages: ResolvedIntlConfig['messages'];
-  onLocaleChange: (locale: ILocaleSymbol) => void;
+  onLocaleChange?: (locale: ILocaleSymbol) => void;
 }>) {
   const [, setLocaleUpdateTs] = useState(0);
   useEffect(() => {
     appLocale.setLocale(locale, messages);
     setLocaleUpdateTs(Date.now());
-    onLocaleChange(locale as ILocaleSymbol);
+    onLocaleChange?.(locale as ILocaleSymbol);
   }, [locale, messages, onLocaleChange]);
   return <RawIntlProvider value={appLocale.intl}>{children}</RawIntlProvider>;
 }

@@ -583,19 +583,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       })
     ) {
       if (accountUtils.isWatchingWallet({ walletId: wallet.id })) {
-        wallet.name = appLocale.intl.formatMessage({
-          id: ETranslations.global_watched,
-        });
+        wallet.name = ETranslations.global_watched;
       }
       if (accountUtils.isExternalWallet({ walletId: wallet.id })) {
-        wallet.name = appLocale.intl.formatMessage({
-          id: ETranslations.global_connected,
-        });
+        wallet.name = ETranslations.global_connected;
       }
       if (accountUtils.isImportedWallet({ walletId: wallet.id })) {
-        wallet.name = appLocale.intl.formatMessage({
-          id: ETranslations.global_private_key,
-        });
+        wallet.name = ETranslations.global_private_key;
       }
     }
 

@@ -1,9 +1,12 @@
+import { useIntl } from 'react-intl';
+
 import type { IStackProps } from '@onekeyhq/components';
 import { SizableText, Stack, Tooltip, useMedia } from '@onekeyhq/components';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IWalletListItemProps = {
   isOthers?: boolean;
@@ -21,6 +24,7 @@ export function WalletListItem({
   badge,
   ...rest
 }: IWalletListItemProps) {
+  const intl = useIntl();
   const media = useMedia();
   let walletAvatarProps: IWalletAvatarProps = {
     wallet,
@@ -40,7 +44,9 @@ export function WalletListItem({
     onPress = () => onWalletPress('$$others');
   }
   const hiddenWallets = wallet?.hiddenWallets;
-
+  const i18nWalletName = intl.formatMessage({
+    id: walletName as ETranslations,
+  });
   const basicComponent = (
     <Stack
       role="button"
@@ -79,7 +85,7 @@ export function WalletListItem({
           size="$bodySm"
           color={selected ? '$text' : '$textSubdued'}
         >
-          {walletName}
+          {i18nWalletName}
         </SizableText>
       ) : null}
     </Stack>
@@ -88,7 +94,7 @@ export function WalletListItem({
   const responsiveComponent = media.md ? (
     <Tooltip
       placement="right"
-      renderContent={walletName}
+      renderContent={i18nWalletName}
       renderTrigger={basicComponent}
     />
   ) : (
