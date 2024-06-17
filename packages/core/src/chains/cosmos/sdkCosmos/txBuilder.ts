@@ -23,7 +23,8 @@ import {
 import type { ICosmosProtoMsgsOrWithAminoMsgs } from './ITxMsgBuilder';
 import type { TransactionWrapper } from './wrapper';
 
-protobufjs.util.Long = Long;
+protobufjs.util.Long =
+  'default' in Long ? (Long.default as protobufjs.Constructor<Long>) : Long;
 protobufjs.configure();
 
 export interface ICosmosTxBuilder {
