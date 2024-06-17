@@ -14,8 +14,7 @@ import {
   IMPL_EVM,
   IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import type { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
-import { LOCALES } from '@onekeyhq/shared/src/locale';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   getDefaultLocale,

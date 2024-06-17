@@ -127,7 +127,7 @@ export function DeriveTypeSelectorTriggerStaticInput(
           : label,
         item,
         ...i,
-      })),
+      })) || [],
     [intl, viewItems],
   );
 
