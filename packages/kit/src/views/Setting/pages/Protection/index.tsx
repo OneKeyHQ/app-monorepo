@@ -54,9 +54,6 @@ const SettingProtectionModal = () => {
             title={intl.formatMessage({
               id: ETranslations.settings_create_transactions,
             })}
-            subtitle={intl.formatMessage({
-              id: ETranslations.settings_create_transactions_desc,
-            })}
           >
             <Switch
               value={!settings.protectCreateTransaction}
@@ -70,9 +67,6 @@ const SettingProtectionModal = () => {
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.settings_create_remove_wallets,
-            })}
-            subtitle={intl.formatMessage({
-              id: ETranslations.settings_create_remove_wallets_desc,
             })}
           >
             <Switch

@@ -65,7 +65,7 @@ const AddressBookItem = () => {
   }, [showAddressBook, hideDialogInfo, intl]);
   return (
     <ListItem
-      icon="BookOpenOutline"
+      icon="ContactsOutline"
       title={intl.formatMessage({ id: ETranslations.settings_address_book })}
       drillIn
       onPress={onPress}
