@@ -4,7 +4,6 @@ import { memo, useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
 
-import { LOCALES } from '@onekeyhq/shared/src/locale';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -58,11 +57,7 @@ export function ConfigProvider({
 
   useAppearanceTheme(theme);
   return (
-    <AppIntlProvider
-      locale={locale}
-      messages={LOCALES[locale] as Record<string, string>}
-      onLocaleChange={onLocaleChange}
-    >
+    <AppIntlProvider locale={locale} onLocaleChange={onLocaleChange}>
       <FontProvider>
         <Context.Provider value={providerValue}>
           <SidebarStateProvider>
