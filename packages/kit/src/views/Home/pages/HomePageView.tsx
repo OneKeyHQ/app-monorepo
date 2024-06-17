@@ -219,5 +219,8 @@ export function HomePageView({
     );
   }, [ready, wallet, sceneName, renderHomePageContent]);
 
-  return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
+  return useMemo(
+    () => <Page fullPage>{renderHomePage()}</Page>,
+    [renderHomePage],
+  );
 }

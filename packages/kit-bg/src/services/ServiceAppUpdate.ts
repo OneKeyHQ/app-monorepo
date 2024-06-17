@@ -176,16 +176,20 @@ class ServiceAppUpdate extends ServiceBase {
     }
 
     const releaseInfo = await this.getAppLatestInfo();
-    await appUpdatePersistAtom.set((prev) => ({
-      ...prev,
-      ...releaseInfo,
-      latestVersion: releaseInfo?.version || prev.latestVersion,
-      updateAt: Date.now(),
-      status:
-        releaseInfo?.version && releaseInfo.version !== prev.latestVersion
-          ? EAppUpdateStatus.notify
-          : prev.status,
-    }));
+    if (releaseInfo?.version) {
+      await appUpdatePersistAtom.set((prev) => ({
+        ...prev,
+        ...releaseInfo,
+        latestVersion: releaseInfo?.version || prev.latestVersion,
+        updateAt: Date.now(),
+        status:
+          releaseInfo?.version && releaseInfo.version !== prev.latestVersion
+            ? EAppUpdateStatus.notify
+            : prev.status,
+      }));
+    } else {
+      await this.reset();
+    }
     return appUpdatePersistAtom.get();
   }
 }

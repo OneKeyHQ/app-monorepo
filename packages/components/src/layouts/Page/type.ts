@@ -18,6 +18,7 @@ export interface IPageLifeCycle {
 
 export type IBasicPageProps = PropsWithChildren<
   {
+    fullPage?: boolean;
     /* enable the insets that you use to determine the safe area for this view. the default value is true  */
     safeAreaEnabled?: boolean;
     /* skip loading view. the default value is false  */

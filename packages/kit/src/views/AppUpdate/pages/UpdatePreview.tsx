@@ -44,7 +44,9 @@ function UpdatePreview({
   const changeLog = useAppChangeLog(latestVersion);
   return (
     <Page>
-      <Page.Header title="App Update" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.update_app_update })}
+      />
       <Page.Body m="$5">
         <YStack space="$3">
           <Heading size="$heading2xl">

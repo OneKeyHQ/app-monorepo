@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { LOCALES } from '@onekeyhq/shared/src/locale';
 
 import { useSystemLocale } from './useSystemLocale';

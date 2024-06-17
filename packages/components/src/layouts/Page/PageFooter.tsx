@@ -3,22 +3,13 @@ import { memo, useContext, useEffect, useMemo, useState } from 'react';
 
 import Animated from 'react-native-reanimated';
 
-import { EPageType, usePageType } from '../../hocs';
-import { useSafeAreaInsets } from '../../hooks';
 import { OptimizationView } from '../../optimization';
 
-import { useSafeKeyboardAnimationStyle } from './hooks';
+import { useSafeAreaBottom, useSafeKeyboardAnimationStyle } from './hooks';
 import { PageContext } from './PageContext';
 import { FooterActions } from './PageFooterActions';
 
 import type { IPageFooterProps } from './type';
-
-const useSafeAreaBottom = () => {
-  const pageType = usePageType();
-  const { safeAreaEnabled } = useContext(PageContext);
-  const { bottom } = useSafeAreaInsets();
-  return safeAreaEnabled && pageType === EPageType.modal ? bottom : 0;
-};
 
 const Placeholder = () => {
   const bottom = useSafeAreaBottom();
