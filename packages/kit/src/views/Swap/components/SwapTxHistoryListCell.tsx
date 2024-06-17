@@ -2,9 +2,15 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Icon,
+  NumberSizeableText,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
@@ -80,7 +86,6 @@ const SwapTxHistoryListCell = ({
     ),
     [item.baseInfo.fromToken.symbol, item.baseInfo.toToken.symbol],
   );
-
   return (
     <ListItem
       onPress={onClickCell}
@@ -95,19 +100,35 @@ const SwapTxHistoryListCell = ({
       <ListItem.Text flex={1} primary={title} secondary={subContent} />
       <ListItem.Text
         align="right"
-        primary={`+${
-          numberFormat(item.baseInfo.toAmount, {
-            formatter: 'balance',
-          }) as string
-        } ${item.baseInfo.toToken.symbol.toUpperCase()}`}
+        primary={
+          <SizableText color="$textSuccess">
+            +
+            <NumberSizeableText color="$textSuccess" formatter="balance">
+              {item.baseInfo.toAmount}
+            </NumberSizeableText>{' '}
+            <SizableText color="$textSuccess">
+              {item.baseInfo.toToken.symbol.toUpperCase()}
+            </SizableText>
+          </SizableText>
+        }
         primaryTextProps={{
           color: '$textSuccess',
         }}
-        secondary={`-${
-          numberFormat(item.baseInfo.fromAmount, {
-            formatter: 'balance',
-          }) as string
-        } ${item.baseInfo.fromToken.symbol.toUpperCase()}`}
+        secondary={
+          <SizableText textAlign="right" size="$bodyMd" color="$textSubdued">
+            -
+            <NumberSizeableText
+              formatter="balance"
+              size="$bodyMd"
+              color="$textSubdued"
+            >
+              {item.baseInfo.fromAmount}
+            </NumberSizeableText>{' '}
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {item.baseInfo.fromToken.symbol.toUpperCase()}
+            </SizableText>
+          </SizableText>
+        }
       />
     </ListItem>
   );

@@ -23,7 +23,6 @@ import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
@@ -317,16 +316,20 @@ const SwapHistoryDetailModal = () => {
                 label={intl.formatMessage({
                   id: ETranslations.swap_history_detail_protocol_fee,
                 })}
-                renderContent={`${
-                  numberFormat(txHistory.swapInfo.protocolFee.toString(), {
-                    formatter: 'value',
-                    formatterOptions: {
+                renderContent={
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    formatter="value"
+                    formatterOptions={{
                       currency:
                         txHistory.currency ??
                         settingsPersistAtom.currencyInfo.symbol,
-                    },
-                  }) as string
-                }`}
+                    }}
+                  >
+                    {txHistory.swapInfo.protocolFee.toString()}
+                  </NumberSizeableText>
+                }
               />
             ) : null}
           </InfoItemGroup>
