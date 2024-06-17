@@ -121,6 +121,11 @@ const SwapProviderListItem = ({
           id: ETranslations.provider_token_not_supported,
         });
       }
+      if (providerResult?.errorMessage === 'Insufficient input amount') {
+        return intl.formatMessage({
+          id: ETranslations.provider_amount_required,
+        });
+      }
       return (
         providerResult?.errorMessage ||
         intl.formatMessage({
