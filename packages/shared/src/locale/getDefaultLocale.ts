@@ -33,7 +33,7 @@ const getDefaultLocaleFunc = () => {
       return locale as ILocaleSymbol;
     }
   }
-  return locales[0] as ILocaleSymbol;
+  return 'en-US' as ILocaleSymbol;
 };
 
 export const getDefaultLocale = memoizee(getDefaultLocaleFunc);
