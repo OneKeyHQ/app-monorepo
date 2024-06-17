@@ -144,6 +144,9 @@ export default class VaultCosmos extends VaultBase {
     feeInfo?: IFeeInfoUnit;
   }): Promise<IEncodedTx> {
     const { transfersInfo, feeInfo } = params;
+    if (transfersInfo.length !== 1) {
+      throw new OneKeyInternalError('Only support one transfer');
+    }
     const network = await this.getNetwork();
     const networkInfo = await this.getNetworkInfo();
     const mainCoinDenom = networkInfo.nativeTokenAddress ?? '';
@@ -210,7 +213,7 @@ export default class VaultCosmos extends VaultBase {
     const feeAmount = '1';
 
     const tx = txBuilder.makeTxWrapper(msgs, {
-      memo: '',
+      memo: transfersInfo[0].memo || '',
       gasLimit,
       feeAmount,
       pubkey,
