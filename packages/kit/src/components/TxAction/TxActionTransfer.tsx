@@ -454,7 +454,11 @@ function TxActionTransferDetailView(props: ITxActionProps) {
               content={from}
               description={{
                 content: (
-                  <AddressInfo address={from} networkId={decodedTx.networkId} />
+                  <AddressInfo
+                    address={from}
+                    networkId={decodedTx.networkId}
+                    accountId={decodedTx.accountId}
+                  />
                 ),
               }}
             />,
@@ -472,7 +476,11 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             content={target}
             description={{
               content: (
-                <AddressInfo address={target} networkId={decodedTx.networkId} />
+                <AddressInfo
+                  address={target}
+                  networkId={decodedTx.networkId}
+                  accountId={decodedTx.accountId}
+                />
               ),
             }}
           />,
@@ -494,6 +502,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       return <Container.Box>{transferElements}</Container.Box>;
     },
     [
+      decodedTx.accountId,
       decodedTx.networkId,
       from,
       intl,

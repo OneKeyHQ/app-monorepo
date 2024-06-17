@@ -251,7 +251,8 @@ function HistoryDetails() {
       >
     >();
 
-  const { networkId, accountAddress, historyTx, xpub } = route.params;
+  const { accountId, networkId, accountAddress, historyTx, xpub } =
+    route.params;
 
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
@@ -550,7 +551,11 @@ function HistoryDetails() {
             renderContent={txAddresses.from}
             showCopy
             description={
-              <AddressInfo address={txAddresses.from} networkId={networkId} />
+              <AddressInfo
+                address={txAddresses.from}
+                networkId={networkId}
+                accountId={accountId}
+              />
             }
           />
           <InfoItem
@@ -558,7 +563,11 @@ function HistoryDetails() {
             renderContent={txAddresses.to}
             showCopy
             description={
-              <AddressInfo address={txAddresses.to} networkId={networkId} />
+              <AddressInfo
+                address={txAddresses.to}
+                networkId={networkId}
+                accountId={accountId}
+              />
             }
           />
         </>
@@ -575,6 +584,7 @@ function HistoryDetails() {
       );
     }
   }, [
+    accountId,
     networkId,
     txAddresses.from,
     txAddresses.isSingleTransfer,
