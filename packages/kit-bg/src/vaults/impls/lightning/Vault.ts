@@ -592,18 +592,18 @@ export default class Vault extends VaultBase {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxLightning;
     const { invoice: paymentRequest, amount } = encodedTx;
     const invoice = await this._decodedInvoiceCache(paymentRequest);
-    const network = await this.getNetwork();
     const finalAmount = amount;
     if (this._isZeroAmountInvoice(invoice)) {
       if (new BigNumber(amount).isLessThan(1)) {
         const satsText = appLocale.intl.formatMessage({
           id: ETranslations.global_sats,
         });
+
         throw new InvalidTransferValue({
           key: ETranslations.dapp_connect_amount_should_be_at_least,
           info: {
-            amount: '1',
-            unit: satsText,
+            // @ts-expect-error
+            0: `1 ${satsText}`,
           },
         });
       }
