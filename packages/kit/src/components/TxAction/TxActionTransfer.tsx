@@ -425,7 +425,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   isNFT={transfer.isNFT}
                   tokenImageUri={transfer.icon}
                 />
-                <SizableText size="$headingLg" numberOfLines={1}>{`${
+                <SizableText size="$headingLg" numberOfLines={2}>{`${
                   direction === EDecodedTxDirection.OUT ? '-' : '+'
                 }${
                   isSendNativeToken &&
