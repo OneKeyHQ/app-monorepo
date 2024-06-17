@@ -13,6 +13,8 @@ import type { IModalFlowNavigatorConfig } from './ModalFlowNavigator';
 export interface IModalRootNavigatorConfig<RouteName extends string> {
   name: RouteName;
   children: IModalFlowNavigatorConfig<any, any>[];
+  onMounted?: () => void;
+  onUnmounted?: () => void;
 }
 
 interface IModalNavigatorProps<RouteName extends string> {
@@ -28,10 +30,17 @@ export function RootModalNavigator<RouteName extends string>({
 
   const modalComponents = useMemo(
     () =>
-      config.map(({ name, children }) => ({
+      config.map(({ name, children, onMounted, onUnmounted }) => ({
         name,
         // eslint-disable-next-line react/no-unstable-nested-components
-        children: () => <ModalFlowNavigator config={children} />,
+        children: () => (
+          <ModalFlowNavigator
+            config={children}
+            name={name}
+            onMounted={onMounted}
+            onUnmounted={onUnmounted}
+          />
+        ),
       })),
     [config],
   );
