@@ -112,6 +112,13 @@ const FormDeriveTypeInput = ({
   );
 };
 
+const btcForkNetworkIds = [
+  getNetworkIdsMap().btc,
+  getNetworkIdsMap().tbtc,
+  getNetworkIdsMap().ltc,
+  getNetworkIdsMap().doge,
+];
+
 function ImportAddress() {
   const intl = useIntl();
   const media = useMedia();
@@ -206,6 +213,16 @@ function ImportAddress() {
     return validateResult?.isValid;
   }, [method, addressValuePending, validateResult, form]);
 
+  const isBtcFork = useMemo(
+    () => networkIdText && btcForkNetworkIds.includes(networkIdText),
+    [networkIdText],
+  );
+
+  const isPublicKeyImport = useMemo(
+    () => method === EImportMethod.PublicKey && isBtcFork,
+    [method, isBtcFork],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -221,26 +238,42 @@ function ImportAddress() {
               excludedNetworkIds={watchAccountExcludeNetworkIds}
             />
           </Form.Field>
-          <SegmentControl
-            fullWidth
-            value={method}
-            onChange={(v) => {
-              setMethod(v as EImportMethod);
-            }}
-            options={[
-              {
-                label: intl.formatMessage({ id: ETranslations.global_address }),
-                value: EImportMethod.Address,
-              },
-              { label: 'Public Key', value: EImportMethod.PublicKey },
-            ]}
-          />
-          {method === EImportMethod.PublicKey ? (
+          {isBtcFork ? (
+            <SegmentControl
+              fullWidth
+              value={method}
+              onChange={(v) => {
+                setMethod(v as EImportMethod);
+              }}
+              options={[
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.global_address,
+                  }),
+                  value: EImportMethod.Address,
+                },
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.global_public_key,
+                  }),
+                  value: EImportMethod.PublicKey,
+                },
+              ]}
+            />
+          ) : null}
+          {isPublicKeyImport ? (
             <>
-              <Form.Field label="Public Key" name="publicKeyValue">
+              <Form.Field
+                label={intl.formatMessage({
+                  id: ETranslations.global_public_key,
+                })}
+                name="publicKeyValue"
+              >
                 <Input
                   secureTextEntry={false}
-                  placeholder="Enter your public key"
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.form_public_key_placeholder,
+                  })}
                   size={media.gtMd ? 'medium' : 'large'}
                   addOns={[
                     {
@@ -276,7 +309,7 @@ function ImportAddress() {
               </>
             </>
           ) : null}
-          {method === EImportMethod.Address ? (
+          {!isPublicKeyImport ? (
             <>
               <Form.Field
                 label={intl.formatMessage({ id: ETranslations.global_address })}
@@ -284,7 +317,7 @@ function ImportAddress() {
                 rules={{
                   validate: createValidateAddressRule({
                     defaultErrorMessage: intl.formatMessage({
-                      id: ETranslations.send_address_invalid,
+                      id: ETranslations.form_public_key_error_invalid,
                     }),
                   }),
                 }}
@@ -313,18 +346,16 @@ function ImportAddress() {
         }}
         onConfirm={async () => {
           await form.handleSubmit(async (values) => {
-            const data =
-              method === EImportMethod.Address
-                ? {
-                    input: values.addressValue.resolved ?? '',
-                    networkId: values.networkId ?? '',
-                  }
-                : {
-                    input: values.publicKeyValue ?? '',
-                    networkId: values.networkId ?? '',
-                    deriveType: values.deriveType,
-                  };
-
+            const data = isPublicKeyImport
+              ? {
+                  input: values.publicKeyValue ?? '',
+                  networkId: values.networkId ?? '',
+                  deriveType: values.deriveType,
+                }
+              : {
+                  input: values.addressValue.resolved ?? '',
+                  networkId: values.networkId ?? '',
+                };
             const r =
               await backgroundApiProxy.serviceAccount.addWatchingAccount(data);
 
