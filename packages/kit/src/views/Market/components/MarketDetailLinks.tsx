@@ -85,10 +85,11 @@ export function MarketDetailLinks({
         <SizableText size="$headingSm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.global_explorers })}
         </SizableText>
-        <XStack flexWrap="wrap" space="$3">
+        <XStack flexWrap="wrap">
           {explorers.map(({ url, name }) => (
             <Button
               mt="$2"
+              mr="$3"
               key={url}
               iconAfter="OpenOutline"
               onPress={() => openUrlExternal(url)}

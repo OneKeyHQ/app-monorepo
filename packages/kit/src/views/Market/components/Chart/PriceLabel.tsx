@@ -138,6 +138,7 @@ export function PriceLabel({
       opacity={opacity}
       flexDirection="column"
       $md={{ flexDirection: 'row', pt: '$6' }}
+      $gtMd={{ height: '$10' }}
     >
       <XStack>{displayInfo}</XStack>
       <NumberSizeableText
