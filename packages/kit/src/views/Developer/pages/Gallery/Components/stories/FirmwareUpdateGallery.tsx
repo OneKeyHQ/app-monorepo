@@ -178,7 +178,9 @@ function StaticUIDialog() {
             renderContent: (
               <EnumBasicDialogContentContainer
                 {...form.getValues()}
-                errorCode={800}
+                errorObj={{
+                  code: 800,
+                }}
                 onActionPress={() => {
                   alert('onActionPress');
                 }}
