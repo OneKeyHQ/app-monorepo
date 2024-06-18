@@ -34,6 +34,7 @@ export type IModalAssetDetailsParamList = {
     itemId: string;
   };
   [EModalAssetDetailRoutes.HistoryDetails]: {
+    accountId: string;
     networkId: string;
     accountAddress: string;
     xpub?: string;

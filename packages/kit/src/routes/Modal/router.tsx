@@ -49,6 +49,12 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     children: AccountManagerStacks,
   },
   {
+    onMounted: () => {
+      console.log('OnboardingModal onMounted');
+    },
+    onUnmounted: () => {
+      console.log('OnboardingModal onUnmounted');
+    },
     name: EModalRoutes.OnboardingModal,
     children: OnboardingRouter,
   },

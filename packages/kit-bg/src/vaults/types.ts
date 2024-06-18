@@ -14,6 +14,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
@@ -43,7 +44,11 @@ import type {
 } from './impls/evm/settings';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
-import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
+import type {
+  IDBAccount,
+  IDBWalletId,
+  IDBWalletType,
+} from '../dbs/local/types';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -62,6 +67,10 @@ export type IAccountDeriveInfoItems = {
   label: string;
   item: IAccountDeriveInfo;
   description: string | undefined;
+  descI18n?: {
+    id: ETranslations;
+    data: Record<string | number, string>;
+  };
 };
 export interface IAccountDeriveInfo {
   // because the first account path of ledger live template is the same as the bip44 account path, so we should set idSuffix to uniq them
@@ -85,6 +94,8 @@ export interface IAccountDeriveInfo {
   };
   desc?: string;
   subDesc?: string;
+
+  disableWalletTypes?: IDBWalletType[];
 
   // recommended?: boolean;
   // notRecommended?: boolean;

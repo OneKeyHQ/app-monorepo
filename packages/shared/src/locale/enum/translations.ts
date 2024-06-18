@@ -1,3 +1,4 @@
+// This file is automatically created by `yarn fetch:locale`.
 export enum ETranslations {
   account_model_watched = 'account_model.watched',
   action_save = 'action_save',
@@ -547,6 +548,7 @@ export enum ETranslations {
   global_fdv = 'global.fdv',
   global_firmware = 'global.firmware',
   global_follow_the_system = 'global.follow_the_system',
+  global_from = 'global.from',
   global_general = 'global.general',
   global_get_one = 'global.get_one',
   global_github = 'global.github',
@@ -672,6 +674,7 @@ export enum ETranslations {
   global_sync_error = 'global.sync_error',
   global_synced = 'global.synced',
   global_syncing = 'global.syncing',
+  global_to = 'global.to',
   global_total_supply = 'global.total_supply',
   global_touch_id = 'global.touch_id',
   global_track_any_address = 'global.track_any_address',

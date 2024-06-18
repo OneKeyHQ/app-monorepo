@@ -4,7 +4,6 @@ import { memo, useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
 
-import { LOCALES } from '@onekeyhq/shared/src/locale';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -27,6 +26,8 @@ export type IUIProviderProps = PropsWithChildren<{
   locale: ILocaleSymbol;
 
   waitFontLoaded?: boolean;
+
+  onLocaleChange?: (locale: ILocaleSymbol) => void;
 }>;
 export type IFontProviderProps = PropsWithChildren;
 
@@ -40,7 +41,12 @@ function FontProvider({ children }: IFontProviderProps) {
   return children;
 }
 
-export function ConfigProvider({ children, theme, locale }: IUIProviderProps) {
+export function ConfigProvider({
+  children,
+  theme,
+  locale,
+  onLocaleChange,
+}: IUIProviderProps) {
   const providerValue = useMemo(
     () => ({
       theme,
@@ -51,10 +57,7 @@ export function ConfigProvider({ children, theme, locale }: IUIProviderProps) {
 
   useAppearanceTheme(theme);
   return (
-    <AppIntlProvider
-      locale={locale}
-      messages={LOCALES[locale] as Record<string, string>}
-    >
+    <AppIntlProvider locale={locale} onLocaleChange={onLocaleChange}>
       <FontProvider>
         <Context.Provider value={providerValue}>
           <SidebarStateProvider>
