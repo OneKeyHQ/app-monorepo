@@ -687,7 +687,13 @@ export default class VaultDot extends VaultBase {
     });
 
     if (balance.plus(sendAmount).lt(minAmount)) {
-      throw new InvalidTransferValue();
+      throw new InvalidTransferValue({
+        key: ETranslations.form_amount_recipient_activate,
+        info: {
+          amount: minAmount.shiftedBy(-network.decimals).toFixed(),
+          unit: network.symbol,
+        },
+      });
     }
     return true;
   }
