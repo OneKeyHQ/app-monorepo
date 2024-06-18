@@ -21,7 +21,9 @@ import {
   useSwapSelectFromTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import {
   useSwapActionState,
   useSwapQuoteLoading,
@@ -45,7 +47,8 @@ const SwapActionsState = ({
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
-  const { cleanQuoteInterval } = useSwapActions().current;
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const { cleanQuoteInterval, quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const quoteLoading = useSwapQuoteLoading();
   const handleApprove = useCallback(() => {
@@ -78,24 +81,31 @@ const SwapActionsState = ({
   const { md } = useMedia();
 
   const onActionHandler = useCallback(() => {
-    cleanQuoteInterval();
-    if (swapActionState.isApprove) {
-      handleApprove();
-      return;
-    }
+    if (swapActionState.isRefreshQuote) {
+      void quoteAction(swapFromAddressInfo.address);
+    } else {
+      cleanQuoteInterval();
+      if (swapActionState.isApprove) {
+        handleApprove();
+        return;
+      }
 
-    if (swapActionState.isWrapped) {
-      onWrapped();
-      return;
+      if (swapActionState.isWrapped) {
+        onWrapped();
+        return;
+      }
+      onBuildTx();
     }
-    onBuildTx();
   }, [
     cleanQuoteInterval,
     handleApprove,
     onBuildTx,
     onWrapped,
+    quoteAction,
     swapActionState.isApprove,
+    swapActionState.isRefreshQuote,
     swapActionState.isWrapped,
+    swapFromAddressInfo.address,
   ]);
 
   const approveStepComponent = useMemo(
@@ -156,7 +166,7 @@ const SwapActionsState = ({
         {approveStepComponent}
         <Button
           onPress={onActionHandler}
-          size={pageType === EPageType.modal ? 'medium' : 'large'}
+          size={pageType === EPageType.modal && !md ? 'medium' : 'large'}
           variant="primary"
           disabled={swapActionState.disabled || swapActionState.isLoading}
           loading={swapActionState.isLoading}

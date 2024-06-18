@@ -43,7 +43,7 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
   {
     name: EModalSwapRoutes.SwapToAnotherAddress,
     component: SwapToAnotherAddressModal,
-    translationId: 'form__enter_address',
+    translationId: ETranslations.swap_page_account_to_address_title,
   },
   {
     name: EModalSwapRoutes.TokenRiskReminder,
