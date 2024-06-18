@@ -74,7 +74,8 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
         addresses: addressMap,
         networkIds,
         // name: `${peerWalletName} WalletConnect`,
-        name: peerWalletName ? `🛜 ${peerWalletName}` : '',
+        // `🛜 ${peerWalletName}`
+        name: peerWalletName ? `${peerWalletName}` : '',
       },
       notSupportedNetworkIds: undefined,
     };
