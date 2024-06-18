@@ -665,6 +665,19 @@ export class NotInSigningModeError extends OneKeyHardwareError {
   override code = HardwareErrorCode.NotInSigningMode;
 }
 
+export class DeviceDataOverload extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DataOverloadError',
+        defaultKey: ETranslations.hardware_hardware_params_bytes_overload,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.DataOverload;
+}
+
 // UnknownHardware
 export class UnknownHardwareError extends OneKeyHardwareError {
   override className: EOneKeyErrorClassNames =

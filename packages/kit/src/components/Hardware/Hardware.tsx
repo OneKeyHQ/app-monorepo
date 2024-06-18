@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useForm } from 'react-hook-form';
 import { useIntl } from 'react-intl';
@@ -21,17 +21,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useThemeVariant } from '../../hooks/useThemeVariant';
-
 import type { IDeviceType } from '@onekeyfe/hd-core';
-
-export const CONFIRM_ON_DEVICES: Record<string, any> = {
-  classic: require('@onekeyhq/kit/assets/animations/confirm-on-classic.json'),
-  mini: require('@onekeyhq/kit/assets/animations/confirm-on-mini.json'),
-  pro_dark: require('@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json'),
-  pro_light: require('@onekeyhq/kit/assets/animations/confirm-on-pro-light.json'),
-  touch: require('@onekeyhq/kit/assets/animations/confirm-on-touch.json'),
-};
 
 export interface IConfirmOnDeviceToastContentProps {
   deviceType: IDeviceType;
@@ -40,24 +30,50 @@ export function ConfirmOnDeviceToastContent({
   deviceType,
 }: IConfirmOnDeviceToastContentProps) {
   const intl = useIntl();
-  const themeVariant = useThemeVariant();
+  const [animationData, setAnimationData] = useState<any>(null);
 
-  const lottieSource = useMemo(() => {
-    let source = CONFIRM_ON_DEVICES[`${deviceType}_${themeVariant}`];
-    if (!source) {
-      source = CONFIRM_ON_DEVICES[deviceType];
+  const requireResource = useCallback(() => {
+    switch (deviceType) {
+      // Prevents the device type from being obtained
+      case null:
+      case undefined:
+        return Promise.resolve(null);
+      // Specify unsupported devices
+      case 'unknown':
+        return Promise.resolve(null);
+      case 'classic':
+      case 'classic1s':
+        return import(
+          '@onekeyhq/kit/assets/animations/confirm-on-classic.json'
+        );
+      case 'mini':
+        return import('@onekeyhq/kit/assets/animations/confirm-on-mini.json');
+      case 'touch':
+        return import('@onekeyhq/kit/assets/animations/confirm-on-touch.json');
+      case 'pro':
+        return import(
+          '@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json'
+        );
+      default:
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
+        const checkType: never = deviceType;
     }
-    if (!source) {
-      source = CONFIRM_ON_DEVICES.classic;
-    }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return source;
-  }, [deviceType, themeVariant]);
+  }, [deviceType]);
+
+  useEffect(() => {
+    requireResource()
+      ?.then((module) => {
+        setAnimationData(module?.default);
+      })
+      ?.catch(() => {
+        // ignore
+      });
+  }, [requireResource]);
 
   return (
     <XStack alignItems="center">
       <Stack bg="$bgStrong" btlr="$2" bblr="$2">
-        <LottieView width={72} height={72} source={lottieSource} />
+        <LottieView width={72} height={72} source={animationData ?? ''} />
       </Stack>
       <XStack flex={1} alignItems="center" px="$3" space="$5">
         <SizableText flex={1} size="$bodyLgMedium">
@@ -68,19 +84,6 @@ export function ConfirmOnDeviceToastContent({
         </Toast.Close>
       </XStack>
     </XStack>
-  );
-}
-
-export function ConfirmOnDevice() {
-  return (
-    // height must be specified on Sheet View.
-    <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
-      <LottieView
-        width="100%"
-        height="100%"
-        source={require('../../../assets/animations/confirm-on-classic.json')}
-      />
-    </Stack>
   );
 }
 
@@ -104,15 +107,59 @@ export function CommonDeviceLoading({
   );
 }
 
-export function EnterPinOnDevice() {
+export function EnterPinOnDevice({
+  deviceType,
+}: {
+  deviceType: IDeviceType | undefined;
+}) {
+  const requireResource = useCallback(() => {
+    switch (deviceType) {
+      // Prevents the device type from being obtained
+      case null:
+      case undefined:
+        return Promise.resolve(null);
+      // Specify unsupported devices
+      case 'unknown':
+        return Promise.resolve(null);
+      case 'classic':
+      case 'classic1s':
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-pin-on-classic.json'
+        );
+      case 'mini':
+        return import('@onekeyhq/kit/assets/animations/enter-pin-on-mini.json');
+      case 'touch':
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-pin-on-touch.json'
+        );
+      case 'pro':
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-pin-on-pro-dark.json'
+        );
+      default:
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
+        const checkType: never = deviceType;
+    }
+  }, [deviceType]);
+
+  const [animationData, setAnimationData] = useState<any>(null);
+
+  useEffect(() => {
+    requireResource()
+      ?.then((module) => {
+        setAnimationData(module?.default);
+      })
+      ?.catch(() => {
+        // ignore
+      });
+  }, [requireResource]);
+
   return (
     // height must be specified on Sheet View.
     <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
-      <LottieView
-        width="100%"
-        height="100%"
-        source={require('../../../assets/animations/enter-pin-on-classic.json')}
-      />
+      {animationData ? (
+        <LottieView width="100%" height="100%" source={animationData} />
+      ) : null}
     </Stack>
   );
 }
@@ -273,6 +320,22 @@ export function EnterPhase({
         <Form.Field
           name="passphrase"
           label={intl.formatMessage({ id: ETranslations.global_passphrase })}
+          rules={{
+            maxLength: {
+              value: 50,
+              message: intl.formatMessage(
+                {
+                  id: ETranslations.hardware_passphrase_enter_too_long,
+                },
+                {
+                  0: 50,
+                },
+              ),
+            },
+            onChange: () => {
+              form.clearErrors();
+            },
+          }}
         >
           <Input
             secureTextEntry
@@ -312,7 +375,7 @@ export function EnterPhase({
           } as IButtonProps
         }
         variant="primary"
-        onPress={async () => {
+        onPress={form.handleSubmit(async () => {
           const values = form.getValues();
           if (
             !isSingleInput &&
@@ -346,7 +409,7 @@ export function EnterPhase({
           //   },
           //   onCancelText: "Don't Save",
           // });
-        }}
+        })}
       >
         {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
@@ -367,14 +430,60 @@ export function EnterPhase({
   );
 }
 
-export function EnterPassphraseOnDevice() {
+export function EnterPassphraseOnDevice({
+  deviceType,
+}: {
+  deviceType: IDeviceType | undefined;
+}) {
+  const requireResource = useCallback(() => {
+    switch (deviceType) {
+      // Prevents the device type from being obtained
+      case null:
+      case undefined:
+        return Promise.resolve(null);
+      // Specify unsupported devices
+      case 'unknown':
+        return Promise.resolve(null);
+      case 'classic':
+      case 'classic1s':
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-passphrase-on-classic.json'
+        );
+      case 'mini':
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-passphrase-on-mini.json'
+        );
+      case 'touch':
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-passphrase-on-touch.json'
+        );
+      case 'pro':
+        return import(
+          '@onekeyhq/kit/assets/animations/enter-passphrase-on-pro-dark.json'
+        );
+      default:
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
+        const checkType: never = deviceType;
+    }
+  }, [deviceType]);
+
+  const [animationData, setAnimationData] = useState<any>(null);
+
+  useEffect(() => {
+    requireResource()
+      ?.then((module) => {
+        setAnimationData(module?.default);
+      })
+      ?.catch(() => {
+        // ignore
+      });
+  }, [requireResource]);
+
   return (
     <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
-      <LottieView
-        width="100%"
-        height="100%"
-        source={require('../../../assets/animations/enter-passphrase-on-classic.json')}
-      />
+      {animationData ? (
+        <LottieView width="100%" height="100%" source={animationData} />
+      ) : null}
     </Stack>
   );
 }
