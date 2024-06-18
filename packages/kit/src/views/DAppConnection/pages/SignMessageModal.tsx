@@ -114,7 +114,7 @@ function SignMessageModal() {
             ) : (
               <DAppAccountListStandAloneItem readonly />
             )}
-            <DAppSignMessageContent content={unsignedMessage.message} />
+            <DAppSignMessageContent unsignedMessage={unsignedMessage} />
           </DAppRequestLayout>
         </Page.Body>
         <Page.Footer>
