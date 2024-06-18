@@ -187,14 +187,14 @@ const HeaderComponent = (
               100;
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           leftArrowRef?.current?.setNativeProps?.({
-            disabled: leftDisabled,
+            pointerEvents: leftDisabled ? 'none' : null,
             style: {
               opacity: leftDisabled ? 0 : 1,
             },
           });
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           rightArrowRef?.current?.setNativeProps?.({
-            disabled: rightDisabled,
+            pointerEvents: rightDisabled ? 'none' : null,
             style: {
               opacity: rightDisabled ? 0 : 1,
             },
@@ -209,10 +209,11 @@ const HeaderComponent = (
             ref={leftArrowRef}
             style={{
               position: 'absolute',
+              top: 3,
               zIndex: 1,
               opacity: 0,
             }}
-            disabled
+            pointerEvents="none"
             onPress={() => {
               // @ts-expect-error
               // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -235,11 +236,12 @@ const HeaderComponent = (
             ref={rightArrowRef}
             style={{
               position: 'absolute',
+              top: 3,
               right: 0,
               zIndex: 1,
               opacity: 0,
             }}
-            disabled
+            pointerEvents="none"
             onPress={() => {
               // @ts-expect-error
               // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access

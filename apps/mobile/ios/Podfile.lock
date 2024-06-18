@@ -1047,7 +1047,7 @@ PODS:
     - React-Core
   - react-native-get-random-values (1.9.0):
     - React-Core
-  - react-native-lite-card (1.0.5):
+  - react-native-lite-card (1.0.6):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -1068,7 +1068,7 @@ PODS:
     - React-Core
   - react-native-slider (4.4.3):
     - React-Core
-  - react-native-tab-page-view (1.0.3):
+  - react-native-tab-page-view (1.0.4):
     - React
   - react-native-tcp-socket (6.0.6):
     - CocoaAsyncSocket
@@ -1789,7 +1789,7 @@ SPEC CHECKSUMS:
   react-native-cloud-fs: e7103d1f693c57b481f820fa5e6b6b0522a5a31e
   react-native-compat: 3af9add14d349701306d3d052638435f6795ac2c
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
-  react-native-lite-card: cddf236c091281577c86095437a9ae204b74bc6f
+  react-native-lite-card: e606ebb5c99fa728d9b16e1c5c7bbfda5ddbf2fd
   react-native-metrix: 9f8dd14880abdf230eec12903bb8e15eabed5d95
   react-native-mmkv: 9ae7ca3977e8ef48dbf7f066974eb844c20b5fd7
   react-native-netinfo: 48c5f79a84fbc3ba1d28a8b0d04adeda72885fa8
@@ -1797,7 +1797,7 @@ SPEC CHECKSUMS:
   react-native-restart: 7595693413fe3ca15893702f2c8306c62a708162
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
-  react-native-tab-page-view: fb10f165399f853e9d59e4613fd07f98c8e758bc
+  react-native-tab-page-view: 62da73b71f8cb952eb06ee5a1e6390601a7ded1b
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
   react-native-video: dc3118548cf8864a83f57df4345cf6c692402e8f
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
@@ -1851,4 +1851,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 298a1388b666936b828a2f5d33454d73ba90ff07
 
-COCOAPODS: 1.14.2
+COCOAPODS: 1.12.1
