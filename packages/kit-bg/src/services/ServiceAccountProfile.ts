@@ -183,21 +183,25 @@ class ServiceAccountProfile extends ServiceBase {
     enableWalletName,
     enableAddressInteractionStatus,
     enableVerifySendFundToSelf,
+    skipValidateAddress,
   }: IQueryCheckAddressArgs) {
     const result: IAddressQueryResult = { input: address };
     if (!networkId) {
       return result;
     }
-    result.validStatus = await this.validateAddress({
-      networkId,
-      address,
-    });
+
+    if (!skipValidateAddress) {
+      result.validStatus = await this.validateAddress({
+        networkId,
+        address,
+      });
+    }
 
     const isDomain = addressIsEnsFormat(address);
     if (isDomain && enableNameResolve) {
       await this.handleNameSolve(networkId, address, result);
     }
-    if (result.validStatus !== 'valid') {
+    if (!skipValidateAddress && result.validStatus !== 'valid') {
       return result;
     }
     const resolveAddress = result.resolveAddress ?? result.input;
