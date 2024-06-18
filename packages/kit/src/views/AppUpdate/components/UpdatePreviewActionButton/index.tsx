@@ -40,10 +40,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
               void backgroundApiProxy.serviceAppUpdate.readyToInstall();
             })
             .catch((e: { message: string }) => {
-              const { message } = e as { message: string };
-              if (message) {
-                Toast.error({ title: message });
-              }
+              Toast.error({ title: ETranslations.global_update_failed });
               void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
             });
           if (autoClose) {
