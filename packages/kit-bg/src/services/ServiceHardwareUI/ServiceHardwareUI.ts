@@ -99,8 +99,6 @@ class ServiceHardwareUI extends ServiceBase {
   async sendPassphraseToDevice({ passphrase }: { passphrase: string }) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
-    console.log('sendPassphraseToDevice: ', passphrase);
-
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PASSPHRASE,
       payload: {
