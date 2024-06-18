@@ -36,6 +36,7 @@ import {
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { IMPL_XRP } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -624,6 +625,14 @@ function SendDataInputContainer() {
 
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
+    const isXRP = network?.impl === IMPL_XRP;
+    const maxLength = isXRP ? 10 : 512;
+    const regex = isXRP ? /^[0-9]+$/ : /.*/;
+    const validateErrMsg = isXRP
+      ? intl.formatMessage({
+          id: ETranslations.send_field_only_integer,
+        })
+      : undefined;
 
     return (
       <>
@@ -640,24 +649,20 @@ function SendDataInputContainer() {
           name="memo"
           rules={{
             maxLength: {
-              value: 10,
+              value: maxLength,
               message: intl.formatMessage(
                 {
                   id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
                 },
                 {
-                  number: 10,
+                  number: maxLength,
                 },
               ),
             },
             validate: (value) => {
               if (!value) return undefined;
-              const result = !/^[0-9]+$/.test(value);
-              return result
-                ? intl.formatMessage({
-                    id: ETranslations.send_field_only_integer,
-                  })
-                : undefined;
+              const result = !regex.test(value);
+              return result ? validateErrMsg : undefined;
             },
           }}
         >
@@ -671,7 +676,7 @@ function SendDataInputContainer() {
         </Form.Field>
       </>
     );
-  }, [displayMemoForm, intl]);
+  }, [displayMemoForm, intl, network?.impl]);
 
   const renderDataInput = useCallback(() => {
     if (isNFT) {
