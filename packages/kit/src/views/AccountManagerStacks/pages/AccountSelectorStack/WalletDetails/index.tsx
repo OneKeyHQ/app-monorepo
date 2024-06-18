@@ -573,7 +573,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   }
                   return;
                 }
-                console.log(section);
                 if (!focusedWalletInfo) {
                   return;
                 }
