@@ -11,12 +11,18 @@ import {
   Stack,
   usePreventRemove,
 } from '@onekeyhq/components';
+import type { IPageScreenProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/v4migration';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { V4MigrationLogCopyHeaderRight } from './components/V4MigrationLogCopy';
+import { V4MigrationModalPage } from './components/V4MigrationModalPage';
+import { EModalExitPreventMode } from './hooks/useV4MigrationExitPrevent';
 
 function V4MigrationProgressBar() {
   const intl = useIntl();
@@ -45,15 +51,18 @@ function V4MigrationProgressBar() {
   );
 }
 
-export function V4MigrationProcess() {
+export function V4MigrationProcess({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  route,
+}: IPageScreenProps<
+  IOnboardingParamList,
+  EOnboardingPages.V4MigrationProcess
+>) {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const [migrateLoading, setMigrateLoading] = useState(false);
   const { serviceV4Migration } = backgroundApiProxy;
   const [preventClose, setPreventClose] = useState(true);
-
-  // TODO prevent back, prevent gesture back
-  usePreventRemove(preventClose, () => null);
 
   const handleMigrateFromV4 = useCallback(async () => {
     if (migrateLoading) {
@@ -89,11 +98,18 @@ export function V4MigrationProcess() {
   }, [migrateLoading, navigation, serviceV4Migration]);
 
   return (
-    <Page onMounted={handleMigrateFromV4}>
+    <V4MigrationModalPage
+      exitPreventMode={
+        preventClose
+          ? EModalExitPreventMode.always
+          : EModalExitPreventMode.disabled
+      }
+      onMounted={handleMigrateFromV4}
+    >
       <Page.Header
         headerBackTitle={undefined}
         headerBackVisible={false}
-        headerRight={() => null}
+        headerRight={V4MigrationLogCopyHeaderRight}
         headerTitle={intl.formatMessage({
           id: ETranslations.v4_migration_update_in_progress,
         })}
@@ -119,7 +135,7 @@ export function V4MigrationProcess() {
         />
         <V4MigrationProgressBar />
       </Page.Body>
-    </Page>
+    </V4MigrationModalPage>
   );
 }
 

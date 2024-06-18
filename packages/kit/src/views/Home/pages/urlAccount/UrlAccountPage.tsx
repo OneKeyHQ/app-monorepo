@@ -34,7 +34,8 @@ const sceneName = EAccountSelectorSceneName.homeUrlAccount;
 function UrlAccountPage() {
   return (
     <>
-      <HomePageView key={sceneName} sceneName={sceneName} />
+      <SizableText>2222</SizableText>
+      {/* <HomePageView key={sceneName} sceneName={sceneName} /> */}
       <UrlAccountAutoReplaceHistory num={0} />
     </>
   );

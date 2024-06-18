@@ -214,6 +214,44 @@ class ServiceNetwork extends ServiceBase {
     };
   }
 
+  async getDeriveTemplateByPath({
+    networkId,
+    path,
+  }: {
+    networkId: string;
+    path: string;
+  }): Promise<string | undefined> {
+    const deriveInfoItems = await this.getDeriveInfoItemsOfNetwork({
+      networkId,
+    });
+    const findMap: { [template: string]: number } = {};
+    const pathSegments = path.split('/');
+    for (const item of deriveInfoItems) {
+      const template = item.item.template;
+      const templateSegments = template.split('/');
+      let matchedCount = 0;
+      for (let i = 0; i < pathSegments.length; i += 1) {
+        if (pathSegments[i] === templateSegments[i]) {
+          matchedCount += 1;
+        } else {
+          break;
+        }
+      }
+      findMap[template] = matchedCount;
+    }
+
+    let findTemplate: string | undefined;
+    let findMatchedCount = 0;
+    Object.entries(findMap).forEach(([k, v]) => {
+      if (v >= findMatchedCount) {
+        findTemplate = k;
+        findMatchedCount = v;
+      }
+    });
+
+    return findTemplate;
+  }
+
   @backgroundMethod()
   async getDeriveInfoItemsOfNetwork({
     networkId,

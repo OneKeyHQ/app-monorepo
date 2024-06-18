@@ -2,42 +2,62 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps } from '@onekeyhq/components';
+import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
   Icon,
   Page,
   SizableText,
+  Stack,
   usePreventRemove,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EOnboardingPages,
+  IOnboardingParamList,
+} from '@onekeyhq/shared/src/routes';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-export function V4MigrationDone() {
+import { V4MigrationLogCopy } from './components/V4MigrationLogCopy';
+import { V4MigrationModalPage } from './components/V4MigrationModalPage';
+import { EModalExitPreventMode } from './hooks/useV4MigrationExitPrevent';
+
+export function V4MigrationDone({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  route,
+}: IPageScreenProps<IOnboardingParamList, EOnboardingPages.V4MigrationDone>) {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const [preventClose, setPreventClose] = useState(true);
-  usePreventRemove(preventClose, () => null);
 
   return (
-    <Page>
+    <V4MigrationModalPage
+      exitPreventMode={
+        preventClose
+          ? EModalExitPreventMode.always
+          : EModalExitPreventMode.disabled
+      }
+    >
       <Page.Header headerShown={false} />
       <Page.Body
         flex={1}
         justifyContent="center"
         alignItems="center"
         space="$5"
+        p="$5"
       >
-        <Icon
-          name="CheckRadioSolid"
-          size="$24"
-          $gtMd={{
-            size: '$20',
-          }}
-          color="$iconSuccess"
-        />
+        <V4MigrationLogCopy>
+          <Icon
+            name="CheckRadioSolid"
+            size="$24"
+            $gtMd={{
+              size: '$20',
+            }}
+            color="$iconSuccess"
+          />
+        </V4MigrationLogCopy>
         <SizableText textAlign="center" size="$heading2xl">
           {intl.formatMessage({
             id: ETranslations.v4_migration_completed_title,
@@ -74,7 +94,7 @@ export function V4MigrationDone() {
           {intl.formatMessage({ id: ETranslations.global_explore_now })}
         </Button>
       </Page.Body>
-    </Page>
+    </V4MigrationModalPage>
   );
 }
 

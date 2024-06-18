@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -24,10 +25,15 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type { IV4MigrationBackupItem } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/types';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import type { IV4DBAvatarParsed } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/v4local/v4localDBTypes';
 import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+
+import { V4MigrationLogCopyHeaderRight } from './components/V4MigrationLogCopy';
+import { V4MigrationModalPage } from './components/V4MigrationModalPage';
 
 function BackupDialogContent({
   item,
@@ -240,42 +246,62 @@ function AccountsSectionList() {
       )}
       estimatedItemSize="$10"
       stickySectionHeadersEnabled
-      renderItem={({ item }: { item: IV4MigrationBackupItem }) => (
-        <ListItem
-          key={item.backupId}
-          title={item.title}
-          subtitle={item.subTitle}
-          subtitleProps={{
-            numberOfLines: 1,
-          }}
-          onPress={() => {
-            console.log('clicked', item);
-            showBackupDialog({ item });
-          }}
-          drillIn
-          renderAvatar={
-            item?.network?.id ? (
-              <NetworkAvatar size="$8" networkId={item.network.id} />
-            ) : (
-              <Stack w="$8" h="$8" justifyContent="center" alignItems="center">
-                <SizableText size="$heading3xl">🦄</SizableText>
-              </Stack>
-            )
+      renderItem={({ item }: { item: IV4MigrationBackupItem }) => {
+        let avatar: ReactNode | undefined;
+        if (item.hdWallet && item?.hdWallet?.avatar) {
+          let emoji = (
+            item?.hdWallet?.avatar as unknown as IV4DBAvatarParsed | undefined
+          )?.emoji;
+          if (!emoji) {
+            try {
+              const avatarInfo: IV4DBAvatarParsed = JSON.parse(
+                item?.hdWallet?.avatar,
+              );
+              emoji = avatarInfo?.emoji;
+            } catch (error) {
+              //
+            }
           }
-        >
-          {migrationData?.backedUpMark?.[item?.backupId] ? (
-            <ListItem.Text
-              align="right"
-              secondary={intl.formatMessage({
-                id: ETranslations.global_backed_up,
-              })}
-              secondaryTextProps={{
-                size: '$bodyLg',
-              }}
-            />
-          ) : null}
-        </ListItem>
-      )}
+          if (emoji) {
+            avatar = (
+              <Stack w="$8" h="$8" justifyContent="center" alignItems="center">
+                <SizableText size="$heading3xl">{emoji}</SizableText>
+              </Stack>
+            );
+          }
+        } else if (item?.network?.id) {
+          avatar = <NetworkAvatar size="$8" networkId={item.network.id} />;
+        }
+
+        return (
+          <ListItem
+            key={item.backupId}
+            title={item.title}
+            subtitle={item.subTitle}
+            subtitleProps={{
+              numberOfLines: 1,
+            }}
+            onPress={() => {
+              console.log('clicked', item);
+              showBackupDialog({ item });
+            }}
+            drillIn
+            renderAvatar={avatar}
+          >
+            {migrationData?.backedUpMark?.[item?.backupId] ? (
+              <ListItem.Text
+                align="right"
+                secondary={intl.formatMessage({
+                  id: ETranslations.global_backed_up,
+                })}
+                secondaryTextProps={{
+                  size: '$bodyLg',
+                }}
+              />
+            ) : null}
+          </ListItem>
+        );
+      }}
     />
   );
 }
@@ -336,7 +362,10 @@ function ConfirmMigrationContent({
 
 export function V4MigrationPreview({
   route,
-}: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>) {
+}: IPageScreenProps<
+  IOnboardingParamList,
+  EOnboardingPages.V4MigrationPreview
+>) {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const [migrateLoading, setMigrateLoading] = useState(false);
@@ -359,11 +388,12 @@ export function V4MigrationPreview({
   }, [intl, navigation]);
 
   return (
-    <Page scrollEnabled>
+    <V4MigrationModalPage>
       <Page.Header
         headerTitle={intl.formatMessage({
           id: ETranslations.v4_migration_backup_title,
         })}
+        headerRight={V4MigrationLogCopyHeaderRight}
       />
       <Page.Body>
         <Alert
@@ -391,7 +421,7 @@ export function V4MigrationPreview({
           </Page.ConfirmButton>
         }
       />
-    </Page>
+    </V4MigrationModalPage>
   );
 }
 

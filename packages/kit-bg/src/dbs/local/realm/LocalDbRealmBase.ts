@@ -42,6 +42,17 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
         const newVersion = newRealm.schemaVersion;
         console.log(oldVersion, newVersion);
         // do nothing here, add migration logic on service layer
+
+        // update network rpcURL
+        if (oldRealm.schemaVersion < 13) {
+          //   const networks = newRealm.objects<NetworkSchema>('Network');
+          //   for (const network of networks) {
+          //     const toClear = DEFAULT_RPC_ENDPOINT_TO_CLEAR[network.id];
+          //     if (typeof toClear !== 'undefined' && network.rpcURL === toClear) {
+          //       network.rpcURL = '';
+          //     }
+          //   }
+        }
       },
     });
     if (process.env.NODE_ENV !== 'production') {
