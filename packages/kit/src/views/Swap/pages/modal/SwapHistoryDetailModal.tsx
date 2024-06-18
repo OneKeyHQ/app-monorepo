@@ -26,11 +26,11 @@ import type {
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
+import { AssetItem } from '../../../AssetDetails/pages/HistoryDetails';
 import {
-  AssetItem,
   InfoItem,
   InfoItemGroup,
-} from '../../../AssetDetails/pages/HistoryDetails';
+} from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { getSwapHistoryStatusTextProps } from '../../utils/utils';

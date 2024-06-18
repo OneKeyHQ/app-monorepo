@@ -7,7 +7,6 @@ import {
   Heading,
   Icon,
   Page,
-  SectionList,
   SizableText,
   Spinner,
   Stack,
@@ -147,7 +146,7 @@ function UTXODetails() {
             {intl.formatMessage({
               id: ETranslations.global_inputs,
             })}{' '}
-            • {inputs?.length ?? 0}
+            • {result?.inputs.length ?? 0}
           </Heading>
           {renderUTXOList(result?.inputs ?? [])}
         </Stack>
@@ -179,21 +178,13 @@ function UTXODetails() {
             {intl.formatMessage({
               id: ETranslations.global_outputs,
             })}{' '}
-            • {outputs?.length ?? 0}
+            • {result?.outputs.length ?? 0}
           </Heading>
           {renderUTXOList(result?.outputs ?? [])}
         </Stack>
       </Stack>
     );
-  }, [
-    inputs?.length,
-    intl,
-    isLoading,
-    outputs?.length,
-    renderUTXOList,
-    result?.inputs,
-    result?.outputs,
-  ]);
+  }, [intl, isLoading, renderUTXOList, result?.inputs, result?.outputs]);
 
   return (
     <Page scrollEnabled>

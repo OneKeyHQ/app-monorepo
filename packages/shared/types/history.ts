@@ -5,6 +5,11 @@ import type { IStakingInfo } from './staking';
 import type { IToken } from './token';
 import type { IDecodedTx, IReplacedTxType } from './tx';
 
+export enum EHistoryTxDetailsBlock {
+  Flow = 'Flow',
+  Attributes = 'Attributes',
+}
+
 export enum EOnChainHistoryTransferType {
   Transfer,
   Approve,
@@ -86,6 +91,10 @@ export type IOnChainHistoryTx = {
   tokenApprove?: IOnChainHistoryTxApprove;
   // TODO: on chain swap info
   swapInfo?: any;
+
+  // Lightning network attributes
+  description?: string;
+  preimage?: string;
 };
 
 export type IAccountHistoryTx = {
@@ -146,4 +155,17 @@ export type IFetchHistoryTxDetailsResp = {
   data: IOnChainHistoryTx;
   tokens: Record<string, IOnChainHistoryTxToken>; // <tokenAddress, token>
   nfts: Record<string, IOnChainHistoryTxNFT>; // <nftAddress, nft>
+};
+
+export type IHistoryTxMetaProps = {
+  decodedTx: IDecodedTx;
+};
+
+export type IHistoryTxMetaComponents = {
+  [EHistoryTxDetailsBlock.Flow]?: (
+    props: IHistoryTxMetaProps,
+  ) => JSX.Element | null;
+  [EHistoryTxDetailsBlock.Attributes]?: (
+    props: IHistoryTxMetaProps,
+  ) => JSX.Element | null;
 };

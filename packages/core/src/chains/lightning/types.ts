@@ -32,6 +32,11 @@ export type IUnionMsgType =
   | IAuthMsgType
   | IPaymentBolt11MsgType;
 
+export type IDecodedTxExtraLightning = {
+  description?: string;
+  preImage?: string;
+};
+
 // export type ILightningHDSignatureParams = {
 //   msgPayload: UnionMsgType;
 //   engine: Engine;

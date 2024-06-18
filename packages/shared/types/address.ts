@@ -112,4 +112,5 @@ export type IQueryCheckAddressArgs = {
   enableWalletName?: boolean;
   enableAddressInteractionStatus?: boolean;
   enableVerifySendFundToSelf?: boolean;
+  skipValidateAddress?: boolean;
 };
