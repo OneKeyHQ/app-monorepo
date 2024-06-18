@@ -23,6 +23,7 @@ import {
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
@@ -35,7 +36,6 @@ import {
   EnterPin,
   EnterPinOnDevice,
 } from '../../../components/Hardware/Hardware';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 function HardwareSingletonDialogCmp(
   props: any,
@@ -54,7 +54,9 @@ function HardwareSingletonDialogCmp(
   const title = useRef('Loading');
   const content = useRef(
     <CommonDeviceLoading>
-      <SizableText size="$bodySmMedium">{action}</SizableText>
+      {platformEnv.isDev ? (
+        <SizableText size="$bodySmMedium">{action}</SizableText>
+      ) : null}
     </CommonDeviceLoading>,
   );
 

@@ -16,14 +16,11 @@ export function HeaderLeft({
 }) {
   const items = useMemo(() => {
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      if (platformEnv.isNative) {
-        return (
-          <Page.Close>
-            <NavBackButton />
-          </Page.Close>
-        );
-      }
-      return null;
+      return (
+        <Page.Close>
+          <NavBackButton />
+        </Page.Close>
+      );
     }
 
     const accountSelectorTrigger = (
