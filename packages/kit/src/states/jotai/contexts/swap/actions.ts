@@ -15,6 +15,7 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   swapApprovingStateFetchInterval,
   swapQuoteFetchInterval,
+  swapQuoteIntervalMaxCount,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
   swapTokenCatchMapMaxCount,
@@ -64,6 +65,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private quoteInterval: ReturnType<typeof setTimeout> | undefined;
 
   private approvingInterval: ReturnType<typeof setTimeout> | undefined;
+
+  private quoteIntervalCount = 0;
 
   syncNetworksSort = contextAtomMethod(async (get, set, netWorkId: string) => {
     const networks = get(swapNetworks());
@@ -242,7 +245,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       } finally {
         if (enableInterval) {
-          void this.recoverQuoteInterval.call(set, address);
+          this.quoteIntervalCount += 1;
+          if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
+            void this.recoverQuoteInterval.call(set, address, true);
+          }
         }
       }
     },
@@ -251,6 +257,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   quoteAction = contextAtomMethod(
     async (get, set, address?: string, blockNumber?: number) => {
       this.cleanQuoteInterval();
+      this.quoteIntervalCount = 0;
       set(swapBuildTxFetchingAtom(), false);
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
@@ -348,8 +355,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   });
 
   recoverQuoteInterval = contextAtomMethod(
-    async (get, set, address?: string) => {
+    async (get, set, address?: string, unResetCount?: boolean) => {
       this.cleanQuoteInterval();
+      if (!unResetCount) {
+        this.quoteIntervalCount = 0;
+      }
       set(swapBuildTxFetchingAtom(), false);
       set(swapQuoteFetchingAtom(), false);
       set(swapApprovingTransactionAtom(), (pre) => {
@@ -402,6 +412,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       this.approvingInterval = undefined;
     }
   };
+
+  getQuoteIntervalCount = () => this.quoteIntervalCount;
 
   checkSwapWarning = contextAtomMethod(
     async (
@@ -457,7 +469,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           !accountUtils.isHwWallet({
             walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
           })) ||
-          swapFromAddressInfo.networkId !== fromToken.networkId)
+          swapFromAddressInfo.networkId !== fromToken.networkId ||
+          accountUtils.isWatchingWallet({
+            walletId: swapFromAddressInfo.accountInfo.wallet.id,
+          }))
       ) {
         alertsRes = [
           ...alertsRes,
@@ -743,7 +758,8 @@ export const useSwapActions = () => {
     actions.loadSwapSelectTokenDetail.use(),
     200,
   );
-  const { cleanQuoteInterval, cleanApprovingInterval } = actions;
+  const { cleanQuoteInterval, cleanApprovingInterval, getQuoteIntervalCount } =
+    actions;
 
   return useRef({
     selectFromToken,
@@ -759,5 +775,6 @@ export const useSwapActions = () => {
     recoverQuoteInterval,
     checkSwapWarning,
     loadSwapSelectTokenDetail,
+    getQuoteIntervalCount,
   });
 };
