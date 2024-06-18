@@ -49,6 +49,10 @@ const settings: IVaultSettings = {
   minTransferAmount: '0.001',
 
   withMemo: true,
+  memoMaxLength: 10,
+  memoRegExp: '^[0-9]+$',
+  memoErrMsgId: ETranslations.send_field_only_integer,
+
   cannotSendToSelf: true,
   hasFrozenBalance: true,
 };

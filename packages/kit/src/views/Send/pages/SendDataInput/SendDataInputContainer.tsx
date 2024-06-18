@@ -102,6 +102,9 @@ function SendDataInputContainer() {
       vaultSettings,
       hasFrozenBalance,
       displayMemoForm,
+      memoMaxLength,
+      memoRegExp,
+      memoErrMsgId,
     ] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
@@ -173,6 +176,9 @@ function SendDataInputContainer() {
         vs,
         frozenBalanceSettings,
         vs.withMemo,
+        vs.memoMaxLength,
+        vs.memoRegExp,
+        vs.memoErrMsgId,
       ];
     },
     [
@@ -625,12 +631,10 @@ function SendDataInputContainer() {
 
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
-    const isXRP = network?.impl === IMPL_XRP;
-    const maxLength = isXRP ? 10 : 512;
-    const regex = isXRP ? /^[0-9]+$/ : /.*/;
-    const validateErrMsg = isXRP
+    const maxLength = memoMaxLength || 256;
+    const validateErrMsg = memoErrMsgId
       ? intl.formatMessage({
-          id: ETranslations.send_field_only_integer,
+          id: memoErrMsgId,
         })
       : undefined;
 
@@ -660,8 +664,8 @@ function SendDataInputContainer() {
               ),
             },
             validate: (value) => {
-              if (!value) return undefined;
-              const result = !regex.test(value);
+              if (!value || !memoRegExp) return undefined;
+              const result = !new RegExp(memoRegExp).test(value);
               return result ? validateErrMsg : undefined;
             },
           }}
@@ -676,7 +680,7 @@ function SendDataInputContainer() {
         </Form.Field>
       </>
     );
-  }, [displayMemoForm, intl, network?.impl]);
+  }, [displayMemoForm, intl, memoErrMsgId, memoMaxLength, memoRegExp]);
 
   const renderDataInput = useCallback(() => {
     if (isNFT) {
