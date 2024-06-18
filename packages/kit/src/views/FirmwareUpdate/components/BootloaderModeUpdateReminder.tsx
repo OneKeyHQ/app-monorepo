@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -10,7 +9,7 @@ import {
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 
-export function BasicBootloaderModeUpdateReminder() {
+export function BootloaderModeUpdateReminder() {
   const navigation = useAppNavigation();
   const actions = useFirmwareUpdateActions();
 
@@ -30,9 +29,4 @@ export function BasicBootloaderModeUpdateReminder() {
     };
   }, [actions, navigation]);
   return null;
-}
-
-export function BootloaderModeUpdateReminder() {
-  const [isLocked] = useAppIsLockedAtom();
-  return isLocked ? null : <BasicBootloaderModeUpdateReminder />;
 }
