@@ -109,6 +109,7 @@ export function DeriveTypeSelectorTriggerStaticInput(
     onChange: onDeriveTypeChange,
     ...others
   } = props;
+  const intl = useIntl();
   const { result: viewItems } = usePromiseResult(async () => {
     const selectItems =
       await backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
@@ -117,6 +118,20 @@ export function DeriveTypeSelectorTriggerStaticInput(
       });
     return selectItems;
   }, [items, networkId]);
+  const options = useMemo(
+    () =>
+      viewItems?.map(({ value, label, item, description, descI18n }) => ({
+        value,
+        label: item.labelKey
+          ? intl.formatMessage({ id: item.labelKey })
+          : label,
+        description: descI18n
+          ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
+          : description,
+        item,
+      })) || [],
+    [intl, viewItems],
+  );
 
   // autofix derivetype when it's not in the list
   useEffect(() => {
@@ -136,7 +151,7 @@ export function DeriveTypeSelectorTriggerStaticInput(
   return (
     <DeriveTypeSelectorTriggerView
       key={`${deriveType || ''}-${networkId || ''}`}
-      items={viewItems}
+      items={options}
       value={deriveType}
       onChange={onDeriveTypeChange}
       {...others}
@@ -157,23 +172,30 @@ export function DeriveTypeSelectorTrigger({
   const actions = useAccountSelectorActions();
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const {
-    activeAccount: { deriveInfoItems, deriveInfo },
+    activeAccount: { deriveInfoItems, deriveInfo, wallet },
   } = useActiveAccount({ num });
 
   const options = useMemo(
     () =>
-      deriveInfoItems.map(({ value, label, item, ...i }) => ({
-        value,
-        label: item.labelKey
-          ? intl.formatMessage({ id: item.labelKey })
-          : label,
-        item,
-        ...i,
-      })),
-    [deriveInfoItems, intl],
+      deriveInfoItems
+        .map(({ value, label, item, description, descI18n }) => ({
+          value,
+          label: item.labelKey
+            ? intl.formatMessage({ id: item.labelKey })
+            : label,
+          item,
+          description: descI18n
+            ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
+            : description,
+        }))
+        .filter((info) => {
+          if (info.item.disableWalletTypes && wallet?.type) {
+            return !info.item.disableWalletTypes.includes(wallet?.type);
+          }
+          return true;
+        }),
+    [deriveInfoItems, intl, wallet?.type],
   );
-
-  console.log('__deriveInfoItems', deriveInfoItems);
 
   if (!selectedAccount.walletId) {
     return null;

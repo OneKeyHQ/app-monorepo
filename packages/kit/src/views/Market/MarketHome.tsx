@@ -8,7 +8,14 @@ import {
   useState,
 } from 'react';
 
-import { Icon, Page, Tab, useMedia } from '@onekeyhq/components';
+import {
+  Icon,
+  Page,
+  Spinner,
+  Stack,
+  Tab,
+  useMedia,
+} from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -38,14 +45,22 @@ function BasicAnimatedIcon(
   ref: ForwardedRef<IAnimatedIconRef>,
 ) {
   const [color, setColor] = useState(selectedColor);
+  const isSelectedValue = useRef(false);
   useImperativeHandle(
     ref,
     () => ({
-      setIsSelected: (isSelected: boolean) =>
-        setColor(isSelected ? selectedColor : normalColor),
+      setIsSelected: (isSelected: boolean) => {
+        isSelectedValue.current = isSelected;
+        setColor(isSelected ? selectedColor : normalColor);
+      },
     }),
     [normalColor, selectedColor],
   );
+  useEffect(() => {
+    if (color !== normalColor && color !== selectedColor) {
+      setColor(isSelectedValue.current ? selectedColor : normalColor);
+    }
+  }, [selectedColor, normalColor, color]);
   return <Icon name="StarOutline" color={color} size="$4.5" px="$1" />;
 }
 
@@ -81,35 +96,42 @@ function MarketHome() {
     <Page>
       {gtMd ? <MarketHomeHeader /> : <MDMarketHomeHeader />}
       <Page.Body>
-        <Tab.Page
-          data={tabConfig}
-          headerProps={{
-            contentContainerStyle: { paddingRight: '$5' },
-            showHorizontalScrollButton: !gtMd && platformEnv.isRuntimeBrowser,
-            renderItem: (item, index, titleStyle) =>
-              index === 0 && !gtMd ? (
-                <AnimatedIcon
-                  ref={ref}
-                  normalColor={
-                    (titleStyle as { normalColor: IColorTokens })?.normalColor
-                  }
-                  selectedColor={
-                    (titleStyle as { selectedColor: IColorTokens })
-                      ?.selectedColor
-                  }
-                />
-              ) : (
-                <Tab.SelectedLabel {...(titleStyle as any)} />
-              ),
-          }}
-          onSelectedPageIndex={(index: number) => {
-            ref?.current?.setIsSelected?.(index === 0);
-            appEventBus.emit(EAppEventBusNames.SwitchMarketHomeTab, {
-              tabIndex: index,
-            });
-            console.log('选中', index, index === 0 ? 1 : 0);
-          }}
-        />
+        {tabConfig.length ? (
+          <Tab.Page
+            data={tabConfig}
+            headerProps={{
+              contentContainerStyle: { paddingRight: '$5' },
+              showHorizontalScrollButton: !gtMd && platformEnv.isRuntimeBrowser,
+              renderItem: (item, index, titleStyle) =>
+                index === 0 && !gtMd ? (
+                  <AnimatedIcon
+                    ref={ref}
+                    normalColor={
+                      (titleStyle as { normalColor: IColorTokens })?.normalColor
+                    }
+                    selectedColor={
+                      (titleStyle as { selectedColor: IColorTokens })
+                        ?.selectedColor
+                    }
+                  />
+                ) : (
+                  <Tab.SelectedLabel {...(titleStyle as any)} />
+                ),
+            }}
+            onSelectedPageIndex={(index: number) => {
+              ref?.current?.setIsSelected?.(index === 0);
+              appEventBus.emit(EAppEventBusNames.SwitchMarketHomeTab, {
+                tabIndex: index,
+              });
+              console.log('选中', index, index === 0 ? 1 : 0);
+            }}
+            windowSize={15}
+          />
+        ) : (
+          <Stack flex={1} ai="center" jc="center">
+            <Spinner size="large" />
+          </Stack>
+        )}
       </Page.Body>
     </Page>
   );

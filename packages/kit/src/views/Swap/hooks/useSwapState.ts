@@ -33,7 +33,6 @@ import { useSwapAddressInfo } from './useSwapAccount';
 
 function useSwapWarningCheck() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
-  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [networks] = useSwapNetworksAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -47,28 +46,17 @@ function useSwapWarningCheck() {
       networkId: undefined,
       accountInfo: undefined,
     },
-    swapToAddressInfo: {
-      address: undefined,
-      networkId: undefined,
-      accountInfo: undefined,
-    },
   });
 
   const asyncRefContainer = useCallback(() => {
     if (refContainer.current.swapFromAddressInfo !== swapFromAddressInfo) {
       refContainer.current.swapFromAddressInfo = swapFromAddressInfo;
     }
-    if (refContainer.current.swapToAddressInfo !== swapToAddressInfo) {
-      refContainer.current.swapToAddressInfo = swapToAddressInfo;
-    }
-  }, [swapFromAddressInfo, swapToAddressInfo]);
+  }, [swapFromAddressInfo]);
 
   useEffect(() => {
     asyncRefContainer();
-    void checkSwapWarning(
-      refContainer.current.swapFromAddressInfo,
-      refContainer.current.swapToAddressInfo,
-    );
+    void checkSwapWarning(refContainer.current.swapFromAddressInfo);
   }, [
     asyncRefContainer,
     checkSwapWarning,

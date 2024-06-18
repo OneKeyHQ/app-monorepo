@@ -178,6 +178,7 @@ export function TokenDetails() {
       if (!account || !network) return;
 
       navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
+        accountId,
         networkId,
         accountAddress: account.address,
         xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
@@ -187,7 +188,7 @@ export function TokenDetails() {
         historyTx: tx,
       });
     },
-    [account, navigation, network, networkId],
+    [account, accountId, navigation, network, networkId],
   );
 
   const handleSendPress = useCallback(() => {

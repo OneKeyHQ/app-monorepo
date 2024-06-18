@@ -67,6 +67,7 @@ function buildWebTabData(tabs: IWebTab[]) {
   };
 }
 
+const ABOUT_PROTOCOL = 'about:';
 const BLANK_PAGE_URL = 'about:blank';
 export const homeTab: IWebTab = {
   id: 'home',
@@ -283,9 +284,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         throw new Error('buildBookmarkData: payload must be an array');
       }
       // set(browserBookmarkAtom(), payload);
-      void backgroundApiProxy.simpleDb.browserBookmarks.setRawData({
-        data: payload,
-      });
+
+      void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks(payload);
     },
   );
 
@@ -706,7 +706,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   validateWebviewSrc = contextAtomMethod((get, _, url: string) => {
     if (!url) return EValidateUrlEnum.InvalidUrl;
-    if (url === BLANK_PAGE_URL) return EValidateUrlEnum.Valid;
+    if (new URL(url).protocol === ABOUT_PROTOCOL) return EValidateUrlEnum.Valid;
     const cache = get(phishingLruCacheAtom());
     const { action } = uriUtils.parseDappRedirect(
       url,

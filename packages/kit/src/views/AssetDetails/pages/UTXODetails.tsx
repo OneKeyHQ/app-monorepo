@@ -1,21 +1,19 @@
 import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { padStart } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  DescriptionList,
-  Divider,
+  Heading,
+  Icon,
   Page,
   SectionList,
   SizableText,
   Spinner,
   Stack,
-  XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
@@ -36,8 +34,6 @@ function UTXODetails() {
       >
     >();
   const intl = useIntl();
-
-  const tableLayout = useMedia().gtMd;
 
   const { inputs, outputs, networkId, txId } = route.params;
 
@@ -80,23 +76,41 @@ function UTXODetails() {
 
   const renderUTXOList = useCallback(
     (utxos: { address: string; balance: string }[]) => (
-      <DescriptionList px="$5" paddingBottom="$2">
+      <Stack>
         {utxos.map((utxo, index) => (
-          <XStack key={index} space="$2">
-            <SizableText size="$bodyMdMedium" color="$textSubdued">
-              {`#${padStart(String(index), 2, '0')}`}
+          // <XStack key={index} space="$2">
+          //   <SizableText size="$bodyMdMedium" color="$textSubdued">
+          //     {`#${padStart(String(index), 2, '0')}`}
+          //   </SizableText>
+
+          // </XStack>
+          <YStack
+            key={index}
+            {...(index !== 0 && {
+              mt: '$2.5',
+            })}
+          >
+            <SizableText
+              mb="$1"
+              size="$bodyMd"
+              $gtMd={{
+                size: '$bodySm',
+              }}
+            >
+              {utxo.address}
             </SizableText>
-            <YStack flex={1}>
-              <SizableText flex={1} size="$bodyMdMedium">
-                {utxo.address}
-              </SizableText>
-              <SizableText color="$textSubdued" size="$bodyMd">
-                {`${utxo.balance} ${network?.symbol ?? ''}`}
-              </SizableText>
-            </YStack>
-          </XStack>
+            <SizableText
+              color="$textSubdued"
+              size="$bodyMd"
+              $gtMd={{
+                size: '$bodySm',
+              }}
+            >
+              {`${utxo.balance} ${network?.symbol ?? ''}`}
+            </SizableText>
+          </YStack>
         ))}
-      </DescriptionList>
+      </Stack>
     ),
     [network?.symbol],
   );
@@ -110,48 +124,66 @@ function UTXODetails() {
       );
     }
 
-    if (tableLayout)
-      return (
-        <XStack>
-          <YStack flex={1}>
-            <SectionList.SectionHeader
-              title={intl.formatMessage(
-                { id: 'form__inputs_int__uppercase' },
-                { 0: inputs?.length ?? 0 },
-              )}
-            />
-            {renderUTXOList(result?.inputs ?? [])}
-          </YStack>
-          <YStack flex={1}>
-            <SectionList.SectionHeader
-              title={intl.formatMessage(
-                { id: 'form__outputs_int__uppercase' },
-                { 0: outputs?.length ?? 0 },
-              )}
-            />
-            {renderUTXOList(result?.outputs ?? [])}
-          </YStack>
-        </XStack>
-      );
-
     return (
-      <>
-        <SectionList.SectionHeader
-          title={intl.formatMessage(
-            { id: 'form__inputs_int__uppercase' },
-            { 0: inputs?.length ?? 0 },
-          )}
+      <Stack
+        px="$5"
+        $gtMd={{
+          flexDirection: 'row',
+        }}
+      >
+        <Stack
+          $gtMd={{
+            flex: 1,
+          }}
+        >
+          <Heading
+            mb="$2.5"
+            color="$textSuccess"
+            size="$headingSm"
+            $gtMd={{
+              size: '$headingXs',
+            }}
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_inputs,
+            })}{' '}
+            • {inputs?.length ?? 0}
+          </Heading>
+          {renderUTXOList(result?.inputs ?? [])}
+        </Stack>
+        <Icon
+          flexShrink={0}
+          name="ChevronDownSmallOutline"
+          color="$iconSubdued"
+          alignSelf="center"
+          my="$2"
+          $gtMd={{
+            rotate: '-90deg',
+            my: '$0',
+            mx: '$2.5',
+          }}
         />
-        {renderUTXOList(result?.inputs ?? [])}
-        <Divider my="$5" />
-        <SectionList.SectionHeader
-          title={intl.formatMessage(
-            { id: 'form__outputs_int__uppercase' },
-            { 0: outputs?.length ?? 0 },
-          )}
-        />
-        {renderUTXOList(result?.outputs ?? [])}
-      </>
+        <Stack
+          $gtMd={{
+            flex: 1,
+          }}
+        >
+          <Heading
+            mb="$2.5"
+            color="$textSuccess"
+            size="$headingSm"
+            $gtMd={{
+              size: '$headingXs',
+            }}
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_outputs,
+            })}{' '}
+            • {outputs?.length ?? 0}
+          </Heading>
+          {renderUTXOList(result?.outputs ?? [])}
+        </Stack>
+      </Stack>
     );
   }, [
     inputs?.length,
@@ -161,13 +193,16 @@ function UTXODetails() {
     renderUTXOList,
     result?.inputs,
     result?.outputs,
-    tableLayout,
   ]);
 
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: 'title__inputs_and_outputs' })}
+        title={`${intl.formatMessage({
+          id: ETranslations.global_inputs,
+        })} & ${intl.formatMessage({
+          id: ETranslations.global_outputs,
+        })}`}
       />
       <Page.Body>{renderUTXODetails()}</Page.Body>
     </Page>

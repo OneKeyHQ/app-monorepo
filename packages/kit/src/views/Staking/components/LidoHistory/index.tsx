@@ -18,7 +18,21 @@ type ILidoHistoryProps = {
   items: ILidoHistoryItem[];
 };
 
+function useLidoLabel() {
+  const intl = useIntl();
+  return function (label: string) {
+    if (label.toLowerCase() === 'stake') {
+      return intl.formatMessage({ id: ETranslations.earn_stake });
+    }
+    if (label.toLowerCase() === 'redeem') {
+      return intl.formatMessage({ id: ETranslations.earn_redeem });
+    }
+    return intl.formatMessage({ id: ETranslations.earn_claim });
+  };
+}
+
 export const LidoHistory = ({ items }: ILidoHistoryProps) => {
+  const labelFn = useLidoLabel();
   const sections = useMemo(() => {
     const result = groupBy(items, (item) =>
       formatDate(new Date(item.timestamp * 1000), { hideTimeForever: true }),
@@ -28,53 +42,56 @@ export const LidoHistory = ({ items }: ILidoHistoryProps) => {
       .sort((a, b) => b.data[0].timestamp - a.data[0].timestamp);
   }, [items]);
 
-  const renderItem = useCallback(({ item }: { item: ILidoHistoryItem }) => {
-    let primary = item.receive
-      ? { data: item.receive, symbol: '+' }
-      : undefined;
-    let secondary = item.send ? { data: item.send, symbol: '-' } : undefined;
-    if (!primary && secondary) {
-      primary = secondary;
-      secondary = undefined;
-    }
-    return (
-      <ListItem
-        avatarProps={{
-          src: item.receive?.token.logoURI ?? item.send?.token.logoURI,
-        }}
-        title={item.label}
-        subtitle="Lido"
-      >
-        <YStack alignItems="flex-end">
-          {primary ? (
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="balance"
-              formatterOptions={{
-                tokenSymbol: primary.data.token.symbol,
-                showPlusMinusSigns: true,
-              }}
-            >
-              {`${primary.symbol}${primary.data.amount}`}
-            </NumberSizeableText>
-          ) : null}
-          {secondary ? (
-            <NumberSizeableText
-              size="$bodyMd"
-              formatter="balance"
-              color="$textSubdued"
-              formatterOptions={{
-                tokenSymbol: secondary.data.token.symbol,
-                showPlusMinusSigns: true,
-              }}
-            >
-              {`${secondary.symbol}${secondary.data.amount}`}
-            </NumberSizeableText>
-          ) : null}
-        </YStack>
-      </ListItem>
-    );
-  }, []);
+  const renderItem = useCallback(
+    ({ item }: { item: ILidoHistoryItem }) => {
+      let primary = item.receive
+        ? { data: item.receive, symbol: '+' }
+        : undefined;
+      let secondary = item.send ? { data: item.send, symbol: '-' } : undefined;
+      if (!primary && secondary) {
+        primary = secondary;
+        secondary = undefined;
+      }
+      return (
+        <ListItem
+          avatarProps={{
+            src: item.receive?.token.logoURI ?? item.send?.token.logoURI,
+          }}
+          title={labelFn(item.label)}
+          subtitle="Lido"
+        >
+          <YStack alignItems="flex-end">
+            {primary ? (
+              <NumberSizeableText
+                size="$bodyLgMedium"
+                formatter="balance"
+                formatterOptions={{
+                  tokenSymbol: primary.data.token.symbol,
+                  showPlusMinusSigns: true,
+                }}
+              >
+                {`${primary.symbol}${primary.data.amount}`}
+              </NumberSizeableText>
+            ) : null}
+            {secondary ? (
+              <NumberSizeableText
+                size="$bodyMd"
+                formatter="balance"
+                color="$textSubdued"
+                formatterOptions={{
+                  tokenSymbol: secondary.data.token.symbol,
+                  showPlusMinusSigns: true,
+                }}
+              >
+                {`${secondary.symbol}${secondary.data.amount}`}
+              </NumberSizeableText>
+            ) : null}
+          </YStack>
+        </ListItem>
+      );
+    },
+    [labelFn],
+  );
 
   const renderSectionHeader = useCallback(
     ({

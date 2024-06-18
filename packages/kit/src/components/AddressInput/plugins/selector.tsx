@@ -141,7 +141,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
             id: ETranslations.send_to_contacts_tooltip,
           })}
           variant="tertiary"
-          icon="DotVerOutline"
+          icon="PeopleCircleOutline"
           testID={testID}
         />
       }
