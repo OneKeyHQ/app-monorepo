@@ -745,7 +745,7 @@ function SendDataInputContainer() {
               </Form.Field>
             ) : null}
             <Form.Field
-              label={intl.formatMessage({ id: ETranslations.send_to })}
+              label={intl.formatMessage({ id: ETranslations.global_recipient })}
               name="to"
               rules={{
                 required: true,

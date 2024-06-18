@@ -133,13 +133,16 @@ function TokenSelector() {
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
-          id: ETranslations.send_token_selector_select_token,
+          id: ETranslations.global_select_crypto,
         })}
         headerSearchBarOptions={headerSearchBarOptions}
       />
       <Page.Body>
-        {networkName ? <SectionList.SectionHeader title={networkName} /> : null}
-        <TokenListView onPressToken={handleTokenOnPress} />
+        {/* {networkName ? <SectionList.SectionHeader title={networkName} /> : null} */}
+        <TokenListView
+          withPresetVerticalPadding={false}
+          onPressToken={handleTokenOnPress}
+        />
       </Page.Body>
     </Page>
   );

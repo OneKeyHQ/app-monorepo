@@ -25,6 +25,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IAddressInteractionStatus,
@@ -433,14 +434,21 @@ export function AddressInput(props: IAddressInputProps) {
     ],
   );
 
+  const getAddressInputPlaceholder = useMemo(() => {
+    if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+      return intl.formatMessage({
+        id: ETranslations.form_recipient_ln_placeholder,
+      });
+    }
+
+    return intl.formatMessage({ id: ETranslations.send_to_placeholder });
+  }, [intl, networkId]);
+
   return (
     <BaseInput
       value={inputText}
       onChangeText={onChangeText}
-      placeholder={
-        placeholder ??
-        intl.formatMessage({ id: ETranslations.send_to_placeholder })
-      }
+      placeholder={placeholder ?? getAddressInputPlaceholder}
       extension={AddressInputExtension}
       {...rest}
     />
