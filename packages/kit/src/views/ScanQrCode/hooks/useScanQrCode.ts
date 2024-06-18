@@ -28,13 +28,14 @@ export default function useScanQrCode() {
       autoHandleResult = false,
       handlers,
       account,
+      tokens,
       qrWalletScene = false,
       showProTutorial = false,
     }: IQRCodeHandlerParseOutsideOptions) =>
       new Promise<IQRCodeHandlerParseResult<IBaseValue>>((resolve, reject) => {
         resetAnimationQrcodeScan();
 
-        navigation.pushFullModal(EModalRoutes.ScanQrCodeModal, {
+        navigation.pushModal(EModalRoutes.ScanQrCodeModal, {
           screen: EScanQrCodeModalPages.ScanQrCodeStack,
           params: {
             qrWalletScene,
@@ -45,6 +46,7 @@ export default function useScanQrCode() {
                   autoHandleResult,
                   handlers,
                   account,
+                  tokens,
                 });
                 if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
                   const animationValue = parseValue.data as IAnimationValue;

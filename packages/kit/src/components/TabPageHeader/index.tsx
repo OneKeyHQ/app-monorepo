@@ -4,6 +4,7 @@ import { Page } from '@onekeyhq/components';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
+import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
 import { HeaderLeft } from './HeaderLeft';
@@ -30,9 +31,11 @@ export function TabPageHeader({
   const renderHeaderRight = useCallback(
     () =>
       showHeaderRight && config ? (
-        <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-          <HeaderRight sceneName={sceneName} />
-        </AccountSelectorProviderMirror>
+        <HomeTokenListProviderMirror>
+          <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
+            <HeaderRight sceneName={sceneName} />
+          </AccountSelectorProviderMirror>
+        </HomeTokenListProviderMirror>
       ) : null,
     [config, sceneName, showHeaderRight],
   );

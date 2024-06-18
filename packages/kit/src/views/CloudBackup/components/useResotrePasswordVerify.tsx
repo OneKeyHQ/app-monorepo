@@ -51,7 +51,7 @@ export function useRestorePasswordVerifyDialog() {
   const intl = useIntl();
   const show = useCallback(
     () =>
-      new Promise<string>((resolve) =>
+      new Promise<string>((resolve, reject) =>
         Dialog.confirm({
           icon: 'PlaceholderOutline',
           title: intl.formatMessage({ id: ETranslations.backup_import_data }),
@@ -69,6 +69,9 @@ export function useRestorePasswordVerifyDialog() {
               return;
             }
             resolve(password);
+          },
+          onClose: () => {
+            reject(intl.formatMessage({ id: ETranslations.global_cancel }));
           },
         }),
       ),

@@ -1366,7 +1366,7 @@
   "update.update_required_desc": "Версія вашого апаратного гаманця застаріла і має бути оновлена для продовження роботи.",
   "update.update_resource_failed": "Не вдалося оновити ресурс",
   "update.update_ui_resources_success": "Успішне оновлення ресурсів інтерфейсу",
-  "update.updated_to_latest_version": "Оновлено до останньої версії {}",
+  "update.updated_to_latest_version": "Оновлено до останньої версії {version}",
   "update.updating_bootloader": "Оновлення завантажувача",
   "update.updating_ui_resources": "Оновлення ресурсів інтерфейсу користувача...",
   "update.verify_status_and_continue": "Перевірте статус та продовжуйте",
