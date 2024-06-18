@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { Toast } from '@onekeyhq/components';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppUpdateStatus,
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   downloadPackage,
   installPackage,
@@ -82,6 +84,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
           void backgroundApiProxy.serviceAppUpdate.readyToInstall();
         })
         .catch((e: { message: string }) => {
+          Toast.error({ title: ETranslations.global_update_failed });
           void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
         });
     }
@@ -105,9 +108,10 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         toUpdatePreviewPage(isFullModal);
         break;
       case EAppUpdateStatus.ready:
-        void installPackage(appUpdateInfo).catch((e) =>
-          backgroundApiProxy.serviceAppUpdate.notifyFailed(e),
-        );
+        void installPackage(appUpdateInfo).catch((e) => {
+          Toast.error({ title: ETranslations.global_update_failed });
+          void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
+        });
         break;
       case EAppUpdateStatus.failed:
         void backgroundApiProxy.serviceAppUpdate.startDownloading();
@@ -116,6 +120,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
             void backgroundApiProxy.serviceAppUpdate.readyToInstall();
           })
           .catch((e: { message: string }) => {
+            Toast.error({ title: ETranslations.global_update_failed });
             void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
           });
         break;
