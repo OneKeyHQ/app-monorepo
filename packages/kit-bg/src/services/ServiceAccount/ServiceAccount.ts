@@ -11,7 +11,7 @@ import {
   revealableSeedFromMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
-import type { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -64,6 +64,7 @@ import type {
   IDBRemoveWalletParams,
   IDBSetAccountNameParams,
   IDBSetWalletNameAndAvatarParams,
+  IDBUtxoAccount,
   IDBVariantAccount,
   IDBWallet,
   IDBWalletId,
@@ -533,7 +534,7 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async exportAccountSecretKeys({
+  async exportAccountSecretKey({
     accountId,
     networkId,
     keyType,
@@ -541,7 +542,7 @@ class ServiceAccount extends ServiceBase {
     accountId: string;
     networkId: string;
     keyType: ECoreApiExportedSecretKeyType;
-  }) {
+  }): Promise<string> {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
@@ -552,6 +553,27 @@ class ServiceAccount extends ServiceBase {
       password,
       keyType,
     });
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async exportAccountPublicKey({
+    accountId,
+    networkId,
+    keyType,
+  }: {
+    accountId: string;
+    networkId: string;
+    keyType: ECoreApiExportedSecretKeyType;
+  }): Promise<string | undefined> {
+    const account = await this.getAccount({ accountId, networkId });
+    if (keyType === ECoreApiExportedSecretKeyType.publicKey) {
+      return account.pub;
+    }
+    if (keyType === ECoreApiExportedSecretKeyType.xpub) {
+      return (account as IDBUtxoAccount | undefined)?.xpub;
+    }
+    return undefined;
   }
 
   @backgroundMethod()
