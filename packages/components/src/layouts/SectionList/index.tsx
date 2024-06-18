@@ -10,6 +10,7 @@ import {
 import { withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SizableText, Stack, XStack } from '../../primitives';
 import { ListView } from '../ListView/list';
 

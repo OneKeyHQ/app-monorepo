@@ -41,10 +41,11 @@ export default class Vault extends VaultBtc {
       throw new Error('Invalid BCH address');
     }
 
-    return {
+    const result = {
       ...addressValidationResult,
       normalizedAddress: bchAddress,
       displayAddress: bchAddress,
     };
+    return result;
   }
 }
