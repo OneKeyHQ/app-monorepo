@@ -152,6 +152,12 @@ class ServiceCloudBackup extends ServiceBase {
             version: HDWALLET_BACKUP_VERSION,
           };
           const HDAccountUUID = getHDAccountUUID(account);
+          if (account.indexedAccountId) {
+            const indexedAccount = await serviceAccount.getIndexedAccount({
+              id: account.indexedAccountId,
+            });
+            account.name = indexedAccount.name;
+          }
           walletToBackup.accounts.push(account);
           walletToBackup.accountIds.push(HDAccountUUID);
           publicBackupData.HDWallets[wallet.id] = {
@@ -520,7 +526,7 @@ class ServiceCloudBackup extends ServiceBase {
       });
 
       for (const id of restoreList.HDWallets) {
-        const { version, accounts, avatar } = privateData.wallets[id];
+        const { version, name, accounts, avatar } = privateData.wallets[id];
         if (version !== HDWALLET_BACKUP_VERSION) {
           return;
         }
@@ -543,6 +549,10 @@ class ServiceCloudBackup extends ServiceBase {
         await serviceAccount.restoreAccountsToWallet({
           walletId: wallet.id,
           accounts,
+        });
+        await serviceAccount.setWalletNameAndAvatar({
+          walletId: wallet?.id,
+          name,
         });
       }
 

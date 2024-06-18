@@ -2,6 +2,8 @@ import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
+import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+
 import { HeaderLeft } from './HeaderLeft';
 import { HeaderRight } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
@@ -32,7 +34,11 @@ export function TabPageHeader({
         <View>
           <HeaderTitle sceneName={sceneName} />
         </View>
-        {showHeaderRight ? <HeaderRight sceneName={sceneName} /> : null}
+        {showHeaderRight ? (
+          <HomeTokenListProviderMirror>
+            <HeaderRight sceneName={sceneName} />
+          </HomeTokenListProviderMirror>
+        ) : null}
       </XStack>
     </>
   );

@@ -9,6 +9,7 @@ import {
 
 import { withStaticProperties } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SizableText, Stack, XStack } from '../../primitives';
 import { ListView } from '../ListView/list';
 
@@ -117,7 +118,8 @@ function BaseSectionList<T>(
   }, [sections]);
 
   const reloadSectionHeaderIndex = useCallback(
-    (index: number) => (ListHeaderComponent ? index + 1 : index),
+    (index: number) =>
+      ListHeaderComponent && !platformEnv.isNative ? index + 1 : index,
     [ListHeaderComponent],
   );
 
@@ -216,7 +218,7 @@ function BaseSectionList<T>(
       ListHeaderComponent={ListHeaderComponent}
       stickyHeaderIndices={reloadStickyHeaderIndices}
       getItemType={getItemType}
-      keyExtractor={reloadKeyExtractor}
+      keyExtractor={platformEnv.isNative ? reloadKeyExtractor : undefined}
       {...restProps}
     />
   );

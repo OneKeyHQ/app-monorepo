@@ -95,7 +95,7 @@ function BookmarkListModal() {
           }
           Toast.success({
             title: intl.formatMessage({
-              id: ETranslations.explore_removed_success,
+              id: ETranslations.explore_bookmark_renamed,
             }),
           });
           setTimeout(() => {

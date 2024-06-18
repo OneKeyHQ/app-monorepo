@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react';
 import {
   BlurView,
   ListView,
+  LottieView,
   SizableText,
   Stack,
   XStack,
@@ -82,6 +83,21 @@ function ListDemo() {
   );
 }
 
+function DynimicDemo() {
+  return (
+    <Background>
+      <LottieView
+        width="100%"
+        height="100%"
+        source={require('../../../../../../../assets/animations/enter-pin-on-classic.json')}
+      />
+      <YStack fullscreen>
+        <BlurView w="100%" h="100%" intensity={70} />
+      </YStack>
+    </Background>
+  );
+}
+
 const BlurViewGallery = () => (
   <Layout
     description="****"
@@ -95,6 +111,10 @@ const BlurViewGallery = () => (
       {
         title: 'List',
         element: <ListDemo />,
+      },
+      {
+        title: 'Dynimic',
+        element: <DynimicDemo />,
       },
     ]}
   />

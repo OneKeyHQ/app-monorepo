@@ -3,6 +3,11 @@ import { useCallback, useState } from 'react';
 import { Button, Stack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { ScanQrCode } from '@onekeyhq/kit/src/views/ScanQrCode/components';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -35,6 +40,8 @@ const ScanQRCodeGallery = () => {
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
   const openScanQrCodeModal = useCallback(
     async (values: {
       autoHandleResult: boolean;
@@ -46,13 +53,18 @@ const ScanQRCodeGallery = () => {
           handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
           ...values,
           account,
+          tokens: {
+            data: allTokens.tokens,
+            keys: allTokens.keys,
+            map,
+          },
         });
         console.log(result);
       } catch (e) {
         console.log('用户取消扫描');
       }
     },
-    [scanQrCode, account],
+    [scanQrCode, account, allTokens, map],
   );
   return (
     <Layout
@@ -115,14 +127,16 @@ const ScanQRCodeGallery = () => {
 
 function ScanQRCodeGalleryContainer() {
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-      }}
-      enabledNum={[0]}
-    >
-      <ScanQRCodeGallery />
-    </AccountSelectorProviderMirror>
+    <HomeTokenListProviderMirror>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+        }}
+        enabledNum={[0]}
+      >
+        <ScanQRCodeGallery />
+      </AccountSelectorProviderMirror>
+    </HomeTokenListProviderMirror>
   );
 }
 

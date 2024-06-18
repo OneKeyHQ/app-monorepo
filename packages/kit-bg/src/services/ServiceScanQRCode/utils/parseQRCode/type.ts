@@ -2,6 +2,7 @@ import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { ITokenData } from '@onekeyhq/shared/types/token';
 
 export enum EQRCodeHandlerType {
   UNKNOWN = 'UNKNOWN',
@@ -132,6 +133,7 @@ export type IQRCodeHandlerParseOutsideOptions = {
   handlers: EQRCodeHandlerNames[];
   autoHandleResult?: boolean;
   account?: INetworkAccount;
+  tokens?: ITokenData;
   qrWalletScene?: boolean;
   showProTutorial?: boolean;
 };

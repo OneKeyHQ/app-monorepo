@@ -5,10 +5,6 @@ import { useIntl } from 'react-intl';
 import { Dialog, rootNavigationRef, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type {
   IAnimationValue,
   IBaseValue,
@@ -111,11 +107,7 @@ const useParseQRCode = () => {
                 accountId: account.id,
 
                 networkName: network.name,
-                // tokens: {
-                //   data: allTokens.tokens,
-                //   keys: allTokens.keys,
-                //   map,
-                // },
+                tokens: options?.tokens,
                 onSelect: async (token) => {
                   await timerUtils.wait(600);
                   navigation.pushModal(EModalRoutes.SendModal, {

@@ -8,6 +8,10 @@ import {
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
@@ -31,6 +35,8 @@ export function HeaderRight({
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
   const openSettingPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
@@ -42,8 +48,13 @@ export function HeaderRight({
         handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
         autoHandleResult: true,
         account,
+        tokens: {
+          data: allTokens.tokens,
+          keys: allTokens.keys,
+          map,
+        },
       }),
-    [scanQrCode, account],
+    [scanQrCode, account, allTokens, map],
   );
 
   const openExtensionExpandTab = useCallback(async () => {

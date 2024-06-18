@@ -506,6 +506,12 @@ class ServiceAccount extends ServiceBase {
         ),
         skipIfExists: true,
       });
+      for (const account of accounts) {
+        await this.setAccountName({
+          name: account.name,
+          indexedAccountId: account.indexedAccountId,
+        });
+      }
     }
   }
 

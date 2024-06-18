@@ -38,14 +38,22 @@ function BasicAnimatedIcon(
   ref: ForwardedRef<IAnimatedIconRef>,
 ) {
   const [color, setColor] = useState(selectedColor);
+  const isSelectedValue = useRef(false);
   useImperativeHandle(
     ref,
     () => ({
-      setIsSelected: (isSelected: boolean) =>
-        setColor(isSelected ? selectedColor : normalColor),
+      setIsSelected: (isSelected: boolean) => {
+        isSelectedValue.current = isSelected;
+        setColor(isSelected ? selectedColor : normalColor);
+      },
     }),
     [normalColor, selectedColor],
   );
+  useEffect(() => {
+    if (color !== normalColor && color !== selectedColor) {
+      setColor(isSelectedValue.current ? selectedColor : normalColor);
+    }
+  }, [selectedColor, normalColor, color]);
   return <Icon name="StarOutline" color={color} size="$4.5" px="$1" />;
 }
 
@@ -109,6 +117,7 @@ function MarketHome() {
             });
             console.log('选中', index, index === 0 ? 1 : 0);
           }}
+          windowSize={15}
         />
       </Page.Body>
     </Page>
