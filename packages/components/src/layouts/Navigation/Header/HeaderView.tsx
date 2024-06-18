@@ -155,7 +155,6 @@ function HeaderView({
             headerTitleStyle={{
               lineHeight: 28,
               fontWeight: '600',
-              // maxWidth: platformEnv.isNative ? undefined : '55%',
               ...(headerTitleStyle as any),
             }}
             headerTitleContainerStyle={{
