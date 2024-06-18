@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import * as ethUtils from 'ethereumjs-util';
 import { useIntl } from 'react-intl';
 
-import { SizableText, TextArea, YStack } from '@onekeyhq/components';
+import { Button, SizableText, TextArea, YStack } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -24,6 +24,7 @@ function DAppSignMessageContent({
   unsignedMessage: IUnsignedMessage;
 }) {
   const intl = useIntl();
+  const [showRawMessage, setShowRawMessage] = useState(false);
 
   const parseMessage = useMemo(() => {
     const { message, type } = unsignedMessage;
@@ -68,12 +69,47 @@ function DAppSignMessageContent({
     return JSON.stringify(messageObject, null, 2);
   }, [unsignedMessage]);
 
+  const renderRawMessage = useCallback(() => {
+    const { message, type } = unsignedMessage;
+    if (type !== EMessageTypesEth.TYPED_DATA_V4) return null;
+    let text = message;
+    try {
+      text = JSON.parse(text);
+    } catch (e) {
+      console.error('Failed to parse typed data v4 message: ', e);
+    }
+    return (
+      <YStack space="$2">
+        <Button
+          variant="secondary"
+          onPress={() => setShowRawMessage(!showRawMessage)}
+        >
+          {showRawMessage
+            ? intl.formatMessage({
+                id: ETranslations.dapp_connect_hide_full_message,
+              })
+            : intl.formatMessage({
+                id: ETranslations.dapp_connect_view_full_message,
+              })}
+        </Button>
+        {showRawMessage ? (
+          <TextArea editable={false} numberOfLines={11}>
+            {JSON.stringify(text, null, 2)}
+          </TextArea>
+        ) : null}
+      </YStack>
+    );
+  }, [intl, unsignedMessage, showRawMessage]);
+
   return (
     <YStack justifyContent="center">
       <SizableText color="$text" size="$headingMd" mb="$2">
         {intl.formatMessage({ id: ETranslations.dapp_connect_message })}
       </SizableText>
-      <TextArea value={parseMessage} editable={false} numberOfLines={11} />
+      <YStack space="$2">
+        <TextArea value={parseMessage} editable={false} numberOfLines={11} />
+        {renderRawMessage()}
+      </YStack>
     </YStack>
   );
 }
