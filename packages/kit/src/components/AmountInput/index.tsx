@@ -248,15 +248,13 @@ export function AmountInput({
         })}
       >
         <SizableText size="$bodyMd" color="$textSubdued">
+          Balance:
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
             formatter="balance"
           >
-            {intl.formatMessage(
-              { id: ETranslations.send_balance },
-              { number: balanceProps.value ?? 0 },
-            )}
+            {balanceProps.value ?? 0}
           </NumberSizeableText>
         </SizableText>
         {enableMaxAmount ? (
@@ -286,6 +284,7 @@ export function AmountInput({
           alignItems="center"
           px="$3.5"
           pb="$2"
+          disabled={balanceProps?.loading}
           onPress={valueProps?.onPress}
           {...(reversible && {
             userSelect: 'none',

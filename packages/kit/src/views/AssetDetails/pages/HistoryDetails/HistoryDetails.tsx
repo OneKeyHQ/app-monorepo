@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
@@ -6,11 +5,9 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IStackProps, IXStackProps } from '@onekeyhq/components';
 import {
   Button,
   Divider,
-  IconButton,
   Image,
   NumberSizeableText,
   Page,
@@ -18,16 +15,23 @@ import {
   Spinner,
   Stack,
   XStack,
-  useClipboard,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EHistoryTxDetailsBlock,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
 import type {
   IDecodedTxActionTokenApprove,
   IDecodedTxTransferInfo,
@@ -37,12 +41,9 @@ import {
   EDecodedTxStatus,
 } from '@onekeyhq/shared/types/tx';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AddressInfo } from '../../../components/AddressInfo';
-import { Token } from '../../../components/Token';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { openUrl } from '../../../utils/openUrl';
+import { getHistoryTxMeta } from '../../utils';
+
+import { InfoItem, InfoItemGroup } from './components/TxDetailsInfoItem';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
@@ -69,100 +70,6 @@ function getTxStatusTextProps(status: EDecodedTxStatus): {
     key: ETranslations.global_failed,
     color: '$textCritical',
   };
-}
-
-export function InfoItemGroup({ children, ...rest }: IXStackProps) {
-  return (
-    <XStack p="$2.5" flexWrap="wrap" {...rest}>
-      {children}
-    </XStack>
-  );
-}
-
-export function InfoItem({
-  label,
-  renderContent,
-  description,
-  compact = false,
-  showCopy = false,
-  showOpenWithUrl = undefined,
-  disabledCopy = false,
-  ...rest
-}: {
-  label?: string;
-  renderContent: ReactNode;
-  description?: ReactNode;
-  compact?: boolean;
-  disabledCopy?: boolean;
-  showCopy?: boolean;
-  showOpenWithUrl?: string;
-} & IStackProps) {
-  const intl = useIntl();
-  const { copyText } = useClipboard();
-
-  return (
-    <Stack
-      flex={1}
-      flexBasis="100%"
-      p="$2.5"
-      space="$2"
-      {...(compact && {
-        $gtMd: {
-          flexBasis: '50%',
-        },
-      })}
-      {...rest}
-    >
-      {label ? <SizableText size="$bodyMdMedium">{label}</SizableText> : null}
-      {typeof renderContent === 'string' ? (
-        <XStack alignItems="flex-start" justifyContent="space-between">
-          <Stack flex={1} maxWidth="$96">
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              flex={1}
-              {...(description && {
-                mb: '$1',
-              })}
-            >
-              {renderContent}
-            </SizableText>
-            {description || null}
-          </Stack>
-          {showCopy || showOpenWithUrl ? (
-            <XStack space="$3" ml="$5">
-              {showOpenWithUrl ? (
-                <IconButton
-                  title={intl.formatMessage({
-                    id: ETranslations.global_view_in_blockchain_explorer,
-                  })}
-                  variant="tertiary"
-                  icon="OpenOutline"
-                  size="small"
-                  onPress={() => openUrl(showOpenWithUrl)}
-                />
-              ) : null}
-              {showCopy ? (
-                <IconButton
-                  title={intl.formatMessage({ id: ETranslations.global_copy })}
-                  variant="tertiary"
-                  icon="Copy1Outline"
-                  size="small"
-                  onPress={() => {
-                    if (!disabledCopy) {
-                      copyText(renderContent);
-                    }
-                  }}
-                />
-              ) : null}
-            </XStack>
-          ) : null}
-        </XStack>
-      ) : (
-        renderContent
-      )}
-    </Stack>
-  );
 }
 
 export function AssetItem({
@@ -324,12 +231,18 @@ function HistoryDetails() {
 
       const from =
         utxoSends.length > 1
-          ? `${utxoSends.length} addresses`
+          ? intl.formatMessage(
+              { id: ETranslations.explore_addresses_count },
+              { 'number': utxoSends.length },
+            )
           : utxoSends[0]?.from ?? sends[0]?.from ?? decodedTx.signer;
 
       const to =
         utxoReceives.length > 1
-          ? `${utxoReceives.length} addresses`
+          ? intl.formatMessage(
+              { id: ETranslations.explore_addresses_count },
+              { 'number': utxoReceives.length },
+            )
           : utxoReceives[0]?.to ??
             receives[0]?.to ??
             decodedTx.to ??
@@ -358,7 +271,7 @@ function HistoryDetails() {
           ? true
           : new BigNumber(sends?.length ?? 0).plus(receives?.length ?? 0).eq(1),
     };
-  }, [accountAddress, historyTx, vaultSettings?.isUtxo]);
+  }, [accountAddress, historyTx, intl, vaultSettings?.isUtxo]);
 
   const renderAssetsChange = useCallback(
     ({
@@ -601,14 +514,31 @@ function HistoryDetails() {
       );
     }
   }, [
-    intl,
-    accountId,
-    networkId,
-    txAddresses.from,
-    txAddresses.isSingleTransfer,
-    txAddresses.to,
     vaultSettings?.isUtxo,
+    txAddresses.isSingleTransfer,
+    txAddresses.from,
+    txAddresses.to,
+    intl,
+    networkId,
+    accountId,
   ]);
+
+  const renderTxMetaInfo = useCallback(() => {
+    const components = getHistoryTxMeta({ impl: network?.impl ?? '' });
+    console.log('components', components);
+    const TxFlow = components?.[EHistoryTxDetailsBlock.Flow];
+    const TxAttributes = components?.[EHistoryTxDetailsBlock.Attributes];
+
+    console.log('TxFlow', TxFlow);
+    console.log('TxAttributes', TxAttributes);
+
+    return (
+      <>
+        {TxFlow ? <TxFlow decodedTx={historyTx.decodedTx} /> : renderTxFlow()}
+        {TxAttributes ? <TxAttributes decodedTx={historyTx.decodedTx} /> : null}
+      </>
+    );
+  }, [historyTx.decodedTx, network?.impl, renderTxFlow]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,
@@ -677,18 +607,20 @@ function HistoryDetails() {
           {/* Primary */}
           <InfoItemGroup>
             <InfoItem
-              label={intl.formatMessage({
-                id: ETranslations.global_status,
-              })}
+              label={intl.formatMessage({ id: ETranslations.global_status })}
               renderContent={renderTxStatus()}
               compact
             />
-            <InfoItem label="Date" renderContent={txInfo.date} compact />
+            <InfoItem
+              label={intl.formatMessage({ id: ETranslations.global_date })}
+              renderContent={txInfo.date}
+              compact
+            />
           </InfoItemGroup>
           {/* Secondary */}
           <Divider mx="$5" />
           <InfoItemGroup>
-            {renderTxFlow()}
+            {renderTxMetaInfo()}
             {vaultSettings?.isUtxo ? (
               <InfoItem
                 renderContent={
@@ -795,7 +727,7 @@ function HistoryDetails() {
     txInfo.nonce,
     txInfo.confirmations,
     txInfo.swapInfo,
-    renderTxFlow,
+    renderTxMetaInfo,
     vaultSettings?.isUtxo,
     vaultSettings?.nonceRequired,
     handleViewUTXOsOnPress,
