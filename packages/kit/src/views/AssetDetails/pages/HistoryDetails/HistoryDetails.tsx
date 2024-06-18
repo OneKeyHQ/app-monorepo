@@ -41,11 +41,12 @@ import {
   EDecodedTxStatus,
 } from '@onekeyhq/shared/types/tx';
 
+import { getHistoryTxMeta } from '../../utils';
+
 import { InfoItem, InfoItemGroup } from './components/TxDetailsInfoItem';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
-import { getHistoryTxMeta } from '../../utils';
 
 function getTxStatusTextProps(status: EDecodedTxStatus): {
   key: ETranslations;
@@ -501,44 +502,6 @@ function HistoryDetails() {
       );
     }
 
-    if (vaultSettings?.allowEmptyAddressInTx) {
-      return (
-        <>
-          {txAddresses.from ? (
-            <InfoItem
-              label={intl.formatMessage({
-                id: ETranslations.global_from,
-              })}
-              renderContent={txAddresses.from}
-              description={
-                <AddressInfo
-                  address={txAddresses.from}
-                  networkId={networkId}
-                  accountId={accountId}
-                />
-              }
-            />
-          ) : null}
-          {txAddresses.to ? (
-            <InfoItem
-              label={intl.formatMessage({
-                id: ETranslations.global_to,
-              })}
-              renderContent={txAddresses.to}
-              showCopy
-              description={
-                <AddressInfo
-                  address={txAddresses.to}
-                  networkId={networkId}
-                  accountId={accountId}
-                />
-              }
-            />
-          ) : null}
-        </>
-      );
-    }
-
     if (txAddresses.to) {
       return (
         <InfoItem
@@ -552,7 +515,6 @@ function HistoryDetails() {
     }
   }, [
     vaultSettings?.isUtxo,
-    vaultSettings?.allowEmptyAddressInTx,
     txAddresses.isSingleTransfer,
     txAddresses.from,
     txAddresses.to,
