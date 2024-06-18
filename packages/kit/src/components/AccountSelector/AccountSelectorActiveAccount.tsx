@@ -139,7 +139,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     return (
       <XStack onPress={() => logActiveAccount()}>
         <SizableText size="$bodyMd" color="$textCaution">
-          Network not matched
+          {intl.formatMessage({ id: ETranslations.global_network_not_matched })}
         </SizableText>
       </XStack>
     );
