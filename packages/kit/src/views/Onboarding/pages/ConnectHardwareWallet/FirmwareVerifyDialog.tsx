@@ -461,18 +461,6 @@ export function FirmwareAuthenticationDialogContent({
 
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
-  // const textContent = useMemo(() => {
-  //   if (result === 'official') {
-  //     return 'Your device is running official firmware';
-  //   }
-
-  //   if (result === 'unofficial') {
-  //     return 'Unofficial firmware detected!';
-  //   }
-
-  //   return '';
-  // }, [result]);
-
   const handleContinuePress = useCallback(() => {
     if (noContinue) {
       onContinue({ checked: false });
@@ -480,18 +468,6 @@ export function FirmwareAuthenticationDialogContent({
   }, [noContinue, onContinue]);
 
   const content = useMemo(() => {
-    // if (result === 'unknown') {
-    //   return (
-    //     <Stack
-    //       p="$5"
-    //       bg="$bgSubdued"
-    //       borderRadius="$3"
-    //       borderCurve="continuous"
-    //     >
-    //       <Spinner size="large" />
-    //     </Stack>
-    //   );
-    // }
     const propsMap: Record<
       IFirmwareAuthenticationState,
       {
