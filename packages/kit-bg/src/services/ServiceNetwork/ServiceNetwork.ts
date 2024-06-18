@@ -248,6 +248,7 @@ class ServiceNetwork extends ServiceBase {
         return {
           item: v,
           description,
+          descI18n,
           value: k,
           label:
             (v.labelKey
