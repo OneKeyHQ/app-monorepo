@@ -216,7 +216,8 @@ function SendDataInputContainer() {
   const nftAmount = form.watch('nftAmount');
 
   const linkedAmount = useMemo(() => {
-    const amountBN = new BigNumber(amount ?? 0);
+    let amountBN = new BigNumber(amount ?? 0);
+    amountBN = amountBN.isNaN() ? new BigNumber(0) : amountBN;
 
     const tokenPrice = tokenDetails?.price;
 

@@ -42,7 +42,9 @@ export type IOnboardingParamList = {
   };
 
   // v4 migration
-  [EOnboardingPages.V4MigrationGetStarted]: undefined;
+  [EOnboardingPages.V4MigrationGetStarted]: {
+    isAutoStartOnMount?: boolean;
+  };
   [EOnboardingPages.V4MigrationPreview]: undefined;
   [EOnboardingPages.V4MigrationProcess]: undefined;
   [EOnboardingPages.V4MigrationDone]: undefined;

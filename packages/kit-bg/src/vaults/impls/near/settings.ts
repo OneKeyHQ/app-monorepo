@@ -33,7 +33,7 @@ const settings: IVaultSettings = {
   isUtxo: false,
   isSingleToken: false,
   NFTEnabled: false,
-  nonceRequired: true,
+  nonceRequired: false,
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
