@@ -9,7 +9,6 @@ import {
   Icon,
   IconButton,
   SectionList,
-  SizableText,
   Stack,
   useSafeAreaInsets,
   useSafelyScrollToLocation,
@@ -493,6 +492,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 : account.createAtNetwork,
             });
           }
+          if (!avatarNetworkId && indexedAccount && linkNetwork) {
+            avatarNetworkId = selectedAccount?.networkId;
+          }
 
           return (
             <ListItem
@@ -573,7 +575,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   }
                   return;
                 }
-                console.log(section);
                 if (!focusedWalletInfo) {
                   return;
                 }

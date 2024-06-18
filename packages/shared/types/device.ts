@@ -174,7 +174,7 @@ export type IQrWalletDevice = {
   // TODO deviceType
   deviceId: string;
   version: string;
-  xfp: string;
+  xfp: string; // different in passphrase
   buildBy: 'hdkey' | 'multiAccounts';
 };
 

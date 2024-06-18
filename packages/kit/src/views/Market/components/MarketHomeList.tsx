@@ -651,10 +651,12 @@ function BasicMarketHomeList({
   category,
   tabIndex = 0,
   showMoreAction = false,
+  ordered,
 }: {
   tabIndex?: number;
   category: IMarketCategory;
   showMoreAction?: boolean;
+  ordered?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -713,15 +715,25 @@ function BasicMarketHomeList({
     [intl],
   );
 
-  const filterCoingeckoIdsListData = useMemo(
-    () =>
-      category.coingeckoIds?.length
-        ? listData?.filter((item) =>
-            category.coingeckoIds.includes(item.coingeckoId),
-          )
-        : listData,
-    [listData, category.coingeckoIds],
-  );
+  const filterCoingeckoIdsListData = useMemo(() => {
+    const filterListData = category.coingeckoIds?.length
+      ? listData?.filter((item) =>
+          category.coingeckoIds.includes(item.coingeckoId),
+        )
+      : listData;
+    if (ordered) {
+      return category.coingeckoIds.reduce((prev, coingeckoId) => {
+        const item = filterListData?.find(
+          (i) => i?.coingeckoId === coingeckoId,
+        );
+        if (item) {
+          prev.push(item);
+        }
+        return prev;
+      }, [] as IMarketToken[]);
+    }
+    return filterListData;
+  }, [category.coingeckoIds, listData, ordered]);
   const { sortedListData, handleSortTypeChange, sortByType, setSortByType } =
     useSortType(filterCoingeckoIdsListData as Record<string, any>[]);
 

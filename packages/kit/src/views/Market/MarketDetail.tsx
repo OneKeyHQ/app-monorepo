@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { CommonActions } from '@react-navigation/native';
+import { CommonActions, StackActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -207,7 +207,7 @@ function MarketDetail({
     navigation.dispatch((state) => {
       console.log(state);
       if (state.routes.length > 1) {
-        return CommonActions.goBack();
+        return StackActions.pop(state.routes.length);
       }
       return CommonActions.reset({
         index: 0,

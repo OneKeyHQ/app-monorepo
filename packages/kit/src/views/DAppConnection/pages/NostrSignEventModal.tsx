@@ -248,7 +248,7 @@ function NostrSignEventModal() {
   const renderEventDetails = useCallback(() => {
     if (!event) return null;
     return (
-      <>
+      <YStack space="$2">
         <Button
           variant="secondary"
           onPress={() => setDisplayDetails(!displayDetails)}
@@ -262,11 +262,11 @@ function NostrSignEventModal() {
               })}
         </Button>
         {displayDetails ? (
-          <TextArea my="$2" disabled editable={false} numberOfLines={14}>
+          <TextArea editable={false} numberOfLines={11}>
             {JSON.stringify(event, null, 2)}
           </TextArea>
         ) : null}
-      </>
+      </YStack>
     );
   }, [intl, event, displayDetails]);
 
@@ -301,7 +301,7 @@ function NostrSignEventModal() {
             })}
             :
           </SizableText>
-          <TextArea disabled editable={false} numberOfLines={2}>
+          <TextArea editable={false} numberOfLines={5}>
             {savedPlaintext}
           </TextArea>
         </YStack>
@@ -325,7 +325,7 @@ function NostrSignEventModal() {
             {/* Content Start */}
             <YStack space="$2">
               <SizableText>{eventKindText}</SizableText>
-              <TextArea disabled editable={false} numberOfLines={2}>
+              <TextArea editable={false} numberOfLines={5}>
                 {content}
               </TextArea>
               {renderEncryptSignEventPlaintext()}

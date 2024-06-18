@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -92,6 +93,17 @@ class ServiceUniversalSearch extends ServiceBase {
       await this.backgroundApi.serviceNetwork.getAllNetworks();
     let isEvmAddressChecked = false;
     for (const network of networks) {
+      if (
+        [
+          //
+          getNetworkIdsMap().lightning,
+          getNetworkIdsMap().tlightning,
+          //
+        ].includes(network.id)
+      ) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       const vault = await vaultFactory.getChainOnlyVault({
         networkId: network.id,
       });

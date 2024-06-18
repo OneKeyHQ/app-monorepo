@@ -62,10 +62,7 @@ export const WALLET_CONNECT_CLIENT_META = {
   description: 'Connect with OneKey',
   // wallet-connect identify different dApps by url
   url: `https://${platformName}.onekey.so`,
-  icons: [
-    'https://web.onekey-asset.com/portal/b688e1435d0d1e2e92581eb8dd7442c88da36049/icons/icon-256x256.png',
-    'https://www.onekey.so/favicon.ico',
-  ],
+  icons: ['https://uni.onekey-asset.com/static/logo/onekey.png'],
   // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=onekey&build=1710747625972
   redirect: platformEnv.isNative
     ? {
