@@ -47,6 +47,7 @@ type IAmountInputFormItemProps = IFormFieldProps<
       selectedNetworkImageUri?: string;
       selectedTokenSymbol?: string;
       loading?: boolean;
+      disabled?: boolean;
     } & IXStackProps;
     reversible?: boolean;
   } & IStackProps
@@ -159,6 +160,7 @@ export function AmountInput({
             bg: '$bgActive',
           },
         })}
+        disabled={tokenSelectorTriggerProps?.disabled}
         onPress={tokenSelectorTriggerProps?.onPress}
       >
         <Stack mr="$2">
@@ -204,7 +206,8 @@ export function AmountInput({
           {tokenSelectorTriggerProps?.selectedTokenSymbol ||
             intl.formatMessage({ id: ETranslations.token_selector_title })}
         </SizableText>
-        {tokenSelectorTriggerProps?.onPress ? (
+        {tokenSelectorTriggerProps?.onPress &&
+        !tokenSelectorTriggerProps.disabled ? (
           <Icon
             flexShrink={0}
             name="ChevronDownSmallOutline"
@@ -217,6 +220,7 @@ export function AmountInput({
     );
   }, [
     intl,
+    tokenSelectorTriggerProps?.disabled,
     tokenSelectorTriggerProps?.loading,
     tokenSelectorTriggerProps?.onPress,
     tokenSelectorTriggerProps?.selectedNetworkImageUri,
