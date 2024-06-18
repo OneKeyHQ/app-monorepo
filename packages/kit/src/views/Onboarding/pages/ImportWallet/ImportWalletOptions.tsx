@@ -24,7 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { useV4MigrationActions } from '../../hooks/useV4MigrationActions';
+import { useV4MigrationActions } from '../V4Migration/hooks/useV4MigrationActions';
 
 type IOptionItem = IPropsWithTestId<{
   title?: string;
@@ -214,7 +214,7 @@ export function ImportWalletOptions() {
           onPress: async () => {
             navigation.popStack();
             await timerUtils.wait(100);
-            v4MigrationActions.navigateToV4MigrationPage();
+            await v4MigrationActions.navigateToV4MigrationPage();
           },
           testID: 'connect-hardware-wallet',
         },

@@ -68,7 +68,7 @@ export type IV4DBWallet = IV4DBBaseObjectWithName & {
 export type IV4DBContext = {
   id: string; // DB_MAIN_CONTEXT_ID
   nextHD: number;
-  verifyString: string;
+  verifyString: string; // DEFAULT_VERIFY_STRING
   networkOrderChanged?: boolean;
   backupUUID: string;
   pendingWallets?: string[];
@@ -105,10 +105,10 @@ export type IV4DBCredentialBase = {
 
 type IV4DBAvatar = string; // stringify(IAvatarInfo)
 // IAvatar;
-//  type IDBAvatar = {
-//   emoji: string | 'img'; // lazy load EmojiTypes
-//   bgColor: string;
-// };
+export type IV4DBAvatarParsed = {
+  emoji: string | 'img'; // lazy load EmojiTypes
+  bgColor: string;
+};
 type IV4DBBaseAccount = IV4DBBaseObjectWithName & {
   type: EV4DBAccountType | undefined;
   path: string;

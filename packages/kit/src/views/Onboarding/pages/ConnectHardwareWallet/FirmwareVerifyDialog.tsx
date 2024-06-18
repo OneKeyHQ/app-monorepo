@@ -17,13 +17,16 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { OneKeyError } from '@onekeyhq/shared/src/errors';
+import type {
+  OneKeyError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -51,7 +54,9 @@ function useFirmwareVerifyBase({
   skipDeviceCancel?: boolean;
 }) {
   const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
-  const [errorCode, setErrorCode] = useState(0);
+  const [errorObj, setErrorObj] = useState<{ code: number; message?: string }>({
+    code: 0,
+  });
   const [contentType, setContentType] = useState(
     EFirmwareAuthenticationDialogContentType.default,
   );
@@ -92,8 +97,20 @@ function useFirmwareVerifyBase({
       }
     } catch (error) {
       setResult('error');
-      const code = (error as OneKeyError).code;
-      console.log('HardwareErrorCode---code', code);
+
+      // Handle server-side exceptions
+      if (
+        (error as OneKeyServerApiError).className ===
+        EOneKeyErrorClassNames.OneKeyServerApiError
+      ) {
+        const { code, message } = error as OneKeyError;
+        setContentType(EFirmwareAuthenticationDialogContentType.error_fallback);
+        setErrorObj({ code, message });
+        return;
+      }
+
+      // Handle local exceptions
+      const { code, message } = error as OneKeyError;
       switch (code) {
         case HardwareErrorCode.ActionCancelled:
           void dialogInstance.close();
@@ -108,13 +125,13 @@ function useFirmwareVerifyBase({
           setContentType(
             EFirmwareAuthenticationDialogContentType.unofficial_device_detected,
           );
-          setErrorCode(code);
+          setErrorObj({ code, message });
           break;
         default:
           setContentType(
             EFirmwareAuthenticationDialogContentType.error_fallback,
           );
-          setErrorCode(code);
+          setErrorObj({ code, message });
           break;
       }
       throw error;
@@ -142,17 +159,20 @@ function useFirmwareVerifyBase({
     setResult('unknown');
   }, []);
 
-  return { result, reset, verify, contentType, setContentType, errorCode };
+  return { result, reset, verify, contentType, setContentType, errorObj };
 }
 
 export function EnumBasicDialogContentContainer({
   contentType,
   onActionPress,
   onContinuePress,
-  errorCode,
+  errorObj,
 }: {
   contentType: EFirmwareAuthenticationDialogContentType;
-  errorCode: number;
+  errorObj: {
+    code: number;
+    message?: string;
+  };
   onActionPress?: () => void;
   onContinuePress?: () => void;
 }) {
@@ -293,7 +313,7 @@ export function EnumBasicDialogContentContainer({
                 {intl.formatMessage({
                   id: ETranslations.global_network_error,
                 })}
-                <SizableText>{`(${errorCode})`}</SizableText>
+                <SizableText>{`(${errorObj.code})`}</SizableText>
               </Dialog.Title>
               <Dialog.Description>
                 {intl.formatMessage({
@@ -324,7 +344,7 @@ export function EnumBasicDialogContentContainer({
                 {intl.formatMessage({
                   id: ETranslations.device_auth_unofficial_device_detected,
                 })}
-                <SizableText>{`(${errorCode})`}</SizableText>
+                <SizableText>{`(${errorObj.code})`}</SizableText>
               </Dialog.Title>
               <Dialog.Description>
                 {intl.formatMessage({
@@ -356,7 +376,7 @@ export function EnumBasicDialogContentContainer({
                 {intl.formatMessage({
                   id: ETranslations.device_auth_temporarily_unavailable,
                 })}
-                <SizableText>{`(${errorCode})`}</SizableText>
+                <SizableText>{`(${errorObj.code})`}</SizableText>
               </Dialog.Title>
               <Dialog.Description>
                 {intl.formatMessage({
@@ -384,8 +404,11 @@ export function EnumBasicDialogContentContainer({
             <Dialog.Header>
               <Dialog.Icon tone="warning" icon="ErrorOutline" />
               <Dialog.Title>
-                {intl.formatMessage({ id: ETranslations.global_unknown_error })}
-                (code {errorCode})
+                {errorObj.message ||
+                  intl.formatMessage({
+                    id: ETranslations.global_unknown_error,
+                  })}
+                ({errorObj.code || 'unknown'})
               </Dialog.Title>
               <Dialog.Description>
                 {intl.formatMessage({
@@ -404,11 +427,18 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_retry })}
             </Button>
-            {/* {renderFooter()} */}
+            {renderFooter()}
           </>
         );
     }
-  }, [contentType, errorCode, intl, onActionPress, renderFooter]);
+  }, [
+    contentType,
+    errorObj.code,
+    errorObj.message,
+    intl,
+    onActionPress,
+    renderFooter,
+  ]);
   return <YStack>{content}</YStack>;
 }
 
@@ -423,25 +453,13 @@ export function FirmwareAuthenticationDialogContent({
   skipDeviceCancel?: boolean;
   noContinue?: boolean;
 }) {
-  const { result, reset, verify, contentType, setContentType, errorCode } =
+  const { result, reset, verify, contentType, setContentType, errorObj } =
     useFirmwareVerifyBase({
       device,
       skipDeviceCancel,
     });
 
   const requestsUrl = useHelpLink({ path: 'requests/new' });
-
-  // const textContent = useMemo(() => {
-  //   if (result === 'official') {
-  //     return 'Your device is running official firmware';
-  //   }
-
-  //   if (result === 'unofficial') {
-  //     return 'Unofficial firmware detected!';
-  //   }
-
-  //   return '';
-  // }, [result]);
 
   const handleContinuePress = useCallback(() => {
     if (noContinue) {
@@ -450,18 +468,6 @@ export function FirmwareAuthenticationDialogContent({
   }, [noContinue, onContinue]);
 
   const content = useMemo(() => {
-    // if (result === 'unknown') {
-    //   return (
-    //     <Stack
-    //       p="$5"
-    //       bg="$bgSubdued"
-    //       borderRadius="$3"
-    //       borderCurve="continuous"
-    //     >
-    //       <Spinner size="large" />
-    //     </Stack>
-    //   );
-    // }
     const propsMap: Record<
       IFirmwareAuthenticationState,
       {
@@ -490,7 +496,7 @@ export function FirmwareAuthenticationDialogContent({
 
     return (
       <EnumBasicDialogContentContainer
-        errorCode={errorCode}
+        errorObj={errorObj}
         contentType={contentType}
         onActionPress={propsMap[result].onPress}
         onContinuePress={handleContinuePress}
@@ -498,7 +504,7 @@ export function FirmwareAuthenticationDialogContent({
     );
   }, [
     result,
-    errorCode,
+    errorObj,
     contentType,
     handleContinuePress,
     onContinue,

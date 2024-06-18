@@ -20,6 +20,7 @@
     "app:ext:build": "yarn workspace @onekeyhq/ext build:v3",
     "app:ext:build:all": "yarn workspace @onekeyhq/ext build:all:v3",
     "app:web": "yarn app:web:proxy",
+    "app:web:3030": "WEB_PORT=3030 yarn app:web:proxy",
     "app:web:proxy": "yarn workspace @onekeyhq/web start:proxy",
     "app:web:disable-proxy": "yarn workspace @onekeyhq/web start",
     "app:web:build": "yarn workspace @onekeyhq/web build",
