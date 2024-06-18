@@ -99,7 +99,7 @@ const SwapToAnotherAddressPage = () => {
       <Page.Body px="$5" space="$4">
         <Form form={form}>
           <Form.Field
-            label="Enter a address"
+            label={intl.formatMessage({ id: ETranslations.global_recipient })}
             name="address"
             rules={{
               required: true,

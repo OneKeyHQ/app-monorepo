@@ -100,7 +100,7 @@ const SwapQuoteResult = ({
           rate={quoteResult.instantRate}
           fromToken={fromToken}
           toToken={toToken}
-          showBest={quoteResult.isBest}
+          // showBest={quoteResult.isBest}
           showLock={!!quoteResult.allowanceResult}
           onPress={() => {
             onOpenProviderList?.();
