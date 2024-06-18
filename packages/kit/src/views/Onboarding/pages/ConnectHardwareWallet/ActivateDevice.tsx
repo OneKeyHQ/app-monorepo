@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -17,12 +19,21 @@ import type {
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import {
+  getCreateNewWalletStepImage,
+  getEnterRecoveryPhraseStepImage,
+  getImportWalletStepImage,
+  getSetPinStepImage,
+  getWriteDownRecoveryPhraseStepImage,
+} from './ActivateDeviceResource';
+
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type IStep = {
   title?: ETranslations;
   description?: ETranslations;
   type: IDeviceType;
+  uri: any;
 };
 
 export function ActivateDevice({
@@ -36,182 +47,150 @@ export function ActivateDevice({
     navigation.pop();
   };
 
-  const getCreateNewWalletStep = (type: IStep['type']) => {
-    const images = {
-      unknown: require('@onekeyhq/kit/assets/onboarding/classic-create-new-wallet.png'),
-      classic: require('@onekeyhq/kit/assets/onboarding/classic-create-new-wallet.png'),
-      classic1s: require('@onekeyhq/kit/assets/onboarding/classic-create-new-wallet.png'),
-      mini: require('@onekeyhq/kit/assets/onboarding/mini-create-new-wallet.png'),
-      touch: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
-      pro: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
-    };
+  const getCreateNewWalletStep = (type: IStep['type']) => ({
+    title: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_create_new_wallet,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_create_new_wallet_desc,
+    }),
+    uri: getCreateNewWalletStepImage(type),
+  });
 
-    return {
-      title: intl.formatMessage({
-        id: ETranslations.onboarding_device_set_up_create_new_wallet,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.onboarding_device_set_up_create_new_wallet_desc,
-      }),
-      uri: images[type],
-    };
+  const getWriteDownRecoveryPhraseStep = (type: IStep['type']) => ({
+    title: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_backup,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_backup_desc,
+    }),
+    uri: getWriteDownRecoveryPhraseStepImage(type),
+  });
+
+  const getSetPinStep = (type: IStep['type']) => ({
+    title: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_pin,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_pin_desc,
+    }),
+    uri: getSetPinStepImage(type),
+  });
+
+  const getImportWalletStep = (type: IStep['type']) => ({
+    title:
+      type === 'mini'
+        ? intl.formatMessage({
+            id: ETranslations.onboarding_device_mini_set_up_import,
+          })
+        : intl.formatMessage({
+            id: ETranslations.onboarding_device_set_up_import,
+          }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_import_desc,
+    }),
+    uri: getImportWalletStepImage(type),
+  });
+
+  const getEnterRecoveryPhraseStep = (type: IStep['type']) => ({
+    title: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_enter_recovery_phrase,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_enter_recovery_phrase_desc,
+    }),
+    uri: getEnterRecoveryPhraseStepImage(type),
+  });
+
+  type IDeviceStepType = 'create' | 'restore';
+  type IDeviceStepDetail = {
+    title: string;
+    description: string;
+    uri: any | undefined;
   };
 
-  const getWriteDownRecoveryPhraseStep = (type: IStep['type']) => {
-    const images = {
-      unknown: require('@onekeyhq/kit/assets/onboarding/classic-write-down-recovery-phrase.png'),
-      classic: require('@onekeyhq/kit/assets/onboarding/classic-write-down-recovery-phrase.png'),
-      classic1s: require('@onekeyhq/kit/assets/onboarding/classic-write-down-recovery-phrase.png'),
-      mini: require('@onekeyhq/kit/assets/onboarding/mini-write-down-recovery-phrase.png'),
-      touch: require('@onekeyhq/kit/assets/onboarding/touch-write-down-recovery-phrase.png'),
-      pro: require('@onekeyhq/kit/assets/onboarding/touch-write-down-recovery-phrase.png'),
-    };
-
-    return {
-      title: intl.formatMessage({
-        id: ETranslations.onboarding_device_set_up_backup,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.onboarding_device_set_up_backup_desc,
-      }),
-      uri: images[type],
-    };
+  const getDeviceSteps = (
+    onekeyDeviceType: IDeviceType,
+    stepType: IDeviceStepType,
+  ): IDeviceStepDetail[] | undefined => {
+    switch (onekeyDeviceType) {
+      case 'unknown':
+        return;
+      case 'classic':
+      case 'classic1s':
+        switch (stepType) {
+          case 'create':
+            return [
+              getCreateNewWalletStep('classic'),
+              getWriteDownRecoveryPhraseStep('classic'),
+              getSetPinStep('classic'),
+            ];
+          case 'restore':
+            return [
+              getImportWalletStep('classic'),
+              getEnterRecoveryPhraseStep('classic'),
+              getSetPinStep('classic'),
+            ];
+          default:
+            // eslint-disable-next-line no-case-declarations, @typescript-eslint/no-unused-vars
+            const _exhaustiveCheck: never = stepType;
+        }
+        return;
+      case 'mini':
+        if (stepType === 'create') {
+          return [
+            getCreateNewWalletStep('mini'),
+            getWriteDownRecoveryPhraseStep('mini'),
+            getSetPinStep('mini'),
+          ];
+        }
+        if (stepType === 'restore') {
+          return [
+            getImportWalletStep('mini'),
+            getEnterRecoveryPhraseStep('mini'),
+            getSetPinStep('mini'),
+          ];
+        }
+        return;
+      case 'touch':
+        if (stepType === 'create') {
+          return [
+            getCreateNewWalletStep('touch'),
+            getWriteDownRecoveryPhraseStep('touch'),
+            getSetPinStep('touch'),
+          ];
+        }
+        if (stepType === 'restore') {
+          return [
+            getImportWalletStep('touch'),
+            getEnterRecoveryPhraseStep('touch'),
+            getSetPinStep('touch'),
+          ];
+        }
+        return;
+      case 'pro':
+        if (stepType === 'create') {
+          return [
+            getCreateNewWalletStep('pro'),
+            getWriteDownRecoveryPhraseStep('pro'),
+            getSetPinStep('pro'),
+          ];
+        }
+        if (stepType === 'restore') {
+          return [
+            getImportWalletStep('pro'),
+            getEnterRecoveryPhraseStep('pro'),
+            getSetPinStep('pro'),
+          ];
+        }
+        return;
+      default:
+        // eslint-disable-next-line no-case-declarations, @typescript-eslint/no-unused-vars
+        const _exhaustiveCheck: never = onekeyDeviceType;
+    }
   };
 
-  const getSetPinStep = (type: IStep['type']) => {
-    const images = {
-      unknown: require('@onekeyhq/kit/assets/onboarding/classic-set-pin.png'),
-      classic: require('@onekeyhq/kit/assets/onboarding/classic-set-pin.png'),
-      classic1s: require('@onekeyhq/kit/assets/onboarding/classic-set-pin.png'),
-      mini: require('@onekeyhq/kit/assets/onboarding/mini-set-pin.png'),
-      touch: require('@onekeyhq/kit/assets/onboarding/touch-set-pin.png'),
-      pro: require('@onekeyhq/kit/assets/onboarding/touch-set-pin.png'),
-    };
-
-    return {
-      title: intl.formatMessage({
-        id: ETranslations.onboarding_device_set_up_pin,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.onboarding_device_set_up_pin_desc,
-      }),
-      uri: images[type],
-    };
-  };
-
-  const getImportWalletStep = (type: IStep['type']) => {
-    const images = {
-      unknown: require('@onekeyhq/kit/assets/onboarding/classic-import-wallet.png'),
-      classic: require('@onekeyhq/kit/assets/onboarding/classic-import-wallet.png'),
-      classic1s: require('@onekeyhq/kit/assets/onboarding/classic-import-wallet.png'),
-      mini: require('@onekeyhq/kit/assets/onboarding/mini-import-wallet.png'),
-      touch: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
-      pro: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
-    };
-
-    return {
-      title:
-        type === 'mini'
-          ? intl.formatMessage({
-              id: ETranslations.onboarding_device_mini_set_up_import,
-            })
-          : intl.formatMessage({
-              id: ETranslations.onboarding_device_set_up_import,
-            }),
-      description: intl.formatMessage({
-        id: ETranslations.onboarding_device_set_up_import_desc,
-      }),
-      uri: images[type],
-    };
-  };
-
-  const getEnterRecoveryPhraseStep = (type: IStep['type']) => {
-    const images = {
-      unknown: require('@onekeyhq/kit/assets/onboarding/classic-enter-recovery-phrase.png'),
-      classic: require('@onekeyhq/kit/assets/onboarding/classic-enter-recovery-phrase.png'),
-      classic1s: require('@onekeyhq/kit/assets/onboarding/classic-enter-recovery-phrase.png'),
-      mini: require('@onekeyhq/kit/assets/onboarding/mini-enter-recovery-phrase.png'),
-      touch: require('@onekeyhq/kit/assets/onboarding/touch-enter-recovery-phrase.png'),
-      pro: require('@onekeyhq/kit/assets/onboarding/touch-enter-recovery-phrase.png'),
-    };
-
-    return {
-      title: intl.formatMessage({
-        id: ETranslations.onboarding_device_set_up_enter_recovery_phrase,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.onboarding_device_set_up_enter_recovery_phrase_desc,
-      }),
-      uri: images[type],
-    };
-  };
-
-  const classicDevice = {
-    create: [
-      getCreateNewWalletStep('classic'),
-      getWriteDownRecoveryPhraseStep('classic'),
-      getSetPinStep('classic'),
-    ],
-    restore: [
-      getImportWalletStep('classic'),
-      getEnterRecoveryPhraseStep('classic'),
-      getSetPinStep('classic'),
-    ],
-  };
-
-  const deviceSteps: Record<
-    IDeviceType,
-    Record<
-      'create' | 'restore',
-      {
-        title: string;
-        description: string;
-        uri: any;
-      }[]
-    >
-  > = {
-    unknown: classicDevice,
-    classic: classicDevice,
-    classic1s: classicDevice,
-    mini: {
-      create: [
-        getCreateNewWalletStep('mini'),
-        getWriteDownRecoveryPhraseStep('mini'),
-        getSetPinStep('mini'),
-      ],
-      restore: [
-        getImportWalletStep('mini'),
-        getEnterRecoveryPhraseStep('mini'),
-        getSetPinStep('mini'),
-      ],
-    },
-    touch: {
-      create: [
-        getCreateNewWalletStep('touch'),
-        getWriteDownRecoveryPhraseStep('touch'),
-        getSetPinStep('touch'),
-      ],
-      restore: [
-        getImportWalletStep('touch'),
-        getEnterRecoveryPhraseStep('touch'),
-        getSetPinStep('touch'),
-      ],
-    },
-    pro: {
-      create: [
-        getCreateNewWalletStep('pro'),
-        getWriteDownRecoveryPhraseStep('pro'),
-        getSetPinStep('pro'),
-      ],
-      restore: [
-        getImportWalletStep('pro'),
-        getEnterRecoveryPhraseStep('pro'),
-        getSetPinStep('pro'),
-      ],
-    },
-  };
-
-  const steps = deviceSteps[deviceType][tutorialType];
+  const steps = getDeviceSteps(deviceType, tutorialType);
 
   return (
     <Page scrollEnabled>
@@ -233,7 +212,7 @@ export function ActivateDevice({
           })}
         </SizableText>
         <Group separator={<Divider />}>
-          {steps.map(({ title, description, uri }, index) => (
+          {steps?.map(({ title, description, uri }, index) => (
             <Group.Item key={title}>
               <Stack
                 $gtMd={{

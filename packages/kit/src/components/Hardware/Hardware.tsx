@@ -73,11 +73,7 @@ export function ConfirmOnDeviceToastContent({
   return (
     <XStack alignItems="center">
       <Stack bg="$bgStrong" btlr="$2" bblr="$2">
-        <LottieView
-          width={animationData ? 72 : 0}
-          height={72}
-          source={animationData}
-        />
+        <LottieView width={72} height={72} source={animationData ?? ''} />
       </Stack>
       <XStack flex={1} alignItems="center" px="$3" space="$5">
         <SizableText flex={1} size="$bodyLgMedium">
@@ -160,8 +156,10 @@ export function EnterPinOnDevice({
 
   return (
     // height must be specified on Sheet View.
-    <Stack borderRadius="$3" bg="$bgSubdued" height={animationData ? 230 : 0}>
-      <LottieView width="100%" height="100%" source={animationData} />
+    <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
+      {animationData ? (
+        <LottieView width="100%" height="100%" source={animationData} />
+      ) : null}
     </Stack>
   );
 }
@@ -482,8 +480,10 @@ export function EnterPassphraseOnDevice({
   }, [requireResource]);
 
   return (
-    <Stack borderRadius="$3" bg="$bgSubdued" height={animationData ? 230 : 0}>
-      <LottieView width="100%" height="100%" source={animationData} />
+    <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
+      {animationData ? (
+        <LottieView width="100%" height="100%" source={animationData} />
+      ) : null}
     </Stack>
   );
 }
