@@ -13,9 +13,12 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -630,6 +633,42 @@ export default class VaultDot extends VaultBase {
     };
   }
 
+  private _getMinAmount = memoizee(
+    async ({ accountAddress }: { accountAddress: string }) => {
+      const [minAmountStr] =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<string>(
+          {
+            networkId: this.networkId,
+            body: [
+              {
+                route: 'consts',
+                params: {
+                  method: 'balances.existentialDeposit',
+                  params: [],
+                },
+              },
+            ],
+          },
+        );
+      const minAmount = new BigNumber(minAmountStr);
+      const account =
+        await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+          networkId: this.networkId,
+          accountAddress,
+          withNonce: false,
+          withNetWorth: true,
+        });
+      const balance = new BigNumber(account.balance ?? 0);
+      return {
+        minAmount,
+        balance,
+      };
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
   override async validateSendAmount({
     to,
     amount,
@@ -637,39 +676,62 @@ export default class VaultDot extends VaultBase {
     to: string;
     amount: string;
   }): Promise<boolean> {
-    if (isNil(amount) || isEmpty(amount)) {
+    if (isNil(amount) || isEmpty(amount) || isEmpty(to)) {
       return true;
     }
     const network = await this.getNetwork();
 
-    const depositAmountOnChain =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<string>({
-        networkId: this.networkId,
-        body: [
-          {
-            route: 'consts',
-            params: {
-              method: 'balances_existentialDeposit',
-              params: [],
-            },
-          },
-        ],
-      });
-    const depositAmount = new BigNumber(depositAmountOnChain[0]);
     const sendAmount = new BigNumber(amount).shiftedBy(network.decimals);
+    const { minAmount, balance } = await this._getMinAmount({
+      accountAddress: to,
+    });
 
-    const account =
-      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-        networkId: this.networkId,
-        accountAddress: to,
-        withBalance: true,
-      });
-
-    const accountBalance = new BigNumber(account.balance ?? 0);
-
-    if (accountBalance.plus(sendAmount).lt(depositAmount)) {
+    if (balance.plus(sendAmount).lt(minAmount)) {
       throw new InvalidTransferValue();
     }
+    return true;
+  }
+
+  override async precheckUnsignedTx(params: {
+    unsignedTx: IUnsignedTxPro;
+  }): Promise<boolean> {
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
+    const decodedUnsignedTx = await this._decodeUnsignedTx(encodedTx);
+    const actionType = getTransactionTypeFromTxInfo(decodedUnsignedTx);
+
+    if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
+      const args = decodedUnsignedTx.method.args as {
+        dest: string;
+        value: string;
+      };
+      const toAddress = await this._getAddressByTxArgs(args);
+      if (toAddress === encodedTx.address) {
+        return true;
+      }
+
+      const { minAmount, balance } = await this._getMinAmount({
+        accountAddress: encodedTx.address,
+      });
+      const tokenAmount = new BigNumber(args.value);
+      const gasLimit = new BigNumber(encodedTx.feeInfo?.gas?.gasLimit ?? '0');
+      const gasPrice = new BigNumber(encodedTx.feeInfo?.gas?.gasPrice ?? '0');
+      const fee = gasLimit.times(gasPrice);
+
+      if (balance.minus(tokenAmount).minus(fee).lt(minAmount)) {
+        const network = await this.getNetwork();
+        throw new InvalidTransferValue({
+          key: ETranslations.dapp_connect_amount_should_be_at_least,
+          info: {
+            // @ts-expect-error
+            0: `${minAmount.shiftedBy(-network.decimals).toFixed()}${
+              network.symbol
+            }`,
+          },
+        });
+      }
+    }
+
     return true;
   }
 }
