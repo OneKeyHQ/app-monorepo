@@ -52,6 +52,8 @@ import localDb from '../../dbs/local/localDb';
 import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 
+import { buildDefaultAddAccountNetworks } from './defaultNetworkAccountsConfig';
+
 import type {
   IDBAccount,
   IDBCreateHWWalletParams,
@@ -254,11 +256,13 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId,
     skipDeviceCancel,
     hideCheckingDeviceLoading,
+    customNetworks,
   }: {
     walletId: string | undefined;
     indexedAccountId: string | undefined;
     skipDeviceCancel?: boolean;
     hideCheckingDeviceLoading?: boolean;
+    customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
   }) {
     if (!walletId) {
       return;
@@ -278,12 +282,14 @@ class ServiceAccount extends ServiceBase {
         networkId: string;
         deriveType: IAccountDeriveTypes;
       }> = [];
-      // TODO use consts
-      const networks = ['btc--0', 'evm--1'];
-      for (const networkId of networks) {
+
+      const networks = [
+        ...buildDefaultAddAccountNetworks(),
+        ...(customNetworks || []),
+      ];
+      for (const { networkId, deriveType } of networks) {
         try {
           // TODO get global deriveType
-          const deriveType: IAccountDeriveTypes = 'default';
           await this.addHDOrHWAccounts({
             walletId,
             networkId,
@@ -1449,6 +1455,17 @@ class ServiceAccount extends ServiceBase {
       text: mnemonic,
     });
     return { mnemonic };
+  }
+
+  @backgroundMethod()
+  async canAutoCreateAddressInSilentMode({ walletId }: { walletId: string }) {
+    if (accountUtils.isHdWallet({ walletId })) {
+      const pwd = await this.backgroundApi.servicePassword.getCachedPassword();
+      if (pwd) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @backgroundMethod()

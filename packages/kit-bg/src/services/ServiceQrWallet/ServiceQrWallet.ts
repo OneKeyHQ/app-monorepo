@@ -213,6 +213,7 @@ class ServiceQrWallet extends ServiceBase {
       const chain = key.chain || 'chain';
       const note = key.note || 'note';
       const xfpOrUUID = key.xfp || generateUUID();
+      // SingleChainAirGapDevice do NOT have deviceId, so we generate one by other fields
       const generatedDeviceId = `SingleChainAirGapDevice@${name}-${chain}-${note}-${xfpOrUUID}`;
       airGapMultiAccounts = {
         device: key.name,
