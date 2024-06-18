@@ -12,7 +12,8 @@ const defaultLocaleJsonFile = jsonFiles.find((i) => i === 'en_US.json');
 
 fs.writeFileSync(
   path.join(__dirname, '../src/locale/localeJsonMap.ts'),
-  `import enUS from './json/${defaultLocaleJsonFile}';
+  `// This file is automatically created by \`yarn fetch:locale\`.
+import enUS from './json/${defaultLocaleJsonFile}';
 
 export const LOCALES = {
 ${jsonFiles
@@ -35,11 +36,11 @@ const typeFile = path.join(__dirname, '../src/locale/enum/translations.ts');
 const text = fs.readFileSync(typeFile, 'utf8');
 fs.writeFileSync(
   typeFile,
-  text
+  `// This file is automatically created by \`yarn fetch:locale\`.\n${text
     .replace('export enum Translations {', 'export enum ETranslations {')
     // fix lint of type file.
     // Simply lint the file, it's faster than eslint.
     .replaceAll('	', '  ')
-    .replaceAll('  =', ' ='),
+    .replaceAll('  =', ' =')}`,
   'utf8',
 );

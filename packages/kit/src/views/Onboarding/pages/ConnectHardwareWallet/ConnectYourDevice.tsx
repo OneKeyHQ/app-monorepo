@@ -648,7 +648,7 @@ function ConnectByUSBOrBLE({
     setIsChecking(true);
     const isGranted = await checkBLEPermission();
     if (!isGranted) {
-      Dialog.confirm({
+      const dialog = Dialog.confirm({
         icon: 'BluetoothOutline',
         title: intl.formatMessage({
           id: ETranslations.onboarding_bluetooth_permission_needed,
@@ -659,7 +659,10 @@ function ConnectByUSBOrBLE({
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_go_to_settings,
         }),
-        onConfirm: openSettings,
+        onConfirm: async () => {
+          await dialog?.close();
+          await openSettings();
+        },
         onClose: () => setIsChecking(false),
       });
       return;
@@ -667,7 +670,7 @@ function ConnectByUSBOrBLE({
 
     const checkState = await checkBLEState();
     if (!checkState) {
-      Dialog.confirm({
+      const dialog = Dialog.confirm({
         icon: 'BluetoothOutline',
         title: intl.formatMessage({
           id: ETranslations.onboarding_enable_bluetooth,
@@ -678,10 +681,14 @@ function ConnectByUSBOrBLE({
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_go_to_settings,
         }),
-        onConfirm: () =>
-          platformEnv.isNativeIOS
-            ? Linking.openURL('App-Prefs:Bluetooth')
-            : Linking.sendIntent('android.settings.BLUETOOTH_SETTINGS'),
+        onConfirm: async () => {
+          await dialog?.close();
+          if (platformEnv.isNativeIOS) {
+            await Linking.openURL('App-Prefs:Bluetooth');
+          } else {
+            await Linking.sendIntent('android.settings.BLUETOOTH_SETTINGS');
+          }
+        },
         onClose: () => setIsChecking(false),
       });
       return;

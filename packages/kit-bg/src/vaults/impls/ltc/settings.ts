@@ -28,9 +28,10 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinType: COINTYPE_LTC,
     coinName: COINNAME_LTC,
     label: 'Nested SegWit',
-    desc: `${appLocale.intl.formatMessage({
+    descI18n: {
       id: ETranslations.litecoin_nested_segwit_desc,
-    })} BIP49, P2SH-P2WPKH, Base58`,
+      data: {},
+    },
     addressEncoding: EAddressEncodings.P2SH_P2WPKH,
   },
   BIP84: {
@@ -39,9 +40,10 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinType: COINTYPE_LTC,
     coinName: COINNAME_LTC,
     label: 'Native SegWit',
-    desc: `${appLocale.intl.formatMessage({
+    descI18n: {
       id: ETranslations.litecoin_native_segwit_desc,
-    })} BIP84, P2WPKH, Bech32`,
+      data: {},
+    },
     addressEncoding: EAddressEncodings.P2WPKH,
   },
   BIP44: {

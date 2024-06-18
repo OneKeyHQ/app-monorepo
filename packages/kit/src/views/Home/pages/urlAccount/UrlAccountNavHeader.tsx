@@ -1,13 +1,11 @@
 import { useCallback } from 'react';
 
-import * as ExpoSharing from 'expo-sharing';
-
 import {
   HeaderIconButton,
   IconButton,
   SizableText,
   XStack,
-  useClipboard,
+  useShare,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { OpenInAppButton } from '@onekeyhq/kit/src/components/OpenInAppButton';
@@ -113,7 +111,7 @@ function ShareButton() {
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
-  const { copyText } = useClipboard();
+  const { shareText } = useShare();
 
   if (!account?.address || !network?.id) {
     return null;
@@ -125,12 +123,7 @@ function ShareButton() {
           account,
           network,
         });
-        if (await ExpoSharing.isAvailableAsync()) {
-          // https://docs.expo.dev/versions/latest/sdk/sharing/
-          await ExpoSharing.shareAsync(text);
-        } else {
-          copyText(text, ETranslations.global_link_copied);
-        }
+        await shareText(text);
       }}
       icon="ShareOutline"
     />

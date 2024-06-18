@@ -1,3 +1,4 @@
+// This file is automatically created by `yarn fetch:locale`.
 export enum ETranslations {
   account_model_watched = 'account_model.watched',
   action_save = 'action_save',
