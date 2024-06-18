@@ -76,7 +76,11 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       color="$textSubdued"
       numberOfLines={1}
     >
-      {approveIsMax ? 'Unlimited' : approveAmount}
+      {approveIsMax
+        ? intl.formatMessage({
+            id: ETranslations.swap_page_provider_approve_amount_un_limit,
+          })
+        : approveAmount}
     </NumberSizeableText>
   );
 
@@ -113,17 +117,18 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
   } = getTxActionTokenApproveInfo(props);
 
   const content =
-    approveLabel || approveIsMax
-      ? intl.formatMessage({
-          id: ETranslations.swap_page_button_approve_unlimited,
-        })
-      : intl.formatMessage(
-          { id: ETranslations.form__approve_str },
-          {
-            amount: approveAmount,
-            symbol: approveSymbol,
-          },
-        );
+    approveLabel ||
+    intl.formatMessage(
+      { id: ETranslations.form__approve_str },
+      {
+        amount: approveIsMax
+          ? intl.formatMessage({
+              id: ETranslations.swap_page_provider_approve_amount_un_limit,
+            })
+          : approveAmount,
+        symbol: approveSymbol,
+      },
+    );
 
   return (
     <TxActionCommonDetailView

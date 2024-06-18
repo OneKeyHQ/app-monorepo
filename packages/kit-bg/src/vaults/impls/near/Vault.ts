@@ -301,7 +301,7 @@ export default class Vault extends VaultBase {
       txid: '',
       owner: accountAddress,
       signer: nativeTx.signerId,
-      nonce: parseFloat(nativeTx.nonce.toString()),
+      nonce: 0,
       actions: await this._nativeTxActionToEncodedTxAction(nativeTx),
 
       status: EDecodedTxStatus.Pending,
