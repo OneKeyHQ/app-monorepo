@@ -185,6 +185,8 @@ class ServiceHardware extends ServiceBase {
           usedPayload.firmwareProgress = originEvent.payload.progress;
         }
 
+        console.log('=====>>>>>  UI_EVENT: usedPayload', usedPayload);
+
         // >>> mock hardware forceInputOnDevice
         // if (usedPayload) {
         //   usedPayload.supportInputPinOnSoftware = false;

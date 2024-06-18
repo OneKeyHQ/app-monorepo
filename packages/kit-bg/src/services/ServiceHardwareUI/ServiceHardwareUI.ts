@@ -19,6 +19,7 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import type { IHardwareUiPayload } from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
 export type IWithHardwareProcessingOptions = {
@@ -98,6 +99,8 @@ class ServiceHardwareUI extends ServiceBase {
   async sendPassphraseToDevice({ passphrase }: { passphrase: string }) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
+    console.log('sendPassphraseToDevice: ', passphrase);
+
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PASSPHRASE,
       payload: {
@@ -109,7 +112,13 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async showEnterPinOnDeviceDialog({ connectId }: { connectId: string }) {
+  async showEnterPinOnDeviceDialog({
+    connectId,
+    payload,
+  }: {
+    connectId: string;
+    payload: IHardwareUiPayload | undefined;
+  }) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
     await this.sendUiResponse({
@@ -119,7 +128,7 @@ class ServiceHardwareUI extends ServiceBase {
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.EnterPinOnDevice,
       connectId,
-      payload: undefined,
+      payload,
     });
   }
 
