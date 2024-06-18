@@ -210,9 +210,15 @@ class ServiceSignature extends ServiceBase {
     const networkId = decodedTx.networkId;
     const address = decodedTx.signer;
     const swapInfo = signedTx.swapInfo;
-    const title = sourceInfo?.origin
-      ? uriUtils.getHostNameFromUrl({ url: sourceInfo?.origin })
-      : 'OneKey Wallet';
+    let title = 'OneKey Wallet';
+    if (sourceInfo?.origin) {
+      title = uriUtils.getHostNameFromUrl({ url: sourceInfo?.origin });
+    } else if (swapInfo) {
+      const providerName = swapInfo.swapBuildResData.result?.info?.providerName;
+      if (providerName) {
+        title = providerName;
+      }
+    }
     if (swapInfo) {
       const fromToken = swapInfo.sender.token;
       const toToken = swapInfo.receiver.token;
