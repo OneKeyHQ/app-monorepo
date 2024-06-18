@@ -399,7 +399,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         nativeAmount: vaultSettings.isUtxo ? onChainHistoryTx.value : undefined,
 
-        extraInfo: null,
+        extraInfo: {
+          description: onChainHistoryTx.description,
+          preImage: onChainHistoryTx.preimage,
+        },
         payload: {
           type: onChainHistoryTx.type,
           value: onChainHistoryTx.value,
