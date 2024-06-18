@@ -211,8 +211,7 @@ const SwapAccountAddressContainer = ({
         <AddressButton
           address={accountUtils.shortenAddress({
             address: swapAddressInfo.address ?? '',
-            leadingLength: 0,
-            showDot: false,
+            leadingLength: 8,
           })}
         />
       );
@@ -225,15 +224,13 @@ const SwapAccountAddressContainer = ({
           swapToAnotherAccountSwitchOn
             ? `${accountUtils.shortenAddress({
                 address: swapAddressInfo.address ?? '',
-                leadingLength: 0,
-                showDot: false,
+                leadingLength: 8,
               })} ${intl.formatMessage({
                 id: ETranslations.swap_account_to_address_edit,
               })}`
             : accountUtils.shortenAddress({
                 address: swapAddressInfo.address ?? '',
-                leadingLength: 0,
-                showDot: false,
+                leadingLength: 8,
               })
         }
       />

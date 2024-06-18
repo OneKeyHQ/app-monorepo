@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { swapQuoteIntervalMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapCheckWarningDef,
   ISwapState,
@@ -90,6 +91,9 @@ export function useSwapActionState() {
   const [selectedFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const { getQuoteIntervalCount } = useSwapActions().current;
+  const isRefreshQuote = getQuoteIntervalCount() >= swapQuoteIntervalMaxCount;
   const hasError = alerts.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );
@@ -140,19 +144,20 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
+
+      if (
+        quoteCurrentSelect &&
+        quoteCurrentSelect.toAmount &&
+        !swapToAddressInfo.address
+      ) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_enter_a_recipient,
+        });
+        infoRes.disable = true;
+      }
+
       const balanceBN = new BigNumber(selectedFromTokenBalance ?? 0);
       const fromTokenAmountBN = new BigNumber(fromTokenAmount);
-      // const reserveBN = new BigNumber(fromToken?.reservationValue ?? 0);
-      // const afterReserveBalance = balanceBN.minus(reserveBN);
-      // if (
-      //   afterReserveBalance.lt(0) ||
-      //   fromTokenAmountBN.gt(afterReserveBalance)
-      // ) {
-      //   infoRes.label = intl.formatMessage({
-      //     id: ETranslations.swap_page_button_no_enough_fee,
-      //   });
-      //   infoRes.disable = true;
-      // }
       if (
         fromToken &&
         swapFromAddressInfo.address &&
@@ -176,6 +181,12 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
+      if (isRefreshQuote && !quoteLoading) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_refresh_quotes,
+        });
+        infoRes.disable = false;
+      }
     }
     return infoRes;
   }, [
@@ -184,11 +195,13 @@ export function useSwapActionState() {
     hasError,
     intl,
     isCrossChain,
+    isRefreshQuote,
     quoteCurrentSelect,
     quoteLoading,
     selectedFromTokenBalance,
     swapFromAddressInfo.address,
     swapQuoteApproveAllowanceUnLimit,
+    swapToAddressInfo.address,
     toToken,
   ]);
 
@@ -202,6 +215,7 @@ export function useSwapActionState() {
     shoutResetApprove:
       !!quoteCurrentSelect?.allowanceResult?.shouldResetApprove,
     isWrapped: !!quoteCurrentSelect?.isWrapped,
+    isRefreshQuote: isRefreshQuote && !quoteLoading,
   };
   return stepState;
 }

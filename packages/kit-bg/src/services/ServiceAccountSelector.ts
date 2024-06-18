@@ -232,7 +232,10 @@ class ServiceAccountSelector extends ServiceBase {
       indexedAccount = undefined;
     }
 
-    const isOthersWallet = Boolean(account && !indexedAccountId);
+    const isOthersWallet =
+      accountUtils.isOthersWallet({
+        walletId: wallet?.id || '',
+      }) || Boolean(account && !indexedAccountId);
     const universalAccountName = (() => {
       // hd account or others account
       if (account) {
@@ -267,7 +270,8 @@ class ServiceAccountSelector extends ServiceBase {
         //
       }
     }
-
+    const canCreateAddress = !isOthersWallet && !account?.address;
+    const isNetworkNotMatched = isOthersWallet && !account && !indexedAccount;
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
       dbAccount,
@@ -283,6 +287,8 @@ class ServiceAccountSelector extends ServiceBase {
       }),
       ready: true,
       isOthersWallet,
+      canCreateAddress,
+      isNetworkNotMatched,
     };
     const selectedAccountFixed: IAccountSelectorSelectedAccount = {
       othersWalletAccountId: isOthersWallet
@@ -511,10 +517,20 @@ class ServiceAccountSelector extends ServiceBase {
 
     // others singleton wallet
     if (accountUtils.isOthersWallet({ walletId })) {
-      const { accounts } = await serviceAccount.getSingletonAccountsOfWallet({
+      let { accounts } = await serviceAccount.getSingletonAccountsOfWallet({
         walletId: walletId as any,
         activeNetworkId: othersNetworkId,
       });
+      if (linkedNetworkId) {
+        accounts = accounts
+          .filter((account) =>
+            accountUtils.isAccountCompatibleWithNetwork({
+              account,
+              networkId: linkedNetworkId,
+            }),
+          )
+          .filter(Boolean);
+      }
       return [
         buildAccountsData({
           accounts,
