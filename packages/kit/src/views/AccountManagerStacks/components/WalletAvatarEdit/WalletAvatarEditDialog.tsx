@@ -14,6 +14,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { HdWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 
 export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
