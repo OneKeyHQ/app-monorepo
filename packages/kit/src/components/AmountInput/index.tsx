@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -70,6 +70,7 @@ export function AmountInput({
   const sharedStyles = getSharedInputStyles({
     error: hasError,
   });
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
 
   const InputElement = useMemo(() => {
     if (inputProps?.loading)
@@ -93,10 +94,17 @@ export function AmountInput({
         }}
         value={value}
         onChangeText={onChange}
+        // maybe should replace with ref.current.setNativeProps({ selection })
+        {...(platformEnv.isNativeAndroid && {
+          selection,
+          onSelectionChange: ({ nativeEvent }) =>
+            setSelection(nativeEvent.selection),
+          onBlur: () => setSelection({ start: 0, end: 0 }),
+        })}
         {...inputProps}
       />
     );
-  }, [inputProps, onChange, value]);
+  }, [inputProps, onChange, value, selection]);
 
   const AmountElement = useMemo(() => {
     if (!valueProps) {
