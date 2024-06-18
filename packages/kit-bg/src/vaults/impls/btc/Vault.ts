@@ -428,7 +428,7 @@ export default class VaultBtc extends VaultBase {
 
     if (!inputs || !outputs || isNil(fee)) {
       throw new InsufficientBalance({
-        message: ETranslations.earn_insufficient_balance,
+        key: ETranslations.earn_insufficient_balance,
       });
     }
 

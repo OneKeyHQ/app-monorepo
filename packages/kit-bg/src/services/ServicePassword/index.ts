@@ -31,6 +31,7 @@ import {
   firmwareUpdateWorkflowRunningAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
+  v4migrationAtom,
 } from '../../states/jotai/atoms';
 import {
   passwordAtom,
@@ -367,6 +368,17 @@ export default class ServicePassword extends ServiceBase {
   async promptPasswordVerify(options?: {
     reason?: EReasonForNeedPassword;
   }): Promise<IPasswordRes> {
+    const v4migrationData = await v4migrationAtom.get();
+    if (v4migrationData?.isProcessing) {
+      const v4migrationPassword =
+        await this.backgroundApi.serviceV4Migration.getMigrationPassword();
+      if (v4migrationPassword) {
+        return {
+          password: v4migrationPassword,
+        };
+      }
+    }
+
     const { reason } = options || {};
     // check ext ui open
     if (
@@ -506,6 +518,11 @@ export default class ServicePassword extends ServiceBase {
   async lockApp() {
     const isRunning = await firmwareUpdateWorkflowRunningAtom.get();
     if (isRunning) {
+      return;
+    }
+
+    const v4migrationData = await v4migrationAtom.get();
+    if (v4migrationData?.isProcessing) {
       return;
     }
 

@@ -90,7 +90,7 @@ function TxActionCommonDescription({
         />
       ) : null}
       <SizableText size="$bodyMd" color="$textSubdued">
-        {description?.children || '-'}
+        {description?.children}
       </SizableText>
     </XStack>
   );
@@ -219,9 +219,11 @@ function TxActionCommonListView(
                       hideSeconds: true,
                     })}
                   </SizableText>
-                  <SizableText size="$bodyMd" color="$textSubdued" mx="$1">
-                    •
-                  </SizableText>
+                  {description && description.children ? (
+                    <SizableText size="$bodyMd" color="$textSubdued" mx="$1">
+                      •
+                    </SizableText>
+                  ) : null}
                 </>
               ) : null}
               <TxActionCommonDescription

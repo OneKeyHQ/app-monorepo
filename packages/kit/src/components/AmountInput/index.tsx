@@ -146,6 +146,7 @@ export function AmountInput({
         p="$3.5"
         alignItems="center"
         userSelect="none"
+        flexShrink={1}
         {...(tokenSelectorTriggerProps?.selectedTokenSymbol && {
           maxWidth: '$48',
         })}
@@ -160,7 +161,7 @@ export function AmountInput({
         })}
         onPress={tokenSelectorTriggerProps?.onPress}
       >
-        <Stack>
+        <Stack mr="$2">
           <Image height="$7" width="$7" borderRadius="$full">
             <Image.Source
               source={{
@@ -182,6 +183,7 @@ export function AmountInput({
             bottom="$-1"
             p="$0.5"
             borderRadius="$full"
+            flexShrink={1}
             bg="$bgApp"
           >
             {tokenSelectorTriggerProps?.selectedNetworkImageUri ? (
@@ -198,7 +200,7 @@ export function AmountInput({
             ) : null}
           </Stack>
         </Stack>
-        <SizableText size="$headingXl" pl="$2" numberOfLines={1}>
+        <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {tokenSelectorTriggerProps?.selectedTokenSymbol ||
             intl.formatMessage({ id: ETranslations.token_selector_title })}
         </SizableText>
@@ -246,15 +248,13 @@ export function AmountInput({
         })}
       >
         <SizableText size="$bodyMd" color="$textSubdued">
+          Balance:
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
             formatter="balance"
           >
-            {intl.formatMessage(
-              { id: ETranslations.send_balance },
-              { number: balanceProps.value ?? 0 },
-            )}
+            {balanceProps.value ?? 0}
           </NumberSizeableText>
         </SizableText>
         {enableMaxAmount ? (
@@ -284,6 +284,7 @@ export function AmountInput({
           alignItems="center"
           px="$3.5"
           pb="$2"
+          disabled={balanceProps?.loading}
           onPress={valueProps?.onPress}
           {...(reversible && {
             userSelect: 'none',

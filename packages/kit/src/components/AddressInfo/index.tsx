@@ -19,6 +19,7 @@ function AddressInfo(props: IProps) {
         address,
         enableAddressBook: true,
         enableWalletName: true,
+        skipValidateAddress: true,
       }),
     [accountId, address, networkId],
   ).result;

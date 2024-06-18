@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Dialog } from '@onekeyhq/components';
+import { ActionList, Dialog, Toast } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -23,6 +23,7 @@ export function AccountRemoveDialog({
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
 }) {
+  const intl = useIntl();
   const actions = useAccountSelectorActions();
   const [loading, setLoading] = useState(false);
   return (
@@ -37,6 +38,11 @@ export function AccountRemoveDialog({
           await actions.current.removeAccount({
             indexedAccount,
             account,
+          });
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_change_saved,
+            }),
           });
         } finally {
           setLoading(false);

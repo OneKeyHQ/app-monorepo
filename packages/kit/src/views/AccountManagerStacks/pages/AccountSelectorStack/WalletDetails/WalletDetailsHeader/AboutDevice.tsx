@@ -30,11 +30,10 @@ export function AboutDevice({ device }: { device?: IDBDevice | undefined }) {
     if (!featuresInfo) {
       return [];
     }
-    const { bleVersion, firmwareVersion, bootloaderVersion } =
-      await deviceUtils.getDeviceVersion({
-        device,
-        features: device.featuresInfo,
-      });
+    const { bleVersion, firmwareVersion } = await deviceUtils.getDeviceVersion({
+      device,
+      features: device.featuresInfo,
+    });
     return [
       {
         label: intl.formatMessage({ id: ETranslations.global_serial_number }),
@@ -53,10 +52,6 @@ export function AboutDevice({ device }: { device?: IDBDevice | undefined }) {
           id: ETranslations.global_bluetooth_firmware,
         }),
         description: bleVersion || '--',
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.global_bootloader }),
-        description: bootloaderVersion || '--',
       },
     ];
   }, [device, intl]);

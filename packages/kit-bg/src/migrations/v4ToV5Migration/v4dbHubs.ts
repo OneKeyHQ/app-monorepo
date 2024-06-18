@@ -1,4 +1,5 @@
 import v4localDbInstance from './v4local/v4localDbInstance';
+import { V4MigrationLogger } from './V4MigrationLogger';
 import { V4ReduxDb } from './v4redux/V4ReduxDb';
 import { V4SimpleDb } from './v4simple/V4SimpleDb';
 
@@ -27,9 +28,18 @@ export class V4DbHubs {
 
   get v4localDb() {
     if (!this._v4localDb) {
-      this._v4localDb = v4localDbInstance;
+      this._v4localDb = v4localDbInstance();
     }
     return this._v4localDb;
+  }
+
+  _logger: V4MigrationLogger | undefined;
+
+  get logger() {
+    if (!this._logger) {
+      this._logger = new V4MigrationLogger();
+    }
+    return this._logger;
   }
 }
 

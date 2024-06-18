@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -42,7 +43,9 @@ function HomeFirmwareUpdateDetectCmp() {
 }
 
 export function HomeFirmwareUpdateDetectWithProvider() {
-  return (
+  const [isLocked] = useAppIsLockedAtom();
+  // Prohibit hardware detection in lock screen state
+  return isLocked ? null : (
     <AccountSelectorProviderMirror
       config={{
         sceneName: EAccountSelectorSceneName.home,
