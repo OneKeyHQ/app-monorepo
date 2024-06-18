@@ -50,6 +50,7 @@ import type {
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionAssetTransfer,
+  IDecodedTxExtraInfo,
   IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 import {
@@ -291,6 +292,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(true);
   }
 
+  async buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<null | IDecodedTxExtraInfo> {
+    return null;
+  }
+
   async precheckUnsignedTx(params: { unsignedTx: IUnsignedTxPro }) {
     return Promise.resolve(true);
   }
@@ -399,7 +408,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         nativeAmount: vaultSettings.isUtxo ? onChainHistoryTx.value : undefined,
 
-        extraInfo: null,
+        extraInfo: await this.buildOnChainHistoryTxExtraInfo({
+          onChainHistoryTx,
+        }),
         payload: {
           type: onChainHistoryTx.type,
           value: onChainHistoryTx.value,
