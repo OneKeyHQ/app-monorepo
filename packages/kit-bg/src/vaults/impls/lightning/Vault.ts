@@ -7,6 +7,7 @@ import {
   getBtcForkNetwork,
   validateBtcAddress,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import type { IDecodedTxExtraLightning } from '@onekeyhq/core/src/chains/lightning/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
@@ -42,7 +43,10 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IFetchAccountHistoryParams } from '@onekeyhq/shared/types/history';
+import type {
+  IFetchAccountHistoryParams,
+  IOnChainHistoryTx,
+} from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type {
   IEncodedTxLightning,
@@ -645,6 +649,17 @@ export default class Vault extends VaultBase {
     }
 
     return true;
+  }
+
+  override async buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraLightning> {
+    return Promise.resolve({
+      preImage: onChainHistoryTx.preimage,
+      description: onChainHistoryTx.description,
+    });
   }
 
   async _getAuthorization({

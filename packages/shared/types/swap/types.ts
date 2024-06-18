@@ -242,6 +242,7 @@ export interface ISwapState {
   isCrossChain: boolean;
   shoutResetApprove?: boolean;
   approveUnLimit?: boolean;
+  isRefreshQuote?: boolean;
 }
 
 export interface ISwapCheckWarningDef {

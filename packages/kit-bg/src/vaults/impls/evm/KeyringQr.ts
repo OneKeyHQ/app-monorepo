@@ -192,12 +192,12 @@ export class KeyringQr extends KeyringQrBase {
         );
         const signatureHex = signature.signature;
 
-        const verifyMessageFn = verifyMessage;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const verifyResult = verifyMessageFn(
-          hexUtils.stripHexPrefix(serializedTxWithout0x),
-          hexUtils.addHexPrefix(signatureHex),
-        ); // verify signature
+        // const verifyMessageFn = verifyMessage;
+        // // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // const verifyResult = verifyMessageFn(
+        //   hexUtils.stripHexPrefix(serializedTxWithout0x),
+        //   hexUtils.addHexPrefix(signatureHex),
+        // ); // verify signature
 
         const r = hexUtils.addHexPrefix(signatureHex.slice(0, 32 * 2));
         const s = hexUtils.addHexPrefix(signatureHex.slice(32 * 2, 64 * 2));

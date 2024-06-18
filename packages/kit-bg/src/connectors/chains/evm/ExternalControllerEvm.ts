@@ -275,6 +275,9 @@ export class ExternalControllerEvm extends ExternalControllerBase {
       params,
     });
     const provider = await connector.getProvider();
+    if (!wcChain) {
+      throw new Error('evmWalletConnect signMessage ERROR: wcChain not found');
+    }
     const result = (await provider.request(
       {
         method,
@@ -298,6 +301,11 @@ export class ExternalControllerEvm extends ExternalControllerBase {
       },
     );
     const provider = await connector.getProvider();
+    if (!wcChain) {
+      throw new Error(
+        'evmWalletConnect sendTransaction ERROR: wcChain not found',
+      );
+    }
     const txid = (await provider.request(
       {
         method,
@@ -307,9 +315,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     )) as string;
 
     if (!txid) {
-      throw new Error(
-        'ExternalWalletControllerWalletConnect sendTransaction ERROR: txid not found',
-      );
+      throw new Error('walletConnect sendTransaction ERROR: txid not found');
     }
 
     return {

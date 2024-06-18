@@ -3,13 +3,29 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 
-import SwapHistoryDetailModal from '../pages/modal/SwapHistoryDetailModal';
-import SwapHistoryListModal from '../pages/modal/SwapHistoryListModal';
-import SwapMainLandModal from '../pages/modal/SwapMainLandModal';
-import SwapProviderSelectModal from '../pages/modal/SwapProviderSelectModal';
-import SwapToAnotherAddressModal from '../pages/modal/SwapToAnotherAddressModal';
-import SwapTokenSelectModal from '../pages/modal/SwapTokenSelectModal';
-import TokenRiskReminderModal from '../pages/modal/TokenRiskReminderModal';
+import { LazyLoadPage } from '../../../components/LazyLoadPage';
+
+const SwapHistoryDetailModal = LazyLoadPage(
+  () => import('../pages/modal/SwapHistoryDetailModal'),
+);
+const SwapHistoryListModal = LazyLoadPage(
+  () => import('../pages/modal/SwapHistoryListModal'),
+);
+const SwapProviderSelectModal = LazyLoadPage(
+  () => import('../pages/modal/SwapProviderSelectModal'),
+);
+const SwapToAnotherAddressModal = LazyLoadPage(
+  () => import('../pages/modal/SwapToAnotherAddressModal'),
+);
+const SwapTokenSelectModal = LazyLoadPage(
+  () => import('../pages/modal/SwapTokenSelectModal'),
+);
+const TokenRiskReminderModal = LazyLoadPage(
+  () => import('../pages/modal/TokenRiskReminderModal'),
+);
+const SwapMainLandModal = LazyLoadPage(
+  () => import('../pages/modal/SwapMainLandModal'),
+);
 
 export const ModalSwapStack: IModalFlowNavigatorConfig<
   EModalSwapRoutes,
@@ -43,7 +59,7 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
   {
     name: EModalSwapRoutes.SwapToAnotherAddress,
     component: SwapToAnotherAddressModal,
-    translationId: 'form__enter_address',
+    translationId: ETranslations.swap_page_account_to_address_title,
   },
   {
     name: EModalSwapRoutes.TokenRiskReminder,

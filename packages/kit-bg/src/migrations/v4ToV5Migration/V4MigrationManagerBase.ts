@@ -1,5 +1,6 @@
 import type { CoreChainScopeBase } from '@onekeyhq/core/src/base/CoreChainScopeBase';
 import { getCoreChainApiScopeByImpl } from '@onekeyhq/core/src/instance/coreChainApi';
+import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -19,6 +20,14 @@ export class V4MigrationManagerBase {
   backgroundApi: IBackgroundApi;
 
   v4dbHubs: V4DbHubs = v4dbHubs;
+
+  async getV4LocalDbContext() {
+    const v4result = await v4dbHubs.v4localDb.getAllRecords({
+      name: EV4LocalDBStoreNames.Context,
+    });
+    const v4context = v4result.records.find((r) => r.id === DB_MAIN_CONTEXT_ID);
+    return v4context;
+  }
 
   getMigrationPassword() {
     return this.backgroundApi.serviceV4Migration.getMigrationPassword();

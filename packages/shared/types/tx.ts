@@ -1,4 +1,5 @@
 import type { IDecodedTxExtraAlgo } from '@onekeyhq/core/src/chains/algo/types';
+import type { IDecodedTxExtraLightning } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import type { IFeeInfoUnit } from './fee';
@@ -73,6 +74,10 @@ export type IUtxoAddressInfo = {
   isMine: boolean;
 };
 
+export type IDecodedTxExtraInfo =
+  | IDecodedTxExtraAlgo
+  | IDecodedTxExtraLightning;
+
 export type IDecodedTx = {
   txid: string; // blockHash
 
@@ -101,7 +106,7 @@ export type IDecodedTx = {
 
   interactInfo?: IDecodedTxInteractInfo;
 
-  extraInfo: null | IDecodedTxExtraAlgo;
+  extraInfo: null | IDecodedTxExtraInfo;
 
   encodedTx?: IEncodedTx;
   // used for speed up double check if encodedTx modified by some bugs

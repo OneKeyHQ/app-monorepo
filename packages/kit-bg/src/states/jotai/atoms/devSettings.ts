@@ -10,6 +10,8 @@ export interface IDevSettings {
   showDevOverlayWindow?: boolean;
   // always signOnly send tx
   alwaysSignOnlySendTx?: boolean;
+  // show dev export private key
+  showDevExportPrivateKey?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

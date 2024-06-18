@@ -49,10 +49,10 @@ export function useCreateQrWallet() {
         airGapAccounts,
         airGapMultiAccounts,
       );
-      if (byDevice?.deviceId && qrDevice?.deviceId !== byDevice?.deviceId) {
+      if (byWallet?.xfp && qrDevice?.xfp !== byWallet?.xfp) {
         throw new OneKeyErrorAirGapWalletMismatch();
       }
-      if (byWallet?.xfp && qrDevice?.xfp !== byWallet?.xfp) {
+      if (byDevice?.deviceId && qrDevice?.deviceId !== byDevice?.deviceId) {
         throw new OneKeyErrorAirGapWalletMismatch();
       }
       if (isOnboarding) {

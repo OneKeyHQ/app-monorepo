@@ -3,8 +3,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IActionListProps } from '@onekeyhq/components';
-import { useClipboard } from '@onekeyhq/components';
+import { Dialog, useClipboard } from '@onekeyhq/components';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
@@ -13,6 +12,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { useSupportNetworkId } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalFiatCryptoRoutes,
@@ -23,6 +23,7 @@ import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import { RawActions } from './RawActions';
 
 export function WalletActionMore() {
+  const [devSettings] = useDevSettingsPersistAtom();
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
@@ -93,20 +94,30 @@ export function WalletActionMore() {
     });
   }
 
-  if (process.env.NODE_ENV !== 'production') {
-    const exportAccountSecretKeys = async ({
+  if (devSettings?.settings?.showDevExportPrivateKey) {
+    const exportAccountCredentialKey = async ({
       keyType,
     }: {
       keyType: ECoreApiExportedSecretKeyType;
     }) => {
       console.log('ExportSecretKeys >>>> ', keyType);
-      const r = await backgroundApiProxy.serviceAccount.exportAccountSecretKeys(
-        {
+      let r: string | undefined = '';
+      if (
+        keyType === ECoreApiExportedSecretKeyType.xpub ||
+        keyType === ECoreApiExportedSecretKeyType.publicKey
+      ) {
+        r = await backgroundApiProxy.serviceAccount.exportAccountPublicKey({
           accountId: account?.id || '',
           networkId: network?.id || '',
           keyType,
-        },
-      );
+        });
+      } else {
+        r = await backgroundApiProxy.serviceAccount.exportAccountSecretKey({
+          accountId: account?.id || '',
+          networkId: network?.id || '',
+          keyType,
+        });
+      }
       console.log('ExportSecretKeys >>>> ', r);
       console.log(
         'ExportSecretKeys >>>> ',
@@ -114,14 +125,40 @@ export function WalletActionMore() {
         keyType,
         account?.address,
       );
+      Dialog.show({
+        title: 'Key',
+        description: r,
+        onConfirmText: 'Copy',
+        onConfirm() {
+          copyText(r || '');
+        },
+      });
     };
     sections.unshift({
       items: [
         {
+          label: 'Export Public Key',
+          icon: 'MinusLargeOutline',
+          onPress: () => {
+            void exportAccountCredentialKey({
+              keyType: ECoreApiExportedSecretKeyType.publicKey,
+            });
+          },
+        },
+        {
+          label: 'Export xpub',
+          icon: 'MinusLargeOutline',
+          onPress: () => {
+            void exportAccountCredentialKey({
+              keyType: ECoreApiExportedSecretKeyType.xpub,
+            });
+          },
+        },
+        {
           label: 'Export Private Key',
           icon: 'MinusLargeOutline',
           onPress: () => {
-            void exportAccountSecretKeys({
+            void exportAccountCredentialKey({
               keyType: ECoreApiExportedSecretKeyType.privateKey,
             });
           },
@@ -130,7 +167,7 @@ export function WalletActionMore() {
           label: 'Export xprvt',
           icon: 'MinusLargeOutline',
           onPress: () => {
-            void exportAccountSecretKeys({
+            void exportAccountCredentialKey({
               keyType: ECoreApiExportedSecretKeyType.xprvt,
             });
           },

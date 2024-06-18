@@ -210,6 +210,11 @@ function isExternalAccount({ accountId }: { accountId: string }) {
   return isExternalWallet({ walletId });
 }
 
+function isWatchingAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isWatchingWallet({ walletId });
+}
+
 function buildPathFromTemplate({
   template,
   index,
@@ -680,6 +685,7 @@ export default {
   isHwAccount,
   isQrAccount,
   isExternalAccount,
+  isWatchingAccount,
   parseAccountId,
   parseIndexedAccountId,
   shortenAddress,
