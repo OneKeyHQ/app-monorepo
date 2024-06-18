@@ -490,6 +490,40 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  addDefaultNetworkAccounts = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        wallet: IDBWallet;
+        indexedAccount: IDBIndexedAccount;
+        skipDeviceCancel?: boolean;
+        hideCheckingDeviceLoading?: boolean;
+      },
+    ) => {
+      const {
+        wallet,
+        indexedAccount,
+        skipDeviceCancel,
+        hideCheckingDeviceLoading,
+      } = params;
+      const selectedAccount = this.getSelectedAccount.call(set, {
+        num: 0,
+      });
+      const networkId = selectedAccount.networkId;
+      const deriveType = selectedAccount.deriveType;
+      return serviceAccount.addDefaultNetworkAccounts({
+        walletId: wallet.id,
+        indexedAccountId: indexedAccount.id,
+        customNetworks:
+          networkId && deriveType ? [{ networkId, deriveType }] : undefined,
+
+        skipDeviceCancel,
+        hideCheckingDeviceLoading,
+      });
+    },
+  );
+
   createHDWallet = contextAtomMethod(
     async (
       _,
@@ -513,9 +547,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           return { wallet, indexedAccount };
         },
         generatingAccountsFn: async ({ wallet, indexedAccount }) => {
-          await serviceAccount.addDefaultNetworkAccounts({
-            walletId: wallet.id,
-            indexedAccountId: indexedAccount.id,
+          await this.addDefaultNetworkAccounts.call(set, {
+            wallet,
+            indexedAccount,
           });
         },
       }),
@@ -592,9 +626,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           };
         },
         generatingAccountsFn: async ({ wallet, indexedAccount }) => {
-          await serviceAccount.addDefaultNetworkAccounts({
-            walletId: wallet.id,
-            indexedAccountId: indexedAccount.id,
+          await this.addDefaultNetworkAccounts.call(set, {
+            wallet,
+            indexedAccount,
             skipDeviceCancel: params.skipDeviceCancel,
             hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
           });
@@ -628,9 +662,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         },
         generatingAccountsFn: async ({ wallet, indexedAccount }) => {
           if (params?.isOnboarding) {
-            const result = await serviceAccount.addDefaultNetworkAccounts({
-              walletId: wallet.id,
-              indexedAccountId: indexedAccount.id,
+            const result = await this.addDefaultNetworkAccounts.call(set, {
+              wallet,
+              indexedAccount,
             });
             await this.updateSelectedAccount.call(set, {
               num: 0, // update home num selector

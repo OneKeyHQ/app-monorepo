@@ -123,6 +123,8 @@ export interface IAccountSelectorActiveAccountInfo {
   deriveType: IAccountDeriveTypes;
   deriveInfo?: IAccountDeriveInfo | undefined;
   deriveInfoItems: IAccountDeriveInfoItems[];
+  canCreateAddress?: boolean;
+  isNetworkNotMatched?: boolean;
 }
 export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
   () => ({

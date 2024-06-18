@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { importedAccountExcludeNetworkIds } from '@onekeyhq/kit/src/components/ChainSelectorInput/excludeNetworkIds';
@@ -64,12 +65,19 @@ function ImportPrivateKey() {
           networkId: values.networkId,
         });
         console.log(r, values);
+        // global.success
 
+        const accountId = r?.accounts?.[0]?.id;
+        if (accountId) {
+          Toast.success({
+            title: intl.formatMessage({ id: ETranslations.global_success }),
+          });
+        }
         void actions.current.updateSelectedAccountForSingletonAccount({
           num: 0,
           networkId: values.networkId,
           walletId: WALLET_TYPE_IMPORTED,
-          othersWalletAccountId: r.accounts[0].id,
+          othersWalletAccountId: accountId,
         });
         navigation.popStack();
       }}

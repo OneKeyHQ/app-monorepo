@@ -10,6 +10,7 @@ import {
   SegmentControl,
   SizableText,
   Stack,
+  Toast,
   useClipboard,
   useForm,
   useFormWatch,
@@ -359,11 +360,18 @@ function ImportAddress() {
             const r =
               await backgroundApiProxy.serviceAccount.addWatchingAccount(data);
 
+            const accountId = r?.accounts?.[0]?.id;
+            if (accountId) {
+              Toast.success({
+                title: intl.formatMessage({ id: ETranslations.global_success }),
+              });
+            }
+
             void actions.current.updateSelectedAccountForSingletonAccount({
               num: 0,
               networkId: values.networkId,
               walletId: WALLET_TYPE_WATCHING,
-              othersWalletAccountId: r.accounts[0].id,
+              othersWalletAccountId: accountId,
             });
             navigation.popStack();
           })();
