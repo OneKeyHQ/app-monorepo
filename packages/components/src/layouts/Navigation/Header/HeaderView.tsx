@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
 import { get } from 'lodash';
-import { useTheme } from 'tamagui';
+import { useMedia, useTheme } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -16,6 +16,7 @@ import HeaderSearchBar from './HeaderSearchBar';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
 import type { IStackHeaderProps } from '../ScreenProps';
+import type { Layout } from '@react-navigation/elements';
 import type {
   HeaderBackButtonProps,
   HeaderOptions,
@@ -92,6 +93,19 @@ function HeaderView({
     ],
   );
 
+  const { gtMd } = useMedia();
+
+  const layout = useMemo(() => {
+    if (platformEnv.isNative) {
+      return undefined;
+    }
+    if (isModelScreen) {
+      return gtMd
+        ? ({ width: 640 } as Layout)
+        : ({ width: window.screen.width } as Layout);
+    }
+    return undefined;
+  }, [gtMd, isModelScreen]);
   if (!headerShown) {
     return null;
   }
@@ -122,6 +136,7 @@ function HeaderView({
           }}
         >
           <Header
+            layout={layout}
             title={getHeaderTitle(options, route.name)}
             headerTintColor={theme.text.val}
             headerLeft={headerLeftView}
