@@ -262,13 +262,6 @@ export default class ServiceSwap extends ServiceBase {
         throw new Error('swap fetch quote cancel', {
           cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
         });
-      } else {
-        const error = e as { code: number; message: string };
-        void this.backgroundApi.serviceApp.showToast({
-          method: 'error',
-          title: 'error',
-          message: error?.message,
-        });
       }
     }
     return [
