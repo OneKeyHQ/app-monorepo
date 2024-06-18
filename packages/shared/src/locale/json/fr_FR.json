@@ -1366,7 +1366,7 @@
   "update.update_required_desc": "La version de votre portefeuille matériel est obsolète et doit être mise à jour pour continuer.",
   "update.update_resource_failed": "La mise à jour de la ressource a échoué",
   "update.update_ui_resources_success": "Mise à jour des ressources de l'interface utilisateur réussie",
-  "update.updated_to_latest_version": "Mis à jour vers la dernière version {}",
+  "update.updated_to_latest_version": "Mis à jour vers la dernière version {version}",
   "update.updating_bootloader": "Mise à jour du chargeur de démarrage",
   "update.updating_ui_resources": "Mise à jour des ressources de l'interface utilisateur...",
   "update.verify_status_and_continue": "Vérifiez le statut et continuez",

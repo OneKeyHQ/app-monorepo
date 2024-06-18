@@ -1366,7 +1366,7 @@
   "update.update_required_desc": "Phiên bản ví cứng của bạn đã lỗi thời và cần được cập nhật để tiếp tục.",
   "update.update_resource_failed": "Cập nhật tài nguyên thất bại",
   "update.update_ui_resources_success": "Cập nhật tài nguyên giao diện thành công",
-  "update.updated_to_latest_version": "Đã cập nhật lên phiên bản mới nhất {}",
+  "update.updated_to_latest_version": "Đã cập nhật lên phiên bản mới nhất {version}",
   "update.updating_bootloader": "Đang cập nhật bootloader",
   "update.updating_ui_resources": "Đang cập nhật tài nguyên giao diện người dùng...",
   "update.verify_status_and_continue": "Xác minh trạng thái và tiếp tục",
