@@ -46,6 +46,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
         screen: EModalAssetDetailRoutes.HistoryDetails,
         params: {
           networkId: network.id,
+          accountId: account.id,
           accountAddress: account.address,
           historyTx: history,
           xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({

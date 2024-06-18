@@ -136,10 +136,14 @@ function TxActionCommonFee({
 }: Pick<ITxActionCommonListViewProps, 'fee' | 'feeFiatValue' | 'feeSymbol'> & {
   currencySymbol: string;
 }) {
+  const intl = useIntl();
+
   return (
     <Stack flexGrow={1} flexBasis={0}>
       <SizableText size="$bodyMd" color="$textSubdued">
-        Network Fee
+        {intl.formatMessage({
+          id: ETranslations.swap_history_detail_network_fee,
+        })}
       </SizableText>
       <XStack alignItems="center" space="$1">
         <NumberSizeableText
@@ -181,7 +185,7 @@ function TxActionCommonListView(
     hideFeeInfo,
     ...rest
   } = props;
-
+  const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
 
@@ -262,9 +266,11 @@ function TxActionCommonListView(
       {pending ? (
         <XStack pl={52} space="$3">
           <Button size="small" variant="primary">
-            Speed Up
+            {intl.formatMessage({ id: ETranslations.global_speed_up })}
           </Button>
-          <Button size="small">Cancel</Button>
+          <Button size="small">
+            {intl.formatMessage({ id: ETranslations.global_cancel })}
+          </Button>
         </XStack>
       ) : null}
     </ListItem>

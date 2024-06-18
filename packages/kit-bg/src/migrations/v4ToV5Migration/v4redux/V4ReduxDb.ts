@@ -4,17 +4,20 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import type {
   IV4ReduxContactsState,
+  IV4ReduxDiscoverState,
   IV4ReduxSettingsState,
 } from '../v4types/v4typesRedux';
 
 type IV4SimpleDbRawData = {
   settings: string;
   contacts: string;
+  discover: string;
 };
 
 export type IV4SimpleDbData = {
   settings: IV4ReduxSettingsState | undefined;
   contacts: IV4ReduxContactsState | undefined;
+  discover: IV4ReduxDiscoverState | undefined;
 };
 
 export class V4ReduxDb {
@@ -64,6 +67,7 @@ export class V4ReduxDb {
     return {
       settings: this.parseReduxField(data.settings),
       contacts: this.parseReduxField(data.contacts),
+      discover: this.parseReduxField(data.discover),
     };
   }
 }

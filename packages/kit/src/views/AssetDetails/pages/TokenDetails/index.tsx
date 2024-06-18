@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import type { IActionListSection } from '@onekeyhq/components';
 import {
@@ -29,6 +30,7 @@ import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletAction
 import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalReceiveRoutes,
   EModalRoutes,
@@ -46,6 +48,7 @@ import ActionSell from './ActionSell';
 import type { RouteProp } from '@react-navigation/core';
 
 export function TokenDetails() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
 
   const route =
@@ -175,6 +178,7 @@ export function TokenDetails() {
       if (!account || !network) return;
 
       navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
+        accountId,
         networkId,
         accountAddress: account.address,
         xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
@@ -184,7 +188,7 @@ export function TokenDetails() {
         historyTx: tx,
       });
     },
-    [account, navigation, network, networkId],
+    [account, accountId, navigation, network, networkId],
   );
 
   const handleSendPress = useCallback(() => {
@@ -219,7 +223,9 @@ export function TokenDetails() {
       {
         items: [
           {
-            label: isBlocked ? 'Unhide' : 'Hide',
+            label: isBlocked
+              ? intl.formatMessage({ id: ETranslations.global_unhide })
+              : intl.formatMessage({ id: ETranslations.global_hide }),
             icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
             onPress: handleToggleBlockedToken,
           },
@@ -231,7 +237,9 @@ export function TokenDetails() {
       sections.unshift({
         items: [
           {
-            label: 'Copy Token Contract',
+            label: intl.formatMessage({
+              id: ETranslations.global_copy_token_contract,
+            }),
             icon: 'Copy1Outline',
             onPress: () => copyText(tokenInfo.address),
           },
@@ -245,7 +253,9 @@ export function TokenDetails() {
 
       if (tokenDetailsUrl !== '') {
         sections[0].items.push({
-          label: 'View in explorer',
+          label: intl.formatMessage({
+            id: ETranslations.global_view_in_blockchain_explorer,
+          }),
           icon: 'ShareOutline',
           onPress: () => openUrl(tokenDetailsUrl),
         });
@@ -253,7 +263,7 @@ export function TokenDetails() {
     }
     return (
       <ActionList
-        title="Actions"
+        title={intl.formatMessage({ id: ETranslations.global_more })}
         renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
         sections={sections}
       />
@@ -261,6 +271,7 @@ export function TokenDetails() {
   }, [
     copyText,
     handleToggleBlockedToken,
+    intl,
     isBlocked,
     network,
     tokenInfo.address,
@@ -369,9 +380,13 @@ export function TokenDetails() {
                     icon="EyeOffOutline"
                     fullBleed
                     type="warning"
-                    title="This token is currently hidden and won't appear in the list"
+                    title={intl.formatMessage({
+                      id: ETranslations.token_hidden_message,
+                    })}
                     action={{
-                      primary: 'Unhide',
+                      primary: intl.formatMessage({
+                        id: ETranslations.global_unhide,
+                      }),
                       onPrimaryPress: handleToggleBlockedToken,
                     }}
                     mb="$5"

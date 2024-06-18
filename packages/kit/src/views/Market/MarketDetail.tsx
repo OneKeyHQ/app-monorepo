@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
-import * as ExpoSharing from 'expo-sharing';
 import { useIntl } from 'react-intl';
-import { Share } from 'react-native';
 
 import {
   HeaderIconButton,
@@ -17,8 +15,8 @@ import {
   View,
   XStack,
   YStack,
-  useClipboard,
   useMedia,
+  useShare,
 } from '@onekeyhq/components';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -163,7 +161,7 @@ function MarketDetail({
     ),
     [icon, symbol, tokenDetail?.image, tokenDetail?.symbol],
   );
-  const { copyText } = useClipboard();
+  const { shareText } = useShare();
 
   const buildDeepLinkUrl = useCallback(
     () =>
@@ -194,26 +192,13 @@ function MarketDetail({
           icon="ShareOutline"
           onPress={async () => {
             const url = buildMarketFullUrl({ coinGeckoId });
-            if (platformEnv.isNativeIOS) {
-              if (await ExpoSharing.isAvailableAsync()) {
-                // https://docs.expo.dev/versions/latest/sdk/sharing/
-                await ExpoSharing.shareAsync(url);
-                return;
-              }
-            }
-            if (platformEnv.isNativeAndroid) {
-              await Share.share({
-                message: url,
-              });
-              return;
-            }
-            copyText(url);
+            await shareText(url);
           }}
         />
         {gtMd ? <MarketHomeHeaderSearchBar /> : null}
       </XStack>
     ),
-    [buildDeepLinkUrl, buildFullUrl, coinGeckoId, copyText, gtMd],
+    [buildDeepLinkUrl, buildFullUrl, coinGeckoId, gtMd, shareText],
   );
 
   const navigation = useAppNavigation();
@@ -322,7 +307,7 @@ function MarketDetail({
             listHeaderComponent={
               <YStack>
                 {tokenDetailHeader}
-                {tokenPriceChart}
+                {tokenDetail ? tokenPriceChart : null}
               </YStack>
             }
           />

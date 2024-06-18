@@ -4,21 +4,23 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 type IProps = {
+  accountId?: string;
   networkId: string;
   address: string;
 };
 
 function AddressInfo(props: IProps) {
-  const { networkId, address } = props;
+  const { accountId, networkId, address } = props;
   const addressQueryResult = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccountProfile.queryAddress({
+        accountId,
         networkId,
         address,
         enableAddressBook: true,
         enableWalletName: true,
       }),
-    [address, networkId],
+    [accountId, address, networkId],
   ).result;
 
   if (!addressQueryResult) {
@@ -34,12 +36,12 @@ function AddressInfo(props: IProps) {
   return (
     <XStack space="$2" flex={1} flexWrap="wrap">
       {addressQueryResult.walletAccountName ? (
-        <Badge badgeType="success" badgeSize="sm" mb="$1">
+        <Badge badgeType="success" badgeSize="sm">
           {addressQueryResult.walletAccountName}
         </Badge>
       ) : null}
       {addressQueryResult.addressBookName ? (
-        <Badge badgeType="success" badgeSize="sm" mb="$1">
+        <Badge badgeType="success" badgeSize="sm">
           {addressQueryResult.addressBookName}
         </Badge>
       ) : null}

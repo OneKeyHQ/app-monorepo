@@ -201,7 +201,7 @@ export function FirmwareUpdateProgressBar({
           id: ETranslations.global_updating_type,
         },
         {
-          0: firmwareType,
+          type: firmwareType,
         },
       );
       if (firmwareType === 'ble') {
@@ -210,7 +210,7 @@ export function FirmwareUpdateProgressBar({
             id: ETranslations.global_updating_type,
           },
           {
-            0: intl.formatMessage({ id: ETranslations.global_bluetooth }),
+            type: intl.formatMessage({ id: ETranslations.global_bluetooth }),
           },
         );
       }
