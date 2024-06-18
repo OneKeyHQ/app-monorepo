@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
-import { Checkbox, Dialog } from '@onekeyhq/components';
+import { Checkbox, Dialog, Toast } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -45,6 +45,12 @@ export function WalletRemoveDialog({
         onConfirm={async () => {
           await actions.current.removeWallet({
             walletId: wallet?.id || '',
+          });
+
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_change_saved,
+            }),
           });
         }}
       />

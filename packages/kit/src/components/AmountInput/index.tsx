@@ -146,6 +146,7 @@ export function AmountInput({
         p="$3.5"
         alignItems="center"
         userSelect="none"
+        flexShrink={1}
         {...(tokenSelectorTriggerProps?.selectedTokenSymbol && {
           maxWidth: '$48',
         })}
@@ -160,7 +161,7 @@ export function AmountInput({
         })}
         onPress={tokenSelectorTriggerProps?.onPress}
       >
-        <Stack>
+        <Stack mr="$2">
           <Image height="$7" width="$7" borderRadius="$full">
             <Image.Source
               source={{
@@ -182,6 +183,7 @@ export function AmountInput({
             bottom="$-1"
             p="$0.5"
             borderRadius="$full"
+            flexShrink={1}
             bg="$bgApp"
           >
             {tokenSelectorTriggerProps?.selectedNetworkImageUri ? (
@@ -198,7 +200,7 @@ export function AmountInput({
             ) : null}
           </Stack>
         </Stack>
-        <SizableText size="$headingXl" pl="$2" numberOfLines={1}>
+        <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {tokenSelectorTriggerProps?.selectedTokenSymbol ||
             intl.formatMessage({ id: ETranslations.token_selector_title })}
         </SizableText>

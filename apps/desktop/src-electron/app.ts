@@ -94,7 +94,19 @@ const template = [
       ]
     : []),
   { role: 'editMenu' },
-  { role: 'viewMenu' },
+  // remove `Reload`, 'Force reload' and 'Toggle Developer Tools' from `View` menu
+  isDev
+    ? { label: 'viewMenu' }
+    : {
+        label: 'View',
+        submenu: [
+          { role: 'resetZoom' },
+          { role: 'zoomIn' },
+          { role: 'zoomOut' },
+          { type: 'separator' },
+          { role: 'togglefullscreen' },
+        ],
+      },
   {
     label: 'Window',
     submenu: [
