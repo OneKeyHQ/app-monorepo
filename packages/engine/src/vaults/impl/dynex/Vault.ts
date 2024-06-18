@@ -225,7 +225,7 @@ export default class Vault extends VaultBase {
 
     const unspentOutputs = await this._collectUnspentOutputs();
     const { inputs, finalAmount } = this._collectInputs({
-      unspentOutputs: Object.values(unspentOutputs),
+      unspentOutputs,
       amount: new BigNumber(transferInfo.amount)
         .shiftedBy(network.decimals)
         .toFixed(),
@@ -470,48 +470,8 @@ export default class Vault extends VaultBase {
   async _collectUnspentOutputs() {
     const client = await this.getClient();
     const accountAddress = await this.getAccountAddress();
-    const transactions = await client.getTransactionsByAddress(accountAddress);
-    const unspentOutputs: Record<
-      string,
-      {
-        prevIndex: number;
-        globalIndex: number;
-        txPubkey: string;
-        prevOutPubkey: string;
-        amount: number;
-      }
-    > = {};
 
-    for (let i = 0; i < transactions.length; i += 1) {
-      const tx = transactions[i];
-      const transaction = await client.getTransaction(tx.hash);
-
-      if (transaction.address_from === accountAddress) {
-        transaction.inputs.forEach((input) => {
-          const output =
-            unspentOutputs[
-              `${input.data.input.key_offsets[0]}_${input.data.input.amount}`
-            ];
-          if (output && output.amount === input.data.input.amount) {
-            delete unspentOutputs[
-              `${input.data.input.key_offsets[0]}_${input.data.input.amount}`
-            ];
-          }
-        });
-      }
-
-      transaction.outputs?.forEach((output, index) => {
-        if (output.address_to === accountAddress) {
-          unspentOutputs[`${output.globalIndex}_${output.output.amount}`] = {
-            prevIndex: index,
-            globalIndex: output.globalIndex,
-            txPubkey: transaction.extra.publicKey,
-            prevOutPubkey: output.output.target.data.key,
-            amount: output.output.amount,
-          };
-        }
-      });
-    }
+    const unspentOutputs = await client.getUnspentUTXOs(accountAddress);
 
     return unspentOutputs;
   }

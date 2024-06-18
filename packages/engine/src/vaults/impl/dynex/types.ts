@@ -105,3 +105,12 @@ export type ISignTxParams = {
   fee: string;
   paymentIdHex?: string;
 };
+
+export type IOnChainUnspentOutput = {
+  amount: number;
+  globalOutputIndex: number;
+  outputInTransaction: number;
+  outputKey: string;
+  transactionHash: string;
+  transactionPublicKey: string;
+};

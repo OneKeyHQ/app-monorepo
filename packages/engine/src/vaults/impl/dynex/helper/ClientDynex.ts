@@ -17,6 +17,8 @@ import type {
   IOnChainNodeInfo,
   IOnChainTransaction,
   IOnChainTransactionsItem,
+  IOnChainUnspentOutput,
+  IUnspentOutput,
 } from '../types';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -26,6 +28,7 @@ export enum RPC_METHODS {
   GET_TRANSACTION = 'gettransaction',
   GET_BLOCK_COUNT = 'getblockcount',
   VALIDATE_ADDRESS = 'validateaddress',
+  GET_OUTPUT_BY_ADDRESS = 'getoutputsbyaddress',
 }
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum PARAMS_ENCODINGS {
@@ -140,6 +143,31 @@ export class ClientDynex extends BaseClient {
     this.checkDynexNodeResponse({ resp, method: 'getTransactionsByAddress' });
 
     return resp.transactions;
+  }
+
+  async getUnspentUTXOs(address: string): Promise<IUnspentOutput[]> {
+    try {
+      const resp = await this.rpc.call<{
+        status: string;
+        outputs: IOnChainUnspentOutput[];
+        balance: number;
+      }>(RPC_METHODS.GET_OUTPUT_BY_ADDRESS, {
+        address,
+      });
+
+      this.checkDynexNodeResponse({ resp, method: 'getTransactionsByAddress' });
+
+      return resp.outputs.map((output) => ({
+        prevIndex: output.outputInTransaction,
+        globalIndex: output.globalOutputIndex,
+        txPubkey: output.transactionPublicKey,
+        prevOutPubkey: output.outputKey,
+        amount: output.amount,
+      }));
+    } catch (e) {
+      console.log(e);
+      return [];
+    }
   }
 
   override getInfo(): Promise<ClientInfo> {
