@@ -17,22 +17,25 @@ export type IV4MigrationWallet = {
   isExternal: boolean;
   //   accounts: IV4DBAccount[];
 };
-
+export type IV4OnAccountMigrated = (
+  v5account: IDBAccount,
+  v4account: IV4DBAccount,
+) => void;
 export type IV4RunWalletMigrationParams = {
   onWalletMigrated: (v5wallet?: IDBWallet) => void;
-  onAccountMigrated: (v5account?: IDBAccount) => void;
+  onAccountMigrated: IV4OnAccountMigrated;
   v4wallet: IV4DBWallet;
 };
 
 export type IV4RunAccountMigrationParams = {
-  onAccountMigrated: (v5account: IDBAccount) => void;
+  onAccountMigrated: IV4OnAccountMigrated;
   v4account: IV4DBAccount;
 };
 
 export type IV4MigrationPayload = {
   password: string;
   v4password: string;
-  migratePasswordOk: boolean;
+  migrateV4PasswordOk: boolean;
   shouldBackup: boolean;
   wallets: IV4MigrationWallet[];
   walletsForBackup: IV4MigrationWallet[];
