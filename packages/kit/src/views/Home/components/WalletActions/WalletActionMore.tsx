@@ -3,11 +3,13 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IActionListProps } from '@onekeyhq/components';
 import { useClipboard } from '@onekeyhq/components';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { useSupportNetworkId } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
@@ -39,8 +41,27 @@ export function WalletActionMore() {
   }, [navigation, network, account]);
   const show = useReviewControl();
 
+  const vaultSettings = usePromiseResult(async () => {
+    const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId: network?.id ?? '',
+    });
+    return settings;
+  }, [network?.id]).result;
+
   const sections: ComponentProps<typeof RawActions.More>['sections'] = [
     {
+      items: [
+        {
+          label: intl.formatMessage({ id: ETranslations.global_copy_address }),
+          icon: 'Copy1Outline',
+          onPress: () => copyText(account?.address || ''),
+        },
+      ],
+    },
+  ];
+
+  if (!vaultSettings?.hideBlockExplorer) {
+    sections.unshift({
       items: [
         {
           label: intl.formatMessage({
@@ -55,14 +76,9 @@ export function WalletActionMore() {
               }),
             ),
         },
-        {
-          label: intl.formatMessage({ id: ETranslations.global_copy_address }),
-          icon: 'Copy1Outline',
-          onPress: () => copyText(account?.address || ''),
-        },
       ],
-    },
-  ];
+    });
+  }
 
   if (show) {
     sections.unshift({
