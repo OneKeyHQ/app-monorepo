@@ -28,6 +28,12 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import {
+  EOnChainHistoryTransferType,
+  type IOnChainHistoryTx,
+  type IOnChainHistoryTxToken,
+} from '@onekeyhq/shared/types/history';
+import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import {
   EDecodedTxActionType,
   EDecodedTxDirection,
   EDecodedTxStatus,
@@ -745,5 +751,77 @@ export default class VaultDot extends VaultBase {
     }
 
     return true;
+  }
+
+  override async buildHistoryTransferAction({
+    tx,
+    tokens,
+    nfts,
+  }: {
+    tx: IOnChainHistoryTx;
+    tokens: Record<string, IOnChainHistoryTxToken>;
+    nfts: Record<string, IAccountNFT>;
+  }): Promise<IDecodedTxAction> {
+    let to = tx.to;
+    let sends = tx.sends;
+    let receives = tx.receives;
+    if (!tx.to) {
+      const confirmedTxs =
+        await this.backgroundApi.serviceHistory.getAccountLocalHistoryConfirmedTxs(
+          {
+            networkId: this.networkId,
+            accountAddress: tx.from,
+          },
+        );
+      let localTx = confirmedTxs.find((item) => item.decodedTx.txid === tx.tx);
+      if (!localTx) {
+        const pendingTxs =
+          await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs(
+            {
+              networkId: this.networkId,
+              accountAddress: tx.from,
+            },
+          );
+        localTx = pendingTxs.find((item) => item.decodedTx.txid === tx.tx);
+      }
+      if (localTx && localTx.decodedTx.actions[0].assetTransfer) {
+        const assetTransfer = localTx.decodedTx.actions[0].assetTransfer;
+        to = assetTransfer.to;
+        sends = assetTransfer.sends.map((send) => ({
+          ...send,
+          label: send.label || '',
+          token: send.tokenIdOnNetwork,
+          type: EOnChainHistoryTransferType.Transfer,
+        }));
+        receives = assetTransfer.receives.map((receive) => ({
+          ...receive,
+          label: receive.label || '',
+          token: receive.tokenIdOnNetwork,
+          type: EOnChainHistoryTransferType.Transfer,
+        }));
+      }
+    }
+    return {
+      type: EDecodedTxActionType.ASSET_TRANSFER,
+      assetTransfer: {
+        from: tx.from,
+        to,
+        label: tx.label,
+        sends: sends.map((send) =>
+          this.buildHistoryTransfer({
+            transfer: send,
+            tokens,
+            nfts,
+          }),
+        ),
+        receives: receives.map((receive) =>
+          this.buildHistoryTransfer({
+            transfer: receive,
+            tokens,
+            nfts,
+          }),
+        ),
+      },
+    };
   }
 }

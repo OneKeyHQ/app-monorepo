@@ -140,7 +140,9 @@ export function AssetItem({
                 showPlusMinusSigns: true,
               }}
             >
-              {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amount}`}
+              {amount
+                ? `${direction === EDecodedTxDirection.IN ? '+' : '-'}${amount}`
+                : '-'}
             </NumberSizeableText>
           )
         }
@@ -153,7 +155,9 @@ export function AssetItem({
               formatter="value"
               formatterOptions={{ currency: currencySymbol }}
             >
-              {new BigNumber(amount).times(asset.price ?? 0).toString()}
+              {amount
+                ? new BigNumber(amount).times(asset.price ?? 0).toString()
+                : '-'}
             </NumberSizeableText>
           )
         }
