@@ -172,6 +172,9 @@ function HardwareSingletonDialogCmp(
 
 const HardwareSingletonDialog = forwardRef(HardwareSingletonDialogCmp);
 
+let dialogInstances: IDialogInstance[] = [];
+let toastInstances: IToastShowResult[] = [];
+
 function HardwareUiStateContainerCmp() {
   const [state] = useHardwareUiStateAtom();
   const { serviceHardware, serviceHardwareUI } = backgroundApiProxy;
@@ -180,8 +183,12 @@ function HardwareUiStateContainerCmp() {
   const connectId = state?.connectId; // connectId maybe undefined usb-sdk
   const deviceType = state?.payload?.deviceType || 'unknown';
 
-  const dialogRef = useRef<IDialogInstance | undefined>();
-  const toastRef = useRef<IToastShowResult | undefined>();
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  // const dialogRef = useRef<IDialogInstance | undefined>();
+  // const toastRef = useRef<IToastShowResult | undefined>();
+
   const shouldShowAction = Boolean(state);
 
   const isToastAction = useMemo(() => {
@@ -270,22 +277,43 @@ function HardwareUiStateContainerCmp() {
   // TODO support multiple connectId dialog show
   useEffect(() => {
     void showOrHideMutex.current.runExclusive(async () => {
+      const ts = Date.now();
+      const log = (...args: any[]) =>
+        console.log(`${ts}## HardwareUiStateContainerUiLog`, ...args);
+      const stateData = stateRef.current;
+      log(`start ui  ========= `, stateData);
       // TODO do not cancel device here
       const closePrevActions = async () => {
-        await dialogRef.current?.close({ flag: autoClosedFlag });
-        await toastRef.current?.close({ flag: autoClosedFlag });
+        for (const dialog of dialogInstances) {
+          await dialog?.close?.({ flag: autoClosedFlag });
+        }
+        for (const toast of toastInstances) {
+          await toast?.close?.({ flag: autoClosedFlag });
+        }
+        dialogInstances = [];
+        toastInstances = [];
+        // await dialogRef.current?.close({ flag: autoClosedFlag });
+        // await toastRef.current?.close({ flag: autoClosedFlag });
+        log(`close prev toast or dialog`);
       };
       await closePrevActions();
-      await timerUtils.wait(300);
+
+      // for DEBUG test
+      if (stateData?.action === 'ui-request_passphrase') {
+        // log(`skip action: 'ui-request_passphrase'`);
+        // return;
+      }
+
       if (shouldShowAction) {
         if (isToastAction) {
+          log(`show toast`);
           // hardware ui state toast
-          toastRef.current = Toast.show({
+          const instance = Toast.show({
             children: <ConfirmOnDeviceToastContent deviceType={deviceType} />,
             dismissOnOverlayPress: false,
             disableSwipeGesture: false,
             onClose: async (params) => {
-              console.log('close ConfirmOnDeviceToastContent');
+              log('close toast');
               if (params?.flag !== autoClosedFlag) {
                 await serviceHardwareUI.closeHardwareUiStateDialog({
                   connectId,
@@ -294,14 +322,16 @@ function HardwareUiStateContainerCmp() {
               }
             },
           });
+          toastInstances.push(instance);
         } else if (isDialogAction) {
+          log(`show dialog `);
           // hardware ui action dialog
-          dialogRef.current = Dialog.show({
+          const instance = Dialog.show({
             dismissOnOverlayPress: false,
             showFooter: false,
             dialogContainer: HardwareSingletonDialogRender,
             async onClose(params) {
-              console.log('HardwareUiStateContainer onDismiss');
+              log('close dialog');
               if (params?.flag !== autoClosedFlag) {
                 await serviceHardwareUI.closeHardwareUiStateDialog({
                   connectId,
@@ -311,10 +341,15 @@ function HardwareUiStateContainerCmp() {
               }
             },
           });
+          dialogInstances.push(instance);
         }
       } else {
         await closePrevActions();
       }
+
+      // If the interval between toast open and close (prev opened toast) is less than 300ms, the toast cannot be closed, so a delay must be added here.
+      await timerUtils.wait(300);
+      log(`end ui ^^^^^^^^^^^^^^^^^^^^^^^^^^^`);
     });
 
     return () => {};

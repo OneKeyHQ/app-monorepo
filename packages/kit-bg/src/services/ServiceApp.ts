@@ -25,7 +25,7 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  private restartApp() {
+  restartApp() {
     if (platformEnv.isNative) {
       return RNRestart.restart();
     }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -48,7 +49,7 @@ function useSwapWarningCheck() {
       accountInfo: undefined,
     },
   });
-
+  const isFocused = useIsFocused();
   const asyncRefContainer = useCallback(() => {
     if (refContainer.current.swapFromAddressInfo !== swapFromAddressInfo) {
       refContainer.current.swapFromAddressInfo = swapFromAddressInfo;
@@ -56,8 +57,10 @@ function useSwapWarningCheck() {
   }, [swapFromAddressInfo]);
 
   useEffect(() => {
-    asyncRefContainer();
-    void checkSwapWarning(refContainer.current.swapFromAddressInfo);
+    if (isFocused) {
+      asyncRefContainer();
+      void checkSwapWarning(refContainer.current.swapFromAddressInfo);
+    }
   }, [
     asyncRefContainer,
     checkSwapWarning,
@@ -67,6 +70,7 @@ function useSwapWarningCheck() {
     fromTokenBalance,
     quoteCurrentSelect,
     networks,
+    isFocused,
   ]);
 }
 
