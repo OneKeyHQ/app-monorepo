@@ -12,6 +12,7 @@ import {
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -108,7 +109,8 @@ function SendConfirmContainer() {
   const renderSendConfirmView = useCallback(
     () => (
       <>
-        <Page.Body px="$5" space="$4">
+        <Page.Body testID="tx-confirmation-body">
+          {/* TODO: error feedbacks */}
           <TxSourceInfoContainer sourceInfo={sourceInfo} />
           <TxActionsContainer
             accountId={accountId}
@@ -120,6 +122,7 @@ function SendConfirmContainer() {
             networkId={networkId}
             useFeeInTx={useFeeInTx}
           />
+          {/* TODO: Swap tx details */}
           <TxSimulationContainer />
         </Page.Body>
         <SendConfirmActionsContainer
@@ -156,7 +159,9 @@ function SendConfirmContainer() {
       }}
     >
       <Page.Header
-        title={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
+        title={intl.formatMessage({
+          id: ETranslations.transaction__transaction_confirm,
+        })}
       />
       {renderSendConfirmView()}
     </Page>

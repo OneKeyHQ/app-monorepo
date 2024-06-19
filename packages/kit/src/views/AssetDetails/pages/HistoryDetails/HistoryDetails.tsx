@@ -612,7 +612,7 @@ function HistoryDetails() {
               compact
             />
             <InfoItem
-              label={intl.formatMessage({ id: ETranslations.global_date })}
+              label={intl.formatMessage({ id: ETranslations.global_time })}
               renderContent={txInfo.date}
               compact
             />

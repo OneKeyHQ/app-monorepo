@@ -2,9 +2,8 @@ import { memo, useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Skeleton, YStack } from '@onekeyhq/components';
+import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Container } from '@onekeyhq/kit/src/components/Container';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -20,6 +19,11 @@ import {
   isSendNativeTokenAction,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
+
+import {
+  InfoItem,
+  InfoItemGroup,
+} from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 
 type IProps = {
   accountId: string;
@@ -120,20 +124,52 @@ function TxActionsContainer(props: IProps) {
 
     if (nativeTokenInfo.isLoading) {
       return (
-        <Container.Box>
-          <Container.Item
-            title={<Skeleton h="$4" w="$48" />}
-            content={<Skeleton w="$80" />}
+        <InfoItemGroup>
+          <InfoItem
+            label={
+              <Stack py="$1">
+                <Skeleton height="$3" width="$12" />
+              </Stack>
+            }
+            renderContent={
+              <XStack space="$3" alignItems="center">
+                <Skeleton height="$10" width="$10" radius="round" />
+                <Stack>
+                  <Stack py="$1.5">
+                    <Skeleton height="$3" width="$24" />
+                  </Stack>
+                  <Stack py="$1">
+                    <Skeleton height="$3" width="$12" />
+                  </Stack>
+                </Stack>
+              </XStack>
+            }
           />
-          <Container.Item
-            title={<Skeleton h="$4" w="$48" />}
-            content={<Skeleton w="$80" />}
+          <InfoItem
+            label={
+              <Stack py="$1">
+                <Skeleton height="$3" width="$8" />
+              </Stack>
+            }
+            renderContent={
+              <Stack py="$1">
+                <Skeleton height="$3" width="$56" />
+              </Stack>
+            }
           />
-          <Container.Item
-            title={<Skeleton h="$4" w="$48" />}
-            content={<Skeleton w="$80" />}
+          <InfoItem
+            label={
+              <Stack py="$1">
+                <Skeleton height="$3" width="$8" />
+              </Stack>
+            }
+            renderContent={
+              <Stack py="$1">
+                <Skeleton height="$3" width="$56" />
+              </Stack>
+            }
           />
-        </Container.Box>
+        </InfoItemGroup>
       );
     }
 

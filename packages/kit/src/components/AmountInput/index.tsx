@@ -242,6 +242,7 @@ export function AmountInput({
       </Stack>
     ) : (
       <XStack
+        alignItems="center"
         px="$3.5"
         pb="$2"
         onPress={balanceProps.onPress}
@@ -258,8 +259,8 @@ export function AmountInput({
           pr: '$0',
         })}
       >
+        <Icon name="WalletOutline" size="$5" color="$iconSubdued" mr="$1" />
         <SizableText size="$bodyMd" color="$textSubdued">
-          Balance:
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
