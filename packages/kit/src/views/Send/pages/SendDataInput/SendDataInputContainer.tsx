@@ -103,6 +103,8 @@ function SendDataInputContainer() {
       vaultSettings,
       hasFrozenBalance,
       displayMemoForm,
+      memoMaxLength,
+      numericOnlyMemo,
     ] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
@@ -174,6 +176,8 @@ function SendDataInputContainer() {
         vs,
         frozenBalanceSettings,
         vs.withMemo,
+        vs.memoMaxLength,
+        vs.numericOnlyMemo,
       ];
     },
     [
@@ -636,6 +640,13 @@ function SendDataInputContainer() {
 
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
+    const maxLength = memoMaxLength || 256;
+    const validateErrMsg = numericOnlyMemo
+      ? intl.formatMessage({
+          id: ETranslations.send_field_only_integer,
+        })
+      : undefined;
+    const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
 
     return (
       <>
@@ -652,24 +663,20 @@ function SendDataInputContainer() {
           name="memo"
           rules={{
             maxLength: {
-              value: 10,
+              value: maxLength,
               message: intl.formatMessage(
                 {
                   id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
                 },
                 {
-                  number: 10,
+                  number: maxLength,
                 },
               ),
             },
             validate: (value) => {
-              if (!value) return undefined;
-              const result = !/^[0-9]+$/.test(value);
-              return result
-                ? intl.formatMessage({
-                    id: ETranslations.send_field_only_integer,
-                  })
-                : undefined;
+              if (!value || !memoRegExp) return undefined;
+              const result = !memoRegExp.test(value);
+              return result ? validateErrMsg : undefined;
             },
           }}
         >
@@ -683,7 +690,7 @@ function SendDataInputContainer() {
         </Form.Field>
       </>
     );
-  }, [displayMemoForm, intl]);
+  }, [displayMemoForm, intl, memoMaxLength, numericOnlyMemo]);
 
   const renderDataInput = useCallback(() => {
     if (isNFT) {
