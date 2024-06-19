@@ -250,7 +250,6 @@ function HistoryDetails() {
             receives[0]?.to ??
             decodedTx.to ??
             decodedTx.actions[0]?.assetTransfer?.to;
-
       return {
         from,
         to,
@@ -387,8 +386,10 @@ function HistoryDetails() {
     const onChainTxPayload = historyTx.decodedTx.payload;
 
     if (vaultSettings?.isUtxo) {
-      sends = sends?.filter((send) => send.isOwn);
-      receives = receives?.filter((receive) => receive.isOwn);
+      sends = sends?.filter((send) => (isNil(send.isOwn) ? true : send.isOwn));
+      receives = receives?.filter((receive) =>
+        isNil(receive.isOwn) ? true : receive.isOwn,
+      );
     }
 
     if (
@@ -528,12 +529,8 @@ function HistoryDetails() {
 
   const renderTxMetaInfo = useCallback(() => {
     const components = getHistoryTxMeta({ impl: network?.impl ?? '' });
-    console.log('components', components);
     const TxFlow = components?.[EHistoryTxDetailsBlock.Flow];
     const TxAttributes = components?.[EHistoryTxDetailsBlock.Attributes];
-
-    console.log('TxFlow', TxFlow);
-    console.log('TxAttributes', TxAttributes);
 
     return (
       <>
@@ -615,7 +612,7 @@ function HistoryDetails() {
               compact
             />
             <InfoItem
-              label={intl.formatMessage({ id: ETranslations.global_date })}
+              label={intl.formatMessage({ id: ETranslations.global_time })}
               renderContent={txInfo.date}
               compact
             />
@@ -624,25 +621,6 @@ function HistoryDetails() {
           <Divider mx="$5" />
           <InfoItemGroup>
             {renderTxMetaInfo()}
-            {vaultSettings?.isUtxo ? (
-              <InfoItem
-                renderContent={
-                  <Button
-                    size="medium"
-                    onPress={handleViewUTXOsOnPress}
-                    variant="secondary"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_inputs,
-                    })}{' '}
-                    &{' '}
-                    {intl.formatMessage({
-                      id: ETranslations.global_outputs,
-                    })}
-                  </Button>
-                }
-              />
-            ) : null}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.global_transaction_id,
@@ -661,6 +639,13 @@ function HistoryDetails() {
               renderContent={renderFeeInfo()}
               compact
             />
+            {!isNil(txInfo.blockHeight) ? (
+              <InfoItem
+                label="Block Height"
+                renderContent={String(txInfo.blockHeight)}
+                compact
+              />
+            ) : null}
             {vaultSettings?.nonceRequired && !isNil(txInfo.nonce) ? (
               <InfoItem
                 label="Nonce"
@@ -668,6 +653,7 @@ function HistoryDetails() {
                 compact
               />
             ) : null}
+
             {!isNil(txInfo.confirmations) ? (
               <InfoItem
                 label={intl.formatMessage({
@@ -675,6 +661,26 @@ function HistoryDetails() {
                 })}
                 renderContent={String(txInfo.confirmations)}
                 compact
+              />
+            ) : null}
+            {vaultSettings?.isUtxo ? (
+              <InfoItem
+                renderContent={
+                  <Button
+                    size="medium"
+                    onPress={handleViewUTXOsOnPress}
+                    variant="secondary"
+                    iconAfter="ChevronRightSmallOutline"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.global_inputs,
+                    })}{' '}
+                    &{' '}
+                    {intl.formatMessage({
+                      id: ETranslations.global_outputs,
+                    })}
+                  </Button>
+                }
               />
             ) : null}
           </InfoItemGroup>
@@ -728,6 +734,7 @@ function HistoryDetails() {
     txInfo.date,
     txInfo.txid,
     txInfo.nonce,
+    txInfo.blockHeight,
     txInfo.confirmations,
     txInfo.swapInfo,
     renderTxMetaInfo,
@@ -742,7 +749,9 @@ function HistoryDetails() {
   return (
     <Page scrollEnabled>
       <Page.Header headerTitle={historyDetailsTitle} />
-      <Page.Body>{renderHistoryDetails()}</Page.Body>
+      <Page.Body testID="history-details-body">
+        {renderHistoryDetails()}
+      </Page.Body>
     </Page>
   );
 }

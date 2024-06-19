@@ -360,23 +360,6 @@ export default class Vault extends VaultBase {
       });
     }
 
-    const isValidEthAddress = ethers.utils.isAddress(address);
-
-    if (isValidEthAddress) {
-      const { isTestnet } = await this.getNetwork();
-      const ethAddress = delegatedFromEthAddress(
-        address,
-        isTestnet ? CoinType.TEST : CoinType.MAIN,
-      );
-
-      const outputAddress = await this._getOutputAddress(ethAddress);
-      return {
-        isValid: true,
-        normalizedAddress: outputAddress,
-        displayAddress: outputAddress,
-      };
-    }
-
     return {
       isValid: false,
       normalizedAddress: '',
