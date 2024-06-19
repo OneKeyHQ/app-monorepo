@@ -51,6 +51,7 @@ function HeaderView({
     headerStyle,
     headerBackground,
     headerShown = true,
+    // native HeaderSearchBar in packages/components/src/layouts/Page/PageHeader.tsx
     headerSearchBarOptions,
     headerTitleStyle,
   } = options || {};
