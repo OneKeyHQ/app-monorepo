@@ -4,17 +4,21 @@ import BigNumber from 'bignumber.js';
 import { isNaN, isNil, isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IButtonProps } from '@onekeyhq/components';
 import {
   Button,
+  Dialog,
   Divider,
   Form,
   Input,
   NumberSizeableText,
+  ScrollView,
   SegmentControl,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useDialogInstance,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
@@ -48,7 +52,6 @@ type IFeeInfoItem = {
 type IProps = {
   networkId: string;
   feeSelectorItems: IFeeSelectorItem[];
-  setIsEditFeeActive: React.Dispatch<React.SetStateAction<boolean>>;
   sendSelectedFee: {
     feeType: EFeeType;
     presetIndex: number;
@@ -107,18 +110,6 @@ function FeeInfoItem({ feeInfo }: { feeInfo: IFeeInfoItem }) {
         {label}
       </SizableText>
       <XStack alignItems="center" space="$1">
-        {!isNil(fiatValue) ? (
-          <NumberSizeableText
-            formatter="value"
-            formatterOptions={{
-              currency: settings.currencyInfo.symbol,
-            }}
-            size="$bodyMd"
-            color="$textSubdued"
-          >
-            {fiatValue}
-          </NumberSizeableText>
-        ) : null}
         {!isNil(nativeValue) ? (
           <NumberSizeableText
             formatter="balance"
@@ -139,6 +130,18 @@ function FeeInfoItem({ feeInfo }: { feeInfo: IFeeInfoItem }) {
             {customValue}
           </NumberSizeableText>
         ) : null}
+        {!isNil(fiatValue) ? (
+          <NumberSizeableText
+            formatter="value"
+            formatterOptions={{
+              currency: settings.currencyInfo.symbol,
+            }}
+            size="$bodyMd"
+            color="$textSubdued"
+          >
+            {fiatValue}
+          </NumberSizeableText>
+        ) : null}
       </XStack>
     </XStack>
   );
@@ -148,7 +151,6 @@ function FeeEditor(props: IProps) {
   const {
     networkId,
     feeSelectorItems,
-    setIsEditFeeActive,
     sendSelectedFee,
     originalCustomFee,
     selectedFee,
@@ -157,6 +159,7 @@ function FeeEditor(props: IProps) {
     estimateFeeParams,
   } = props;
   const intl = useIntl();
+  const dialog = useDialogInstance();
   const isVerticalLayout = useMedia().md;
 
   const [currentFeeIndex, setCurrentFeeIndex] = useState(
@@ -357,20 +360,14 @@ function FeeEditor(props: IProps) {
     return true;
   }, []);
 
-  const handleApplyFeeInfo = useCallback(() => {
+  const handleApplyFeeInfo = useCallback(async () => {
     onApplyFeeInfo({
       feeType: currentFeeType,
       presetIndex: currentFeeIndex,
       customFeeInfo,
     });
-    setIsEditFeeActive(false);
-  }, [
-    currentFeeIndex,
-    currentFeeType,
-    customFeeInfo,
-    onApplyFeeInfo,
-    setIsEditFeeActive,
-  ]);
+    await dialog?.close();
+  }, [currentFeeIndex, currentFeeType, customFeeInfo, dialog, onApplyFeeInfo]);
 
   const renderFeeTypeSelector = useCallback(() => {
     if (!vaultSettings?.editFeeEnabled) return null;
@@ -403,11 +400,15 @@ function FeeEditor(props: IProps) {
             ...item,
             label: (
               <YStack>
-                <SizableText size="$bodyMdMedium" textAlign="center">
+                {/* <SizableText size="$bodyMdMedium" textAlign="center">
                   {item.icon}
-                </SizableText>
+                </SizableText> */}
                 <SizableText
-                  color={currentFeeIndex === index ? '$text' : '$textSubdued'}
+                  color={
+                    currentFeeIndex === index
+                      ? '$textInteractive'
+                      : '$textSubdued'
+                  }
                   size="$bodyMdMedium"
                   textAlign="center"
                 >
@@ -883,23 +884,28 @@ function FeeEditor(props: IProps) {
     }
 
     return (
-      <Stack space="$4" p="$5" pt="0">
-        <YStack>
+      <>
+        <Stack space="$2" py="$4">
           {feeInfoItems.map((feeInfo, index) => (
             <FeeInfoItem feeInfo={feeInfo} key={index} />
           ))}
-        </YStack>
+        </Stack>
         {vaultSettings?.editFeeEnabled ? (
           <Button
             disabled={isSaveFeeDisabled}
             variant="primary"
-            size="medium"
+            size="large"
+            $gtMd={
+              {
+                size: 'medium',
+              } as IButtonProps
+            }
             onPress={handleApplyFeeInfo}
           >
             {intl.formatMessage({ id: ETranslations.action_save })}
           </Button>
         ) : null}
-      </Stack>
+      </>
     );
   }, [
     currentFeeIndex,
@@ -966,15 +972,17 @@ function FeeEditor(props: IProps) {
   ]);
 
   return (
-    <YStack space="$4">
-      <YStack space="$4" px="$5" paddingTop={isVerticalLayout ? 0 : '$4'}>
-        {renderFeeTypeSelector()}
-        {renderFeeDetails()}
-        {renderFeeEditorForm()}
-      </YStack>
+    <>
+      <ScrollView mx="$-5">
+        <Stack space="$5" px="$5" pb="$5">
+          {renderFeeTypeSelector()}
+          {renderFeeDetails()}
+          {renderFeeEditorForm()}
+        </Stack>
+      </ScrollView>
       <Divider />
       {renderFeeOverview()}
-    </YStack>
+    </>
   );
 }
 

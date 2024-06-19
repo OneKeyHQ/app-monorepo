@@ -27,7 +27,6 @@ type IProps = {
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
   onCancel?: () => void;
-  tableLayout?: boolean;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
 };
@@ -39,7 +38,6 @@ function SendConfirmActionsContainer(props: IProps) {
     onSuccess,
     onFail,
     onCancel,
-    tableLayout,
     sourceInfo,
     signOnly,
   } = props;
@@ -166,31 +164,6 @@ function SendConfirmActionsContainer(props: IProps) {
       onCancel?.();
     }
   });
-
-  if (tableLayout) {
-    return (
-      <Page.FooterActions
-        confirmButtonProps={{
-          size: 'medium',
-          flex: 0,
-          disabled: isSubmitDisabled,
-          loading: isSubmitting,
-        }}
-        cancelButtonProps={{
-          size: 'medium',
-          flex: 0,
-          disabled: isSubmitting,
-        }}
-        onConfirmText={
-          signOnly
-            ? 'Sign'
-            : intl.formatMessage({ id: ETranslations.global_confirm })
-        }
-        onConfirm={handleOnConfirm}
-        onCancel={handleOnCancel}
-      />
-    );
-  }
 
   return (
     <Page.Footer

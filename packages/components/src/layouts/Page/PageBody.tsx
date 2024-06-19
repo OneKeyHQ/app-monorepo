@@ -1,13 +1,10 @@
-import { type PropsWithChildren, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { Stack } from '../../primitives';
 
-import type { StackStyleProps } from '@tamagui/web/types/types';
+import type { IStackProps } from '../../primitives';
 
-export function PageBody({
-  children,
-  ...props
-}: PropsWithChildren<StackStyleProps>) {
+export function PageBody({ children, ...props }: IStackProps) {
   return useMemo(
     () => (
       <Stack flex={1} {...props}>

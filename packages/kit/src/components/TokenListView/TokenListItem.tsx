@@ -11,7 +11,7 @@ import { TokenPriceChangeView } from './TokenPriceChangeView';
 import { TokenPriceView } from './TokenPriceView';
 import { TokenValueView } from './TokenValueView';
 
-type IProps = {
+export type ITokenListItemProps = {
   index: number;
   token: IAccountToken;
   onPress?: (token: IAccountToken) => void;
@@ -19,7 +19,7 @@ type IProps = {
   withPrice?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
-function TokenListItem(props: IProps) {
+function TokenListItem(props: ITokenListItemProps) {
   const { index, token, onPress, tableLayout, withPrice, ...rest } = props;
 
   return (

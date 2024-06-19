@@ -52,7 +52,6 @@ function BaseTextArea(
       borderWidth={sharedStyles.borderWidth}
       borderColor={sharedStyles.borderColor}
       placeholderTextColor={sharedStyles.placeholderTextColor}
-      focusStyle={sharedStyles.focusStyle}
       disabled={disabled}
       selectionColor={selectionColor}
       cursor={sharedStyles.cursor}

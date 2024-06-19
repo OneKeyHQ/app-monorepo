@@ -1,19 +1,22 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil, max } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Dialog,
+  Divider,
+  Image,
   NumberSizeableText,
   Popover,
   SizableText,
   Skeleton,
-  YStack,
+  Stack,
+  XStack,
 } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Container } from '@onekeyhq/kit/src/components/Container';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useCustomFeeAtom,
@@ -40,6 +43,10 @@ import type {
   IFeeSelectorItem,
 } from '@onekeyhq/shared/types/fee';
 
+import {
+  InfoItem,
+  InfoItemGroup,
+} from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import { FeeEditor, FeeSelectorTrigger } from '../../components/SendFee';
 
 type IProps = {
@@ -54,7 +61,6 @@ function TxFeeContainer(props: IProps) {
   const intl = useIntl();
   const txFeeInit = useRef(false);
   const feeInTxUpdated = useRef(false);
-  const [isEditFeeActive, setIsEditFeeActive] = useState(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
   const [settings] = useSettingsPersistAtom();
@@ -445,9 +451,44 @@ function TxFeeContainer(props: IProps) {
     updateSendTxStatus,
   ]);
 
+  const handlePress = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.swap_history_detail_network_fee,
+      }),
+      showFooter: false,
+      renderContent: (
+        <FeeEditor
+          networkId={networkId}
+          feeSelectorItems={feeSelectorItems}
+          selectedFee={selectedFee}
+          sendSelectedFee={sendSelectedFee}
+          unsignedTxs={unsignedTxs}
+          originalCustomFee={customFee}
+          onApplyFeeInfo={handleApplyFeeInfo}
+          estimateFeeParams={estimateFeeParams}
+        />
+      ),
+    });
+  }, [
+    customFee,
+    estimateFeeParams,
+    feeSelectorItems,
+    handleApplyFeeInfo,
+    intl,
+    networkId,
+    selectedFee,
+    sendSelectedFee,
+    unsignedTxs,
+  ]);
+
   const renderFeeEditor = useCallback(() => {
     if (!txFeeInit.current || !feeSelectorItems.length) {
-      return <Skeleton height="$5" width="$12" />;
+      return (
+        <Stack py="$1">
+          <Skeleton height="$3" width="$12" />
+        </Stack>
+      );
     }
 
     if (!openFeeEditorEnabled) {
@@ -464,98 +505,113 @@ function TxFeeContainer(props: IProps) {
     }
 
     return (
-      <Popover
-        title={intl.formatMessage({ id: ETranslations.title__edit_fee })}
-        open={isEditFeeActive}
-        onOpenChange={setIsEditFeeActive}
-        allowFlip={false}
-        renderContent={
-          <FeeEditor
-            networkId={networkId}
-            feeSelectorItems={feeSelectorItems}
-            setIsEditFeeActive={setIsEditFeeActive}
-            selectedFee={selectedFee}
-            sendSelectedFee={sendSelectedFee}
-            unsignedTxs={unsignedTxs}
-            originalCustomFee={customFee}
-            onApplyFeeInfo={handleApplyFeeInfo}
-            estimateFeeParams={estimateFeeParams}
-          />
-        }
-        renderTrigger={
-          <FeeSelectorTrigger
-            onPress={() => setIsEditFeeActive(true)}
-            disabled={
-              sendFeeStatus.status === ESendFeeStatus.Error ||
-              !txFeeInit.current
-            }
-          />
+      <FeeSelectorTrigger
+        onPress={handlePress}
+        disabled={
+          sendFeeStatus.status === ESendFeeStatus.Error || !txFeeInit.current
         }
       />
     );
+    // return (
+    //   <Popover
+    //     title={intl.formatMessage({ id: ETranslations.title__edit_fee })}
+    //     open={isEditFeeActive}
+    //     onOpenChange={setIsEditFeeActive}
+    //     allowFlip={false}
+
+    //     renderTrigger={
+    //       <FeeSelectorTrigger
+    //         onPress={() => setIsEditFeeActive(true)}
+    //         disabled={
+    //           sendFeeStatus.status === ESendFeeStatus.Error ||
+    //           !txFeeInit.current
+    //         }
+    //       />
+    //     }
+    //   />
+    // );
   }, [
-    customFee,
-    estimateFeeParams,
-    feeSelectorItems,
-    handleApplyFeeInfo,
+    feeSelectorItems.length,
+    handlePress,
     intl,
-    isEditFeeActive,
-    networkId,
     openFeeEditorEnabled,
-    selectedFee,
     sendFeeStatus.status,
-    sendSelectedFee,
-    unsignedTxs,
+    sendSelectedFee.feeType,
+    sendSelectedFee.presetIndex,
   ]);
 
   return (
-    <Container.Box>
-      <Container.Item
-        title="Fee Estimate"
-        content={
-          txFeeInit.current ? (
-            <NumberSizeableText
-              formatter="balance"
-              formatterOptions={{
-                tokenSymbol: txFee?.common.nativeSymbol,
-              }}
-              size="$bodyMdMedium"
-              color="$text"
-            >
-              {selectedFee?.totalNativeForDisplay ?? '0.00'}
-            </NumberSizeableText>
-          ) : (
-            <Skeleton height="$5" width="$40" />
-          )
-        }
-        subContent={
-          txFeeInit.current ? (
-            <NumberSizeableText
-              size="$bodyMdMedium"
-              color="$textSubdued"
-              formatter="value"
-              formatterOptions={{ currency: settings.currencyInfo.symbol }}
-            >
-              {selectedFee?.totalFiatForDisplay ?? '0.00'}
-            </NumberSizeableText>
-          ) : (
-            ''
-          )
-        }
-        contentAdd={renderFeeEditor()}
-        description={{
-          content: (
-            <YStack flex={1}>
+    <>
+      <Divider mx="$5" />
+      <InfoItemGroup>
+        <InfoItem
+          label={
+            <XStack space="$1">
+              <XStack alignItems="center" space="$2">
+                <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+                <SizableText size="$bodyMdMedium">{network?.name}</SizableText>
+              </XStack>
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.global_est_network_fee,
+                })}
+              </SizableText>
+            </XStack>
+          }
+          renderContent={
+            <>
+              <XStack space="$1">
+                <XStack space="$1">
+                  {txFeeInit.current ? (
+                    <NumberSizeableText
+                      formatter="balance"
+                      formatterOptions={{
+                        tokenSymbol: txFee?.common.nativeSymbol,
+                      }}
+                      size="$bodyMd"
+                      color="$textSubdued"
+                    >
+                      {selectedFee?.totalNativeForDisplay ?? '0.00'}
+                    </NumberSizeableText>
+                  ) : (
+                    <Stack py="$1">
+                      <Skeleton height="$3" width="$24" />
+                    </Stack>
+                  )}
+                  {txFeeInit.current ? (
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      (
+                      <NumberSizeableText
+                        size="$bodyMd"
+                        color="$textSubdued"
+                        formatter="value"
+                        formatterOptions={{
+                          currency: settings.currencyInfo.symbol,
+                        }}
+                      >
+                        {selectedFee?.totalFiatForDisplay ?? '0.00'}
+                      </NumberSizeableText>
+                      )
+                    </SizableText>
+                  ) : (
+                    ''
+                  )}
+                </XStack>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  •
+                </SizableText>
+                {renderFeeEditor()}
+              </XStack>
               {sendFeeStatus.errMessage ? (
-                <SizableText size="$bodyMd" color="$textCritical">
+                <SizableText mt="$1" size="$bodyMd" color="$textCritical">
                   {sendFeeStatus.errMessage}
                 </SizableText>
               ) : null}
               {sendAlertStatus.isInsufficientNativeBalance ? (
-                <SizableText size="$bodyMd" color="$textCritical">
+                <SizableText mt="$1" size="$bodyMd" color="$textCritical">
                   {intl.formatMessage(
                     {
-                      id: 'msg__str_is_required_for_network_fees_top_up_str_to_make_tx',
+                      id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
                     },
                     {
                       0: network?.symbol ?? '',
@@ -564,11 +620,71 @@ function TxFeeContainer(props: IProps) {
                   )}
                 </SizableText>
               ) : null}
-            </YStack>
-          ),
-        }}
-      />
-    </Container.Box>
+            </>
+          }
+        />
+      </InfoItemGroup>
+      {/* <Container.Box>
+        <Container.Item
+          title="Fee Estimate"
+          content={
+            txFeeInit.current ? (
+              <NumberSizeableText
+                formatter="balance"
+                formatterOptions={{
+                  tokenSymbol: txFee?.common.nativeSymbol,
+                }}
+                size="$bodyMdMedium"
+                color="$text"
+              >
+                {selectedFee?.totalNativeForDisplay ?? '0.00'}
+              </NumberSizeableText>
+            ) : (
+              <Skeleton height="$5" width="$40" />
+            )
+          }
+          subContent={
+            txFeeInit.current ? (
+              <NumberSizeableText
+                size="$bodyMdMedium"
+                color="$textSubdued"
+                formatter="value"
+                formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              >
+                {selectedFee?.totalFiatForDisplay ?? '0.00'}
+              </NumberSizeableText>
+            ) : (
+              ''
+            )
+          }
+          contentAdd={renderFeeEditor()}
+          description={{
+            content: (
+              <YStack flex={1}>
+                {sendFeeStatus.errMessage ? (
+                  <SizableText size="$bodyMd" color="$textCritical">
+                    {sendFeeStatus.errMessage}
+                  </SizableText>
+                ) : null}
+                {sendAlertStatus.isInsufficientNativeBalance ? (
+                  <SizableText size="$bodyMd" color="$textCritical">
+                    {intl.formatMessage(
+                      {
+                        id: 'msg__str_is_required_for_network_fees_top_up_str_to_make_tx',
+                      },
+                      {
+                        0: network?.symbol ?? '',
+                        1: network?.name ?? '',
+                      },
+                    )}
+                  </SizableText>
+                ) : null}
+              </YStack>
+            ),
+          }}
+        />
+      </Container.Box> */}
+    </>
   );
 }
 export default memo(TxFeeContainer);

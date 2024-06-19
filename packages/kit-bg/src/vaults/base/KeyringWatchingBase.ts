@@ -5,6 +5,8 @@ import {
   InvalidAddress,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
@@ -26,13 +28,17 @@ export abstract class KeyringWatchingBase extends KeyringBase {
 
   async signTransaction(): Promise<ISignedTxPro> {
     throw new OneKeyInternalError(
-      'signTransaction is not supported for watching accounts',
+      appLocale.intl.formatMessage({
+        id: ETranslations.wallet_error_trade_with_watched_acocunt,
+      }),
     );
   }
 
   async signMessage(): Promise<string[]> {
     throw new OneKeyInternalError(
-      'signMessage is not supported for watching accounts',
+      appLocale.intl.formatMessage({
+        id: ETranslations.wallet_error_trade_with_watched_acocunt,
+      }),
     );
   }
 

@@ -21,7 +21,7 @@ function TxHistoryListItem(props: IProps) {
     <TxHistoryListItemErrorBoundary>
       <TxActionsListView
         decodedTx={historyTx.decodedTx}
-        tableLayout={tableLayout}
+        // tableLayout={tableLayout}
         showIcon={showIcon}
         componentType={ETxActionComponentType.ListView}
         componentProps={{

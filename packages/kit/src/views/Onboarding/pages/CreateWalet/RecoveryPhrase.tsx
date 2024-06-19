@@ -152,7 +152,7 @@ export function RecoveryPhrase() {
   const headerRight = useCallback(
     () => (
       <ActionList
-        title="More"
+        title={intl.formatMessage({ id: ETranslations.global_more })}
         renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
         items={[
           {

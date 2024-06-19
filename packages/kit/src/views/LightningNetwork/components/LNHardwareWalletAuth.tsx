@@ -47,7 +47,7 @@ function LNHardwareWalletAuth({
       console.error('refresh lightning network token failed: ', e);
       Toast.error({
         title: intl.formatMessage({
-          id: 'msg__authentication_failed_verify_again',
+          id: ETranslations.ln_authorize_access_network_error,
         }),
       });
     } finally {

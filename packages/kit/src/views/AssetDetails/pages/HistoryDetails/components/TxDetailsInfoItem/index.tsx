@@ -31,7 +31,7 @@ export function InfoItem({
   disabledCopy = false,
   ...rest
 }: {
-  label?: string;
+  label?: string | ReactNode;
   renderContent: ReactNode;
   description?: ReactNode;
   compact?: boolean;
@@ -55,7 +55,15 @@ export function InfoItem({
       })}
       {...rest}
     >
-      {label ? <SizableText size="$bodyMdMedium">{label}</SizableText> : null}
+      {label ? (
+        <>
+          {typeof label === 'string' ? (
+            <SizableText size="$bodyMdMedium">{label}</SizableText>
+          ) : (
+            label
+          )}
+        </>
+      ) : null}
       {typeof renderContent === 'string' ? (
         <XStack alignItems="flex-start" justifyContent="space-between">
           <Stack flex={1} maxWidth="$96">
