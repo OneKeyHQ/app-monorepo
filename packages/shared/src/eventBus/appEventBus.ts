@@ -113,6 +113,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
+  [EAppEventBusNames.ClearLocalHistoryPendingTxs]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
