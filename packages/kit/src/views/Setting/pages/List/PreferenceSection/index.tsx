@@ -84,6 +84,9 @@ const LanguageListItem = () => {
   const [{ locale }] = useSettingsPersistAtom();
   const onChange = useCallback(async (text: string) => {
     await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
+    setTimeout(() => {
+      backgroundApiProxy.serviceApp.restartApp();
+    }, 0);
   }, []);
   return (
     <Select
