@@ -109,7 +109,12 @@ export function useSwapQuote() {
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (pageType !== EPageType.modal) {
-        if (isFocus && !isHiddenModel && !swapApprovingTxRef.current?.txId) {
+        if (
+          isFocus &&
+          !isHiddenModel &&
+          !swapApprovingTxRef.current?.txId &&
+          !swapApprovingTxRef.current?.isResetApprove
+        ) {
           void recoverQuoteInterval(activeAccountAddressRef.current);
         } else {
           cleanQuoteInterval();
@@ -121,7 +126,11 @@ export function useSwapQuote() {
   const isFocused = useIsFocused();
   useEffect(() => {
     if (pageType === EPageType.modal) {
-      if (isFocused && !swapApprovingTxRef.current?.txId) {
+      if (
+        isFocused &&
+        !swapApprovingTxRef.current?.txId &&
+        !swapApprovingTxRef.current?.isResetApprove
+      ) {
         void recoverQuoteInterval(activeAccountAddressRef.current);
       } else {
         cleanQuoteInterval();

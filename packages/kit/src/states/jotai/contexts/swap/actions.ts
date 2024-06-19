@@ -33,6 +33,7 @@ import {
   ESwapRateDifferenceUnit,
   ESwapSlippageSegmentKey,
   ESwapTxHistoryStatus,
+  ETokenRiskLevel,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
@@ -92,15 +93,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const catchTokens = swapTokenMap.tokenCatch?.[key];
       const dateNow = Date.now();
       let catchCount = 0;
-      const newTokens = tokens.map((token) => {
-        const network = swapNetworksList.find(
-          (n) => n.networkId === token.networkId,
-        );
-        if (network) {
-          token.networkLogoURI = network.logoURI;
-        }
-        return token;
-      });
+      const newTokens = tokens
+        .filter((t) => t.riskLevel !== ETokenRiskLevel.SCAM)
+        .map((token) => {
+          const network = swapNetworksList.find(
+            (n) => n.networkId === token.networkId,
+          );
+          if (network) {
+            token.networkLogoURI = network.logoURI;
+          }
+          return token;
+        });
       if (swapTokenMap.tokenCatch && catchTokens?.data) {
         // have catch
         if (JSON.stringify(catchTokens.data) !== JSON.stringify(newTokens)) {
@@ -326,7 +329,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               status: ESwapApproveTransactionStatus.CANCEL,
             };
           });
-          // set(swapBuildTxFetchingAtom(), false);
+          if (txState.state !== ESwapTxHistoryStatus.SUCCESS) {
+            set(swapBuildTxFetchingAtom(), false);
+          }
         }
       } catch (e) {
         console.error(e);
