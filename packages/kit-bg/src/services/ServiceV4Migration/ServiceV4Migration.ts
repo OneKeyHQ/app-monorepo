@@ -20,6 +20,7 @@ import { V4MigrationForAccount } from '../../migrations/v4ToV5Migration/V4Migrat
 import { V4MigrationForAddressBook } from '../../migrations/v4ToV5Migration/V4MigrationForAddressBook';
 import { V4MigrationForDiscover } from '../../migrations/v4ToV5Migration/V4MigrationForDiscover';
 import { V4MigrationForHistory } from '../../migrations/v4ToV5Migration/V4MigrationForHistory';
+import { V4MigrationForSettings } from '../../migrations/v4ToV5Migration/V4MigrationForSettings';
 import {
   v4migrationAtom,
   v4migrationPersistAtom,
@@ -56,6 +57,10 @@ class ServiceV4Migration extends ServiceBase {
   });
 
   migrationDiscover = new V4MigrationForDiscover({
+    backgroundApi: this.backgroundApi,
+  });
+
+  migrationSettings = new V4MigrationForSettings({
     backgroundApi: this.backgroundApi,
   });
 
@@ -500,7 +505,8 @@ class ServiceV4Migration extends ServiceBase {
         account: 90,
         addressBook: 92,
         discover: 95,
-        history: 98,
+        history: 97,
+        settings: 98,
       };
 
       await v4migrationAtom.set((v) => ({ ...v, isProcessing: true }));
@@ -681,6 +687,20 @@ class ServiceV4Migration extends ServiceBase {
       await v4migrationAtom.set((v) => ({
         ...v,
         progress: maxProgress.history,
+      }));
+
+      // **** migrate settings
+      await timerUtils.wait(1000);
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => this.migrationSettings.convertV4SettingsToV5(),
+        {
+          name: 'migrate v4 settings',
+          errorResultFn: () => undefined,
+        },
+      );
+      await v4migrationAtom.set((v) => ({
+        ...v,
+        progress: maxProgress.settings,
       }));
 
       // ----------------------------------------------
