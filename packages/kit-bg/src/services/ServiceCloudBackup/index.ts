@@ -147,7 +147,7 @@ class ServiceCloudBackup extends ServiceBase {
             type: wallet.type,
             accounts: [],
             accountIds: [],
-            nextAccountIds: wallet.nextAccountIds,
+            nextIds: wallet.nextIds,
             avatar: wallet.avatarInfo,
             version: HDWALLET_BACKUP_VERSION,
           };

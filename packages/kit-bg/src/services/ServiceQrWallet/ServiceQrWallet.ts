@@ -233,6 +233,10 @@ class ServiceQrWallet extends ServiceBase {
       xfp: airGapMultiAccounts.masterFingerprint || '',
       buildBy,
     };
+
+    if (qrDevice.buildBy === 'hdkey') {
+      throw new Error('hdkey not supported');
+    }
     return {
       qrDevice,
       airGapAccounts: airGapMultiAccounts.keys,
