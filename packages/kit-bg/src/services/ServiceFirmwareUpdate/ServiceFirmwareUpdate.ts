@@ -1512,6 +1512,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   async validateDeviceBattery(params: IUpdateFirmwareWorkflowParams) {
+    // USB connected, skip battery check
+    if (!platformEnv.isNative) {
+      return;
+    }
+
     const { features: deviceFeatures } = params.releaseResult;
 
     let batteryLevel: number | undefined = deviceFeatures?.battery_level;

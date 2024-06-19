@@ -24,7 +24,7 @@ export const FIRMWARE_UPDATE_WEB_TOOLS_URL = 'https://firmware.onekey.so';
 export const FIRMWARE_UPDATE_FULL_RES_GUIDE =
   'https://help.onekey.so/hc/articles/8884680775951';
 export const FIRMWARE_UPDATE_BRIDGE_GUIDE =
-  'https://help.onekey.so/hc/articles/8884680775951';
+  'https://help.onekey.so/hc/articles/9740566472335';
 
 export const CERTIFICATE_URL = 'https://certificate.onekey.so/verify';
 export const CERTIFICATE_URL_PATH = '/verify';
