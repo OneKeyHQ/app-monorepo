@@ -12,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -22,8 +23,6 @@ import {
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
 import {
   InfoItem,
