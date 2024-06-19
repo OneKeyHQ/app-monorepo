@@ -36,6 +36,8 @@ const settings: IVaultSettings = {
 
   defaultFeePresetIndex: 0,
 
+  saveConfirmedTxsEnabled: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {
