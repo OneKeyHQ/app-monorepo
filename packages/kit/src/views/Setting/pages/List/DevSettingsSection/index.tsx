@@ -94,6 +94,14 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionFieldItem
+        name="showDevExportPrivateKey"
+        title="首页导出私钥临时入口"
+        subtitle=""
+        testID="show-dev-overlay"
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
       <SectionPressItem
         title="FirmwareUpdateDevSettings"
         testID="firmware-update-dev-settings-menu"
@@ -142,6 +150,14 @@ export const DevSettingsSection = () => {
                   testID="clear-password"
                   onPress={() => {
                     void backgroundApiProxy.serviceE2E.resetPasswordSetStatus();
+                    void dialog.close();
+                  }}
+                />
+                <SectionPressItem
+                  title="Wallet Connect Session"
+                  testID="wallet-connect-session"
+                  onPress={() => {
+                    void backgroundApiProxy.serviceWalletConnect.disconnectAllSessions();
                     void dialog.close();
                   }}
                 />

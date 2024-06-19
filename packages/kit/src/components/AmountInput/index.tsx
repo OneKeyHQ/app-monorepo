@@ -47,6 +47,7 @@ type IAmountInputFormItemProps = IFormFieldProps<
       selectedNetworkImageUri?: string;
       selectedTokenSymbol?: string;
       loading?: boolean;
+      disabled?: boolean;
     } & IXStackProps;
     reversible?: boolean;
   } & IStackProps
@@ -166,9 +167,10 @@ export function AmountInput({
             bg: '$bgActive',
           },
         })}
+        disabled={tokenSelectorTriggerProps?.disabled}
         onPress={tokenSelectorTriggerProps?.onPress}
       >
-        <Stack>
+        <Stack mr="$2">
           <Image height="$7" width="$7" borderRadius="$full">
             <Image.Source
               source={{
@@ -190,6 +192,7 @@ export function AmountInput({
             bottom="$-1"
             p="$0.5"
             borderRadius="$full"
+            flexShrink={1}
             bg="$bgApp"
           >
             {tokenSelectorTriggerProps?.selectedNetworkImageUri ? (
@@ -206,11 +209,12 @@ export function AmountInput({
             ) : null}
           </Stack>
         </Stack>
-        <SizableText size="$headingXl" pl="$2" numberOfLines={1}>
+        <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {tokenSelectorTriggerProps?.selectedTokenSymbol ||
             intl.formatMessage({ id: ETranslations.token_selector_title })}
         </SizableText>
-        {tokenSelectorTriggerProps?.onPress ? (
+        {tokenSelectorTriggerProps?.onPress &&
+        !tokenSelectorTriggerProps.disabled ? (
           <Icon
             flexShrink={0}
             name="ChevronDownSmallOutline"
@@ -223,6 +227,7 @@ export function AmountInput({
     );
   }, [
     intl,
+    tokenSelectorTriggerProps?.disabled,
     tokenSelectorTriggerProps?.loading,
     tokenSelectorTriggerProps?.onPress,
     tokenSelectorTriggerProps?.selectedNetworkImageUri,
@@ -254,15 +259,13 @@ export function AmountInput({
         })}
       >
         <SizableText size="$bodyMd" color="$textSubdued">
+          Balance:
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
             formatter="balance"
           >
-            {intl.formatMessage(
-              { id: ETranslations.send_balance },
-              { number: balanceProps.value ?? 0 },
-            )}
+            {balanceProps.value ?? 0}
           </NumberSizeableText>
         </SizableText>
         {enableMaxAmount ? (
@@ -292,6 +295,7 @@ export function AmountInput({
           alignItems="center"
           px="$3.5"
           pb="$2"
+          disabled={balanceProps?.loading}
           onPress={valueProps?.onPress}
           {...(reversible && {
             userSelect: 'none',

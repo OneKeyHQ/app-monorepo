@@ -5,7 +5,6 @@ import { Button, Stack } from '@onekeyhq/components';
 import {
   ConfirmOnDeviceToast,
   confirmByPin,
-  confirmOnDevice,
   confirmOnDeviceToastSample,
   confirmPassphrase,
   confirmPhrase,
@@ -25,14 +24,6 @@ const HardwareGallery = () => (
         title: 'Interactive with hardware wallet',
         element: () => (
           <Stack space="$4">
-            <Button
-              onPress={() => {
-                void confirmOnDevice();
-              }}
-            >
-              Confirm On Device (Dialog)
-            </Button>
-
             <Button
               onPress={() => {
                 void confirmOnDeviceToastSample();
