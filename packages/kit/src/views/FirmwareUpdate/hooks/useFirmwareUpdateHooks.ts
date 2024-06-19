@@ -47,7 +47,7 @@ export function useModalExitPrevent({
       Dialog.show({
         title,
         description: message,
-        onConfirmText: intl.formatMessage({ id: ETranslations.global_quit }),
+        onConfirmText: intl.formatMessage({ id: ETranslations.globall_quit }),
         onConfirm: () => {
           navigation.dispatch(data.action);
         },
@@ -101,7 +101,7 @@ export function useAppExitPrevent({
             style: 'cancel',
           },
           {
-            text: intl.formatMessage({ id: ETranslations.global_quit }),
+            text: intl.formatMessage({ id: ETranslations.globall_quit }),
             onPress: () => BackHandler.exitApp(),
           },
         ],
