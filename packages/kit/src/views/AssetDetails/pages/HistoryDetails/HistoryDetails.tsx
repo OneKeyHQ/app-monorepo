@@ -612,7 +612,7 @@ function HistoryDetails() {
               compact
             />
             <InfoItem
-              label={intl.formatMessage({ id: ETranslations.global_date })}
+              label={intl.formatMessage({ id: ETranslations.global_time })}
               renderContent={txInfo.date}
               compact
             />
@@ -621,25 +621,6 @@ function HistoryDetails() {
           <Divider mx="$5" />
           <InfoItemGroup>
             {renderTxMetaInfo()}
-            {vaultSettings?.isUtxo ? (
-              <InfoItem
-                renderContent={
-                  <Button
-                    size="medium"
-                    onPress={handleViewUTXOsOnPress}
-                    variant="secondary"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_inputs,
-                    })}{' '}
-                    &{' '}
-                    {intl.formatMessage({
-                      id: ETranslations.global_outputs,
-                    })}
-                  </Button>
-                }
-              />
-            ) : null}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.global_transaction_id,
@@ -680,6 +661,26 @@ function HistoryDetails() {
                 })}
                 renderContent={String(txInfo.confirmations)}
                 compact
+              />
+            ) : null}
+            {vaultSettings?.isUtxo ? (
+              <InfoItem
+                renderContent={
+                  <Button
+                    size="medium"
+                    onPress={handleViewUTXOsOnPress}
+                    variant="secondary"
+                    iconAfter="ChevronRightSmallOutline"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.global_inputs,
+                    })}{' '}
+                    &{' '}
+                    {intl.formatMessage({
+                      id: ETranslations.global_outputs,
+                    })}
+                  </Button>
+                }
               />
             ) : null}
           </InfoItemGroup>
@@ -748,7 +749,9 @@ function HistoryDetails() {
   return (
     <Page scrollEnabled>
       <Page.Header headerTitle={historyDetailsTitle} />
-      <Page.Body>{renderHistoryDetails()}</Page.Body>
+      <Page.Body testID="history-details-body">
+        {renderHistoryDetails()}
+      </Page.Body>
     </Page>
   );
 }
