@@ -147,7 +147,6 @@ export function AmountInput({
         p="$3.5"
         alignItems="center"
         userSelect="none"
-        flexShrink={1}
         {...(tokenSelectorTriggerProps?.selectedTokenSymbol && {
           maxWidth: '$48',
         })}
