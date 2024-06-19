@@ -168,6 +168,8 @@ export type IVaultSettings = {
    * https://support.ledger.com/hc/en-us/articles/4409603715217-What-is-a-Memo-Tag-?support=true
    */
   withMemo?: boolean;
+  memoMaxLength?: number;
+  numericOnlyMemo?: boolean;
 
   withPaymentId?: boolean;
 
