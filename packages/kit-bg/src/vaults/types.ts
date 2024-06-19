@@ -178,6 +178,8 @@ export type IVaultSettings = {
   hasFrozenBalance?: boolean;
 
   withL1BaseFee?: boolean;
+
+  hideBlockExplorer?: boolean;
 };
 
 export type IVaultFactoryOptions = {
