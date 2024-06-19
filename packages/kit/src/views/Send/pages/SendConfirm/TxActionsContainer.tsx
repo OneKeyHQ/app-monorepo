@@ -70,6 +70,7 @@ function TxActionsContainer(props: IProps) {
     });
 
     if (
+      !vaultSettings?.ignoreUpdateNativeAmount &&
       !nativeTokenInfo.isLoading &&
       decodedTxs.length === 1 &&
       decodedTxs[0].actions.length === 1 &&
@@ -121,6 +122,7 @@ function TxActionsContainer(props: IProps) {
     transferPayload?.amountToSend,
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,
+    vaultSettings?.ignoreUpdateNativeAmount,
     vaultSettings?.isUtxo,
   ]);
 

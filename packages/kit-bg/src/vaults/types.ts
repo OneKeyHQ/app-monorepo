@@ -182,6 +182,8 @@ export type IVaultSettings = {
   withL1BaseFee?: boolean;
 
   hideBlockExplorer?: boolean;
+
+  ignoreUpdateNativeAmount?: boolean;
 };
 
 export type IVaultFactoryOptions = {
