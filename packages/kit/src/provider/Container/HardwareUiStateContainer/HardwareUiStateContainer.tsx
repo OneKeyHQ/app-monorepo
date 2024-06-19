@@ -347,8 +347,9 @@ function HardwareUiStateContainerCmp() {
         await closePrevActions();
       }
 
+      // If the interval between toast open and close (prev opened toast) is less than 300ms, the toast cannot be closed, so a delay must be added here.
       await timerUtils.wait(300);
-      log(`end ui ^^^^^^^^^^^^ `);
+      log(`end ui ^^^^^^^^^^^^^^^^^^^^^^^^^^^`);
     });
 
     return () => {};
