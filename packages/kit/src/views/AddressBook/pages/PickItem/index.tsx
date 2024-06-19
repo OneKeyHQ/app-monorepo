@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,8 +12,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/addressBook';
 
 import { AddressBookListContent } from '../../components/AddressBookListContent';
-import { PageLoading } from '../../components/PageLoading';
-import { UnsafeContent } from '../../components/UnsafeContent';
+import { ContentContainer } from '../../components/ContentContainer';
 import { useAddressBookItems } from '../../hooks/useAddressBook';
 
 import type { IAddressItem } from '../../type';
@@ -29,7 +28,7 @@ const PickItemPage = () => {
       >
     >();
   const { onPick, networkId } = route.params;
-  const { isLoading, result } = useAddressBookItems(networkId);
+  const { isLoading, result, run } = useAddressBookItems(networkId);
   const navigation = useAppNavigation();
 
   const onPressItem = useCallback(
@@ -39,13 +38,6 @@ const PickItemPage = () => {
     },
     [onPick, navigation],
   );
-
-  if (isLoading) {
-    return <PageLoading />;
-  }
-  if (!result?.isSafe) {
-    return <UnsafeContent />;
-  }
   return (
     <Page>
       <Page.Header
@@ -54,11 +46,18 @@ const PickItemPage = () => {
         })}
       />
       <Page.Body px="$4">
-        <AddressBookListContent
-          onPressItem={onPressItem}
-          items={result?.items ?? []}
-          hideEmptyAddButton
-        />
+        <ContentContainer
+          loading={isLoading}
+          error={Boolean(!isLoading && !result)}
+          unsafe={Boolean(result && !result.isSafe)}
+          onRefresh={run}
+        >
+          <AddressBookListContent
+            onPressItem={onPressItem}
+            items={result?.items ?? []}
+            hideEmptyAddButton
+          />
+        </ContentContainer>
       </Page.Body>
     </Page>
   );

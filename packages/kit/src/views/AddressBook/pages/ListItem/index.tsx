@@ -8,8 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 
 import { AddressBookListContent } from '../../components/AddressBookListContent';
-import { PageLoading } from '../../components/PageLoading';
-import { UnsafeContent } from '../../components/UnsafeContent';
+import { ContentContainer } from '../../components/ContentContainer';
 import { useAddressBookItems } from '../../hooks/useAddressBook';
 
 const HeaderRightComponent = () => {
@@ -29,13 +28,7 @@ const HeaderRightComponent = () => {
 
 function ListPage() {
   const intl = useIntl();
-  const { isLoading, result } = useAddressBookItems();
-  if (isLoading) {
-    return <PageLoading />;
-  }
-  if (!result?.isSafe) {
-    return <UnsafeContent />;
-  }
+  const { isLoading, result, run } = useAddressBookItems();
   return (
     <Page>
       <Page.Header
@@ -43,7 +36,14 @@ function ListPage() {
         headerRight={HeaderRightComponent}
       />
       <Page.Body>
-        <AddressBookListContent items={result.items} showActions />
+        <ContentContainer
+          loading={isLoading}
+          error={Boolean(!isLoading && !result)}
+          unsafe={Boolean(result && !result.isSafe)}
+          onRefresh={run}
+        >
+          <AddressBookListContent items={result?.items ?? []} showActions />
+        </ContentContainer>
       </Page.Body>
     </Page>
   );
