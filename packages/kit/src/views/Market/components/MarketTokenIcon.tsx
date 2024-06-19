@@ -10,6 +10,9 @@ function BasicMarketTokenIcon({
   uri: string;
   size: IImageProps['size'];
 }) {
+  if (!uri) {
+    return <Skeleton width={size} height={size} radius="round" />;
+  }
   return (
     <Image size={size} borderRadius="$full">
       <Image.Source source={{ uri: decodeURIComponent(uri) }} />
