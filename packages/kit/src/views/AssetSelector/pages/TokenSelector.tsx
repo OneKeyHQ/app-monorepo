@@ -79,7 +79,17 @@ function TokenSelector() {
       updateTokenListState({ isRefreshing: false });
       throw new Error('allTokens not found from fetchAccountTokensWithMemo ');
     }
-    refreshTokenList({ keys: allTokens.keys, tokens: allTokens.data });
+
+    const blockedTokens =
+      await backgroundApiProxy.serviceToken.getBlockedTokens({
+        networkId,
+      });
+
+    const filteredTokens = allTokens.data.filter(
+      (token) => !blockedTokens[token.address],
+    );
+
+    refreshTokenList({ keys: allTokens.keys, tokens: filteredTokens });
     refreshTokenListMap(allTokens.map);
     updateTokenListState({ initialized: true, isRefreshing: false });
   }, [
@@ -92,15 +102,29 @@ function TokenSelector() {
 
   useEffect(() => {
     // use route params token
-    if (tokens && tokens.data.length) {
-      refreshTokenList({ tokens: tokens.data, keys: tokens.keys });
-      refreshTokenListMap(tokens.map);
-      updateTokenListState({ initialized: true, isRefreshing: false });
-    } else {
-      void fetchAccountTokens();
-    }
+    const updateTokenList = async () => {
+      if (tokens && tokens.data.length) {
+        const blockedTokens =
+          await backgroundApiProxy.serviceToken.getBlockedTokens({
+            networkId,
+          });
+
+        const filteredTokens = tokens.data.filter(
+          (token) => !blockedTokens[token.address],
+        );
+
+        refreshTokenList({ tokens: filteredTokens, keys: tokens.keys });
+        refreshTokenListMap(tokens.map);
+        updateTokenListState({ initialized: true, isRefreshing: false });
+      } else {
+        void fetchAccountTokens();
+      }
+    };
+
+    void updateTokenList();
   }, [
     fetchAccountTokens,
+    networkId,
     refreshTokenList,
     refreshTokenListMap,
     tokens,
