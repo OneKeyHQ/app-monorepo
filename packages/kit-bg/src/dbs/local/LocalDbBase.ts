@@ -65,7 +65,6 @@ import type {
   IDBAccount,
   IDBAccountDerivation,
   IDBAddAccountDerivationParams,
-  IDBAddress,
   IDBApiGetContextOptions,
   IDBContext,
   IDBCreateHDWalletParams,
@@ -134,7 +133,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       backuped: true,
       accounts: [],
       walletNo: walletConfig?.[walletId]?.walletNo ?? 0,
-      nextAccountIds: { 'global': 1, 'index': 0 },
+      nextIds: {
+        'hiddenWalletNum': 1,
+        'accountGlobalNum': 1,
+        'accountHdIndex': 0,
+      },
     };
     return record;
   }
@@ -764,8 +767,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     //     tx,
     //     walletId,
     //     updater: (w) => {
-    //       w.nextAccountIds = w.nextAccountIds || {};
-    //       w.nextAccountIds.index = maxIndex + 1;
     //       return w;
     //     },
     //   });
@@ -849,8 +850,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       tx,
       walletId,
       updater: (w) => {
-        w.nextAccountIds = w.nextAccountIds || {};
-        w.nextAccountIds.index = nextIndex + 1;
+        w.nextIds = w.nextIds || {};
+        w.nextIds.accountHdIndex = nextIndex + 1;
         return w;
       },
     });
@@ -926,8 +927,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             avatar: avatar && JSON.stringify(avatar), // TODO save object to realmDB?
             type: WALLET_TYPE_HD,
             backuped,
-            nextAccountIds: {
-              index: firstAccountIndex,
+            nextIds: {
+              accountHdIndex: firstAccountIndex,
             },
             accounts: [],
             walletNo: context.nextWalletNo,
@@ -1134,8 +1135,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             associatedDevice: dbDeviceId,
             isTemp: false,
             passphraseState,
-            nextAccountIds: {
-              index: firstAccountIndex,
+            nextIds: {
+              accountHdIndex: firstAccountIndex,
             },
             accounts: [],
             walletNo: context.nextWalletNo,
@@ -1356,8 +1357,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             associatedDevice: dbDeviceId,
             isTemp: false,
             passphraseState,
-            nextAccountIds: {
-              index: firstAccountIndex,
+            nextIds: {
+              accountHdIndex: firstAccountIndex,
             },
             accounts: [],
             walletNo: context.nextWalletNo,
@@ -1783,11 +1784,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   getNextAccountId({
-    nextAccountIds,
+    nextIds,
     key,
     defaultValue,
   }: {
-    nextAccountIds:
+    nextIds:
       | {
           [key: string]: number;
         }
@@ -1795,7 +1796,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     key: string;
     defaultValue: number;
   }) {
-    const val = nextAccountIds?.[key];
+    const val = nextIds?.[key];
 
     // RealmDB ERROR: RangeError: number is not integral
     // realmDB return NaN, indexedDB return undefined
@@ -1818,7 +1819,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     defaultValue: number;
   }) {
     return this.getNextAccountId({
-      nextAccountIds: wallet.nextAccountIds,
+      nextIds: wallet.nextIds,
       key,
       defaultValue,
     });
@@ -1858,7 +1859,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
       let removed = 0;
       if (existsAccounts && existsAccounts.length) {
-        // TODO remove and re-add, may cause nextAccountIds not correct,
+        // TODO remove and re-add, may cause nextIds not correct,
         // TODO return actual removed count
         await db.txRemoveRecords({
           tx,
@@ -1914,14 +1915,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           tx,
           walletId,
           updater: (w) => {
-            w.nextAccountIds = w.nextAccountIds || {};
+            w.nextIds = w.nextIds || {};
 
             const currentNextAccountId = this.getWalletNextAccountId({
               wallet: w,
               key: 'global',
               defaultValue: 1,
             });
-            w.nextAccountIds.global = currentNextAccountId + actualAdded;
+            w.nextIds.accountGlobalNum = currentNextAccountId + actualAdded;
 
             // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
             // w.accounts is List not Array in realmDB
