@@ -9,6 +9,7 @@ import BigNumber from 'bignumber.js';
 import * as BitcoinJS from 'bitcoinjs-lib';
 import { Psbt, Transaction, payments } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
+import { isEmpty } from 'lodash';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -155,7 +156,9 @@ export async function buildPsbt({
       address: input.address,
     });
 
-    mixin.bip32Derivation = bip32Derivation;
+    if (!isEmpty(bip32Derivation)) {
+      mixin.bip32Derivation = bip32Derivation;
+    }
 
     switch (encoding) {
       case EAddressEncodings.P2PKH: {
