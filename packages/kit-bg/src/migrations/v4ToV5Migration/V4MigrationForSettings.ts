@@ -23,67 +23,110 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
     }
 
     // set valid theme value
-    if (v4Settings.theme && validThemeValue.includes(v4Settings.theme)) {
-      await this.backgroundApi.serviceSetting.setTheme(v4Settings.theme);
-    }
+    await this.v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        if (v4Settings.theme && validThemeValue.includes(v4Settings.theme)) {
+          await this.backgroundApi.serviceSetting.setTheme(v4Settings.theme);
+        }
+      },
+      {
+        name: 'migrationThemeSettings',
+        errorResultFn: () => undefined,
+      },
+    );
 
     // v4 language mn-MN, fil not support in v5
-    const existingLocale = LOCALES_OPTION.find(
-      (item) => item.value === v4Settings.locale,
+    await this.v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        const existingLocale = LOCALES_OPTION.find(
+          (item) => item.value === v4Settings.locale,
+        );
+        if (v4Settings.locale && existingLocale) {
+          await this.backgroundApi.serviceSetting.setLocale(
+            existingLocale.value as ILocaleSymbol,
+          );
+        }
+      },
+      {
+        name: 'migrationLocaleSettings',
+        errorResultFn: () => undefined,
+      },
     );
-    if (v4Settings.locale && existingLocale) {
-      await this.backgroundApi.serviceSetting.setLocale(
-        existingLocale.value as ILocaleSymbol,
-      );
-    }
 
     // Currency
     if (v4Settings.selectedFiatMoneySymbol) {
-      try {
-        const currencyList =
-          await this.backgroundApi.serviceSetting.getCurrencyList();
-        const existingCurrencyItem = currencyList.find(
-          (i) => i.id === v4Settings.selectedFiatMoneySymbol,
-        );
-        if (existingCurrencyItem) {
-          await this.backgroundApi.serviceSetting.setCurrency({
-            id: existingCurrencyItem.id,
-            symbol: existingCurrencyItem.unit,
-          });
-        }
-      } catch (e) {
-        console.log('Error in setting currency: ', e);
-        // continue
-      }
+      await this.v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          const currencyList =
+            await this.backgroundApi.serviceSetting.getCurrencyList();
+          const existingCurrencyItem = currencyList.find(
+            (i) => i.id === v4Settings.selectedFiatMoneySymbol,
+          );
+          if (existingCurrencyItem) {
+            await this.backgroundApi.serviceSetting.setCurrency({
+              id: existingCurrencyItem.id,
+              symbol: existingCurrencyItem.unit,
+            });
+          }
+        },
+        {
+          name: 'migrationCurrencySettings',
+          errorResultFn: () => undefined,
+        },
+      );
     }
 
     // Auto Lock
     if (v4Settings.enableAppLock && v4Settings.appLockDuration) {
-      await this.backgroundApi.servicePassword.setAppLockDuration(
-        Number(v4Settings.appLockDuration),
+      await this.v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          await this.backgroundApi.servicePassword.setAppLockDuration(
+            Number(v4Settings.appLockDuration),
+          );
+        },
+        {
+          name: 'migrationAutoLockSettings',
+          errorResultFn: () => undefined,
+        },
       );
     }
 
     if (v4Settings.validationSetting) {
       // Protection - Create Transaction
-      if (
-        v4Settings.validationSetting.Payment !== undefined &&
-        v4Settings.validationSetting.Payment !== null
-      ) {
-        await this.backgroundApi.serviceSetting.setProtectCreateTransaction(
-          v4Settings.validationSetting.Payment,
-        );
-      }
+      await this.v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          if (
+            v4Settings.validationSetting?.Payment !== undefined &&
+            v4Settings.validationSetting?.Payment !== null
+          ) {
+            await this.backgroundApi.serviceSetting.setProtectCreateTransaction(
+              v4Settings.validationSetting.Payment,
+            );
+          }
+        },
+        {
+          name: 'migrationProtectCreateTransaction',
+          errorResultFn: () => undefined,
+        },
+      );
 
       // Protection - Create / Remove Wallets
-      if (
-        v4Settings.validationSetting.Wallet !== undefined &&
-        v4Settings.validationSetting.Wallet !== null
-      ) {
-        await this.backgroundApi.serviceSetting.setProtectCreateOrRemoveWallet(
-          v4Settings.validationSetting.Wallet,
-        );
-      }
+      await this.v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          if (
+            v4Settings.validationSetting?.Wallet !== undefined &&
+            v4Settings.validationSetting?.Wallet !== null
+          ) {
+            await this.backgroundApi.serviceSetting.setProtectCreateOrRemoveWallet(
+              v4Settings.validationSetting.Wallet,
+            );
+          }
+        },
+        {
+          name: 'migrationProtectCreateOrRemoveWallet',
+          errorResultFn: () => undefined,
+        },
+      );
     }
   }
 }
