@@ -184,6 +184,7 @@ function HistoryDetails() {
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
         backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
+          accountId,
           networkId,
           accountAddress,
           xpub,
@@ -194,7 +195,7 @@ function HistoryDetails() {
           accountAddress,
         }),
       ]),
-    [accountAddress, historyTx.decodedTx.txid, networkId, xpub],
+    [accountAddress, historyTx.decodedTx.txid, networkId, accountId, xpub],
     { watchLoading: true },
   );
 
@@ -205,6 +206,7 @@ function HistoryDetails() {
 
   const handleViewUTXOsOnPress = useCallback(() => {
     navigation.push(EModalAssetDetailRoutes.UTXODetails, {
+      accountId,
       networkId,
       txId: historyTx.decodedTx.txid,
       inputs: historyTx.decodedTx.actions[0]?.assetTransfer?.utxoFrom,
@@ -214,6 +216,7 @@ function HistoryDetails() {
     historyTx.decodedTx.actions,
     historyTx.decodedTx.txid,
     navigation,
+    accountId,
     networkId,
   ]);
 
@@ -535,10 +538,12 @@ function HistoryDetails() {
     return (
       <>
         {TxFlow ? <TxFlow decodedTx={historyTx.decodedTx} /> : renderTxFlow()}
-        {TxAttributes ? <TxAttributes decodedTx={historyTx.decodedTx} /> : null}
+        {TxAttributes ? (
+          <TxAttributes decodedTx={historyTx.decodedTx} txDetails={txDetails} />
+        ) : null}
       </>
     );
-  }, [historyTx.decodedTx, network?.impl, renderTxFlow]);
+  }, [historyTx.decodedTx, network?.impl, renderTxFlow, txDetails]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,

@@ -180,7 +180,11 @@ export function TokenDetails() {
       navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
         accountId,
         networkId,
-        accountAddress: account.address,
+        accountAddress:
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            accountId: account.id,
+            networkId: network.id,
+          }),
         xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
           accountId: account.id,
           networkId: network.id,

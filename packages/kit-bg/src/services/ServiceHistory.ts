@@ -95,6 +95,7 @@ class ServiceHistory extends ServiceBase {
         await Promise.all(
           localHistoryPendingTxs.map((tx) =>
             this.fetchHistoryTxDetails({
+              accountId,
               networkId,
               accountAddress,
               txid: tx.decodedTx.txid,
@@ -163,7 +164,11 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
-  async buildFetchHistoryListParams(params: IFetchAccountHistoryParams) {
+  async buildFetchHistoryListParams(params: {
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+  }) {
     const { networkId, accountId } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildFetchHistoryListParams(params);
@@ -195,7 +200,7 @@ class ServiceHistory extends ServiceBase {
       const error = e as OneKeyServerApiError;
       // Exchange the token on the first error to ensure subsequent polling requests succeed
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (error.data?.data?.code === 50401) {
+      if (error.data?.data?.message?.code === 50401) {
         // 50401 -> Lightning service special error code
         await (vault as ILightningVault).exchangeToken();
       }
@@ -228,6 +233,10 @@ class ServiceHistory extends ServiceBase {
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
       const { networkId, txid, accountAddress, xpub } = params;
+      const extraParams = await this.buildFetchHistoryListParams({
+        ...params,
+        accountAddress: accountAddress || '',
+      });
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
         '/wallet/v1/account/history/detail',
@@ -237,6 +246,7 @@ class ServiceHistory extends ServiceBase {
             txid,
             xpub,
             accountAddress,
+            ...extraParams,
           },
         },
       );
@@ -258,7 +268,12 @@ class ServiceHistory extends ServiceBase {
         networkId,
         accountId,
       });
-    return this.fetchHistoryTxDetails({ networkId, accountAddress, txid });
+    return this.fetchHistoryTxDetails({
+      accountId,
+      networkId,
+      accountAddress,
+      txid,
+    });
   }
 
   @backgroundMethod()

@@ -48,7 +48,11 @@ function TxHistoryListContainer(props: ITabPageProps) {
         params: {
           networkId: network.id,
           accountId: account.id,
-          accountAddress: account.address,
+          accountAddress:
+            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+              accountId: account.id,
+              networkId: network.id,
+            }),
           historyTx: history,
           xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
             accountId: account.id,

@@ -317,7 +317,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     });
   }
 
-  async buildFetchHistoryListParams(params: IFetchAccountHistoryParams) {
+  async buildFetchHistoryListParams(params: {
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+  }) {
     return Promise.resolve({});
   }
 
