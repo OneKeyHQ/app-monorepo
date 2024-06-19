@@ -153,6 +153,14 @@ export const DevSettingsSection = () => {
                     void dialog.close();
                   }}
                 />
+                <SectionPressItem
+                  title="Wallet Connect Session"
+                  testID="wallet-connect-session"
+                  onPress={() => {
+                    void backgroundApiProxy.serviceWalletConnect.disconnectAllSessions();
+                    void dialog.close();
+                  }}
+                />
               </YStack>
             ),
           });

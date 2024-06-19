@@ -209,6 +209,10 @@ export function DeriveTypeSelectorTrigger({
     return null;
   }
 
+  if (options.length <= 1) {
+    return null;
+  }
+
   return (
     <DeriveTypeSelectorTriggerView
       key={`${selectedAccount.deriveType || ''}-${

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,6 +28,7 @@ import DappOpenModalPage from './DappOpenModalPage';
 
 function SignMessageModal() {
   const intl = useIntl();
+  const [isLoading, setIsLoading] = useState(false);
   const { $sourceInfo, unsignedMessage, accountId, networkId, sceneName } =
     useDappQuery<{
       unsignedMessage: IUnsignedMessage;
@@ -71,26 +72,31 @@ function SignMessageModal() {
 
   const handleSignMessage = useCallback(
     async (close: () => void) => {
-      const result = await backgroundApiProxy.serviceSend.signMessage({
-        unsignedMessage,
-        networkId,
-        accountId,
-      });
-      void dappApprove.resolve({
-        result,
-      });
-      await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
-        networkId,
-        accountId,
-        message: unsignedMessage.message,
-        sourceInfo: $sourceInfo,
-      });
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.dapp_connect_authorization_successful,
-        }),
-      });
-      close?.();
+      setIsLoading(true);
+      try {
+        const result = await backgroundApiProxy.serviceSend.signMessage({
+          unsignedMessage,
+          networkId,
+          accountId,
+        });
+        void dappApprove.resolve({
+          result,
+        });
+        await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
+          networkId,
+          accountId,
+          message: unsignedMessage.message,
+          sourceInfo: $sourceInfo,
+        });
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.dapp_connect_authorization_successful,
+          }),
+        });
+        close?.();
+      } finally {
+        setIsLoading(false);
+      }
     },
     [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo, intl],
   );
@@ -126,6 +132,7 @@ function SignMessageModal() {
             onConfirm={(params) => handleSignMessage(params)}
             onCancel={() => dappApprove.reject()}
             confirmButtonProps={{
+              loading: isLoading,
               disabled: !continueOperate,
             }}
             showContinueOperateCheckbox={showContinueOperate}

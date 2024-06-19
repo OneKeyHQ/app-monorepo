@@ -48,6 +48,8 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+
+  hideBlockExplorer: true,
 };
 
 export default Object.freeze(settings);

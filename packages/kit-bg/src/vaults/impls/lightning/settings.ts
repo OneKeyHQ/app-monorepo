@@ -45,6 +45,7 @@ const settings: IVaultSettings = {
   },
   validationRequired: true,
   hideAmountInputOnFirstEntry: true,
+  hideBlockExplorer: true,
 };
 
 export default Object.freeze(settings);

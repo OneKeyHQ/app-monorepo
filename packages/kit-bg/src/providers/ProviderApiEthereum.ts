@@ -3,6 +3,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { Semaphore } from 'async-mutex';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
+import stringify from 'fast-json-stable-stringify';
 import { isNil } from 'lodash';
 
 import { hashMessage } from '@onekeyhq/core/src/chains/evm/message';
@@ -14,8 +15,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -485,33 +488,61 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISwitchEthereumChainParameter,
   ) {
-    return this._switchEthereumChain(request, params);
-  }
-
-  _switchEthereumChain = async (
-    request: IJsBridgeMessagePayload,
-    params: ISwitchEthereumChainParameter,
-  ) => {
-    const newNetworkId = `evm--${new BigNumber(params.chainId).toString(10)}`;
-    const containsNetwork =
-      await this.backgroundApi.serviceNetwork.containsNetwork({
-        impls: [IMPL_EVM],
-        networkId: newNetworkId,
-      });
-    if (!containsNetwork) {
-      // https://uniswap-v3.scroll.io/#/swap required Error response
-      throw web3Errors.provider.custom({
-        code: 4902, // error code should be 4902 here
-        message: `Unrecognized chain ID ${params.chainId}. Try adding the chain using wallet_addEthereumChain first.`,
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    if (this._switchEthereumChainMemo._has(request, params)) {
+      throw web3Errors.rpc.resourceUnavailable({
+        message: `Request of type 'wallet_addEthereumChain' already pending for origin ${
+          request?.origin || ''
+        }. Please wait.`,
       });
     }
-    await this.backgroundApi.serviceDApp.switchConnectedNetwork({
-      origin: request.origin ?? '',
-      scope: request.scope ?? this.providerName,
-      newNetworkId,
-    });
+
+    // some dapp will call methods many times, like https://beta.layer3.xyz/bounties/dca-into-mean
+    // some dapp should wait this method response, like https://app.uniswap.org/#/swap
+    // **** should await return
+    await this._switchEthereumChainMemo(request, params);
+
+    // Metamask return null
     return null;
-  };
+  }
+
+  _switchEthereumChainMemo = memoizee(
+    async (
+      request: IJsBridgeMessagePayload,
+      params: ISwitchEthereumChainParameter,
+    ) => {
+      const newNetworkId = `evm--${new BigNumber(params.chainId).toString(10)}`;
+      const containsNetwork =
+        await this.backgroundApi.serviceNetwork.containsNetwork({
+          impls: [IMPL_EVM],
+          networkId: newNetworkId,
+        });
+      if (!containsNetwork) {
+        // https://uniswap-v3.scroll.io/#/swap required Error response
+        throw web3Errors.provider.custom({
+          code: 4902, // error code should be 4902 here
+          message: `Unrecognized chain ID ${params.chainId}. Try adding the chain using wallet_addEthereumChain first.`,
+        });
+      }
+      await this.backgroundApi.serviceDApp.switchConnectedNetwork({
+        origin: request.origin ?? '',
+        scope: request.scope ?? this.providerName,
+        newNetworkId,
+      });
+    },
+    {
+      max: 1,
+      maxAge: 800,
+      normalizer([request, params]: [
+        IJsBridgeMessagePayload,
+        ISwitchEthereumChainParameter,
+      ]): string {
+        const p = request?.data ?? [params];
+        return stringify(p);
+      },
+    },
+  );
 
   _isValidAddress = async ({
     networkId,

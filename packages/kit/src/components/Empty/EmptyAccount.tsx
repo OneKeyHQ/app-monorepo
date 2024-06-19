@@ -20,13 +20,14 @@ function EmptyAccount(props: IProps) {
   const { activeAccount } = useActiveAccount({ num });
   let description: string | undefined;
   if (activeAccount?.canCreateAddress) {
+    const showDerivationType = activeAccount.deriveInfoItems.length > 1;
     description = intl.formatMessage(
       {
         id: ETranslations.wallet_no_address_desc,
       },
       {
         name,
-        chain: `${chain} ${type ? `(${type})` : ''}`,
+        chain: `${chain} ${showDerivationType && type ? `(${type})` : ''}`,
       },
     );
   } else if (activeAccount?.isNetworkNotMatched) {
