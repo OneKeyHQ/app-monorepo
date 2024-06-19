@@ -169,8 +169,7 @@ export type IVaultSettings = {
    */
   withMemo?: boolean;
   memoMaxLength?: number;
-  memoRegExp?: string;
-  memoErrMsgId?: MessageDescriptor['id'];
+  numericOnlyMemo?: boolean;
 
   withPaymentId?: boolean;
 

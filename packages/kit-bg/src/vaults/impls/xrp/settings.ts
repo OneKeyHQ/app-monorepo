@@ -50,8 +50,7 @@ const settings: IVaultSettings = {
 
   withMemo: true,
   memoMaxLength: 10,
-  memoRegExp: '^[0-9]+$',
-  memoErrMsgId: ETranslations.send_field_only_integer,
+  numericOnlyMemo: true,
 
   cannotSendToSelf: true,
   hasFrozenBalance: true,

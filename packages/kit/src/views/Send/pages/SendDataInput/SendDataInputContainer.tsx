@@ -36,7 +36,6 @@ import {
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import { IMPL_XRP } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -103,8 +102,7 @@ function SendDataInputContainer() {
       hasFrozenBalance,
       displayMemoForm,
       memoMaxLength,
-      memoRegExp,
-      memoErrMsgId,
+      numericOnlyMemo,
     ] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
@@ -177,8 +175,7 @@ function SendDataInputContainer() {
         frozenBalanceSettings,
         vs.withMemo,
         vs.memoMaxLength,
-        vs.memoRegExp,
-        vs.memoErrMsgId,
+        vs.numericOnlyMemo,
       ];
     },
     [
@@ -633,11 +630,12 @@ function SendDataInputContainer() {
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
     const maxLength = memoMaxLength || 256;
-    const validateErrMsg = memoErrMsgId
+    const validateErrMsg = numericOnlyMemo
       ? intl.formatMessage({
-          id: memoErrMsgId,
+          id: ETranslations.send_field_only_integer,
         })
       : undefined;
+    const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
 
     return (
       <>
@@ -681,7 +679,7 @@ function SendDataInputContainer() {
         </Form.Field>
       </>
     );
-  }, [displayMemoForm, intl, memoErrMsgId, memoMaxLength, memoRegExp]);
+  }, [displayMemoForm, intl, memoMaxLength, numericOnlyMemo]);
 
   const renderDataInput = useCallback(() => {
     if (isNFT) {
