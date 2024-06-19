@@ -23,7 +23,6 @@ import {
   Button,
   Icon,
   IconButton,
-  Image,
   ListView,
   NumberSizeableText,
   Select,
@@ -57,6 +56,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import { MarketMore } from './MarketMore';
 import { MarketStar } from './MarketStar';
+import { MarketTokenIcon } from './MarketTokenIcon';
 import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
@@ -161,11 +161,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
       ),
       'name': (item) => (
         <XStack space="$3" ai="center">
-          <Image
-            src={decodeURIComponent(item.image)}
-            size="$8"
-            borderRadius="$full"
-          />
+          <MarketTokenIcon uri={item.image} size="$8" />
           <YStack width="$20">
             <SizableText size="$bodyLgMedium">
               {item.symbol.toUpperCase()}
@@ -848,11 +844,7 @@ function BasicMarketHomeList({
             {...(platformEnv.isNative ? pressEvents : undefined)}
           >
             <XStack space="$3" ai="center">
-              <Image
-                src={decodeURIComponent(item.image)}
-                size="$10"
-                borderRadius="$full"
-              />
+              <MarketTokenIcon uri={item.image} size="$10" />
               <YStack>
                 <SizableText size="$bodyLgMedium">
                   {item.symbol.toUpperCase()}

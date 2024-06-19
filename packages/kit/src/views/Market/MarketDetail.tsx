@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   HeaderIconButton,
-  Image,
   NavBackButton,
   NumberSizeableText,
   Page,
@@ -35,6 +34,7 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
 import { MarketStar } from './components/MarketStar';
+import { MarketTokenIcon } from './components/MarketTokenIcon';
 import { PriceChangePercentage } from './components/PriceChangePercentage';
 import { TextCell } from './components/TextCell';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
@@ -148,12 +148,7 @@ function MarketDetail({
   const renderHeaderTitle = useCallback(
     () => (
       <XStack space="$2">
-        <Image
-          width="$6"
-          height="$6"
-          borderRadius="$full"
-          src={decodeURIComponent(tokenDetail?.image || icon || '')}
-        />
+        <MarketTokenIcon uri={tokenDetail?.image || icon || ''} size="$6" />
         <SizableText>
           {(tokenDetail?.symbol || symbol)?.toUpperCase()}
         </SizableText>
