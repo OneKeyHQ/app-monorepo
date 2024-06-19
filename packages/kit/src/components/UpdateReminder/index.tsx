@@ -156,7 +156,7 @@ function UpdateAction({
         },
         [EAppUpdateStatus.failed]: {
           prefixElement: <OpenOnGithub />,
-          label: ETranslations.global_retry,
+          label: intl.formatMessage({ id: ETranslations.global_retry }),
           variant: 'primary',
         },
         [EAppUpdateStatus.done]: undefined,

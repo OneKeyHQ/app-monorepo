@@ -40,6 +40,10 @@ export const DevSettingsSection = () => {
     });
   }, []);
 
+  const handleOpenDevTools = useCallback(() => {
+    window?.desktopApi.openDevTools();
+  }, []);
+
   if (!settings.enabled) {
     return null;
   }
@@ -53,6 +57,12 @@ export const DevSettingsSection = () => {
         title="关闭开发者模式"
         onPress={handleDevModeOnChange}
       />
+      {platformEnv.isDesktop ? (
+        <SectionPressItem
+          title="Open Chrome DevTools in Desktop"
+          onPress={handleOpenDevTools}
+        />
+      ) : null}
       {platformEnv.githubSHA ? (
         <SectionPressItem
           copyable

@@ -38,6 +38,7 @@ export const ipcMessageKeys = {
   APP_SHORCUT: 'app/shortcut',
   APP_IDLE: 'app/idle',
   APP_SET_IDLE_TIME: 'app/setIdleTime',
+  APP_OPEN_DEV_TOOLS: 'app/openDevTools',
 
   // Touch
   TOUCH_ID_CAN_PROMPT: 'touchId/canPrompt',

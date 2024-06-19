@@ -361,6 +361,10 @@ function createMainWindow() {
     event.returnValue = !!result;
   });
 
+  ipcMain.on(ipcMessageKeys.APP_OPEN_DEV_TOOLS, () => {
+    browserWindow.webContents.openDevTools();
+  });
+
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
     try {
       await systemPreferences.promptTouchID(msg);
