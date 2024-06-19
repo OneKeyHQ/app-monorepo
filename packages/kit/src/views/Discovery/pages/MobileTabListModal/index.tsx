@@ -331,6 +331,7 @@ function MobileTabListModal() {
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.id}
           estimatedItemSize="$28"
+          // @ts-expect-error
           estimatedListSize={{ width: 370, height: 52 }}
           renderItem={renderPinnedItem}
           initialScrollIndex={pinInitialScrollIndex}
