@@ -1,21 +1,27 @@
-import { type FC, useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Dialog,
   Empty,
   Page,
   SearchBar,
   SectionList,
   Spinner,
   Stack,
+  usePreventRemove,
 } from '@onekeyhq/components';
 import {} from '@onekeyhq/components/src/layouts/SectionList';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import type { NavigationAction } from '@react-navigation/routers';
 
 export type ICurrencyType = 'crypto' | 'fiat' | 'popular';
 
@@ -60,26 +66,35 @@ const currencyFilterFn = (keyword: string, item: ICurrencyItem) => {
   );
 };
 
-const CurrencyItem: FC<{ item: ICurrencyItem }> = ({ item }) => {
-  const [settings] = useSettingsPersistAtom();
-  const onPress = useCallback(async () => {
-    await backgroundApiProxy.serviceSetting.setCurrency({
-      id: item.id,
-      symbol: item.unit,
-    });
-  }, [item]);
+const CurrencyItem: FC<{
+  item: ICurrencyItem;
+  currency?: ICurrencyItem;
+  onPress: (item: ICurrencyItem) => void;
+}> = ({ item, onPress, currency }) => {
+  const handlePress = useCallback(() => {
+    onPress(item);
+  }, [item, onPress]);
   return (
     <ListItem
       title={`${item.id.toUpperCase()} - ${item.unit}`}
       subtitle={item.name}
-      checkMark={settings.currencyInfo.id === item.id}
-      onPress={onPress}
+      checkMark={currency?.id === item.id}
+      onPress={handlePress}
     />
   );
 };
 
 export default function SettingCurrencyModal() {
+  const navigation = useAppNavigation();
+  const [settings] = useSettingsPersistAtom();
   const [text, onChangeText] = useState('');
+  const currencyRef = useRef({
+    id: settings.currencyInfo.id,
+    unit: settings.currencyInfo.symbol,
+  });
+  const [currency, setCurrency] = useState<ICurrencyItem | undefined>(
+    currencyRef.current as ICurrencyItem,
+  );
   const intl = useIntl();
   const currencyListResult = usePromiseResult<ICurrencyItem[]>(
     async () => {
@@ -126,9 +141,15 @@ export default function SettingCurrencyModal() {
     ].filter((item) => item.data.length > 0);
   }, [currencyListResult, text, intl]);
 
+  const handlePress = useCallback((item: ICurrencyItem) => {
+    setCurrency(item);
+  }, []);
+
   const renderItem = useCallback(
-    ({ item }: { item: ICurrencyItem }) => <CurrencyItem item={item} />,
-    [],
+    ({ item }: { item: ICurrencyItem }) => (
+      <CurrencyItem item={item} currency={currency} onPress={handlePress} />
+    ),
+    [currency, handlePress],
   );
   const renderSectionHeader = useCallback(
     ({ section }: { section: ISectionItem }) => (
@@ -136,6 +157,40 @@ export default function SettingCurrencyModal() {
     ),
     [],
   );
+
+  const navPreventRemoveCallback = useCallback(
+    ({ data }: { data: { action: NavigationAction } }) => {
+      const pop = () => {
+        navigation.dispatch(data.action);
+      };
+      if (currency?.id === currencyRef.current.id) {
+        pop();
+        return;
+      }
+
+      if (currency) {
+        Dialog.show({
+          title: '是否保存修改',
+          onConfirm: async () => {
+            await backgroundApiProxy.serviceSetting.setCurrency({
+              id: currency.id,
+              symbol: currency.unit,
+            });
+            setTimeout(() => {
+              backgroundApiProxy.serviceApp.restartApp();
+            });
+          },
+          onCancel: async () => {
+            pop();
+          },
+        });
+      }
+    },
+    [currency, navigation],
+  );
+
+  usePreventRemove(true, navPreventRemoveCallback);
+
   return (
     <Page>
       <Page.Header
@@ -168,6 +223,7 @@ export default function SettingCurrencyModal() {
             sections={sections ?? emptySections}
             renderItem={renderItem}
             renderSectionHeader={renderSectionHeader}
+            extraData={currency}
           />
         )}
       </Page.Body>
