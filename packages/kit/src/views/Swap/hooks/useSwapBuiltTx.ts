@@ -156,7 +156,12 @@ export function useSwapBuildTx() {
   ]);
 
   const approveTx = useCallback(
-    async (amount: string, isMax?: boolean, onApproveSuccess?: () => void) => {
+    async (
+      amount: string,
+      isMax?: boolean,
+      onApproveSuccess?: () => void,
+      isResetApprove?: boolean,
+    ) => {
       const allowanceInfo = selectQuote?.allowanceResult;
       if (
         allowanceInfo &&
@@ -180,17 +185,16 @@ export function useSwapBuildTx() {
               name: fromToken.name ?? fromToken.symbol,
             },
           };
-          if (!onApproveSuccess) {
-            setSwapApprovingTransaction({
-              provider: selectQuote.info.provider,
-              fromToken,
-              toToken,
-              amount,
-              useAddress: swapFromAddressInfo.address,
-              spenderAddress: allowanceInfo.allowanceTarget,
-              status: ESwapApproveTransactionStatus.PENDING,
-            });
-          }
+          setSwapApprovingTransaction({
+            provider: selectQuote.info.provider,
+            fromToken,
+            toToken,
+            amount,
+            useAddress: swapFromAddressInfo.address,
+            spenderAddress: allowanceInfo.allowanceTarget,
+            status: ESwapApproveTransactionStatus.PENDING,
+            isResetApprove,
+          });
           await navigationToSendConfirm({
             approveInfo,
             onSuccess: onApproveSuccess || handleApproveTxSuccess,
