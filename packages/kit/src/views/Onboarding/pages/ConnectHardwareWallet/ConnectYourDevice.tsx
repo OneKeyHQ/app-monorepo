@@ -15,6 +15,8 @@ import {
   Dialog,
   Divider,
   Heading,
+  Icon,
+  Image,
   LottieView,
   Page,
   ScrollView,
@@ -52,6 +54,10 @@ import {
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   PERMISSIONS,
@@ -99,6 +105,12 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
       opacity={item.opacity ?? 0.5}
       avatarProps={{
         source: item.src,
+        fallbackProps: {
+          bg: '$bgStrong',
+          justifyContent: 'center',
+          alignItems: 'center',
+          children: <Icon name="QuestionmarkSolid" />,
+        },
       }}
       title={item.title}
       drillIn
@@ -372,6 +384,13 @@ function ConnectByUSBOrBLE({
 
   const handleHwWalletCreateFlow = useCallback(
     async ({ device }: { device: SearchDevice }) => {
+      if (device.deviceType === 'unknown') {
+        Toast.error({
+          title: 'Device type is unknown',
+        });
+        return;
+      }
+
       const handleBootloaderMode = () => {
         Toast.error({
           title: 'Device is in bootloader mode',
@@ -529,10 +548,46 @@ function ConnectByUSBOrBLE({
               device: undefined,
             },
             {
-              title: 'OneKey Pro(Activate Your Device)',
-              src: HwWalletAvatarImages.pro,
+              title: 'OneKey Classic 1S(Activate Your Device)',
+              src: HwWalletAvatarImages.classic1s,
               onPress: () =>
                 handleSetupNewWalletPress({ deviceType: 'classic' }),
+              device: undefined,
+            },
+            {
+              title: 'OneKey Pro(Activate Your Device -- ActionSheet)',
+              src: HwWalletAvatarImages.pro,
+              onPress: () =>
+                handleNotActivatedDevicePress({ deviceType: 'pro' }),
+              device: undefined,
+            },
+            {
+              title: 'OneKey Touch(Activate Your Device -- ActionSheet)',
+              src: HwWalletAvatarImages.touch,
+              onPress: () =>
+                handleNotActivatedDevicePress({ deviceType: 'touch' }),
+              device: undefined,
+            },
+            {
+              title: 'OneKey Mini(Activate Your Device -- ActionSheet)',
+              src: HwWalletAvatarImages.mini,
+              onPress: () =>
+                handleNotActivatedDevicePress({ deviceType: 'mini' }),
+              device: undefined,
+            },
+            {
+              title: 'OneKey Plus(Test Unknown Device)',
+              src: HwWalletAvatarImages.unknown,
+              onPress: () =>
+                handleHwWalletCreateFlow({
+                  device: {
+                    connectId: '123',
+                    uuid: '123',
+                    deviceId: '123',
+                    deviceType: 'unknown',
+                    name: 'OneKey Plus',
+                  },
+                }),
               device: undefined,
             },
             {
@@ -723,6 +778,28 @@ function ConnectByUSBOrBLE({
       listingDevice();
     }
   }, [listingDevice]);
+
+  useEffect(() => {
+    const handler = () => {
+      navigation.pop();
+    };
+    appEventBus.on(EAppEventBusNames.BeginFirmwareUpdate, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.BeginFirmwareUpdate, handler);
+    };
+  }, [navigation]);
+
+  useEffect(
+    () =>
+      // close page stop scan
+      () => {
+        const scanner = deviceUtils.getDeviceScanner({
+          backgroundApi: backgroundApiProxy,
+        });
+        scanner?.stopScan();
+      },
+    [],
+  );
 
   return (
     <>

@@ -24,7 +24,7 @@ export const HdWalletAvatarImageNames = Object.keys(
 ) as IHdWalletAvatarImageNames[];
 
 export const HwWalletAvatarImages: Record<IDeviceType, ImageSourcePropType> = {
-  unknown: require('../assets/wallet/avatar/Classic.png'),
+  unknown: { uri: undefined },
   classic: require('../assets/wallet/avatar/Classic.png'),
   classic1s: require('../assets/wallet/avatar/Classic.png'),
   mini: require('../assets/wallet/avatar/Mini.png'),
@@ -38,11 +38,12 @@ export const OthersWalletAvatarImages = {
   othersWatching: require('../assets/wallet/avatar/others-watching.png'),
 };
 
+const { unknown, ...KnownHwWalletAvatarImages } = HwWalletAvatarImages;
 export const AllWalletAvatarImages = {
   cardDividers: require('../assets/wallet/avatar/CardDividers.png'),
   ...OthersWalletAvatarImages,
   ...HdWalletAvatarImages,
-  ...HwWalletAvatarImages,
+  ...KnownHwWalletAvatarImages,
 };
 
 export type IAllWalletAvatarImageNames = keyof typeof AllWalletAvatarImages;

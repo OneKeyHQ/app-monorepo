@@ -144,7 +144,7 @@ function PageFirmwareUpdateChangeLog() {
       scrollEnabled
       onUnmounted={async () => {
         console.log('PageFirmwareUpdateChangeLog unmounted');
-        await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
+        // await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
       }}
     >
       <FirmwareUpdatePageLayout>
