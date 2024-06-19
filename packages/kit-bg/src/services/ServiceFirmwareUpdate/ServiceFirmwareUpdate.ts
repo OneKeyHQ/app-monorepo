@@ -612,10 +612,17 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'forceUpdateBle',
       );
+    const mockUpdateBootloader =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'forceUpdateBootloader',
+      );
     if (firmwareType === 'firmware' && mockUpdateFirmware) {
       hasUpgrade = true;
     }
     if (firmwareType === 'ble' && mockUpdateBle) {
+      hasUpgrade = true;
+    }
+    if (firmwareType === 'bootloader' && mockUpdateBootloader) {
       hasUpgrade = true;
     }
 
@@ -1248,8 +1255,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
     //   release.shouldUpdate = true;
     // }
 
+    const mockUpdateBootloader =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'forceUpdateBootloader',
+      );
     // TODO check update version gt current version
-    if (updateInfo?.hasUpgrade) {
+    if (updateInfo?.hasUpgrade || mockUpdateBootloader) {
       return this.createRunTaskWithRetry({
         fn: async () => this.updatingBootloader(params, updateInfo),
       });

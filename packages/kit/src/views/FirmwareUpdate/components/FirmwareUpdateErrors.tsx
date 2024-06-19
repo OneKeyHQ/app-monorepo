@@ -170,7 +170,7 @@ export function EnterBootModeGuide({
         mt="$2"
         linkList={[{ url: FIRMWARE_UPDATE_FULL_RES_GUIDE }]}
       >
-        {`Follow the <a>online tutorial</a> to proceed manually, then click "Retry".`}
+        {ETranslations.update_follow_online_tutorial_to_proceed_manually}
       </RichSizeableText>
     </Stack>
   );
