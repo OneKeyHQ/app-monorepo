@@ -1,18 +1,22 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
   EModalAssetDetailRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -30,10 +34,13 @@ function TxHistoryListContainer(props: ITabPageProps) {
 
   const { updateSearchKey } = useHistoryListActions().current;
 
+  const [historyData, setHistoryData] = useState<IAccountHistoryTx[]>([]);
+
   const [historyState, setHistoryState] = useState({
     initialized: false,
     isRefreshing: false,
   });
+
   const media = useMedia();
   const navigation = useAppNavigation();
   const {
@@ -60,7 +67,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
     [account, navigation, network],
   );
 
-  const { result, run } = usePromiseResult(
+  const { run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
       const [xpub, vaultSettings] = await Promise.all([
@@ -85,7 +92,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
         isRefreshing: false,
       });
       setIsHeaderRefreshing(false);
-      return r;
+      setHistoryData(r);
     },
     [account, network, setIsHeaderRefreshing],
     {
@@ -111,10 +118,22 @@ function TxHistoryListContainer(props: ITabPageProps) {
     }
   }, [isHeaderRefreshing, run]);
 
+  useEffect(() => {
+    const callback = () => {
+      setHistoryData((prev) =>
+        prev.filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending),
+      );
+    };
+    appEventBus.on(EAppEventBusNames.ClearLocalHistoryPendingTxs, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ClearLocalHistoryPendingTxs, callback);
+    };
+  }, []);
+
   return (
     <TxHistoryListView
       showIcon
-      data={result ?? []}
+      data={historyData ?? []}
       onPressHistory={handleHistoryItemPress}
       showHeader
       isLoading={historyState.isRefreshing}

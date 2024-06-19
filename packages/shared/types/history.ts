@@ -85,6 +85,7 @@ export type IOnChainHistoryTx = {
   value: string;
   label: string;
   confirmations?: number;
+  block?: number;
   inputs?: IOnChainHistoryTxUTXOInput[];
   outputs?: IOnChainHistoryTxUTXOOutput[];
 
