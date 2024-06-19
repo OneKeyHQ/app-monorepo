@@ -95,6 +95,11 @@ export type IOnChainHistoryTx = {
   // Lightning network attributes
   description?: string;
   preimage?: string;
+
+  // Ripple
+  destinationTag?: number;
+  ledgerIndex?: number;
+  lastLedgerSequence?: number;
 };
 
 export type IAccountHistoryTx = {
