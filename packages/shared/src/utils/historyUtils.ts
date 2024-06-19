@@ -48,6 +48,7 @@ export function getOnChainHistoryTxAssetInfo({
   } else {
     token = tokens[tokenAddress];
   }
+
   if (nft) {
     name = nft.metadata?.name ?? '';
     symbol = nft.metadata?.name ?? '';
@@ -143,12 +144,14 @@ export function getHistoryTxDetailInfo({
   const gasFeeFiatValue =
     txDetails?.gasFeeFiatValue ?? decodedTx.totalFeeFiatValue ?? '0';
   const confirmations = txDetails?.confirmations;
+  const blockHeight = txDetails?.block;
 
   return {
     txid,
     date,
     nonce,
     confirmations,
+    blockHeight,
     swapInfo,
     gasFee,
     gasFeeFiatValue,

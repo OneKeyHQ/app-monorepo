@@ -106,7 +106,6 @@ function TxHistoryListView(props: IProps) {
       const date = formatDate(
         new Date(tx.decodedTx.updatedAt ?? tx.decodedTx.createdAt ?? 0),
         {
-          hideTheYear: true,
           hideTimeForever: true,
         },
       );
@@ -116,7 +115,6 @@ function TxHistoryListView(props: IProps) {
             nextTx.decodedTx.updatedAt ?? nextTx.decodedTx.createdAt ?? 0,
           ),
           {
-            hideTheYear: true,
             hideTimeForever: true,
           },
         );

@@ -305,17 +305,13 @@ function FeeEditor(props: IProps) {
     return !form.formState.isValid;
   }, [currentFeeType, form.formState.isValid]);
 
-  const handleValidateMaxBaseFee = useCallback(
-    (value: string) => {
-      if (
-        new BigNumber(value ?? 0).isLessThan(
-          customFee.gasEIP1559?.baseFeePerGas ?? '0',
-        )
-      )
-        return false;
-    },
-    [customFee.gasEIP1559?.baseFeePerGas],
-  );
+  const handleValidateMaxBaseFee = useCallback((value: string) => {
+    const maxBaseFee = new BigNumber(value || 0);
+    if (maxBaseFee.isNaN() || maxBaseFee.isLessThanOrEqualTo(0)) {
+      return false;
+    }
+    return true;
+  }, []);
 
   const handleValidatePriorityFee = useCallback((value: string) => {
     const priorityFee = new BigNumber(value || 0);

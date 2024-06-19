@@ -10,6 +10,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
@@ -175,8 +179,12 @@ export const CleanDataItem = () => {
               onConfirmText: intl.formatMessage({
                 id: ETranslations.global_clear,
               }),
-              onConfirm: () => {
-                void backgroundApiProxy.serviceSetting.clearPendingTransaction();
+              onConfirm: async () => {
+                await backgroundApiProxy.serviceSetting.clearPendingTransaction();
+                appEventBus.emit(
+                  EAppEventBusNames.ClearLocalHistoryPendingTxs,
+                  undefined,
+                );
               },
             });
           },

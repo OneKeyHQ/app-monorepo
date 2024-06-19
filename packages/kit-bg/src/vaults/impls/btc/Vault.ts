@@ -106,11 +106,8 @@ export default class VaultBtc extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
-    const { inputs, outputs, psbtHex, inputsToSign } = encodedTx;
-
-    // if (psbtHex && inputsToSign) {
-    //   return this.buildPsbtDecodedTx(params);
-    // }
+    const { swapInfo } = unsignedTx;
+    const { inputs, outputs } = encodedTx;
 
     const network = await this.getNetwork();
     const account = await this.getAccount();
@@ -161,37 +158,69 @@ export default class VaultBtc extends VaultBase {
     let sendNativeTokenAmountBN = new BigNumber(0);
     let sendNativeTokenAmountValueBN = new BigNumber(0);
 
-    actions = [
-      {
-        type: EDecodedTxActionType.ASSET_TRANSFER,
-        assetTransfer: {
-          from: account.address,
-          to: utxoTo[0].address,
-          sends: utxoTo.map((utxo) => {
-            sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(
-              utxo.balance,
-            );
-            sendNativeTokenAmountValueBN = sendNativeTokenAmountValueBN.plus(
-              utxo.balanceValue,
-            );
-            return {
-              from: account.address,
-              to: utxo.address,
-              isNative: true,
-              tokenIdOnNetwork: '',
-              name: nativeToken.name,
-              icon: nativeToken.logoURI ?? '',
-              amount: utxo.balance,
-              amountValue: utxo.balanceValue,
-              symbol: network.symbol,
-            };
-          }),
-          receives: [],
-          utxoFrom,
-          utxoTo: originalUtxoTo,
+    if (swapInfo) {
+      const swapSendToken = swapInfo.sender.token;
+      const action = await this.buildTxTransferAssetAction({
+        from: swapInfo.accountAddress,
+        to: utxoTo[0].address,
+        transfers: [
+          {
+            from: swapInfo.accountAddress,
+            to: utxoTo[0].address,
+            tokenIdOnNetwork: swapSendToken.contractAddress,
+            icon: swapSendToken.logoURI ?? '',
+            name: swapSendToken.name ?? '',
+            symbol: swapSendToken.symbol,
+            amount: swapInfo.sender.amount,
+            isNFT: false,
+            isNative: swapSendToken.isNative,
+          },
+        ],
+      });
+      if (swapSendToken.isNative) {
+        sendNativeTokenAmountBN = new BigNumber(swapInfo.sender.amount);
+        sendNativeTokenAmountValueBN = sendNativeTokenAmountBN.shiftedBy(
+          swapSendToken.decimals,
+        );
+      }
+      if (action.assetTransfer) {
+        action.assetTransfer.utxoFrom = utxoFrom;
+        action.assetTransfer.utxoTo = originalUtxoTo;
+      }
+      actions = [action];
+    } else {
+      actions = [
+        {
+          type: EDecodedTxActionType.ASSET_TRANSFER,
+          assetTransfer: {
+            from: account.address,
+            to: utxoTo[0].address,
+            sends: utxoTo.map((utxo) => {
+              sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(
+                utxo.balance,
+              );
+              sendNativeTokenAmountValueBN = sendNativeTokenAmountValueBN.plus(
+                utxo.balanceValue,
+              );
+              return {
+                from: account.address,
+                to: utxo.address,
+                isNative: true,
+                tokenIdOnNetwork: '',
+                name: nativeToken.name,
+                icon: nativeToken.logoURI ?? '',
+                amount: utxo.balance,
+                amountValue: utxo.balanceValue,
+                symbol: network.symbol,
+              };
+            }),
+            receives: [],
+            utxoFrom,
+            utxoTo: originalUtxoTo,
+          },
         },
-      },
-    ];
+      ];
+    }
 
     const totalFeeInNative = new BigNumber(encodedTx.fee)
       .shiftedBy(-1 * network.feeMeta.decimals)

@@ -250,7 +250,6 @@ function HistoryDetails() {
             receives[0]?.to ??
             decodedTx.to ??
             decodedTx.actions[0]?.assetTransfer?.to;
-
       return {
         from,
         to,
@@ -387,8 +386,10 @@ function HistoryDetails() {
     const onChainTxPayload = historyTx.decodedTx.payload;
 
     if (vaultSettings?.isUtxo) {
-      sends = sends?.filter((send) => send.isOwn);
-      receives = receives?.filter((receive) => receive.isOwn);
+      sends = sends?.filter((send) => (isNil(send.isOwn) ? true : send.isOwn));
+      receives = receives?.filter((receive) =>
+        isNil(receive.isOwn) ? true : receive.isOwn,
+      );
     }
 
     if (
@@ -528,12 +529,8 @@ function HistoryDetails() {
 
   const renderTxMetaInfo = useCallback(() => {
     const components = getHistoryTxMeta({ impl: network?.impl ?? '' });
-    console.log('components', components);
     const TxFlow = components?.[EHistoryTxDetailsBlock.Flow];
     const TxAttributes = components?.[EHistoryTxDetailsBlock.Attributes];
-
-    console.log('TxFlow', TxFlow);
-    console.log('TxAttributes', TxAttributes);
 
     return (
       <>
@@ -661,6 +658,13 @@ function HistoryDetails() {
               renderContent={renderFeeInfo()}
               compact
             />
+            {!isNil(txInfo.blockHeight) ? (
+              <InfoItem
+                label="Block Height"
+                renderContent={String(txInfo.blockHeight)}
+                compact
+              />
+            ) : null}
             {vaultSettings?.nonceRequired && !isNil(txInfo.nonce) ? (
               <InfoItem
                 label="Nonce"
@@ -668,6 +672,7 @@ function HistoryDetails() {
                 compact
               />
             ) : null}
+
             {!isNil(txInfo.confirmations) ? (
               <InfoItem
                 label={intl.formatMessage({
@@ -728,6 +733,7 @@ function HistoryDetails() {
     txInfo.date,
     txInfo.txid,
     txInfo.nonce,
+    txInfo.blockHeight,
     txInfo.confirmations,
     txInfo.swapInfo,
     renderTxMetaInfo,

@@ -28,20 +28,11 @@ export { nearApiJs };
 export { BN, bs58 };
 
 const IMPLICIT_ACCOUNT_PATTERN = /^[a-z\d]{64}$/;
-const REGISTER_ACCOUNT_PATTERN =
-  /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
 
 export function verifyNearAddress(address: string): IAddressValidation {
   let encoding: EAddressEncodings | undefined;
   if (IMPLICIT_ACCOUNT_PATTERN.test(address)) {
     encoding = EAddressEncodings.IMPLICIT_ACCOUNT;
-  } else if (REGISTER_ACCOUNT_PATTERN.test(address)) {
-    return {
-      isValid: true,
-      normalizedAddress: address,
-      displayAddress: address,
-      encoding: EAddressEncodings.REGISTER_ACCOUNT,
-    };
   } else if (address.includes(':')) {
     const [prefix, encoded] = address.split(':');
     try {

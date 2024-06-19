@@ -66,21 +66,29 @@ export function formatDate(date: Date | string, options?: IFormatDateOptions) {
     parsedDate = date;
   }
 
+  const locale = appLocale.getLocale();
+
+  let formatTemplate = 'yyyy/LL/dd, HH:mm:ss';
+
+  if (['de', 'es', 'en-US', 'fr-FR', 'it-IT', 'uk-UA'].includes(locale)) {
+    formatTemplate = 'LL/dd/yyyy, HH:mm:ss';
+  }
+
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
-  let formatTemplate = 'LLL dd yyyy, HH:mm:ss';
 
   if (
     (currentYear === parsedDate.getFullYear() && options?.hideTheYear) ||
     options?.hideYear
   ) {
-    formatTemplate = formatTemplate.replace(' yyyy', '');
+    formatTemplate = formatTemplate.replace('yyyy/', '');
+    formatTemplate = formatTemplate.replace('/yyyy', '');
   }
   if (
     (currentMonth === parsedDate.getMonth() && options?.hideTheMonth) ||
     options?.hideMonth
   ) {
-    formatTemplate = formatTemplate.replace('LLL ', '');
+    formatTemplate = formatTemplate.replace('LL/', '');
   }
   if (options?.hideTimeForever) {
     formatTemplate = formatTemplate.replace(', HH:mm:ss', '');
