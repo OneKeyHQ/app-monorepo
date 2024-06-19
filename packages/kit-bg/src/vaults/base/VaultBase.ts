@@ -81,6 +81,8 @@ import type {
   IValidateGeneralInputParams,
 } from '../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
+import { IResolveNameResp } from '@onekeyhq/shared/types/name';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
@@ -232,6 +234,18 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return Promise.resolve({
       isValid: true,
     });
+  }
+
+  async checkIsDomainName({ name }: { name: string }) {
+    return addressIsEnsFormat(name);
+  }
+
+  async resolveDomainName({
+    name,
+  }: {
+    name: string;
+  }): Promise<IResolveNameResp | null> {
+    return null;
   }
 }
 

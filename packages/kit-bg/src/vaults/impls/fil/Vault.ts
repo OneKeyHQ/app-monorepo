@@ -65,6 +65,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import { IResolveNameResp } from '@onekeyhq/shared/types/name';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.fil.hd;
@@ -451,5 +452,35 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async checkIsDomainName({
+    name,
+  }: {
+    name: string;
+  }): Promise<boolean> {
+    return ethers.utils.isAddress(name);
+  }
+
+  override async resolveDomainName({
+    name,
+  }: {
+    name: string;
+  }): Promise<IResolveNameResp> {
+    const network = await this.getNetwork();
+    const address = delegatedFromEthAddress(
+      name,
+      network.isTestnet ? CoinType.TEST : CoinType.MAIN,
+    );
+
+    return {
+      names: [
+        {
+          subtype: 'fil',
+          value: address,
+        },
+      ],
+      showSymbol: 'ETH',
+    };
   }
 }
