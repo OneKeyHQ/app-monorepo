@@ -540,6 +540,30 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  async getParentWalletOfHiddenWallet({
+    dbDeviceId,
+    isQr,
+  }: {
+    dbDeviceId: string;
+    isQr: boolean;
+  }) {
+    const db = await this.readyDb;
+    let parentWalletId = accountUtils.buildHwWalletId({
+      dbDeviceId,
+    });
+    if (isQr) {
+      parentWalletId = accountUtils.buildQrWalletId({
+        dbDeviceId,
+        xfpHash: '',
+      });
+    }
+    const parentWallet = await db.getRecordById({
+      name: ELocalDBStoreNames.Wallet,
+      id: parentWalletId,
+    });
+    return parentWallet;
+  }
+
   async refillWalletInfo({
     wallet,
     hiddenWallets,
@@ -556,18 +580,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     wallet.avatarInfo = avatarInfo;
     wallet.walletOrder = wallet.walletNo;
     if (accountUtils.isHwHiddenWallet({ wallet })) {
-      let parentWalletId = accountUtils.buildHwWalletId({
+      const parentWallet = await this.getParentWalletOfHiddenWallet({
         dbDeviceId: wallet.associatedDevice || '',
-      });
-      if (wallet.type === 'qr') {
-        parentWalletId = accountUtils.buildQrWalletId({
-          dbDeviceId: wallet.associatedDevice || '',
-          xfpHash: '',
-        });
-      }
-      const parentWallet = await db.getRecordById({
-        name: ELocalDBStoreNames.Wallet,
-        id: parentWalletId,
+        isQr: accountUtils.isQrWallet({ walletId: wallet.id }), // wallet.type === WALLET_TYPE_QR
       });
       wallet.walletOrder = parentWallet.walletNo + wallet.walletNo / 1000000;
     }
@@ -1260,12 +1275,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const deviceType = device.deviceType || getDeviceType(features);
     const deviceUUID = device.uuid || getDeviceUUID(features);
     const rawDeviceId = device.deviceId || features.device_id || '';
-    const deviceName = await accountUtils.buildDeviceName({ device, features });
-    let walletName = name || deviceName;
-    if (passphraseState) {
-      // TODO use nextHidden in IDBWallet
-      walletName = name || 'Hidden Wallet #1';
-    }
+
     const avatar: IAvatarInfo = {
       img: deviceType,
     };
@@ -1274,11 +1284,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       uuid: deviceUUID,
     });
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
-
     const dbWalletId = accountUtils.buildHwWalletId({
       dbDeviceId,
       passphraseState,
     });
+
+    let parentWalletId: string | undefined;
+    const deviceName = await accountUtils.buildDeviceName({ device, features });
+    let walletName = name || deviceName;
+    if (passphraseState) {
+      const parentWallet = await this.getParentWalletOfHiddenWallet({
+        dbDeviceId,
+        isQr: accountUtils.isQrWallet({ walletId: dbWalletId }),
+      });
+      parentWalletId = parentWallet.id;
+      walletName =
+        name || `Hidden Wallet #${parentWallet?.nextIds?.hiddenWalletNum || 1}`;
+    }
+
     const featuresStr = JSON.stringify(features);
 
     const firstAccountIndex = 0;
@@ -1374,6 +1397,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           return item;
         },
       });
+
+      if (passphraseState && parentWalletId) {
+        await this.txUpdateWallet({
+          tx,
+          walletId: parentWalletId,
+          updater: (item) => {
+            item.nextIds = item.nextIds || {};
+            item.nextIds.hiddenWalletNum =
+              (item.nextIds.hiddenWalletNum || 1) + 1;
+            return item;
+          },
+        });
+      }
 
       // add first indexed account
       const { nextIndex } = await this.txAddHDNextIndexedAccount({
