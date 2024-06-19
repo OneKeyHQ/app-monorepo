@@ -18,7 +18,8 @@ import { NFTListView } from '../components/NFTListView';
 
 function NFTListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
-  const { isFocused } = useTabIsRefreshingFocused();
+  const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
+    useTabIsRefreshingFocused();
   const { updateSearchKey } = useNFTListActions().current;
   const [nftListState, setNftListState] = useState({
     initialized: false,
@@ -28,7 +29,7 @@ function NFTListContainer(props: ITabPageProps) {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
-  const nfts = usePromiseResult(
+  const { result, run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
@@ -44,10 +45,11 @@ function NFTListContainer(props: ITabPageProps) {
         initialized: true,
         isRefreshing: false,
       });
+      setIsHeaderRefreshing(false);
 
       return r.data;
     },
-    [account, network],
+    [account, network, setIsHeaderRefreshing],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
@@ -65,9 +67,15 @@ function NFTListContainer(props: ITabPageProps) {
     }
   }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 
+  useEffect(() => {
+    if (isHeaderRefreshing) {
+      void run();
+    }
+  }, [isHeaderRefreshing, run]);
+
   return (
     <NFTListView
-      data={nfts.result ?? []}
+      data={result ?? []}
       isLoading={nftListState.isRefreshing}
       onContentSizeChange={onContentSizeChange}
       initialized={nftListState.initialized}

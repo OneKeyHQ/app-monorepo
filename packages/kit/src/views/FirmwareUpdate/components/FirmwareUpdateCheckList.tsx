@@ -140,7 +140,9 @@ export function FirmwareUpdateCheckList({
               }
             : undefined
         }
-        onConfirmText="Continue"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_continue,
+        })}
       />
     </Stack>
   );

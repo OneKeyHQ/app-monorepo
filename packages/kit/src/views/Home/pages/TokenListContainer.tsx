@@ -36,7 +36,8 @@ function TokenListContainer({
   ...props
 }: ITabPageProps) {
   const { onContentSizeChange } = props;
-  const { isFocused } = useTabIsRefreshingFocused();
+  const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
+    useTabIsRefreshingFocused();
 
   const {
     activeAccount: { account, network, wallet, deriveInfo, deriveType },
@@ -71,7 +72,7 @@ function TokenListContainer({
     updateSearchKey,
   } = useTokenListActions().current;
 
-  usePromiseResult(
+  const { run } = usePromiseResult(
     async () => {
       try {
         if (!account || !network) return;
@@ -138,6 +139,8 @@ function TokenListContainer({
         } else {
           throw e;
         }
+      } finally {
+        setIsHeaderRefreshing(false);
       }
     },
     [
@@ -153,6 +156,7 @@ function TokenListContainer({
       refreshAllTokenList,
       refreshAllTokenListMap,
       updateTokenListState,
+      setIsHeaderRefreshing,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -160,6 +164,11 @@ function TokenListContainer({
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
   );
+  useEffect(() => {
+    if (isHeaderRefreshing) {
+      void run();
+    }
+  }, [isHeaderRefreshing, run]);
 
   const { result: vaultSettings } = usePromiseResult(
     () =>

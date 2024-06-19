@@ -16,16 +16,24 @@ function BlockAccessView({
   const intl = useIntl();
   const title = useMemo(() => {
     if (urlValidateState === EValidateUrlEnum.InvalidPunycode) {
-      return 'Risky domain';
+      return intl.formatMessage({
+        id: ETranslations.explore_risky_domain,
+      });
     }
-    return 'Connection is Not Private';
-  }, [urlValidateState]);
+    return intl.formatMessage({
+      id: ETranslations.explore_connection_is_not_private,
+    });
+  }, [urlValidateState, intl]);
   const description = useMemo(() => {
     if (urlValidateState === EValidateUrlEnum.InvalidPunycode) {
-      return 'Possibly a fake website.Attackers sometimes make subtle, undetectable changes to URLs to impersonate websites.';
+      return intl.formatMessage({
+        id: ETranslations.explore_risky_domain_warning,
+      });
     }
-    return 'Only supports HTTPS protocol! Unsafe website is vulnerable to attacks and forgery. ';
-  }, [urlValidateState]);
+    return intl.formatMessage({
+      id: ETranslations.explore_connection_is_not_private_warning,
+    });
+  }, [urlValidateState, intl]);
   const content = useMemo(
     () => (
       <YStack

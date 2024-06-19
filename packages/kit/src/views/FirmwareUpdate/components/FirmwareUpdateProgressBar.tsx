@@ -42,8 +42,6 @@ type IProgressConfigItem = {
   desc: () => string;
 };
 
-const defaultDesc = () => `Checking device`;
-
 const checkingMaxProgress = 10;
 
 export function FirmwareUpdateProgressBarView({
@@ -131,6 +129,10 @@ export function FirmwareUpdateProgressBar({
 
   const progressMaxRef = useRef(checkingMaxProgress);
 
+  const defaultDesc = useCallback(
+    () => intl.formatMessage({ id: ETranslations.global_checking_device }),
+    [intl],
+  );
   const [desc, setDesc] = useState(defaultDesc());
 
   const firmwareType: IDeviceFirmwareType | undefined = useMemo(() => {
@@ -356,6 +358,7 @@ export function FirmwareUpdateProgressBar({
     },
     [
       intl,
+      defaultDesc,
       // do not add any deps here, use ref instead
     ],
   );
@@ -388,7 +391,7 @@ export function FirmwareUpdateProgressBar({
     if (stepInfo?.step === EFirmwareUpdateSteps.updateStart || !firmwareType) {
       setDesc(defaultDesc());
     }
-  }, [firmwareType, stepInfo?.step]);
+  }, [defaultDesc, firmwareType, stepInfo?.step]);
 
   useEffect(() => {
     const timer = setInterval(() => {

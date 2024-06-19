@@ -89,6 +89,13 @@ export function useTabIsRefreshingFocused() {
   );
   const [isHeaderRefreshing, setIsHeaderRefreshing] = useState(false);
   const [isFooterRefreshing, setIsFooterRefreshing] = useState(false);
+  const overrideSetIsHeaderRefreshing = useCallback(
+    (_isRefreshing: boolean) => {
+      tabRefreshingFocusedContext?.setScrollHeaderIsRefreshing?.(_isRefreshing);
+      setIsHeaderRefreshing(_isRefreshing);
+    },
+    [tabRefreshingFocusedContext],
+  );
   useEffect(() => {
     const unsubscribeChangeFocused = tabRefreshingFocusedContext?.addListener(
       'changeFocused',
@@ -113,7 +120,7 @@ export function useTabIsRefreshingFocused() {
             return;
           }
           if (data.isHeader) {
-            setIsHeaderRefreshing(data.isRefreshing);
+            overrideSetIsHeaderRefreshing(data.isRefreshing);
           } else {
             setIsFooterRefreshing(data.isRefreshing);
           }
@@ -128,19 +135,14 @@ export function useTabIsRefreshingFocused() {
     isFocused,
     isHeaderRefreshing,
     isFooterRefreshing,
+    overrideSetIsHeaderRefreshing,
   ]);
-  const overrideSetIsRefreshing = useCallback(
-    (_isRefreshing: boolean) => {
-      tabRefreshingFocusedContext?.setScrollHeaderIsRefreshing?.(_isRefreshing);
-      setIsHeaderRefreshing(_isRefreshing);
-    },
-    [tabRefreshingFocusedContext],
-  );
+
   return {
     isFocused,
     isHeaderRefreshing,
     isFooterRefreshing,
-    setIsHeaderRefreshing: overrideSetIsRefreshing,
+    setIsHeaderRefreshing: overrideSetIsHeaderRefreshing,
     setIsFooterRefreshing,
   };
 }

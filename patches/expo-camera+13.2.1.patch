@@ -1,0 +1,173 @@
+diff --git a/node_modules/expo-camera/build/useWebQRScanner.js b/node_modules/expo-camera/build/useWebQRScanner.js
+index 459f28c..4a68c1e 100644
+--- a/node_modules/expo-camera/build/useWebQRScanner.js
++++ b/node_modules/expo-camera/build/useWebQRScanner.js
+@@ -1,47 +1,9 @@
+-import { useWorker } from '@koale/useworker';
+ import * as React from 'react';
+ import { captureImageData } from './WebCameraUtils';
+-const qrWorkerMethod = ({ data, width, height }) => {
+-    // eslint-disable-next-line no-undef
+-    const decoded = self.jsQR(data, width, height, {
+-        inversionAttempts: 'attemptBoth',
+-    });
+-    let parsed;
+-    try {
+-        parsed = JSON.parse(decoded);
+-    }
+-    catch {
+-        parsed = decoded;
+-    }
+-    if (parsed?.data) {
+-        const nativeEvent = {
+-            type: 'qr',
+-            data: parsed.data,
+-            cornerPoints: [],
+-            bounds: { origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } },
+-        };
+-        if (parsed.location) {
+-            nativeEvent.cornerPoints = [
+-                parsed.location.topLeftCorner,
+-                parsed.location.bottomLeftCorner,
+-                parsed.location.topRightCorner,
+-                parsed.location.bottomRightCorner,
+-            ];
+-        }
+-        return nativeEvent;
+-    }
+-    return parsed;
+-};
+-function useRemoteJsQR() {
+-    return useWorker(qrWorkerMethod, {
+-        remoteDependencies: ['https://cdn.jsdelivr.net/npm/jsqr@1.2.0/dist/jsQR.min.js'],
+-        autoTerminate: false,
+-    });
+-}
++import { scanImageData } from 'zbar.wasm';
+ export function useWebQRScanner(video, { isEnabled, captureOptions, interval, onScanned, onError, }) {
+     const isRunning = React.useRef(false);
+     const timeout = React.useRef(undefined);
+-    const [decode, clearWorker] = useRemoteJsQR();
+     async function scanAsync() {
+         // If interval is 0 then only scan once.
+         if (!isRunning.current || !onScanned) {
+@@ -50,13 +12,15 @@ export function useWebQRScanner(video, { isEnabled, captureOptions, interval, on
+         }
+         try {
+             const data = captureImageData(video.current, captureOptions);
+-            if (data) {
+-                const nativeEvent = await decode(data);
+-                if (nativeEvent?.data) {
+-                    onScanned({
+-                        nativeEvent,
+-                    });
+-                }
++            const [res] = await scanImageData(data);
++            if (res) {
++                onScanned({
++                    nativeEvent: {
++                        type: res.typeName,
++                        data: res.decode(),
++                        cornerPoints: res.points
++                    }
++                });
+             }
+         }
+         catch (error) {
+@@ -93,7 +57,6 @@ export function useWebQRScanner(video, { isEnabled, captureOptions, interval, on
+     React.useEffect(() => {
+         return () => {
+             stop();
+-            clearWorker.kill();
+         };
+     }, []);
+ }
+diff --git a/node_modules/expo-camera/src/useWebQRScanner.ts b/node_modules/expo-camera/src/useWebQRScanner.ts
+index a98920c..e7a9c41 100644
+--- a/node_modules/expo-camera/src/useWebQRScanner.ts
++++ b/node_modules/expo-camera/src/useWebQRScanner.ts
+@@ -1,48 +1,9 @@
+-import { useWorker } from '@koale/useworker';
+ import * as React from 'react';
+ 
+ import { BarCodeScanningResult, CameraPictureOptions, MountErrorListener } from './Camera.types';
+ import { captureImageData } from './WebCameraUtils';
+ 
+-const qrWorkerMethod = ({ data, width, height }: ImageData): any => {
+-  // eslint-disable-next-line no-undef
+-  const decoded = (self as any).jsQR(data, width, height, {
+-    inversionAttempts: 'attemptBoth',
+-  });
+-
+-  let parsed;
+-  try {
+-    parsed = JSON.parse(decoded);
+-  } catch {
+-    parsed = decoded;
+-  }
+-
+-  if (parsed?.data) {
+-    const nativeEvent: BarCodeScanningResult = {
+-      type: 'qr',
+-      data: parsed.data,
+-      cornerPoints: [],
+-      bounds: { origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } },
+-    };
+-    if (parsed.location) {
+-      nativeEvent.cornerPoints = [
+-        parsed.location.topLeftCorner,
+-        parsed.location.bottomLeftCorner,
+-        parsed.location.topRightCorner,
+-        parsed.location.bottomRightCorner,
+-      ];
+-    }
+-    return nativeEvent;
+-  }
+-  return parsed;
+-};
+-
+-function useRemoteJsQR() {
+-  return useWorker(qrWorkerMethod, {
+-    remoteDependencies: ['https://cdn.jsdelivr.net/npm/jsqr@1.2.0/dist/jsQR.min.js'],
+-    autoTerminate: false,
+-  });
+-}
++import { scanImageData } from 'zbar.wasm';
+ 
+ export function useWebQRScanner(
+   video: React.MutableRefObject<HTMLVideoElement | null>,
+@@ -63,8 +24,6 @@ export function useWebQRScanner(
+   const isRunning = React.useRef<boolean>(false);
+   const timeout = React.useRef<number | undefined>(undefined);
+ 
+-  const [decode, clearWorker] = useRemoteJsQR();
+-
+   async function scanAsync() {
+     // If interval is 0 then only scan once.
+     if (!isRunning.current || !onScanned) {
+@@ -75,10 +34,14 @@ export function useWebQRScanner(
+       const data = captureImageData(video.current, captureOptions);
+ 
+       if (data) {
+-        const nativeEvent: BarCodeScanningResult | any = await decode(data);
+-        if (nativeEvent?.data) {
++        const [res] = await scanImageData(data);
++        if (res) {
+           onScanned({
+-            nativeEvent,
++            nativeEvent: {
++              type: res.typeName,
++              data: res.decode(),
++              cornerPoints: res.points
++            },
+           });
+         }
+       }
+@@ -117,7 +80,6 @@ export function useWebQRScanner(
+   React.useEffect(() => {
+     return () => {
+       stop();
+-      clearWorker.kill();
+     };
+   }, []);
+ }

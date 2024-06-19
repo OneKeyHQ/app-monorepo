@@ -26,7 +26,6 @@ function MobileTabListPinnedItem({
   const isActive = activeTabId === id;
   return (
     <Stack
-      flex={1}
       p="$0.5"
       minWidth="$28"
       maxWidth="$40"

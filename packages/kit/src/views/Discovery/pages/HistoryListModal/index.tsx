@@ -144,7 +144,7 @@ function HistoryListModal() {
         <SectionList
           testID="History-SectionList"
           height="100%"
-          estimatedItemSize="$10"
+          estimatedItemSize="$16"
           extraData={isEditing}
           sections={isNil(dataSource) ? [] : dataSource}
           renderSectionHeader={({ section: { title } }) => (

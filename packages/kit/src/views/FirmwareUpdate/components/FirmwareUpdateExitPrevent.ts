@@ -1,6 +1,7 @@
 import { useKeepAwake } from 'expo-keep-awake';
+import { useIntl } from 'react-intl';
 
-import { FIRMWARE_UPDATE_PREVENT_EXIT } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firmwareUpdateConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   useAppExitPrevent,
@@ -15,8 +16,11 @@ export function ForceExtensionUpdatingFromExpandTab() {
 }
 
 export function FirmwareUpdateExitPrevent() {
-  const title = FIRMWARE_UPDATE_PREVENT_EXIT.title;
-  const message = FIRMWARE_UPDATE_PREVENT_EXIT.message;
+  const intl = useIntl();
+  const title = intl.formatMessage({ id: ETranslations.update_quit_update });
+  const message = intl.formatMessage({
+    id: ETranslations.update_quit_update_desc,
+  });
 
   // Prevents screen locking
   useKeepAwake();

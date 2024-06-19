@@ -1,4 +1,4 @@
-import { Dimensions } from 'react-native';
+import { Dimensions, PixelRatio } from 'react-native';
 
 export const TAB_LIST_CELL_COUNT_PER_ROW = 2;
 export const TAB_LIST_HORIZONTAL_MARGIN = 14;
@@ -12,3 +12,6 @@ export const TAB_LIST_CELL_WIDTH =
   TAB_LIST_CELL_COUNT_PER_ROW;
 
 export const THUMB_WIDTH = TAB_LIST_CELL_WIDTH - 12;
+
+export const THUMB_CROP_SIZE =
+  Dimensions.get('window').width * PixelRatio.get();

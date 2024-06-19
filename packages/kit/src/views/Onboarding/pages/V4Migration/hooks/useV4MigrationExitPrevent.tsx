@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { useKeepAwake } from 'expo-keep-awake';
+import { useIntl } from 'react-intl';
 import { Alert, BackHandler } from 'react-native';
 
 import {
@@ -12,8 +13,8 @@ import {
   usePreventRemove,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { FIRMWARE_UPDATE_PREVENT_EXIT } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firmwareUpdateConsts';
 import { useV4migrationPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useV4MigrationActions } from './useV4MigrationActions';
@@ -140,6 +141,7 @@ export function useAppExitPrevent({
   message: string;
   title: string;
 }) {
+  const intl = useIntl();
   // Prevents web page refresh/exit
   useEffect(() => {
     if (platformEnv.isRuntimeBrowser && !platformEnv.isExtensionUiPopup) {
@@ -164,14 +166,14 @@ export function useAppExitPrevent({
         message,
         [
           {
-            text: FIRMWARE_UPDATE_PREVENT_EXIT.cancel,
+            text: intl.formatMessage({ id: ETranslations.global_cancel }),
             onPress: () => {
               // Do nothing
             },
             style: 'cancel',
           },
           {
-            text: FIRMWARE_UPDATE_PREVENT_EXIT.confirm,
+            text: intl.formatMessage({ id: ETranslations.globall_quit }),
             onPress: () => BackHandler.exitApp(),
           },
         ],
@@ -187,7 +189,7 @@ export function useAppExitPrevent({
     );
 
     return () => backHandler.remove();
-  }, [message, title]);
+  }, [message, title, intl]);
 
   // Prevent Desktop exit
   // TODO
