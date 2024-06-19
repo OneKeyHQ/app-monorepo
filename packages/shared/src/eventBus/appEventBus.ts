@@ -103,6 +103,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
   [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
     connectId: string | undefined;
+    existsFirmware?: boolean;
   };
   [EAppEventBusNames.ShowFirmwareUpdateForce]: {
     connectId: string | undefined;

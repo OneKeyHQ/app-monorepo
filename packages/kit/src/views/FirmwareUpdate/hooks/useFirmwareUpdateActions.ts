@@ -99,7 +99,7 @@ export function useFirmwareUpdateActions() {
       existsFirmware,
     }: {
       connectId: string | undefined;
-      existsFirmware: boolean;
+      existsFirmware?: boolean;
     }) => {
       if (existsFirmware) {
         Dialog.show({
