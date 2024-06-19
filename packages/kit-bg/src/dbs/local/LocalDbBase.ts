@@ -1358,8 +1358,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             // official firmware verified
             item.verifiedAtVersion = versionText;
           } else {
-            // skip firmware verify
-            item.verifiedAtVersion = undefined;
+            // skip firmware verify, but keep previous verified version
+            item.verifiedAtVersion = item.verifiedAtVersion || undefined;
           }
           return item;
         },
