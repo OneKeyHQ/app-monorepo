@@ -21,15 +21,13 @@ export function NumberSizeableText({
   subTextStyle,
   ...props
 }: INumberSizeableTextProps) {
-  const result = useMemo(() => {
-    try {
-      return ['string', 'number'].includes(typeof children)
+  const result = useMemo(
+    () =>
+      ['string', 'number'].includes(typeof children)
         ? numberFormat(String(children), { formatter, formatterOptions }, true)
-        : '';
-    } catch (e) {
-      return children?.toString() || '';
-    }
-  }, [formatter, formatterOptions, children]);
+        : '',
+    [formatter, formatterOptions, children],
+  );
 
   const scriptFontSize = Math.ceil(
     props.fontSize || getFontSize(props.size) * 0.6,
