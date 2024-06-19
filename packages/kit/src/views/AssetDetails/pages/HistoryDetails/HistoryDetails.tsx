@@ -247,7 +247,6 @@ function HistoryDetails() {
             receives[0]?.to ??
             decodedTx.to ??
             decodedTx.actions[0]?.assetTransfer?.to;
-
       return {
         from,
         to,
@@ -384,8 +383,10 @@ function HistoryDetails() {
     const onChainTxPayload = historyTx.decodedTx.payload;
 
     if (vaultSettings?.isUtxo) {
-      sends = sends?.filter((send) => send.isOwn);
-      receives = receives?.filter((receive) => receive.isOwn);
+      sends = sends?.filter((send) => (isNil(send.isOwn) ? true : send.isOwn));
+      receives = receives?.filter((receive) =>
+        isNil(receive.isOwn) ? true : receive.isOwn,
+      );
     }
 
     if (

@@ -48,6 +48,7 @@ export function getOnChainHistoryTxAssetInfo({
   } else {
     token = tokens[tokenAddress];
   }
+
   if (nft) {
     name = nft.metadata?.name ?? '';
     symbol = nft.metadata?.name ?? '';

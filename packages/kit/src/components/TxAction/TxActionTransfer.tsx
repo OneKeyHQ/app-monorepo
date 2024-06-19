@@ -125,6 +125,19 @@ function buildTransferChangeInfo({
   let changeDescription = '';
 
   if (isUTXO) {
+    if (transfers.length > 1) {
+      const tokens = uniq(map(transfers, 'tokenIdOnNetwork'));
+      if (tokens.length > 1) {
+        change = `${tokens.length} assets`;
+        changeDescription = `${transfers[0].symbol} and more`;
+        return {
+          change: `${changePrefix}${change}`,
+          changeSymbol,
+          changeDescription,
+        };
+      }
+    }
+
     const amountBN = new BigNumber(nativeAmount ?? 0).abs();
     change = amountBN.toFixed();
     changeSymbol = transfers[0].symbol;
@@ -146,7 +159,7 @@ function buildTransferChangeInfo({
       .multipliedBy(transfers[0].price ?? 0)
       .toFixed();
   } else {
-    const tokens = uniq(map(transfers, 'token'));
+    const tokens = uniq(map(transfers, 'tokenIdOnNetwork'));
     if (tokens.length === 1) {
       const totalAmountBN = transfers.reduce(
         (acc, transfer) => acc.plus(new BigNumber(transfer.amount).abs()),
@@ -162,9 +175,7 @@ function buildTransferChangeInfo({
       const transfersWithNFT = transfers.filter((send) => send.isNFT);
       const transfersWithToken = transfers.filter((send) => !send.isNFT);
       if (transfersWithNFT.length === 0) {
-        change = `${tokens.length} ${intl.formatMessage({
-          id: 'title__assets',
-        })}`;
+        change = `${tokens.length} assets`;
         changeDescription = `${transfersWithToken[0].symbol} and more`;
       } else if (transfersWithNFT.length === 1) {
         change = new BigNumber(transfersWithNFT[0].amount).abs().toFixed();
@@ -200,10 +211,9 @@ function TxActionTransferListView(props: ITxActionProps) {
     useFeeInfoInDecodedTx({
       decodedTx,
     });
-  const vaultSettings = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
-    [networkId],
-  ).result;
+
+  const { vaultSettings } = useAccountData({ networkId });
+
   const isUTXO = vaultSettings?.isUtxo;
   const {
     sends,

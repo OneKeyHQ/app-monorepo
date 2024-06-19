@@ -6,6 +6,7 @@ import { Skeleton, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useNativeTokenInfoAtom,
@@ -40,6 +41,7 @@ function TxActionsContainer(props: IProps) {
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [isSendNativeToken, setIsSendNativeToken] = useState(false);
+  const { vaultSettings } = useAccountData({ networkId });
 
   const r = usePromiseResult(
     () =>
@@ -74,6 +76,9 @@ function TxActionsContainer(props: IProps) {
       isSendNativeTokenAction(decodedTxs[0].actions[0])
     ) {
       setIsSendNativeToken(true);
+      nativeTokenTransferBN = new BigNumber(
+        transferPayload?.amountToSend ?? nativeTokenTransferBN,
+      );
       const nativeTokenBalanceBN = new BigNumber(nativeTokenInfo.balance);
       const feeBN = new BigNumber(sendSelectedFeeInfo?.totalNative ?? 0);
       if (nativeTokenTransferBN.plus(feeBN).gte(nativeTokenBalanceBN)) {
@@ -90,15 +95,17 @@ function TxActionsContainer(props: IProps) {
         } else {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: false,
-            amountToUpdate:
-              transferPayload?.amountToSend ?? nativeTokenTransferBN.toFixed(),
+            amountToUpdate: vaultSettings?.isUtxo
+              ? nativeTokenTransferBN.toFixed()
+              : transferPayload?.amountToSend ?? nativeTokenBalanceBN.toFixed(),
           });
         }
       } else {
         updateNativeTokenTransferAmountToUpdate({
           isMaxSend: false,
-          amountToUpdate:
-            transferPayload?.amountToSend ?? nativeTokenTransferBN.toFixed(),
+          amountToUpdate: vaultSettings?.isUtxo
+            ? nativeTokenTransferBN.toFixed()
+            : transferPayload?.amountToSend ?? nativeTokenBalanceBN.toFixed(),
         });
       }
     }
@@ -114,6 +121,7 @@ function TxActionsContainer(props: IProps) {
     transferPayload?.amountToSend,
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,
+    vaultSettings?.isUtxo,
   ]);
 
   const renderActions = useCallback(() => {
