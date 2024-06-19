@@ -526,6 +526,9 @@ function SendDataInputContainer() {
               : `${currencySymbol}${linkedAmount.amount}`,
             onPress: handleOnChangeAmountMode,
           }}
+          inputProps={{
+            placeholder: '0',
+          }}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: isNFT
               ? nft?.metadata?.image
@@ -536,15 +539,27 @@ function SendDataInputContainer() {
               : tokenInfo?.symbol,
             onPress: isNFT ? undefined : handleOnSelectToken,
           }}
+          {...(hasFrozenBalance && {
+            balanceHelperProps: {
+              onPress: () => {
+                showBalanceDetailsDialog({
+                  accountId,
+                  networkId,
+                });
+              },
+            },
+          })}
         />
       </Form.Field>
     ),
     [
+      accountId,
       currencySymbol,
       form,
       handleOnChangeAmountMode,
       handleOnSelectToken,
       handleValidateTokenAmount,
+      hasFrozenBalance,
       intl,
       isLoadingAssets,
       isNFT,
@@ -552,6 +567,7 @@ function SendDataInputContainer() {
       linkedAmount.amount,
       maxAmount,
       network?.logoURI,
+      networkId,
       nft?.metadata?.image,
       nft?.metadata?.name,
       tokenDetails?.info.decimals,
@@ -576,11 +592,15 @@ function SendDataInputContainer() {
               right="$0"
               top="$0"
             >
-              Available: {nftDetails?.amount ?? 1}
+              {intl.formatMessage({ id: ETranslations.global_available })}:{' '}
+              {nftDetails?.amount ?? 1}
             </SizableText>
           )}
           <Input
             size="large"
+            $gtMd={{
+              size: 'medium',
+            }}
             addOns={[
               {
                 loading: isLoadingAssets,
@@ -597,31 +617,6 @@ function SendDataInputContainer() {
     }
     return null;
   }, [form, intl, isLoadingAssets, nft?.collectionType, nftDetails?.amount]);
-
-  const renderFrozenBalance = useCallback(() => {
-    if (!hasFrozenBalance) {
-      return false;
-    }
-    return (
-      <XStack py="$2" flex={1}>
-        <Alert
-          flex={1}
-          icon="CoinOutline"
-          title={intl.formatMessage({
-            id: ETranslations.send_description_frozen_funds_info,
-          })}
-          action={{
-            primary: 'View',
-            onPrimaryPress: () =>
-              showBalanceDetailsDialog({
-                accountId,
-                networkId,
-              }),
-          }}
-        />
-      </XStack>
-    );
-  }, [intl, hasFrozenBalance, accountId, networkId]);
 
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
@@ -682,7 +677,6 @@ function SendDataInputContainer() {
       return (
         <>
           {renderTokenDataInputForm()}
-          {renderFrozenBalance()}
           {renderMemoForm()}
         </>
       );
@@ -693,7 +687,6 @@ function SendDataInputContainer() {
     isNFT,
     renderNFTDataInputForm,
     renderTokenDataInputForm,
-    renderFrozenBalance,
     renderMemoForm,
   ]);
 
@@ -702,7 +695,7 @@ function SendDataInputContainer() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.send_title })}
       />
-      <Page.Body px="$5">
+      <Page.Body px="$5" testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror
           config={{
             sceneName: EAccountSelectorSceneName.addressInput, // can replace with other sceneName

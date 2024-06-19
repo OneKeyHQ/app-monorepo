@@ -186,19 +186,19 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   }
   if (result) {
     return (
-      <XStack space="$2" flex={1} flexWrap="wrap">
+      <XStack space="$2" my="$-1" flex={1} flexWrap="wrap">
         {result.walletAccountName ? (
-          <Badge badgeType="success" badgeSize="sm" mb="$1">
+          <Badge badgeType="success" badgeSize="sm" my="$0.5">
             {result.walletAccountName}
           </Badge>
         ) : null}
         {result.addressBookName ? (
-          <Badge badgeType="success" badgeSize="sm" mb="$1">
+          <Badge badgeType="success" badgeSize="sm" my="$0.5">
             {result.addressBookName}
           </Badge>
         ) : null}
         {result.resolveAddress ? (
-          <Stack mb="$1">
+          <Stack my="$0.5">
             <ResolvedAddress
               value={result.resolveAddress}
               options={result.resolveOptions ?? []}
@@ -206,7 +206,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        <Stack mb="$1">
+        <Stack my="$0.5">
           <AddressInteractionStatus status={result.addressInteractionStatus} />
         </Stack>
       </XStack>

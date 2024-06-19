@@ -201,7 +201,7 @@ export const showBalanceDetailsDialog = ({
   networkId: string;
 }) =>
   Dialog.show({
-    icon: 'CoinOutline',
+    icon: 'CryptoCoinOutline',
     renderContent: (
       <BalanceDetailsContent accountId={accountId} networkId={networkId} />
     ),

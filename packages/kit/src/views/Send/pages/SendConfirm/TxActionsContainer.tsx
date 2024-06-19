@@ -24,12 +24,11 @@ import { ETxActionComponentType } from '@onekeyhq/shared/types';
 type IProps = {
   accountId: string;
   networkId: string;
-  tableLayout?: boolean;
   transferPayload?: ITransferPayload;
 };
 
 function TxActionsContainer(props: IProps) {
-  const { accountId, networkId, tableLayout, transferPayload } = props;
+  const { accountId, networkId, transferPayload } = props;
   const {
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,
@@ -143,7 +142,6 @@ function TxActionsContainer(props: IProps) {
         key={index}
         componentType={ETxActionComponentType.DetailView}
         decodedTx={decodedTx}
-        tableLayout={tableLayout}
         isSendNativeToken={isSendNativeToken}
         nativeTokenTransferAmountToUpdate={
           nativeTokenTransferAmountToUpdate.amountToUpdate
@@ -155,7 +153,6 @@ function TxActionsContainer(props: IProps) {
     nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     r.result,
-    tableLayout,
   ]);
 
   return <YStack space="$2">{renderActions()}</YStack>;
