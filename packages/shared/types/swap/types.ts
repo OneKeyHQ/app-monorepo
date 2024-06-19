@@ -30,6 +30,7 @@ export enum ETokenRiskLevel {
   WARNING = 2,
   SPAM = 1000,
   MALICIOUS = 1001,
+  SCAM = 1002,
 }
 
 export interface ISwapInitParams {
@@ -136,6 +137,7 @@ export interface ISwapApproveTransaction {
   spenderAddress: string;
   amount: string;
   status: ESwapApproveTransactionStatus;
+  isResetApprove?: boolean;
   txId?: string;
   blockNumber?: number;
 }

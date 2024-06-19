@@ -176,6 +176,8 @@ const SwapAccountAddressContainer = ({
     if (
       ((fromToken && type === ESwapDirectionType.FROM) ||
         (toToken && type === ESwapDirectionType.TO)) &&
+      swapAddressInfo.address &&
+      swapAnotherAddressInfo.address &&
       swapAddressInfo.address === swapAnotherAddressInfo.address
     ) {
       return null;
