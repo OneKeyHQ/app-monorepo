@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { buildTxActionDirection } from '@onekeyhq/shared/src/utils/txActionUtils';
+import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
@@ -46,6 +47,7 @@ import type {
   IOnChainHistoryTxTransfer,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -81,8 +83,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
-import { IResolveNameResp } from '@onekeyhq/shared/types/name';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;

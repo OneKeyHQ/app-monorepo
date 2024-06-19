@@ -32,6 +32,7 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import {
   EDecodedTxStatus,
   type IDecodedTx,
@@ -65,7 +66,6 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import { IResolveNameResp } from '@onekeyhq/shared/types/name';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.fil.hd;
