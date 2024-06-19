@@ -29,7 +29,7 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { EDBAccountType } from '../../dbs/local/consts';
-import localDb from '../../dbs/local/localDb';
+import v5localDb from '../../dbs/local/localDb';
 
 import { v4CoinTypeToNetworkId } from './v4CoinTypeToNetworkId';
 import v4dbHubs from './v4dbHubs';
@@ -229,11 +229,11 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
   }
 
   async migrateV4PasswordToV5() {
-    const isPasswordSet = await localDb.isPasswordSet();
+    const isPasswordSet = await v5localDb.isPasswordSet();
     if (!isPasswordSet) {
       const v4context = await this.getV4LocalDbContext();
       if (v4context?.verifyString) {
-        await localDb.updateContextVerifyString({
+        await v5localDb.updateContextVerifyString({
           verifyString: fixV4VerifyStringToV5({
             verifyString: v4context.verifyString,
           }),
@@ -744,11 +744,11 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             connectId: v4device?.mac || '',
             settingsRaw: '', // TODO convert v4 payloadJson to v5 settingsRaw
           };
-          await localDb.addDbDevice({
+          await v5localDb.addDbDevice({
             device: v5device,
             skipIfExists: true,
           });
-          const v5dbDeviceSaved = await localDb.getDevice(v5device.id);
+          const v5dbDeviceSaved = await v5localDb.getDevice(v5device.id);
           v4dbHubs.logger.saveWalletDeviceDetailsV5({
             v4walletId: v4wallet.id,
             v5device: v5dbDeviceSaved,
@@ -912,7 +912,8 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                         v4accountId: v4account.id,
                         v5account,
                       });
-                      await localDb.addAccountsToWallet({
+                      // TODO use service add hw account
+                      await v5localDb.addAccountsToWallet({
                         walletId: v5wallet?.id,
                         accounts: [v5account],
                       });

@@ -65,7 +65,6 @@ import type {
   IDBAccount,
   IDBAccountDerivation,
   IDBAddAccountDerivationParams,
-  IDBAddress,
   IDBApiGetContextOptions,
   IDBContext,
   IDBCreateHDWalletParams,
@@ -134,7 +133,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       backuped: true,
       accounts: [],
       walletNo: walletConfig?.[walletId]?.walletNo ?? 0,
-      nextAccountIds: { 'global': 1, 'index': 0 },
+      nextIds: {
+        'hiddenWalletNum': 1,
+        'accountGlobalNum': 1,
+        'accountHdIndex': 0,
+      },
     };
     return record;
   }
@@ -537,6 +540,30 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  async getParentWalletOfHiddenWallet({
+    dbDeviceId,
+    isQr,
+  }: {
+    dbDeviceId: string;
+    isQr: boolean;
+  }) {
+    const db = await this.readyDb;
+    let parentWalletId = accountUtils.buildHwWalletId({
+      dbDeviceId,
+    });
+    if (isQr) {
+      parentWalletId = accountUtils.buildQrWalletId({
+        dbDeviceId,
+        xfpHash: '',
+      });
+    }
+    const parentWallet = await db.getRecordById({
+      name: ELocalDBStoreNames.Wallet,
+      id: parentWalletId,
+    });
+    return parentWallet;
+  }
+
   async refillWalletInfo({
     wallet,
     hiddenWallets,
@@ -553,18 +580,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     wallet.avatarInfo = avatarInfo;
     wallet.walletOrder = wallet.walletNo;
     if (accountUtils.isHwHiddenWallet({ wallet })) {
-      let parentWalletId = accountUtils.buildHwWalletId({
+      const parentWallet = await this.getParentWalletOfHiddenWallet({
         dbDeviceId: wallet.associatedDevice || '',
-      });
-      if (wallet.type === 'qr') {
-        parentWalletId = accountUtils.buildQrWalletId({
-          dbDeviceId: wallet.associatedDevice || '',
-          xfpHash: '',
-        });
-      }
-      const parentWallet = await db.getRecordById({
-        name: ELocalDBStoreNames.Wallet,
-        id: parentWalletId,
+        isQr: accountUtils.isQrWallet({ walletId: wallet.id }), // wallet.type === WALLET_TYPE_QR
       });
       wallet.walletOrder = parentWallet.walletNo + wallet.walletNo / 1000000;
     }
@@ -764,8 +782,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     //     tx,
     //     walletId,
     //     updater: (w) => {
-    //       w.nextAccountIds = w.nextAccountIds || {};
-    //       w.nextAccountIds.index = maxIndex + 1;
     //       return w;
     //     },
     //   });
@@ -849,8 +865,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       tx,
       walletId,
       updater: (w) => {
-        w.nextAccountIds = w.nextAccountIds || {};
-        w.nextAccountIds.index = nextIndex + 1;
+        w.nextIds = w.nextIds || {};
+        w.nextIds.accountHdIndex = nextIndex + 1;
         return w;
       },
     });
@@ -926,8 +942,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             avatar: avatar && JSON.stringify(avatar), // TODO save object to realmDB?
             type: WALLET_TYPE_HD,
             backuped,
-            nextAccountIds: {
-              index: firstAccountIndex,
+            nextIds: {
+              accountHdIndex: firstAccountIndex,
             },
             accounts: [],
             walletNo: context.nextWalletNo,
@@ -1134,8 +1150,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             associatedDevice: dbDeviceId,
             isTemp: false,
             passphraseState,
-            nextAccountIds: {
-              index: firstAccountIndex,
+            nextIds: {
+              accountHdIndex: firstAccountIndex,
             },
             accounts: [],
             walletNo: context.nextWalletNo,
@@ -1259,12 +1275,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const deviceType = device.deviceType || getDeviceType(features);
     const deviceUUID = device.uuid || getDeviceUUID(features);
     const rawDeviceId = device.deviceId || features.device_id || '';
-    const deviceName = await accountUtils.buildDeviceName({ device, features });
-    let walletName = name || deviceName;
-    if (passphraseState) {
-      // TODO use nextHidden in IDBWallet
-      walletName = name || 'Hidden Wallet #1';
-    }
+
     const avatar: IAvatarInfo = {
       img: deviceType,
     };
@@ -1273,11 +1284,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       uuid: deviceUUID,
     });
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
-
     const dbWalletId = accountUtils.buildHwWalletId({
       dbDeviceId,
       passphraseState,
     });
+
+    let parentWalletId: string | undefined;
+    const deviceName = await accountUtils.buildDeviceName({ device, features });
+    let walletName = name || deviceName;
+    if (passphraseState) {
+      const parentWallet = await this.getParentWalletOfHiddenWallet({
+        dbDeviceId,
+        isQr: accountUtils.isQrWallet({ walletId: dbWalletId }),
+      });
+      parentWalletId = parentWallet.id;
+      walletName =
+        name || `Hidden Wallet #${parentWallet?.nextIds?.hiddenWalletNum || 1}`;
+    }
+
     const featuresStr = JSON.stringify(features);
 
     const firstAccountIndex = 0;
@@ -1334,8 +1358,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             // official firmware verified
             item.verifiedAtVersion = versionText;
           } else {
-            // skip firmware verify
-            item.verifiedAtVersion = undefined;
+            // skip firmware verify, but keep previous verified version
+            item.verifiedAtVersion = item.verifiedAtVersion || undefined;
           }
           return item;
         },
@@ -1356,8 +1380,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             associatedDevice: dbDeviceId,
             isTemp: false,
             passphraseState,
-            nextAccountIds: {
-              index: firstAccountIndex,
+            nextIds: {
+              accountHdIndex: firstAccountIndex,
             },
             accounts: [],
             walletNo: context.nextWalletNo,
@@ -1373,6 +1397,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           return item;
         },
       });
+
+      if (passphraseState && parentWalletId) {
+        await this.txUpdateWallet({
+          tx,
+          walletId: parentWalletId,
+          updater: (item) => {
+            item.nextIds = item.nextIds || {};
+            item.nextIds.hiddenWalletNum =
+              (item.nextIds.hiddenWalletNum || 1) + 1;
+            return item;
+          },
+        });
+      }
 
       // add first indexed account
       const { nextIndex } = await this.txAddHDNextIndexedAccount({
@@ -1783,11 +1820,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   getNextAccountId({
-    nextAccountIds,
+    nextIds,
     key,
     defaultValue,
   }: {
-    nextAccountIds:
+    nextIds:
       | {
           [key: string]: number;
         }
@@ -1795,7 +1832,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     key: string;
     defaultValue: number;
   }) {
-    const val = nextAccountIds?.[key];
+    const val = nextIds?.[key];
 
     // RealmDB ERROR: RangeError: number is not integral
     // realmDB return NaN, indexedDB return undefined
@@ -1818,7 +1855,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     defaultValue: number;
   }) {
     return this.getNextAccountId({
-      nextAccountIds: wallet.nextAccountIds,
+      nextIds: wallet.nextIds,
       key,
       defaultValue,
     });
@@ -1858,7 +1895,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
       let removed = 0;
       if (existsAccounts && existsAccounts.length) {
-        // TODO remove and re-add, may cause nextAccountIds not correct,
+        // TODO remove and re-add, may cause nextIds not correct,
         // TODO return actual removed count
         await db.txRemoveRecords({
           tx,
@@ -1914,14 +1951,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           tx,
           walletId,
           updater: (w) => {
-            w.nextAccountIds = w.nextAccountIds || {};
+            w.nextIds = w.nextIds || {};
 
             const currentNextAccountId = this.getWalletNextAccountId({
               wallet: w,
               key: 'global',
               defaultValue: 1,
             });
-            w.nextAccountIds.global = currentNextAccountId + actualAdded;
+            w.nextIds.accountGlobalNum = currentNextAccountId + actualAdded;
 
             // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
             // w.accounts is List not Array in realmDB
