@@ -43,6 +43,7 @@ export enum EAppEventBusNames {
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
+  ClearLocalHistoryPendingTxs = 'ClearLocalHistoryPendingTxs',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -115,6 +116,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
+  [EAppEventBusNames.ClearLocalHistoryPendingTxs]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
