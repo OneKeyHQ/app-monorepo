@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IListViewRef } from '@onekeyhq/components';
 import {
   ActionList,
   BlurView,
@@ -13,7 +12,6 @@ import {
   Page,
   Stack,
   Toast,
-  useSafelyScrollIntoIndex,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -133,44 +131,14 @@ function MobileTabListModal() {
     triggerCloseTab.current = false;
   }, [tabs, setDisplayHomePage, navigation]);
 
-  // tabListView scrollIntoIndex
-  const tabListViewRef = useRef<IListViewRef<IWebTab> | null>(null);
-  const {
-    scrollIntoIndex: scrollTabListIntoIndex,
-    onLayout: onListViewLayout,
-  } = useSafelyScrollIntoIndex(tabListViewRef);
-
-  // pinnedListView scrollIntoIndex
-  const pinnedListRef = useRef<IListViewRef<IWebTab> | null>(null);
-  const {
-    scrollIntoIndex: scrollPinnedListIntoIndex,
-    onLayout: onPinnedListLayout,
-  } = useSafelyScrollIntoIndex(pinnedListRef);
-
-  useEffect(() => {
-    const tabIndex = data.findIndex((t) => t.id === activeTabId);
-    if (tabIndex > -1) {
-      scrollTabListIntoIndex({
-        index: tabIndex,
-        animated: false,
-      });
-      return;
-    }
-
-    const pinnedItemIndex = pinnedData.findIndex((t) => t.id === activeTabId);
-    if (pinnedItemIndex > -1) {
-      scrollPinnedListIntoIndex({
-        index: pinnedItemIndex,
-        animated: false,
-      });
-    }
-  }, [
-    activeTabId,
-    data,
-    pinnedData,
-    scrollPinnedListIntoIndex,
-    scrollTabListIntoIndex,
-  ]);
+  const tabInitialScrollIndex = useMemo(
+    () => data.findIndex((t) => t.id === activeTabId),
+    [data, activeTabId],
+  );
+  const pinInitialScrollIndex = useMemo(
+    () => pinnedData.findIndex((t) => t.id === activeTabId),
+    [pinnedData, activeTabId],
+  );
 
   const { handleShareUrl } = useBrowserOptionsAction();
 
@@ -358,18 +326,19 @@ function MobileTabListModal() {
           contentContainerStyle={{
             p: '$1',
           }}
-          ref={pinnedListRef}
-          onLayout={onPinnedListLayout}
           horizontal
           data={pinnedData}
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.id}
           estimatedItemSize="$28"
+          // @ts-expect-error
+          estimatedListSize={{ width: 370, height: 52 }}
           renderItem={renderPinnedItem}
+          initialScrollIndex={pinInitialScrollIndex}
         />
       </BlurView>
     );
-  }, [onPinnedListLayout, pinnedData, renderPinnedItem]);
+  }, [pinnedData, renderPinnedItem, pinInitialScrollIndex]);
 
   return (
     <Page>
@@ -381,8 +350,7 @@ function MobileTabListModal() {
       />
       <Page.Body>
         <ListView
-          ref={tabListViewRef}
-          onLayout={onListViewLayout}
+          initialScrollIndex={tabInitialScrollIndex}
           // estimated item min size
           estimatedItemSize={223}
           data={data}

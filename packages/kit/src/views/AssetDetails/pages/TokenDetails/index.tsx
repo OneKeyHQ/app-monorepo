@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IActionListSection } from '@onekeyhq/components';
@@ -28,7 +29,6 @@ import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -219,8 +219,10 @@ export function TokenDetails() {
   }, [isBlocked, networkId, tokenInfo.address]);
 
   const headerRight = useCallback(() => {
-    const sections: IActionListSection[] = [
-      {
+    const sections: IActionListSection[] = [];
+
+    if (!tokenInfo.isNative) {
+      sections.push({
         items: [
           {
             label: isBlocked
@@ -230,8 +232,8 @@ export function TokenDetails() {
             onPress: handleToggleBlockedToken,
           },
         ],
-      },
-    ];
+      });
+    }
 
     if (tokenInfo.address !== '') {
       sections.unshift({
@@ -261,7 +263,7 @@ export function TokenDetails() {
         });
       }
     }
-    return (
+    return isEmpty(sections) ? null : (
       <ActionList
         title={intl.formatMessage({ id: ETranslations.global_more })}
         renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
@@ -275,6 +277,7 @@ export function TokenDetails() {
     isBlocked,
     network,
     tokenInfo.address,
+    tokenInfo.isNative,
   ]);
 
   // const renderTokenAddress = useCallback(() => {

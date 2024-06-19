@@ -86,6 +86,8 @@ function SendDataInputContainer() {
   const { account, network } = useAccountData({ accountId, networkId });
   const sendConfirm = useSendConfirm({ accountId, networkId });
 
+  const isSelectTokenDisabled = allTokens.tokens.length <= 1;
+
   const tokenMinAmount = useMemo(() => {
     if (!tokenInfo || isNaN(tokenInfo.decimals)) {
       return 0;
@@ -101,6 +103,8 @@ function SendDataInputContainer() {
       vaultSettings,
       hasFrozenBalance,
       displayMemoForm,
+      memoMaxLength,
+      numericOnlyMemo,
     ] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
@@ -172,6 +176,8 @@ function SendDataInputContainer() {
         vs,
         frozenBalanceSettings,
         vs.withMemo,
+        vs.memoMaxLength,
+        vs.numericOnlyMemo,
       ];
     },
     [
@@ -274,25 +280,32 @@ function SendDataInputContainer() {
 
     form.setValue('amount', linkedAmount.originalAmount);
   }, [form, linkedAmount]);
-  const handleOnSelectToken = useCallback(
-    () =>
-      navigation.pushModal(EModalRoutes.AssetSelectorModal, {
-        screen: EAssetSelectorRoutes.TokenSelector,
-        params: {
-          networkId,
-          accountId,
-          tokens: {
-            data: allTokens.tokens,
-            keys: allTokens.keys,
-            map,
-          },
-          onSelect: (data: IToken) => {
-            setTokenInfo(data);
-          },
+  const handleOnSelectToken = useCallback(() => {
+    if (isSelectTokenDisabled) return;
+    navigation.pushModal(EModalRoutes.AssetSelectorModal, {
+      screen: EAssetSelectorRoutes.TokenSelector,
+      params: {
+        networkId,
+        accountId,
+        tokens: {
+          data: allTokens.tokens,
+          keys: allTokens.keys,
+          map,
         },
-      }),
-    [accountId, allTokens.keys, allTokens.tokens, map, navigation, networkId],
-  );
+        onSelect: (data: IToken) => {
+          setTokenInfo(data);
+        },
+      },
+    });
+  }, [
+    accountId,
+    allTokens.keys,
+    allTokens.tokens,
+    isSelectTokenDisabled,
+    map,
+    navigation,
+    networkId,
+  ]);
   const handleOnConfirm = useCallback(async () => {
     try {
       if (!account) return;
@@ -535,6 +548,7 @@ function SendDataInputContainer() {
               ? nft?.metadata?.name
               : tokenInfo?.symbol,
             onPress: isNFT ? undefined : handleOnSelectToken,
+            disabled: isSelectTokenDisabled,
           }}
         />
       </Form.Field>
@@ -548,6 +562,7 @@ function SendDataInputContainer() {
       intl,
       isLoadingAssets,
       isNFT,
+      isSelectTokenDisabled,
       isUseFiat,
       linkedAmount.amount,
       maxAmount,
@@ -625,6 +640,13 @@ function SendDataInputContainer() {
 
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
+    const maxLength = memoMaxLength || 256;
+    const validateErrMsg = numericOnlyMemo
+      ? intl.formatMessage({
+          id: ETranslations.send_field_only_integer,
+        })
+      : undefined;
+    const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
 
     return (
       <>
@@ -641,24 +663,20 @@ function SendDataInputContainer() {
           name="memo"
           rules={{
             maxLength: {
-              value: 10,
+              value: maxLength,
               message: intl.formatMessage(
                 {
                   id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
                 },
                 {
-                  number: 10,
+                  number: maxLength,
                 },
               ),
             },
             validate: (value) => {
-              if (!value) return undefined;
-              const result = !/^[0-9]+$/.test(value);
-              return result
-                ? intl.formatMessage({
-                    id: ETranslations.send_field_only_integer,
-                  })
-                : undefined;
+              if (!value || !memoRegExp) return undefined;
+              const result = !memoRegExp.test(value);
+              return result ? validateErrMsg : undefined;
             },
           }}
         >
@@ -672,7 +690,7 @@ function SendDataInputContainer() {
         </Form.Field>
       </>
     );
-  }, [displayMemoForm, intl]);
+  }, [displayMemoForm, intl, memoMaxLength, numericOnlyMemo]);
 
   const renderDataInput = useCallback(() => {
     if (isNFT) {

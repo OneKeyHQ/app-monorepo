@@ -18,6 +18,7 @@ import {
   SizableText,
   Toast,
 } from '@onekeyhq/components';
+import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
@@ -41,7 +42,7 @@ function HardwareSingletonDialogCmp(
   props: any,
   ref: ForwardedRef<IDialogInstance>,
 ) {
-  const [state] = useHardwareUiStateAtom();
+  const { state }: { state: IHardwareUiState | undefined } = props;
   const action = state?.action;
   const connectId = state?.connectId || '';
   // state?.payload?.deviceType
@@ -77,7 +78,9 @@ function HardwareSingletonDialogCmp(
     title.current = intl.formatMessage({
       id: ETranslations.enter_pin_enter_on_device,
     });
-    content.current = <EnterPinOnDevice />;
+    content.current = (
+      <EnterPinOnDevice deviceType={state?.payload?.deviceType} />
+    );
   }
 
   // EnterPin on App
@@ -98,6 +101,7 @@ function HardwareSingletonDialogCmp(
         switchOnDevice={async () => {
           await serviceHardwareUI.showEnterPinOnDeviceDialog({
             connectId,
+            payload: state?.payload,
           });
         }}
       />
@@ -129,8 +133,12 @@ function HardwareSingletonDialogCmp(
 
   // EnterPassphraseOnDevice
   if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE) {
-    title.current = 'Enter Passphrase on Device';
-    content.current = <EnterPassphraseOnDevice />;
+    title.current = intl.formatMessage({
+      id: ETranslations.hardware_enter_passphrase_on_device,
+    });
+    content.current = (
+      <EnterPassphraseOnDevice deviceType={state?.payload?.deviceType} />
+    );
   }
 
   const shouldEnterPinOnDevice =
@@ -141,9 +149,16 @@ function HardwareSingletonDialogCmp(
     if (shouldEnterPinOnDevice) {
       void serviceHardwareUI.showEnterPinOnDeviceDialog({
         connectId,
+        payload: state?.payload,
       });
     }
-  }, [connectId, serviceHardware, serviceHardwareUI, shouldEnterPinOnDevice]);
+  }, [
+    connectId,
+    serviceHardware,
+    serviceHardwareUI,
+    shouldEnterPinOnDevice,
+    state?.payload,
+  ]);
 
   return (
     <DialogContainer
@@ -229,9 +244,9 @@ function HardwareUiStateContainerCmp() {
 
   const HardwareSingletonDialogRender = useCallback(
     ({ ref }: { ref: any }) => (
-      <HardwareSingletonDialog hello="world-338" ref={ref} />
+      <HardwareSingletonDialog hello="world-338" ref={ref} state={state} />
     ),
-    [],
+    [state],
   );
 
   console.log(
@@ -264,6 +279,7 @@ function HardwareUiStateContainerCmp() {
       await timerUtils.wait(300);
       if (shouldShowAction) {
         if (isToastAction) {
+          // hardware ui state toast
           toastRef.current = Toast.show({
             children: <ConfirmOnDeviceToastContent deviceType={deviceType} />,
             dismissOnOverlayPress: false,
@@ -279,6 +295,7 @@ function HardwareUiStateContainerCmp() {
             },
           });
         } else if (isDialogAction) {
+          // hardware ui action dialog
           dialogRef.current = Dialog.show({
             dismissOnOverlayPress: false,
             showFooter: false,

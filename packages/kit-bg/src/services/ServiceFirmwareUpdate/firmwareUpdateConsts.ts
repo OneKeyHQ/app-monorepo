@@ -1,12 +1,5 @@
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
-export const FIRMWARE_UPDATE_PREVENT_EXIT = {
-  title: 'Quit Update',
-  message: 'Are you sure you want to cancel the firmware update?',
-  confirm: 'Quit',
-  cancel: 'Cancel',
-};
-
 export const FIRMWARE_UPDATE_MIN_VERSION_ALLOWED: Partial<
   Record<
     IDeviceType,

@@ -25,7 +25,8 @@ import {
 
 function TxHistoryListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
-  const { isFocused } = useTabIsRefreshingFocused();
+  const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
+    useTabIsRefreshingFocused();
 
   const { updateSearchKey } = useHistoryListActions().current;
 
@@ -59,7 +60,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
     [account, navigation, network],
   );
 
-  const history = usePromiseResult(
+  const { result, run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
       const [xpub, vaultSettings] = await Promise.all([
@@ -82,9 +83,10 @@ function TxHistoryListContainer(props: ITabPageProps) {
         initialized: true,
         isRefreshing: false,
       });
+      setIsHeaderRefreshing(false);
       return r;
     },
-    [account, network],
+    [account, network, setIsHeaderRefreshing],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
@@ -102,10 +104,16 @@ function TxHistoryListContainer(props: ITabPageProps) {
     }
   }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 
+  useEffect(() => {
+    if (isHeaderRefreshing) {
+      void run();
+    }
+  }, [isHeaderRefreshing, run]);
+
   return (
     <TxHistoryListView
       showIcon
-      data={history.result ?? []}
+      data={result ?? []}
       onPressHistory={handleHistoryItemPress}
       showHeader
       isLoading={historyState.isRefreshing}
