@@ -8,7 +8,13 @@ import type {
   IIconProps,
   IStackProps,
 } from '@onekeyhq/components';
-import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -95,12 +101,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   return Component ? (
     <XStack alignItems="center" space="$2" flexShrink={1}>
       <Icon name={iconName} color={iconColor} size="$4" flexShrink={0} />
-      <SizableText
-        size="$bodyMdMedium"
-        color="$text"
-        flexShrink={1}
-        numberOfLines={1}
-      >
+      <SizableText size="$bodyMdMedium" color="$text" flexShrink={1}>
         <Component updateInfo={updateInfo} />
       </SizableText>
     </XStack>
@@ -112,6 +113,7 @@ function OpenOnGithub() {
   const handlePress = useCallback(() => {
     openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
   }, []);
+  const { gtMd } = useMedia();
   return (
     <XStack
       space="$2"
@@ -121,7 +123,11 @@ function OpenOnGithub() {
       onPress={handlePress}
     >
       <SizableText size="$bodyMdMedium" color="$textSubdued">
-        {intl.formatMessage({ id: ETranslations.update_download_on_github })}
+        {intl.formatMessage({
+          id: gtMd
+            ? ETranslations.update_download_on_github
+            : ETranslations.global_github,
+        })}
       </SizableText>
       <Icon name="ArrowTopRightOutline" size="$4.5" />
     </XStack>
