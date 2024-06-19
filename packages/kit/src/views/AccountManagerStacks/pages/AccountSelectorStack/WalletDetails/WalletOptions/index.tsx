@@ -28,7 +28,6 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { Advance } from './Advance';
 import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
-import { HomeScreen } from './HomeScreen';
 import { Verification } from './Verification';
 import { WalletOptionItem } from './WalletOptionItem';
 import { WalletProfile } from './WalletProfile';
@@ -87,7 +86,7 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
   const walletSpecifiedOptions = useMemo(() => {
     if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
       if (accountUtils.isHwHiddenWallet({ wallet })) {
-        return <HiddenWalletRememberSwitch wallet={wallet} />;
+        return <HiddenWalletRememberSwitch wallet={wallet} key={wallet?.id} />;
       }
 
       return (

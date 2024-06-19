@@ -19,6 +19,7 @@ export function HiddenWalletRememberSwitch({
 
   return (
     <WalletOptionItem
+      key={wallet?.id}
       label={intl.formatMessage({
         id: ETranslations.form_keep_hidden_wallet_label,
       })}
