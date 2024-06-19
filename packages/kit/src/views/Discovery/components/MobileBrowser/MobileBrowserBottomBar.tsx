@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { manipulateAsync } from 'expo-image-manipulator';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
@@ -27,7 +28,7 @@ import {
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
-import { THUMB_WIDTH } from '../../config/TabList.constants';
+import { THUMB_CROP_SIZE } from '../../config/TabList.constants';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import {
   useDisabledAddedNewTab,
@@ -97,16 +98,24 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
         captureRef(captureViewRefs[id ?? ''], {
           format: 'jpg',
           quality: 0.2,
-          width: THUMB_WIDTH,
-          height: THUMB_WIDTH,
         })
           .then(async (imageUri) => {
+            const manipulateValue = await manipulateAsync(imageUri, [
+              {
+                crop: {
+                  originX: 0,
+                  originY: 0,
+                  width: THUMB_CROP_SIZE,
+                  height: THUMB_CROP_SIZE,
+                },
+              },
+            ]);
             const path = getScreenshotPath(`${id}-${Date.now()}.jpg`);
             setWebTabData({
               id,
               thumbnail: path,
             });
-            void saveScreenshot(imageUri, path);
+            void saveScreenshot(manipulateValue.uri, path);
             resolve(true);
           })
           .catch((e) => {
