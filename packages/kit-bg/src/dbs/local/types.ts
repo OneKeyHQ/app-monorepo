@@ -122,12 +122,15 @@ export type IDBWallet = IDBBaseObjectWithName & {
   // only for singleton wallet
   accounts: string[];
   // only for singleton wallet
-  nextAccountIds: {
-    // 'global': 1, // imported, external, watching,
-    // 'index': 0, // hd, hw
-    // purpose + cointype => index
-    [template: string]: number; // hd
-  };
+  // nextAccountIds: {
+  //   // 'global': 1, // imported, external, watching,
+  //   // 'index': 0, // hd, hw
+  //   // purpose + cointype => index
+  //   // [template: string]: number; // hd
+  // };
+  nextIds: Partial<
+    Record<'accountHdIndex' | 'accountGlobalNum' | 'hiddenWalletNum', number>
+  >;
   associatedDevice?: string; // alias to `dbDeviceId`
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
@@ -264,10 +267,6 @@ export type IDBAddAccountDerivationParams = {
   impl: string;
   template: string;
   derivationStore?: IDBObjectStore;
-};
-export type IDBSetNextAccountIdsParams = {
-  walletId: string;
-  nextAccountIds: Record<string, number>;
 };
 
 // ---------------------------------------------- device
