@@ -675,7 +675,7 @@ function SendDataInputContainer() {
             },
             validate: (value) => {
               if (!value || !memoRegExp) return undefined;
-              const result = !new RegExp(memoRegExp).test(value);
+              const result = !memoRegExp.test(value);
               return result ? validateErrMsg : undefined;
             },
           }}
