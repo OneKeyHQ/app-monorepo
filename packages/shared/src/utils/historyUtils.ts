@@ -143,12 +143,14 @@ export function getHistoryTxDetailInfo({
   const gasFeeFiatValue =
     txDetails?.gasFeeFiatValue ?? decodedTx.totalFeeFiatValue ?? '0';
   const confirmations = txDetails?.confirmations;
+  const blockHeight = txDetails?.block;
 
   return {
     txid,
     date,
     nonce,
     confirmations,
+    blockHeight,
     swapInfo,
     gasFee,
     gasFeeFiatValue,

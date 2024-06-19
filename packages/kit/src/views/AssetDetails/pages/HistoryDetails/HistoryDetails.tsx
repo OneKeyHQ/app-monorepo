@@ -525,12 +525,8 @@ function HistoryDetails() {
 
   const renderTxMetaInfo = useCallback(() => {
     const components = getHistoryTxMeta({ impl: network?.impl ?? '' });
-    console.log('components', components);
     const TxFlow = components?.[EHistoryTxDetailsBlock.Flow];
     const TxAttributes = components?.[EHistoryTxDetailsBlock.Attributes];
-
-    console.log('TxFlow', TxFlow);
-    console.log('TxAttributes', TxAttributes);
 
     return (
       <>
@@ -658,6 +654,13 @@ function HistoryDetails() {
               renderContent={renderFeeInfo()}
               compact
             />
+            {!isNil(txInfo.blockHeight) ? (
+              <InfoItem
+                label="Block Height"
+                renderContent={String(txInfo.blockHeight)}
+                compact
+              />
+            ) : null}
             {vaultSettings?.nonceRequired && !isNil(txInfo.nonce) ? (
               <InfoItem
                 label="Nonce"
@@ -665,6 +668,7 @@ function HistoryDetails() {
                 compact
               />
             ) : null}
+
             {!isNil(txInfo.confirmations) ? (
               <InfoItem
                 label={intl.formatMessage({
@@ -725,6 +729,7 @@ function HistoryDetails() {
     txInfo.date,
     txInfo.txid,
     txInfo.nonce,
+    txInfo.blockHeight,
     txInfo.confirmations,
     txInfo.swapInfo,
     renderTxMetaInfo,
