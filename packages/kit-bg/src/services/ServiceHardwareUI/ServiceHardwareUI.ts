@@ -1,5 +1,6 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   backgroundClass,
   backgroundMethod,
@@ -228,6 +229,9 @@ class ServiceHardwareUI extends ServiceBase {
           connectId,
           skipDeviceCancel, // auto cancel if device call interaction action
         });
+        await backgroundApiProxy.serviceFirmwareUpdate.resetShouldDetectTimeCheck(
+          { connectId },
+        );
       }
     }
   }
