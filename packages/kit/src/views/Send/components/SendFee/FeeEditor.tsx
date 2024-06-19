@@ -888,16 +888,17 @@ function FeeEditor(props: IProps) {
             <FeeInfoItem feeInfo={feeInfo} key={index} />
           ))}
         </YStack>
-        {vaultSettings?.editFeeEnabled ? (
-          <Button
-            disabled={isSaveFeeDisabled}
-            variant="primary"
-            size="medium"
-            onPress={handleApplyFeeInfo}
-          >
-            {intl.formatMessage({ id: ETranslations.action_save })}
-          </Button>
-        ) : null}
+        <Dialog.Footer
+          showCancelButton={false}
+          showFooter={vaultSettings?.editFeeEnabled}
+          onConfirm={handleApplyFeeInfo}
+          onConfirmText={intl.formatMessage({ id: ETranslations.action_save })}
+          confirmButtonProps={{
+            variant: 'primary',
+            size: 'medium',
+            disabled: isSaveFeeDisabled,
+          }}
+        />
       </Stack>
     );
   }, [
