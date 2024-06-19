@@ -132,7 +132,7 @@ function SkeletonHeaderOverItemItem() {
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
-  const { icon, coinGeckoId, symbol } = route.params;
+  const { coinGeckoId, symbol } = route.params;
   const { gtMd } = useMedia();
 
   const [tokenDetail, setTokenDetail] = useState<
@@ -148,13 +148,13 @@ function MarketDetail({
   const renderHeaderTitle = useCallback(
     () => (
       <XStack space="$2">
-        <MarketTokenIcon uri={tokenDetail?.image || icon || ''} size="$6" />
+        <MarketTokenIcon uri={tokenDetail?.image || ''} size="$6" />
         <SizableText>
           {(tokenDetail?.symbol || symbol)?.toUpperCase()}
         </SizableText>
       </XStack>
     ),
-    [icon, symbol, tokenDetail?.image, tokenDetail?.symbol],
+    [symbol, tokenDetail?.image, tokenDetail?.symbol],
   );
   const { shareText } = useShare();
 

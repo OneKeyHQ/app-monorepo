@@ -677,7 +677,6 @@ function BasicMarketHomeList({
     (item: IMarketToken) => {
       navigation.push(ETabMarketRoutes.MarketDetail, {
         coinGeckoId: item.coingeckoId,
-        icon: item.image,
         symbol: item.symbol,
       });
     },
