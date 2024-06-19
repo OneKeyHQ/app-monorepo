@@ -5,6 +5,7 @@ import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Dialog,
   Divider,
   Image,
   NumberSizeableText,
@@ -60,7 +61,6 @@ function TxFeeContainer(props: IProps) {
   const intl = useIntl();
   const txFeeInit = useRef(false);
   const feeInTxUpdated = useRef(false);
-  const [isEditFeeActive, setIsEditFeeActive] = useState(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
   const [settings] = useSettingsPersistAtom();
@@ -451,6 +451,35 @@ function TxFeeContainer(props: IProps) {
     updateSendTxStatus,
   ]);
 
+  const handlePress = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({ id: ETranslations.title__edit_fee }),
+      showFooter: false,
+      renderContent: (
+        <FeeEditor
+          networkId={networkId}
+          feeSelectorItems={feeSelectorItems}
+          selectedFee={selectedFee}
+          sendSelectedFee={sendSelectedFee}
+          unsignedTxs={unsignedTxs}
+          originalCustomFee={customFee}
+          onApplyFeeInfo={handleApplyFeeInfo}
+          estimateFeeParams={estimateFeeParams}
+        />
+      ),
+    });
+  }, [
+    customFee,
+    estimateFeeParams,
+    feeSelectorItems,
+    handleApplyFeeInfo,
+    intl,
+    networkId,
+    selectedFee,
+    sendSelectedFee,
+    unsignedTxs,
+  ]);
+
   const renderFeeEditor = useCallback(() => {
     if (!txFeeInit.current || !feeSelectorItems.length) {
       return (
@@ -474,48 +503,39 @@ function TxFeeContainer(props: IProps) {
     }
 
     return (
-      <Popover
-        title={intl.formatMessage({ id: ETranslations.title__edit_fee })}
-        open={isEditFeeActive}
-        onOpenChange={setIsEditFeeActive}
-        allowFlip={false}
-        renderContent={
-          <FeeEditor
-            networkId={networkId}
-            feeSelectorItems={feeSelectorItems}
-            setIsEditFeeActive={setIsEditFeeActive}
-            selectedFee={selectedFee}
-            sendSelectedFee={sendSelectedFee}
-            unsignedTxs={unsignedTxs}
-            originalCustomFee={customFee}
-            onApplyFeeInfo={handleApplyFeeInfo}
-            estimateFeeParams={estimateFeeParams}
-          />
-        }
-        renderTrigger={
-          <FeeSelectorTrigger
-            onPress={() => setIsEditFeeActive(true)}
-            disabled={
-              sendFeeStatus.status === ESendFeeStatus.Error ||
-              !txFeeInit.current
-            }
-          />
+      <FeeSelectorTrigger
+        onPress={handlePress}
+        disabled={
+          sendFeeStatus.status === ESendFeeStatus.Error || !txFeeInit.current
         }
       />
     );
+    // return (
+    //   <Popover
+    //     title={intl.formatMessage({ id: ETranslations.title__edit_fee })}
+    //     open={isEditFeeActive}
+    //     onOpenChange={setIsEditFeeActive}
+    //     allowFlip={false}
+
+    //     renderTrigger={
+    //       <FeeSelectorTrigger
+    //         onPress={() => setIsEditFeeActive(true)}
+    //         disabled={
+    //           sendFeeStatus.status === ESendFeeStatus.Error ||
+    //           !txFeeInit.current
+    //         }
+    //       />
+    //     }
+    //   />
+    // );
   }, [
-    customFee,
-    estimateFeeParams,
-    feeSelectorItems,
-    handleApplyFeeInfo,
+    feeSelectorItems.length,
+    handlePress,
     intl,
-    isEditFeeActive,
-    networkId,
     openFeeEditorEnabled,
-    selectedFee,
     sendFeeStatus.status,
-    sendSelectedFee,
-    unsignedTxs,
+    sendSelectedFee.feeType,
+    sendSelectedFee.presetIndex,
   ]);
 
   return (

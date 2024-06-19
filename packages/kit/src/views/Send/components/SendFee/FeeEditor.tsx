@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
   Divider,
   Form,
   Input,
@@ -15,6 +16,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useDialogInstance,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
@@ -48,7 +50,6 @@ type IFeeInfoItem = {
 type IProps = {
   networkId: string;
   feeSelectorItems: IFeeSelectorItem[];
-  setIsEditFeeActive: React.Dispatch<React.SetStateAction<boolean>>;
   sendSelectedFee: {
     feeType: EFeeType;
     presetIndex: number;
@@ -148,7 +149,6 @@ function FeeEditor(props: IProps) {
   const {
     networkId,
     feeSelectorItems,
-    setIsEditFeeActive,
     sendSelectedFee,
     originalCustomFee,
     selectedFee,
@@ -157,6 +157,7 @@ function FeeEditor(props: IProps) {
     estimateFeeParams,
   } = props;
   const intl = useIntl();
+  const dialog = useDialogInstance();
   const isVerticalLayout = useMedia().md;
 
   const [currentFeeIndex, setCurrentFeeIndex] = useState(
@@ -361,20 +362,14 @@ function FeeEditor(props: IProps) {
     return true;
   }, []);
 
-  const handleApplyFeeInfo = useCallback(() => {
+  const handleApplyFeeInfo = useCallback(async () => {
     onApplyFeeInfo({
       feeType: currentFeeType,
       presetIndex: currentFeeIndex,
       customFeeInfo,
     });
-    setIsEditFeeActive(false);
-  }, [
-    currentFeeIndex,
-    currentFeeType,
-    customFeeInfo,
-    onApplyFeeInfo,
-    setIsEditFeeActive,
-  ]);
+    await dialog?.close();
+  }, [currentFeeIndex, currentFeeType, customFeeInfo, dialog, onApplyFeeInfo]);
 
   const renderFeeTypeSelector = useCallback(() => {
     if (!vaultSettings?.editFeeEnabled) return null;
