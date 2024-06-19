@@ -1,9 +1,10 @@
 import { useCallback, useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
 import { Alert, BackHandler } from 'react-native';
 
 import { Dialog, usePreventRemove } from '@onekeyhq/components';
-import { FIRMWARE_UPDATE_PREVENT_EXIT } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firmwareUpdateConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalFirmwareUpdateRoutes,
@@ -24,6 +25,7 @@ export function useModalExitPrevent({
   title: string;
   message: string;
 }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const navPreventRemoveCallback = useCallback(
     ({
@@ -45,17 +47,17 @@ export function useModalExitPrevent({
       Dialog.show({
         title,
         description: message,
-        onConfirmText: FIRMWARE_UPDATE_PREVENT_EXIT.confirm,
+        onConfirmText: intl.formatMessage({ id: ETranslations.globall_quit }),
         onConfirm: () => {
           navigation.dispatch(data.action);
         },
-        onCancelText: FIRMWARE_UPDATE_PREVENT_EXIT.cancel,
+        onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
         onClose: () => {
           isNavExitConfirmShow = false;
         },
       });
     },
-    [message, navigation, title],
+    [message, navigation, title, intl],
   );
   usePreventRemove(true, navPreventRemoveCallback);
 }
@@ -67,6 +69,7 @@ export function useAppExitPrevent({
   message: string;
   title: string;
 }) {
+  const intl = useIntl();
   // Prevents web page refresh/exit
   useEffect(() => {
     if (platformEnv.isRuntimeBrowser && !platformEnv.isExtensionUiPopup) {
@@ -91,14 +94,14 @@ export function useAppExitPrevent({
         message,
         [
           {
-            text: FIRMWARE_UPDATE_PREVENT_EXIT.cancel,
+            text: intl.formatMessage({ id: ETranslations.global_cancel }),
             onPress: () => {
               // Do nothing
             },
             style: 'cancel',
           },
           {
-            text: FIRMWARE_UPDATE_PREVENT_EXIT.confirm,
+            text: intl.formatMessage({ id: ETranslations.globall_quit }),
             onPress: () => BackHandler.exitApp(),
           },
         ],
@@ -114,7 +117,7 @@ export function useAppExitPrevent({
     );
 
     return () => backHandler.remove();
-  }, [message, title]);
+  }, [message, title, intl]);
 
   // Prevent Desktop exit
   // TODO

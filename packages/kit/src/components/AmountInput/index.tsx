@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -47,6 +47,7 @@ type IAmountInputFormItemProps = IFormFieldProps<
       selectedNetworkImageUri?: string;
       selectedTokenSymbol?: string;
       loading?: boolean;
+      disabled?: boolean;
     } & IXStackProps;
     reversible?: boolean;
   } & IStackProps
@@ -70,6 +71,7 @@ export function AmountInput({
   const sharedStyles = getSharedInputStyles({
     error: hasError,
   });
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
 
   const InputElement = useMemo(() => {
     if (inputProps?.loading)
@@ -93,10 +95,17 @@ export function AmountInput({
         }}
         value={value}
         onChangeText={onChange}
+        // maybe should replace with ref.current.setNativeProps({ selection })
+        {...(platformEnv.isNativeAndroid && {
+          selection,
+          onSelectionChange: ({ nativeEvent }) =>
+            setSelection(nativeEvent.selection),
+          onBlur: () => setSelection({ start: 0, end: 0 }),
+        })}
         {...inputProps}
       />
     );
-  }, [inputProps, onChange, value]);
+  }, [inputProps, onChange, value, selection]);
 
   const AmountElement = useMemo(() => {
     if (!valueProps) {
@@ -146,7 +155,6 @@ export function AmountInput({
         p="$3.5"
         alignItems="center"
         userSelect="none"
-        flexShrink={1}
         {...(tokenSelectorTriggerProps?.selectedTokenSymbol && {
           maxWidth: '$48',
         })}
@@ -159,6 +167,7 @@ export function AmountInput({
             bg: '$bgActive',
           },
         })}
+        disabled={tokenSelectorTriggerProps?.disabled}
         onPress={tokenSelectorTriggerProps?.onPress}
       >
         <Stack mr="$2">
@@ -204,7 +213,8 @@ export function AmountInput({
           {tokenSelectorTriggerProps?.selectedTokenSymbol ||
             intl.formatMessage({ id: ETranslations.token_selector_title })}
         </SizableText>
-        {tokenSelectorTriggerProps?.onPress ? (
+        {tokenSelectorTriggerProps?.onPress &&
+        !tokenSelectorTriggerProps.disabled ? (
           <Icon
             flexShrink={0}
             name="ChevronDownSmallOutline"
@@ -217,6 +227,7 @@ export function AmountInput({
     );
   }, [
     intl,
+    tokenSelectorTriggerProps?.disabled,
     tokenSelectorTriggerProps?.loading,
     tokenSelectorTriggerProps?.onPress,
     tokenSelectorTriggerProps?.selectedNetworkImageUri,

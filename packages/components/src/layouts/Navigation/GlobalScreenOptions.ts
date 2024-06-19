@@ -49,6 +49,8 @@ export function clearStackNavigatorOptions(options?: {
     detachPreviousScreen: false,
     headerShown: false,
     animationEnabled: false,
+    // fix https://onekeyhq.atlassian.net/browse/OK-28686, you can use 100vh instead
+    headerMode: 'float',
   };
 }
 
