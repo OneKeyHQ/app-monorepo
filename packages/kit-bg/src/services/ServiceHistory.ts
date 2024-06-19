@@ -60,6 +60,7 @@ class ServiceHistory extends ServiceBase {
       networkId,
       tokenIdOnNetwork,
       onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
+      saveConfirmedTxsEnabled: vaultSettings.saveConfirmedTxsEnabled,
     });
   }
 
@@ -70,6 +71,7 @@ class ServiceHistory extends ServiceBase {
       networkId,
       tokenIdOnNetwork,
       onChainHistoryDisabled,
+      saveConfirmedTxsEnabled,
       xpub,
     } = params;
     const accountAddress =
@@ -81,7 +83,7 @@ class ServiceHistory extends ServiceBase {
     let onChainHistoryTxs: IAccountHistoryTx[] = [];
     let localHistoryConfirmedTxs: IAccountHistoryTx[] = [];
 
-    if (onChainHistoryDisabled) {
+    if (onChainHistoryDisabled || saveConfirmedTxsEnabled) {
       const localHistoryPendingTxs =
         await this.getAccountLocalHistoryPendingTxs({
           networkId,
@@ -135,7 +137,9 @@ class ServiceHistory extends ServiceBase {
         xpub,
         tokenIdOnNetwork,
       });
-    } else {
+    }
+
+    if (!onChainHistoryDisabled) {
       onChainHistoryTxs = await this.fetchAccountOnChainHistory({
         ...params,
         accountAddress,
@@ -154,6 +158,10 @@ class ServiceHistory extends ServiceBase {
       accountAddress,
       tokenIdOnNetwork,
     });
+
+    if (saveConfirmedTxsEnabled && !onChainHistoryDisabled) {
+      localHistoryConfirmedTxs = [];
+    }
 
     return [
       ...localHistoryPendingTxs,
