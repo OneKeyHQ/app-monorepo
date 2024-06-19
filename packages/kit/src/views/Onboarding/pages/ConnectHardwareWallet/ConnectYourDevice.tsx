@@ -16,7 +16,6 @@ import {
   Divider,
   Heading,
   Icon,
-  Image,
   LottieView,
   Page,
   ScrollView,
@@ -386,17 +385,17 @@ function ConnectByUSBOrBLE({
     async ({ device }: { device: SearchDevice }) => {
       if (device.deviceType === 'unknown') {
         Toast.error({
-          title: 'Device type is unknown',
+          title: intl.formatMessage({
+            id: ETranslations.hardware_connect_unknown_device_error,
+          }),
         });
         return;
       }
 
-      const handleBootloaderMode = () => {
-        Toast.error({
-          title: 'Device is in bootloader mode',
-        });
+      const handleBootloaderMode = (existsFirmware: boolean) => {
         fwUpdateActions.showBootloaderMode({
           connectId: device.connectId ?? undefined,
+          existsFirmware,
         });
         console.log('Device is in bootloader mode', device);
         throw new Error('Device is in bootloader mode');
@@ -406,7 +405,10 @@ function ConnectByUSBOrBLE({
           device: device as any,
         })
       ) {
-        handleBootloaderMode();
+        const existsFirmware = await deviceUtils.existsFirmwareFromSearchDevice(
+          { device: device as any },
+        );
+        handleBootloaderMode(existsFirmware);
         return;
       }
 
@@ -419,7 +421,10 @@ function ConnectByUSBOrBLE({
       }
 
       if (await deviceUtils.isBootloaderModeByFeatures({ features })) {
-        handleBootloaderMode();
+        const existsFirmware = await deviceUtils.existsFirmwareByFeatures({
+          features,
+        });
+        handleBootloaderMode(existsFirmware);
         return;
       }
 
@@ -475,6 +480,7 @@ function ConnectByUSBOrBLE({
       createHwWallet,
       fwUpdateActions,
       handleNotActivatedDevicePress,
+      intl,
       showFirmwareVerifyDialog,
     ],
   );
@@ -791,7 +797,7 @@ function ConnectByUSBOrBLE({
 
   useEffect(
     () =>
-      // close page stop scan
+      // unmount page stop scan
       () => {
         const scanner = deviceUtils.getDeviceScanner({
           backgroundApi: backgroundApiProxy,

@@ -94,22 +94,53 @@ export function useFirmwareUpdateActions() {
   }, [navigation]);
 
   const showBootloaderMode = useCallback(
-    ({ connectId }: { connectId: string | undefined }) => {
-      Dialog.show({
-        title: intl.formatMessage({
-          id: ETranslations.update_device_in_bootloader_mode,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.update_hardware_wallet_in_bootloader_mode,
-        }),
-        dismissOnOverlayPress: false,
-        onConfirm: async () => {
-          openChangeLogModal({ connectId });
-        },
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.update_update_now,
-        }),
-      });
+    ({
+      connectId,
+      existsFirmware,
+    }: {
+      connectId: string | undefined;
+      existsFirmware: boolean;
+    }) => {
+      if (existsFirmware) {
+        Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.update_device_in_bootloader_mode,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.update_hardware_wallet_in_bootloader_mode_restart,
+          }),
+          dismissOnOverlayPress: false,
+          onConfirm: async ({ close }) => {
+            void close?.();
+          },
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
+          onCancel: async () => {
+            openChangeLogModal({ connectId });
+          },
+          onCancelText: intl.formatMessage({
+            id: ETranslations.update_update_now,
+          }),
+        });
+      } else {
+        Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.update_device_in_bootloader_mode,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.update_hardware_wallet_in_bootloader_mode,
+          }),
+          dismissOnOverlayPress: false,
+          showCancelButton: false,
+          onConfirm: async () => {
+            openChangeLogModal({ connectId });
+          },
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.update_update_now,
+          }),
+        });
+      }
     },
     [intl, openChangeLogModal],
   );
