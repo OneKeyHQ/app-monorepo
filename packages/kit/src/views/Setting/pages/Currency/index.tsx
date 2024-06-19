@@ -4,14 +4,12 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Dialog,
   Empty,
   Page,
   SearchBar,
   SectionList,
   Spinner,
   Stack,
-  usePreventRemove,
 } from '@onekeyhq/components';
 import {} from '@onekeyhq/components/src/layouts/SectionList';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -20,8 +18,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import type { NavigationAction } from '@react-navigation/routers';
 
 export type ICurrencyType = 'crypto' | 'fiat' | 'popular';
 
@@ -158,38 +154,22 @@ export default function SettingCurrencyModal() {
     [],
   );
 
-  const navPreventRemoveCallback = useCallback(
-    ({ data }: { data: { action: NavigationAction } }) => {
-      const pop = () => {
-        navigation.dispatch(data.action);
-      };
-      if (currency?.id === currencyRef.current.id) {
-        pop();
-        return;
-      }
+  const handleConfirm = useCallback(async () => {
+    if (currency) {
+      await backgroundApiProxy.serviceSetting.setCurrency({
+        id: currency.id,
+        symbol: currency.unit,
+      });
+      setTimeout(() => {
+        backgroundApiProxy.serviceApp.restartApp();
+      });
+    }
+  }, [currency]);
 
-      if (currency) {
-        Dialog.show({
-          title: '是否保存修改',
-          onConfirm: async () => {
-            await backgroundApiProxy.serviceSetting.setCurrency({
-              id: currency.id,
-              symbol: currency.unit,
-            });
-            setTimeout(() => {
-              backgroundApiProxy.serviceApp.restartApp();
-            });
-          },
-          onCancel: async () => {
-            pop();
-          },
-        });
-      }
-    },
-    [currency, navigation],
+  const disabled = useMemo(
+    () => currencyRef.current.id === currency?.id,
+    [currency?.id],
   );
-
-  usePreventRemove(true, navPreventRemoveCallback);
 
   return (
     <Page>
@@ -227,6 +207,12 @@ export default function SettingCurrencyModal() {
           />
         )}
       </Page.Body>
+      <Page.Footer
+        onConfirm={handleConfirm}
+        confirmButtonProps={{
+          disabled,
+        }}
+      />
     </Page>
   );
 }
