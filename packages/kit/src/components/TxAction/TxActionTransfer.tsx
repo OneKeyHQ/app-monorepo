@@ -152,12 +152,14 @@ function buildTransferChangeInfo({
   }
 
   if (transfers.length === 1) {
-    const amountBN = new BigNumber(transfers[0].amount).abs();
-    change = amountBN.toFixed();
+    if (transfers[0].amount) {
+      const amountBN = new BigNumber(transfers[0].amount).abs();
+      change = amountBN.toFixed();
+      changeDescription = amountBN
+        .multipliedBy(transfers[0].price ?? 0)
+        .toFixed();
+    }
     changeSymbol = transfers[0].symbol;
-    changeDescription = amountBN
-      .multipliedBy(transfers[0].price ?? 0)
-      .toFixed();
   } else {
     const tokens = uniq(map(transfers, 'tokenIdOnNetwork'));
     if (tokens.length === 1) {
@@ -195,7 +197,7 @@ function buildTransferChangeInfo({
   }
 
   return {
-    change: `${changePrefix}${change}`,
+    change: change ? `${changePrefix}${change}` : '',
     changeSymbol,
     changeDescription,
   };
@@ -318,7 +320,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     ].filter(Boolean);
   }
 
-  change = (
+  change = change ? (
     <NumberSizeableText
       formatter="balance"
       formatterOptions={{
@@ -336,8 +338,10 @@ function TxActionTransferListView(props: ITxActionProps) {
     >
       {change as string}
     </NumberSizeableText>
+  ) : (
+    <SizableText size="$bodyLgMedium">-</SizableText>
   );
-  changeDescription = (
+  changeDescription = changeDescription ? (
     <NumberSizeableText
       formatter={changeDescriptionSymbol ? 'balance' : 'value'}
       formatterOptions={{
@@ -351,6 +355,10 @@ function TxActionTransferListView(props: ITxActionProps) {
     >
       {changeDescription as string}
     </NumberSizeableText>
+  ) : (
+    <SizableText size="$bodyMd" color="$textSubdued">
+      -
+    </SizableText>
   );
 
   return (
