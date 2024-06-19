@@ -13,10 +13,15 @@ export function DownloadProgress() {
   const onSuccess = useCallback(() => {
     void backgroundApiProxy.serviceAppUpdate.readyToInstall();
   }, []);
-  const onFailed = useCallback((e: { message: string }) => {
-    Toast.error({ title: ETranslations.global_update_failed });
-    void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
-  }, []);
+  const onFailed = useCallback(
+    (e: { message: string }) => {
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_update_failed }),
+      });
+      void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
+    },
+    [intl],
+  );
   const percent = useDownloadProgress(onSuccess, onFailed);
   return intl.formatMessage(
     { id: ETranslations.update_downloading_package },
