@@ -49,6 +49,9 @@ const settings: IVaultSettings = {
   minTransferAmount: '0.001',
 
   withMemo: true,
+  memoMaxLength: 10,
+  numericOnlyMemo: true,
+
   cannotSendToSelf: true,
   hasFrozenBalance: true,
 };

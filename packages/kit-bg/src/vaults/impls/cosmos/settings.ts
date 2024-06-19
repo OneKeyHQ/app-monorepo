@@ -49,6 +49,7 @@ const settings: IVaultSettings = {
   defaultFeePresetIndex: 1,
 
   withMemo: true,
+  memoMaxLength: 512,
 
   accountDeriveInfo,
   networkInfo: {
