@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { useIsFocused } from '@react-navigation/native';
 import { useKeepAwake } from 'expo-keep-awake';
+import { useIntl } from 'react-intl';
 import { Alert, BackHandler } from 'react-native';
 
 import {
@@ -190,7 +189,7 @@ export function useAppExitPrevent({
     );
 
     return () => backHandler.remove();
-  }, [message, title]);
+  }, [message, title, intl]);
 
   // Prevent Desktop exit
   // TODO
