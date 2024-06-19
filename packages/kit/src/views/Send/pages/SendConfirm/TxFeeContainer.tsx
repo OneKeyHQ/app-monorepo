@@ -453,7 +453,9 @@ function TxFeeContainer(props: IProps) {
 
   const handlePress = useCallback(() => {
     Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.title__edit_fee }),
+      title: intl.formatMessage({
+        id: ETranslations.swap_history_detail_network_fee,
+      }),
       showFooter: false,
       renderContent: (
         <FeeEditor

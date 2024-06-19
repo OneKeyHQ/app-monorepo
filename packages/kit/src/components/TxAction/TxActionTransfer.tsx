@@ -429,9 +429,9 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                       ? nativeTokenTransferAmountToUpdate
                       : transfer.amount
                   } ${transfer.symbol}`}</SizableText>
-                  <SizableText size="$bodyMd" color="$textSubdued">
+                  {/* <SizableText size="$bodyMd" color="$textSubdued">
                     TODO: Fiat value
-                  </SizableText>
+                  </SizableText> */}
                 </Stack>
               </XStack>
             ))}
