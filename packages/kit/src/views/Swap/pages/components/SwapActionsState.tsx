@@ -54,7 +54,9 @@ const SwapActionsState = ({
   const handleApprove = useCallback(() => {
     if (swapActionState.shoutResetApprove) {
       Dialog.confirm({
-        onConfirmText: 'Continue',
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
         onConfirm: () => {
           onApprove(fromAmount, swapActionState.approveUnLimit, true);
         },
@@ -65,7 +67,7 @@ const SwapActionsState = ({
         description: intl.formatMessage({
           id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
         }),
-        icon: 'TxStatusWarningCircleIllus',
+        icon: 'ErrorOutline',
       });
     } else {
       onApprove(fromAmount, swapActionState.approveUnLimit);
