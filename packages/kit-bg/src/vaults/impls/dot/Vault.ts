@@ -567,21 +567,27 @@ export default class VaultDot extends VaultBase {
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
-    const networkInfo = await this.backgroundApi.serviceNetwork.getNetwork({
-      networkId: this.networkId,
-    });
-    const options = networkInfo.extensions?.providerOptions as {
-      addressRegex: string;
-    };
+    const networkInfo = await this.getNetworkInfo();
+    let isValid = true;
+    try {
+      encodeAddress(
+        decodeAddress(address, false, +networkInfo.addressPrefix),
+        +networkInfo.addressPrefix,
+      );
+    } catch (error) {
+      isValid = false;
+    }
     return {
-      isValid: new RegExp(options.addressRegex).test(address),
+      isValid,
       normalizedAddress: address,
       displayAddress: address,
     };
   }
 
-  override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new NotImplemented();
+  override async validateXpub(xpub: string): Promise<IXpubValidation> {
+    return {
+      isValid: false,
+    };
   }
 
   override getPrivateKeyFromImported(
