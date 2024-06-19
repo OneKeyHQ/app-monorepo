@@ -78,6 +78,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
         accountAddress: account.address,
         xpub,
         onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
+        saveConfirmedTxsEnabled: vaultSettings.saveConfirmedTxsEnabled,
       });
       setHistoryState({
         initialized: true,

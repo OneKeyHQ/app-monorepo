@@ -112,6 +112,7 @@ export function TokenDetails() {
           networkId,
           tokenIdOnNetwork: tokenInfo.address,
           onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
+          saveConfirmedTxsEnabled: vaultSettings.saveConfirmedTxsEnabled,
         }),
         backgroundApiProxy.serviceToken.fetchTokensDetails({
           networkId,

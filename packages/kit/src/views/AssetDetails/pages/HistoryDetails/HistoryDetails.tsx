@@ -99,6 +99,60 @@ export function AssetItem({
   isApproveUnlimited?: boolean;
 }) {
   const intl = useIntl();
+  let primary = null;
+  let secondary = null;
+
+  if (isApprove) {
+    primary = (
+      <SizableText textAlign="right" size="$bodyLgMedium" color="$textSuccess">
+        {isApproveUnlimited
+          ? intl.formatMessage({
+              id: ETranslations.swap_page_button_approve_unlimited,
+            })
+          : intl.formatMessage(
+              { id: ETranslations.form__approve_str },
+              {
+                amount,
+                symbol: asset.symbol,
+              },
+            )}
+      </SizableText>
+    );
+  } else if (!amount) {
+    primary = (
+      <SizableText textAlign="right" size="$bodyLgMedium" color="$text">
+        -
+      </SizableText>
+    );
+    secondary = primary;
+  } else {
+    primary = (
+      <NumberSizeableText
+        textAlign="right"
+        size="$bodyLgMedium"
+        color={direction === EDecodedTxDirection.IN ? '$textSuccess' : '$text'}
+        formatter="balance"
+        formatterOptions={{
+          tokenSymbol: asset.isNFT ? '' : asset.symbol,
+          showPlusMinusSigns: true,
+        }}
+      >
+        {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amount}`}
+      </NumberSizeableText>
+    );
+    secondary = (
+      <NumberSizeableText
+        textAlign="right"
+        size="$bodyMd"
+        color="$textSubdued"
+        formatter="value"
+        formatterOptions={{ currency: currencySymbol }}
+      >
+        {new BigNumber(amount).times(asset.price ?? 0).toString()}
+      </NumberSizeableText>
+    );
+  }
+
   return (
     <ListItem key={index}>
       <Token
@@ -107,58 +161,7 @@ export function AssetItem({
         networkImageUri={networkIcon}
       />
       <ListItem.Text primary={asset.symbol} secondary={asset.name} flex={1} />
-      <ListItem.Text
-        primary={
-          isApprove ? (
-            <SizableText
-              textAlign="right"
-              size="$bodyLgMedium"
-              color="$textSuccess"
-            >
-              {isApproveUnlimited
-                ? intl.formatMessage({
-                    id: ETranslations.swap_page_button_approve_unlimited,
-                  })
-                : intl.formatMessage(
-                    { id: ETranslations.form__approve_str },
-                    {
-                      amount,
-                      symbol: asset.symbol,
-                    },
-                  )}
-            </SizableText>
-          ) : (
-            <NumberSizeableText
-              textAlign="right"
-              size="$bodyLgMedium"
-              color={
-                direction === EDecodedTxDirection.IN ? '$textSuccess' : '$text'
-              }
-              formatter="balance"
-              formatterOptions={{
-                tokenSymbol: asset.isNFT ? '' : asset.symbol,
-                showPlusMinusSigns: true,
-              }}
-            >
-              {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amount}`}
-            </NumberSizeableText>
-          )
-        }
-        secondary={
-          isApprove ? null : (
-            <NumberSizeableText
-              textAlign="right"
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="value"
-              formatterOptions={{ currency: currencySymbol }}
-            >
-              {new BigNumber(amount).times(asset.price ?? 0).toString()}
-            </NumberSizeableText>
-          )
-        }
-        align="right"
-      />
+      <ListItem.Text primary={primary} secondary={secondary} align="right" />
     </ListItem>
   );
 }

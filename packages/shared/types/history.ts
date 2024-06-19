@@ -123,6 +123,7 @@ export type IFetchAccountHistoryParams = {
   xpub?: string;
   tokenIdOnNetwork?: string;
   onChainHistoryDisabled?: boolean;
+  saveConfirmedTxsEnabled?: boolean;
 };
 
 export type IOnChainHistoryTxToken = {

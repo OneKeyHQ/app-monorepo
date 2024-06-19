@@ -495,7 +495,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
-  buildHistoryTransferAction({
+  async buildHistoryTransferAction({
     tx,
     tokens,
     nfts,
@@ -503,7 +503,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tx: IOnChainHistoryTx;
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
-  }): IDecodedTxAction {
+  }): Promise<IDecodedTxAction> {
     return {
       type: EDecodedTxActionType.ASSET_TRANSFER,
       assetTransfer: {
