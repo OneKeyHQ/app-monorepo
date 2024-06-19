@@ -64,8 +64,8 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
       );
     }
 
-    // Protection - Create Transaction
     if (v4Settings.validationSetting) {
+      // Protection - Create Transaction
       if (
         v4Settings.validationSetting.Payment !== undefined &&
         v4Settings.validationSetting.Payment !== null
@@ -75,6 +75,7 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
         );
       }
 
+      // Protection - Create / Remove Wallets
       if (
         v4Settings.validationSetting.Wallet !== undefined &&
         v4Settings.validationSetting.Wallet !== null
