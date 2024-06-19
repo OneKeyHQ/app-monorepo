@@ -8,7 +8,6 @@ const jsRules = {
   'import/no-extraneous-dependencies': 'off',
   'no-restricted-exports': 'off',
   'func-names': 'off',
-  'no-unused-expressions': ['error', { 'allowShortCircuit': false }],
   'class-methods-use-this': 'off',
   'import/extensions': 'off',
   'react/function-component-definition': 'off',
