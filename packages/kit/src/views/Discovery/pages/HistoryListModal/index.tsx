@@ -25,6 +25,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
+import { DiscoveryIcon } from '../../components/DiscoveryIcon';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
@@ -154,12 +155,7 @@ function HistoryListModal() {
           renderItem={({ item }: { item: IBrowserHistory }) => (
             <ListItem
               key={item.id}
-              avatarProps={{
-                src: item.logo,
-                fallbackProps: {
-                  children: <Skeleton w="$10" h="$10" />,
-                },
-              }}
+              renderAvatar={<DiscoveryIcon uri={item.logo} size="$10" />}
               title={item.title}
               titleProps={{
                 numberOfLines: 1,

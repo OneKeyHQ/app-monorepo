@@ -4,7 +4,7 @@
 */
 
 import type { IImageProps, SizeTokens } from '@onekeyhq/components';
-import { Icon, Image, Stack } from '@onekeyhq/components';
+import { Icon, Image, Skeleton, Stack } from '@onekeyhq/components';
 
 import type { ImageURISource } from 'react-native';
 
@@ -66,6 +66,9 @@ export function Token({
           color="$iconSubdued"
         />
       </Image.Fallback>
+      <Image.Loading>
+        <Skeleton width="100%" height="100%" radius="round" />
+      </Image.Loading>
     </Image>
   );
 

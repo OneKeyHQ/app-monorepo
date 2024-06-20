@@ -101,6 +101,9 @@ export type IOnChainHistoryTx = {
   destinationTag?: number;
   ledgerIndex?: number;
   lastLedgerSequence?: number;
+
+  // Dynex
+  paymentId?: string;
 };
 
 export type IAccountHistoryTx = {
