@@ -185,6 +185,8 @@ class ServiceSend extends ServiceBase {
 
     const devSetting =
       await this.backgroundApi.serviceDevSetting.getDevSetting();
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     const alwaysSignOnlySendTxInDev =
       devSetting?.settings?.alwaysSignOnlySendTx;
 
@@ -206,6 +208,9 @@ class ServiceSend extends ServiceBase {
         signedTx,
       });
       if (!txid) {
+        if (vaultSettings.withoutBroadcastTxId) {
+          return signedTx;
+        }
         throw new Error('Broadcast transaction failed.');
       }
       return { ...signedTx, txid };
