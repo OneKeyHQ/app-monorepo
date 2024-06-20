@@ -185,6 +185,8 @@ export type IVaultSettings = {
   hideBlockExplorer?: boolean;
 
   ignoreUpdateNativeAmount?: boolean;
+
+  withoutBroadcastTxId?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -373,6 +375,10 @@ export type IUtxoInfo = {
     scriptPublicKey: string;
     version: number;
   };
+  // Use for Dynex UTXO info
+  globalIndex: number;
+  prevOutPubkey: string;
+  txPubkey: string;
 };
 
 export type INativeAmountInfo = {

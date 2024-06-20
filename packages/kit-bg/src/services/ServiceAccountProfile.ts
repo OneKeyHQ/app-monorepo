@@ -52,6 +52,7 @@ class ServiceAccountProfile extends ServiceBase {
     const resp = await client.get<{
       data: IFetchAccountDetailsResp;
     }>(`/wallet/v1/account/get-account?${qs.stringify(omitBy(params, isNil))}`);
+
     return resp.data.data;
   }
 

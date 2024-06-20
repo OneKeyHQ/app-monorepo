@@ -2748,7 +2748,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'code': 'dnx',
     'decimals': 9,
     'id': 'dynex--0',
-    'impl': 'dnx',
+    'impl': 'dynex',
     'isTestnet': false,
     'logoURI': 'https://uni.onekey-asset.com/static/chain/dynex.png',
     'name': 'Dynex',
