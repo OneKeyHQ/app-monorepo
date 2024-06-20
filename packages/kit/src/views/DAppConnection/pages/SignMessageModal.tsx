@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Toast } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -88,17 +88,12 @@ function SignMessageModal() {
           message: unsignedMessage.message,
           sourceInfo: $sourceInfo,
         });
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.dapp_connect_authorization_successful,
-          }),
-        });
         close?.();
       } finally {
         setIsLoading(false);
       }
     },
-    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo, intl],
+    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo],
   );
 
   return (
