@@ -96,6 +96,11 @@ export type IOnChainHistoryTx = {
   // Lightning network attributes
   description?: string;
   preimage?: string;
+
+  // Ripple
+  destinationTag?: number;
+  ledgerIndex?: number;
+  lastLedgerSequence?: number;
 };
 
 export type IAccountHistoryTx = {
@@ -141,6 +146,7 @@ export type IFetchAccountHistoryResp = {
 };
 
 export type IFetchHistoryTxDetailsParams = {
+  accountId: string;
   networkId: string;
   txid: string;
   accountAddress?: string;
@@ -161,6 +167,7 @@ export type IFetchHistoryTxDetailsResp = {
 
 export type IHistoryTxMetaProps = {
   decodedTx: IDecodedTx;
+  txDetails?: IOnChainHistoryTx;
 };
 
 export type IHistoryTxMetaComponents = {

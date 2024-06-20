@@ -4,6 +4,7 @@ import type { IDecodedTxExtraLightning } from '@onekeyhq/core/src/chains/lightni
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -12,10 +13,18 @@ import {
 
 import { InfoItem } from './TxDetailsInfoItem';
 
-function LightningTxAttributes({ decodedTx }: { decodedTx: IDecodedTx }) {
+function LightningTxAttributes({
+  decodedTx,
+  txDetails,
+}: {
+  decodedTx: IDecodedTx;
+  txDetails?: IOnChainHistoryTx;
+}) {
   const lightningExtraInfo = decodedTx.extraInfo as IDecodedTxExtraLightning;
 
   if (!lightningExtraInfo) return null;
+
+  const preimage = lightningExtraInfo.preImage || txDetails?.preimage;
 
   return (
     <>
@@ -25,12 +34,7 @@ function LightningTxAttributes({ decodedTx }: { decodedTx: IDecodedTx }) {
           renderContent={lightningExtraInfo.description}
         />
       ) : null}
-      {lightningExtraInfo?.preImage ? (
-        <InfoItem
-          label="Preimage"
-          renderContent={lightningExtraInfo.preImage}
-        />
-      ) : null}
+      {preimage ? <InfoItem label="Preimage" renderContent={preimage} /> : null}
     </>
   );
 }
