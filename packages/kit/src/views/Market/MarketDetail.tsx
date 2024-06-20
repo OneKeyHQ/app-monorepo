@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   HeaderIconButton,
-  Image,
   NavBackButton,
   NumberSizeableText,
   Page,
@@ -35,6 +34,7 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
 import { MarketStar } from './components/MarketStar';
+import { MarketTokenIcon } from './components/MarketTokenIcon';
 import { PriceChangePercentage } from './components/PriceChangePercentage';
 import { TextCell } from './components/TextCell';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
@@ -132,7 +132,7 @@ function SkeletonHeaderOverItemItem() {
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
-  const { icon, coinGeckoId, symbol } = route.params;
+  const { coinGeckoId, symbol } = route.params;
   const { gtMd } = useMedia();
 
   const [tokenDetail, setTokenDetail] = useState<
@@ -148,18 +148,13 @@ function MarketDetail({
   const renderHeaderTitle = useCallback(
     () => (
       <XStack space="$2">
-        <Image
-          width="$6"
-          height="$6"
-          borderRadius="$full"
-          src={decodeURIComponent(tokenDetail?.image || icon || '')}
-        />
+        <MarketTokenIcon uri={tokenDetail?.image || ''} size="$6" />
         <SizableText>
           {(tokenDetail?.symbol || symbol)?.toUpperCase()}
         </SizableText>
       </XStack>
     ),
-    [icon, symbol, tokenDetail?.image, tokenDetail?.symbol],
+    [symbol, tokenDetail?.image, tokenDetail?.symbol],
   );
   const { shareText } = useShare();
 

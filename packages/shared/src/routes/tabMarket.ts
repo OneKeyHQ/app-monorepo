@@ -7,7 +7,6 @@ export type ITabMarketParamList = {
   [ETabMarketRoutes.TabMarket]: undefined;
   [ETabMarketRoutes.MarketDetail]: {
     coinGeckoId: string;
-    icon?: string;
     symbol?: string;
   };
 };
