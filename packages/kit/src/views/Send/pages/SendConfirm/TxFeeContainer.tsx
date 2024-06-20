@@ -65,7 +65,6 @@ function TxFeeContainer(props: IProps) {
   const [customFee] = useCustomFeeAtom();
   const [settings] = useSettingsPersistAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
-  const [sendAlertStatus] = useSendTxStatusAtom();
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [nativeTokenTransferAmountToUpdate] =
@@ -602,24 +601,6 @@ function TxFeeContainer(props: IProps) {
                 </SizableText>
                 {renderFeeEditor()}
               </XStack>
-              {sendFeeStatus.errMessage ? (
-                <SizableText mt="$1" size="$bodyMd" color="$textCritical">
-                  {sendFeeStatus.errMessage}
-                </SizableText>
-              ) : null}
-              {sendAlertStatus.isInsufficientNativeBalance ? (
-                <SizableText mt="$1" size="$bodyMd" color="$textCritical">
-                  {intl.formatMessage(
-                    {
-                      id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
-                    },
-                    {
-                      0: network?.symbol ?? '',
-                      1: network?.name ?? '',
-                    },
-                  )}
-                </SizableText>
-              ) : null}
             </>
           }
         />
