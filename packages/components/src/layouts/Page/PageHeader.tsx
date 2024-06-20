@@ -36,18 +36,19 @@ const usePageHeaderReloadOptions = () => {
       ...(headerTransparent && {
         headerStyle: [headerStyle ?? {}, { backgroundColor: 'transparent' }],
       }),
-      // ...(headerSearchBarOptions && {
-      //   headerSearchBarOptions: {
-      //     hideNavigationBar: false,
-      //     hideWhenScrolling: false,
-      //     cancelButtonText: intl.formatMessage({
-      //       id: ETranslations.global_cancel,
-      //     }),
-      //     textColor: searchTextColor,
-      //     tintColor: searchTextColor,
-      //     ...headerSearchBarOptions,
-      //   },
-      // }),
+      ...(!platformEnv.isNativeIOS &&
+        headerSearchBarOptions && {
+          headerSearchBarOptions: {
+            hideNavigationBar: false,
+            hideWhenScrolling: false,
+            cancelButtonText: intl.formatMessage({
+              id: ETranslations.global_cancel,
+            }),
+            textColor: searchTextColor,
+            tintColor: searchTextColor,
+            ...headerSearchBarOptions,
+          },
+        }),
     };
   }, []);
   return useMemo(() => ({ reload }), [reload]);
@@ -62,8 +63,8 @@ const PageHeader = (props: IPageHeaderProps) => {
   }, [navigation, reloadOptions]);
 
   const { headerSearchBarOptions } = props;
-  // web HeaderSearchBar in packages/components/src/layouts/Navigation/Header/HeaderView.tsx
-  return platformEnv.isNative && headerSearchBarOptions ? (
+  // Android & Web HeaderSearchBar in packages/components/src/layouts/Navigation/Header/HeaderView.tsx
+  return platformEnv.isNativeIOS && headerSearchBarOptions ? (
     <HeaderSearchBar
       autoFocus={headerSearchBarOptions?.autoFocus}
       placeholder={headerSearchBarOptions?.placeholder}
