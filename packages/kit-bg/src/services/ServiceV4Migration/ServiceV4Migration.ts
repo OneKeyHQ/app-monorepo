@@ -25,6 +25,7 @@ import { V4MigrationForAddressBook } from '../../migrations/v4ToV5Migration/V4Mi
 import { V4MigrationForDiscover } from '../../migrations/v4ToV5Migration/V4MigrationForDiscover';
 import { V4MigrationForHistory } from '../../migrations/v4ToV5Migration/V4MigrationForHistory';
 import { V4MigrationForSettings } from '../../migrations/v4ToV5Migration/V4MigrationForSettings';
+import v4MigrationUtils from '../../migrations/v4ToV5Migration/v4MigrationUtils';
 import {
   v4migrationAtom,
   v4migrationPersistAtom,
@@ -40,7 +41,6 @@ import type {
 } from '../../migrations/v4ToV5Migration/types';
 import type { IV4DBAccount } from '../../migrations/v4ToV5Migration/v4local/v4localDBTypesSchema';
 import type { V4LocalDbRealm } from '../../migrations/v4ToV5Migration/v4local/v4realm/V4LocalDbRealm';
-import v4MigrationUtils from '../../migrations/v4ToV5Migration/v4MigrationUtils';
 import type { IV4MigrationAtom } from '../../states/jotai/atoms/v4migration';
 
 @backgroundClass()

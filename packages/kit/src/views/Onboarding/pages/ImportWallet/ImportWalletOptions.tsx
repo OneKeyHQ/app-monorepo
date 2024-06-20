@@ -17,6 +17,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupEntryStatus';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -24,7 +25,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { useV4MigrationActions } from '../V4Migration/hooks/useV4MigrationActions';
 
 type IOptionItem = IPropsWithTestId<{
