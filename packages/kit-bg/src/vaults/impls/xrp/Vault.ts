@@ -2,7 +2,10 @@ import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
 import { XRPL } from '@onekeyhq/core/src/chains/xrp/sdkXrp';
-import type { IEncodedTxXrp } from '@onekeyhq/core/src/chains/xrp/types';
+import type {
+  IDecodedTxExtraXrp,
+  IEncodedTxXrp,
+} from '@onekeyhq/core/src/chains/xrp/types';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -25,8 +28,9 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus, type IDecodedTx } from '@onekeyhq/shared/types/tx';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -218,6 +222,18 @@ export default class Vault extends VaultBase {
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     return Promise.resolve(params.unsignedTx);
+  }
+
+  override buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraXrp> {
+    return Promise.resolve({
+      destinationTag: onChainHistoryTx.destinationTag,
+      ledgerIndex: onChainHistoryTx.ledgerIndex,
+      lastLedgerSequence: onChainHistoryTx.lastLedgerSequence,
+    });
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {

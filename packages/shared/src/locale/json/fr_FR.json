@@ -1192,7 +1192,7 @@
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
-  "swap_history.status_discard": "Laisser tomber",
+  "swap_history.status_discard": "Délai d'attente",
   "swap_history.status_failed": "Échec",
   "swap_history.status_pending": "En attente",
   "swap_history.status_success": "Succès",

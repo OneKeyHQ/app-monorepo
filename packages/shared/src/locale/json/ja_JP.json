@@ -1192,7 +1192,7 @@
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
-  "swap_history.status_discard": "ドロップ",
+  "swap_history.status_discard": "タイムアウト",
   "swap_history.status_failed": "失敗しました",
   "swap_history.status_pending": "保留中",
   "swap_history.status_success": "成功",

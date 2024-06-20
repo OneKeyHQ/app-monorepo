@@ -85,6 +85,7 @@ function TxActionsContainer(props: IProps) {
       );
       const nativeTokenBalanceBN = new BigNumber(nativeTokenInfo.balance);
       const feeBN = new BigNumber(sendSelectedFeeInfo?.totalNative ?? 0);
+
       if (nativeTokenTransferBN.plus(feeBN).gte(nativeTokenBalanceBN)) {
         const transferAmountBN = BigNumber.min(
           nativeTokenBalanceBN,
@@ -101,7 +102,8 @@ function TxActionsContainer(props: IProps) {
             isMaxSend: false,
             amountToUpdate: vaultSettings?.isUtxo
               ? nativeTokenTransferBN.toFixed()
-              : transferPayload?.amountToSend ?? nativeTokenBalanceBN.toFixed(),
+              : transferPayload?.amountToSend ??
+                nativeTokenTransferBN.toFixed(),
           });
         }
       } else {
@@ -109,7 +111,7 @@ function TxActionsContainer(props: IProps) {
           isMaxSend: false,
           amountToUpdate: vaultSettings?.isUtxo
             ? nativeTokenTransferBN.toFixed()
-            : transferPayload?.amountToSend ?? nativeTokenBalanceBN.toFixed(),
+            : transferPayload?.amountToSend ?? nativeTokenTransferBN.toFixed(),
         });
       }
     }

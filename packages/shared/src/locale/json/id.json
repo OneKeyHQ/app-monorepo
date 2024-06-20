@@ -1192,7 +1192,7 @@
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
-  "swap_history.status_discard": "Jatuh",
+  "swap_history.status_discard": "Waktu Habis",
   "swap_history.status_failed": "Gagal",
   "swap_history.status_pending": "Tertunda",
   "swap_history.status_success": "Kesuksesan",

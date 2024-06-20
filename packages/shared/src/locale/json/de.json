@@ -1192,7 +1192,7 @@
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
-  "swap_history.status_discard": "Abfallen",
+  "swap_history.status_discard": "Zeitüberschreitung",
   "swap_history.status_failed": "Gescheitert",
   "swap_history.status_pending": "Ausstehend",
   "swap_history.status_success": "Erfolg",

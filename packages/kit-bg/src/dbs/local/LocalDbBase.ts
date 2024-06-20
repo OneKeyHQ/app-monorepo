@@ -60,7 +60,6 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
-import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type {
   IDBAccount,
   IDBAccountDerivation,
@@ -85,6 +84,8 @@ import type {
   IDBWallet,
   IDBWalletId,
   IDBWalletIdSingleton,
+  IDBWalletNextIdKeys,
+  IDBWalletNextIds,
   ILocalDBRecordUpdater,
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
@@ -817,9 +818,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId,
     });
     console.log('txAddHDNextIndexedAccount get wallet', wallet);
-    let nextIndex = this.getWalletNextAccountId({
-      wallet,
-      key: 'index',
+    let nextIndex = this.getNextIdsValue({
+      nextIds: wallet.nextIds,
+      key: 'accountHdIndex',
       defaultValue: 0,
     });
 
@@ -865,7 +866,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       tx,
       walletId,
       updater: (w) => {
-        w.nextIds = w.nextIds || {};
+        // DO NOT use  w.nextIds = w.nextIds || {};
+        // it will reset nextIds to {}
+        if (!w.nextIds) {
+          w.nextIds = {};
+        }
         w.nextIds.accountHdIndex = nextIndex + 1;
         return w;
       },
@@ -1403,7 +1408,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           tx,
           walletId: parentWalletId,
           updater: (item) => {
-            item.nextIds = item.nextIds || {};
+            // DO NOT use  w.nextIds = w.nextIds || {};
+            // it will reset nextIds to {}
+            if (!item.nextIds) {
+              item.nextIds = {};
+            }
+
             item.nextIds.hiddenWalletNum =
               (item.nextIds.hiddenWalletNum || 1) + 1;
             return item;
@@ -1797,7 +1807,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           name: ELocalDBStoreNames.Address,
           recordPairs: [recordPair],
           updater: (r) => {
-            r.wallets = r.wallets || {};
+            // DO NOT use              r.wallets = r.wallets || {};
+            // it will reset nextIds to {}
+            if (!r.wallets) {
+              r.wallets = {};
+            }
+
             r.wallets[walletId] = indexedAccountId ?? accountId;
             return r;
           },
@@ -1819,17 +1834,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  getNextAccountId({
+  getNextIdsValue({
     nextIds,
     key,
     defaultValue,
   }: {
-    nextIds:
-      | {
-          [key: string]: number;
-        }
-      | undefined;
-    key: string;
+    nextIds: IDBWalletNextIds | Realm.Dictionary<number> | undefined;
+    key: IDBWalletNextIdKeys;
     defaultValue: number;
   }) {
     const val = nextIds?.[key];
@@ -1843,22 +1854,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return defaultValue;
     }
     return val ?? defaultValue;
-  }
-
-  getWalletNextAccountId({
-    wallet,
-    key,
-    defaultValue,
-  }: {
-    wallet: IDBWallet | RealmSchemaWallet;
-    key: 'global' | 'index';
-    defaultValue: number;
-  }) {
-    return this.getNextAccountId({
-      nextIds: wallet.nextIds,
-      key,
-      defaultValue,
-    });
   }
 
   async addAccountsToWallet({
@@ -1877,9 +1872,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     this.validateAccountsFields(accounts);
 
     const wallet = await this.getWallet({ walletId });
-    let nextAccountId: number = this.getWalletNextAccountId({
-      wallet,
-      key: 'global',
+    let nextAccountId: number = this.getNextIdsValue({
+      nextIds: wallet.nextIds,
+      key: 'accountGlobalNum',
       defaultValue: 1,
     });
 
@@ -1951,14 +1946,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           tx,
           walletId,
           updater: (w) => {
-            w.nextIds = w.nextIds || {};
+            // DO NOT use  w.nextIds = w.nextIds || {};
+            // it will reset nextIds to {}
+            if (!w.nextIds) {
+              w.nextIds = {};
+            }
 
-            const currentNextAccountId = this.getWalletNextAccountId({
-              wallet: w,
-              key: 'global',
+            const nextIdsData = w.nextIds;
+            const currentNextAccountId = this.getNextIdsValue({
+              nextIds: nextIdsData,
+              key: 'accountGlobalNum',
               defaultValue: 1,
             });
-            w.nextIds.accountGlobalNum = currentNextAccountId + actualAdded;
+            const newAccountGlobalNum = currentNextAccountId + actualAdded;
+            w.nextIds.accountGlobalNum = newAccountGlobalNum;
 
             // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
             // w.accounts is List not Array in realmDB

@@ -755,7 +755,7 @@
   "hardware.device_contains_backup_desc": "如果繼續，您之前的備份將被完全覆蓋並永遠丟失。",
   "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "裝置資訊不一致，這可能是由裝置重置引起的，您可以重新新增裝置來解決此問題。",
   "hardware.device_need_restart": "硬體通訊失敗，請重新啟動裝置後重試",
-  "hardware.device_not_find_error": "Device not found. Please reconnect the hardware and try again.",
+  "hardware.device_not_find_error": "找不到裝置，請重新連接硬體並重試。",
   "hardware.device_passphrase_state_error": "Passphrase 與目前錢包不匹配，請重試",
   "hardware.ensure_device_close_to_nfc": "確保裝置靠近手機的 NFC 模組，然後重試。",
   "hardware.enter_boot_failure": "無法進入更新模式",

@@ -1192,7 +1192,7 @@
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
-  "swap_history.status_discard": "ড্রপ",
+  "swap_history.status_discard": "সময় শেষ",
   "swap_history.status_failed": "ব্যর্থ",
   "swap_history.status_pending": "মুলতবি",
   "swap_history.status_success": "সাফল্য",
