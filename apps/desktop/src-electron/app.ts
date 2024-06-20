@@ -96,7 +96,7 @@ const template = [
   { role: 'editMenu' },
   // remove `Reload`, 'Force reload' and 'Toggle Developer Tools' from `View` menu
   isDev || store.getDevTools()
-    ? { label: 'viewMenu' }
+    ? { role: 'viewMenu' }
     : {
         label: 'View',
         submenu: [
