@@ -542,7 +542,7 @@ export default class VaultBtc extends VaultBase {
 
     // TODO: inscription transfer
 
-    const utxosInfo = await this._collectUTXOsInfoByApi();
+    const { utxoList: utxosInfo } = await this._collectUTXOsInfoByApi();
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.
@@ -780,7 +780,7 @@ export default class VaultBtc extends VaultBase {
           );
         const withCheckInscription =
           checkInscriptionProtectionEnabled && inscriptionProtection;
-        const { utxoList } =
+        const { utxoList, frozenUtxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
             accountAddress: await this.getAccountAddress(),
@@ -792,7 +792,7 @@ export default class VaultBtc extends VaultBase {
         if (!utxoList) {
           throw new OneKeyInternalError('Failed to get UTXO list.');
         }
-        return utxoList;
+        return { utxoList, frozenUtxoList };
       } catch (e) {
         throw new OneKeyInternalError('Failed to get UTXO list.');
       }
@@ -811,7 +811,7 @@ export default class VaultBtc extends VaultBase {
     addresses: string[];
     account: IDBAccount;
   }) {
-    const utxos = await this._collectUTXOsInfoByApi();
+    const { utxoList: utxos } = await this._collectUTXOsInfoByApi();
 
     const pathToAddresses: {
       [fullPath: string]: {
@@ -974,5 +974,27 @@ export default class VaultBtc extends VaultBase {
     return Promise.resolve({
       encodedTx: undefined,
     });
+  }
+
+  override async precheckUnsignedTx(params: {
+    unsignedTx: IUnsignedTxPro;
+  }): Promise<boolean> {
+    const { frozenUtxoList } = await this._collectUTXOsInfoByApi();
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxBtc;
+    const { inputs } = encodedTx;
+    if (Array.isArray(frozenUtxoList) && frozenUtxoList.length > 0) {
+      if (
+        inputs.some((input) =>
+          frozenUtxoList.find(
+            (u) => u.txid === input.txid && u.vout === input.vout,
+          ),
+        )
+      ) {
+        throw new OneKeyInternalError({
+          key: ETranslations.feedback_unable_to_send_frozen_balance,
+        });
+      }
+    }
+    return true;
   }
 }
