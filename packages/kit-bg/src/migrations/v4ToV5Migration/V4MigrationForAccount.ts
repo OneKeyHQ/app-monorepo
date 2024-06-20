@@ -38,19 +38,10 @@ import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 import { EV4DBAccountType } from './v4types';
 
 import type {
-  IDBAccount,
-  IDBDevice,
-  IDBUtxoAccount,
-  IDBWallet,
-} from '../../dbs/local/types';
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '../../vaults/types';
-import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
   IV4MigrationWallet,
+  IV4OnAccountMigrated,
   IV4RunWalletMigrationParams,
 } from './types';
 import type {
@@ -61,6 +52,16 @@ import type {
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
 } from './v4local/v4localDBTypes';
+import type {
+  IDBAccount,
+  IDBDevice,
+  IDBUtxoAccount,
+  IDBWallet,
+} from '../../dbs/local/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '../../vaults/types';
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({
@@ -300,6 +301,23 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     }
   }
 
+  // async fixV4AccountAddressOrPub({ v4account }: { v4account: IV4DBAccount }) {
+  //   const coinType = v4account.coinType;
+  //   if (accountUtils.isWatchingAccount({ accountId: v4account.id })) {
+  //     if (coinType === COINTYPE_ALGO) {
+  //       // use address to create
+  //       delete v4account.pub;
+  //     }
+  //     if (coinType === COINTYPE_CFX) {
+  //       // use addresses to create
+  //       if (v4account && v4account.address) {
+  //         // @ts-ignore
+  //         delete (v4account as IV4DBSimpleAccount).address;
+  //       }
+  //     }
+  //   }
+  // }
+
   async fixV4AccountLightningType({ v4account }: { v4account: IV4DBAccount }) {
     if (
       v4account.coinType === COINTYPE_LIGHTNING ||
@@ -482,6 +500,81 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     });
   }
 
+  async addV5WatchingAccount({
+    networkId,
+    input,
+    v4account,
+    onAccountMigrated,
+  }: {
+    networkId: string;
+    input: string;
+    v4account: IV4DBAccount;
+    onAccountMigrated: IV4OnAccountMigrated;
+  }): Promise<IDBAccount[]> {
+    const { serviceAccount, servicePassword, serviceNetwork } =
+      this.backgroundApi;
+
+    const deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+      networkId,
+      input: await servicePassword.encodeSensitiveText({
+        text: input,
+      }),
+      validateAddress: true,
+      validateXpub: true,
+      template: await this.fixV4AccountTemplate({
+        v4account,
+      }),
+    });
+
+    const addedV5Accounts: IDBAccount[] = [];
+    for (const deriveType of deriveTypes) {
+      v4dbHubs.logger.log({
+        name: 'loop each deriveType',
+        type: 'info',
+        payload: JSON.stringify({
+          deriveType,
+          networkId,
+        }),
+      });
+      const v5accountAdded: IDBAccount | undefined =
+        await v4dbHubs.logger.runAsyncWithCatch(
+          async () => {
+            const result = await serviceAccount.addWatchingAccount({
+              input,
+              name: v4account.name,
+              networkId,
+              deriveType,
+              isUrlAccount: false,
+              skipAddIfNotEqualToAddress: v4account.address,
+            });
+            const v5account = result?.accounts?.[0];
+            if (v5account) {
+              onAccountMigrated(v5account, v4account);
+            }
+            return v5account;
+          },
+          {
+            name: 'migrateWatchingAccounts addWatchingAccount',
+            logResultFn: (result) =>
+              JSON.stringify({
+                deriveType,
+                id: result?.id,
+                name: result?.name,
+                type: result?.type,
+                address: result?.address,
+                coinType: result?.coinType,
+              }),
+            errorResultFn: () => undefined,
+          },
+        );
+      if (v5accountAdded) {
+        addedV5Accounts.push(v5accountAdded);
+      }
+    }
+
+    return addedV5Accounts;
+  }
+
   async migrateWatchingAccounts({
     v4wallet,
     onAccountMigrated,
@@ -518,62 +611,89 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           await this.fixV4AccountMissingFields({ v4account });
           if (networkId) {
             const v4accountUtxo = v4account as IV4DBUtxoAccount;
-            const input =
-              // v4accountUtxo?.xpubSegwit || // xpubSegwit import not support yet
-              v4accountUtxo?.xpub || v4account?.pub || v4account?.address;
 
-            const deriveTypes =
-              await serviceNetwork.getAccountImportingDeriveTypes({
-                networkId,
-                input: await servicePassword.encodeSensitiveText({
-                  text: input,
-                }),
-                validateAddress: true,
-                validateXpub: true,
-                template: await this.fixV4AccountTemplate({
-                  v4account,
-                }),
-              });
-
-            for (const deriveType of deriveTypes) {
-              v4dbHubs.logger.log({
-                name: 'loop each deriveType',
-                type: 'info',
-                payload: JSON.stringify({
-                  deriveType,
-                  networkId,
-                }),
-              });
-              await v4dbHubs.logger.runAsyncWithCatch(
+            const addWatchingAccountByInput = async (
+              input: string,
+              type: string,
+            ) => {
+              const result = await v4dbHubs.logger.runAsyncWithCatch(
                 async () => {
-                  const result = await serviceAccount.addWatchingAccount({
+                  const added = await this.addV5WatchingAccount({
                     input,
-                    name: v4account.name,
+                    v4account,
                     networkId,
-                    deriveType,
-                    isUrlAccount: false,
-                    skipAddIfNotEqualToAddress: v4account.address,
+                    onAccountMigrated,
                   });
-                  const v5account = result?.accounts?.[0];
-                  if (v5account) {
-                    onAccountMigrated(v5account, v4account);
-                  }
-                  return v5account;
+                  return added;
                 },
                 {
-                  name: 'migrateWatchingAccounts addWatchingAccount',
-                  logResultFn: (result) =>
-                    JSON.stringify({
-                      deriveType,
-                      id: result?.id,
-                      name: result?.name,
-                      type: result?.type,
-                      address: result?.address,
-                      coinType: result?.coinType,
-                    }),
+                  name: `migrateWatchingAccounts by input: ${JSON.stringify([
+                    v4account.id,
+                    type,
+                    input,
+                  ])}`,
                   errorResultFn: () => undefined,
                 },
               );
+              return result?.filter(Boolean) || [];
+            };
+
+            let addedV5Accounts: IDBAccount[] = [];
+
+            if (v4account?.pub) {
+              addedV5Accounts = await addWatchingAccountByInput(
+                v4account.pub,
+                'pub',
+              );
+            }
+
+            if (v4accountUtxo?.xpub) {
+              addedV5Accounts = await addWatchingAccountByInput(
+                v4accountUtxo.xpub,
+                'xpub',
+              );
+            }
+
+            if (v4accountUtxo?.xpubSegwit) {
+              addedV5Accounts = await addWatchingAccountByInput(
+                v4accountUtxo.xpubSegwit,
+                'xpubSegwit',
+              );
+            }
+
+            if (
+              v4account?.address &&
+              !addedV5Accounts?.filter?.(Boolean)?.length
+            ) {
+              addedV5Accounts = await addWatchingAccountByInput(
+                v4account.address,
+                'address',
+              );
+            }
+
+            const networkToAddress = Object.entries(
+              v4accountUtxo?.addresses || {},
+            );
+            if (networkToAddress.length) {
+              for (const [mapNetworkId, mapAddress] of networkToAddress) {
+                await v4dbHubs.logger.runAsyncWithCatch(
+                  async () => {
+                    v4account.address = mapAddress;
+                    await this.addV5WatchingAccount({
+                      input: mapAddress,
+                      v4account,
+                      networkId: mapNetworkId,
+                      onAccountMigrated,
+                    });
+                  },
+                  {
+                    name: `migrateWatchingAccounts by account.addresses: ${JSON.stringify(
+                      [v4account.id, mapNetworkId, mapAddress],
+                    )}`,
+                    errorResultFn: () => undefined,
+                  },
+                );
+              }
             }
           }
         },
