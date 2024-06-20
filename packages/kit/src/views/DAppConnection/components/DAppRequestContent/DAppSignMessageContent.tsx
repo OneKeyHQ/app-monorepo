@@ -71,12 +71,26 @@ function DAppSignMessageContent({
 
   const renderRawMessage = useCallback(() => {
     const { message, type } = unsignedMessage;
-    if (type !== EMessageTypesEth.TYPED_DATA_V4) return null;
+    if (
+      type === EMessageTypesBtc.ECDSA ||
+      type === EMessageTypesBtc.BIP322_SIMPLE ||
+      type === EMessageTypesEth.ETH_SIGN ||
+      type === EMessageTypesCommon.SIMPLE_SIGN
+    ) {
+      return null;
+    }
+
     let text = message;
-    try {
-      text = JSON.parse(text);
-    } catch (e) {
-      console.error('Failed to parse typed data v4 message: ', e);
+    if (
+      type === EMessageTypesEth.TYPED_DATA_V1 ||
+      type === EMessageTypesEth.TYPED_DATA_V3 ||
+      type === EMessageTypesEth.TYPED_DATA_V4
+    ) {
+      try {
+        text = JSON.parse(text);
+      } catch (e) {
+        console.error('Failed to parse typed data v4 message: ', e);
+      }
     }
     return (
       <YStack space="$2">
