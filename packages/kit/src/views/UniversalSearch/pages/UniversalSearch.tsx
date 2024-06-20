@@ -201,7 +201,6 @@ export function UniversalSearch({
                 setTimeout(async () => {
                   navigation.push(ETabMarketRoutes.MarketDetail, {
                     coinGeckoId: coingeckoId,
-                    icon: image,
                     symbol,
                   });
                   setTimeout(() => {
