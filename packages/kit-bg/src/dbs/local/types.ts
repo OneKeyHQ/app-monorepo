@@ -116,6 +116,11 @@ export type IDBWalletType =
   | typeof WALLET_TYPE_IMPORTED
   | typeof WALLET_TYPE_WATCHING
   | typeof WALLET_TYPE_EXTERNAL;
+export type IDBWalletNextIdKeys =
+  | 'accountHdIndex'
+  | 'accountGlobalNum'
+  | 'hiddenWalletNum';
+export type IDBWalletNextIds = Partial<Record<IDBWalletNextIdKeys, number>>;
 export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;
   backuped: boolean;
@@ -128,9 +133,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   //   // purpose + cointype => index
   //   // [template: string]: number; // hd
   // };
-  nextIds: Partial<
-    Record<'accountHdIndex' | 'accountGlobalNum' | 'hiddenWalletNum', number>
-  >;
+  nextIds: IDBWalletNextIds;
   associatedDevice?: string; // alias to `dbDeviceId`
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
