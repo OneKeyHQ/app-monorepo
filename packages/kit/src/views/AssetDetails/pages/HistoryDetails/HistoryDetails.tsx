@@ -103,6 +103,8 @@ export function AssetItem({
   let primary = null;
   let secondary = null;
 
+  const amountAbs = new BigNumber(amount).abs().toFixed();
+
   if (isApprove) {
     primary = (
       <SizableText textAlign="right" size="$bodyLgMedium" color="$textSuccess">
@@ -113,7 +115,7 @@ export function AssetItem({
           : intl.formatMessage(
               { id: ETranslations.form__approve_str },
               {
-                amount,
+                amountAbs,
                 symbol: asset.symbol,
               },
             )}
@@ -138,7 +140,7 @@ export function AssetItem({
           showPlusMinusSigns: true,
         }}
       >
-        {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amount}`}
+        {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amountAbs}`}
       </NumberSizeableText>
     );
     secondary = (
@@ -149,7 +151,7 @@ export function AssetItem({
         formatter="value"
         formatterOptions={{ currency: currencySymbol }}
       >
-        {new BigNumber(amount).times(asset.price ?? 0).toString()}
+        {new BigNumber(amountAbs).times(asset.price ?? 0).toString()}
       </NumberSizeableText>
     );
   }
