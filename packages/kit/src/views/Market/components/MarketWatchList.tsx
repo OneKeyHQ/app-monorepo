@@ -20,6 +20,7 @@ import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 import { useMarketWatchListAtom } from '../../../states/jotai/contexts/market';
 
 import { MarketHomeList } from './MarketHomeList';
+import { MarketTokenIcon } from './MarketTokenIcon';
 import { useWatchListAction } from './wachListHooks';
 
 function RecommendItem({
@@ -55,7 +56,7 @@ function RecommendItem({
       ai="center"
     >
       <XStack space="$3" ai="center" flexShrink={1}>
-        <Image src={decodeURIComponent(icon)} size="$8" borderRadius="$full" />
+        <MarketTokenIcon uri={icon} size="$8" />
         <YStack flexShrink={1}>
           <SizableText
             selectable={false}
