@@ -60,6 +60,7 @@ export const DevSettingsSection = () => {
       {platformEnv.isDesktop ? (
         <SectionPressItem
           title="Open Chrome DevTools in Desktop"
+          subtitle="重启后会在导航栏的菜单栏中出现相关按钮"
           onPress={handleOpenDevTools}
         />
       ) : null}

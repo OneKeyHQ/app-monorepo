@@ -40,7 +40,7 @@ export function makeModalOpenAnimationOptions(info: {
   if (platformEnv.isNativeAndroid) {
     // animation gets a little stuck
     return {
-      animation: 'fade',
+      animation: 'none',
     };
   }
 
