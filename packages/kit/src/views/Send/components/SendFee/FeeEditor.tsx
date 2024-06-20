@@ -168,6 +168,8 @@ function FeeEditor(props: IProps) {
     getPresetIndex(sendSelectedFee, feeSelectorItems),
   );
 
+  const [feeAlert, setFeeAlert] = useState('');
+
   const [currentFeeType, setCurrentFeeType] = useState<EFeeType>(
     sendSelectedFee.feeType,
   );
@@ -359,9 +361,35 @@ function FeeEditor(props: IProps) {
           { min: DEFAULT_FEER_ATE_MIN, max: DEFAULT_FEE_RATE_MAX },
         );
       }
+
+      const recommendFeeRate = feeSelectorItems
+        .filter((item) => item.type === EFeeType.Standard)
+        .map((item) => item.feeInfo.feeUTXO?.feeRate ?? '0')
+        .filter((item) => item !== '0');
+
+      const recommendFeeRateMax = BigNumber.max(...recommendFeeRate);
+      const recommendFeeRateMin = BigNumber.min(...recommendFeeRate);
+
+      if (feeRate.isLessThan(recommendFeeRateMin)) {
+        setFeeAlert(
+          intl.formatMessage({
+            id: ETranslations.fee_fee_rate_too_low,
+          }),
+        );
+      } else if (
+        feeRate.isGreaterThan(new BigNumber(recommendFeeRateMax).times(100))
+      ) {
+        setFeeAlert(
+          intl.formatMessage({
+            id: ETranslations.fee_fee_rate_too_high,
+          }),
+        );
+      } else {
+        setFeeAlert('');
+      }
       return true;
     },
-    [intl],
+    [feeSelectorItems, intl],
   );
 
   const handleValidateComputeUnitPrice = useCallback((value: string) => {
@@ -397,22 +425,9 @@ function FeeEditor(props: IProps) {
       );
     }
 
-    // true if lower then the Low Priority of mempool
-    // true if higher then the (High Priority * 100) of mempool
-    const isShowAlert = true;
-
     return (
       <>
-        {isShowAlert ? (
-          <Alert
-            type="warning"
-            title={intl.formatMessage({
-              // or `fee_fee_rate_too_high`
-              id: ETranslations.fee_fee_rate_too_low,
-            })}
-            mb="$5"
-          />
-        ) : null}
+        {feeAlert ? <Alert type="warning" title={feeAlert} mb="$5" /> : null}
         <SizableText mb={6} size="$bodyMdMedium">
           {feeTitle}
         </SizableText>
@@ -463,6 +478,7 @@ function FeeEditor(props: IProps) {
   }, [
     currentFeeIndex,
     customFee.feeUTXO,
+    feeAlert,
     feeSelectorItems,
     feeSymbol,
     intl,
