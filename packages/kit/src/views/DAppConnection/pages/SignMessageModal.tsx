@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Toast } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
