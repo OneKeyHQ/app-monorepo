@@ -28,7 +28,7 @@ export function getHistoryTxMeta({ impl }: { impl: string }) {
       components = {
         [EHistoryTxDetailsBlock.Attributes]: XrpTxAttributes,
       };
-      break
+      break;
     case IMPL_ADA:
       components = {
         [EHistoryTxDetailsBlock.Flow]: AdaTxFlow,
