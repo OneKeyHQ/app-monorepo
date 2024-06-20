@@ -12,8 +12,8 @@ import {
   Stack,
   usePreventRemove,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useV4migrationPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -217,13 +217,22 @@ export function useV4MigrationExitPrevent({
   const message = 'Confirm Exit Migration from V4?';
   const onConfirmText = 'Exit';
   const onCancelText = 'Cancel';
+  const [v4migrationPersistData] = useV4migrationPersistAtom();
 
   // Prevents screen locking
   useKeepAwake();
 
+  const isAutoStartInFirstTime =
+    !v4migrationPersistData?.v4migrationAutoStartCount ||
+    v4migrationPersistData?.v4migrationAutoStartCount <= 1;
+
   // Prevent Modal exit/back
   useModalExitPrevent({
-    exitPreventMode,
+    exitPreventMode:
+      isAutoStartInFirstTime &&
+      exitPreventMode === EModalExitPreventMode.confirm
+        ? EModalExitPreventMode.always
+        : exitPreventMode,
     isAutoStartOnMount,
     title,
     message,

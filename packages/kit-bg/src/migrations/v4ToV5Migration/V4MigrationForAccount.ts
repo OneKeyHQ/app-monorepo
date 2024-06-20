@@ -38,6 +38,16 @@ import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 import { EV4DBAccountType } from './v4types';
 
 import type {
+  IDBAccount,
+  IDBDevice,
+  IDBUtxoAccount,
+  IDBWallet,
+} from '../../dbs/local/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '../../vaults/types';
+import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
   IV4MigrationWallet,
@@ -51,16 +61,6 @@ import type {
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
 } from './v4local/v4localDBTypes';
-import type {
-  IDBAccount,
-  IDBDevice,
-  IDBUtxoAccount,
-  IDBWallet,
-} from '../../dbs/local/types';
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '../../vaults/types';
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({
@@ -238,6 +238,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             verifyString: v4context.verifyString,
           }),
         });
+        await this.backgroundApi.servicePassword.unLockApp();
       }
       // TODO migrate backupUUID?
       // v4context?.backupUUID;

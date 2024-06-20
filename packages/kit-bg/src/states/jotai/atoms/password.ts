@@ -110,6 +110,10 @@ export const {
 
 export const { target: appIsLocked, use: useAppIsLockedAtom } =
   globalAtomComputed<boolean>((get) => {
+    const { isMigrationModalOpen } = get(v4migrationAtom.atom());
+    if (isMigrationModalOpen) {
+      return false;
+    }
     const { isPasswordSet, manualLocking, appLockDuration } = get(
       passwordPersistAtom.atom(),
     );
@@ -118,7 +122,6 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
         return true;
       }
       const { unLock } = get(passwordAtom.atom());
-      const { isMigrationModalOpen } = get(v4migrationAtom.atom());
       let usedUnlock = unLock;
       if (isMigrationModalOpen) {
         usedUnlock = true;
