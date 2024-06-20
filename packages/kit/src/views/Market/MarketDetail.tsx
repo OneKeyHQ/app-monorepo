@@ -85,7 +85,7 @@ function TokenDetailHeader({
       {gtMd ? (
         <MarketDetailOverview token={token} onContentSizeChange={() => {}} />
       ) : (
-        <XStack pt="$6" flex={1} ai="center" jc="center" space="$2">
+        <XStack pt="$3" flex={1} ai="center" space="$2" flexWrap="wrap">
           <TextCell
             title={intl.formatMessage({ id: ETranslations.market_24h_vol_usd })}
           >
