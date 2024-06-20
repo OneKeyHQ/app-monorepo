@@ -143,12 +143,28 @@ async function isBootloaderModeByFeatures({
   );
 }
 
+async function existsFirmwareByFeatures({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures;
+}) {
+  return features?.firmware_present === true;
+}
+
 async function isBootloaderModeFromSearchDevice({
   device,
 }: {
   device: { mode?: string };
 }) {
   return device?.mode === 'bootloader';
+}
+
+async function existsFirmwareFromSearchDevice({
+  device,
+}: {
+  device: { features?: { firmware_present?: boolean } };
+}) {
+  return device?.features?.firmware_present === true;
 }
 
 function isConfirmOnDeviceAction(state: IHardwareUiState | undefined) {
@@ -176,6 +192,8 @@ export default {
   getDeviceModeFromFeatures,
   isBootloaderModeByFeatures,
   isBootloaderModeFromSearchDevice,
+  existsFirmwareByFeatures,
+  existsFirmwareFromSearchDevice,
   getDeviceScanner,
   getUpdatingConnectId,
   isConfirmOnDeviceAction,
