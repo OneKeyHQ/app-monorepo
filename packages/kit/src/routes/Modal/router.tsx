@@ -25,6 +25,7 @@ import { TestModalRouter } from '../../views/TestModal/router';
 import { UniversalSearchRouter } from '../../views/UniversalSearch/router';
 import { ModalWebViewStack } from '../../views/WebView/router';
 
+import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ModalMainStack } from './Main';
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
@@ -52,7 +53,8 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     onMounted: () => {
       console.log('OnboardingModal onMounted');
     },
-    onUnmounted: () => {
+    onUnmounted: async () => {
+      await v4migrationAtom.set((v) => ({ ...v, isMigrationModalOpen: false }));
       console.log('OnboardingModal onUnmounted');
     },
     name: EModalRoutes.OnboardingModal,

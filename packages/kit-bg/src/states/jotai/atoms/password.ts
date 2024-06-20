@@ -8,8 +8,9 @@ import { globalAtom, globalAtomComputed } from '../utils';
 
 import { settingsPersistAtom } from './settings';
 
-import type { EPasswordPromptType } from '../../../services/ServicePassword/types';
 import type { AuthenticationType } from 'expo-local-authentication';
+import type { EPasswordPromptType } from '../../../services/ServicePassword/types';
+import { v4migrationAtom } from './v4migration';
 
 export type IPasswordAtom = {
   unLock: boolean;
@@ -112,15 +113,20 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
     const { isPasswordSet, manualLocking, appLockDuration } = get(
       passwordPersistAtom.atom(),
     );
-    const { unLock } = get(passwordAtom.atom());
     if (isPasswordSet) {
       if (manualLocking) {
         return true;
       }
-      if (platformEnv.isWeb || platformEnv.isDev) {
-        return !unLock && String(appLockDuration) !== ELockDuration.Never;
+      const { unLock } = get(passwordAtom.atom());
+      const { isMigrationModalOpen } = get(v4migrationAtom.atom());
+      let usedUnlock = unLock;
+      if (isMigrationModalOpen) {
+        usedUnlock = true;
       }
-      return !unLock;
+      if (platformEnv.isWeb || platformEnv.isDev) {
+        return !usedUnlock && String(appLockDuration) !== ELockDuration.Never;
+      }
+      return !usedUnlock;
     }
     return false;
   });
