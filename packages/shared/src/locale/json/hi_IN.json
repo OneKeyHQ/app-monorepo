@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "अमान्य सार्वजनिक कुंजी",
   "form.public_key_placeholder": "अपनी सार्वजनिक कुंजी दर्ज करें",
   "form.recipient_ln_placeholder": "इनवॉइस, लाइटनिंग एड्रेस या LNURL दर्ज करें",
+  "form.ree_rate_error_out_of_range": "शुल्क दर {min} और {max} के बीच होनी चाहिए",
   "form.rename_error_empty": "नाम आवश्यक है",
   "form.search_address_placeholder": "पता खोजें",
   "form__approve_str": "{amount} {symbol} को मंजूरी दें",

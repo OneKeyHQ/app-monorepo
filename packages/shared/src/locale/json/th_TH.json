@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "คีย์สาธารณะไม่ถูกต้อง",
   "form.public_key_placeholder": "ใส่คีย์สาธารณะของคุณ",
   "form.recipient_ln_placeholder": "ป้อนใบแจ้งหนี้, ที่อยู่ Lighting หรือ LNURL",
+  "form.ree_rate_error_out_of_range": "อัตราค่าธรรมเนียมต้องอยู่ระหว่าง {min} และ {max}",
   "form.rename_error_empty": "ต้องระบุชื่อ",
   "form.search_address_placeholder": "ค้นหาที่อยู่",
   "form__approve_str": "อนุมัติ {amount} {symbol}",

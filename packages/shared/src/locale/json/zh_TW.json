@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "無效的公鑰",
   "form.public_key_placeholder": "輸入您的公鑰",
   "form.recipient_ln_placeholder": "輸入閃電發票，閃電地址或 LNURL",
+  "form.ree_rate_error_out_of_range": "費用率必須介於 {min} 和 {max} 之間",
   "form.rename_error_empty": "名稱是必填的",
   "form.search_address_placeholder": "搜尋地址",
   "form__approve_str": "授權 {amount} {symbol}",

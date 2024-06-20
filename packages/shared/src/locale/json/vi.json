@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "khóa công khai không hợp lệ",
   "form.public_key_placeholder": "Nhập khóa công khai của bạn",
   "form.recipient_ln_placeholder": "Nhập hóa đơn, Địa chỉ Lighting hoặc LNURL",
+  "form.ree_rate_error_out_of_range": "Tỷ lệ phí phải nằm giữa {min} và {max}",
   "form.rename_error_empty": "Yêu cầu phải có tên",
   "form.search_address_placeholder": "Tìm kiếm địa chỉ",
   "form__approve_str": "Phê duyệt {amount} {symbol}",

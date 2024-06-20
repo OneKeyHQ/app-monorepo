@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "kunci publik tidak valid",
   "form.public_key_placeholder": "Masukkan kunci publik Anda",
   "form.recipient_ln_placeholder": "Masukkan invoice, Alamat Lighting atau LNURL",
+  "form.ree_rate_error_out_of_range": "Tarif harus berada di antara {min} dan {max}",
   "form.rename_error_empty": "Nama diperlukan",
   "form.search_address_placeholder": "Cari alamat",
   "form__approve_str": "Menyetujui {amount} {symbol}",

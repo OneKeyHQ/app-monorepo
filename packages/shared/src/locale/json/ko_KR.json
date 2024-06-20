@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "유효하지 않은 공개 키",
   "form.public_key_placeholder": "공개 키를 입력하세요",
   "form.recipient_ln_placeholder": "송장, 라이트닝 주소 또는 LNURL을 입력하세요",
+  "form.ree_rate_error_out_of_range": "수수료율은 {min}과 {max} 사이여야 합니다",
   "form.rename_error_empty": "이름이 필요합니다",
   "form.search_address_placeholder": "주소 검색",
   "form__approve_str": "{amount} {symbol} 승인",

@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "clave pública inválida",
   "form.public_key_placeholder": "Ingrese su clave pública",
   "form.recipient_ln_placeholder": "Ingrese factura, Dirección de Lighting o LNURL",
+  "form.ree_rate_error_out_of_range": "La tarifa debe estar entre {min} y {max}",
   "form.rename_error_empty": "Se requiere nombre",
   "form.search_address_placeholder": "Buscar dirección",
   "form__approve_str": "Aprobar {amount} {symbol}",

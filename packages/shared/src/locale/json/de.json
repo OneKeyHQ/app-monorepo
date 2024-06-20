@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "ungültiger öffentlicher Schlüssel",
   "form.public_key_placeholder": "Geben Sie Ihren öffentlichen Schlüssel ein",
   "form.recipient_ln_placeholder": "Geben Sie Rechnung, Lighting Adresse oder LNURL ein",
+  "form.ree_rate_error_out_of_range": "Die Gebührenrate muss zwischen {min} und {max} liegen",
   "form.rename_error_empty": "Name ist erforderlich",
   "form.search_address_placeholder": "Adresse suchen",
   "form__approve_str": "Genehmigen Sie {amount} {symbol}",

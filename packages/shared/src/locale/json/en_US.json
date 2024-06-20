@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "invalid public key",
   "form.public_key_placeholder": "Enter your public key",
   "form.recipient_ln_placeholder": "Enter invoice, Lighting Address or LNURL",
+  "form.ree_rate_error_out_of_range": "Fee rate must be between {min} and {max}",
   "form.rename_error_empty": "Name is required",
   "form.search_address_placeholder": "Search address",
   "form__approve_str": "Approve {amount} {symbol}",

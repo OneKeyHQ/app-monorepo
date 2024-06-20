@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "недействительный открытый ключ",
   "form.public_key_placeholder": "Введите свой открытый ключ",
   "form.recipient_ln_placeholder": "Введите счет, адрес Lighting или LNURL",
+  "form.ree_rate_error_out_of_range": "Ставка должна быть между {min} и {max}",
   "form.rename_error_empty": "Требуется имя",
   "form.search_address_placeholder": "Поиск адреса",
   "form__approve_str": "Одобрить {amount} {symbol}",

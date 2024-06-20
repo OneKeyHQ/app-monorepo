@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "chiave pubblica non valida",
   "form.public_key_placeholder": "Inserisci la tua chiave pubblica",
   "form.recipient_ln_placeholder": "Inserisci fattura, Indirizzo Lighting o LNURL",
+  "form.ree_rate_error_out_of_range": "La tariffa deve essere compresa tra {min} e {max}",
   "form.rename_error_empty": "Il nome è obbligatorio",
   "form.search_address_placeholder": "Cerca indirizzo",
   "form__approve_str": "Approva {amount} {symbol}",

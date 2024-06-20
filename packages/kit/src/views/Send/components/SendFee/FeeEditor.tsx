@@ -73,6 +73,8 @@ type IProps = {
 
 const DEFAULT_GAS_LIMIT_MIN = 21000;
 const DEFAULT_GAS_LIMIT_MAX = 15000000;
+const DEFAULT_FEER_ATE_MIN = 1;
+const DEFAULT_FEE_RATE_MAX = 1000000;
 
 const getPresetIndex = (
   sendSelectedFee: IProps['sendSelectedFee'],
@@ -343,13 +345,23 @@ function FeeEditor(props: IProps) {
     return true;
   }, []);
 
-  const handleValidateFeeRate = useCallback((value: string) => {
-    const feeRate = new BigNumber(value || 0);
-    if (feeRate.isNaN() || feeRate.isLessThanOrEqualTo(0)) {
-      return false;
-    }
-    return true;
-  }, []);
+  const handleValidateFeeRate = useCallback(
+    (value: string) => {
+      const feeRate = new BigNumber(value || 0);
+      if (
+        feeRate.isNaN() ||
+        feeRate.isLessThanOrEqualTo(DEFAULT_FEER_ATE_MIN) ||
+        feeRate.isGreaterThan(DEFAULT_FEE_RATE_MAX)
+      ) {
+        return intl.formatMessage(
+          { id: ETranslations.form_ree_rate_error_out_of_range },
+          { min: DEFAULT_FEER_ATE_MIN, max: DEFAULT_FEE_RATE_MAX },
+        );
+      }
+      return true;
+    },
+    [intl],
+  );
 
   const handleValidateComputeUnitPrice = useCallback((value: string) => {
     const feeRate = new BigNumber(value || 0);

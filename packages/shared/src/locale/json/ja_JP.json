@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "無効な公開鍵",
   "form.public_key_placeholder": "公開鍵を入力してください",
   "form.recipient_ln_placeholder": "請求書、ライトニングアドレス、またはLNURLを入力してください",
+  "form.ree_rate_error_out_of_range": "手数料率は{min}から{max}の間でなければなりません",
   "form.rename_error_empty": "名前は必須です",
   "form.search_address_placeholder": "住所を検索",
   "form__approve_str": "{amount} {symbol}を承認する",

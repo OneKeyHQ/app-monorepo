@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "অবৈধ পাবলিক কী",
   "form.public_key_placeholder": "আপনার পাবলিক কী প্রবেশ করান",
   "form.recipient_ln_placeholder": "চালান, লাইটনিং ঠিকানা বা LNURL প্রবেশ করুন",
+  "form.ree_rate_error_out_of_range": "ফি হারটি {min} এবং {max} এর মধ্যে হতে হবে",
   "form.rename_error_empty": "নাম প্রয়োজন",
   "form.search_address_placeholder": "ঠিকানা অনুসন্ধান করুন",
   "form__approve_str": "{amount} {symbol} অনুমোদন করুন",

@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "clé publique invalide",
   "form.public_key_placeholder": "Entrez votre clé publique",
   "form.recipient_ln_placeholder": "Saisissez la facture, l'adresse Lighting ou LNURL",
+  "form.ree_rate_error_out_of_range": "Le taux de frais doit être compris entre {min} et {max}",
   "form.rename_error_empty": "Le nom est requis",
   "form.search_address_placeholder": "Rechercher une adresse",
   "form__approve_str": "Approuver {amount} {symbol}",

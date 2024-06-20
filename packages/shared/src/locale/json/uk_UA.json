@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "недійсний відкритий ключ",
   "form.public_key_placeholder": "Введіть свій відкритий ключ",
   "form.recipient_ln_placeholder": "Введіть рахунок, адресу Lighting або LNURL",
+  "form.ree_rate_error_out_of_range": "Розмір комісії повинен бути між {min} та {max}",
   "form.rename_error_empty": "Ім'я є обов'язковим",
   "form.search_address_placeholder": "Пошук адреси",
   "form__approve_str": "Підтвердити {amount} {symbol}",

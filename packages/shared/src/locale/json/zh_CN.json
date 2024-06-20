@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "无效的公钥",
   "form.public_key_placeholder": "输入您的公钥",
   "form.recipient_ln_placeholder": "输入闪电发票，闪电地址或 LNURL",
+  "form.ree_rate_error_out_of_range": "费率必须在 {min} 和 {max} 之间",
   "form.rename_error_empty": "名称是必填的",
   "form.search_address_placeholder": "搜索地址",
   "form__approve_str": "授权 {amount} {symbol}",

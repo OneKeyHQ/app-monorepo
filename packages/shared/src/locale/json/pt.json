@@ -452,6 +452,7 @@
   "form.public_key_error_invalid": "chave pública inválida",
   "form.public_key_placeholder": "Insira a sua chave pública",
   "form.recipient_ln_placeholder": "Insira a fatura, endereço Lightning ou LNURL",
+  "form.ree_rate_error_out_of_range": "A taxa de cobrança deve estar entre {min} e {max}",
   "form.rename_error_empty": "O nome é obrigatório",
   "form.search_address_placeholder": "Pesquisar endereço",
   "form__approve_str": "Aprovar {amount} {symbol}",
