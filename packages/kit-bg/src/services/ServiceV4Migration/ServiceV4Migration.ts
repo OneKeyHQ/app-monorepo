@@ -519,7 +519,6 @@ class ServiceV4Migration extends ServiceBase {
     try {
       const maxProgress = {
         account: 90,
-        securePassword: 92,
         addressBook: 94,
         discover: 95,
         history: 97,
@@ -658,20 +657,6 @@ class ServiceV4Migration extends ServiceBase {
       await v4migrationAtom.set((v) => ({
         ...v,
         progress: maxProgress.account,
-      }));
-
-      // **** migrate secure password
-      await timerUtils.wait(1000);
-      await v4dbHubs.logger.runAsyncWithCatch(
-        async () => this.migrationSecurePassword.convertV4SecurePasswordToV5(),
-        {
-          name: 'migrate v4 secure password to v5',
-          errorResultFn: () => undefined,
-        },
-      );
-      await v4migrationAtom.set((v) => ({
-        ...v,
-        progress: maxProgress.securePassword,
       }));
 
       // **** migrate address book
