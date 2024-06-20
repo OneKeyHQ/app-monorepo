@@ -11,7 +11,7 @@ function BasicMarketTokenIcon({
   size: IImageProps['size'];
 }) {
   if (!uri) {
-    return <Skeleton width={size} height={size} radius="round" />;
+    return <Skeleton width={size} height={size} />;
   }
   return (
     <Image size={size} borderRadius="$full">
