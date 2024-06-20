@@ -134,7 +134,7 @@ function MobileBrowser() {
       {/* custom header */}
       <XStack
         pt={top}
-        mx="$5"
+        px="$5"
         alignItems="center"
         my="$1"
         mt={platformEnv.isNativeAndroid ? '$3' : undefined}
