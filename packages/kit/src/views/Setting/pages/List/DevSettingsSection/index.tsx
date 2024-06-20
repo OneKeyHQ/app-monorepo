@@ -3,10 +3,10 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, ESwitchSize, Switch, YStack } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
@@ -124,55 +124,82 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
+        title="V4MigrationDevSettings"
+        testID="v4-migration-dev-settings-menu"
+        onPress={() => {
+          Dialog.show({
+            title: '!!!!  Danger Zone: Clear all your data',
+            description:
+              'This is a feature specific to development environments. Function used to erase all data in the app.',
+            confirmButtonProps: {
+              variant: 'destructive',
+            },
+            onConfirm: () => {
+              navigation.push(EModalSettingRoutes.SettingDevV4MigrationModal);
+            },
+          });
+        }}
+      />
+      <SectionPressItem
         title="Clear App Data"
         testID="clear-data-menu"
         onPress={() => {
-          const dialog = Dialog.cancel({
-            title: 'Clear App Data',
-            renderContent: (
-              <YStack>
-                <SectionPressItem
-                  title="Clear Dapp Data"
-                  testID="clear-dapp-data"
-                  onPress={async () => {
-                    await backgroundApiProxy.serviceE2E.clearDiscoveryPageData();
-                    await dialog.close();
-                  }}
-                />
-                <SectionPressItem
-                  title="Clear Contacts Data"
-                  testID="clear-contacts-data"
-                  onPress={async () => {
-                    await backgroundApiProxy.serviceE2E.dangerClearDataForE2E();
-                    await dialog.close();
-                  }}
-                />
-                <SectionPressItem
-                  title="Clear Wallets Data"
-                  testID="clear-wallets-data"
-                  onPress={async () => {
-                    await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts();
-                    await dialog.close();
-                  }}
-                />
-                <SectionPressItem
-                  title="Clear Password"
-                  testID="clear-password"
-                  onPress={() => {
-                    void backgroundApiProxy.serviceE2E.resetPasswordSetStatus();
-                    void dialog.close();
-                  }}
-                />
-                <SectionPressItem
-                  title="Wallet Connect Session"
-                  testID="wallet-connect-session"
-                  onPress={() => {
-                    void backgroundApiProxy.serviceWalletConnect.disconnectAllSessions();
-                    void dialog.close();
-                  }}
-                />
-              </YStack>
-            ),
+          Dialog.show({
+            title: '!!!!  Danger Zone: Clear all your data',
+            description:
+              'This is a feature specific to development environments. Function used to erase all data in the app.',
+            confirmButtonProps: {
+              variant: 'destructive',
+            },
+            onConfirm: () => {
+              const dialog = Dialog.cancel({
+                title: 'Clear App Data',
+                renderContent: (
+                  <YStack>
+                    <SectionPressItem
+                      title="Clear Dapp Data"
+                      testID="clear-dapp-data"
+                      onPress={async () => {
+                        await backgroundApiProxy.serviceE2E.clearDiscoveryPageData();
+                        await dialog.close();
+                      }}
+                    />
+                    <SectionPressItem
+                      title="Clear Contacts Data"
+                      testID="clear-contacts-data"
+                      onPress={async () => {
+                        await backgroundApiProxy.serviceE2E.dangerClearDataForE2E();
+                        await dialog.close();
+                      }}
+                    />
+                    <SectionPressItem
+                      title="Clear Wallets & Accounts Data"
+                      testID="clear-wallets-data"
+                      onPress={async () => {
+                        await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts();
+                        await dialog.close();
+                      }}
+                    />
+                    <SectionPressItem
+                      title="Clear Password"
+                      testID="clear-password"
+                      onPress={() => {
+                        void backgroundApiProxy.serviceE2E.resetPasswordSetStatus();
+                        void dialog.close();
+                      }}
+                    />
+                    <SectionPressItem
+                      title="Wallet Connect Session"
+                      testID="wallet-connect-session"
+                      onPress={() => {
+                        void backgroundApiProxy.serviceWalletConnect.disconnectAllSessions();
+                        void dialog.close();
+                      }}
+                    />
+                  </YStack>
+                ),
+              });
+            },
           });
         }}
       />

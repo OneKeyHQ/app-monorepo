@@ -40,6 +40,7 @@ import type {
 } from '../../migrations/v4ToV5Migration/types';
 import type { IV4DBAccount } from '../../migrations/v4ToV5Migration/v4local/v4localDBTypesSchema';
 import type { V4LocalDbRealm } from '../../migrations/v4ToV5Migration/v4local/v4realm/V4LocalDbRealm';
+import v4MigrationUtils from '../../migrations/v4ToV5Migration/v4MigrationUtils';
 import type { IV4MigrationAtom } from '../../states/jotai/atoms/v4migration';
 
 @backgroundClass()
@@ -417,29 +418,35 @@ class ServiceV4Migration extends ServiceBase {
                   name: EV4LocalDBStoreNames.Account,
                   id: accountId,
                 });
-                const networkId = v4CoinTypeToNetworkId[account?.coinType];
-                const network =
-                  await this.backgroundApi.serviceNetwork.getNetworkSafe({
-                    networkId,
+                if (
+                  v4MigrationUtils.isCoinTypeSupport({
+                    coinType: account?.coinType,
+                  })
+                ) {
+                  const networkId = v4CoinTypeToNetworkId[account?.coinType];
+                  const network =
+                    await this.backgroundApi.serviceNetwork.getNetworkSafe({
+                      networkId,
+                    });
+                  const addressOrPub = account.address || account.pub || '--';
+                  importedAccountsSectionData.data.push({
+                    importedAccount: account,
+                    network,
+                    backupId: `v4-imported-backup:${account.id}`,
+                    title: account.name || '--',
+                    subTitle: accountUtils.shortenAddress({
+                      // TODO regenerate address of certain network
+                      address: addressOrPub,
+                    }),
                   });
-                const addressOrPub = account.address || account.pub || '--';
-                importedAccountsSectionData.data.push({
-                  importedAccount: account,
-                  network,
-                  backupId: `v4-imported-backup:${account.id}`,
-                  title: account.name || '--',
-                  subTitle: accountUtils.shortenAddress({
-                    // TODO regenerate address of certain network
-                    address: addressOrPub,
-                  }),
-                });
-                return {
-                  accountId,
-                  account,
-                  networkId,
-                  network,
-                  addressOrPub,
-                };
+                  return {
+                    accountId,
+                    account,
+                    networkId,
+                    network,
+                    addressOrPub,
+                  };
+                }
               },
               {
                 name: 'push imported account for backup',
