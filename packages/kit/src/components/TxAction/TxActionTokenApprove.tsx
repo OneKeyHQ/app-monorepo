@@ -53,10 +53,9 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     approveName,
     approveSymbol,
     approveIsMax,
-    approveLabel,
   } = getTxActionTokenApproveInfo(props);
 
-  const title = approveLabel;
+  const title = intl.formatMessage({ id: ETranslations.global_approve });
   const avatar: ITxActionCommonListViewProps['avatar'] = {
     src: approveIcon,
     fallbackIcon: 'ImageMountainSolid',

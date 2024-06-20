@@ -20,6 +20,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
+  EDecodedTxStatus,
   type IDecodedTxActionAssetTransfer,
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
@@ -219,6 +220,7 @@ function TxActionTransferListView(props: ITxActionProps) {
   const { vaultSettings } = useAccountData({ networkId });
 
   const isUTXO = vaultSettings?.isUtxo;
+  const isPending = decodedTx.status === EDecodedTxStatus.Pending;
   const {
     sends,
     receives,
@@ -261,6 +263,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     changeSymbol = changeInfo.changeSymbol;
     changeDescription = changeInfo.changeDescription;
     avatar.src = sendNFTIcon || sendTokenIcon;
+    title = intl.formatMessage({ id: ETranslations.global_send });
   } else if (isEmpty(sends) && !isEmpty(receives)) {
     const changeInfo = buildTransferChangeInfo({
       changePrefix: '+',
@@ -271,6 +274,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     changeSymbol = changeInfo.changeSymbol;
     changeDescription = changeInfo.changeDescription;
     avatar.src = receiveNFTIcon || receiveTokenIcon;
+    title = intl.formatMessage({ id: ETranslations.global_receive });
   } else if (vaultSettings?.isUtxo) {
     if (type === EOnChainHistoryTxType.Send) {
       const changeInfo = buildTransferChangeInfo({
@@ -284,6 +288,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       changeSymbol = changeInfo.changeSymbol;
       changeDescription = changeInfo.changeDescription;
       avatar.src = sendTokenIcon;
+      title = intl.formatMessage({ id: ETranslations.global_send });
     } else if (type === EOnChainHistoryTxType.Receive) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '+',
@@ -296,6 +301,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       changeSymbol = changeInfo.changeSymbol;
       changeDescription = changeInfo.changeDescription;
       avatar.src = receiveTokenIcon;
+      title = intl.formatMessage({ id: ETranslations.global_receive });
     }
   } else {
     const sendChangeInfo = buildTransferChangeInfo({
@@ -358,6 +364,8 @@ function TxActionTransferListView(props: ITxActionProps) {
       -
     </SizableText>
   );
+
+  title = isPending ? title : label;
 
   return (
     <TxActionCommonListView
