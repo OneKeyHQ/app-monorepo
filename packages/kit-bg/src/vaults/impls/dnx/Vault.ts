@@ -7,13 +7,15 @@ import type {
   IUnspentOutput,
 } from '@onekeyhq/core/src/chains/dnx/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { coinSelect } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import {
   InsufficientBalance,
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -22,11 +24,12 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import {
-  EDecodedTxActionType,
-  EDecodedTxStatus,
-  type IDecodedTx,
-  type IDecodedTxTransferInfo,
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  IDecodedTxExtraInfo,
+  IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -40,7 +43,6 @@ import { KeyringWatching } from './KeyringWatching';
 import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -117,7 +119,7 @@ export default class Vault extends VaultBase {
 
     const unspentOutputs = await this._collectUnspentOutputs();
     const { inputs, finalAmount } = this._collectInputs({
-      unspentOutputs: Object.values(unspentOutputs),
+      unspentOutputs,
       amount: new BigNumber(transferInfo.amount)
         .shiftedBy(network.decimals)
         .toFixed(),
@@ -136,22 +138,36 @@ export default class Vault extends VaultBase {
     };
   }
 
-  async _collectUnspentOutputs() {
-    const unspentOutputs: Record<
-      string,
-      {
-        prevIndex: number;
-        globalIndex: number;
-        txPubkey: string;
-        prevOutPubkey: string;
-        amount: number;
+  _collectUnspentOutputs = memoizee(
+    async () => {
+      try {
+        const { utxoList } =
+          await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+            networkId: this.networkId,
+            accountAddress: await this.getAccountAddress(),
+            withUTXOList: true,
+            withFrozenBalance: true,
+          });
+        if (!utxoList) {
+          throw new OneKeyInternalError('Failed to get UTXO list.');
+        }
+        return utxoList.map((utxo) => ({
+          prevIndex: utxo.vout,
+          globalIndex: utxo.globalIndex,
+          txPubkey: utxo.txPubkey,
+          prevOutPubkey: utxo.prevOutPubkey,
+          amount: Number(utxo.value),
+        }));
+      } catch (e) {
+        throw new OneKeyInternalError('Failed to get UTXO list.');
       }
-    > = {};
-
-    // TODO get unspent outputs from api
-
-    return unspentOutputs;
-  }
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
 
   _collectInputs({
     unspentOutputs,
@@ -248,16 +264,29 @@ export default class Vault extends VaultBase {
       owner: account.address,
       signer: encodedTx.from || account.address,
       nonce: 0,
+      to: encodedTx.to,
       actions: [action],
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
       xpub: (account as IDBUtxoAccount).xpub,
       encodedTx,
-      extraInfo: null,
+      extraInfo: {
+        paymentId: encodedTx.paymentId,
+      },
     };
 
     return decodedTx;
+  }
+
+  override async buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraInfo | null> {
+    return {
+      paymentId: onChainHistoryTx.paymentId,
+    };
   }
 
   override async buildUnsignedTx(
@@ -281,8 +310,37 @@ export default class Vault extends VaultBase {
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {
-    throw new NotImplemented();
+    return this._validateAddressCache(address);
   }
+
+  _validateAddressCache = memoizee(
+    async (address: string) => {
+      const res =
+        await this.backgroundApi.serviceAccountProfile.validateAddress({
+          networkId: this.networkId,
+          address,
+        });
+
+      if (res === 'valid') {
+        return {
+          normalizedAddress: address,
+          displayAddress: address,
+          isValid: true,
+        };
+      }
+
+      return {
+        normalizedAddress: '',
+        displayAddress: '',
+        isValid: false,
+      };
+    },
+    {
+      primitive: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      max: 10,
+    },
+  );
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
     throw new NotImplemented();
