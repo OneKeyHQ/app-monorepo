@@ -7,6 +7,7 @@ import { Button, SizableText, TextArea, YStack } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  EMessageTypesAptos,
   EMessageTypesBtc,
   EMessageTypesCommon,
   EMessageTypesEth,
@@ -27,7 +28,7 @@ function DAppSignMessageContent({
   const [showRawMessage, setShowRawMessage] = useState(false);
 
   const parseMessage = useMemo(() => {
-    const { message, type } = unsignedMessage;
+    const { message, type, payload } = unsignedMessage;
 
     switch (type) {
       case EMessageTypesBtc.ECDSA:
@@ -46,6 +47,10 @@ function DAppSignMessageContent({
           console.error('Failed to parse personal sign message: ', e);
           return message;
         }
+      }
+
+      case EMessageTypesAptos.SIGN_MESSAGE: {
+        return payload?.message ?? message;
       }
 
       case EMessageTypesEth.TYPED_DATA_V1: {
@@ -95,6 +100,7 @@ function DAppSignMessageContent({
       } catch (e) {
         console.error('Failed to parse typed data v4 message: ', e);
       }
+      text = JSON.stringify(text, null, 2);
     }
     return (
       <YStack space="$2">
@@ -111,9 +117,7 @@ function DAppSignMessageContent({
               })}
         </Button>
         {showRawMessage ? (
-          <TextArea editable={false} numberOfLines={11}>
-            {JSON.stringify(text, null, 2)}
-          </TextArea>
+          <TextArea editable={false} numberOfLines={11} value={text} />
         ) : null}
       </YStack>
     );
