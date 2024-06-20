@@ -70,4 +70,5 @@ export const ipcMessageKeys = {
   // webview
   WEBVIEW_NEW_WINDOW: 'webview/newWindow',
   SET_ALLOWED_PHISHING_URLS: 'webview/setAllowedPhishingUrls',
+  CLEAR_WEBVIEW_CACHE: 'webview/clearCache',
 };
