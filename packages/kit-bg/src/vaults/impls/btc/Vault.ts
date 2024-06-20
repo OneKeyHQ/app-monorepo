@@ -38,6 +38,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -682,7 +683,11 @@ export default class VaultBtc extends VaultBase {
         });
         const { feeUTXO } = feeInfo;
         if (!feeUTXO || isEmpty(feeUTXO)) {
-          throw new OneKeyInternalError('Failed to get fee rates.');
+          throw new OneKeyInternalError(
+            appLocale.intl.formatMessage({
+              id: ETranslations.feedback_failed_to_fet_fee_rate,
+            }),
+          );
         }
         const fees = feeUTXO.map((item) =>
           new BigNumber(item.feeRate ?? 0).toFixed(0),
@@ -728,7 +733,11 @@ export default class VaultBtc extends VaultBase {
         );
       } catch (e) {
         console.error(e);
-        throw new OneKeyInternalError('Failed to get fee rates.');
+        throw new OneKeyInternalError(
+          appLocale.intl.formatMessage({
+            id: ETranslations.feedback_failed_to_fet_fee_rate,
+          }),
+        );
       }
     },
     {
@@ -784,11 +793,19 @@ export default class VaultBtc extends VaultBase {
             withCheckInscription,
           });
         if (!utxoList) {
-          throw new OneKeyInternalError('Failed to get UTXO list.');
+          throw new OneKeyInternalError(
+            appLocale.intl.formatMessage({
+              id: ETranslations.feedback_failed_to_get_utxos,
+            }),
+          );
         }
         return utxoList;
       } catch (e) {
-        throw new OneKeyInternalError('Failed to get UTXO list.');
+        throw new OneKeyInternalError(
+          appLocale.intl.formatMessage({
+            id: ETranslations.feedback_failed_to_get_utxos,
+          }),
+        );
       }
     },
     {

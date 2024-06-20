@@ -3,12 +3,14 @@ import { memo, useCallback, useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { Page, SizableText, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useSendConfirmActions,
+  useSendFeeStatusAtom,
+  useSendTxStatusAtom,
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -34,6 +36,8 @@ function SendConfirmContainer() {
   const { updateUnsignedTxs, updateNativeTokenInfo, updateSendFeeStatus } =
     useSendConfirmActions().current;
   const [settings] = useSettingsPersistAtom();
+  const [sendFeeStatus] = useSendFeeStatusAtom();
+  const [sendAlertStatus] = useSendTxStatusAtom();
   const {
     accountId,
     networkId,
@@ -50,55 +54,58 @@ function SendConfirmContainer() {
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
-  usePromiseResult(async () => {
-    updateUnsignedTxs(unsignedTxs);
-    updateNativeTokenInfo({
-      isLoading: true,
-      balance: '0',
-      logoURI: '',
-    });
-    const [accountAddress, xpub, nativeTokenAddress] = await Promise.all([
-      backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      }),
-      backgroundApiProxy.serviceAccount.getAccountXpub({
-        accountId,
-        networkId,
-      }),
-      backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
-    ]);
-    const checkInscriptionProtectionEnabled =
-      await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
-        {
+  const { network } =
+    usePromiseResult(async () => {
+      updateUnsignedTxs(unsignedTxs);
+      updateNativeTokenInfo({
+        isLoading: true,
+        balance: '0',
+        logoURI: '',
+      });
+      const [n, accountAddress, xpub, nativeTokenAddress] = await Promise.all([
+        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+        backgroundApiProxy.serviceAccount.getAccountAddressForApi({
           networkId,
           accountId,
-        },
-      );
-    const withCheckInscription =
-      checkInscriptionProtectionEnabled && settings.inscriptionProtection;
-    const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+        }),
+        backgroundApiProxy.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+        backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
+      ]);
+      const checkInscriptionProtectionEnabled =
+        await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+          {
+            networkId,
+            accountId,
+          },
+        );
+      const withCheckInscription =
+        checkInscriptionProtectionEnabled && settings.inscriptionProtection;
+      const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+        networkId,
+        accountAddress,
+        contractList: [nativeTokenAddress],
+        xpub,
+        withFrozenBalance: true,
+        withCheckInscription,
+      });
+      const balance = r[0].balanceParsed;
+      updateNativeTokenInfo({
+        isLoading: false,
+        balance,
+        logoURI: r[0].info.logoURI ?? '',
+      });
+      return { network: n };
+    }, [
+      accountId,
       networkId,
-      accountAddress,
-      contractList: [nativeTokenAddress],
-      xpub,
-      withFrozenBalance: true,
-      withCheckInscription,
-    });
-    const balance = r[0].balanceParsed;
-    updateNativeTokenInfo({
-      isLoading: false,
-      balance,
-      logoURI: r[0].info.logoURI ?? '',
-    });
-  }, [
-    accountId,
-    networkId,
-    unsignedTxs,
-    updateNativeTokenInfo,
-    updateUnsignedTxs,
-    settings.inscriptionProtection,
-  ]);
+      unsignedTxs,
+      updateNativeTokenInfo,
+      updateUnsignedTxs,
+      settings.inscriptionProtection,
+    ]).result ?? {};
 
   useEffect(
     () => () =>
@@ -110,7 +117,26 @@ function SendConfirmContainer() {
     () => (
       <>
         <Page.Body testID="tx-confirmation-body">
-          {/* TODO: error feedbacks */}
+          <Stack>
+            {sendFeeStatus.errMessage ? (
+              <SizableText mt="$1" size="$bodyMd" color="$textCritical">
+                {sendFeeStatus.errMessage}
+              </SizableText>
+            ) : null}
+            {sendAlertStatus.isInsufficientNativeBalance ? (
+              <SizableText mt="$1" size="$bodyMd" color="$textCritical">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
+                  },
+                  {
+                    0: network?.symbol ?? '',
+                    1: network?.name ?? '',
+                  },
+                )}
+              </SizableText>
+            ) : null}
+          </Stack>
           <TxSourceInfoContainer sourceInfo={sourceInfo} />
           <TxActionsContainer
             accountId={accountId}
@@ -137,15 +163,20 @@ function SendConfirmContainer() {
       </>
     ),
     [
+      sendFeeStatus.errMessage,
+      sendAlertStatus.isInsufficientNativeBalance,
+      intl,
+      network?.symbol,
+      network?.name,
       sourceInfo,
       accountId,
       networkId,
+      transferPayload,
       useFeeInTx,
       signOnly,
       onSuccess,
       onFail,
       onCancel,
-      transferPayload,
     ],
   );
 

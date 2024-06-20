@@ -10,6 +10,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
@@ -188,7 +190,11 @@ class ServiceHardwareUI extends ServiceBase {
       isMutexLocked =
         this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
       if (isMutexLocked) {
-        throw new Error('Hardware is busy, please try again later.');
+        throw new Error(
+          appLocale.intl.formatMessage({
+            id: ETranslations.feedback_hardware_is_busy,
+          }),
+        );
       }
     }
 

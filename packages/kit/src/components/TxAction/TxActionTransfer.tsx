@@ -6,6 +6,7 @@ import { forOwn, groupBy, isEmpty, isNil, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Image,
   NumberSizeableText,
   SizableText,
   Stack,
@@ -418,6 +419,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
   const receivesBlock = buildTransfersBlock(groupBy(receives, 'from'));
 
+  const { network } = useAccountData({
+    networkId: decodedTx.networkId,
+  });
+
   const renderTransferBlock = useCallback(
     (transfersBlock: ITransferBlock[], direction: EDecodedTxDirection) => {
       if (isEmpty(transfersBlock)) return null;
@@ -498,17 +503,17 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         );
       });
 
-      // transferElements.push(
-      //   <InfoItem
-      //     label={intl.formatMessage({ id: ETranslations.network__network })}
-      //     renderContent={
-      //       <XStack alignItems="center" space="$1">
-      //         <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
-      //         <SizableText size="$bodyMdMedium">{network?.name}</SizableText>
-      //       </XStack>
-      //     }
-      //   />,
-      // );
+      transferElements.push(
+        <InfoItem
+          label={intl.formatMessage({ id: ETranslations.network__network })}
+          renderContent={
+            <XStack alignItems="center" space="$1">
+              <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+              <SizableText size="$bodyMdMedium">{network?.name}</SizableText>
+            </XStack>
+          }
+        />,
+      );
 
       return (
         <>
@@ -525,6 +530,8 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       intl,
       isSendNativeToken,
       nativeTokenTransferAmountToUpdate,
+      network?.logoURI,
+      network?.name,
     ],
   );
 

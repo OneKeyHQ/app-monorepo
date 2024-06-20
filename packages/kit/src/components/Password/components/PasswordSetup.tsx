@@ -91,7 +91,7 @@ const PasswordSetup = ({
           secureTextEntry={secureEntry}
           addOns={[
             {
-              iconName: secureEntry ? 'EyeOffOutline' : 'EyeOutline',
+              iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
               onPress: () => {
                 setSecureEntry(!secureEntry);
               },
@@ -139,7 +139,7 @@ const PasswordSetup = ({
           secureTextEntry={secureReentry}
           addOns={[
             {
-              iconName: secureReentry ? 'EyeOffOutline' : 'EyeOutline',
+              iconName: secureReentry ? 'EyeOutline' : 'EyeOffOutline',
               onPress: () => {
                 setSecureReentry(!secureReentry);
               },

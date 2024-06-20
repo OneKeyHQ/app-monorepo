@@ -203,7 +203,7 @@ function TxActionsContainer(props: IProps) {
     r.result,
   ]);
 
-  return <YStack space="$2">{renderActions()}</YStack>;
+  return <>{renderActions()}</>;
 }
 
 export default memo(TxActionsContainer);

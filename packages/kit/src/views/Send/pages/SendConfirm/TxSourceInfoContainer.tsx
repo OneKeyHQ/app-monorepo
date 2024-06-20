@@ -1,3 +1,4 @@
+import { Stack } from '@onekeyhq/components';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import { DAppSiteMark } from '../../../DAppConnection/components/DAppRequestLayout';
@@ -19,10 +20,12 @@ function TxSourceInfoContainer(props: IProps) {
   }
 
   return (
-    <DAppSiteMark
-      origin={sourceInfo.origin}
-      urlSecurityInfo={urlSecurityInfo}
-    />
+    <Stack px="$5">
+      <DAppSiteMark
+        origin={sourceInfo.origin}
+        urlSecurityInfo={urlSecurityInfo}
+      />
+    </Stack>
   );
 }
 
