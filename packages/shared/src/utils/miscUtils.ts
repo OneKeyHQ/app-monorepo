@@ -28,6 +28,7 @@ export const uidForWagmi = (function () {
   };
 })();
 
+// for useEffect hooks deps (like touch file)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function noopObject(..._: any[]) {
   return null;

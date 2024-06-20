@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
+import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
@@ -61,6 +62,7 @@ const AppStateLock = ({
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const resetApp = useResetApp({ inAppStateLock: true });
+  const [v4migrationData] = useV4migrationAtom();
 
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
 
@@ -102,9 +104,12 @@ const AppStateLock = ({
           </Stack>
         </Stack>
         <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">
-          <Button size="small" variant="tertiary" onPress={resetApp}>
-            {intl.formatMessage({ id: ETranslations.login_forgot_password })}
-          </Button>
+          {v4migrationData?.isMigrationModalOpen ||
+          v4migrationData?.isProcessing ? null : (
+            <Button size="small" variant="tertiary" onPress={resetApp}>
+              {intl.formatMessage({ id: ETranslations.login_forgot_password })}
+            </Button>
+          )}
         </Stack>
       </ThemeableStack>
     </AppStateContainer>
