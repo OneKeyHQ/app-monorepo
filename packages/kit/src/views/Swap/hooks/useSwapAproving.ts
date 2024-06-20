@@ -29,8 +29,10 @@ export function useSwapApproving() {
   useEffect(() => {
     if (
       swapApprovingTransactionAtom?.txId &&
-      swapApprovingTransactionAtom?.status ===
-        ESwapApproveTransactionStatus.PENDING
+      (swapApprovingTransactionAtom?.status ===
+        ESwapApproveTransactionStatus.PENDING ||
+        swapApprovingTransactionAtom?.status ===
+          ESwapApproveTransactionStatus.DISCARD)
     ) {
       void approvingStateAction();
     } else {
@@ -93,8 +95,10 @@ export function useSwapApproving() {
           isFocus &&
           !isHiddenModel &&
           swapApprovingTxRef.current?.txId &&
-          swapApprovingTxRef.current?.status ===
-            ESwapApproveTransactionStatus.PENDING
+          (swapApprovingTxRef.current?.status ===
+            ESwapApproveTransactionStatus.PENDING ||
+            swapApprovingTxRef.current?.status ===
+              ESwapApproveTransactionStatus.DISCARD)
         ) {
           void approvingStateAction();
         } else {
@@ -109,8 +113,10 @@ export function useSwapApproving() {
       if (
         isFocused &&
         swapApprovingTxRef.current?.txId &&
-        swapApprovingTxRef.current?.status ===
-          ESwapApproveTransactionStatus.PENDING
+        (swapApprovingTxRef.current?.status ===
+          ESwapApproveTransactionStatus.PENDING ||
+          swapApprovingTxRef.current?.status ===
+            ESwapApproveTransactionStatus.DISCARD)
       ) {
         void approvingStateAction();
       } else {

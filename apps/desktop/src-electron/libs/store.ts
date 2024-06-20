@@ -17,7 +17,7 @@ export type IUpdateSettings = {
 const configKeys = {
   WinBounds: 'winBounds',
   UpdateSettings: 'updateSettings',
-  EncryptedData: 'OneKey_EncryptedData',
+  EncryptedData: 'EncryptedData',
 };
 
 export const getUpdateSettings = (): IUpdateSettings =>

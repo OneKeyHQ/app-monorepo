@@ -20,6 +20,7 @@ import { V4MigrationForAccount } from '../../migrations/v4ToV5Migration/V4Migrat
 import { V4MigrationForAddressBook } from '../../migrations/v4ToV5Migration/V4MigrationForAddressBook';
 import { V4MigrationForDiscover } from '../../migrations/v4ToV5Migration/V4MigrationForDiscover';
 import { V4MigrationForHistory } from '../../migrations/v4ToV5Migration/V4MigrationForHistory';
+import { V4MigrationForSecurePassword } from '../../migrations/v4ToV5Migration/V4MigrationForSecurePassword';
 import { V4MigrationForSettings } from '../../migrations/v4ToV5Migration/V4MigrationForSettings';
 import {
   v4migrationAtom,
@@ -61,6 +62,10 @@ class ServiceV4Migration extends ServiceBase {
   });
 
   migrationSettings = new V4MigrationForSettings({
+    backgroundApi: this.backgroundApi,
+  });
+
+  migrationSecurePassword = new V4MigrationForSecurePassword({
     backgroundApi: this.backgroundApi,
   });
 
@@ -231,12 +236,21 @@ class ServiceV4Migration extends ServiceBase {
   async prepareMigration(): Promise<IV4MigrationPayload> {
     this.migrationPayload = undefined;
     let migrateV4PasswordOk = false;
+    let migrateV4SecurePasswordOk = false;
 
     migrateV4PasswordOk = await v4dbHubs.logger.runAsyncWithCatch(
       // TODO if v4 not set password, should not prompt password
       async () => this.migrationAccount.migrateV4PasswordToV5(),
       {
         name: 'migrate v4 password to v5',
+        errorResultFn: () => false,
+      },
+    );
+
+    migrateV4SecurePasswordOk = await v4dbHubs.logger.runAsyncWithCatch(
+      async () => this.migrationSecurePassword.convertV4SecurePasswordToV5(),
+      {
+        name: 'migrate v4 secure password to v5',
         errorResultFn: () => false,
       },
     );
@@ -296,6 +310,7 @@ class ServiceV4Migration extends ServiceBase {
           password,
           v4password: '',
           migrateV4PasswordOk,
+          migrateV4SecurePasswordOk,
           shouldBackup: walletsForBackup.length > 0,
           wallets,
           walletsForBackup,
@@ -315,6 +330,7 @@ class ServiceV4Migration extends ServiceBase {
         logResultFn: (result) =>
           JSON.stringify({
             migrateV4PasswordOk: result?.migrateV4PasswordOk,
+            migrateV4SecurePasswordOk: result?.migrateV4SecurePasswordOk,
             shouldBackup: result?.shouldBackup,
             walletsCount: result?.wallets?.length,
             walletsForBackupCount: result?.walletsForBackup?.length,
@@ -503,7 +519,8 @@ class ServiceV4Migration extends ServiceBase {
     try {
       const maxProgress = {
         account: 90,
-        addressBook: 92,
+        securePassword: 92,
+        addressBook: 94,
         discover: 95,
         history: 97,
         settings: 98,
@@ -641,6 +658,20 @@ class ServiceV4Migration extends ServiceBase {
       await v4migrationAtom.set((v) => ({
         ...v,
         progress: maxProgress.account,
+      }));
+
+      // **** migrate secure password
+      await timerUtils.wait(1000);
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => this.migrationSecurePassword.convertV4SecurePasswordToV5(),
+        {
+          name: 'migrate v4 secure password to v5',
+          errorResultFn: () => undefined,
+        },
+      );
+      await v4migrationAtom.set((v) => ({
+        ...v,
+        progress: maxProgress.securePassword,
       }));
 
       // **** migrate address book

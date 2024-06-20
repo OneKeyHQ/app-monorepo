@@ -368,7 +368,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapBuildTxFetchingAtom(), false);
       set(swapQuoteFetchingAtom(), false);
       set(swapApprovingTransactionAtom(), (pre) => {
-        if (pre?.status === ESwapApproveTransactionStatus.PENDING) {
+        if (
+          pre?.status === ESwapApproveTransactionStatus.PENDING ||
+          pre?.status === ESwapApproveTransactionStatus.DISCARD
+        ) {
           return {
             ...pre,
             status: ESwapApproveTransactionStatus.CANCEL,
