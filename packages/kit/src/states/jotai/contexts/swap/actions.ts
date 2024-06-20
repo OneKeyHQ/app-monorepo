@@ -303,8 +303,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
         if (
           txState.state === ESwapTxHistoryStatus.SUCCESS ||
-          txState.state === ESwapTxHistoryStatus.FAILED ||
-          txState.state === ESwapTxHistoryStatus.DISCARD
+          txState.state === ESwapTxHistoryStatus.FAILED
         ) {
           enableInterval = false;
           set(swapApprovingTransactionAtom(), (pre) => {
@@ -323,15 +322,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 status: ESwapApproveTransactionStatus.FAILED,
               };
             }
-            return {
-              ...pre,
-              txId: undefined,
-              status: ESwapApproveTransactionStatus.CANCEL,
-            };
           });
           if (txState.state !== ESwapTxHistoryStatus.SUCCESS) {
             set(swapBuildTxFetchingAtom(), false);
           }
+        } else if (txState.state === ESwapTxHistoryStatus.DISCARD) {
+          set(swapApprovingTransactionAtom(), (pre) => {
+            if (!pre) return pre;
+            return {
+              ...pre,
+              status: ESwapApproveTransactionStatus.DISCARD,
+            };
+          });
         }
       } catch (e) {
         console.error(e);
@@ -368,10 +370,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapBuildTxFetchingAtom(), false);
       set(swapQuoteFetchingAtom(), false);
       set(swapApprovingTransactionAtom(), (pre) => {
-        if (
-          pre?.status === ESwapApproveTransactionStatus.PENDING ||
-          pre?.status === ESwapApproveTransactionStatus.DISCARD
-        ) {
+        if (pre?.status === ESwapApproveTransactionStatus.PENDING) {
           return {
             ...pre,
             status: ESwapApproveTransactionStatus.CANCEL,
