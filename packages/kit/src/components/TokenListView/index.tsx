@@ -25,6 +25,7 @@ type IProps = {
   withFooter?: boolean;
   withPrice?: boolean;
   withBuyAndReceive?: boolean;
+  withPresetVerticalPadding?: boolean;
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
   isBuyTokenSupported?: boolean;
@@ -42,6 +43,7 @@ function TokenListView(props: IProps) {
     onReceiveToken,
     onBuyToken,
     isBuyTokenSupported,
+    withPresetVerticalPadding = true,
   } = props;
 
   const [tokenList] = useTokenListAtom();
@@ -57,8 +59,8 @@ function TokenListView(props: IProps) {
 
   return (
     <ListView
-      py="$3"
-      estimatedItemSize={48}
+      py={withPresetVerticalPadding ? '$3' : '$0'}
+      estimatedItemSize={tableLayout ? 48 : 60}
       scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
       disableScrollViewPanResponder={!!onContentSizeChange}
       data={filteredTokens}

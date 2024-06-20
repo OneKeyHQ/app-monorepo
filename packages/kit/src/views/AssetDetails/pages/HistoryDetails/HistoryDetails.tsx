@@ -187,6 +187,7 @@ function HistoryDetails() {
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
         backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
+          accountId,
           networkId,
           accountAddress,
           xpub,
@@ -197,7 +198,7 @@ function HistoryDetails() {
           accountAddress,
         }),
       ]),
-    [accountAddress, historyTx.decodedTx.txid, networkId, xpub],
+    [accountAddress, historyTx.decodedTx.txid, networkId, accountId, xpub],
     { watchLoading: true },
   );
 
@@ -208,6 +209,7 @@ function HistoryDetails() {
 
   const handleViewUTXOsOnPress = useCallback(() => {
     navigation.push(EModalAssetDetailRoutes.UTXODetails, {
+      accountId,
       networkId,
       txId: historyTx.decodedTx.txid,
       inputs: historyTx.decodedTx.actions[0]?.assetTransfer?.utxoFrom,
@@ -217,6 +219,7 @@ function HistoryDetails() {
     historyTx.decodedTx.actions,
     historyTx.decodedTx.txid,
     navigation,
+    accountId,
     networkId,
   ]);
 
@@ -535,10 +538,12 @@ function HistoryDetails() {
     return (
       <>
         {TxFlow ? <TxFlow decodedTx={historyTx.decodedTx} /> : renderTxFlow()}
-        {TxAttributes ? <TxAttributes decodedTx={historyTx.decodedTx} /> : null}
+        {TxAttributes ? (
+          <TxAttributes decodedTx={historyTx.decodedTx} txDetails={txDetails} />
+        ) : null}
       </>
     );
-  }, [historyTx.decodedTx, network?.impl, renderTxFlow]);
+  }, [historyTx.decodedTx, network?.impl, renderTxFlow, txDetails]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,
@@ -612,7 +617,7 @@ function HistoryDetails() {
               compact
             />
             <InfoItem
-              label={intl.formatMessage({ id: ETranslations.global_date })}
+              label={intl.formatMessage({ id: ETranslations.global_time })}
               renderContent={txInfo.date}
               compact
             />
@@ -621,25 +626,6 @@ function HistoryDetails() {
           <Divider mx="$5" />
           <InfoItemGroup>
             {renderTxMetaInfo()}
-            {vaultSettings?.isUtxo ? (
-              <InfoItem
-                renderContent={
-                  <Button
-                    size="medium"
-                    onPress={handleViewUTXOsOnPress}
-                    variant="secondary"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_inputs,
-                    })}{' '}
-                    &{' '}
-                    {intl.formatMessage({
-                      id: ETranslations.global_outputs,
-                    })}
-                  </Button>
-                }
-              />
-            ) : null}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.global_transaction_id,
@@ -680,6 +666,26 @@ function HistoryDetails() {
                 })}
                 renderContent={String(txInfo.confirmations)}
                 compact
+              />
+            ) : null}
+            {vaultSettings?.isUtxo ? (
+              <InfoItem
+                renderContent={
+                  <Button
+                    size="medium"
+                    onPress={handleViewUTXOsOnPress}
+                    variant="secondary"
+                    iconAfter="ChevronRightSmallOutline"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.global_inputs,
+                    })}{' '}
+                    &{' '}
+                    {intl.formatMessage({
+                      id: ETranslations.global_outputs,
+                    })}
+                  </Button>
+                }
               />
             ) : null}
           </InfoItemGroup>
@@ -748,7 +754,9 @@ function HistoryDetails() {
   return (
     <Page scrollEnabled>
       <Page.Header headerTitle={historyDetailsTitle} />
-      <Page.Body>{renderHistoryDetails()}</Page.Body>
+      <Page.Body testID="history-details-body">
+        {renderHistoryDetails()}
+      </Page.Body>
     </Page>
   );
 }

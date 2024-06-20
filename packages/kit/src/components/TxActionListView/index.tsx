@@ -11,7 +11,6 @@ import type { ListItem } from '../ListItem';
 type IProps = {
   decodedTx: IDecodedTx;
   componentType?: ETxActionComponentType;
-  tableLayout?: boolean;
   nativeTokenTransferAmountToUpdate?: string;
   showIcon?: boolean;
   componentProps?: ComponentProps<typeof ListItem>;
@@ -23,7 +22,6 @@ function TxActionsListView(props: IProps) {
     decodedTx,
     componentType = ETxActionComponentType.ListView,
     componentProps,
-    tableLayout,
     nativeTokenTransferAmountToUpdate,
     isSendNativeToken,
     showIcon,
@@ -42,7 +40,6 @@ function TxActionsListView(props: IProps) {
   return (
     <TxActionComponent
       action={action}
-      tableLayout={tableLayout}
       decodedTx={decodedTx}
       componentProps={componentProps}
       showIcon={showIcon}

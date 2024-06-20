@@ -5,6 +5,7 @@ import * as necc from '@noble/secp256k1';
 import BigNumber from 'bignumber.js';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import ecc from '../../../secret/nobleSecp256k1Wrapper';
@@ -47,7 +48,7 @@ export function toTransaction(tx: IEncodedTxKaspa): Transaction {
   if (sendAmount.isLessThan(0)) {
     throw new OneKeyInternalError({
       message: 'Insufficient Balance.',
-      key: 'msg__insufficient_balance',
+      key: ETranslations.swap_page_button_insufficient_balance,
     });
   }
 
