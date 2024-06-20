@@ -61,7 +61,9 @@ const EditableViewListItem = ({
       renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
-      {(sectionIndex === 0 ? networkId === item.id : isEditMode) ? (
+      {(
+        sectionIndex === 0 ? networkId === item.id && !isEditMode : isEditMode
+      ) ? (
         <ListItem.IconButton
           onPress={() => {
             if (topNetworkIds.has(item.id)) {
