@@ -38,6 +38,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -456,9 +457,14 @@ export default class VaultBtc extends VaultBase {
       await this._buildTransferParamsWithCoinSelector(params);
 
     if (!inputs || !outputs || isNil(fee)) {
+      const insufficientBalance = appLocale.intl.formatMessage({
+        id: ETranslations.earn_insufficient_balance,
+      });
+      const description = appLocale.intl.formatMessage({
+        id: ETranslations.send_toast_btc_fork_insufficient_fund,
+      });
       throw new InsufficientBalance({
-        message: ETranslations.earn_insufficient_balance,
-        key: ETranslations.earn_insufficient_balance,
+        message: `${insufficientBalance} ${description}`,
       });
     }
 
