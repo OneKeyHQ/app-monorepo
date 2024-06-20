@@ -251,9 +251,13 @@ function HardwareUiStateContainerCmp() {
 
   const HardwareSingletonDialogRender = useCallback(
     ({ ref }: { ref: any }) => (
-      <HardwareSingletonDialog hello="world-338" ref={ref} state={state} />
+      <HardwareSingletonDialog
+        hello="world-338"
+        ref={ref}
+        state={stateRef.current}
+      />
     ),
-    [state],
+    [],
   );
 
   console.log(
