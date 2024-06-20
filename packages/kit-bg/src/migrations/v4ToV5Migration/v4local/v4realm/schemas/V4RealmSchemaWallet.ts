@@ -66,9 +66,7 @@ class V4RealmSchemaWallet extends V4RealmObjectBase<IV4DBWallet> {
       backuped: this.backuped || false,
       // convert RealmDB list to array
       accounts: (this.accounts || []).map((account) => account.id),
-      nextAccountIds: Object.fromEntries(
-        Object.entries(Object(this.nextAccountIds)),
-      ),
+      nextAccountIds: (this.nextAccountIds?.toJSON() as any) || {},
       associatedDevice: this.associatedDevice?.id,
       deviceType: this.deviceType,
       passphraseState: this.passphraseState,

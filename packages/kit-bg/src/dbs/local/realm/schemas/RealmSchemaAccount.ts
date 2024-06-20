@@ -130,11 +130,11 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
 
     if (this.connectedAddresses) {
       (ret as IDBExternalAccount).connectedAddresses =
-        (this.connectedAddresses.toJSON() as any) || {};
+        (this.connectedAddresses?.toJSON() as any) || {};
     }
     if (this.selectedAddress) {
       (ret as IDBExternalAccount).selectedAddress =
-        (this.selectedAddress.toJSON() as any) || {};
+        (this.selectedAddress?.toJSON() as any) || {};
     }
     if (this.connectionInfoRaw) {
       (ret as IDBExternalAccount).connectionInfoRaw = this.connectionInfoRaw;

@@ -92,13 +92,16 @@ class V4RealmSchemaAccount extends V4RealmObjectBase<IV4DBAccount> {
       (ret as IV4DBSimpleAccount).pub = this.pub || '';
     } else if (this.type === EV4DBAccountType.VARIANT) {
       (ret as IV4DBVariantAccount).pub = this.pub || '';
-      (ret as IV4DBVariantAccount).addresses = this.addresses || {};
+      (ret as IV4DBVariantAccount).addresses =
+        (this.addresses?.toJSON() as any) || {};
     } else if (this.type === EV4DBAccountType.UTXO) {
       (ret as IV4DBUtxoAccount).pub = this.pub || '';
       (ret as IV4DBUtxoAccount).xpub = this.xpub || '';
       (ret as IV4DBUtxoAccount).xpubSegwit = this.xpubSegwit || '';
-      (ret as IV4DBUtxoAccount).addresses = this.addresses || {};
-      (ret as IV4DBUtxoAccount).customAddresses = this.customAddresses || {};
+      (ret as IV4DBUtxoAccount).addresses =
+        (this.addresses?.toJSON() as any) || {};
+      (ret as IV4DBUtxoAccount).customAddresses =
+        (this.customAddresses?.toJSON() as any) || {};
     }
     return ret;
   }
