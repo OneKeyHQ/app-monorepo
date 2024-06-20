@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
+import { DiscoveryIcon } from '../../components/DiscoveryIcon';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { DappSearchModalSectionHeader } from './DappSearchModalSectionHeader';
@@ -250,13 +251,11 @@ function SearchModal() {
                       });
                     }}
                   >
-                    <Image w="$14" h="$14" borderRadius="$3">
-                      <Image.Source
-                        source={{
-                          uri: item.logo,
-                        }}
-                      />
-                    </Image>
+                    <DiscoveryIcon
+                      uri={item.logo}
+                      size="$14"
+                      borderRadius="$3"
+                    />
                     <SizableText
                       mt="$2"
                       px="$2"
