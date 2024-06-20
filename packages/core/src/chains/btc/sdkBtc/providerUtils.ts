@@ -48,10 +48,6 @@ export function toPsbtNetwork(
   return getBtcForkNetwork(network.code);
 }
 
-export function newPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
-  return new Psbt({ network });
-}
-
 // psbtToTx
 export function decodedPsbt({
   psbt,
@@ -115,16 +111,26 @@ export function decodedPsbt({
   return result;
 }
 
+export function getPsbtBtcDefault({
+  network,
+}: {
+  network: IBtcForkNetwork;
+}): Psbt {
+  return new Psbt({ network });
+}
+
 // txToPsbt
 export async function buildPsbt({
   network,
   unsignedTx,
   btcExtraInfo,
   buildInputMixinInfo,
+  getPsbt = getPsbtBtcDefault,
 }: {
   unsignedTx: IUnsignedTxPro;
   btcExtraInfo: ICoreApiSignBtcExtraInfo | undefined;
   network: IBtcForkNetwork;
+  getPsbt?: (params: { network: IBtcForkNetwork }) => Psbt;
   // psbtGlobalUpdate: PsbtGlobalUpdate;
   buildInputMixinInfo: (params: { address: string }) => Promise<{
     pubkey: Buffer | undefined;
@@ -137,7 +143,7 @@ export async function buildPsbt({
     btcExtraInfo?.inputAddressesEncodings,
   );
 
-  const psbt = newPsbt({ network });
+  const psbt = getPsbt({ network });
 
   // psbt.updateGlobal({
   // })

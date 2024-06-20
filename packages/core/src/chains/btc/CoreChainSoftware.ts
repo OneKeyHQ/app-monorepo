@@ -332,6 +332,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       network,
       unsignedTx,
       btcExtraInfo,
+      getPsbt: (params) => this.getPsbt({ network: params.network }),
       buildInputMixinInfo: async ({ address }) => {
         const signer = this.pickSigner(signers, address);
         return Promise.resolve({ pubkey: await signer.getPubkey(true) });
