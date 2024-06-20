@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { DiscoveryIcon } from '../../components/DiscoveryIcon';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserBookmark } from '../../types';
@@ -224,10 +225,7 @@ function BookmarkListModal() {
                 />
               ) : null}
               <ListItem.Avatar
-                src={item.logo}
-                fallbackProps={{
-                  children: <Skeleton w="$10" h="$10" />,
-                }}
+                avatar={<DiscoveryIcon size="$10" uri={item.logo} />}
               />
               <ListItem.Text
                 primary={item.title}
