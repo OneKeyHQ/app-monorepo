@@ -45,6 +45,8 @@ const settings: IVaultSettings = {
 
   minTransferAmount: '0.000000001',
 
+  withoutBroadcastTxId: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {
