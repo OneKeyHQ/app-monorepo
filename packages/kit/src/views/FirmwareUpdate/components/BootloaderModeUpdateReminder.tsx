@@ -17,7 +17,10 @@ export function BootloaderModeUpdateReminder() {
     const fn = (
       event: IAppEventBusPayload[EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode],
     ) => {
-      actions.showBootloaderMode({ connectId: event.connectId });
+      actions.showBootloaderMode({
+        connectId: event.connectId,
+        existsFirmware: event.existsFirmware,
+      });
     };
     appEventBus.on(EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode, fn);
 

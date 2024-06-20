@@ -1123,6 +1123,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
     await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
+        appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);
+        // await other hardware task stop processing
+        await timerUtils.wait(3000);
+
         // TODO verify current device is matched with params.connectId\params.updateFirmware\params.updateBle
         // pre checking
         await this.validateMnemonicBackuped(params);
