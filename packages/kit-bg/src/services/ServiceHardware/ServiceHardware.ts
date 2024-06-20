@@ -1,6 +1,7 @@
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 
+import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import {
   backgroundClass,
   backgroundMethod,
@@ -280,38 +281,79 @@ class ServiceHardware extends ServiceBase {
     // return Promise.reject(deviceError);
   }
 
+  private connectDevice = (connectId: string) =>
+    this.getFeaturesWithoutCache({
+      connectId,
+    });
+
+  private handlerConnectError = async (
+    e: any,
+    options?: {
+      connectId?: string;
+      awaitBonded?: boolean;
+      reconnect?: boolean;
+    },
+  ): Promise<Features | undefined> => {
+    const error: deviceErrors.OneKeyHardwareError | undefined =
+      e as deviceErrors.OneKeyHardwareError;
+
+    const connectId = options?.connectId;
+    if (
+      platformEnv.isNativeAndroid &&
+      error instanceof deviceErrors.DeviceNotBonded &&
+      options?.awaitBonded &&
+      connectId
+    ) {
+      const checkBonded = await uiDeviceUtils.checkDeviceBonded(connectId);
+      if (checkBonded) {
+        console.log('Android device was bonded, will connect');
+        try {
+          return await this.connectDevice(connectId);
+        } catch (innerError: any) {
+          // only handler error
+          return this.handlerConnectError(innerError);
+        }
+      }
+    }
+
+    if (
+      error instanceof deviceErrors.OneKeyHardwareError &&
+      !error?.reconnect
+    ) {
+      throw error;
+    }
+    // TODO handle reconnect?
+  };
+
   @backgroundMethod()
   async connect({
     device,
+    awaitBonded,
   }: {
     device: SearchDevice;
+    awaitBonded?: boolean;
   }): Promise<Features | undefined> {
     const { connectId } = device;
     if (!connectId) {
       throw new Error('hardware connect ERROR: connectId is undefined');
     }
+
     if (platformEnv.isNative) {
       try {
-        const features = await this.getFeaturesWithoutCache({ connectId });
-        return features;
+        return await this.connectDevice(connectId);
       } catch (e: any) {
-        const error: deviceErrors.OneKeyHardwareError | undefined =
-          e as deviceErrors.OneKeyHardwareError;
-        if (
-          error instanceof deviceErrors.OneKeyHardwareError &&
-          !error?.reconnect
-        ) {
-          throw error;
-        }
-        // TODO handle reconnect?
+        return this.handlerConnectError(e, {
+          connectId,
+          reconnect: false,
+          awaitBonded,
+        });
       }
     } else {
       /**
        * USB does not need the extra getFeatures call
        */
       try {
-        const features = await this.getFeaturesWithoutCache({ connectId });
-        return features;
+        return await this.connectDevice(connectId);
       } catch (e: any) {
         return (device as KnownDevice).features;
       }
@@ -423,7 +465,8 @@ class ServiceHardware extends ServiceBase {
 
   _getFeaturesWithTimeout = makeTimeoutPromise({
     asyncFunc: this._getFeaturesLowLevel,
-    timeout: timerUtils.getTimeDurationMs({ seconds: 60 }),
+    // todo remove: sdk guarantees not to block this method
+    timeout: timerUtils.getTimeDurationMs({ seconds: 180 }),
     timeoutRejectError: new deviceErrors.DeviceMethodCallTimeout(),
   });
 

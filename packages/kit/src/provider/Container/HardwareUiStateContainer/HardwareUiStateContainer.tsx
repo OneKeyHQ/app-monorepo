@@ -37,6 +37,10 @@ import {
   EnterPin,
   EnterPinOnDevice,
 } from '../../../components/Hardware/Hardware';
+import {
+  OpenBleSettingsDialog,
+  RequireBlePermissionDialog,
+} from '../../../components/Hardware/HardwareDialog';
 
 function HardwareSingletonDialogCmp(
   props: any,
@@ -160,6 +164,19 @@ function HardwareSingletonDialogCmp(
     state?.payload,
   ]);
 
+  // Need Open Bluetooth Dialog Container
+  if (action === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
+    return <OpenBleSettingsDialog ref={ref} {...props} />;
+  }
+
+  // Bluetooth Permission Dialog Container
+  if (
+    action === EHardwareUiStateAction.LOCATION_PERMISSION ||
+    action === EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION
+  ) {
+    return <RequireBlePermissionDialog ref={ref} {...props} />;
+  }
+
   return (
     <DialogContainer
       ref={ref}
@@ -232,6 +249,23 @@ function HardwareUiStateContainerCmp() {
     return true;
   }, [action, isToastAction]);
 
+  // Required operation dialog
+  const isOperationAction = useMemo(() => {
+    if (!action) return false;
+    if (!isDialogAction) return false;
+    if (
+      [
+        EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+        EHardwareUiStateAction.LOCATION_PERMISSION,
+        EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION,
+      ].includes(action)
+    ) {
+      return true;
+    }
+
+    return false;
+  }, [action, isToastAction]);
+
   const shouldSkipCancel = useMemo(() => {
     // TODO atom firmware is updating
     if (
@@ -251,13 +285,9 @@ function HardwareUiStateContainerCmp() {
 
   const HardwareSingletonDialogRender = useCallback(
     ({ ref }: { ref: any }) => (
-      <HardwareSingletonDialog
-        hello="world-338"
-        ref={ref}
-        state={stateRef.current}
-      />
+      <HardwareSingletonDialog hello="world-338" ref={ref} state={state} />
     ),
-    [],
+    [state],
   );
 
   console.log(
@@ -329,8 +359,8 @@ function HardwareUiStateContainerCmp() {
         } else if (isDialogAction) {
           // hardware ui action dialog
           const instance = Dialog.show({
-            dismissOnOverlayPress: false,
-            showFooter: false,
+            dismissOnOverlayPress: isOperationAction ? true : false,
+            showFooter: isOperationAction ? true : false,
             dialogContainer: HardwareSingletonDialogRender,
             async onClose(params) {
               log('close dialog');
@@ -361,6 +391,7 @@ function HardwareUiStateContainerCmp() {
     deviceType,
     isDialogAction,
     isToastAction,
+    isOperationAction,
     serviceHardware,
     serviceHardwareUI,
     shouldShowAction,

@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import {
-  Linking,
-  PermissionsAndroid,
-  Platform,
-  StyleSheet,
-} from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
@@ -33,6 +28,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { DeviceAvatar } from '@onekeyhq/kit/src/components/DeviceAvatar';
+import {
+  OpenBleSettingsDialog,
+  RequireBlePermissionDialog,
+} from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -57,6 +56,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   PERMISSIONS,
@@ -119,6 +119,10 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
         try {
           setIsLoading(true);
           await item.onPress();
+        } catch (error: any) {
+          Toast.error({
+            title: error?.message || 'DeviceScanError',
+          });
         } finally {
           setIsLoading(false);
         }
@@ -414,10 +418,11 @@ function ConnectByUSBOrBLE({
 
       const features = await backgroundApiProxy.serviceHardware.connect({
         device,
+        awaitBonded: true,
       });
 
       if (!features) {
-        throw new Error('connect device failed, no features returned');
+        throw new ConnectTimeoutError();
       }
 
       if (await deviceUtils.isBootloaderModeByFeatures({ features })) {
@@ -484,37 +489,6 @@ function ConnectByUSBOrBLE({
       showFirmwareVerifyDialog,
     ],
   );
-
-  const checkBLEPermission = useCallback(async () => {
-    if (platformEnv.isNativeIOS) {
-      // If you only call the `request` function to check if Bluetooth permission is enabled,
-      //  it will still return false in scenarios where the Bluetooth switch is turned off
-      const permissionStatus = await check(PERMISSIONS.IOS.BLUETOOTH);
-      if (permissionStatus !== RESULTS.GRANTED) {
-        const status = await request(PERMISSIONS.IOS.BLUETOOTH);
-        return status === RESULTS.GRANTED;
-      }
-      return true;
-    }
-
-    if (platformEnv.isNativeAndroid) {
-      if ((Platform.Version as number) < 31) {
-        const status = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        );
-        return status === RESULTS.GRANTED;
-      }
-      const permissions = [
-        PERMISSIONS.ANDROID.BLUETOOTH_CONNECT,
-        PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
-      ];
-      const statuses = await requestMultiple(permissions);
-      return (
-        statuses[PERMISSIONS.ANDROID.BLUETOOTH_CONNECT] === RESULTS.GRANTED &&
-        statuses[PERMISSIONS.ANDROID.BLUETOOTH_SCAN] === RESULTS.GRANTED
-      );
-    }
-  }, []);
 
   const [isSearching, setIsSearching] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
@@ -702,7 +676,13 @@ function ConnectByUSBOrBLE({
           return;
         }
 
-        setSearchedDevices(response.payload);
+        const devices: SearchDevice[] = response.payload;
+        const uniqueDevices = Array.from(
+          new Map(
+            devices.map((device) => [device.id.toLowerCase(), device]),
+          ).values(),
+        );
+        setSearchedDevices(uniqueDevices);
         console.log('startDeviceScan>>>>>', response.payload);
       },
       (state) => {
@@ -725,25 +705,21 @@ function ConnectByUSBOrBLE({
     scanDevice();
   }, [scanDevice]);
 
+  const RequireBlePermissionDialogRender = useCallback(
+    ({ ref }: { ref: any }) => <RequireBlePermissionDialog ref={ref} />,
+    [],
+  );
+  const OpenBleSettingsDialogRender = useCallback(
+    ({ ref }: { ref: any }) => <OpenBleSettingsDialog ref={ref} />,
+    [],
+  );
+
   const startBLEConnection = useCallback(async () => {
     setIsChecking(true);
-    const isGranted = await checkBLEPermission();
+    const isGranted = await checkBLEPermissions();
     if (!isGranted) {
-      const dialog = Dialog.confirm({
-        icon: 'BluetoothOutline',
-        title: intl.formatMessage({
-          id: ETranslations.onboarding_bluetooth_permission_needed,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.onboarding_bluetooth_permission_needed_help_text,
-        }),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_go_to_settings,
-        }),
-        onConfirm: async () => {
-          await dialog?.close();
-          await openSettings();
-        },
+      Dialog.show({
+        dialogContainer: RequireBlePermissionDialogRender,
         onClose: () => setIsChecking(false),
       });
       return;
@@ -751,33 +727,21 @@ function ConnectByUSBOrBLE({
 
     const checkState = await checkBLEState();
     if (!checkState) {
-      const dialog = Dialog.confirm({
-        icon: 'BluetoothOutline',
-        title: intl.formatMessage({
-          id: ETranslations.onboarding_enable_bluetooth,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.onboarding_enable_bluetooth_help_text,
-        }),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_go_to_settings,
-        }),
-        onConfirm: async () => {
-          await dialog?.close();
-          if (platformEnv.isNativeIOS) {
-            await Linking.openURL('App-Prefs:Bluetooth');
-          } else {
-            await Linking.sendIntent('android.settings.BLUETOOTH_SETTINGS');
-          }
-        },
-        onClose: () => setIsChecking(false),
+      Dialog.show({
+        dialogContainer: OpenBleSettingsDialogRender,
+        onClose: async () => setIsChecking(false),
       });
       return;
     }
 
     setIsChecking(false);
     listingDevice();
-  }, [checkBLEPermission, checkBLEState, intl, listingDevice]);
+  }, [
+    OpenBleSettingsDialogRender,
+    RequireBlePermissionDialogRender,
+    checkBLEState,
+    listingDevice,
+  ]);
 
   useEffect(() => {
     if (!platformEnv.isNative) {
