@@ -7,7 +7,7 @@ import {
 
 import BigNumber from 'bignumber.js';
 import * as BitcoinJS from 'bitcoinjs-lib';
-import { Psbt, Transaction, payments } from 'bitcoinjs-lib';
+import { Transaction, payments } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import { isEmpty } from 'lodash';
 
@@ -26,6 +26,7 @@ import type {
   Bip32Derivation,
   TapBip32Derivation,
 } from 'bip174/src/lib/interfaces';
+import type { Psbt } from 'bitcoinjs-lib';
 
 export function formatPsbtHex(psbtHex: string) {
   let formatData = '';
@@ -46,10 +47,6 @@ export function toPsbtNetwork(
   network: IServerNetwork,
 ): BitcoinJS.networks.Network {
   return getBtcForkNetwork(network.code);
-}
-
-export function newPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
-  return new Psbt({ network });
 }
 
 // psbtToTx
@@ -121,10 +118,12 @@ export async function buildPsbt({
   unsignedTx,
   btcExtraInfo,
   buildInputMixinInfo,
+  getPsbt,
 }: {
   unsignedTx: IUnsignedTxPro;
   btcExtraInfo: ICoreApiSignBtcExtraInfo | undefined;
   network: IBtcForkNetwork;
+  getPsbt: () => Psbt;
   // psbtGlobalUpdate: PsbtGlobalUpdate;
   buildInputMixinInfo: (params: { address: string }) => Promise<{
     pubkey: Buffer | undefined;
@@ -137,7 +136,7 @@ export async function buildPsbt({
     btcExtraInfo?.inputAddressesEncodings,
   );
 
-  const psbt = newPsbt({ network });
+  const psbt = getPsbt();
 
   // psbt.updateGlobal({
   // })
