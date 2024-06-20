@@ -29,44 +29,48 @@ function DAppSignMessageContent({
   const parseMessage = useMemo(() => {
     const { message, type } = unsignedMessage;
 
-    if (
-      type === EMessageTypesBtc.ECDSA ||
-      type === EMessageTypesBtc.BIP322_SIMPLE ||
-      type === EMessageTypesEth.ETH_SIGN ||
-      type === EMessageTypesCommon.SIMPLE_SIGN
-    ) {
-      return message;
-    }
+    switch (type) {
+      case EMessageTypesBtc.ECDSA:
+      case EMessageTypesBtc.BIP322_SIMPLE:
+      case EMessageTypesEth.ETH_SIGN:
+      case EMessageTypesCommon.SIMPLE_SIGN: {
+        return message;
+      }
 
-    if (
-      type === EMessageTypesEth.PERSONAL_SIGN ||
-      type === EMessageTypesCommon.SIGN_MESSAGE
-    ) {
-      try {
-        const buffer = ethUtils.toBuffer(message);
-        return buffer.toString('utf8');
-      } catch (e) {
-        console.error('Failed to parse personal sign message: ', e);
+      case EMessageTypesEth.PERSONAL_SIGN:
+      case EMessageTypesCommon.SIGN_MESSAGE: {
+        try {
+          const buffer = ethUtils.toBuffer(message);
+          return buffer.toString('utf8');
+        } catch (e) {
+          console.error('Failed to parse personal sign message: ', e);
+          return message;
+        }
+      }
+
+      case EMessageTypesEth.TYPED_DATA_V1: {
+        let messageObject = JSON.parse(message) ?? {};
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        messageObject = messageObject.message ?? messageObject;
+        if (Array.isArray(messageObject)) {
+          const v1Message: ITypedDataV1[] = messageObject;
+          messageObject = v1Message.reduce((acc, cur) => {
+            acc[cur.name] = cur.value;
+            return acc;
+          }, {} as Record<string, string>);
+        }
+        return JSON.stringify(messageObject, null, 2);
+      }
+
+      case EMessageTypesEth.TYPED_DATA_V3:
+      case EMessageTypesEth.TYPED_DATA_V4: {
+        return JSON.stringify(JSON.parse(message) ?? {}, null, 2);
+      }
+
+      default: {
         return message;
       }
     }
-
-    let messageObject = JSON.parse(message) ?? {};
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    messageObject = messageObject.message ?? messageObject;
-
-    if (
-      type === EMessageTypesEth.TYPED_DATA_V1 &&
-      Array.isArray(messageObject)
-    ) {
-      const v1Message: ITypedDataV1[] = messageObject;
-      messageObject = v1Message.reduce((acc, cur) => {
-        acc[cur.name] = cur.value;
-        return acc;
-      }, {} as Record<string, string>);
-    }
-
-    return JSON.stringify(messageObject, null, 2);
   }, [unsignedMessage]);
 
   const renderRawMessage = useCallback(() => {
