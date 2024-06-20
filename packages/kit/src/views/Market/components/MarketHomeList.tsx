@@ -1000,8 +1000,10 @@ function BasicMarketHomeList({
   const onSwitchMarketHomeTabCallback = useCallback(
     ({ tabIndex: currentTabIndex }: { tabIndex: number }) => {
       setTimeout(() => {
-        if (currentTabIndex !== tabIndex && md) {
-          handleMdSortByTypeChange('Default');
+        if (currentTabIndex !== tabIndex) {
+          if (md) {
+            handleMdSortByTypeChange('Default');
+          }
         } else {
           void fetchCategory();
         }
