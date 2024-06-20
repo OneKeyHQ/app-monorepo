@@ -4,10 +4,11 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  IconButton,
   NumberSizeableText,
   Skeleton,
   Stack,
-  YStack,
+  XStack,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -92,8 +93,9 @@ function HomeOverviewContainer() {
     );
 
   return (
-    <YStack alignItems="flex-start" space="$2.5">
+    <XStack alignItems="center" space="$2">
       <NumberSizeableText
+        minWidth={0}
         formatter="value"
         formatterOptions={{ currency: settings.currencyInfo.symbol }}
         size="$heading5xl"
@@ -101,8 +103,11 @@ function HomeOverviewContainer() {
         {overview?.netWorth ?? 0}
       </NumberSizeableText>
       {vaultSettings?.hasFrozenBalance ? (
-        <Button
-          size="small"
+        <IconButton
+          title={intl.formatMessage({
+            id: ETranslations.balance_detail_button_balance,
+          })}
+          icon="InfoCircleOutline"
           variant="tertiary"
           onPress={() =>
             showBalanceDetailsDialog({
@@ -110,13 +115,9 @@ function HomeOverviewContainer() {
               networkId: network?.id ?? '',
             })
           }
-        >
-          {intl.formatMessage({
-            id: ETranslations.balance_detail_button_balance,
-          })}
-        </Button>
+        />
       ) : null}
-    </YStack>
+    </XStack>
   );
 }
 
