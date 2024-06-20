@@ -5,9 +5,11 @@ import { useWindowDimensions } from 'react-native';
 
 import {
   Badge,
+  Icon,
   Image,
   ScrollView,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   getTokenValue,
@@ -175,6 +177,12 @@ export function ChunkedItemsView({
                     uri: item.logo,
                   }}
                 />
+                <Image.Fallback>
+                  <Icon name="GlobusOutline" width="100%" height="100%" />
+                </Image.Fallback>
+                <Image.Loading>
+                  <Skeleton width="100%" height="100%" />
+                </Image.Loading>
               </Image>
               <Stack flex={1} ml="$3">
                 <XStack alignItems="center">
