@@ -20,37 +20,40 @@ export type IPageHeaderProps = IStackNavigationOptions &
 const usePageHeaderReloadOptions = () => {
   const intl = useIntl();
   const searchTextColor = useThemeValue('text');
-  const reload = useCallback((props: IPageHeaderProps) => {
-    if (!props) {
-      return props;
-    }
+  const reload = useCallback(
+    (props: IPageHeaderProps) => {
+      if (!props) {
+        return props;
+      }
 
-    const {
-      headerSearchBarOptions,
-      headerTransparent,
-      headerStyle,
-      ...restProps
-    } = props;
-    return {
-      ...restProps,
-      ...(headerTransparent && {
-        headerStyle: [headerStyle ?? {}, { backgroundColor: 'transparent' }],
-      }),
-      ...(!platformEnv.isNativeIOS &&
-        headerSearchBarOptions && {
-          headerSearchBarOptions: {
-            hideNavigationBar: false,
-            hideWhenScrolling: false,
-            cancelButtonText: intl.formatMessage({
-              id: ETranslations.global_cancel,
-            }),
-            textColor: searchTextColor,
-            tintColor: searchTextColor,
-            ...headerSearchBarOptions,
-          },
+      const {
+        headerSearchBarOptions,
+        headerTransparent,
+        headerStyle,
+        ...restProps
+      } = props;
+      return {
+        ...restProps,
+        ...(headerTransparent && {
+          headerStyle: [headerStyle ?? {}, { backgroundColor: 'transparent' }],
         }),
-    };
-  }, []);
+        ...(!platformEnv.isNativeIOS &&
+          headerSearchBarOptions && {
+            headerSearchBarOptions: {
+              hideNavigationBar: false,
+              hideWhenScrolling: false,
+              cancelButtonText: intl.formatMessage({
+                id: ETranslations.global_cancel,
+              }),
+              textColor: searchTextColor,
+              tintColor: searchTextColor,
+              ...headerSearchBarOptions,
+            },
+          }),
+      };
+    },
+    [intl, searchTextColor],
+  );
   return useMemo(() => ({ reload }), [reload]);
 };
 
