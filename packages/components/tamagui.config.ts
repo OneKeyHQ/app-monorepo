@@ -141,6 +141,11 @@ const animations = createAnimations({
     type: 'timing',
     duration: 100,
   },
+  repeat: {
+    type: 'timing',
+    duration: 300,
+    repeat: 4,
+  },
   quick: {
     type: 'spring',
     damping: 20,
