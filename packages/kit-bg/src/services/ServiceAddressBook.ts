@@ -124,15 +124,18 @@ class ServiceAddressBook extends ServiceBase {
       );
     }
     const promises = rawItems.map(async (item) => {
-      const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
         networkId: item.networkId,
       });
+      if (!network) {
+        return undefined;
+      }
       return {
         ...item,
         network,
       };
     });
-    const items = await Promise.all(promises);
+    const items = (await Promise.all(promises)).filter(Boolean);
     return { isSafe, items };
   }
 

@@ -39,6 +39,10 @@ const FirmwareUpdateDevSettings = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings'),
 );
 
+const V4MigrationDevSettings = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/V4MigrationDevSettings'),
+);
+
 export const ModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -74,6 +78,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevFirmwareUpdateModal,
     component: FirmwareUpdateDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevV4MigrationModal,
+    component: V4MigrationDevSettings,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

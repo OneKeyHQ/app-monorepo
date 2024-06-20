@@ -1,5 +1,6 @@
 import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
+import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -52,7 +53,8 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     onMounted: () => {
       console.log('OnboardingModal onMounted');
     },
-    onUnmounted: () => {
+    onUnmounted: async () => {
+      await v4migrationAtom.set((v) => ({ ...v, isMigrationModalOpen: false }));
       console.log('OnboardingModal onUnmounted');
     },
     name: EModalRoutes.OnboardingModal,

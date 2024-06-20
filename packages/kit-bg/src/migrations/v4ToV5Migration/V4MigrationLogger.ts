@@ -195,7 +195,11 @@ export class V4MigrationLogger {
       if (!logErrorOnly) {
         this.log({ name, type: 'call' });
       }
+
+      //
       const result = await fn();
+      //
+
       if (!logErrorOnly) {
         this.log({ name, type: 'success' });
       }

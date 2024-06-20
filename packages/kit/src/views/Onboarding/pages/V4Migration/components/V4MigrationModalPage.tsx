@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 
 import { Page } from '@onekeyhq/components';
+import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
   EModalExitPreventMode,
@@ -34,7 +35,11 @@ export function V4MigrationModalPage({
   return (
     <Page
       scrollEnabled
-      onMounted={() => {
+      onMounted={async () => {
+        await v4migrationAtom.set((v) => ({
+          ...v,
+          isMigrationModalOpen: true,
+        }));
         console.log('V4MigrationModalPage   mounted');
         onMounted?.();
       }}
