@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Empty, ListView, SearchBar, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
@@ -53,10 +54,7 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
           renderItem={({ item }) => (
             <ListItem
               h={48}
-              avatarProps={{
-                src: item.icon,
-                size: '$8',
-              }}
+              renderAvatar={<Token size="md" tokenImageUri={item.icon} />}
               title={item.symbol.toUpperCase()}
               subtitle={item.name}
               onPress={() => onPress?.(item)}
