@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
+  Alert,
   Button,
   Dialog,
   Divider,
@@ -73,6 +74,8 @@ type IProps = {
 
 const DEFAULT_GAS_LIMIT_MIN = 21000;
 const DEFAULT_GAS_LIMIT_MAX = 15000000;
+const DEFAULT_FEER_ATE_MIN = 0;
+const DEFAULT_FEE_RATE_MAX = 1000000; // shared cross multi-networks
 
 const getPresetIndex = (
   sendSelectedFee: IProps['sendSelectedFee'],
@@ -160,11 +163,12 @@ function FeeEditor(props: IProps) {
   } = props;
   const intl = useIntl();
   const dialog = useDialogInstance();
-  const isVerticalLayout = useMedia().md;
 
   const [currentFeeIndex, setCurrentFeeIndex] = useState(
     getPresetIndex(sendSelectedFee, feeSelectorItems),
   );
+
+  const [feeAlert, setFeeAlert] = useState('');
 
   const [currentFeeType, setCurrentFeeType] = useState<EFeeType>(
     sendSelectedFee.feeType,
@@ -344,13 +348,49 @@ function FeeEditor(props: IProps) {
     return true;
   }, []);
 
-  const handleValidateFeeRate = useCallback((value: string) => {
-    const feeRate = new BigNumber(value || 0);
-    if (feeRate.isNaN() || feeRate.isLessThanOrEqualTo(0)) {
-      return false;
-    }
-    return true;
-  }, []);
+  const handleValidateFeeRate = useCallback(
+    (value: string) => {
+      const feeRate = new BigNumber(value || 0);
+      if (
+        feeRate.isNaN() ||
+        feeRate.isLessThanOrEqualTo(DEFAULT_FEER_ATE_MIN) ||
+        feeRate.isGreaterThan(DEFAULT_FEE_RATE_MAX)
+      ) {
+        return intl.formatMessage(
+          { id: ETranslations.form_ree_rate_error_out_of_range },
+          { min: DEFAULT_FEER_ATE_MIN, max: DEFAULT_FEE_RATE_MAX },
+        );
+      }
+
+      const recommendFeeRate = feeSelectorItems
+        .filter((item) => item.type === EFeeType.Standard)
+        .map((item) => item.feeInfo.feeUTXO?.feeRate ?? '0')
+        .filter((item) => item !== '0');
+
+      const recommendFeeRateMax = BigNumber.max(...recommendFeeRate);
+      const recommendFeeRateMin = BigNumber.min(...recommendFeeRate);
+
+      if (feeRate.isLessThan(recommendFeeRateMin)) {
+        setFeeAlert(
+          intl.formatMessage({
+            id: ETranslations.fee_fee_rate_too_low,
+          }),
+        );
+      } else if (
+        feeRate.isGreaterThan(new BigNumber(recommendFeeRateMax).times(100))
+      ) {
+        setFeeAlert(
+          intl.formatMessage({
+            id: ETranslations.fee_fee_rate_too_high,
+          }),
+        );
+      } else {
+        setFeeAlert('');
+      }
+      return true;
+    },
+    [feeSelectorItems, intl],
+  );
 
   const handleValidateComputeUnitPrice = useCallback((value: string) => {
     const feeRate = new BigNumber(value || 0);
@@ -375,7 +415,9 @@ function FeeEditor(props: IProps) {
     let feeTitle = '';
 
     if (customFee.feeUTXO) {
-      feeTitle = 'Fee Rate (sat/vB)';
+      feeTitle = `${intl.formatMessage({
+        id: ETranslations.fee_fee_rate,
+      })} (sat/vB)`;
     } else {
       feeTitle = intl.formatMessage(
         { id: ETranslations.content__gas_price },
@@ -385,6 +427,7 @@ function FeeEditor(props: IProps) {
 
     return (
       <>
+        {feeAlert ? <Alert type="warning" title={feeAlert} mb="$5" /> : null}
         <SizableText mb={6} size="$bodyMdMedium">
           {feeTitle}
         </SizableText>
@@ -435,6 +478,7 @@ function FeeEditor(props: IProps) {
   }, [
     currentFeeIndex,
     customFee.feeUTXO,
+    feeAlert,
     feeSelectorItems,
     feeSymbol,
     intl,
@@ -645,9 +689,6 @@ function FeeEditor(props: IProps) {
         <Form form={form}>
           <YStack space="$5">
             <Form.Field
-              label={intl.formatMessage({
-                id: 'form__fee_rate',
-              })}
               name="feeRate"
               rules={{
                 required: true,
@@ -659,7 +700,13 @@ function FeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} />
+              <Input
+                addOns={[
+                  {
+                    label: 'sat/vB',
+                  },
+                ]}
+              />
             </Form.Field>
           </YStack>
         </Form>
@@ -819,12 +866,12 @@ function FeeEditor(props: IProps) {
 
       feeInfoItems = [
         {
-          label: 'VSize',
+          label: 'vSize',
           customValue: unsignedTxs[0]?.txSize?.toFixed() ?? '0',
           customSymbol: 'vB',
         },
         {
-          label: 'Fee',
+          label: intl.formatMessage({ id: ETranslations.fee_fee }),
           nativeValue: feeInNative,
           nativeSymbol,
           fiatValue: new BigNumber(feeInNative)

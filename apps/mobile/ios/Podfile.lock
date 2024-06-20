@@ -1085,6 +1085,8 @@ PODS:
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
+  - react-native-webview-cleaner (0.1.0):
+    - React
   - React-nativeconfig (0.73.7)
   - React-NativeModulesApple (0.73.7):
     - glog
@@ -1420,6 +1422,7 @@ DEPENDENCIES:
   - react-native-video (from `../../../node_modules/react-native-video`)
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
   - react-native-webview (from `../../../node_modules/react-native-webview`)
+  - react-native-webview-cleaner (from `../../../node_modules/react-native-webview-cleaner`)
   - React-nativeconfig (from `../../../node_modules/react-native/ReactCommon`)
   - React-NativeModulesApple (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
   - React-perflogger (from `../../../node_modules/react-native/ReactCommon/reactperflogger`)
@@ -1633,6 +1636,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-view-shot"
   react-native-webview:
     :path: "../../../node_modules/react-native-webview"
+  react-native-webview-cleaner:
+    :path: "../../../node_modules/react-native-webview-cleaner"
   React-nativeconfig:
     :path: "../../../node_modules/react-native/ReactCommon"
   React-NativeModulesApple:
@@ -1802,6 +1807,7 @@ SPEC CHECKSUMS:
   react-native-video: dc3118548cf8864a83f57df4345cf6c692402e8f
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
   react-native-webview: ec68fd94daa0e47c58c087e6bbebccd4497b5c4e
+  react-native-webview-cleaner: 34f4165b88ea7c2f4959a724983ef24daab35747
   React-nativeconfig: 754233aac2a769578f828093b672b399355582e6
   React-NativeModulesApple: a03b2da2b8e127d5f5ee29c683e0deba7a9e1575
   React-perflogger: 68ec84e2f858a3e35009aef8866b55893e5e0a1f
@@ -1851,4 +1857,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 298a1388b666936b828a2f5d33454d73ba90ff07
 
-COCOAPODS: 1.12.1
+COCOAPODS: 1.15.2
