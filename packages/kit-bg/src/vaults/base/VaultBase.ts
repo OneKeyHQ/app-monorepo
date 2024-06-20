@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { buildTxActionDirection } from '@onekeyhq/shared/src/utils/txActionUtils';
+import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
@@ -46,6 +47,7 @@ import type {
   IOnChainHistoryTxTransfer,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -232,6 +234,18 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return Promise.resolve({
       isValid: true,
     });
+  }
+
+  async checkIsDomainName({ name }: { name: string }) {
+    return addressIsEnsFormat(name);
+  }
+
+  async resolveDomainName({
+    name,
+  }: {
+    name: string;
+  }): Promise<IResolveNameResp | null> {
+    return null;
   }
 }
 
