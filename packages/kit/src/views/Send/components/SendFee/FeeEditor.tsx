@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
+  Alert,
   Button,
   Dialog,
   Divider,
@@ -73,8 +74,8 @@ type IProps = {
 
 const DEFAULT_GAS_LIMIT_MIN = 21000;
 const DEFAULT_GAS_LIMIT_MAX = 15000000;
-const DEFAULT_FEER_ATE_MIN = 1;
-const DEFAULT_FEE_RATE_MAX = 2000;
+const DEFAULT_FEER_ATE_MIN = 0;
+const DEFAULT_FEE_RATE_MAX = 1000000; // shared cross multi-networks
 
 const getPresetIndex = (
   sendSelectedFee: IProps['sendSelectedFee'],
@@ -396,8 +397,22 @@ function FeeEditor(props: IProps) {
       );
     }
 
+    // true if lower then the Low Priority of mempool
+    // true if higher then the (High Priority * 100) of mempool
+    const isShowAlert = true;
+
     return (
       <>
+        {isShowAlert ? (
+          <Alert
+            type="warning"
+            title={intl.formatMessage({
+              // or `fee_fee_rate_too_high`
+              id: ETranslations.fee_fee_rate_too_low,
+            })}
+            mb="$5"
+          />
+        ) : null}
         <SizableText mb={6} size="$bodyMdMedium">
           {feeTitle}
         </SizableText>
