@@ -896,7 +896,6 @@ export default class Vault extends VaultBase {
         nativeAmountInfo,
       });
     }
-    debugger;
     if (feeInfo) {
       encodedTxNew = await this._attachFeeInfoToEncodedTx({
         encodedTx: encodedTxNew,

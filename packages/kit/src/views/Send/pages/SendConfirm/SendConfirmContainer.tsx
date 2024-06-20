@@ -3,9 +3,8 @@ import { memo, useCallback, useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, XStack, YStack } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Container } from '@onekeyhq/kit/src/components/Container';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -13,6 +12,7 @@ import {
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -29,7 +29,6 @@ import type { RouteProp } from '@react-navigation/core';
 
 function SendConfirmContainer() {
   const intl = useIntl();
-  const tableLayout = false;
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
   const { updateUnsignedTxs, updateNativeTokenInfo, updateSendFeeStatus } =
@@ -107,55 +106,11 @@ function SendConfirmContainer() {
     [updateSendFeeStatus],
   );
 
-  const renderSendConfirmView = useCallback(() => {
-    if (tableLayout) {
-      return (
-        <Page.Body>
-          <XStack h="100%" px="$5">
-            <Container.Box
-              blockProps={{ width: '236px', pb: '$5' }}
-              contentProps={{
-                height: '100%',
-                flexDirection: 'column-reverse',
-                justifyContent: 'space-between',
-              }}
-            >
-              <TxSimulationContainer tableLayout={tableLayout} />
-            </Container.Box>
-            <YStack flex={1} justifyContent="space-between" mr="$-5">
-              <TxActionsContainer
-                accountId={accountId}
-                networkId={networkId}
-                tableLayout={tableLayout}
-                transferPayload={transferPayload}
-              />
-              <YStack>
-                <TxFeeContainer
-                  accountId={accountId}
-                  networkId={networkId}
-                  tableLayout={tableLayout}
-                  useFeeInTx={useFeeInTx}
-                />
-                <SendConfirmActionsContainer
-                  sourceInfo={sourceInfo}
-                  signOnly={signOnly}
-                  accountId={accountId}
-                  networkId={networkId}
-                  onSuccess={onSuccess}
-                  onFail={onFail}
-                  onCancel={onCancel}
-                  tableLayout={tableLayout}
-                />
-              </YStack>
-            </YStack>
-          </XStack>
-        </Page.Body>
-      );
-    }
-
-    return (
+  const renderSendConfirmView = useCallback(
+    () => (
       <>
-        <Page.Body px="$5" space="$4">
+        <Page.Body testID="tx-confirmation-body">
+          {/* TODO: error feedbacks */}
           <TxSourceInfoContainer sourceInfo={sourceInfo} />
           <TxActionsContainer
             accountId={accountId}
@@ -167,6 +122,7 @@ function SendConfirmContainer() {
             networkId={networkId}
             useFeeInTx={useFeeInTx}
           />
+          {/* TODO: Swap tx details */}
           <TxSimulationContainer />
         </Page.Body>
         <SendConfirmActionsContainer
@@ -179,23 +135,23 @@ function SendConfirmContainer() {
           onCancel={onCancel}
         />
       </>
-    );
-  }, [
-    tableLayout,
-    sourceInfo,
-    accountId,
-    networkId,
-    useFeeInTx,
-    signOnly,
-    onSuccess,
-    onFail,
-    onCancel,
-    transferPayload,
-  ]);
+    ),
+    [
+      sourceInfo,
+      accountId,
+      networkId,
+      useFeeInTx,
+      signOnly,
+      onSuccess,
+      onFail,
+      onCancel,
+      transferPayload,
+    ],
+  );
 
   return (
     <Page
-      scrollEnabled={!tableLayout}
+      scrollEnabled
       onClose={(confirmed) => {
         if (!confirmed) {
           dappApprove.reject();
@@ -203,7 +159,9 @@ function SendConfirmContainer() {
       }}
     >
       <Page.Header
-        title={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
+        title={intl.formatMessage({
+          id: ETranslations.transaction__transaction_confirm,
+        })}
       />
       {renderSendConfirmView()}
     </Page>
