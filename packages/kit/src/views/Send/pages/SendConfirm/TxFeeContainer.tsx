@@ -65,7 +65,6 @@ function TxFeeContainer(props: IProps) {
   const [customFee] = useCustomFeeAtom();
   const [settings] = useSettingsPersistAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
-  const [sendAlertStatus] = useSendTxStatusAtom();
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [nativeTokenTransferAmountToUpdate] =
@@ -93,66 +92,68 @@ function TxFeeContainer(props: IProps) {
       ]);
     }, [accountId, networkId]);
 
-  const { r: txFee, e: estimateFeeParams } =
-    usePromiseResult(
-      async () => {
-        try {
-          updateSendFeeStatus({
-            status: ESendFeeStatus.Loading,
-          });
-          const accountAddress =
-            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-              networkId,
-              accountId,
-            });
-
-          const { encodedTx, estimateFeeParams: e } =
-            await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
-              accountId,
-              networkId,
-              encodedTx: unsignedTxs[0].encodedTx,
-            });
-
-          const r = await backgroundApiProxy.serviceGas.estimateFee({
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      try {
+        updateSendFeeStatus({
+          status: ESendFeeStatus.Loading,
+        });
+        const accountAddress =
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
             networkId,
-            encodedTx,
-            accountAddress,
+            accountId,
           });
-          // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
-          // these five levels are also provided as predictions on the custom fee page for users to choose
-          if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
-            r.gasEIP1559 = [r.gasEIP1559[0], r.gasEIP1559[2], r.gasEIP1559[4]];
-          } else if (r.gasEIP1559) {
-            r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
-          }
 
-          updateSendFeeStatus({
-            status: ESendFeeStatus.Success,
-            errMessage: '',
+        const { encodedTx, estimateFeeParams: e } =
+          await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+            accountId,
+            networkId,
+            encodedTx: unsignedTxs[0].encodedTx,
           });
-          txFeeInit.current = true;
-          return {
-            r,
-            e,
-          };
-        } catch (e) {
-          updateSendFeeStatus({
-            status: ESendFeeStatus.Error,
-            errMessage:
-              (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
-                ?.message ??
-              (e as Error).message ??
-              e,
-          });
+
+        const r = await backgroundApiProxy.serviceGas.estimateFee({
+          networkId,
+          encodedTx,
+          accountAddress,
+        });
+        // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
+        // these five levels are also provided as predictions on the custom fee page for users to choose
+        if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
+          r.gasEIP1559 = [r.gasEIP1559[0], r.gasEIP1559[2], r.gasEIP1559[4]];
+        } else if (r.gasEIP1559) {
+          r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
         }
-      },
-      [accountId, networkId, unsignedTxs, updateSendFeeStatus],
-      {
-        pollingInterval: 6000,
-        overrideIsFocused: (isPageFocused) =>
-          isPageFocused && sendSelectedFee.feeType !== EFeeType.Custom,
-      },
-    ).result ?? {};
+
+        updateSendFeeStatus({
+          status: ESendFeeStatus.Success,
+          errMessage: '',
+        });
+        txFeeInit.current = true;
+        return {
+          r,
+          e,
+        };
+      } catch (e) {
+        updateSendFeeStatus({
+          status: ESendFeeStatus.Error,
+          errMessage:
+            (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
+              ?.message ??
+            (e as Error).message ??
+            e,
+        });
+      }
+    },
+    [accountId, networkId, unsignedTxs, updateSendFeeStatus],
+    {
+      watchLoading: true,
+      pollingInterval: 6000,
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused && sendSelectedFee.feeType !== EFeeType.Custom,
+    },
+  );
+
+  const { r: txFee, e: estimateFeeParams } = result ?? {};
 
   const openFeeEditorEnabled =
     !!vaultSettings?.editFeeEnabled || !!vaultSettings?.checkFeeDetailEnabled;
@@ -543,21 +544,14 @@ function TxFeeContainer(props: IProps) {
   return (
     <>
       <Divider mx="$5" />
-      <InfoItemGroup>
+      <InfoItemGroup
+        animation="repeat"
+        opacity={isLoading && txFeeInit.current ? 0.5 : 1}
+      >
         <InfoItem
-          label={
-            <XStack space="$1">
-              <XStack alignItems="center" space="$2">
-                <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
-                <SizableText size="$bodyMdMedium">{network?.name}</SizableText>
-              </XStack>
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.global_est_network_fee,
-                })}
-              </SizableText>
-            </XStack>
-          }
+          label={intl.formatMessage({
+            id: ETranslations.global_est_network_fee,
+          })}
           renderContent={
             <>
               <XStack space="$1">
@@ -602,24 +596,6 @@ function TxFeeContainer(props: IProps) {
                 </SizableText>
                 {renderFeeEditor()}
               </XStack>
-              {sendFeeStatus.errMessage ? (
-                <SizableText mt="$1" size="$bodyMd" color="$textCritical">
-                  {sendFeeStatus.errMessage}
-                </SizableText>
-              ) : null}
-              {sendAlertStatus.isInsufficientNativeBalance ? (
-                <SizableText mt="$1" size="$bodyMd" color="$textCritical">
-                  {intl.formatMessage(
-                    {
-                      id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
-                    },
-                    {
-                      0: network?.symbol ?? '',
-                      1: network?.name ?? '',
-                    },
-                  )}
-                </SizableText>
-              ) : null}
             </>
           }
         />

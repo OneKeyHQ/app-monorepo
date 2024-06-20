@@ -121,6 +121,11 @@ function useFirmwareVerifyBase({
             EFirmwareAuthenticationDialogContentType.network_error,
           );
           break;
+        case 'ERR_NETWORK' as any:
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.network_error,
+          );
+          break;
         case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
           setContentType(
             EFirmwareAuthenticationDialogContentType.unofficial_device_detected,
