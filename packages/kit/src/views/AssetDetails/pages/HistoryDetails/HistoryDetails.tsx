@@ -772,7 +772,7 @@ function HistoryDetails() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={historyDetailsTitle} />
+      <Page.Header headerTitle={historyTx.decodedTx.payload?.label} />
       <Page.Body testID="history-details-body">
         {renderHistoryDetails()}
       </Page.Body>
