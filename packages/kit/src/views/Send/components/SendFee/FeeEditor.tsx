@@ -74,7 +74,7 @@ type IProps = {
 const DEFAULT_GAS_LIMIT_MIN = 21000;
 const DEFAULT_GAS_LIMIT_MAX = 15000000;
 const DEFAULT_FEER_ATE_MIN = 1;
-const DEFAULT_FEE_RATE_MAX = 1000000;
+const DEFAULT_FEE_RATE_MAX = 2000;
 
 const getPresetIndex = (
   sendSelectedFee: IProps['sendSelectedFee'],

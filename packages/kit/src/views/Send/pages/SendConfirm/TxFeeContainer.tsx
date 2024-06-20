@@ -545,19 +545,9 @@ function TxFeeContainer(props: IProps) {
       <Divider mx="$5" />
       <InfoItemGroup>
         <InfoItem
-          label={
-            <XStack space="$1">
-              <XStack alignItems="center" space="$2">
-                <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
-                <SizableText size="$bodyMdMedium">{network?.name}</SizableText>
-              </XStack>
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.global_est_network_fee,
-                })}
-              </SizableText>
-            </XStack>
-          }
+          label={intl.formatMessage({
+            id: ETranslations.global_est_network_fee,
+          })}
           renderContent={
             <>
               <XStack space="$1">
