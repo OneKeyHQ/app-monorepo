@@ -306,7 +306,6 @@ function HardwareUiStateContainerCmp() {
 
       if (shouldShowAction) {
         if (isToastAction) {
-          log(`show toast`);
           // hardware ui state toast
           const instance = Toast.show({
             children: <ConfirmOnDeviceToastContent deviceType={deviceType} />,
@@ -324,7 +323,6 @@ function HardwareUiStateContainerCmp() {
           });
           toastInstances.push(instance);
         } else if (isDialogAction) {
-          log(`show dialog `);
           // hardware ui action dialog
           const instance = Dialog.show({
             dismissOnOverlayPress: false,

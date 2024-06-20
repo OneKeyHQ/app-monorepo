@@ -9,3 +9,9 @@ export interface IEncodedTxXrp {
   Sequence?: number;
   LastLedgerSequence?: number;
 }
+
+export type IDecodedTxExtraXrp = {
+  destinationTag?: number;
+  lastLedgerSequence?: number;
+  ledgerIndex?: number;
+};
