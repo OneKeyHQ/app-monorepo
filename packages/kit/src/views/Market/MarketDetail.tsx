@@ -44,12 +44,13 @@ import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 
 function TokenDetailHeader({
   coinGeckoId,
-  token,
+  token: responseToken,
 }: {
   coinGeckoId: string;
   token: IMarketTokenDetail;
 }) {
   const intl = useIntl();
+  const [token, setToken] = useState(responseToken);
   const {
     name,
     stats: {
@@ -62,6 +63,18 @@ function TokenDetailHeader({
     },
   } = token;
   const { gtMd } = useMedia();
+  useEffect(() => {
+    const timerId = setInterval(async () => {
+      const response =
+        await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
+          coinGeckoId,
+        );
+      setToken(response);
+    }, 45 * 1000);
+    return () => {
+      clearInterval(timerId);
+    };
+  }, [coinGeckoId]);
   return (
     <YStack px="$5" $md={{ minHeight: 150 }}>
       <YStack flex={1}>
