@@ -32,6 +32,7 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import {
   EDecodedTxStatus,
   type IDecodedTx,
@@ -359,23 +360,6 @@ export default class Vault extends VaultBase {
       });
     }
 
-    const isValidEthAddress = ethers.utils.isAddress(address);
-
-    if (isValidEthAddress) {
-      const { isTestnet } = await this.getNetwork();
-      const ethAddress = delegatedFromEthAddress(
-        address,
-        isTestnet ? CoinType.TEST : CoinType.MAIN,
-      );
-
-      const outputAddress = await this._getOutputAddress(ethAddress);
-      return {
-        isValid: true,
-        normalizedAddress: outputAddress,
-        displayAddress: outputAddress,
-      };
-    }
-
     return {
       isValid: false,
       normalizedAddress: '',
@@ -451,5 +435,35 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async checkIsDomainName({
+    name,
+  }: {
+    name: string;
+  }): Promise<boolean> {
+    return ethers.utils.isAddress(name);
+  }
+
+  override async resolveDomainName({
+    name,
+  }: {
+    name: string;
+  }): Promise<IResolveNameResp> {
+    const network = await this.getNetwork();
+    const address = delegatedFromEthAddress(
+      name,
+      network.isTestnet ? CoinType.TEST : CoinType.MAIN,
+    );
+
+    return {
+      names: [
+        {
+          subtype: 'fil',
+          value: address,
+        },
+      ],
+      showSymbol: 'ETH',
+    };
   }
 }

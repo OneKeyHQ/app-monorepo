@@ -158,6 +158,7 @@ export type IVaultSettings = {
   allowZeroFee?: boolean;
 
   onChainHistoryDisabled?: boolean;
+  saveConfirmedTxsEnabled?: boolean;
 
   cannotSendToSelf?: boolean;
 
@@ -182,6 +183,8 @@ export type IVaultSettings = {
   withL1BaseFee?: boolean;
 
   hideBlockExplorer?: boolean;
+
+  ignoreUpdateNativeAmount?: boolean;
 };
 
 export type IVaultFactoryOptions = {

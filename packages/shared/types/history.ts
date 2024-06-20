@@ -85,6 +85,7 @@ export type IOnChainHistoryTx = {
   value: string;
   label: string;
   confirmations?: number;
+  block?: number;
   inputs?: IOnChainHistoryTxUTXOInput[];
   outputs?: IOnChainHistoryTxUTXOOutput[];
 
@@ -123,6 +124,7 @@ export type IFetchAccountHistoryParams = {
   xpub?: string;
   tokenIdOnNetwork?: string;
   onChainHistoryDisabled?: boolean;
+  saveConfirmedTxsEnabled?: boolean;
 };
 
 export type IOnChainHistoryTxToken = {
