@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
