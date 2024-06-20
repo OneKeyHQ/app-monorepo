@@ -62,10 +62,11 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       avatar: this.avatar,
       type: this.type,
       backuped: this.backuped || false,
-      // convert RealmDB list to array
+      // convert RealmDB list to JS plain array
       accounts: Array.from(this.accounts || []),
       walletNo: this.walletNo,
-      nextIds: Object.fromEntries(Object.entries(Object(this.nextIds))),
+      // convert RealmDB dictionary to JS plain object
+      nextIds: (this.nextIds?.toJSON() as any) || {},
       associatedDevice: this.associatedDevice,
       isTemp: this.isTemp,
       passphraseState: this.passphraseState,
