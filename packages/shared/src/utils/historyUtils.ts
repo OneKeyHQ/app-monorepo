@@ -50,8 +50,8 @@ export function getOnChainHistoryTxAssetInfo({
   }
 
   if (nft) {
-    name = nft.metadata?.name ?? '';
-    symbol = nft.metadata?.name ?? '';
+    name = nft.metadata?.name ?? nft.collectionName ?? '';
+    symbol = nft.metadata?.name ?? nft.collectionSymbol ?? '';
     icon = nft.metadata?.image ?? '';
     address = nft.collectionAddress;
     isNFT = true;
