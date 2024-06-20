@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -67,11 +67,13 @@ function BasicTokenDetailTabs({
   listHeaderComponent,
   isRefreshing,
   onRefresh,
+  onDataLoaded,
 }: {
   token?: IMarketTokenDetail;
   listHeaderComponent?: ReactElement;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  onDataLoaded?: () => void;
 }) {
   const intl = useIntl();
   const { md } = useMedia();
@@ -89,9 +91,14 @@ function BasicTokenDetailTabs({
     if (token?.detailPlatforms) {
       void backgroundApiProxy.serviceMarket
         .fetchPools(token.detailPlatforms)
-        .then(setPools);
+        .then((response) => {
+          setPools(response);
+          setTimeout(() => {
+            onDataLoaded?.();
+          }, 100);
+        });
     }
-  }, [token?.detailPlatforms]);
+  }, [onDataLoaded, token?.detailPlatforms]);
 
   const renderPoolSkeleton = useMemo(
     () =>

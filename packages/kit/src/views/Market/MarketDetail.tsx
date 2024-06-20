@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -30,6 +30,7 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { OpenInAppButton } from '../../components/OpenInAppButton';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useDeferredPromise } from '../../hooks/useDeferredPromise';
 
 import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
@@ -296,9 +297,16 @@ function MarketDetail({
     );
   }, [coinGeckoId, gtMd, tokenDetail]);
 
+  const defer = useDeferredPromise();
+  const onDataLoaded = useCallback(() => {
+    if (defer) {
+      defer.resolve(null);
+    }
+  }, [defer]);
+
   const tokenPriceChart = useMemo(
-    () => <TokenPriceChart coinGeckoId={coinGeckoId} />,
-    [coinGeckoId],
+    () => <TokenPriceChart coinGeckoId={coinGeckoId} defer={defer} />,
+    [coinGeckoId, defer],
   );
 
   return (
@@ -317,6 +325,7 @@ function MarketDetail({
               </ScrollView>
               <YStack flex={1}>
                 <TokenDetailTabs
+                  onDataLoaded={onDataLoaded}
                   token={tokenDetail}
                   listHeaderComponent={tokenPriceChart}
                 />
@@ -328,6 +337,7 @@ function MarketDetail({
             isRefreshing={isRefreshing}
             onRefresh={onRefresh}
             token={tokenDetail}
+            onDataLoaded={onDataLoaded}
             listHeaderComponent={
               <YStack>
                 {tokenDetailHeader}

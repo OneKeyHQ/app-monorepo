@@ -1,3 +1,4 @@
+import type { MutableRefObject } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -6,14 +7,21 @@ import { SegmentControl, Stack, YStack, useMedia } from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { PriceChart } from './Chart';
 
-function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
+import type { IDeferredPromise } from '../../../hooks/useDeferredPromise';
+
+function BasicTokenPriceChart({
+  coinGeckoId,
+  defer,
+}: {
+  coinGeckoId: string;
+  defer: IDeferredPromise<unknown>;
+}) {
   const intl = useIntl();
   const [points, setPoints] = useState<IMarketTokenChart>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -49,10 +57,12 @@ function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
     void backgroundApiProxy.serviceMarket
       .fetchTokenChart(coinGeckoId, days, 100)
       .then((response) => {
-        setPoints(response);
-        setIsLoading(false);
+        void defer.promise.then(() => {
+          setPoints(response);
+          setIsLoading(false);
+        });
       });
-  }, [coinGeckoId, days]);
+  }, [coinGeckoId, days, defer.promise]);
   const { gtMd } = useMedia();
   return (
     <YStack px="$5">
