@@ -34,7 +34,7 @@ function UTXODetails() {
     >();
   const intl = useIntl();
 
-  const { inputs, outputs, networkId, txId } = route.params;
+  const { inputs, outputs, networkId, accountId, txId } = route.params;
 
   const { network } = useAccountData({ networkId });
 
@@ -45,6 +45,7 @@ function UTXODetails() {
       }
 
       const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
+        accountId,
         networkId,
         txid: txId,
       });
@@ -67,7 +68,7 @@ function UTXODetails() {
         outputs: [],
       };
     },
-    [inputs, networkId, outputs, txId],
+    [inputs, networkId, accountId, outputs, txId],
     {
       watchLoading: true,
     },
