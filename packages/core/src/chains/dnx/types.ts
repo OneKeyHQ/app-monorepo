@@ -23,3 +23,7 @@ export type ISignTxParams = {
   fee: string;
   paymentIdHex?: string;
 };
+
+export type IDecodedTxExtraDnx = {
+  paymentId?: string;
+};
