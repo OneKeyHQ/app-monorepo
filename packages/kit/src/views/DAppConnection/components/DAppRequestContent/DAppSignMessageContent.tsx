@@ -7,6 +7,7 @@ import { Button, SizableText, TextArea, YStack } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  EMessageTypesAptos,
   EMessageTypesBtc,
   EMessageTypesCommon,
   EMessageTypesEth,
@@ -27,56 +28,79 @@ function DAppSignMessageContent({
   const [showRawMessage, setShowRawMessage] = useState(false);
 
   const parseMessage = useMemo(() => {
-    const { message, type } = unsignedMessage;
+    const { message, type, payload } = unsignedMessage;
 
+    switch (type) {
+      case EMessageTypesBtc.ECDSA:
+      case EMessageTypesBtc.BIP322_SIMPLE:
+      case EMessageTypesEth.ETH_SIGN:
+      case EMessageTypesCommon.SIMPLE_SIGN: {
+        return message;
+      }
+
+      case EMessageTypesEth.PERSONAL_SIGN:
+      case EMessageTypesCommon.SIGN_MESSAGE: {
+        try {
+          const buffer = ethUtils.toBuffer(message);
+          return buffer.toString('utf8');
+        } catch (e) {
+          console.error('Failed to parse personal sign message: ', e);
+          return message;
+        }
+      }
+
+      case EMessageTypesAptos.SIGN_MESSAGE: {
+        return payload?.message ?? message;
+      }
+
+      case EMessageTypesEth.TYPED_DATA_V1: {
+        let messageObject = JSON.parse(message) ?? {};
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        messageObject = messageObject.message ?? messageObject;
+        if (Array.isArray(messageObject)) {
+          const v1Message: ITypedDataV1[] = messageObject;
+          messageObject = v1Message.reduce((acc, cur) => {
+            acc[cur.name] = cur.value;
+            return acc;
+          }, {} as Record<string, string>);
+        }
+        return JSON.stringify(messageObject, null, 2);
+      }
+
+      case EMessageTypesEth.TYPED_DATA_V3:
+      case EMessageTypesEth.TYPED_DATA_V4: {
+        return JSON.stringify(JSON.parse(message) ?? {}, null, 2);
+      }
+
+      default: {
+        return message;
+      }
+    }
+  }, [unsignedMessage]);
+
+  const renderRawMessage = useCallback(() => {
+    const { message, type } = unsignedMessage;
     if (
       type === EMessageTypesBtc.ECDSA ||
       type === EMessageTypesBtc.BIP322_SIMPLE ||
       type === EMessageTypesEth.ETH_SIGN ||
       type === EMessageTypesCommon.SIMPLE_SIGN
     ) {
-      return message;
+      return null;
     }
 
+    let text = message;
     if (
-      type === EMessageTypesEth.PERSONAL_SIGN ||
-      type === EMessageTypesCommon.SIGN_MESSAGE
+      type === EMessageTypesEth.TYPED_DATA_V1 ||
+      type === EMessageTypesEth.TYPED_DATA_V3 ||
+      type === EMessageTypesEth.TYPED_DATA_V4
     ) {
       try {
-        const buffer = ethUtils.toBuffer(message);
-        return buffer.toString('utf8');
+        text = JSON.parse(text);
       } catch (e) {
-        console.error('Failed to parse personal sign message: ', e);
-        return message;
+        console.error('Failed to parse typed data v4 message: ', e);
       }
-    }
-
-    let messageObject = JSON.parse(message) ?? {};
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    messageObject = messageObject.message ?? messageObject;
-
-    if (
-      type === EMessageTypesEth.TYPED_DATA_V1 &&
-      Array.isArray(messageObject)
-    ) {
-      const v1Message: ITypedDataV1[] = messageObject;
-      messageObject = v1Message.reduce((acc, cur) => {
-        acc[cur.name] = cur.value;
-        return acc;
-      }, {} as Record<string, string>);
-    }
-
-    return JSON.stringify(messageObject, null, 2);
-  }, [unsignedMessage]);
-
-  const renderRawMessage = useCallback(() => {
-    const { message, type } = unsignedMessage;
-    if (type !== EMessageTypesEth.TYPED_DATA_V4) return null;
-    let text = message;
-    try {
-      text = JSON.parse(text);
-    } catch (e) {
-      console.error('Failed to parse typed data v4 message: ', e);
+      text = JSON.stringify(text, null, 2);
     }
     return (
       <YStack space="$2">
@@ -93,9 +117,7 @@ function DAppSignMessageContent({
               })}
         </Button>
         {showRawMessage ? (
-          <TextArea editable={false} numberOfLines={11}>
-            {JSON.stringify(text, null, 2)}
-          </TextArea>
+          <TextArea editable={false} numberOfLines={11} value={text} />
         ) : null}
       </YStack>
     );
