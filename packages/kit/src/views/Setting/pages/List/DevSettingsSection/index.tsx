@@ -78,15 +78,16 @@ export const DevSettingsSection = () => {
             ? ONEKEY_TEST_API_HOST
             : ONEKEY_API_HOST
         }
-        onValueChange={
-          platformEnv.isDesktop
-            ? (enabled: boolean) => {
-                window.desktopApi?.setAutoUpdateSettings?.({
-                  useTestFeedUrl: enabled,
-                });
-              }
-            : undefined
-        }
+        onValueChange={(enabled: boolean) => {
+          if (platformEnv.isDesktop) {
+            window.desktopApi?.setAutoUpdateSettings?.({
+              useTestFeedUrl: enabled,
+            });
+          }
+          setTimeout(() => {
+            backgroundApiProxy.serviceApp.restartApp();
+          }, 300);
+        }}
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>

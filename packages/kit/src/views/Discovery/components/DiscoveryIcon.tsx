@@ -3,18 +3,20 @@ import { memo } from 'react';
 import type { IImageProps } from '@onekeyhq/components';
 import { Icon, Image, Skeleton, Stack } from '@onekeyhq/components';
 
-function BasicMarketTokenIcon({
+function BasicDiscoveryIcon({
   uri,
   size,
+  borderRadius = '$2',
 }: {
-  uri: string;
+  uri?: string;
   size: IImageProps['size'];
+  borderRadius?: IImageProps['borderRadius'];
 }) {
   if (!uri) {
-    return <Skeleton width={size} height={size} />;
+    return <Skeleton width={size} height={size} radius="round" />;
   }
   return (
-    <Image size={size} borderRadius="$full">
+    <Image size={size} borderRadius={borderRadius}>
       <Image.Source source={{ uri: decodeURIComponent(uri) }} />
       <Image.Fallback>
         <Stack
@@ -24,14 +26,14 @@ function BasicMarketTokenIcon({
           width="100%"
           height="100%"
         >
-          <Icon name="CoinOutline" size="$6" color="$iconSubdued" />
+          <Icon name="GlobusOutline" width="100%" height="100%" />
         </Stack>
       </Image.Fallback>
       <Image.Loading>
-        <Skeleton width="100%" height="100%" radius="round" />
+        <Skeleton width="100%" height="100%" />
       </Image.Loading>
     </Image>
   );
 }
 
-export const MarketTokenIcon = memo(BasicMarketTokenIcon);
+export const DiscoveryIcon = memo(BasicDiscoveryIcon);
