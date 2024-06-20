@@ -95,8 +95,8 @@ const template = [
     : []),
   { role: 'editMenu' },
   // remove `Reload`, 'Force reload' and 'Toggle Developer Tools' from `View` menu
-  isDev
-    ? { label: 'viewMenu' }
+  isDev || store.getDevTools()
+    ? { role: 'viewMenu' }
     : {
         label: 'View',
         submenu: [
@@ -362,7 +362,11 @@ function createMainWindow() {
   });
 
   ipcMain.on(ipcMessageKeys.APP_OPEN_DEV_TOOLS, () => {
-    browserWindow.webContents.openDevTools();
+    store.setDevTools(true);
+    setTimeout(() => {
+      void app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+      app.exit(0);
+    }, 10);
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
