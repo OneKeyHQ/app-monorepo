@@ -115,7 +115,7 @@ export function AssetItem({
           : intl.formatMessage(
               { id: ETranslations.form__approve_str },
               {
-                amountAbs,
+                amount: amountAbs,
                 symbol: asset.symbol,
               },
             )}
@@ -355,28 +355,6 @@ function HistoryDetails() {
       txAddresses.to,
     ],
   );
-
-  const historyDetailsTitle = useMemo(() => {
-    const { decodedTx } = historyTx;
-    let title = historyTx.decodedTx.payload?.label;
-    const type = historyTx.decodedTx.payload?.type;
-    const sends = decodedTx.actions[0]?.assetTransfer?.sends;
-    const receives = decodedTx.actions[0]?.assetTransfer?.receives;
-
-    if (isSendToSelf) {
-      title = intl.formatMessage({ id: ETranslations.global_send });
-    } else if (!isEmpty(sends) && isEmpty(receives)) {
-      title = intl.formatMessage({ id: ETranslations.global_send });
-    } else if (isEmpty(sends) && !isEmpty(receives)) {
-      title = intl.formatMessage({ id: ETranslations.global_receive });
-    } else if (type === EOnChainHistoryTxType.Send) {
-      title = intl.formatMessage({ id: ETranslations.global_send });
-    } else if (type === EOnChainHistoryTxType.Receive) {
-      title = intl.formatMessage({ id: ETranslations.global_receive });
-    }
-
-    return title;
-  }, [historyTx, intl, isSendToSelf]);
 
   const transfersToRender = useMemo(() => {
     let transfers: {
@@ -765,7 +743,7 @@ function HistoryDetails() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={historyDetailsTitle} />
+      <Page.Header headerTitle={historyTx.decodedTx.payload?.label} />
       <Page.Body testID="history-details-body">
         {renderHistoryDetails()}
       </Page.Body>

@@ -261,7 +261,6 @@ function TxActionTransferListView(props: ITxActionProps) {
     changeSymbol = changeInfo.changeSymbol;
     changeDescription = changeInfo.changeDescription;
     avatar.src = sendNFTIcon || sendTokenIcon;
-    title = intl.formatMessage({ id: ETranslations.global_send });
   } else if (isEmpty(sends) && !isEmpty(receives)) {
     const changeInfo = buildTransferChangeInfo({
       changePrefix: '+',
@@ -272,7 +271,6 @@ function TxActionTransferListView(props: ITxActionProps) {
     changeSymbol = changeInfo.changeSymbol;
     changeDescription = changeInfo.changeDescription;
     avatar.src = receiveNFTIcon || receiveTokenIcon;
-    title = intl.formatMessage({ id: ETranslations.global_receive });
   } else if (vaultSettings?.isUtxo) {
     if (type === EOnChainHistoryTxType.Send) {
       const changeInfo = buildTransferChangeInfo({
@@ -286,7 +284,6 @@ function TxActionTransferListView(props: ITxActionProps) {
       changeSymbol = changeInfo.changeSymbol;
       changeDescription = changeInfo.changeDescription;
       avatar.src = sendTokenIcon;
-      title = intl.formatMessage({ id: ETranslations.global_send });
     } else if (type === EOnChainHistoryTxType.Receive) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '+',
@@ -299,7 +296,6 @@ function TxActionTransferListView(props: ITxActionProps) {
       changeSymbol = changeInfo.changeSymbol;
       changeDescription = changeInfo.changeDescription;
       avatar.src = receiveTokenIcon;
-      title = intl.formatMessage({ id: ETranslations.global_receive });
     }
   } else {
     const sendChangeInfo = buildTransferChangeInfo({
