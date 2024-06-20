@@ -421,6 +421,12 @@ function createMainWindow() {
     systemIdleHandler(setIdleTime, event);
   });
 
+  ipcMain.on(ipcMessageKeys.CLEAR_WEBVIEW_CACHE, () => {
+    void session.defaultSession.clearStorageData({
+      storages: ['cookies', 'cachestorage'],
+    });
+  });
+
   let templatePhishingUrls: string[] = [];
   ipcMain.on(
     ipcMessageKeys.SET_ALLOWED_PHISHING_URLS,
