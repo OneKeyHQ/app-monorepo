@@ -656,7 +656,7 @@ function HistoryDetails() {
               renderContent={renderFeeInfo()}
               compact
             />
-            {!isNil(txInfo.blockHeight) ? (
+            {new BigNumber(txInfo.blockHeight ?? 0).isGreaterThan(0) ? (
               <InfoItem
                 label="Block Height"
                 renderContent={String(txInfo.blockHeight)}
@@ -671,7 +671,7 @@ function HistoryDetails() {
               />
             ) : null}
 
-            {!isNil(txInfo.confirmations) ? (
+            {new BigNumber(txInfo.confirmations ?? 0).isGreaterThan(0) ? (
               <InfoItem
                 label={intl.formatMessage({
                   id: ETranslations.global_confirmations,
