@@ -267,7 +267,8 @@ function HistoryDetails() {
     }
 
     const from = decodedTx.signer;
-    const to = decodedTx.to ?? decodedTx.actions[0]?.assetTransfer?.to;
+    const to =
+      decodedTx.to ?? decodedTx.actions[0]?.assetTransfer?.to ?? txDetails?.to;
 
     return {
       from,
@@ -277,7 +278,7 @@ function HistoryDetails() {
           ? true
           : new BigNumber(sends?.length ?? 0).plus(receives?.length ?? 0).eq(1),
     };
-  }, [accountAddress, historyTx, intl, vaultSettings?.isUtxo]);
+  }, [accountAddress, historyTx, intl, txDetails?.to, vaultSettings?.isUtxo]);
 
   const renderAssetsChange = useCallback(
     ({
@@ -385,8 +386,16 @@ function HistoryDetails() {
 
     const { decodedTx } = historyTx;
 
-    let sends = decodedTx.actions[0]?.assetTransfer?.sends;
-    let receives = decodedTx.actions[0]?.assetTransfer?.receives;
+    let sends = decodedTx.actions[0]?.assetTransfer?.sends.map((e, i) => ({
+      ...e,
+      ...txDetails?.sends?.[i],
+    }));
+    let receives = decodedTx.actions[0]?.assetTransfer?.receives.map(
+      (e, i) => ({
+        ...e,
+        ...txDetails?.receives?.[i],
+      }),
+    );
     const onChainTxPayload = historyTx.decodedTx.payload;
 
     if (vaultSettings?.isUtxo) {
@@ -452,7 +461,13 @@ function HistoryDetails() {
     ];
 
     return transfers.filter(Boolean);
-  }, [historyTx, isSendToSelf, vaultSettings?.isUtxo]);
+  }, [
+    historyTx,
+    isSendToSelf,
+    txDetails?.receives,
+    txDetails?.sends,
+    vaultSettings?.isUtxo,
+  ]);
 
   const renderTxStatus = useCallback(() => {
     const status =
