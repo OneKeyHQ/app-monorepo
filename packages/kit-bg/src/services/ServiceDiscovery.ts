@@ -1,4 +1,5 @@
 import { isNumber } from 'lodash';
+import WebViewCleaner from 'react-native-webview-cleaner';
 
 import type {
   IBrowserBookmark,
@@ -9,6 +10,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -253,6 +255,15 @@ class ServiceDiscovery extends ServiceBase {
       simpleDb.browserRiskWhiteList.clearRawData(),
       this._isUrlExistInRiskWhiteList.clear(),
     ]);
+  }
+
+  @backgroundMethod()
+  async clearCache() {
+    if (platformEnv.isNative) {
+      WebViewCleaner.clearAll();
+    } else if (platformEnv.isDesktop) {
+      window.desktopApi.clearWebViewCache();
+    }
   }
 
   @backgroundMethod()
