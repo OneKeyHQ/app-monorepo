@@ -877,7 +877,7 @@
   "market.trending": "Тренды",
   "market.twenty_four_hour_percentage": "24ч %",
   "market.twenty_four_hour_volume": "24-часовой объем",
-  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} требуется для сетевых комиссий.\nСтоимость сетевой комиссии составляет {0} в {1}. Пополните свой счет на {0} для совершения транзакций.",
+  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Недостаточно средств в {crypto} для покрытия сетевых комиссий",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Транзакции с таким же nonce уже существуют, пожалуйста, уплатите более высокую сетевую комиссию, иначе транзакция может не пройти.",
   "native_token_tooltip": "Это криптовалюта, используемая для оплаты сетевых комиссий",
   "network__network": "Сеть",

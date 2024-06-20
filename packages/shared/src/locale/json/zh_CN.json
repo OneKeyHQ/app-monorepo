@@ -877,7 +877,7 @@
   "market.trending": "热门",
   "market.twenty_four_hour_percentage": "24小时%",
   "market.twenty_four_hour_volume": "24小时交易量",
-  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} 是网络费用所必需的。\n在 {1} 中，网络费用为 {0}。为了进行交易，请给您的账户充值 {0}。",
+  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{crypto} 余额不足以支付网络费用",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "已存在具有相同 nonce 的交易，请支付更高的网络费，否则交易可能会失败。",
   "native_token_tooltip": "该加密货币也会被用于支付网络费用",
   "network__network": "网络",

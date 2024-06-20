@@ -877,7 +877,7 @@
   "market.trending": "Tren",
   "market.twenty_four_hour_percentage": "24j%",
   "market.twenty_four_hour_volume": "Volume 24 jam",
-  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} diperlukan untuk biaya jaringan.\nIni membutuhkan {0} sebagai biaya jaringan di {1}. Isi ulang {0} ke akun Anda untuk melakukan transaksi.",
+  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Saldo {crypto} tidak cukup untuk menutupi biaya jaringan",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Transaksi dengan nonce yang sama sudah ada, silakan bayar biaya jaringan yang lebih tinggi, jika tidak transaksi mungkin gagal.",
   "native_token_tooltip": "Ini adalah mata uang kripto yang digunakan untuk membayar biaya jaringan",
   "network__network": "Jaringan",

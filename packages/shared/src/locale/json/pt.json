@@ -877,7 +877,7 @@
   "market.trending": "Em alta",
   "market.twenty_four_hour_percentage": "24h%",
   "market.twenty_four_hour_volume": "Volume de 24h",
-  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} é necessário para as taxas de rede.\nCusta {0} como taxas de rede em {1}. Recarregue {0} na sua conta para fazer transações.",
+  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Saldo insuficiente de {crypto} para cobrir as taxas de rede",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Transações com o mesmo nonce já existem, por favor, pague uma taxa de rede mais alta, caso contrário, a transação pode falhar.",
   "native_token_tooltip": "Esta é a criptomoeda usada para pagar as taxas de rede",
   "network__network": "Rede",

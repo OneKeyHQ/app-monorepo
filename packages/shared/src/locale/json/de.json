@@ -877,7 +877,7 @@
   "market.trending": "Im Trend",
   "market.twenty_four_hour_percentage": "24h%",
   "market.twenty_four_hour_volume": "24h Volumen",
-  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} wird für Netzwerkgebühren benötigt.\nEs kostet {0} als Netzwerkgebühren in {1}. Laden Sie {0} auf Ihr Konto auf, um Transaktionen durchzuführen.",
+  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Unzureichendes {crypto} Guthaben, um Netzwerkgebühren zu decken",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Transaktionen mit der gleichen Nonce existieren bereits, bitte zahlen Sie eine höhere Netzwerkgebühr, sonst könnte die Transaktion fehlschlagen.",
   "native_token_tooltip": "Dies ist die Kryptowährung, die zur Bezahlung von Netzwerkgebühren verwendet wird",
   "network__network": "Netzwerk",

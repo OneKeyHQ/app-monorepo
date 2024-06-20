@@ -877,7 +877,7 @@
   "market.trending": "Đang thịnh hành",
   "market.twenty_four_hour_percentage": "24 giờ %",
   "market.twenty_four_hour_volume": "Khối lượng 24h",
-  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} là cần thiết cho phí mạng.\nNó tốn {0} như phí mạng trong {1}. Nạp {0} vào tài khoản của bạn để thực hiện giao dịch.",
+  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Số dư {crypto} không đủ để trả phí mạng",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Giao dịch với nonce giống nhau đã tồn tại, vui lòng trả phí mạng cao hơn, nếu không giao dịch có thể thất bại.",
   "native_token_tooltip": "Đây là loại tiền điện tử được sử dụng để thanh toán phí mạng",
   "network__network": "Mạng",

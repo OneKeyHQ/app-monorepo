@@ -877,7 +877,7 @@
   "market.trending": "熱門",
   "market.twenty_four_hour_percentage": "24小時%",
   "market.twenty_four_hour_volume": "24小時成交量",
-  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} 是網路費用所需。\n在 {1} 中，網路費用為 {0}。為了進行交易，請將 {0} 充值到您的帳戶。",
+  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{crypto} 餘額不足以支付網路費用",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "已存在具有相同 nonce 的交易，請支付更高的網路費，否則交易可能會失敗。",
   "native_token_tooltip": "這是用來支付網路費用的加密貨幣",
   "network__network": "網路",

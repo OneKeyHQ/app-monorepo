@@ -877,7 +877,7 @@
   "market.trending": "Trending",
   "market.twenty_four_hour_percentage": "24h%",
   "market.twenty_four_hour_volume": "24h volume",
-  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} is required for network fees.\nIt costs {0} as network fees in {1}. Top up {0} to your account to make transactions.",
+  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Insufficient {crypto} balance to cover network fees",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Transactions with the same nonce already exist, please pay a higher network fee, otherwise the transaction may fail.",
   "native_token_tooltip": "This is the cryptocurrency used to pay for network fees",
   "network__network": "Network",

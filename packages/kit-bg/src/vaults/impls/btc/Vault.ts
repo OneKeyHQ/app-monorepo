@@ -688,7 +688,11 @@ export default class VaultBtc extends VaultBase {
         });
         const { feeUTXO } = feeInfo;
         if (!feeUTXO || isEmpty(feeUTXO)) {
-          throw new OneKeyInternalError('Failed to get fee rates.');
+          throw new OneKeyInternalError(
+            appLocale.intl.formatMessage({
+              id: ETranslations.feedback_failed_to_fet_fee_rate,
+            }),
+          );
         }
         const fees = feeUTXO.map((item) =>
           new BigNumber(item.feeRate ?? 0).toFixed(0),
@@ -734,7 +738,11 @@ export default class VaultBtc extends VaultBase {
         );
       } catch (e) {
         console.error(e);
-        throw new OneKeyInternalError('Failed to get fee rates.');
+        throw new OneKeyInternalError(
+          appLocale.intl.formatMessage({
+            id: ETranslations.feedback_failed_to_fet_fee_rate,
+          }),
+        );
       }
     },
     {
@@ -790,11 +798,19 @@ export default class VaultBtc extends VaultBase {
             withCheckInscription,
           });
         if (!utxoList) {
-          throw new OneKeyInternalError('Failed to get UTXO list.');
+          throw new OneKeyInternalError(
+            appLocale.intl.formatMessage({
+              id: ETranslations.feedback_failed_to_get_utxos,
+            }),
+          );
         }
         return { utxoList, frozenUtxoList };
       } catch (e) {
-        throw new OneKeyInternalError('Failed to get UTXO list.');
+        throw new OneKeyInternalError(
+          appLocale.intl.formatMessage({
+            id: ETranslations.feedback_failed_to_get_utxos,
+          }),
+        );
       }
     },
     {

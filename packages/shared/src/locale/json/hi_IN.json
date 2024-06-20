@@ -877,7 +877,7 @@
   "market.trending": "ट्रेंडिंग",
   "market.twenty_four_hour_percentage": "24 घंटे %",
   "market.twenty_four_hour_volume": "24 घंटे का आयतन",
-  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} नेटवर्क शुल्क के लिए आवश्यक है।\nयह {0} की कीमत पर {1} में नेटवर्क शुल्क के रूप में लागत आती है। लेनदेन करने के लिए अपने खाते में {0} टॉप अप करें।",
+  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "नेटवर्क शुल्क को कवर करने के लिए अपर्याप्त {crypto} संतुलन",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "समान नॉन्स के साथ लेन-देन पहले से मौजूद हैं, कृपया एक उच्च नेटवर्क शुल्क दें, अन्यथा लेन-देन विफल हो सकता है।",
   "native_token_tooltip": "यह वह क्रिप्टोकरेंसी है जिसका उपयोग नेटवर्क शुल्क के भुगतान के लिए किया जाता है",
   "network__network": "नेटवर्क",
