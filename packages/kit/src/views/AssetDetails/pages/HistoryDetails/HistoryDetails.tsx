@@ -656,7 +656,9 @@ function HistoryDetails() {
             />
             {!isNil(txInfo.blockHeight) ? (
               <InfoItem
-                label="Block Height"
+                label={intl.formatMessage({
+                  id: ETranslations.global_block_height,
+                })}
                 renderContent={String(txInfo.blockHeight)}
                 compact
               />

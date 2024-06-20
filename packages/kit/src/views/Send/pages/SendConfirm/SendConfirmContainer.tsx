@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, SizableText, Stack } from '@onekeyhq/components';
+import { Alert, Page, SizableText, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -119,13 +119,19 @@ function SendConfirmContainer() {
         <Page.Body testID="tx-confirmation-body">
           <Stack>
             {sendFeeStatus.errMessage ? (
-              <SizableText mt="$1" size="$bodyMd" color="$textCritical">
-                {sendFeeStatus.errMessage}
-              </SizableText>
+              <Alert
+                fullBleed
+                icon="ErrorOutline"
+                type="critical"
+                title={sendFeeStatus.errMessage}
+              />
             ) : null}
             {sendAlertStatus.isInsufficientNativeBalance ? (
-              <SizableText mt="$1" size="$bodyMd" color="$textCritical">
-                {intl.formatMessage(
+              <Alert
+                fullBleed
+                icon="ErrorOutline"
+                type="critical"
+                title={intl.formatMessage(
                   {
                     id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
                   },
@@ -134,7 +140,7 @@ function SendConfirmContainer() {
                     1: network?.name ?? '',
                   },
                 )}
-              </SizableText>
+              />
             ) : null}
           </Stack>
           <TxSourceInfoContainer sourceInfo={sourceInfo} />

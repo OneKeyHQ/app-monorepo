@@ -8,7 +8,6 @@ import type { IButtonProps } from '@onekeyhq/components';
 import {
   Alert,
   Button,
-  Dialog,
   Divider,
   Form,
   Input,
@@ -21,7 +20,6 @@ import {
   YStack,
   useDialogInstance,
   useForm,
-  useMedia,
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -795,13 +793,13 @@ function FeeEditor(props: IProps) {
         vaultSettings?.withL1BaseFee &&
         new BigNumber(fee.common.baseFee ?? 0).gt(0)
           ? {
-              label: 'L1 Base Fee',
+              label: intl.formatMessage({ id: ETranslations.fee_l1_base_fee }),
               customValue: fee.common.baseFee,
               customSymbol: feeSymbol,
             }
           : null,
         {
-          label: 'Expected Fee',
+          label: intl.formatMessage({ id: ETranslations.fee_expected_fee }),
           nativeValue: expectedFeeInNative,
           nativeSymbol,
           fiatValue: new BigNumber(expectedFeeInNative)
@@ -809,7 +807,7 @@ function FeeEditor(props: IProps) {
             .toFixed(),
         },
         {
-          label: 'Max Fee',
+          label: intl.formatMessage({ id: ETranslations.fee_max_fee }),
           nativeValue: maxFeeInNative,
           nativeSymbol,
           fiatValue: new BigNumber(maxFeeInNative)
@@ -837,13 +835,13 @@ function FeeEditor(props: IProps) {
         vaultSettings?.withL1BaseFee &&
         new BigNumber(fee.common.baseFee ?? 0).gt(0)
           ? {
-              label: 'L1 Base Fee',
+              label: intl.formatMessage({ id: ETranslations.fee_l1_base_fee }),
               customValue: fee.common.baseFee,
               customSymbol: feeSymbol,
             }
           : null,
         {
-          label: 'Max Fee',
+          label: intl.formatMessage({ id: ETranslations.fee_max_fee }),
           nativeValue: maxFeeInNative,
           nativeSymbol,
           fiatValue: new BigNumber(maxFeeInNative)
@@ -920,7 +918,7 @@ function FeeEditor(props: IProps) {
 
       feeInfoItems = [
         {
-          label: 'Fee',
+          label: intl.formatMessage({ id: ETranslations.fee_fee }),
           nativeValue: maxFeeInNative,
           nativeSymbol,
           fiatValue: new BigNumber(maxFeeInNative)

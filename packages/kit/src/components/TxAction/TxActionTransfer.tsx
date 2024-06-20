@@ -507,9 +507,11 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         <InfoItem
           label={intl.formatMessage({ id: ETranslations.network__network })}
           renderContent={
-            <XStack alignItems="center" space="$1">
+            <XStack alignItems="center" space="$2">
               <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
-              <SizableText size="$bodyMdMedium">{network?.name}</SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {network?.name}
+              </SizableText>
             </XStack>
           }
         />,
