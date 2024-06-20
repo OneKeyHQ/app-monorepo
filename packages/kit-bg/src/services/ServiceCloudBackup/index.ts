@@ -147,6 +147,7 @@ class ServiceCloudBackup extends ServiceBase {
             type: wallet.type,
             accounts: [],
             accountIds: [],
+            indexedAccountUUIDs: [],
             nextIds: wallet.nextIds,
             avatar: wallet.avatarInfo,
             version: HDWALLET_BACKUP_VERSION,
@@ -157,13 +158,18 @@ class ServiceCloudBackup extends ServiceBase {
               id: account.indexedAccountId,
             });
             account.name = indexedAccount.name;
+            walletToBackup.indexedAccountUUIDs.push(account.indexedAccountId);
           }
           walletToBackup.accounts.push(account);
           walletToBackup.accountIds.push(HDAccountUUID);
+
           publicBackupData.HDWallets[wallet.id] = {
             name: walletToBackup.name,
             avatar: walletToBackup.avatar,
             accountUUIDs: walletToBackup.accountIds,
+            indexedAccountUUIDs: Array.from(
+              new Set(walletToBackup.indexedAccountUUIDs),
+            ).map(() => generateUUID()),
           };
           privateBackupData.wallets[wallet.id] = walletToBackup;
         }
@@ -236,7 +242,7 @@ class ServiceCloudBackup extends ServiceBase {
         walletCount: Object.keys(cloudData.publicData.HDWallets).length,
         accountCount:
           Object.values(cloudData.publicData.HDWallets).reduce(
-            (count, wallet) => count + wallet.accountUUIDs.length,
+            (count, wallet) => count + wallet.indexedAccountUUIDs.length,
             0,
           ) +
           Object.keys(cloudData.publicData.importedAccounts).length +
@@ -473,7 +479,7 @@ class ServiceCloudBackup extends ServiceBase {
         ) {
           alreadyOnDevice.HDWallets[HDWalletId] = HDWallet;
         } else {
-          diffCount += HDWallet.accountUUIDs.length;
+          diffCount += HDWallet.indexedAccountUUIDs.length;
           notOnDevice.HDWallets[HDWalletId] = HDWallet;
         }
       }

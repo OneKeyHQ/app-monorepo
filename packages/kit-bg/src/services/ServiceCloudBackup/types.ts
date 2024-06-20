@@ -5,12 +5,10 @@ import type {
   IDBAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-
 // export type ISimpleDBBackUp = {
 //   utxoAccounts: Pick<ISimpleDbEntityUtxoData, 'utxos'>;
 //   market: Pick<ISimpleDbEntityMarktData, 'favorites'>;
 // };
-
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 type IBackupBasicData = {
@@ -30,6 +28,7 @@ export type IPublicBackupData = IBackupBasicData & {
       name: string;
       avatar?: IAvatarInfo;
       accountUUIDs: Array<string>;
+      indexedAccountUUIDs: Array<string>;
     }
   >;
   // simpleDb?: ISimpleDBBackUp;
@@ -65,6 +64,7 @@ export type IImportableHDWallet = Omit<
 > & {
   accounts: Array<IDBAccount>;
   accountIds: Array<string>; // UUIDs of accounts
+  indexedAccountUUIDs: Array<string>;
   avatar?: IAvatarInfo;
 } & IHasVersion;
 

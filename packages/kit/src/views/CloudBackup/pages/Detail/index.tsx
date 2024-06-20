@@ -67,7 +67,7 @@ export default function Detail() {
             title: wallet.name,
             detail: intl.formatMessage(
               { id: ETranslations.global_number_accounts },
-              { number: wallet.accountUUIDs.length },
+              { number: wallet.indexedAccountUUIDs.length },
             ),
             walletAvatar: wallet.avatar,
             infoList: [

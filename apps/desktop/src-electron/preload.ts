@@ -77,6 +77,7 @@ export type IDesktopAPI = {
   clearWebViewData: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   setAllowedPhishingUrls: (urls: string[]) => void;
+  clearWebViewCache: () => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -272,6 +273,9 @@ const desktopApi = {
   },
   setAllowedPhishingUrls: (urls: string[]) => {
     ipcRenderer.send(ipcMessageKeys.SET_ALLOWED_PHISHING_URLS, urls);
+  },
+  clearWebViewCache: () => {
+    ipcRenderer.send(ipcMessageKeys.CLEAR_WEBVIEW_CACHE);
   },
 };
 

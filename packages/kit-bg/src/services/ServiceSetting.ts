@@ -148,7 +148,7 @@ class ServiceSetting extends ServiceBase {
       await this.backgroundApi.serviceSwap.cleanSwapHistoryItems();
     }
     if (values.browserCache) {
-      // clear browser cache
+      await this.backgroundApi.serviceDiscovery.clearCache();
     }
     if (values.browserHistory) {
       // clear Browser History, Bookmarks, Pins
