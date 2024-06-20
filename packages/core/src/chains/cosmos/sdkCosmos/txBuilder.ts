@@ -10,7 +10,6 @@ import {
 } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import { Any } from 'cosmjs-types/google/protobuf/any';
 import Long from 'long';
-import protobufjs from 'protobufjs';
 
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -22,10 +21,6 @@ import {
 
 import type { ICosmosProtoMsgsOrWithAminoMsgs } from './ITxMsgBuilder';
 import type { TransactionWrapper } from './wrapper';
-
-protobufjs.util.Long =
-  'default' in Long ? (Long.default as protobufjs.Constructor<Long>) : Long;
-protobufjs.configure();
 
 export interface ICosmosTxBuilder {
   makeTxWrapper(
