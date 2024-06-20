@@ -14,7 +14,11 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
 import v4dbHubs from '../../migrations/v4ToV5Migration/v4dbHubs';
-import { V4_INDEXED_DB_NAME } from '../../migrations/v4ToV5Migration/v4local/v4localDBConsts';
+import {
+  V4_INDEXED_DB_NAME,
+  V4_REALM_DB_NAME,
+} from '../../migrations/v4ToV5Migration/v4local/v4localDBConsts';
+import v4localDbExists from '../../migrations/v4ToV5Migration/v4local/v4localDbExists';
 import { EV4LocalDBStoreNames } from '../../migrations/v4ToV5Migration/v4local/v4localDBStoreNames';
 import { V4MigrationForAccount } from '../../migrations/v4ToV5Migration/V4MigrationForAccount';
 import { V4MigrationForAddressBook } from '../../migrations/v4ToV5Migration/V4MigrationForAddressBook';
@@ -146,24 +150,32 @@ class ServiceV4Migration extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async checkIfV4DbExist() {
+    try {
+      return await v4localDbExists();
+    } catch (error) {
+      return false;
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async checkShouldMigrateV4OnMount() {
     const v4migrationPersistData = await v4migrationPersistAtom.get();
     if (v4migrationPersistData?.v4migrationAutoStartDisabled) {
       return false;
     }
+
     let v4dbExist = true;
-    if (platformEnv.isRuntimeBrowser) {
-      v4dbExist = await v4dbHubs.logger.runAsyncWithCatch(
-        async () => {
-          const databases = await window.indexedDB.databases();
-          return databases.some((db) => db.name === V4_INDEXED_DB_NAME);
-        },
-        {
-          name: `check v4 db exist: ${V4_INDEXED_DB_NAME}`,
-          errorResultFn: () => false,
-        },
-      );
-    }
+    v4dbExist = await v4dbHubs.logger.runAsyncWithCatch(
+      async () => this.checkIfV4DbExist(),
+      {
+        name: `check v4 db exist: ${
+          platformEnv.isNative ? V4_REALM_DB_NAME : V4_INDEXED_DB_NAME
+        }`,
+        errorResultFn: () => false,
+      },
+    );
 
     if (v4dbExist) {
       const isV4PasswordSet = await v4dbHubs.logger.runAsyncWithCatch(

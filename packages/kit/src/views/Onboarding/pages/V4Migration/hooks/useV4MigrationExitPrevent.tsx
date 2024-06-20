@@ -223,8 +223,9 @@ export function useV4MigrationExitPrevent({
   useKeepAwake();
 
   const isAutoStartInFirstTime =
-    !v4migrationPersistData?.v4migrationAutoStartCount ||
-    v4migrationPersistData?.v4migrationAutoStartCount <= 1;
+    !v4migrationPersistData.v4migrationAutoStartDisabled &&
+    (!v4migrationPersistData?.v4migrationAutoStartCount ||
+      v4migrationPersistData?.v4migrationAutoStartCount <= 1);
 
   // Prevent Modal exit/back
   useModalExitPrevent({

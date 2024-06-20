@@ -24,6 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { useV4MigrationActions } from '../V4Migration/hooks/useV4MigrationActions';
 
 type IOptionItem = IPropsWithTestId<{
@@ -70,6 +71,11 @@ export function ImportWalletOptions() {
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
   const backupEntryStatus = useBackupEntryStatus();
+
+  const { result: isV4DbExist = false } = usePromiseResult(
+    () => backgroundApiProxy.serviceV4Migration.checkIfV4DbExist(),
+    [],
+  );
 
   const v4MigrationActions = useV4MigrationActions();
 
@@ -205,20 +211,22 @@ export function ImportWalletOptions() {
               } as IOptionItem,
             ]
           : []),
-        {
-          title: intl.formatMessage({
-            id: ETranslations.onboarding_migrate_from_v4,
-          }),
-          icon: 'StorageOutline',
-          // onPress: handleMigrateFromV4,
-          onPress: async () => {
-            navigation.popStack();
-            await timerUtils.wait(100);
-            await v4MigrationActions.navigateToV4MigrationPage();
-          },
-          testID: 'connect-hardware-wallet',
-        },
-      ],
+        isV4DbExist
+          ? {
+              title: intl.formatMessage({
+                id: ETranslations.onboarding_migrate_from_v4,
+              }),
+              icon: 'StorageOutline',
+              // onPress: handleMigrateFromV4,
+              onPress: async () => {
+                navigation.popStack();
+                await timerUtils.wait(100);
+                await v4MigrationActions.navigateToV4MigrationPage();
+              },
+              testID: 'connect-hardware-wallet',
+            }
+          : null,
+      ].filter(Boolean),
     },
   ];
 
