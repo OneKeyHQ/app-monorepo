@@ -7,6 +7,7 @@ export enum EModalSettingRoutes {
   SettingProtectModal = 'SettingProtectModal',
   SettingSignatureRecordModal = 'SettingSignatureRecordModal',
   SettingDevFirmwareUpdateModal = 'SettingDevFirmwareUpdateModal',
+  SettingDevV4MigrationModal = 'SettingDevV4MigrationModal',
 }
 
 export type IModalSettingParamList = {
@@ -18,4 +19,5 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingProtectModal]: undefined;
   [EModalSettingRoutes.SettingSignatureRecordModal]: undefined;
   [EModalSettingRoutes.SettingDevFirmwareUpdateModal]: undefined;
+  [EModalSettingRoutes.SettingDevV4MigrationModal]: undefined;
 };

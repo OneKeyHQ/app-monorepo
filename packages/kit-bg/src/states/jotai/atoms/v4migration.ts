@@ -5,6 +5,7 @@ export type IV4MigrationAtom = {
   progress: number;
   backedUpMark: Partial<Record<string, boolean>>;
   isProcessing: boolean;
+  isMigrationModalOpen?: boolean;
 };
 export const { target: v4migrationAtom, use: useV4migrationAtom } =
   globalAtom<IV4MigrationAtom>({
@@ -14,6 +15,7 @@ export const { target: v4migrationAtom, use: useV4migrationAtom } =
       progress: 0,
       backedUpMark: {},
       isProcessing: false,
+      isMigrationModalOpen: false,
     },
   });
 
