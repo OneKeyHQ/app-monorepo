@@ -415,6 +415,8 @@
   "faq.recovery_phrase_safe_store_desc": "是的，它被存储在本地，除非您明确许可，否则绝不会离开您的设备。",
   "faq.watched_account": "观察账户",
   "faq.watched_account_desc": "在 OneKey 中，「观察账户」允许监控特定地址，但不能发送或接收资金。它对于跟踪交易或监控持有量非常有用。",
+  "fee.fee": "费用",
+  "fee.fee_rate": "费率",
   "feedback.address_mismatch": "地址不匹配",
   "feedback.address_mismatch_desc": "该地址与硬件钱包不匹配。请立即停止使用此地址，并与我们联系。",
   "feedback.bluetooth_pairing_failed": "蓝牙配对失败",

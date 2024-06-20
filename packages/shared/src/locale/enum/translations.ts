@@ -416,6 +416,8 @@ export enum ETranslations {
   faq_recovery_phrase_safe_store_desc = 'faq.recovery_phrase_safe_store_desc',
   faq_watched_account = 'faq.watched_account',
   faq_watched_account_desc = 'faq.watched_account_desc',
+  fee_fee = 'fee.fee',
+  fee_fee_rate = 'fee.fee_rate',
   feedback_address_mismatch = 'feedback.address_mismatch',
   feedback_address_mismatch_desc = 'feedback.address_mismatch_desc',
   feedback_bluetooth_pairing_failed = 'feedback.bluetooth_pairing_failed',

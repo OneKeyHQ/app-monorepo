@@ -415,6 +415,8 @@
   "faq.recovery_phrase_safe_store_desc": "Oui, il est stocké localement et ne quitte jamais votre appareil sans votre autorisation explicite.",
   "faq.watched_account": "Compte surveillé",
   "faq.watched_account_desc": "Un compte surveillé dans OneKey permet de surveiller une adresse spécifique mais ne peut ni envoyer ni recevoir de fonds. Il est utile pour suivre les transactions ou surveiller les avoirs.",
+  "fee.fee": "Frais",
+  "fee.fee_rate": "Taux de frais",
   "feedback.address_mismatch": "Incohérence d'adresse",
   "feedback.address_mismatch_desc": "L'adresse ne correspond pas au portefeuille matériel. Arrêtez d'utiliser cette adresse immédiatement et contactez-nous.",
   "feedback.bluetooth_pairing_failed": "Échec de l'appariement Bluetooth",

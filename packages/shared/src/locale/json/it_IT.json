@@ -415,6 +415,8 @@
   "faq.recovery_phrase_safe_store_desc": "Sì, è memorizzato localmente e non lascia mai il tuo dispositivo senza il tuo esplicito consenso.",
   "faq.watched_account": "Account monitorato",
   "faq.watched_account_desc": "Un account monitorato in OneKey permette di tenere sotto controllo un indirizzo specifico, ma non può inviare o ricevere fondi. È utile per tracciare le transazioni o monitorare i possedimenti.",
+  "fee.fee": "Tariffa",
+  "fee.fee_rate": "Tariffa",
   "feedback.address_mismatch": "Indirizzo non corrispondente",
   "feedback.address_mismatch_desc": "L'indirizzo non corrisponde al portafoglio hardware. Smetti immediatamente di utilizzare questo indirizzo e contattaci.",
   "feedback.bluetooth_pairing_failed": "Associazione Bluetooth non riuscita",

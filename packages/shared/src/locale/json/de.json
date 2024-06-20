@@ -415,6 +415,8 @@
   "faq.recovery_phrase_safe_store_desc": "Ja, es wird lokal gespeichert und verlässt Ihr Gerät nie ohne Ihre ausdrückliche Erlaubnis.",
   "faq.watched_account": "Beobachtetes Konto",
   "faq.watched_account_desc": "Ein beobachtetes Konto in OneKey ermöglicht die Überwachung einer bestimmten Adresse, kann jedoch keine Gelder senden oder empfangen. Es ist nützlich für die Verfolgung von Transaktionen oder die Überwachung von Beständen.",
+  "fee.fee": "Gebühr",
+  "fee.fee_rate": "Gebührensatz",
   "feedback.address_mismatch": "Adressenabweichung",
   "feedback.address_mismatch_desc": "Die Adresse stimmt nicht mit der Hardware-Wallet überein. Hören Sie sofort auf, diese Adresse zu verwenden und kontaktieren Sie uns.",
   "feedback.bluetooth_pairing_failed": "Bluetooth-Kopplung fehlgeschlagen",

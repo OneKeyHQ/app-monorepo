@@ -415,6 +415,8 @@
   "faq.recovery_phrase_safe_store_desc": "はい、それはローカルに保存され、明示的な許可なしにはあなたのデバイスから出ることはありません。",
   "faq.watched_account": "ウォッチされたアカウント",
   "faq.watched_account_desc": "OneKeyの「監視アカウント」は特定のアドレスを監視することができますが、資金の送受信はできません。トランザクションの追跡や保有量の監視に役立ちます。",
+  "fee.fee": "料金",
+  "fee.fee_rate": "手数料率",
   "feedback.address_mismatch": "住所が一致しません",
   "feedback.address_mismatch_desc": "アドレスがハードウェアウォレットと一致しません。すぐにこのアドレスの使用を停止し、私たちに連絡してください。",
   "feedback.bluetooth_pairing_failed": "Bluetoothのペアリングに失敗しました",

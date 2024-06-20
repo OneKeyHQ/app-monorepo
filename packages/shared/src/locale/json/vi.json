@@ -415,6 +415,8 @@
   "faq.recovery_phrase_safe_store_desc": "Vâng, nó được lưu trữ cục bộ và không bao giờ rời khỏi thiết bị của bạn mà không có sự cho phép rõ ràng từ bạn.",
   "faq.watched_account": "Tài khoản được theo dõi",
   "faq.watched_account_desc": "Tài khoản được theo dõi trong OneKey cho phép giám sát một địa chỉ cụ thể nhưng không thể gửi hoặc nhận tiền. Nó rất hữu ích để theo dõi giao dịch hoặc giám sát số dư.",
+  "fee.fee": "Phí",
+  "fee.fee_rate": "Tỷ lệ phí",
   "feedback.address_mismatch": "Địa chỉ không khớp",
   "feedback.address_mismatch_desc": "Địa chỉ không khớp với ví cứng. Ngừng sử dụng địa chỉ này ngay lập tức và liên hệ với chúng tôi.",
   "feedback.bluetooth_pairing_failed": "Kết nối Bluetooth thất bại",

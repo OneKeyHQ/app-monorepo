@@ -415,6 +415,8 @@
   "faq.recovery_phrase_safe_store_desc": "네, 데이터는 로컬에 저장되며 사용자의 명시적인 허락 없이는 장치를 떠나지 않습니다.",
   "faq.watched_account": "조회된 계정",
   "faq.watched_account_desc": "OneKey의 감시 계정은 특정 주소를 모니터링할 수 있지만 자금을 보내거나 받을 수는 없습니다. 이는 거래 추적이나 보유량 모니터링에 유용합니다.",
+  "fee.fee": "수수료",
+  "fee.fee_rate": "수수료율",
   "feedback.address_mismatch": "주소 불일치",
   "feedback.address_mismatch_desc": "주소가 하드웨어 지갑과 일치하지 않습니다. 즉시 이 주소 사용을 중단하고 저희에게 연락하세요.",
   "feedback.bluetooth_pairing_failed": "블루투스 페어링 실패",

@@ -160,7 +160,6 @@ function FeeEditor(props: IProps) {
   } = props;
   const intl = useIntl();
   const dialog = useDialogInstance();
-  const isVerticalLayout = useMedia().md;
 
   const [currentFeeIndex, setCurrentFeeIndex] = useState(
     getPresetIndex(sendSelectedFee, feeSelectorItems),
@@ -375,7 +374,9 @@ function FeeEditor(props: IProps) {
     let feeTitle = '';
 
     if (customFee.feeUTXO) {
-      feeTitle = 'Fee Rate (sat/vB)';
+      feeTitle = `${intl.formatMessage({
+        id: ETranslations.fee_fee_rate,
+      })} (sat/vB)`;
     } else {
       feeTitle = intl.formatMessage(
         { id: ETranslations.content__gas_price },
@@ -645,9 +646,6 @@ function FeeEditor(props: IProps) {
         <Form form={form}>
           <YStack space="$5">
             <Form.Field
-              label={intl.formatMessage({
-                id: 'form__fee_rate',
-              })}
               name="feeRate"
               rules={{
                 required: true,
@@ -659,7 +657,13 @@ function FeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} />
+              <Input
+                addOns={[
+                  {
+                    label: 'sat/vB',
+                  },
+                ]}
+              />
             </Form.Field>
           </YStack>
         </Form>
@@ -819,12 +823,12 @@ function FeeEditor(props: IProps) {
 
       feeInfoItems = [
         {
-          label: 'VSize',
+          label: 'vSize',
           customValue: unsignedTxs[0]?.txSize?.toFixed() ?? '0',
           customSymbol: 'vB',
         },
         {
-          label: 'Fee',
+          label: intl.formatMessage({ id: ETranslations.fee_fee }),
           nativeValue: feeInNative,
           nativeSymbol,
           fiatValue: new BigNumber(feeInNative)
