@@ -21,6 +21,7 @@ import type {
   IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
   IProxyRequest,
   IProxyRequestItem,
@@ -197,9 +198,12 @@ class ServiceAccountProfile extends ServiceBase {
       });
     }
 
-    const isDomain = addressIsEnsFormat(address);
-    if (isDomain && enableNameResolve) {
-      await this.handleNameSolve(networkId, address, result);
+    if (enableNameResolve) {
+      const vault = await vaultFactory.getChainOnlyVault({ networkId });
+      const isDomain = await vault.checkIsDomainName({ name: address });
+      if (isDomain) {
+        await this.handleNameSolve(networkId, address, result);
+      }
     }
     if (!skipValidateAddress && result.validStatus !== 'valid') {
       return result;
@@ -271,11 +275,19 @@ class ServiceAccountProfile extends ServiceBase {
     address: string,
     result: IAddressQueryResult,
   ) {
-    const resolveNames =
-      await this.backgroundApi.serviceNameResolver.resolveName({
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    let resolveNames: IResolveNameResp | null | undefined =
+      await vault.resolveDomainName({
+        name: address,
+      });
+
+    if (!resolveNames) {
+      resolveNames = await this.backgroundApi.serviceNameResolver.resolveName({
         name: address,
         networkId,
       });
+    }
+
     if (resolveNames && resolveNames.names?.length) {
       result.resolveAddress = resolveNames.names?.[0].value;
       result.resolveOptions = resolveNames.names?.map((o) => o.value);
