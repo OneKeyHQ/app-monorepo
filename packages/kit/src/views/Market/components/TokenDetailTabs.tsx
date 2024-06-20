@@ -1,10 +1,11 @@
 import type { ReactElement } from 'react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { ITabPageProps } from '@onekeyhq/components';
 import {
+  RefreshControl,
   Skeleton,
   Stack,
   Tab,
@@ -64,9 +65,13 @@ function MdSkeletonRow() {
 function BasicTokenDetailTabs({
   token,
   listHeaderComponent,
+  isRefreshing,
+  onRefresh,
 }: {
   token?: IMarketTokenDetail;
   listHeaderComponent?: ReactElement;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }) {
   const intl = useIntl();
   const { md } = useMedia();
@@ -149,6 +154,9 @@ function BasicTokenDetailTabs({
   );
   return (
     <Tab
+      refreshControl={
+        <RefreshControl refreshing={!!isRefreshing} onRefresh={onRefresh} />
+      }
       $gtMd={{ px: '$5' }}
       $md={{ mt: '$5' }}
       data={tabConfig}

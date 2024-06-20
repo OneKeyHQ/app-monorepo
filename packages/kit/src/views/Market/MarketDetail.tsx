@@ -135,15 +135,29 @@ function MarketDetail({
   const { coinGeckoId, symbol } = route.params;
   const { gtMd } = useMedia();
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const [tokenDetail, setTokenDetail] = useState<
     IMarketTokenDetail | undefined
   >(undefined);
 
-  useEffect(() => {
-    void backgroundApiProxy.serviceMarket
-      .fetchTokenDetail(coinGeckoId)
-      .then(setTokenDetail);
+  const fetchMarketTokenDetail = useCallback(async () => {
+    const response =
+      await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
+        coinGeckoId,
+      );
+    setTokenDetail(response);
   }, [coinGeckoId]);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await fetchMarketTokenDetail();
+    setIsRefreshing(false);
+  }, [fetchMarketTokenDetail]);
+
+  useEffect(() => {
+    void fetchMarketTokenDetail();
+  }, [fetchMarketTokenDetail]);
 
   const renderHeaderTitle = useCallback(
     () => (
@@ -298,6 +312,8 @@ function MarketDetail({
           </YStack>
         ) : (
           <TokenDetailTabs
+            isRefreshing={isRefreshing}
+            onRefresh={onRefresh}
             token={tokenDetail}
             listHeaderComponent={
               <YStack>
