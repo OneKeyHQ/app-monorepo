@@ -92,66 +92,68 @@ function TxFeeContainer(props: IProps) {
       ]);
     }, [accountId, networkId]);
 
-  const { r: txFee, e: estimateFeeParams } =
-    usePromiseResult(
-      async () => {
-        try {
-          updateSendFeeStatus({
-            status: ESendFeeStatus.Loading,
-          });
-          const accountAddress =
-            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-              networkId,
-              accountId,
-            });
-
-          const { encodedTx, estimateFeeParams: e } =
-            await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
-              accountId,
-              networkId,
-              encodedTx: unsignedTxs[0].encodedTx,
-            });
-
-          const r = await backgroundApiProxy.serviceGas.estimateFee({
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      try {
+        updateSendFeeStatus({
+          status: ESendFeeStatus.Loading,
+        });
+        const accountAddress =
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
             networkId,
-            encodedTx,
-            accountAddress,
+            accountId,
           });
-          // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
-          // these five levels are also provided as predictions on the custom fee page for users to choose
-          if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
-            r.gasEIP1559 = [r.gasEIP1559[0], r.gasEIP1559[2], r.gasEIP1559[4]];
-          } else if (r.gasEIP1559) {
-            r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
-          }
 
-          updateSendFeeStatus({
-            status: ESendFeeStatus.Success,
-            errMessage: '',
+        const { encodedTx, estimateFeeParams: e } =
+          await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+            accountId,
+            networkId,
+            encodedTx: unsignedTxs[0].encodedTx,
           });
-          txFeeInit.current = true;
-          return {
-            r,
-            e,
-          };
-        } catch (e) {
-          updateSendFeeStatus({
-            status: ESendFeeStatus.Error,
-            errMessage:
-              (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
-                ?.message ??
-              (e as Error).message ??
-              e,
-          });
+
+        const r = await backgroundApiProxy.serviceGas.estimateFee({
+          networkId,
+          encodedTx,
+          accountAddress,
+        });
+        // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
+        // these five levels are also provided as predictions on the custom fee page for users to choose
+        if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
+          r.gasEIP1559 = [r.gasEIP1559[0], r.gasEIP1559[2], r.gasEIP1559[4]];
+        } else if (r.gasEIP1559) {
+          r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
         }
-      },
-      [accountId, networkId, unsignedTxs, updateSendFeeStatus],
-      {
-        pollingInterval: 6000,
-        overrideIsFocused: (isPageFocused) =>
-          isPageFocused && sendSelectedFee.feeType !== EFeeType.Custom,
-      },
-    ).result ?? {};
+
+        updateSendFeeStatus({
+          status: ESendFeeStatus.Success,
+          errMessage: '',
+        });
+        txFeeInit.current = true;
+        return {
+          r,
+          e,
+        };
+      } catch (e) {
+        updateSendFeeStatus({
+          status: ESendFeeStatus.Error,
+          errMessage:
+            (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
+              ?.message ??
+            (e as Error).message ??
+            e,
+        });
+      }
+    },
+    [accountId, networkId, unsignedTxs, updateSendFeeStatus],
+    {
+      watchLoading: true,
+      pollingInterval: 6000,
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused && sendSelectedFee.feeType !== EFeeType.Custom,
+    },
+  );
+
+  const { r: txFee, e: estimateFeeParams } = result ?? {};
 
   const openFeeEditorEnabled =
     !!vaultSettings?.editFeeEnabled || !!vaultSettings?.checkFeeDetailEnabled;
