@@ -1,4 +1,5 @@
 import {
+  IMPL_ADA,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_XRP,
@@ -6,6 +7,7 @@ import {
 import type { IHistoryTxMetaComponents } from '@onekeyhq/shared/types/history';
 import { EHistoryTxDetailsBlock } from '@onekeyhq/shared/types/history';
 
+import { AdaTxFlow } from './pages/HistoryDetails/components/AdaTxMeta';
 import {
   LightningTxAttributes,
   LightningTxFlow,
@@ -25,6 +27,11 @@ export function getHistoryTxMeta({ impl }: { impl: string }) {
     case IMPL_XRP:
       components = {
         [EHistoryTxDetailsBlock.Attributes]: XrpTxAttributes,
+      };
+      break
+    case IMPL_ADA:
+      components = {
+        [EHistoryTxDetailsBlock.Flow]: AdaTxFlow,
       };
       break;
     default:

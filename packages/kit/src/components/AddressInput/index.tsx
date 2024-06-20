@@ -25,6 +25,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IAddressInteractionStatus,
@@ -185,19 +186,19 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   }
   if (result) {
     return (
-      <XStack space="$2" flex={1} flexWrap="wrap">
+      <XStack space="$2" my="$-1" flex={1} flexWrap="wrap">
         {result.walletAccountName ? (
-          <Badge badgeType="success" badgeSize="sm" mb="$1">
+          <Badge badgeType="success" badgeSize="sm" my="$0.5">
             {result.walletAccountName}
           </Badge>
         ) : null}
         {result.addressBookName ? (
-          <Badge badgeType="success" badgeSize="sm" mb="$1">
+          <Badge badgeType="success" badgeSize="sm" my="$0.5">
             {result.addressBookName}
           </Badge>
         ) : null}
         {result.resolveAddress ? (
-          <Stack mb="$1">
+          <Stack my="$0.5">
             <ResolvedAddress
               value={result.resolveAddress}
               options={result.resolveOptions ?? []}
@@ -205,7 +206,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        <Stack mb="$1">
+        <Stack my="$0.5">
           <AddressInteractionStatus status={result.addressInteractionStatus} />
         </Stack>
       </XStack>
@@ -433,14 +434,21 @@ export function AddressInput(props: IAddressInputProps) {
     ],
   );
 
+  const getAddressInputPlaceholder = useMemo(() => {
+    if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+      return intl.formatMessage({
+        id: ETranslations.form_recipient_ln_placeholder,
+      });
+    }
+
+    return intl.formatMessage({ id: ETranslations.send_to_placeholder });
+  }, [intl, networkId]);
+
   return (
     <BaseInput
       value={inputText}
       onChangeText={onChangeText}
-      placeholder={
-        placeholder ??
-        intl.formatMessage({ id: ETranslations.send_to_placeholder })
-      }
+      placeholder={placeholder ?? getAddressInputPlaceholder}
       extension={AddressInputExtension}
       {...rest}
     />

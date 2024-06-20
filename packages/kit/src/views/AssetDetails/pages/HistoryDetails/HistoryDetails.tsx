@@ -99,6 +99,60 @@ export function AssetItem({
   isApproveUnlimited?: boolean;
 }) {
   const intl = useIntl();
+  let primary = null;
+  let secondary = null;
+
+  if (isApprove) {
+    primary = (
+      <SizableText textAlign="right" size="$bodyLgMedium" color="$textSuccess">
+        {isApproveUnlimited
+          ? intl.formatMessage({
+              id: ETranslations.swap_page_button_approve_unlimited,
+            })
+          : intl.formatMessage(
+              { id: ETranslations.form__approve_str },
+              {
+                amount,
+                symbol: asset.symbol,
+              },
+            )}
+      </SizableText>
+    );
+  } else if (!amount) {
+    primary = (
+      <SizableText textAlign="right" size="$bodyLgMedium" color="$text">
+        -
+      </SizableText>
+    );
+    secondary = primary;
+  } else {
+    primary = (
+      <NumberSizeableText
+        textAlign="right"
+        size="$bodyLgMedium"
+        color={direction === EDecodedTxDirection.IN ? '$textSuccess' : '$text'}
+        formatter="balance"
+        formatterOptions={{
+          tokenSymbol: asset.isNFT ? '' : asset.symbol,
+          showPlusMinusSigns: true,
+        }}
+      >
+        {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amount}`}
+      </NumberSizeableText>
+    );
+    secondary = (
+      <NumberSizeableText
+        textAlign="right"
+        size="$bodyMd"
+        color="$textSubdued"
+        formatter="value"
+        formatterOptions={{ currency: currencySymbol }}
+      >
+        {new BigNumber(amount).times(asset.price ?? 0).toString()}
+      </NumberSizeableText>
+    );
+  }
+
   return (
     <ListItem key={index}>
       <Token
@@ -107,58 +161,7 @@ export function AssetItem({
         networkImageUri={networkIcon}
       />
       <ListItem.Text primary={asset.symbol} secondary={asset.name} flex={1} />
-      <ListItem.Text
-        primary={
-          isApprove ? (
-            <SizableText
-              textAlign="right"
-              size="$bodyLgMedium"
-              color="$textSuccess"
-            >
-              {isApproveUnlimited
-                ? intl.formatMessage({
-                    id: ETranslations.swap_page_button_approve_unlimited,
-                  })
-                : intl.formatMessage(
-                    { id: ETranslations.form__approve_str },
-                    {
-                      amount,
-                      symbol: asset.symbol,
-                    },
-                  )}
-            </SizableText>
-          ) : (
-            <NumberSizeableText
-              textAlign="right"
-              size="$bodyLgMedium"
-              color={
-                direction === EDecodedTxDirection.IN ? '$textSuccess' : '$text'
-              }
-              formatter="balance"
-              formatterOptions={{
-                tokenSymbol: asset.isNFT ? '' : asset.symbol,
-                showPlusMinusSigns: true,
-              }}
-            >
-              {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amount}`}
-            </NumberSizeableText>
-          )
-        }
-        secondary={
-          isApprove ? null : (
-            <NumberSizeableText
-              textAlign="right"
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="value"
-              formatterOptions={{ currency: currencySymbol }}
-            >
-              {new BigNumber(amount).times(asset.price ?? 0).toString()}
-            </NumberSizeableText>
-          )
-        }
-        align="right"
-      />
+      <ListItem.Text primary={primary} secondary={secondary} align="right" />
     </ListItem>
   );
 }
@@ -250,7 +253,6 @@ function HistoryDetails() {
             receives[0]?.to ??
             decodedTx.to ??
             decodedTx.actions[0]?.assetTransfer?.to;
-
       return {
         from,
         to,
@@ -387,8 +389,10 @@ function HistoryDetails() {
     const onChainTxPayload = historyTx.decodedTx.payload;
 
     if (vaultSettings?.isUtxo) {
-      sends = sends?.filter((send) => send.isOwn);
-      receives = receives?.filter((receive) => receive.isOwn);
+      sends = sends?.filter((send) => (isNil(send.isOwn) ? true : send.isOwn));
+      receives = receives?.filter((receive) =>
+        isNil(receive.isOwn) ? true : receive.isOwn,
+      );
     }
 
     if (
@@ -528,12 +532,8 @@ function HistoryDetails() {
 
   const renderTxMetaInfo = useCallback(() => {
     const components = getHistoryTxMeta({ impl: network?.impl ?? '' });
-    console.log('components', components);
     const TxFlow = components?.[EHistoryTxDetailsBlock.Flow];
     const TxAttributes = components?.[EHistoryTxDetailsBlock.Attributes];
-
-    console.log('TxFlow', TxFlow);
-    console.log('TxAttributes', TxAttributes);
 
     return (
       <>
@@ -617,7 +617,7 @@ function HistoryDetails() {
               compact
             />
             <InfoItem
-              label={intl.formatMessage({ id: ETranslations.global_date })}
+              label={intl.formatMessage({ id: ETranslations.global_time })}
               renderContent={txInfo.date}
               compact
             />
@@ -626,25 +626,6 @@ function HistoryDetails() {
           <Divider mx="$5" />
           <InfoItemGroup>
             {renderTxMetaInfo()}
-            {vaultSettings?.isUtxo ? (
-              <InfoItem
-                renderContent={
-                  <Button
-                    size="medium"
-                    onPress={handleViewUTXOsOnPress}
-                    variant="secondary"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_inputs,
-                    })}{' '}
-                    &{' '}
-                    {intl.formatMessage({
-                      id: ETranslations.global_outputs,
-                    })}
-                  </Button>
-                }
-              />
-            ) : null}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.global_transaction_id,
@@ -663,6 +644,13 @@ function HistoryDetails() {
               renderContent={renderFeeInfo()}
               compact
             />
+            {!isNil(txInfo.blockHeight) ? (
+              <InfoItem
+                label="Block Height"
+                renderContent={String(txInfo.blockHeight)}
+                compact
+              />
+            ) : null}
             {vaultSettings?.nonceRequired && !isNil(txInfo.nonce) ? (
               <InfoItem
                 label="Nonce"
@@ -670,6 +658,7 @@ function HistoryDetails() {
                 compact
               />
             ) : null}
+
             {!isNil(txInfo.confirmations) ? (
               <InfoItem
                 label={intl.formatMessage({
@@ -677,6 +666,26 @@ function HistoryDetails() {
                 })}
                 renderContent={String(txInfo.confirmations)}
                 compact
+              />
+            ) : null}
+            {vaultSettings?.isUtxo ? (
+              <InfoItem
+                renderContent={
+                  <Button
+                    size="medium"
+                    onPress={handleViewUTXOsOnPress}
+                    variant="secondary"
+                    iconAfter="ChevronRightSmallOutline"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.global_inputs,
+                    })}{' '}
+                    &{' '}
+                    {intl.formatMessage({
+                      id: ETranslations.global_outputs,
+                    })}
+                  </Button>
+                }
               />
             ) : null}
           </InfoItemGroup>
@@ -730,6 +739,7 @@ function HistoryDetails() {
     txInfo.date,
     txInfo.txid,
     txInfo.nonce,
+    txInfo.blockHeight,
     txInfo.confirmations,
     txInfo.swapInfo,
     renderTxMetaInfo,
@@ -744,7 +754,9 @@ function HistoryDetails() {
   return (
     <Page scrollEnabled>
       <Page.Header headerTitle={historyDetailsTitle} />
-      <Page.Body>{renderHistoryDetails()}</Page.Body>
+      <Page.Body testID="history-details-body">
+        {renderHistoryDetails()}
+      </Page.Body>
     </Page>
   );
 }

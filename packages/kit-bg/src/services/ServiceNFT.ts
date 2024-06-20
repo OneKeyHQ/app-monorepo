@@ -52,11 +52,13 @@ class ServiceNFT extends ServiceBase {
 
     return result.map((nft) => {
       if (nft.metadata?.attributes) {
-        nft.metadata.attributes = nft.metadata.attributes.map((attr) => ({
-          ...attr,
-          traitType: attr.trait_type,
-          displayType: attr.display_type,
-        }));
+        nft.metadata.attributes = nft.metadata.attributes
+          .filter((attr) => !!attr)
+          .map((attr) => ({
+            ...attr,
+            traitType: attr.trait_type,
+            displayType: attr.display_type,
+          }));
       }
       return nft;
     });
