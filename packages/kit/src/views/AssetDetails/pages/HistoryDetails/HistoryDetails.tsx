@@ -30,6 +30,7 @@ import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils'
 import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   EHistoryTxDetailsBlock,
+  EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
 } from '@onekeyhq/shared/types/history';
 import type {
@@ -454,14 +455,18 @@ function HistoryDetails() {
   }, [historyTx, isSendToSelf, vaultSettings?.isUtxo]);
 
   const renderTxStatus = useCallback(() => {
-    const { key, color } = getTxStatusTextProps(historyTx.decodedTx.status);
+    const status =
+      txDetails?.status === EOnChainHistoryTxStatus.Success
+        ? EDecodedTxStatus.Confirmed
+        : historyTx.decodedTx.status;
+    const { key, color } = getTxStatusTextProps(status);
     return (
       <XStack h="$5" alignItems="center">
         <SizableText size="$bodyMdMedium" color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
         {vaultSettings?.replaceTxEnabled &&
-        historyTx.decodedTx.status === EDecodedTxStatus.Pending ? (
+        status === EDecodedTxStatus.Pending ? (
           <XStack ml="$5">
             <Button size="small" variant="primary">
               Speed Up
@@ -473,7 +478,12 @@ function HistoryDetails() {
         ) : null}
       </XStack>
     );
-  }, [historyTx.decodedTx.status, intl, vaultSettings?.replaceTxEnabled]);
+  }, [
+    historyTx.decodedTx.status,
+    intl,
+    txDetails?.status,
+    vaultSettings?.replaceTxEnabled,
+  ]);
 
   const renderTxFlow = useCallback(() => {
     if (vaultSettings?.isUtxo && !txAddresses.isSingleTransfer) return null;

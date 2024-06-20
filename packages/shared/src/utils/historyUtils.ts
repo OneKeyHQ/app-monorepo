@@ -136,7 +136,11 @@ export function getHistoryTxDetailInfo({
   let swapInfo;
 
   const date = formatDate(
-    new Date(decodedTx.updatedAt ?? decodedTx.createdAt ?? 0),
+    new Date(
+      txDetails?.timestamp
+        ? txDetails.timestamp * 1000
+        : decodedTx.updatedAt ?? decodedTx.createdAt ?? 0,
+    ),
   );
   const txid = decodedTx.txid;
   const nonce = txDetails?.nonce ?? decodedTx.nonce;
