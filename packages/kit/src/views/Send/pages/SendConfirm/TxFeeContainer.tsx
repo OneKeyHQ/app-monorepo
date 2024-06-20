@@ -544,7 +544,10 @@ function TxFeeContainer(props: IProps) {
   return (
     <>
       <Divider mx="$5" />
-      <InfoItemGroup>
+      <InfoItemGroup
+        animation="repeat"
+        opacity={isLoading && txFeeInit.current ? 0.5 : 1}
+      >
         <InfoItem
           label={intl.formatMessage({
             id: ETranslations.global_est_network_fee,
