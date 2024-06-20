@@ -1,15 +1,16 @@
 diff --git a/node_modules/protobufjs/src/util/longbits.js b/node_modules/protobufjs/src/util/longbits.js
-index 11bfb1c..613435a 100644
+index 11bfb1c..7c31404 100644
 --- a/node_modules/protobufjs/src/util/longbits.js
 +++ b/node_modules/protobufjs/src/util/longbits.js
-@@ -112,8 +112,8 @@ LongBits.prototype.toNumber = function toNumber(unsigned) {
+@@ -112,8 +112,9 @@ LongBits.prototype.toNumber = function toNumber(unsigned) {
   * @returns {Long} Long
   */
  LongBits.prototype.toLong = function toLong(unsigned) {
 -    return util.Long
 -        ? new util.Long(this.lo | 0, this.hi | 0, Boolean(unsigned))
-+    return (util.Long && util.Long.default)
-+        ? new util.Long.default(this.lo | 0, this.hi | 0, Boolean(unsigned))
++    var Long = util.Long ? (util.Long.default ? util.Long.default : util.Long) : null;
++    return Long
++        ? new Long(this.lo | 0, this.hi | 0, Boolean(unsigned))
          /* istanbul ignore next */
          : { low: this.lo | 0, high: this.hi | 0, unsigned: Boolean(unsigned) };
  };
