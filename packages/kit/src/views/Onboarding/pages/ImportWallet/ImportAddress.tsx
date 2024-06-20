@@ -28,7 +28,6 @@ import {
   type IAddressInputValue,
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
-import { watchAccountExcludeNetworkIds } from '@onekeyhq/kit/src/components/ChainSelectorInput/excludeNetworkIds';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -41,6 +40,7 @@ import type {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
@@ -69,56 +69,51 @@ const FormDeriveTypeInput = ({
 }) => {
   const intl = useIntl();
   return (
-    <Form.Field
-      label={intl.formatMessage({
-        id: ETranslations.derivation_path,
-      })}
-      name={fieldName}
-    >
-      <DeriveTypeSelectorTriggerStaticInput
-        networkId={networkId}
-        items={deriveInfoItems}
-        renderTrigger={({ label }) => (
-          <Stack
-            userSelect="none"
-            flexDirection="row"
-            px="$3.5"
-            py="$2.5"
-            borderWidth={1}
-            borderColor="$borderStrong"
-            borderRadius="$3"
-            $gtMd={{
-              px: '$3',
-              py: '$1.5',
-              borderRadius: '$2',
-            }}
-            borderCurve="continuous"
-            hoverStyle={{
-              bg: '$bgHover',
-            }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-          >
-            <SizableText flex={1}>{label}</SizableText>
-            <Icon
-              name="ChevronDownSmallOutline"
-              color="$iconSubdued"
-              mr="$-0.5"
-            />
-          </Stack>
-        )}
-      />
-    </Form.Field>
+    <Stack mt="$2">
+      <Form.Field
+        label={intl.formatMessage({
+          id: ETranslations.derivation_path,
+        })}
+        name={fieldName}
+      >
+        <DeriveTypeSelectorTriggerStaticInput
+          networkId={networkId}
+          items={deriveInfoItems}
+          renderTrigger={({ label }) => (
+            <Stack
+              userSelect="none"
+              flexDirection="row"
+              px="$3.5"
+              py="$2.5"
+              borderWidth={1}
+              borderColor="$borderStrong"
+              borderRadius="$3"
+              $gtMd={{
+                px: '$3',
+                py: '$1.5',
+                borderRadius: '$2',
+              }}
+              borderCurve="continuous"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+            >
+              <SizableText flex={1}>{label}</SizableText>
+              <Icon
+                name="ChevronDownSmallOutline"
+                color="$iconSubdued"
+                mr="$-0.5"
+              />
+            </Stack>
+          )}
+        />
+      </Form.Field>
+    </Stack>
   );
 };
-
-const btcForkNetworkIds = [
-  getNetworkIdsMap().btc,
-  getNetworkIdsMap().tbtc,
-  getNetworkIdsMap().ltc,
-  getNetworkIdsMap().doge,
-];
 
 function ImportAddress() {
   const intl = useIntl();
@@ -215,7 +210,9 @@ function ImportAddress() {
   }, [method, addressValuePending, validateResult, form]);
 
   const isBtcFork = useMemo(
-    () => networkIdText && btcForkNetworkIds.includes(networkIdText),
+    () =>
+      networkIdText &&
+      networkUtils.getBtcForkNetworkIds().includes(networkIdText),
     [networkIdText],
   );
 
@@ -236,7 +233,7 @@ function ImportAddress() {
             name="networkId"
           >
             <ControlledNetworkSelectorTrigger
-              excludedNetworkIds={watchAccountExcludeNetworkIds}
+              excludedNetworkIds={networkUtils.getWatchAccountExcludeNetworkIds()}
             />
           </Form.Field>
           {isBtcFork ? (

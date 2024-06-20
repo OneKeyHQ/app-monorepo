@@ -173,7 +173,7 @@ export function useAppExitPrevent({
             style: 'cancel',
           },
           {
-            text: intl.formatMessage({ id: ETranslations.globall_quit }),
+            text: intl.formatMessage({ id: ETranslations.global_quit }),
             onPress: () => BackHandler.exitApp(),
           },
         ],

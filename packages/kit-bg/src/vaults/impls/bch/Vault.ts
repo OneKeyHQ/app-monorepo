@@ -27,6 +27,12 @@ export default class Vault extends VaultBtc {
 
   override async validateAddress(address: string) {
     const network = await this.getBtcForkNetwork();
+    if (address.startsWith('xpub')) {
+      return validateBtcAddress({
+        address,
+        network,
+      });
+    }
     const addressValidationResult = validateBtcAddress({
       address: decodeAddress(address),
       network,
