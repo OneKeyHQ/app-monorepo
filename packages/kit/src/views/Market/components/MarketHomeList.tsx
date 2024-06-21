@@ -657,19 +657,24 @@ function BasicMarketHomeList({
   const intl = useIntl();
   const navigation = useAppNavigation();
 
-  const { result: listData } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceMarket.fetchCategory(
+  const updateAtRef = useRef(0);
+
+  const [listData, setListData] = useState<IMarketToken[]>([]);
+  const fetchCategory = useCallback(async () => {
+    const now = Date.now();
+    if (now - updateAtRef.current > 45 * 1000) {
+      const response = await backgroundApiProxy.serviceMarket.fetchCategory(
         category.categoryId,
         category.coingeckoIds,
         true,
-      ),
-    [category.categoryId, category.coingeckoIds],
-    {
-      checkIsFocused: false,
-      overrideIsFocused: () => false,
-    },
-  );
+      );
+      setListData(response);
+    }
+  }, [category.categoryId, category.coingeckoIds]);
+
+  useEffect(() => {
+    void fetchCategory();
+  }, [fetchCategory]);
 
   const tableRowConfig = useBuildTableRowConfig(showMoreAction, tabIndex);
 
@@ -996,26 +1001,28 @@ function BasicMarketHomeList({
     ({ tabIndex: currentTabIndex }: { tabIndex: number }) => {
       setTimeout(() => {
         if (currentTabIndex !== tabIndex) {
-          handleMdSortByTypeChange('Default');
+          if (md) {
+            handleMdSortByTypeChange('Default');
+          }
+        } else {
+          void fetchCategory();
         }
-      });
+      }, 10);
     },
-    [handleMdSortByTypeChange, tabIndex],
+    [fetchCategory, handleMdSortByTypeChange, md, tabIndex],
   );
 
   useEffect(() => {
-    if (md) {
-      appEventBus.on(
+    appEventBus.on(
+      EAppEventBusNames.SwitchMarketHomeTab,
+      onSwitchMarketHomeTabCallback,
+    );
+    return () => {
+      appEventBus.off(
         EAppEventBusNames.SwitchMarketHomeTab,
         onSwitchMarketHomeTabCallback,
       );
-      return () => {
-        appEventBus.off(
-          EAppEventBusNames.SwitchMarketHomeTab,
-          onSwitchMarketHomeTabCallback,
-        );
-      };
-    }
+    };
   }, [md, onSwitchMarketHomeTabCallback, tabIndex]);
 
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
