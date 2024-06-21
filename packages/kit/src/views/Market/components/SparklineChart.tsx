@@ -2,6 +2,8 @@ import { memo, useCallback, useMemo } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
+
 import { Canvas } from './Canvas';
 
 import type { ICanvas } from './type';
@@ -34,6 +36,7 @@ const SparkLineChart = ({
   scale = 0.1,
 }: ISparkLineChartProps) => {
   const devicePixelRatio = useDevicePixelRatio();
+  const theme = useThemeVariant();
   const draw = useCallback(
     // eslint-disable-next-line @typescript-eslint/require-await
     async (canvas: ICanvas | HTMLCanvasElement | null) => {
@@ -90,7 +93,10 @@ const SparkLineChart = ({
               await ctx.createLinearGradient(0, 0, 0, calculateHeight)
             : ctx.createLinearGradient(0, 0, 0, calculateHeight);
           grad.addColorStop(0, linearGradientColor);
-          grad.addColorStop(1, 'rgba(255,255,255,0)');
+          grad.addColorStop(
+            1,
+            theme === 'dark' ? 'rgba(0,0,0,0)' : 'rgba(255,255,255,0)',
+          );
           ctx.fillStyle = grad;
           ctx.fill();
           // clear last line
@@ -105,9 +111,10 @@ const SparkLineChart = ({
       data,
       lineWidth,
       lineColor,
+      linearGradientColor,
+      theme,
       smooth,
       scale,
-      linearGradientColor,
     ],
   );
 
