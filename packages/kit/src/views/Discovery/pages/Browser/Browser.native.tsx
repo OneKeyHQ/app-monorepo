@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 import Animated from 'react-native-reanimated';
@@ -7,6 +8,7 @@ import {
   Icon,
   Page,
   Stack,
+  TextArea,
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -128,6 +130,7 @@ function MobileBrowser() {
 
   const { top } = useSafeAreaInsets();
 
+  const [styles, setStyles] = useState<any>();
   return (
     <Page fullPage>
       <Page.Header headerShown={false} />
@@ -135,17 +138,37 @@ function MobileBrowser() {
       <XStack
         pt={top}
         px="$5"
+        bg="red"
         alignItems="center"
         my="$1"
         mt={platformEnv.isNativeAndroid ? '$3' : undefined}
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        {...styles?.container}
       >
         {!displayHomePage ? (
           <Stack onPress={onCloseCurrentWebTabAndGoHomePage}>
             <Icon name="CrossedLargeOutline" mr="$4" />
           </Stack>
         ) : null}
-        <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
+        <CustomHeaderTitle
+          handleSearchBarPress={handleSearchBarPress}
+          titleStyle={styles?.titleStyle}
+          textStyle={styles?.textStyle}
+        />
         <HeaderRightToolBar />
+      </XStack>
+
+      <XStack flex={1} mx="$5">
+        <TextArea
+          numberOfLines={10}
+          px
+          width="100%"
+          onChangeText={(text) => {
+            try {
+              setStyles(JSON.parse(text));
+            } catch {}
+          }}
+        />
       </XStack>
       <Page.Body>
         <Stack flex={1} zIndex={3}>

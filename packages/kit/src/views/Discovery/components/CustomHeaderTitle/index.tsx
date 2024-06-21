@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import type { IStackProps } from '@onekeyhq/components';
 import {
   Icon,
+  Input,
   Shortcut,
   SizableText,
   XStack,
@@ -30,7 +31,11 @@ const mdHeaderStyle = platformEnv.isNative
       mt: '$4',
     } as IStackProps);
 
-function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
+function CustomHeaderTitle({
+  handleSearchBarPress,
+  titleStyle,
+  textStyle,
+}: any) {
   const intl = useIntl();
   const media = useMedia();
   const { activeTabId } = useActiveTabId();
@@ -38,50 +43,55 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
   const displayUrl = activeTabId && tab?.url;
 
   return (
-    <XStack
-      role="button"
-      alignItems="center"
-      px="$2"
-      py="$1.5"
-      bg="$bgStrong"
-      borderRadius="$3"
-      minWidth={platformEnv.isNative ? undefined : '$64'}
-      $md={mdHeaderStyle}
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
-      onPress={() => handleSearchBarPress(tab?.url ?? '')}
-      borderCurve="continuous"
-    >
-      <Icon
-        name={displayUrl ? 'LockOutline' : 'SearchOutline'}
-        size="$5"
-        color="$iconSubdued"
-      />
-      <SizableText
-        pl="$2"
-        size="$bodyLg"
-        color="$textSubdued"
-        flex={1}
-        numberOfLines={1}
-        testID="explore-index-search"
+    <>
+      <XStack
+        role="button"
+        alignItems="center"
+        px="$2"
+        py="$1.5"
+        bg="$bgStrong"
+        borderRadius="$3"
+        minWidth={platformEnv.isNative ? undefined : '$64'}
+        $md={mdHeaderStyle}
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+        onPress={() => handleSearchBarPress(tab?.url ?? '')}
+        borderCurve="continuous"
+        {...titleStyle}
       >
-        {displayUrl
-          ? tab?.url
-          : intl.formatMessage({
-              id: ETranslations.explore_search_placeholder,
-            })}
-      </SizableText>
-      {media.gtMd ? (
-        <Shortcut>
-          <Shortcut.Key>⌘</Shortcut.Key>
-          <Shortcut.Key>T</Shortcut.Key>
-        </Shortcut>
-      ) : null}
-    </XStack>
+        <Icon
+          name={displayUrl ? 'LockOutline' : 'SearchOutline'}
+          size="$5"
+          color="$iconSubdued"
+        />
+        <SizableText
+          pl="$2"
+          size="$bodyLg"
+          color="$textSubdued"
+          flex={1}
+          numberOfLines={1}
+          testID="explore-index-search"
+          {...textStyle}
+        >
+          {displayUrl
+            ? tab?.url
+            : intl.formatMessage({
+                id: ETranslations.explore_search_placeholder,
+              })}
+        </SizableText>
+        {media.gtMd ? (
+          <Shortcut>
+            <Shortcut.Key>⌘</Shortcut.Key>
+            <Shortcut.Key>T</Shortcut.Key>
+          </Shortcut>
+        ) : null}
+      </XStack>
+    </>
   );
 }
 
