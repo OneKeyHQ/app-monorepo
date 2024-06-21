@@ -210,9 +210,7 @@ function ConnectByUSBOrBLE({
 
   const actions = useAccountSelectorActions();
 
-  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog({
-    noContinue: true,
-  });
+  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
   const fwUpdateActions = useFirmwareUpdateActions();
   const navigation = useAppNavigation();
 
