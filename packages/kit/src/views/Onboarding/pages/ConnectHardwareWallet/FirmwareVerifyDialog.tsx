@@ -451,12 +451,10 @@ export function FirmwareAuthenticationDialogContent({
   onContinue,
   device,
   skipDeviceCancel,
-  noContinue,
 }: {
   onContinue: (params: { checked: boolean }) => void;
   device: SearchDevice | IDBDevice;
   skipDeviceCancel?: boolean;
-  noContinue?: boolean;
 }) {
   const { result, reset, verify, contentType, setContentType, errorObj } =
     useFirmwareVerifyBase({
@@ -467,10 +465,8 @@ export function FirmwareAuthenticationDialogContent({
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const handleContinuePress = useCallback(() => {
-    if (noContinue) {
-      onContinue({ checked: false });
-    }
-  }, [noContinue, onContinue]);
+    onContinue({ checked: false });
+  }, [onContinue]);
 
   const content = useMemo(() => {
     const propsMap: Record<
@@ -522,11 +518,7 @@ export function FirmwareAuthenticationDialogContent({
   return <Stack space="$5">{content}</Stack>;
 }
 
-export function useFirmwareVerifyDialog({
-  noContinue,
-}: {
-  noContinue?: boolean;
-} = {}) {
+export function useFirmwareVerifyDialog() {
   const showFirmwareVerifyDialog = useCallback(
     async ({
       device,
@@ -545,7 +537,6 @@ export function useFirmwareVerifyDialog({
         renderContent: (
           <FirmwareAuthenticationDialogContent
             device={device}
-            noContinue={noContinue}
             onContinue={async ({ checked }) => {
               await firmwareAuthenticationDialog.close();
               await onContinue({ checked });
@@ -567,7 +558,7 @@ export function useFirmwareVerifyDialog({
         },
       });
     },
-    [noContinue],
+    [],
   );
   return {
     showFirmwareVerifyDialog,

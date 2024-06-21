@@ -52,9 +52,7 @@ export function Verification({ device }: { device?: IDBDevice | undefined }) {
 
   const { iconColor, iconName } = getIconNameAndIconColor();
 
-  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog({
-    noContinue: true,
-  });
+  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
 
   return (
     <WalletOptionItem
