@@ -522,7 +522,10 @@ export default class ServicePassword extends ServiceBase {
     }
 
     const v4migrationData = await v4migrationAtom.get();
-    if (v4migrationData?.isProcessing) {
+    if (
+      v4migrationData?.isProcessing ||
+      v4migrationData?.isMigrationModalOpen
+    ) {
       return;
     }
 

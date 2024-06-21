@@ -165,6 +165,9 @@ const PasswordVerify = ({
           onChangeText={(text) => text.replace(PasswordRegex, '')}
           keyboardType={getPasswordKeyboardType(!secureEntry)}
           secureTextEntry={secureEntry}
+          // fix Keyboard Flickering on TextInput with secureTextEntry #39411
+          // https://github.com/facebook/react-native/issues/39411
+          textContentType="oneTimeCode"
           onSubmitEditing={form.handleSubmit(onInputPasswordAuth)}
           addOns={rightActions}
           testID="enter-password"
