@@ -117,7 +117,7 @@ const useParseQRCode = () => {
               });
               break;
             }
-            if (account.impl != network.impl) {
+            if (account.impl !== network.impl) {
               showCopyDialog(value);
               break;
             }
@@ -168,7 +168,7 @@ const useParseQRCode = () => {
       }
       return result;
     },
-    [navigation, clipboard, intl],
+    [navigation, showCopyDialog],
   );
   return useMemo(() => ({ parse }), [parse]);
 };
