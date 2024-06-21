@@ -79,7 +79,7 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   // UI Notify
-  public async notifyNetworkChangedToDappSite(
+  public async notifyDappSiteOfNetworkChange(
     info: IProviderBaseBackgroundNotifyInfo,
     params: {
       getNetworkName: ({ origin }: { origin: string }) => Promise<string>;

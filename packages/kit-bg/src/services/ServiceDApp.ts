@@ -869,7 +869,7 @@ class ServiceDApp extends ServiceBase {
   }) {
     const privateProvider = this.backgroundApi.providers
       .$private as ProviderApiPrivate;
-    void privateProvider.notifyNetworkChangedToDappSite(
+    void privateProvider.notifyDappSiteOfNetworkChange(
       {
         send: this.backgroundApi.sendForProvider('$private'),
         targetOrigin: params.targetOrigin,
