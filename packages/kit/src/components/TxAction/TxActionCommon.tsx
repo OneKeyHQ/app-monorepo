@@ -18,7 +18,6 @@ import {
   InfoItem,
   InfoItemGroup,
 } from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
-import { Container } from '../Container';
 import { Token } from '../Token';
 
 import type {
