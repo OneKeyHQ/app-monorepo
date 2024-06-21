@@ -28,6 +28,9 @@ import { ModalWebViewStack } from '../../views/WebView/router';
 
 import { ModalMainStack } from './Main';
 
+function appendDefaultModalStack<T>(originStacks: T) {
+  return [...(originStacks as []), ...ScanQrCodeModalRouter] as T;
+}
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.MainModal,
@@ -43,7 +46,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.SwapModal,
-    children: ModalSwapStack,
+    children: appendDefaultModalStack(ModalSwapStack),
   },
   {
     name: EModalRoutes.AccountManagerStacks,
@@ -58,15 +61,15 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
       console.log('OnboardingModal onUnmounted');
     },
     name: EModalRoutes.OnboardingModal,
-    children: OnboardingRouter,
+    children: appendDefaultModalStack(OnboardingRouter),
   },
   {
     name: EModalRoutes.FirmwareUpdateModal,
-    children: ModalFirmwareUpdateStack,
+    children: appendDefaultModalStack(ModalFirmwareUpdateStack),
   },
   {
     name: EModalRoutes.AssetSelectorModal,
-    children: AssetSelectorRouter,
+    children: appendDefaultModalStack(AssetSelectorRouter),
   },
   {
     name: EModalRoutes.ChainSelectorModal,
@@ -74,15 +77,15 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.SendModal,
-    children: ModalSendStack,
+    children: appendDefaultModalStack(ModalSendStack),
   },
   {
     name: EModalRoutes.ReceiveModal,
-    children: ModalReceiveStack,
+    children: appendDefaultModalStack(ModalReceiveStack),
   },
   {
     name: EModalRoutes.DAppConnectionModal,
-    children: DAppConnectionRouter,
+    children: appendDefaultModalStack(DAppConnectionRouter),
   },
   {
     name: EModalRoutes.ScanQrCodeModal,
@@ -122,7 +125,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.StakingModal,
-    children: StakingModalRouter,
+    children: appendDefaultModalStack(StakingModalRouter),
   },
 ];
 

@@ -31,42 +31,47 @@ export default function useScanQrCode() {
       tokens,
       qrWalletScene = false,
       showProTutorial = false,
+      openInModal = true,
     }: IQRCodeHandlerParseOutsideOptions) =>
       new Promise<IQRCodeHandlerParseResult<IBaseValue>>((resolve, reject) => {
         resetAnimationQrcodeScan();
-
-        navigation.pushModal(EModalRoutes.ScanQrCodeModal, {
-          screen: EScanQrCodeModalPages.ScanQrCodeStack,
-          params: {
-            qrWalletScene,
-            showProTutorial,
-            callback: async (value: string) => {
-              if (value?.length > 0) {
-                const parseValue = await parseQRCode.parse(value, {
-                  autoHandleResult,
-                  handlers,
-                  account,
-                  tokens,
-                });
-                if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
-                  const animationValue = parseValue.data as IAnimationValue;
-                  if (animationValue.fullData) {
-                    parseValue.raw = animationValue.fullData;
-                    resolve(parseValue);
-                  }
-                  Vibration.vibrate(1);
-                  return {
-                    progress: animationValue.progress,
-                  };
+        const params = {
+          qrWalletScene,
+          showProTutorial,
+          callback: async (value: string) => {
+            if (value?.length > 0) {
+              const parseValue = await parseQRCode.parse(value, {
+                autoHandleResult,
+                handlers,
+                account,
+                tokens,
+              });
+              if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
+                const animationValue = parseValue.data as IAnimationValue;
+                if (animationValue.fullData) {
+                  parseValue.raw = animationValue.fullData;
+                  resolve(parseValue);
                 }
-                resolve(parseValue);
-                return {};
+                Vibration.vibrate(1);
+                return {
+                  progress: animationValue.progress,
+                };
               }
-              reject();
+              resolve(parseValue);
               return {};
-            },
+            }
+            reject();
+            return {};
           },
-        });
+        };
+        if (openInModal) {
+          navigation.pushModal(EModalRoutes.ScanQrCodeModal, {
+            screen: EScanQrCodeModalPages.ScanQrCodeStack,
+            params,
+          });
+        } else {
+          navigation.push(EScanQrCodeModalPages.ScanQrCodeStack, params);
+        }
       }),
     [navigation, parseQRCode],
   );
