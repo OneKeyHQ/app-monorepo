@@ -399,7 +399,9 @@ export default class ServiceSwap extends ServiceBase {
   async syncSwapHistoryPendingList() {
     const histories = await this.fetchSwapHistoryListFromSimple();
     const pendingHistories = histories.filter(
-      (history) => history.status === ESwapTxHistoryStatus.PENDING,
+      (history) =>
+        history.status === ESwapTxHistoryStatus.PENDING ||
+        history.status === ESwapTxHistoryStatus.DISCARD,
     );
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
@@ -512,7 +514,11 @@ export default class ServiceSwap extends ServiceBase {
               : swapTxHistory.baseInfo.toAmount,
           },
         });
-        await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
+        if (txStatusRes?.state === ESwapTxHistoryStatus.DISCARD) {
+          enableInterval = true;
+        } else {
+          await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
+        }
       }
     } catch (e) {
       const error = e as { message?: string };
@@ -533,7 +539,9 @@ export default class ServiceSwap extends ServiceBase {
   async swapHistoryStatusFetchLoop() {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const statusPendingList = swapHistoryPendingList.filter(
-      (item) => item.status === ESwapTxHistoryStatus.PENDING,
+      (item) =>
+        item.status === ESwapTxHistoryStatus.PENDING ||
+        item.status === ESwapTxHistoryStatus.DISCARD,
     );
     await this.cleanHistoryStateIntervals();
     if (!statusPendingList.length) return;
