@@ -3,6 +3,8 @@ import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
+import { ScanQrCodeModalRouter } from '../../ScanQrCode/router';
+
 const ActivateDevice = LazyLoadPage(
   () => import('../pages/ConnectHardwareWallet/ActivateDevice'),
 );
@@ -173,4 +175,5 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
     name: EOnboardingPages.FinalizeWalletSetup,
     component: FinalizeWalletSetup,
   },
+  ...(ScanQrCodeModalRouter as unknown as any[]),
 ];

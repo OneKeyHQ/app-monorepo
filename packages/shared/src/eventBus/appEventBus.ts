@@ -98,6 +98,7 @@ export interface IAppEventBusPayload {
     promiseId?: number;
     value?: string;
     valueUr?: IAirGapUrJson;
+    openInModal?: boolean;
   };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;

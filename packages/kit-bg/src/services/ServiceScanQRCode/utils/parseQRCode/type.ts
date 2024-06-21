@@ -136,6 +136,7 @@ export type IQRCodeHandlerParseOutsideOptions = {
   tokens?: ITokenData;
   qrWalletScene?: boolean;
   showProTutorial?: boolean;
+  openInModal?: boolean;
 };
 
 export type IQRCodeHandlerParseOptions = IQRCodeHandlerParseOutsideOptions &
