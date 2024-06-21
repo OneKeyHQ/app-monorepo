@@ -678,6 +678,21 @@ export class DeviceDataOverload extends OneKeyHardwareError {
   override code = HardwareErrorCode.DataOverload;
 }
 
+// Communication exception 通信异常
+export class HardwareCommunicationError extends OneKeyHardwareError {
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.UnknownHardwareError;
+
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'CommunicationError',
+        defaultKey: ETranslations.hardware_device_need_restart,
+      }),
+    );
+  }
+}
+
 // UnknownHardware
 export class UnknownHardwareError extends OneKeyHardwareError {
   override className: EOneKeyErrorClassNames =
