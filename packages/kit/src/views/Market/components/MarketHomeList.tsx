@@ -289,7 +289,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
       ),
     };
     return tableRowConfig;
-  }, [colors, currency, showMoreAction, tabIndex]);
+  }, [colors, currency, lineColors, showMoreAction, tabIndex]);
 };
 
 function TableRow({
