@@ -146,7 +146,11 @@ type ITableColumnConfig = Record<
   (item: IMarketToken) => ReactElement | string
 >;
 
-const colorMaps = {
+const lineColorMap = {
+  light: ['rgba(0, 113, 63)', 'rgba(196, 0, 6)'],
+  dark: ['rgba(70, 254, 165)', 'rgba(255, 149, 146)'],
+};
+const colorMap = {
   light: ['rgba(0, 113, 63, 0.2)', 'rgba(196, 0, 6, 0.2)'],
   dark: ['rgba(70, 254, 165, 0.2)', 'rgba(255, 149, 146, 0.2)'],
 };
@@ -155,12 +159,8 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   const theme = useThemeVariant();
-  const lineColors = useThemeValue(
-    ['textSuccess', 'textCritical'],
-    undefined,
-    true,
-  );
-  const colors = colorMaps[theme];
+  const lineColors = lineColorMap[theme];
+  const colors = colorMap[theme];
   return useMemo(() => {
     const tableRowConfig: ITableColumnConfig = {
       'serialNumber': (item) => (
