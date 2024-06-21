@@ -663,7 +663,9 @@ function HistoryDetails() {
             />
             {new BigNumber(txInfo.blockHeight ?? 0).isGreaterThan(0) ? (
               <InfoItem
-                label="Block Height"
+                label={intl.formatMessage({
+                  id: ETranslations.global_block_height,
+                })}
                 renderContent={String(txInfo.blockHeight)}
                 compact
               />
