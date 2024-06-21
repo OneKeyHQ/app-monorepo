@@ -23,6 +23,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
@@ -386,16 +387,19 @@ function HistoryDetails() {
 
     const { decodedTx } = historyTx;
 
-    let sends = decodedTx.actions[0]?.assetTransfer?.sends.map((e, i) => ({
-      ...e,
-      ...txDetails?.sends?.[i],
-    }));
-    let receives = decodedTx.actions[0]?.assetTransfer?.receives.map(
-      (e, i) => ({
+    let sends = decodedTx.actions[0]?.assetTransfer?.sends;
+    let receives = decodedTx.actions[0]?.assetTransfer?.receives;
+    if (vaultSettings?.impl === IMPL_DOT) {
+      sends = decodedTx.actions[0]?.assetTransfer?.sends.map((e, i) => ({
+        ...e,
+        ...txDetails?.sends?.[i],
+      }));
+      receives = decodedTx.actions[0]?.assetTransfer?.receives.map((e, i) => ({
         ...e,
         ...txDetails?.receives?.[i],
-      }),
-    );
+      }));
+    }
+
     const onChainTxPayload = historyTx.decodedTx.payload;
 
     if (vaultSettings?.isUtxo) {
@@ -466,6 +470,7 @@ function HistoryDetails() {
     isSendToSelf,
     txDetails?.receives,
     txDetails?.sends,
+    vaultSettings?.impl,
     vaultSettings?.isUtxo,
   ]);
 
