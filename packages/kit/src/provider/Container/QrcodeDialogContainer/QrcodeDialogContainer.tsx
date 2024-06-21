@@ -22,7 +22,7 @@ export function QrcodeDialogContainer() {
 
   useEffect(() => {
     const fn = (event: IAppEventBusPayload[EAppEventBusNames.ShowQrcode]) => {
-      const { drawType, valueUr, title, openInModal = false } = event;
+      const { drawType, valueUr, title } = event;
       const toast = SecureQRToast.show({
         title,
         valueUr,
@@ -37,7 +37,6 @@ export function QrcodeDialogContainer() {
               handlers: [EQRCodeHandlerNames.animation],
               qrWalletScene: true,
               autoHandleResult: false,
-              openInModal,
             });
             console.log(result, result.raw);
             if (event.promiseId) {

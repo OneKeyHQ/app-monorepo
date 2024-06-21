@@ -3,7 +3,6 @@ import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-import { ScanQrCodeModalRouter } from '../../ScanQrCode/router';
 
 const ReceiveToken = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Receive/pages/ReceiveToken'),
@@ -31,5 +30,4 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
     name: EModalReceiveRoutes.ReceiveInvoice,
     component: ReceiveInvoice,
   },
-  ...(ScanQrCodeModalRouter as unknown as any[]),
 ];

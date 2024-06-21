@@ -28,9 +28,6 @@ import { ModalWebViewStack } from '../../views/WebView/router';
 
 import { ModalMainStack } from './Main';
 
-function appendDefaultModalStack<T>(originStacks: T) {
-  return [...(originStacks as []), ...ScanQrCodeModalRouter] as T;
-}
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.MainModal,
@@ -46,7 +43,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.SwapModal,
-    children: appendDefaultModalStack(ModalSwapStack),
+    children: ModalSwapStack,
   },
   {
     name: EModalRoutes.AccountManagerStacks,
@@ -61,15 +58,15 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
       console.log('OnboardingModal onUnmounted');
     },
     name: EModalRoutes.OnboardingModal,
-    children: appendDefaultModalStack(OnboardingRouter),
+    children: OnboardingRouter,
   },
   {
     name: EModalRoutes.FirmwareUpdateModal,
-    children: appendDefaultModalStack(ModalFirmwareUpdateStack),
+    children: ModalFirmwareUpdateStack,
   },
   {
     name: EModalRoutes.AssetSelectorModal,
-    children: appendDefaultModalStack(AssetSelectorRouter),
+    children: AssetSelectorRouter,
   },
   {
     name: EModalRoutes.ChainSelectorModal,
@@ -77,15 +74,15 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.SendModal,
-    children: appendDefaultModalStack(ModalSendStack),
+    children: ModalSendStack,
   },
   {
     name: EModalRoutes.ReceiveModal,
-    children: appendDefaultModalStack(ModalReceiveStack),
+    children: ModalReceiveStack,
   },
   {
     name: EModalRoutes.DAppConnectionModal,
-    children: appendDefaultModalStack(DAppConnectionRouter),
+    children: DAppConnectionRouter,
   },
   {
     name: EModalRoutes.ScanQrCodeModal,
@@ -125,7 +122,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.StakingModal,
-    children: appendDefaultModalStack(StakingModalRouter),
+    children: StakingModalRouter,
   },
 ];
 
