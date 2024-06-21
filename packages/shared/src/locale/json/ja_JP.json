@@ -542,6 +542,7 @@
   "global.create_invoice": "請求書を作成する",
   "global.create_wallet": "ウォレットを作成する",
   "global.crypto": "暗号通貨",
+  "global.current": "現在",
   "global.dark": "ダーク",
   "global.date": "日付",
   "global.date_today": "今日",

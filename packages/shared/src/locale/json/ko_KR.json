@@ -542,6 +542,7 @@
   "global.create_invoice": "송장 생성",
   "global.create_wallet": "지갑 생성",
   "global.crypto": "크립토",
+  "global.current": "현재",
   "global.dark": "어두운",
   "global.date": "날짜",
   "global.date_today": "오늘",

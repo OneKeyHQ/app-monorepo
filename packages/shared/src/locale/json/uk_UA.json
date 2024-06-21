@@ -542,6 +542,7 @@
   "global.create_invoice": "Створити рахунок-фактуру",
   "global.create_wallet": "Створити гаманець",
   "global.crypto": "Крипто",
+  "global.current": "Поточний",
   "global.dark": "Темний",
   "global.date": "Дата",
   "global.date_today": "Сьогодні",

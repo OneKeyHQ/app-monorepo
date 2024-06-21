@@ -543,6 +543,7 @@ export enum ETranslations {
   global_create_invoice = 'global.create_invoice',
   global_create_wallet = 'global.create_wallet',
   global_crypto = 'global.crypto',
+  global_current = 'global.current',
   global_dark = 'global.dark',
   global_date = 'global.date',
   global_date_today = 'global.date_today',

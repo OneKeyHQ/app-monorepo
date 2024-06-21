@@ -542,6 +542,7 @@
   "global.create_invoice": "Rechnung erstellen",
   "global.create_wallet": "Geldbörse erstellen",
   "global.crypto": "Krypto",
+  "global.current": "Aktuell",
   "global.dark": "Dunkel",
   "global.date": "Datum",
   "global.date_today": "Heute",

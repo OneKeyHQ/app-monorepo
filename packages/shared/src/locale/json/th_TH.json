@@ -542,6 +542,7 @@
   "global.create_invoice": "สร้างใบแจ้งหนี้",
   "global.create_wallet": "สร้างกระเป๋าเงิน",
   "global.crypto": "คริปโต",
+  "global.current": "ปัจจุบัน",
   "global.dark": "มืด",
   "global.date": "วันที่",
   "global.date_today": "วันนี้",

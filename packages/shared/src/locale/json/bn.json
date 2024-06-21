@@ -542,6 +542,7 @@
   "global.create_invoice": "ইনভয়েস তৈরি করুন",
   "global.create_wallet": "ওয়ালেট তৈরি করুন",
   "global.crypto": "ক্রিপ্টো",
+  "global.current": "বর্তমান",
   "global.dark": "অন্ধকার",
   "global.date": "তারিখ",
   "global.date_today": "আজ",

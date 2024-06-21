@@ -542,6 +542,7 @@
   "global.create_invoice": "Crear factura",
   "global.create_wallet": "Crear cartera",
   "global.crypto": "Cripto",
+  "global.current": "Actual",
   "global.dark": "Oscuro",
   "global.date": "Fecha",
   "global.date_today": "Hoy",
