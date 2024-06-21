@@ -853,10 +853,14 @@ class ServiceDApp extends ServiceBase {
   async notifyDAppChainChanged(targetOrigin: string) {
     Object.values(this.backgroundApi.providers).forEach(
       (provider: ProviderApiBase) => {
-        provider.notifyDappChainChanged({
-          send: this.backgroundApi.sendForProvider(provider.providerName),
-          targetOrigin,
-        });
+        try {
+          provider.notifyDappChainChanged({
+            send: this.backgroundApi.sendForProvider(provider.providerName),
+            targetOrigin,
+          });
+        } catch {
+          // ignore error
+        }
       },
     );
     return Promise.resolve();

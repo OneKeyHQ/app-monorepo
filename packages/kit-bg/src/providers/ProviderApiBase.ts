@@ -88,6 +88,12 @@ abstract class ProviderApiBase {
 
   notifyNetworkChangedToDappSite = debounce(
     (targetOrigin: string) => {
+      console.log(
+        '=========>>>>>>>> Base notifyNetworkChangedToDappSite: ',
+        this.providerName,
+        ' .  =>>>: ',
+        targetOrigin,
+      );
       void this.backgroundApi.serviceDApp.notifyChainSwitchUIToDappSite({
         targetOrigin,
         getNetworkName: async () =>

@@ -88,17 +88,12 @@ function SignMessageModal() {
           message: unsignedMessage.message,
           sourceInfo: $sourceInfo,
         });
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.dapp_connect_authorization_successful,
-          }),
-        });
         close?.();
       } finally {
         setIsLoading(false);
       }
     },
-    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo, intl],
+    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo],
   );
 
   return (
