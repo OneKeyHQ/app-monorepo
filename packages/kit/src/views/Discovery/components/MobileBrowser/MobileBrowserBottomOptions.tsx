@@ -28,7 +28,7 @@ function MobileBrowserBottomOptions({
     () =>
       [
         {
-          label: intl.formatMessage({ id: ETranslations.explore_refresh_page }),
+          label: intl.formatMessage({ id: ETranslations.explore_reload }),
           icon: 'RotateClockwiseOutline',
           onPress: () => onRefresh(),
           testID: 'action-list-item-reload',
