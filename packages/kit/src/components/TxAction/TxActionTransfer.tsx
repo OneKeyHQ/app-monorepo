@@ -20,6 +20,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
+  EDecodedTxStatus,
   type IDecodedTxActionAssetTransfer,
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
@@ -219,6 +220,7 @@ function TxActionTransferListView(props: ITxActionProps) {
   const { vaultSettings } = useAccountData({ networkId });
 
   const isUTXO = vaultSettings?.isUtxo;
+  const isPending = decodedTx.status === EDecodedTxStatus.Pending;
   const {
     sends,
     receives,
@@ -362,6 +364,8 @@ function TxActionTransferListView(props: ITxActionProps) {
       -
     </SizableText>
   );
+
+  title = isPending ? title : label;
 
   return (
     <TxActionCommonListView

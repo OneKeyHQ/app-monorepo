@@ -46,6 +46,7 @@ import {
   EAssetSelectorRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
@@ -103,6 +104,7 @@ function SendDataInputContainer() {
       vaultSettings,
       hasFrozenBalance,
       displayMemoForm,
+      displayPaymentIdForm,
       memoMaxLength,
       numericOnlyMemo,
     ] = [],
@@ -176,6 +178,7 @@ function SendDataInputContainer() {
         vs,
         frozenBalanceSettings,
         vs.withMemo,
+        vs.withPaymentId,
         vs.memoMaxLength,
         vs.numericOnlyMemo,
       ];
@@ -210,6 +213,7 @@ function SendDataInputContainer() {
       amount: sendAmount,
       nftAmount: sendAmount || '1',
       memo: '',
+      paymentId: '',
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -332,6 +336,7 @@ function SendDataInputContainer() {
       }
 
       const memoValue = form.getValues('memo');
+      const paymentIdValue = form.getValues('paymentId');
       const transfersInfo: ITransferInfo[] = [
         {
           from: account.address,
@@ -347,6 +352,7 @@ function SendDataInputContainer() {
               : undefined,
           tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
           memo: memoValue,
+          paymentId: paymentIdValue,
         },
       ];
       await sendConfirm.navigationToSendConfirm({
@@ -687,6 +693,40 @@ function SendDataInputContainer() {
     );
   }, [displayMemoForm, intl, memoMaxLength, numericOnlyMemo]);
 
+  const renderPaymentIdForm = useCallback(() => {
+    if (!displayPaymentIdForm) return null;
+
+    return (
+      <>
+        <XStack pt="$5" />
+        <Form.Field
+          label="Payment ID"
+          labelAddon={
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.form_optional_indicator,
+              })}
+            </SizableText>
+          }
+          name="paymentId"
+          rules={{
+            validate: (value) => {
+              if (!value) return undefined;
+              if (
+                !hexUtils.isHexString(hexUtils.addHexPrefix(value)) ||
+                hexUtils.stripHexPrefix(value).length !== 64
+              ) {
+                return 'Payment ID must be a 64 char hex string';
+              }
+            },
+          }}
+        >
+          <TextArea numberOfLines={2} size="large" placeholder="Payment ID" />
+        </Form.Field>
+      </>
+    );
+  }, [displayPaymentIdForm, intl]);
+
   const renderDataInput = useCallback(() => {
     if (isNFT) {
       return renderNFTDataInputForm();
@@ -696,16 +736,18 @@ function SendDataInputContainer() {
         <>
           {renderTokenDataInputForm()}
           {renderMemoForm()}
+          {renderPaymentIdForm()}
         </>
       );
     }
     return null;
   }, [
-    displayAmountFormItem,
     isNFT,
+    displayAmountFormItem,
     renderNFTDataInputForm,
     renderTokenDataInputForm,
     renderMemoForm,
+    renderPaymentIdForm,
   ]);
 
   return (

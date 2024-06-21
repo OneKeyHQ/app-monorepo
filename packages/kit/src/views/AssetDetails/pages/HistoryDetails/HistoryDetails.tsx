@@ -103,6 +103,8 @@ export function AssetItem({
   let primary = null;
   let secondary = null;
 
+  const amountAbs = new BigNumber(amount).abs().toFixed();
+
   if (isApprove) {
     primary = (
       <SizableText textAlign="right" size="$bodyLgMedium" color="$textSuccess">
@@ -113,7 +115,7 @@ export function AssetItem({
           : intl.formatMessage(
               { id: ETranslations.form__approve_str },
               {
-                amount,
+                amount: amountAbs,
                 symbol: asset.symbol,
               },
             )}
@@ -138,7 +140,7 @@ export function AssetItem({
           showPlusMinusSigns: true,
         }}
       >
-        {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amount}`}
+        {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amountAbs}`}
       </NumberSizeableText>
     );
     secondary = (
@@ -149,7 +151,7 @@ export function AssetItem({
         formatter="value"
         formatterOptions={{ currency: currencySymbol }}
       >
-        {new BigNumber(amount).times(asset.price ?? 0).toString()}
+        {new BigNumber(amountAbs).times(asset.price ?? 0).toString()}
       </NumberSizeableText>
     );
   }
@@ -356,7 +358,8 @@ function HistoryDetails() {
 
   const historyDetailsTitle = useMemo(() => {
     const { decodedTx } = historyTx;
-    let title = historyTx.decodedTx.payload?.label;
+    const label = historyTx.decodedTx.payload?.label;
+    let title = label;
     const type = historyTx.decodedTx.payload?.type;
     const sends = decodedTx.actions[0]?.assetTransfer?.sends;
     const receives = decodedTx.actions[0]?.assetTransfer?.receives;
@@ -371,6 +374,10 @@ function HistoryDetails() {
       title = intl.formatMessage({ id: ETranslations.global_send });
     } else if (type === EOnChainHistoryTxType.Receive) {
       title = intl.formatMessage({ id: ETranslations.global_receive });
+    }
+
+    if (decodedTx.status !== EDecodedTxStatus.Pending && label) {
+      title = label;
     }
 
     return title;
@@ -654,7 +661,7 @@ function HistoryDetails() {
               renderContent={renderFeeInfo()}
               compact
             />
-            {!isNil(txInfo.blockHeight) ? (
+            {new BigNumber(txInfo.blockHeight ?? 0).isGreaterThan(0) ? (
               <InfoItem
                 label={intl.formatMessage({
                   id: ETranslations.global_block_height,
@@ -671,7 +678,7 @@ function HistoryDetails() {
               />
             ) : null}
 
-            {!isNil(txInfo.confirmations) ? (
+            {new BigNumber(txInfo.confirmations ?? 0).isGreaterThan(0) ? (
               <InfoItem
                 label={intl.formatMessage({
                   id: ETranslations.global_confirmations,
