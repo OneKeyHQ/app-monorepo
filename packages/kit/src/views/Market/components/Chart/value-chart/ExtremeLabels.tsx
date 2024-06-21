@@ -5,6 +5,7 @@ import { useChartData } from '@onekeyfe/react-native-animated-charts';
 import { Text, View } from 'react-native';
 
 import { NumberSizeableText } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -104,6 +105,9 @@ const ExtremeLabels = memo(
     const positionMax = trim(
       (greatestY.x - smallestX.x) / (greatestX.x - smallestX.x),
     );
+
+    const [settings] = useSettingsPersistAtom();
+    const currency = settings.currencyInfo.symbol;
     return (
       <>
         {positionMin ? (
@@ -117,7 +121,7 @@ const ExtremeLabels = memo(
           >
             <NumberSizeableText
               formatter="price"
-              formatterOptions={{ currency: '$' }}
+              formatterOptions={{ currency }}
             >
               {String(smallestY.y)}
             </NumberSizeableText>
@@ -134,7 +138,7 @@ const ExtremeLabels = memo(
           >
             <NumberSizeableText
               formatter="price"
-              formatterOptions={{ currency: '$' }}
+              formatterOptions={{ currency }}
             >
               {String(greatestY.y)}
             </NumberSizeableText>
