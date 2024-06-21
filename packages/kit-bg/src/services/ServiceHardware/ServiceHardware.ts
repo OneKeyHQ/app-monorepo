@@ -466,7 +466,7 @@ class ServiceHardware extends ServiceBase {
   _getFeaturesWithTimeout = makeTimeoutPromise({
     asyncFunc: this._getFeaturesLowLevel,
     // todo remove: sdk guarantees not to block this method
-    timeout: timerUtils.getTimeDurationMs({ seconds: 180 }),
+    timeout: timerUtils.getTimeDurationMs({ seconds: 60 }),
     timeoutRejectError: new deviceErrors.DeviceMethodCallTimeout(),
   });
 

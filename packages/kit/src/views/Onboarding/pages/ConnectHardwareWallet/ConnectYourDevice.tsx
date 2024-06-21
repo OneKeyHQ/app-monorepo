@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { get } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
@@ -49,6 +51,7 @@ import {
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
   NeedOneKeyBridge,
+  OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -58,14 +61,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  PERMISSIONS,
-  RESULTS,
-  check,
-  openSettings,
-  request,
-  requestMultiple,
-} from '@onekeyhq/shared/src/modules3rdParty/react-native-permissions';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -119,10 +114,6 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
         try {
           setIsLoading(true);
           await item.onPress();
-        } catch (error: any) {
-          Toast.error({
-            title: error?.message || 'DeviceScanError',
-          });
         } finally {
           setIsLoading(false);
         }
@@ -219,7 +210,9 @@ function ConnectByUSBOrBLE({
 
   const actions = useAccountSelectorActions();
 
-  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
+  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog({
+    noContinue: true,
+  });
   const fwUpdateActions = useFirmwareUpdateActions();
   const navigation = useAppNavigation();
 
@@ -385,6 +378,32 @@ function ConnectByUSBOrBLE({
     [handleRestoreWalletPress, handleSetupNewWalletPress, intl, requestsUrl],
   );
 
+  const connectDevice = useCallback(async (device: SearchDevice) => {
+    try {
+      return await backgroundApiProxy.serviceHardware.connect({
+        device,
+        awaitBonded: true,
+      });
+    } catch (error: any) {
+      if (error instanceof OneKeyHardwareError) {
+        const { code, message } = error;
+        // ui prop window handler
+        if (
+          code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+          code === HardwareErrorCode.BlePermissionError ||
+          code === HardwareErrorCode.BleLocationError
+        ) {
+          return;
+        }
+        Toast.error({
+          title: message || 'DeviceConnectError',
+        });
+      } else {
+        console.error('connectDevice error:', get(error, 'message', ''));
+      }
+    }
+  }, []);
+
   const handleHwWalletCreateFlow = useCallback(
     async ({ device }: { device: SearchDevice }) => {
       if (device.deviceType === 'unknown') {
@@ -416,13 +435,10 @@ function ConnectByUSBOrBLE({
         return;
       }
 
-      const features = await backgroundApiProxy.serviceHardware.connect({
-        device,
-        awaitBonded: true,
-      });
+      const features = await connectDevice(device);
 
       if (!features) {
-        throw new ConnectTimeoutError();
+        throw new Error('connect device failed, no features returned');
       }
 
       if (await deviceUtils.isBootloaderModeByFeatures({ features })) {
@@ -482,6 +498,7 @@ function ConnectByUSBOrBLE({
       await createHwWallet({ device, features });
     },
     [
+      connectDevice,
       createHwWallet,
       fwUpdateActions,
       handleNotActivatedDevicePress,
@@ -676,13 +693,7 @@ function ConnectByUSBOrBLE({
           return;
         }
 
-        const devices: SearchDevice[] = response.payload;
-        const uniqueDevices = Array.from(
-          new Map(
-            devices.map((device) => [device.id.toLowerCase(), device]),
-          ).values(),
-        );
-        setSearchedDevices(uniqueDevices);
+        setSearchedDevices(response.payload);
         console.log('startDeviceScan>>>>>', response.payload);
       },
       (state) => {
