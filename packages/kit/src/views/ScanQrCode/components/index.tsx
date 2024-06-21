@@ -7,8 +7,8 @@ import { useIntl } from 'react-intl';
 
 import {
   BlurView,
-  Image,
   Dialog,
+  Image,
   SizableText,
   Stack,
   YStack,
