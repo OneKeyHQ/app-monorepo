@@ -114,6 +114,7 @@ function useFirmwareVerifyBase({
       const { code, message } = error as OneKeyError;
       switch (code) {
         case HardwareErrorCode.ActionCancelled:
+        case HardwareErrorCode.NewFirmwareForceUpdate:
           void dialogInstance.close();
           break;
         case HardwareErrorCode.NetworkError:
