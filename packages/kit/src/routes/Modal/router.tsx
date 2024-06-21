@@ -28,6 +28,7 @@ import { ModalWebViewStack } from '../../views/WebView/router';
 
 import { ModalMainStack } from './Main';
 
+// packages/kit/src/provider/Container/QrcodeDialogContainer/QrcodeDialogContainer.tsx 32L
 function appendDefaultModalStack<T>(originStacks: T) {
   return [...(originStacks as []), ...ScanQrCodeModalRouter] as T;
 }
