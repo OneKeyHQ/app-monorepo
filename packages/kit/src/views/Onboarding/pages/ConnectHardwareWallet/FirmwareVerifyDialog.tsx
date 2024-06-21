@@ -455,6 +455,7 @@ export function EnumBasicDialogContentContainer({
     errorObj.message,
     intl,
     onActionPress,
+    onContinuePress,
     renderFooter,
   ]);
   return <YStack>{content}</YStack>;
