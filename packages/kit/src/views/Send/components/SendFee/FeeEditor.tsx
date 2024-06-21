@@ -689,7 +689,7 @@ function FeeEditor(props: IProps) {
     if (customFee.feeUTXO) {
       return (
         <Form form={form}>
-          <YStack space="$5">
+          <YStack pt="$5">
             <Form.Field
               name="feeRate"
               rules={{
@@ -1041,7 +1041,7 @@ function FeeEditor(props: IProps) {
       </ScrollView>
       <Stack
         pt="$4"
-        borderTopWidth={StyleSheet}
+        borderTopWidth={StyleSheet.hairlineWidth}
         borderTopColor="$borderSubdued"
       >
         {renderFeeDetails()}
