@@ -429,7 +429,7 @@
   "feedback.bluetooth_unparied": "ब्लूटूथ अनपेयर्ड",
   "feedback.change_saved": "परिवर्तन सहेजा गया",
   "feedback.copied": "कॉपी किया गया",
-  "feedback.current_network_message": "<tag>{network}</tag> वर्तमान नेटवर्क है",
+  "feedback.current_network_message": "{network} वर्तमान नेटवर्क है",
   "feedback.error_dot_account_retention_prompt": "स्थानांतरण से शेष राशि {0} से कम हो सकती है, जिसके परिणामस्वरूप खाता निष्क्रिय हो सकता है और Polkadot के ऑन-चेन मैकेनिज्म के कारण शेष राशि साफ हो सकती है। आगे बढ़ने से पहले पुष्टि करें।",
   "feedback.external_wallet_does_not_approve_network": "बाहरी वॉलेट इस नेटवर्क को मंजूरी नहीं देता है",
   "feedback.external_wallet_doesn_not_approve_address": "बाहरी वॉलेट इस पते को मंजूर नहीं करता है",

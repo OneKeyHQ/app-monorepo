@@ -429,7 +429,7 @@
   "feedback.bluetooth_unparied": "Bluetooth désapparié",
   "feedback.change_saved": "Changement enregistré",
   "feedback.copied": "Copié",
-  "feedback.current_network_message": "<tag>{network}</tag> est le réseau actuel",
+  "feedback.current_network_message": "{network} est le réseau actuel",
   "feedback.error_dot_account_retention_prompt": "Les transferts peuvent réduire le solde en dessous de {0}, entraînant la désactivation du compte et l'effacement du solde dû au mécanisme en chaîne de Polkadot. Confirmez avant de continuer.",
   "feedback.external_wallet_does_not_approve_network": "Le portefeuille externe n'approuve pas ce réseau",
   "feedback.external_wallet_doesn_not_approve_address": "Le portefeuille externe n'approuve pas cette adresse",

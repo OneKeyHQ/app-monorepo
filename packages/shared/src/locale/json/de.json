@@ -429,7 +429,7 @@
   "feedback.bluetooth_unparied": "Bluetooth entkoppelt",
   "feedback.change_saved": "Änderung gespeichert",
   "feedback.copied": "Kopiert",
-  "feedback.current_network_message": "<tag>{network}</tag> ist das aktuelle Netzwerk",
+  "feedback.current_network_message": "{network} ist das aktuelle Netzwerk",
   "feedback.error_dot_account_retention_prompt": "Überweisungen können den Kontostand unter {0} senken, was zur Deaktivierung des Kontos und zur Begleichung des Saldos aufgrund des Polkadot On-Chain-Mechanismus führt. Bestätigen Sie, bevor Sie fortfahren.",
   "feedback.external_wallet_does_not_approve_network": "Die externe Geldbörse genehmigt dieses Netzwerk nicht",
   "feedback.external_wallet_doesn_not_approve_address": "Die externe Geldbörse genehmigt diese Adresse nicht",

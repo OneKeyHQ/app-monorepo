@@ -429,7 +429,7 @@
   "feedback.bluetooth_unparied": "ยกเลิกการเชื่อมต่อ Bluetooth",
   "feedback.change_saved": "การเปลี่ยนแปลงถูกบันทึกแล้ว",
   "feedback.copied": "คัดลอก",
-  "feedback.current_network_message": "<tag>{network}</tag> เป็นเครือข่ายปัจจุบัน",
+  "feedback.current_network_message": "{network} เป็นเครือข่ายปัจจุบัน",
   "feedback.error_dot_account_retention_prompt": "การโอนอาจทำให้ยอดคงเหลือลดลงอย่างมากจนต่ำกว่า {0} ซึ่งจะทำให้บัญชีถูกปิดการใช้งานและยอดคงเหลือถูกล้างเนื่องจากกลไกบนเชื่อมโยงของ Polkadot โปรดยืนยันก่อนดำเนินการต่อ",
   "feedback.external_wallet_does_not_approve_network": "กระเป๋าเงินภายนอกไม่อนุมัติเครือข่ายนี้",
   "feedback.external_wallet_doesn_not_approve_address": "กระเป๋าเงินภายนอกไม่อนุมัติที่อยู่นี้",

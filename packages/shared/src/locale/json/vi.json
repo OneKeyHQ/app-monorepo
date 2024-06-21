@@ -429,7 +429,7 @@
   "feedback.bluetooth_unparied": "Bluetooth đã hủy kết nối",
   "feedback.change_saved": "Thay đổi đã được lưu",
   "feedback.copied": "Đã sao chép",
-  "feedback.current_network_message": "<tag>{network}</tag> là mạng lưới hiện tại",
+  "feedback.current_network_message": "{network} là mạng lưới hiện tại",
   "feedback.error_dot_account_retention_prompt": "Các chuyển khoản có thể làm giảm số dư xuống dưới {0}, dẫn đến việc tắt tài khoản và xóa số dư do cơ chế trên chuỗi của Polkadot. Hãy xác nhận trước khi tiếp tục.",
   "feedback.external_wallet_does_not_approve_network": "Ví bên ngoài không chấp nhận mạng lưới này",
   "feedback.external_wallet_doesn_not_approve_address": "Ví bên ngoài không chấp nhận địa chỉ này",

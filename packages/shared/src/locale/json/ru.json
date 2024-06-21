@@ -429,7 +429,7 @@
   "feedback.bluetooth_unparied": "Bluetooth отключен",
   "feedback.change_saved": "Изменения сохранены",
   "feedback.copied": "Скопировано",
-  "feedback.current_network_message": "<tag>{network}</tag> является текущей сетью",
+  "feedback.current_network_message": "{network} - текущая сеть",
   "feedback.error_dot_account_retention_prompt": "Переводы могут уменьшить баланс ниже {0}, что приведет к деактивации аккаунта и обнулению баланса из-за механизма Polkadot на блокчейне. Подтвердите перед продолжением.",
   "feedback.external_wallet_does_not_approve_network": "Внешний кошелек не поддерживает эту сеть",
   "feedback.external_wallet_doesn_not_approve_address": "Внешний кошелек не подтверждает этот адрес",

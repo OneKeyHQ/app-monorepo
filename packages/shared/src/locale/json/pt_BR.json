@@ -429,7 +429,7 @@
   "feedback.bluetooth_unparied": "Bluetooth despareado",
   "feedback.change_saved": "Mudança salva",
   "feedback.copied": "Copiado",
-  "feedback.current_network_message": "<tag>{network}</tag> é a rede atual",
+  "feedback.current_network_message": "{network} é a rede atual",
   "feedback.error_dot_account_retention_prompt": "As transferências podem reduzir o saldo abaixo de {0}, resultando na desativação da conta e na liquidação do saldo devido ao mecanismo on-chain do Polkadot. Confirme antes de prosseguir.",
   "feedback.external_wallet_does_not_approve_network": "A carteira externa não aprova esta rede",
   "feedback.external_wallet_doesn_not_approve_address": "A carteira externa não aprova este endereço",

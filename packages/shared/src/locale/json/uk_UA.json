@@ -429,7 +429,7 @@
   "feedback.bluetooth_unparied": "Bluetooth роз'єднано",
   "feedback.change_saved": "Зміни збережено",
   "feedback.copied": "Скопійовано",
-  "feedback.current_network_message": "<tag>{network}</tag> - це поточна мережа",
+  "feedback.current_network_message": "{network} - це поточна мережа",
   "feedback.error_dot_account_retention_prompt": "Перекази можуть зменшити баланс нижче {0}, що призведе до деактивації рахунку та очищення балансу через механізм Polkadot на блокчейні. Підтвердіть перед продовженням.",
   "feedback.external_wallet_does_not_approve_network": "Зовнішній гаманець не схвалює цю мережу",
   "feedback.external_wallet_doesn_not_approve_address": "Зовнішній гаманець не затверджує цю адресу",
