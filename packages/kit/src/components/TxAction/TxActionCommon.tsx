@@ -14,7 +14,10 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
-import { Container } from '../Container';
+import {
+  InfoItem,
+  InfoItemGroup,
+} from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import { Token } from '../Token';
 
 import type {
@@ -283,45 +286,42 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
   const { overview, target, source } = props;
   const intl = useIntl();
   return (
-    <Container.Box>
-      <Container.Item
-        title={overview.title}
-        content={
-          <XStack alignItems="center" space="$1" flex={1}>
+    <InfoItemGroup>
+      <InfoItem
+        label={overview.title}
+        renderContent={
+          <XStack alignItems="center" space="$3">
             <Token
-              size="md"
               isNFT={overview.avatar?.isNFT}
               tokenImageUri={overview.avatar?.src}
             />
-            <SizableText size="$headingLg" flex={1} numberOfLines={2}>
-              {overview.content}
-            </SizableText>
+            <SizableText size="$bodyLgMedium">{overview.content}</SizableText>
           </XStack>
         }
       />
 
       {source && source.content ? (
-        <Container.Item
-          title={
+        <InfoItem
+          label={
             source.title ??
             intl.formatMessage({ id: ETranslations.content__from })
           }
-          content={source.content}
-          description={source.description}
+          renderContent={source.content}
+          description={source.description?.content}
         />
       ) : null}
 
       {target && target.content ? (
-        <Container.Item
-          title={
+        <InfoItem
+          label={
             target.title ??
             intl.formatMessage({ id: ETranslations.content__to })
           }
-          content={target.content}
-          description={target.description}
+          renderContent={target.content}
+          description={target.description?.content}
         />
       ) : null}
-    </Container.Box>
+    </InfoItemGroup>
   );
 }
 
