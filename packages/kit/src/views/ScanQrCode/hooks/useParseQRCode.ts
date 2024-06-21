@@ -30,8 +30,25 @@ const useParseQRCode = () => {
   const navigation = useAppNavigation();
   const clipboard = useClipboard();
   const intl = useIntl();
-  // const [allTokens] = useAllTokenListAtom();
-  // const [map] = useAllTokenListMapAtom();
+  const showCopyDialog = useCallback(
+    (content: string) => {
+      Dialog.confirm({
+        title: intl.formatMessage({ id: ETranslations.global_info }),
+        description: content,
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_copy,
+        }),
+        confirmButtonProps: {
+          icon: 'Copy3Outline',
+        },
+        onConfirm: ({ preventClose }) => {
+          preventClose();
+          clipboard?.copyText(content);
+        },
+      });
+    },
+    [clipboard, intl],
+  );
   const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
     async (value, options) => {
       const result = await backgroundApiProxy.serviceScanQRCode.parse(
@@ -100,6 +117,10 @@ const useParseQRCode = () => {
               });
               break;
             }
+            if (account.impl != network.impl) {
+              showCopyDialog(value);
+              break;
+            }
             navigation.pushModal(EModalRoutes.AssetSelectorModal, {
               screen: EAssetSelectorRoutes.TokenSelector,
               params: {
@@ -141,21 +162,8 @@ const useParseQRCode = () => {
               break;
             }
             content = animationFullData;
+            showCopyDialog(content);
           }
-          Dialog.confirm({
-            title: intl.formatMessage({ id: ETranslations.global_info }),
-            description: content,
-            onConfirmText: intl.formatMessage({
-              id: ETranslations.global_copy,
-            }),
-            confirmButtonProps: {
-              icon: 'Copy3Outline',
-            },
-            onConfirm: ({ preventClose }) => {
-              preventClose();
-              clipboard?.copyText(content);
-            },
-          });
         }
       }
       return result;

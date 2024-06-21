@@ -109,34 +109,36 @@ export function ScanQrCode({
     });
   }, [intl]);
   return currentPermission === PermissionStatus.GRANTED ? (
-    <ScanCamera
-      style={{
-        flex: 1,
-      }}
-      isActive={isFocused}
-      handleScanResult={reloadHandleBarCodeScanned}
-    >
+    <Stack flex={1}>
+      <ScanCamera
+        style={{
+          flex: 1,
+        }}
+        isActive={isFocused}
+        handleScanResult={reloadHandleBarCodeScanned}
+      >
+        {progress ? (
+          <YStack fullscreen justifyContent="flex-end" alignItems="flex-end">
+            <Stack
+              bg="$blackA9"
+              borderRadius="$2"
+              mr="$3"
+              mb="$3"
+              px="$2"
+              py="$1"
+            >
+              <SizableText size="$bodySmMedium" color="$whiteA12">{`Scanning ${(
+                progress * 100
+              ).toFixed(0)}%`}</SizableText>
+            </Stack>
+          </YStack>
+        ) : null}
+      </ScanCamera>
       {qrWalletScene ? (
         <YStack fullscreen>
           <BlurView flex={1} contentStyle={{ flex: 1 }} />
         </YStack>
       ) : null}
-      {progress ? (
-        <YStack fullscreen justifyContent="flex-end" alignItems="flex-end">
-          <Stack
-            bg="$blackA9"
-            borderRadius="$2"
-            mr="$3"
-            mb="$3"
-            px="$2"
-            py="$1"
-          >
-            <SizableText size="$bodySmMedium" color="$whiteA12">{`Scanning ${(
-              progress * 100
-            ).toFixed(0)}%`}</SizableText>
-          </Stack>
-        </YStack>
-      ) : null}
-    </ScanCamera>
+    </Stack>
   ) : null;
 }

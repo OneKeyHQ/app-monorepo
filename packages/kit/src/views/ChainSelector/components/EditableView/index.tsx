@@ -1,5 +1,5 @@
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,6 +9,7 @@ import {
   SortableSectionList,
   Stack,
 } from '@onekeyhq/components';
+import type { ISortableSectionListRef } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
@@ -61,9 +62,7 @@ const EditableViewListItem = ({
       renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
-      {(
-        sectionIndex === 0 ? networkId === item.id && !isEditMode : isEditMode
-      ) ? (
+      {sectionIndex !== 0 && isEditMode ? (
         <ListItem.IconButton
           onPress={() => {
             if (topNetworkIds.has(item.id)) {
@@ -86,6 +85,15 @@ const EditableViewListItem = ({
           }
           iconProps={{
             color: topNetworkIds.has(item.id) ? '$iconActive' : '$iconSubdued',
+          }}
+        />
+      ) : null}
+      {sectionIndex === 0 && networkId === item.id && !isEditMode ? (
+        <ListItem.CheckMark
+          key="checkmark"
+          enterStyle={{
+            opacity: 0,
+            scale: 0,
           }}
         />
       ) : null}
@@ -128,6 +136,7 @@ export const EditableView: FC<IEditableViewProps> = ({
   const intl = useIntl();
   const lastIsEditMode = usePrevious(isEditMode);
   const trimSearchText = searchText.trim();
+  const scrollView = useRef<ISortableSectionListRef>(null);
 
   useEffect(() => {
     if (!isEditMode && lastIsEditMode) {
@@ -164,6 +173,32 @@ export const EditableView: FC<IEditableViewProps> = ({
       .sort((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
     return [{ data: topNetworks }, ...sectionList];
   }, [allNetworks, trimSearchText, topNetworks]);
+
+  const hasScrollToSelectedCell = useRef(false);
+  useEffect(() => {
+    if (sections.length <= 1 || hasScrollToSelectedCell.current) {
+      return;
+    }
+    let y = 0;
+    for (const section of sections) {
+      const index = section.data.findIndex((item) => item.id === networkId);
+      if (index !== -1) {
+        // eslint-disable-next-line @typescript-eslint/no-loop-func, no-loop-func
+        setTimeout(() => {
+          y += index * CELL_HEIGHT;
+          y -= section.title ? 20 : 0;
+          scrollView.current.scrollTo({
+            y,
+            animated: false,
+          });
+          hasScrollToSelectedCell.current = true;
+        });
+        break;
+      }
+      y += 36 + 20;
+      y += section.data.length * CELL_HEIGHT;
+    }
+  }, [defaultTopNetworks, sections, networkId]);
 
   const ctx = useMemo<IEditableViewContext>(
     () => ({
@@ -227,6 +262,7 @@ export const EditableView: FC<IEditableViewProps> = ({
         </Stack>
         <Stack flex={1}>
           <SortableSectionList
+            ref={scrollView}
             enabled={isEditMode}
             stickySectionHeadersEnabled
             sections={sections}
