@@ -36,6 +36,7 @@ export type IV4MigrationPayload = {
   password: string;
   v4password: string;
   migrateV4PasswordOk: boolean;
+  migrateV4SecurePasswordOk: boolean;
   shouldBackup: boolean;
   wallets: IV4MigrationWallet[];
   walletsForBackup: IV4MigrationWallet[];

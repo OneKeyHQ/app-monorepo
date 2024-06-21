@@ -20,7 +20,6 @@ export function useSwapApproving() {
   const { approvingStateAction, cleanApprovingInterval } =
     useSwapActions().current;
   const [swapApprovingTransactionAtom] = useSwapApprovingTransactionAtom();
-
   const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>();
   if (swapApprovingTxRef.current !== swapApprovingTransactionAtom) {
     swapApprovingTxRef.current = swapApprovingTransactionAtom;
@@ -29,8 +28,10 @@ export function useSwapApproving() {
   useEffect(() => {
     if (
       swapApprovingTransactionAtom?.txId &&
-      swapApprovingTransactionAtom?.status ===
-        ESwapApproveTransactionStatus.PENDING
+      (swapApprovingTransactionAtom?.status ===
+        ESwapApproveTransactionStatus.PENDING ||
+        swapApprovingTransactionAtom?.status ===
+          ESwapApproveTransactionStatus.DISCARD)
     ) {
       void approvingStateAction();
     } else {
@@ -63,16 +64,17 @@ export function useSwapApproving() {
           id: ETranslations.swap_page_toast_approve_successful,
         }),
       });
-    } else if (
-      swapApprovingTransactionAtom?.status ===
-      ESwapApproveTransactionStatus.DISCARD
-    ) {
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.swap_page_toast_approve_discarded,
-        }),
-      });
     }
+    // } else if (
+    //   swapApprovingTransactionAtom?.status ===
+    //   ESwapApproveTransactionStatus.DISCARD
+    // ) {
+    //   Toast.error({
+    //     title: intl.formatMessage({
+    //       id: ETranslations.swap_page_toast_approve_discarded,
+    //     }),
+    //   });
+    // }
     return () => {
       cleanApprovingInterval();
     };
@@ -93,8 +95,10 @@ export function useSwapApproving() {
           isFocus &&
           !isHiddenModel &&
           swapApprovingTxRef.current?.txId &&
-          swapApprovingTxRef.current?.status ===
-            ESwapApproveTransactionStatus.PENDING
+          (swapApprovingTxRef.current?.status ===
+            ESwapApproveTransactionStatus.PENDING ||
+            swapApprovingTxRef.current?.status ===
+              ESwapApproveTransactionStatus.DISCARD)
         ) {
           void approvingStateAction();
         } else {
@@ -109,8 +113,10 @@ export function useSwapApproving() {
       if (
         isFocused &&
         swapApprovingTxRef.current?.txId &&
-        swapApprovingTxRef.current?.status ===
-          ESwapApproveTransactionStatus.PENDING
+        (swapApprovingTxRef.current?.status ===
+          ESwapApproveTransactionStatus.PENDING ||
+          swapApprovingTxRef.current?.status ===
+            ESwapApproveTransactionStatus.DISCARD)
       ) {
         void approvingStateAction();
       } else {

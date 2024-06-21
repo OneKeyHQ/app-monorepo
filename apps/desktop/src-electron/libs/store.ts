@@ -18,7 +18,7 @@ const configKeys = {
   WinBounds: 'winBounds',
   UpdateSettings: 'updateSettings',
   DevTools: 'devTools',
-  EncryptedData: 'OneKey_EncryptedData',
+  EncryptedData: 'EncryptedData',
 };
 
 export const getUpdateSettings = (): IUpdateSettings =>

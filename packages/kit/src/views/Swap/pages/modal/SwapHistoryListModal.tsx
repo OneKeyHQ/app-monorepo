@@ -67,11 +67,15 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
   const sectionData = useMemo(() => {
     const pendingData =
       swapTxHistoryList?.filter(
-        (item) => item.status === ESwapTxHistoryStatus.PENDING,
+        (item) =>
+          item.status === ESwapTxHistoryStatus.PENDING ||
+          item.status === ESwapTxHistoryStatus.DISCARD,
       ) ?? [];
     const otherData =
       swapTxHistoryList?.filter(
-        (item) => item.status !== ESwapTxHistoryStatus.PENDING,
+        (item) =>
+          item.status !== ESwapTxHistoryStatus.PENDING &&
+          item.status !== ESwapTxHistoryStatus.DISCARD,
       ) ?? [];
     const groupByDay = otherData.reduce<Record<string, ISwapTxHistory[]>>(
       (acc, item) => {
