@@ -17,14 +17,16 @@ function TxSwapInfoContainer() {
 
   const { sender, receiver, swapBuildResData, receivingAddress } = swapInfo;
 
+  // TODO
+
   return (
     <InfoItemGroup>
       <InfoItem
         label="Provider"
         renderContent={swapBuildResData?.result?.info?.providerName}
       />
-      <InfoItem label="Protocol Fee" renderContent={} />
-      <InfoItem label="OneKey Fee" renderContent={} />
+      <InfoItem label="Protocol Fee" renderContent="" />
+      <InfoItem label="OneKey Fee" renderContent="" />
       <InfoItem label="Swap to" renderContent={receivingAddress} />
     </InfoItemGroup>
   );
