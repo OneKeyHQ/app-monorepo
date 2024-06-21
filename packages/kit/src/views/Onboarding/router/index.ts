@@ -175,5 +175,4 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
     name: EOnboardingPages.FinalizeWalletSetup,
     component: FinalizeWalletSetup,
   },
-  ...(ScanQrCodeModalRouter as unknown as any[]),
 ];
