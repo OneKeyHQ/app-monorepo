@@ -8,6 +8,7 @@ import type {
   IGasEIP1559,
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 const PRESET_FEE_ICON = ['🚀', '🚗', '🐢'];
 const PRESET_FEE_LABEL = [
@@ -291,5 +292,19 @@ export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
 
   if (feeInfo.feeSol) {
     return feeInfo.common.baseFee;
+  }
+}
+
+export function getMaxSendFeeUpwardAdjustmentFactor({
+  networkId,
+}: {
+  networkId: string;
+}) {
+  const networkIdMap = getNetworkIdsMap();
+  switch (networkId) {
+    case networkIdMap.mantle:
+      return 1.2;
+    default:
+      return 1;
   }
 }
