@@ -27,6 +27,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -370,6 +371,18 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
+            {platformEnv.isDev ? (
+              <Button
+                $md={
+                  {
+                    size: 'large',
+                  } as IButtonProps
+                }
+                onPress={onContinuePress}
+              >
+                Skip it And Create Wallet(Only in Dev)
+              </Button>
+            ) : null}
           </>
         );
       case EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable:
