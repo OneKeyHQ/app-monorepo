@@ -135,7 +135,9 @@ function TokenListFooter(props: IProps) {
           </Stack>
           <ListItem.Text
             flex={1}
-            primary={`${smallBalanceTokens.length} Low-value Assets`}
+            primary={`${smallBalanceTokens.length} ${intl.formatMessage({
+              id: ETranslations.low_value_assets,
+            })}`}
             {...(tableLayout && {
               primaryTextProps: { size: '$bodyMdMedium' },
             })}

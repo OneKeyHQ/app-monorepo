@@ -3,12 +3,12 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { isNaN, isNil, isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import type { IButtonProps } from '@onekeyhq/components';
+import type { IButtonProps, IXStackProps } from '@onekeyhq/components';
 import {
   Alert,
   Button,
-  Dialog,
   Divider,
   Form,
   Input,
@@ -21,7 +21,6 @@ import {
   YStack,
   useDialogInstance,
   useForm,
-  useMedia,
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -96,7 +95,10 @@ const getPresetIndex = (
   return 0;
 };
 
-function FeeInfoItem({ feeInfo }: { feeInfo: IFeeInfoItem }) {
+function FeeInfoItem({
+  feeInfo,
+  ...rest
+}: { feeInfo: IFeeInfoItem } & IXStackProps) {
   const [settings] = useSettingsPersistAtom();
   const {
     label,
@@ -108,7 +110,7 @@ function FeeInfoItem({ feeInfo }: { feeInfo: IFeeInfoItem }) {
   } = feeInfo;
 
   return (
-    <XStack justifyContent="space-between" alignItems="center">
+    <XStack justifyContent="space-between" alignItems="center" {...rest}>
       <SizableText size="$bodyMd" color="$textSubdued">
         {label}
       </SizableText>
@@ -275,7 +277,7 @@ function FeeEditor(props: IProps) {
         max,
         priorityFee: priorityFee.toFixed(),
         description: `${intl.formatMessage({
-          id: ETranslations.provider_recommend,
+          id: ETranslations.global_recommend,
         })}: ${min} - ${max} ${feeSymbol}`,
       };
     }
@@ -427,7 +429,6 @@ function FeeEditor(props: IProps) {
 
     return (
       <>
-        {feeAlert ? <Alert type="warning" title={feeAlert} mb="$5" /> : null}
         <SizableText mb={6} size="$bodyMdMedium">
           {feeTitle}
         </SizableText>
@@ -478,7 +479,6 @@ function FeeEditor(props: IProps) {
   }, [
     currentFeeIndex,
     customFee.feeUTXO,
-    feeAlert,
     feeSelectorItems,
     feeSymbol,
     intl,
@@ -531,13 +531,15 @@ function FeeEditor(props: IProps) {
     if (customFee.gasEIP1559) {
       return (
         <Form form={form}>
-          <YStack space="$5">
+          <YStack space="$5" pt="$5">
             <Form.Field
               label={intl.formatMessage({
                 id: ETranslations.transaction_max_base_fee,
               })}
               name="maxBaseFee"
-              description={`Current: ${customFee.gasEIP1559.baseFeePerGas} ${feeSymbol}`}
+              description={`${intl.formatMessage({
+                id: ETranslations.form_max_base_fee_description,
+              })}: ${customFee.gasEIP1559.baseFeePerGas} ${feeSymbol}`}
               rules={{
                 required: true,
                 min: 0,
@@ -591,7 +593,7 @@ function FeeEditor(props: IProps) {
                 id: ETranslations.content__gas_limit,
               })}
               name="gasLimit"
-              description={recommendGasLimit.description}
+              // description={recommendGasLimit.description}
               rules={{
                 required: true,
                 validate: handleValidateGasLimit,
@@ -795,13 +797,13 @@ function FeeEditor(props: IProps) {
         vaultSettings?.withL1BaseFee &&
         new BigNumber(fee.common.baseFee ?? 0).gt(0)
           ? {
-              label: 'L1 Base Fee',
+              label: intl.formatMessage({ id: ETranslations.fee_l1_base_fee }),
               customValue: fee.common.baseFee,
               customSymbol: feeSymbol,
             }
           : null,
         {
-          label: 'Expected Fee',
+          label: intl.formatMessage({ id: ETranslations.fee_expected_fee }),
           nativeValue: expectedFeeInNative,
           nativeSymbol,
           fiatValue: new BigNumber(expectedFeeInNative)
@@ -809,7 +811,7 @@ function FeeEditor(props: IProps) {
             .toFixed(),
         },
         {
-          label: 'Max Fee',
+          label: intl.formatMessage({ id: ETranslations.fee_max_fee }),
           nativeValue: maxFeeInNative,
           nativeSymbol,
           fiatValue: new BigNumber(maxFeeInNative)
@@ -837,13 +839,13 @@ function FeeEditor(props: IProps) {
         vaultSettings?.withL1BaseFee &&
         new BigNumber(fee.common.baseFee ?? 0).gt(0)
           ? {
-              label: 'L1 Base Fee',
+              label: intl.formatMessage({ id: ETranslations.fee_l1_base_fee }),
               customValue: fee.common.baseFee,
               customSymbol: feeSymbol,
             }
           : null,
         {
-          label: 'Max Fee',
+          label: intl.formatMessage({ id: ETranslations.fee_max_fee }),
           nativeValue: maxFeeInNative,
           nativeSymbol,
           fiatValue: new BigNumber(maxFeeInNative)
@@ -920,7 +922,7 @@ function FeeEditor(props: IProps) {
 
       feeInfoItems = [
         {
-          label: 'Fee',
+          label: intl.formatMessage({ id: ETranslations.fee_fee }),
           nativeValue: maxFeeInNative,
           nativeSymbol,
           fiatValue: new BigNumber(maxFeeInNative)
@@ -932,13 +934,19 @@ function FeeEditor(props: IProps) {
 
     return (
       <>
-        <Stack space="$2" py="$4">
-          {feeInfoItems.map((feeInfo, index) => (
-            <FeeInfoItem feeInfo={feeInfo} key={index} />
-          ))}
-        </Stack>
+        {feeInfoItems.map((feeInfo, index) => (
+          <FeeInfoItem
+            feeInfo={feeInfo}
+            key={index}
+            {...(index !== 0 && {
+              pt: '$2',
+            })}
+          />
+        ))}
+        {feeAlert ? <Alert type="warning" mt="$4" title={feeAlert} /> : null}
         {vaultSettings?.editFeeEnabled ? (
           <Button
+            mt="$4"
             disabled={isSaveFeeDisabled}
             variant="primary"
             size="large"
@@ -959,6 +967,7 @@ function FeeEditor(props: IProps) {
     currentFeeType,
     customFee,
     estimateFeeParams?.estimateFeeParamsSol,
+    feeAlert,
     feeSelectorItems,
     feeSymbol,
     handleApplyFeeInfo,
@@ -1004,11 +1013,17 @@ function FeeEditor(props: IProps) {
     }
 
     return (
-      <YStack space="$4">
+      <>
         {feeInfoItems.map((feeInfo, index) => (
-          <FeeInfoItem feeInfo={feeInfo} key={index} />
+          <FeeInfoItem
+            feeInfo={feeInfo}
+            key={index}
+            {...(index !== 0 && {
+              pt: '$2',
+            })}
+          />
         ))}
-      </YStack>
+      </>
     );
   }, [
     currentFeeIndex,
@@ -1020,15 +1035,18 @@ function FeeEditor(props: IProps) {
 
   return (
     <>
-      <ScrollView mx="$-5">
-        <Stack space="$5" px="$5" pb="$5">
-          {renderFeeTypeSelector()}
-          {renderFeeDetails()}
-          {renderFeeEditorForm()}
-        </Stack>
+      <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$72">
+        {renderFeeTypeSelector()}
+        {renderFeeEditorForm()}
       </ScrollView>
-      <Divider />
-      {renderFeeOverview()}
+      <Stack
+        pt="$4"
+        borderTopWidth={StyleSheet}
+        borderTopColor="$borderSubdued"
+      >
+        {renderFeeDetails()}
+        {renderFeeOverview()}
+      </Stack>
     </>
   );
 }

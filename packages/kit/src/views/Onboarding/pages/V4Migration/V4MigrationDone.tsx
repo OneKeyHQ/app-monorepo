@@ -34,6 +34,7 @@ export function V4MigrationDone({
 
   return (
     <V4MigrationModalPage
+      scrollEnabled={false}
       exitPreventMode={
         preventClose
           ? EModalExitPreventMode.always

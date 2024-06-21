@@ -75,7 +75,8 @@ export function FooterCancelButton({
     <Button
       $md={
         {
-          flex: 1,
+          flexGrow: 1,
+          flexBasis: 0,
           size: 'large',
         } as IButtonProps
       }
@@ -138,7 +139,8 @@ export function FooterConfirmButton({
     <Button
       $md={
         {
-          flex: 1,
+          flexGrow: 1,
+          flexBasis: 0,
           size: 'large',
         } as IButtonProps
       }

@@ -4,6 +4,8 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type {
   IExternalConnectResultWalletConnect,
   IExternalConnectWalletResult,
@@ -113,10 +115,18 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
     const sessions = await walletConnectStorage.dappSideStorage.getSessions();
     if (!sessions.find((item) => item.topic === topic)) {
       // (cleanupInactiveSessions)
-      throw new Error('WalletConnect session disconnected');
+      throw new Error(
+        appLocale.intl.formatMessage({
+          id: ETranslations.feedback_walletconnect_session_discconected,
+        }),
+      );
     }
     if (!connectedAddresses[networkId]) {
-      throw new Error(`External Wallet not approve this network: ${networkId}`);
+      throw new Error(
+        `${appLocale.intl.formatMessage({
+          id: ETranslations.feedback_external_wallet_does_not_approve_network,
+        })}: ${networkId}`,
+      );
     }
     // TODO checksum compare
     if (
@@ -125,7 +135,9 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
         .includes(address.toLowerCase())
     ) {
       throw new Error(
-        `External Wallet not approve this address: ${networkId} ${address}`,
+        `${appLocale.intl.formatMessage({
+          id: ETranslations.feedback_external_wallet_doesn_not_approve_address,
+        })}: ${networkId} ${address}`,
       );
     }
   }
