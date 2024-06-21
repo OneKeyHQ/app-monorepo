@@ -863,6 +863,24 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async notifyChainSwitchUIToDappSite(params: {
+    targetOrigin: string;
+    getNetworkName: ({ origin }: { origin: string }) => Promise<string>;
+  }) {
+    const privateProvider = this.backgroundApi.providers
+      .$private as ProviderApiPrivate;
+    void privateProvider.notifyNetworkChangedToDappSite(
+      {
+        send: this.backgroundApi.sendForProvider('$private'),
+        targetOrigin: params.targetOrigin,
+      },
+      {
+        getNetworkName: params.getNetworkName,
+      },
+    );
+  }
+
+  @backgroundMethod()
   async proxyRPCCall<T>({
     networkId,
     request,
