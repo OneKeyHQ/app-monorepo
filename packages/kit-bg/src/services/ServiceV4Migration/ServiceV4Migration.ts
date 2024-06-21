@@ -538,7 +538,7 @@ class ServiceV4Migration extends ServiceBase {
     try {
       const maxProgress = {
         account: 90,
-        addressBook: 94,
+        addressBook: 92,
         discover: 95,
         history: 97,
         settings: 98,

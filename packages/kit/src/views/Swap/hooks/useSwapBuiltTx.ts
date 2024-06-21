@@ -224,8 +224,13 @@ export function useSwapBuildTx() {
                   }),
                 );
               }
-              onApproveSuccess?.();
-              void handleApproveTxSuccess(data);
+              if (onApproveSuccess) {
+                setTimeout(() => {
+                  onApproveSuccess();
+                }, 500);
+              } else {
+                void handleApproveTxSuccess(data);
+              }
             },
             onFail: cancelApproveTx,
             onCancel: cancelApproveTx,
