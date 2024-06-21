@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import type { ITabPageProps } from '@onekeyhq/components';
 import {
+  RefreshControl,
   Skeleton,
   Stack,
   Tab,
@@ -64,9 +65,15 @@ function MdSkeletonRow() {
 function BasicTokenDetailTabs({
   token,
   listHeaderComponent,
+  isRefreshing,
+  onRefresh,
+  onDataLoaded,
 }: {
   token?: IMarketTokenDetail;
   listHeaderComponent?: ReactElement;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  onDataLoaded?: () => void;
 }) {
   const intl = useIntl();
   const { md } = useMedia();
@@ -84,9 +91,14 @@ function BasicTokenDetailTabs({
     if (token?.detailPlatforms) {
       void backgroundApiProxy.serviceMarket
         .fetchPools(token.detailPlatforms)
-        .then(setPools);
+        .then((response) => {
+          setPools(response);
+          setTimeout(() => {
+            onDataLoaded?.();
+          }, 100);
+        });
     }
-  }, [token?.detailPlatforms]);
+  }, [onDataLoaded, token?.detailPlatforms]);
 
   const renderPoolSkeleton = useMemo(
     () =>
@@ -149,6 +161,9 @@ function BasicTokenDetailTabs({
   );
   return (
     <Tab
+      refreshControl={
+        <RefreshControl refreshing={!!isRefreshing} onRefresh={onRefresh} />
+      }
       $gtMd={{ px: '$5' }}
       $md={{ mt: '$5' }}
       data={tabConfig}
