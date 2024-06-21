@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 import type {
@@ -8,7 +9,6 @@ import type {
   IGasEIP1559,
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 const PRESET_FEE_ICON = ['🚀', '🚗', '🐢'];
 const PRESET_FEE_LABEL = [
