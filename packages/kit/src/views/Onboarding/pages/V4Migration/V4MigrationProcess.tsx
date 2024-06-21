@@ -99,6 +99,7 @@ export function V4MigrationProcess({
 
   return (
     <V4MigrationModalPage
+      scrollEnabled={false}
       exitPreventMode={
         preventClose
           ? EModalExitPreventMode.always

@@ -136,8 +136,7 @@ function SendConfirmContainer() {
                     id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
                   },
                   {
-                    0: network?.symbol ?? '',
-                    1: network?.name ?? '',
+                    crypto: network?.symbol ?? '',
                   },
                 )}
               />

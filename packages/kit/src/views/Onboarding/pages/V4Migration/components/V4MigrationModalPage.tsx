@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
+import type { IPageProps } from '@onekeyhq/components';
 import { Page } from '@onekeyhq/components';
 
 import {
@@ -14,12 +15,13 @@ export function V4MigrationModalPage({
   onMounted,
   exitPreventMode = EModalExitPreventMode.confirm,
   isAutoStartOnMount,
+  ...rest
 }: {
   children: React.ReactNode;
   onMounted?: () => void;
   exitPreventMode?: EModalExitPreventMode;
   isAutoStartOnMount?: boolean;
-}) {
+} & IPageProps) {
   const timer = useRef<any>(null);
   const isFocused = useIsFocused();
 
@@ -44,6 +46,7 @@ export function V4MigrationModalPage({
       onClose={() => {
         console.log('V4MigrationModalPage   onClose');
       }}
+      {...rest}
     >
       {children}
     </Page>
