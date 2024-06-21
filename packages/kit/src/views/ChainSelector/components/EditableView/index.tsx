@@ -187,7 +187,7 @@ export const EditableView: FC<IEditableViewProps> = ({
         setTimeout(() => {
           y += index * CELL_HEIGHT;
           y -= section.title ? 20 : 0;
-          scrollView.current.scrollTo({
+          scrollView?.current?.scrollTo?.({
             y,
             animated: false,
           });
@@ -262,6 +262,7 @@ export const EditableView: FC<IEditableViewProps> = ({
         </Stack>
         <Stack flex={1}>
           <SortableSectionList
+            // @ts-ignore
             ref={scrollView}
             enabled={isEditMode}
             stickySectionHeadersEnabled
