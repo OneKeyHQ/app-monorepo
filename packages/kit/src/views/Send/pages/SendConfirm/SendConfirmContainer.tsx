@@ -172,7 +172,6 @@ function SendConfirmContainer() {
       sendAlertStatus.isInsufficientNativeBalance,
       intl,
       network?.symbol,
-      network?.name,
       sourceInfo,
       accountId,
       networkId,
