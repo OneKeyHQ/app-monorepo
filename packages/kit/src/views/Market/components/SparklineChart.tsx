@@ -14,13 +14,13 @@ const useDevicePixelRatio = () =>
 
 type ISparkLineChartProps = {
   data?: number[];
-  lineColor?: string;
+  lineColor: string;
   height?: number;
   width?: number;
   lineWidth?: number;
   smooth?: boolean;
   scale?: number;
-  linearGradientColor?: string;
+  linearGradientColor: string;
 };
 
 const offsetY = 5;
