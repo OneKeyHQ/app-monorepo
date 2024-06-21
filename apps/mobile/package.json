@@ -102,7 +102,7 @@
     "react-native-video": "6.0.0-beta.6",
     "react-native-view-shot": "3.1.2",
     "react-native-webview": "npm:@onekeyfe/react-native-webview@13.8.2",
-    "react-native-webview-cleaner": "https://github.com/hellohublot/react-native-webview-cleaner",
+    "react-native-webview-cleaner": "https://github.com/hellohublot/react-native-webview-cleaner#2debed45b6adca6a529fcd47b5ca85de4b51ba2b",
     "react-native-zip-archive": "^6.0.9",
     "readable-stream": "^3.6.0",
     "realm": "12.3.0",
