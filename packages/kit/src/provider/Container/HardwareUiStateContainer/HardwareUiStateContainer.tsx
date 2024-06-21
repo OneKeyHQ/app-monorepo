@@ -264,7 +264,7 @@ function HardwareUiStateContainerCmp() {
     }
 
     return false;
-  }, [action, isToastAction]);
+  }, [action, isDialogAction]);
 
   const shouldSkipCancel = useMemo(() => {
     // TODO atom firmware is updating
