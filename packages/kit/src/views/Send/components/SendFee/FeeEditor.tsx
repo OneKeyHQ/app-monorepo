@@ -943,7 +943,9 @@ function FeeEditor(props: IProps) {
             })}
           />
         ))}
-        {feeAlert ? <Alert type="warning" mt="$4" title={feeAlert} /> : null}
+        {feeAlert && currentFeeType === EFeeType.Custom ? (
+          <Alert type="warning" mt="$4" title={feeAlert} />
+        ) : null}
         {vaultSettings?.editFeeEnabled ? (
           <Button
             mt="$4"
