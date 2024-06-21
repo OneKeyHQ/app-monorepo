@@ -933,7 +933,8 @@ export function ConnectYourDevicePage() {
         ) : null}
 
         {tabValue === EConnectDeviceTab.qr ? (
-          <ConnectByQrCodeComingSoon />
+          // <ConnectByQrCodeComingSoon />
+          <ConnectByQrCode />
         ) : null}
 
         {/* buy link */}
