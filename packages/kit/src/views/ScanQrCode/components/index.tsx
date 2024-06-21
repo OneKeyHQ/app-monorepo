@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 
 import {
   BlurView,
+  Image,
   Dialog,
   SizableText,
   Stack,
@@ -118,7 +119,11 @@ export function ScanQrCode({
     >
       {qrWalletScene ? (
         <YStack fullscreen>
-          <BlurView flex={1} contentStyle={{ flex: 1 }} />
+          {platformEnv.isNativeAndroid ? (
+            <Image flex={1} source={require('@onekeyhq/kit/assets/blur.png')} />
+          ) : (
+            <BlurView flex={1} contentStyle={{ flex: 1 }} />
+          )}
         </YStack>
       ) : null}
       {progress ? (

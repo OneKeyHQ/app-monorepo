@@ -6111,7 +6111,7 @@ __metadata:
     react-native-video: "npm:6.0.0-beta.6"
     react-native-view-shot: "npm:3.1.2"
     react-native-webview: "npm:@onekeyfe/react-native-webview@13.8.2"
-    react-native-webview-cleaner: "https://github.com/hellohublot/react-native-webview-cleaner"
+    react-native-webview-cleaner: "https://github.com/hellohublot/react-native-webview-cleaner#2debed45b6adca6a529fcd47b5ca85de4b51ba2b"
     react-native-zip-archive: "npm:^6.0.9"
     readable-stream: "npm:^3.6.0"
     realm: "npm:12.3.0"
@@ -29500,13 +29500,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-webview-cleaner@https://github.com/hellohublot/react-native-webview-cleaner":
+"react-native-webview-cleaner@https://github.com/hellohublot/react-native-webview-cleaner#2debed45b6adca6a529fcd47b5ca85de4b51ba2b":
   version: 1.0.0
-  resolution: "react-native-webview-cleaner@https://github.com/hellohublot/react-native-webview-cleaner.git#commit=7278a03150f6b2afce44bb66a0f88a6c95cfac48"
+  resolution: "react-native-webview-cleaner@https://github.com/hellohublot/react-native-webview-cleaner.git#commit=2debed45b6adca6a529fcd47b5ca85de4b51ba2b"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/a1cf333b5516fe679e5adf611d54d1fce523c123265b7621ac85dcd57f167f8150c100c0826664c1bef14e4350b37b4f3df309c5912c1e0cad0a555d28fd4019
+  checksum: 10/35c386f82588d75358340def2b66cf4a2f174ae3db7e4dd3f6785c4e10bbade8e4001448f5ef8ee404cfd70a21c83f2fa90d6d931658d33c8117880301136a8f
   languageName: node
   linkType: hard
 

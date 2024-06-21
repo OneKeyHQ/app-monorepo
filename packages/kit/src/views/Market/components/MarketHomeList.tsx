@@ -10,7 +10,7 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { InteractionManager, StyleSheet } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 import type {
@@ -668,7 +668,9 @@ function BasicMarketHomeList({
         category.coingeckoIds,
         true,
       );
-      setListData(response);
+      void InteractionManager.runAfterInteractions(() => {
+        setListData(response);
+      });
     }
   }, [category.categoryId, category.coingeckoIds]);
 
