@@ -213,10 +213,15 @@ export function useV4MigrationExitPrevent({
   exitPreventMode: EModalExitPreventMode;
   isAutoStartOnMount?: boolean;
 }) {
-  const title = 'Confirm Exit';
-  const message = 'Confirm Exit Migration from V4?';
-  const onConfirmText = 'Exit';
-  const onCancelText = 'Cancel';
+  const intl = useIntl();
+  const title = intl.formatMessage({
+    id: ETranslations.confirm_exit_dialog_title,
+  });
+  const message = intl.formatMessage({
+    id: ETranslations.confirm_exit_dialog_desc,
+  });
+  const onConfirmText = intl.formatMessage({ id: ETranslations.global_exit });
+  const onCancelText = intl.formatMessage({ id: ETranslations.global_cancel });
   const [v4migrationPersistData] = useV4migrationPersistAtom();
 
   // Prevents screen locking
