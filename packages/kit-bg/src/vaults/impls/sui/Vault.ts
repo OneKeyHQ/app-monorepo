@@ -542,40 +542,39 @@ export default class Vault extends VaultBase {
     }
 
     let to = '';
-    if (
-      transaction.address.kind === 'Input' &&
-      transaction?.address?.index != null
-    ) {
-      const input = inputs[transaction.address.index];
-      const addressValue = get(input?.value, 'Pure', undefined);
-      try {
-        to = builder.de(
-          'vector<u8>',
-          new Uint8Array(Buffer.from(addressValue)),
-        );
-      } catch (e) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-          to = `0x${bufferUtils.bytesToHex(Buffer.from(addressValue))}`;
-        } catch (error) {
-          // ignore
+    if (transaction.address.kind === 'Input') {
+      if (transaction.address.value) {
+        const argValue = get(transaction.address.value, 'Pure', undefined);
+        if (argValue) {
+          try {
+            to = builder.de('vector<u8>', argValue);
+          } catch (e) {
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+              to = argValue.toString();
+            } catch (error) {
+              // ignore
+            }
+          }
+        } else {
+          to = transaction.address.value;
         }
-      }
-    } else if (transaction.address.kind === 'Input') {
-      const argValue = get(transaction.address.value, 'Pure', undefined);
-      if (argValue) {
+      } else {
+        const input = inputs[transaction.address.index];
+        const addressValue = get(input?.value, 'Pure', undefined);
         try {
-          to = builder.de('vector<u8>', argValue);
+          to = builder.de(
+            'vector<u8>',
+            new Uint8Array(Buffer.from(addressValue)),
+          );
         } catch (e) {
           try {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-            to = argValue.toString();
+            to = `0x${bufferUtils.bytesToHex(Buffer.from(addressValue))}`;
           } catch (error) {
             // ignore
           }
         }
-      } else {
-        to = transaction.address.value;
       }
     }
 
