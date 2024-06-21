@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 
 import {
   BlurView,
+  Image,
   Dialog,
   SizableText,
   Stack,
@@ -109,36 +110,38 @@ export function ScanQrCode({
     });
   }, [intl]);
   return currentPermission === PermissionStatus.GRANTED ? (
-    <Stack flex={1}>
-      <ScanCamera
-        style={{
-          flex: 1,
-        }}
-        isActive={isFocused}
-        handleScanResult={reloadHandleBarCodeScanned}
-      >
-        {progress ? (
-          <YStack fullscreen justifyContent="flex-end" alignItems="flex-end">
-            <Stack
-              bg="$blackA9"
-              borderRadius="$2"
-              mr="$3"
-              mb="$3"
-              px="$2"
-              py="$1"
-            >
-              <SizableText size="$bodySmMedium" color="$whiteA12">{`Scanning ${(
-                progress * 100
-              ).toFixed(0)}%`}</SizableText>
-            </Stack>
-          </YStack>
-        ) : null}
-      </ScanCamera>
+    <ScanCamera
+      style={{
+        flex: 1,
+      }}
+      isActive={isFocused}
+      handleScanResult={reloadHandleBarCodeScanned}
+    >
       {qrWalletScene ? (
         <YStack fullscreen>
-          <BlurView flex={1} contentStyle={{ flex: 1 }} />
+          {platformEnv.isNativeAndroid ? (
+            <Image flex={1} source={require('@onekeyhq/kit/assets/blur.png')} />
+          ) : (
+            <BlurView flex={1} contentStyle={{ flex: 1 }} />
+          )}
         </YStack>
       ) : null}
-    </Stack>
+      {progress ? (
+        <YStack fullscreen justifyContent="flex-end" alignItems="flex-end">
+          <Stack
+            bg="$blackA9"
+            borderRadius="$2"
+            mr="$3"
+            mb="$3"
+            px="$2"
+            py="$1"
+          >
+            <SizableText size="$bodySmMedium" color="$whiteA12">{`Scanning ${(
+              progress * 100
+            ).toFixed(0)}%`}</SizableText>
+          </Stack>
+        </YStack>
+      ) : null}
+    </ScanCamera>
   ) : null;
 }
