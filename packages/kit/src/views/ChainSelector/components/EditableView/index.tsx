@@ -262,6 +262,7 @@ export const EditableView: FC<IEditableViewProps> = ({
         </Stack>
         <Stack flex={1}>
           <SortableSectionList
+            // @ts-ignore
             ref={scrollView}
             enabled={isEditMode}
             stickySectionHeadersEnabled
