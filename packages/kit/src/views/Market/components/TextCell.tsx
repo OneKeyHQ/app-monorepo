@@ -16,12 +16,13 @@ export function TextCell({
   children: INumberSizeableTextProps['children'];
 }) {
   return (
-    <YStack flexBasis={0} flexGrow={1}>
+    <YStack pr="$6" pt="$3">
       <SizableText size="$bodySm" color="$textSubdued">
         {title}
       </SizableText>
       <XStack space="$1" ai="center">
         <NumberSizeableText
+          numberOfLines={1}
           size="$bodyMdMedium"
           formatter="marketCap"
           formatterOptions={{ currency: '$' }}
