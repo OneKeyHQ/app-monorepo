@@ -61,6 +61,7 @@ function NFTListItem(props: IProps) {
                   width: '100%',
                   height: '100%',
                 }}
+                autoPlay={false}
               />
             ) : (
               <Image.Source src={nft.metadata?.image} />
