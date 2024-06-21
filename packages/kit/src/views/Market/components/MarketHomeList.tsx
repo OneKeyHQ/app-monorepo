@@ -147,7 +147,7 @@ type ITableColumnConfig = Record<
 >;
 
 const colorMaps = {
-  light: ['rgba(0, 113, 63, 0.8)', 'rgba(196, 0, 6, 0.8)'],
+  light: ['rgba(0, 113, 63, 0.2)', 'rgba(196, 0, 6, 0.2)'],
   dark: ['rgba(70, 254, 165, 0.2)', 'rgba(255, 149, 146, 0.2)'],
 };
 const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
@@ -155,6 +155,11 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   const theme = useThemeVariant();
+  const lineColors = useThemeValue(
+    ['textSuccess', 'textCritical'],
+    undefined,
+    true,
+  );
   const colors = colorMaps[theme];
   return useMemo(() => {
     const tableRowConfig: ITableColumnConfig = {
@@ -257,8 +262,8 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
             lineColor={
               item.priceChangePercentage7D &&
               Number(item.priceChangePercentage7D) >= 0
-                ? colors[0]
-                : colors[1]
+                ? lineColors[0]
+                : lineColors[1]
             }
             linearGradientColor={
               item.priceChangePercentage7D &&
