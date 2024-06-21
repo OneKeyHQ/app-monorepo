@@ -17,6 +17,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupEntryStatus';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -70,6 +71,11 @@ export function ImportWalletOptions() {
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
   const backupEntryStatus = useBackupEntryStatus();
+
+  const { result: isV4DbExist = false } = usePromiseResult(
+    () => backgroundApiProxy.serviceV4Migration.checkIfV4DbExist(),
+    [],
+  );
 
   const v4MigrationActions = useV4MigrationActions();
 
@@ -205,20 +211,22 @@ export function ImportWalletOptions() {
               } as IOptionItem,
             ]
           : []),
-        {
-          title: intl.formatMessage({
-            id: ETranslations.onboarding_migrate_from_v4,
-          }),
-          icon: 'StorageOutline',
-          // onPress: handleMigrateFromV4,
-          onPress: async () => {
-            navigation.popStack();
-            await timerUtils.wait(100);
-            await v4MigrationActions.navigateToV4MigrationPage();
-          },
-          testID: 'connect-hardware-wallet',
-        },
-      ],
+        isV4DbExist
+          ? {
+              title: intl.formatMessage({
+                id: ETranslations.onboarding_migrate_from_v4,
+              }),
+              icon: 'StorageOutline',
+              // onPress: handleMigrateFromV4,
+              onPress: async () => {
+                navigation.popStack();
+                await timerUtils.wait(100);
+                await v4MigrationActions.navigateToV4MigrationPage();
+              },
+              testID: 'connect-hardware-wallet',
+            }
+          : null,
+      ].filter(Boolean),
     },
   ];
 

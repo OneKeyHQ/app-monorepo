@@ -235,27 +235,42 @@ export function FirmwareUpdateProgressBar({
         {
           type: [EFirmwareUpdateTipMessages.CheckLatestUiResource],
           progress: () => 2,
-          desc: () => `CheckLatestUiResource`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_checking_latest_ui_resources,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.DownloadLatestUiResource],
           progress: () => 3,
-          desc: () => `DownloadLatestUiResource`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_downloading_latest_ui_resources,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.DownloadLatestUiResourceSuccess],
           progress: () => 5,
-          desc: () => `DownloadLatestUiResourceSuccess`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_download_success,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.UpdateSysResource],
           progress: () => 7,
-          desc: () => `UpdateSysResource`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_updating_ui_resources,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.UpdateSysResourceSuccess],
           progress: () => 9,
-          desc: () => `UpdateSysResourceSuccess`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_update_ui_resources_success,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.AutoRebootToBootloader],
@@ -325,7 +340,10 @@ export function FirmwareUpdateProgressBar({
         {
           type: ['done'],
           progress: () => 100,
-          desc: () => `Firmware Update Done!`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_update_completed,
+            }),
         },
       ];
       const index = progressConfig.findIndex((c) => c.type.includes(type));

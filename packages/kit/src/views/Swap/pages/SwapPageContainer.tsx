@@ -11,7 +11,10 @@ const SwapPageContainer = () => {
 
   return (
     <Page scrollEnabled fullPage>
-      <TabPageHeader sceneName={EAccountSelectorSceneName.swap} />
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.swap}
+        showHeaderRight
+      />
       <Page.Body>
         <SwapMainLandWithPageType />
       </Page.Body>

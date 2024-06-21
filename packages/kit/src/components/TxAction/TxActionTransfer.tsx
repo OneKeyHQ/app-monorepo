@@ -20,6 +20,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
+  EDecodedTxStatus,
   type IDecodedTxActionAssetTransfer,
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
@@ -219,6 +220,7 @@ function TxActionTransferListView(props: ITxActionProps) {
   const { vaultSettings } = useAccountData({ networkId });
 
   const isUTXO = vaultSettings?.isUtxo;
+  const isPending = decodedTx.status === EDecodedTxStatus.Pending;
   const {
     sends,
     receives,
@@ -362,6 +364,8 @@ function TxActionTransferListView(props: ITxActionProps) {
       -
     </SizableText>
   );
+
+  title = isPending ? title : label;
 
   return (
     <TxActionCommonListView
@@ -507,9 +511,11 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         <InfoItem
           label={intl.formatMessage({ id: ETranslations.network__network })}
           renderContent={
-            <XStack alignItems="center" space="$1">
+            <XStack alignItems="center" space="$2">
               <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
-              <SizableText size="$bodyMdMedium">{network?.name}</SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {network?.name}
+              </SizableText>
             </XStack>
           }
         />,
