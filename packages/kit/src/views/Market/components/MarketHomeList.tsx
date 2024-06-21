@@ -147,7 +147,7 @@ type ITableColumnConfig = Record<
 >;
 
 const colorMaps = {
-  light: ['rgba(0, 113, 63, 0.2)', 'rgba(196, 0, 6, 0.2)'],
+  light: ['rgba(0, 113, 63, 0.8)', 'rgba(196, 0, 6, 0.8)'],
   dark: ['rgba(70, 254, 165, 0.2)', 'rgba(255, 149, 146, 0.2)'],
 };
 const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
