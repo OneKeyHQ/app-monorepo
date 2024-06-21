@@ -86,7 +86,7 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchTokenDetail(coingeckoId: string, explorerPlatforms = true) {
+  async fetchMarketTokenDetail(coingeckoId: string, explorerPlatforms = true) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: IMarketTokenDetail;
