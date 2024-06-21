@@ -95,7 +95,8 @@ const CenteredLabel = ({
 const ExtremeLabels = memo(
   ({ color, width }: { color: string; width: number }) => {
     const { greatestX, greatestY, smallestX, smallestY } = useChartData();
-    // const { selectedFiatMoneySymbol } = useSettings();
+    const [settings] = useSettingsPersistAtom();
+    const currency = settings.currencyInfo.symbol;
     if (!(greatestX && greatestY && smallestX && smallestY)) {
       return null;
     }
@@ -106,8 +107,6 @@ const ExtremeLabels = memo(
       (greatestY.x - smallestX.x) / (greatestX.x - smallestX.x),
     );
 
-    const [settings] = useSettingsPersistAtom();
-    const currency = settings.currencyInfo.symbol;
     return (
       <>
         {positionMin ? (
