@@ -22,15 +22,7 @@ export function QrcodeDialogContainer() {
 
   useEffect(() => {
     const fn = (event: IAppEventBusPayload[EAppEventBusNames.ShowQrcode]) => {
-      const {
-        drawType,
-        valueUr,
-        title,
-        // To achieve the effect of not opening the scanning page in a new Modal,
-        //  the scanning route has been added by default in the router
-        // packages/kit/src/routes/Modal/router.tsx 31L
-        openInModal = false,
-      } = event;
+      const { drawType, valueUr, title, openInModal = false } = event;
       const toast = SecureQRToast.show({
         title,
         valueUr,
