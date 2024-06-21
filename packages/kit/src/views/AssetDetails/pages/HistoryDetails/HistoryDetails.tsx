@@ -270,8 +270,10 @@ function HistoryDetails() {
     }
 
     const from = decodedTx.signer;
-    const to =
-      decodedTx.to ?? decodedTx.actions[0]?.assetTransfer?.to ?? txDetails?.to;
+    let to = decodedTx.to ?? decodedTx.actions[0]?.assetTransfer?.to;
+    if (vaultSettings?.impl === IMPL_DOT && !to) {
+      to = txDetails?.to;
+    }
 
     return {
       from,
@@ -281,7 +283,14 @@ function HistoryDetails() {
           ? true
           : new BigNumber(sends?.length ?? 0).plus(receives?.length ?? 0).eq(1),
     };
-  }, [accountAddress, historyTx, intl, txDetails?.to, vaultSettings?.isUtxo]);
+  }, [
+    accountAddress,
+    historyTx,
+    intl,
+    txDetails?.to,
+    vaultSettings?.impl,
+    vaultSettings?.isUtxo,
+  ]);
 
   const renderAssetsChange = useCallback(
     ({
