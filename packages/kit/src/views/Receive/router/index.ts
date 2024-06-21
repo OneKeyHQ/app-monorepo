@@ -31,4 +31,5 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
     name: EModalReceiveRoutes.ReceiveInvoice,
     component: ReceiveInvoice,
   },
+  ...(ScanQrCodeModalRouter as unknown as any[]),
 ];
