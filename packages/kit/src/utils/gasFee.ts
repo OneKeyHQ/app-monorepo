@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 import type {
@@ -291,5 +292,19 @@ export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
 
   if (feeInfo.feeSol) {
     return feeInfo.common.baseFee;
+  }
+}
+
+export function getMaxSendFeeUpwardAdjustmentFactor({
+  networkId,
+}: {
+  networkId: string;
+}) {
+  const networkIdMap = getNetworkIdsMap();
+  switch (networkId) {
+    case networkIdMap.mantle:
+      return 1.2;
+    default:
+      return 1;
   }
 }

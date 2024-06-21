@@ -359,8 +359,8 @@ function HardwareUiStateContainerCmp() {
         } else if (isDialogAction) {
           // hardware ui action dialog
           const instance = Dialog.show({
-            dismissOnOverlayPress: isOperationAction ? true : false,
-            showFooter: isOperationAction ? true : false,
+            dismissOnOverlayPress: !!isOperationAction,
+            showFooter: !!isOperationAction,
             dialogContainer: HardwareSingletonDialogRender,
             async onClose(params) {
               log('close dialog');

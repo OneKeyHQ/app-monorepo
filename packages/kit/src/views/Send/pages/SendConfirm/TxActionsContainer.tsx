@@ -14,6 +14,7 @@ import {
   useSendSelectedFeeInfoAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import { getMaxSendFeeUpwardAdjustmentFactor } from '@onekeyhq/kit/src/utils/gasFee';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   calculateNativeAmountInActions,
@@ -91,7 +92,9 @@ function TxActionsContainer(props: IProps) {
           nativeTokenBalanceBN,
           nativeTokenTransferBN,
         );
-        const amountToUpdate = transferAmountBN.minus(feeBN);
+        const amountToUpdate = transferAmountBN.minus(
+          feeBN.times(getMaxSendFeeUpwardAdjustmentFactor({ networkId })),
+        );
         if (amountToUpdate.gte(0)) {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: true,
@@ -120,6 +123,7 @@ function TxActionsContainer(props: IProps) {
   }, [
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
+    networkId,
     r.result,
     sendSelectedFeeInfo,
     sendSelectedFeeInfo?.totalNative,

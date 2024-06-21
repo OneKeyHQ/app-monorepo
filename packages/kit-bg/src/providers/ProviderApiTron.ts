@@ -152,6 +152,8 @@ class ProviderApiTron extends ProviderApiBase {
       url = networks[0].isTestnet
         ? TRON_SCAN_REQUESTED_URL.shasta
         : TRON_SCAN_REQUESTED_URL.main;
+    } else {
+      url = TRON_SCAN_REQUESTED_URL.main;
     }
 
     return Promise.resolve({
