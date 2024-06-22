@@ -158,6 +158,7 @@ export function normalizeErrorProps(
 function autoPrintErrorIgnore(error: unknown | undefined) {
   const e = error as IOneKeyError | undefined;
   if (e) {
+    // disable autoLogger Error in DEV
     e.$$autoPrintErrorIgnore = true;
   }
 }
@@ -172,6 +173,15 @@ function toastIfError(error: unknown) {
   }
 }
 
+function toastIfErrorDisable(error: unknown) {
+  if (error instanceof Error) {
+    const e = error as IOneKeyError | undefined;
+    if (e) {
+      e.autoToast = false;
+    }
+  }
+}
+
 export default {
   autoPrintErrorIgnore,
   normalizeErrorProps,
@@ -181,4 +191,5 @@ export default {
   errorsIntlFormatter,
   getDeviceErrorPayloadMessage,
   toastIfError,
+  toastIfErrorDisable,
 };

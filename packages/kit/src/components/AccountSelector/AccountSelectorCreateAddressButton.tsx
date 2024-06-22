@@ -6,6 +6,7 @@ import type { IButtonProps } from '@onekeyhq/components';
 import { Button } from '@onekeyhq/components';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -80,7 +81,13 @@ export function AccountSelectorCreateAddressButton({
             },
           );
         if (canAutoCreate) {
-          await doCreate();
+          try {
+            await doCreate();
+          } catch (error) {
+            errorUtils.autoPrintErrorIgnore(error); // mute auto print log error
+            errorUtils.toastIfErrorDisable(error); // mute auto toast when auto create
+            throw error;
+          }
         }
       }
     })();

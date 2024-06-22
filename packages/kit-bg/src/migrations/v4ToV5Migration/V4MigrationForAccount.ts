@@ -1,4 +1,4 @@
-import { isEqual, isNil } from 'lodash';
+import { isEqual, isNil, isObject, isString } from 'lodash';
 import natsort from 'natsort';
 
 import {
@@ -21,11 +21,13 @@ import {
   COINTYPE_BTC,
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
+  COINTYPE_STC,
   COINTYPE_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { EDBAccountType } from '../../dbs/local/consts';
@@ -35,6 +37,7 @@ import { v4CoinTypeToNetworkId } from './v4CoinTypeToNetworkId';
 import v4dbHubs from './v4dbHubs';
 import { EV4LocalDBStoreNames } from './v4local/v4localDBStoreNames';
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
+import v4MigrationUtils from './v4MigrationUtils';
 import { EV4DBAccountType } from './v4types';
 
 import type {
@@ -48,6 +51,7 @@ import type {
   IV4DBAccount,
   IV4DBCredentialBase,
   IV4DBDevice,
+  IV4DBDevicePayloadJson,
   IV4DBHdCredentialRaw,
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
@@ -55,13 +59,10 @@ import type {
 import type {
   IDBAccount,
   IDBDevice,
+  IDBDeviceSettings,
   IDBUtxoAccount,
   IDBWallet,
 } from '../../dbs/local/types';
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '../../vaults/types';
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({
@@ -84,9 +85,10 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       });
       const networkId = v4CoinTypeToNetworkId[v4account.coinType];
       if (!networkId) {
-        throw new Error(`Unsupported coinType: ${v4account.coinType}`);
+        throw new Error(
+          `Unsupported coinType for migration: ${v4account.coinType}`,
+        );
       }
-      const coreApi = this.getCoreApi({ networkId });
       const credentials: ICoreCredentialsInfo = {
         imported: encryptImportedCredential({
           credential: {
@@ -104,25 +106,39 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         });
       const addressEncoding = deriveInfo?.addressEncoding;
 
-      const chainId = networkUtils.getNetworkChainId({
-        networkId,
-        hex: false,
-      });
+      let exportedPrivateKey = '';
+      if (
+        v4MigrationUtils.isCoinTypeSupport({ coinType: v4account.coinType })
+      ) {
+        const chainId = networkUtils.getNetworkChainId({
+          networkId,
+          hex: false,
+        });
+        const coreApi = this.getCoreApi({ networkId });
+        exportedPrivateKey = await coreApi.imported.getExportedSecretKey({
+          networkInfo: { chainId } as any, // only works for HD
 
-      const exportedPrivateKey = await coreApi.imported.getExportedSecretKey({
-        networkInfo: { chainId } as any, // only works for HD
+          password: encodedPassword,
+          credentials,
 
-        password: encodedPassword,
-        credentials,
+          account: v4account,
 
-        account: v4account,
+          keyType:
+            v4account.type === EV4DBAccountType.UTXO
+              ? ECoreApiExportedSecretKeyType.xprvt
+              : ECoreApiExportedSecretKeyType.privateKey,
+          addressEncoding,
+        });
+      }
 
-        keyType:
-          v4account.type === EV4DBAccountType.UTXO
-            ? ECoreApiExportedSecretKeyType.xprvt
-            : ECoreApiExportedSecretKeyType.privateKey,
-        addressEncoding,
-      });
+      if (
+        !exportedPrivateKey &&
+        privateKey &&
+        v4account?.coinType === COINTYPE_STC
+      ) {
+        exportedPrivateKey = hexUtils.addHexPrefix(privateKey);
+      }
+
       return {
         exportedPrivateKey,
         privateKey,
@@ -396,60 +412,47 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       this.backgroundApi;
 
     return v4dbHubs.logger.runAsyncWithCatch(
-      async () =>
-        new Promise<
-          | {
-              index: number;
-              networkId: string;
-              networkImpl: string;
-              deriveType: IAccountDeriveTypes;
-              coinType: string;
-              deriveInfo: IAccountDeriveInfo | undefined;
-              indexedAccountId: string;
-            }
-          | undefined
-          // eslint-disable-next-line no-async-promise-executor
-        >(async (resolve, reject) => {
-          const index = accountUtils.findIndexFromTemplate({
-            template: await this.fixV4AccountTemplate({ v4account }),
-            path: v4account.path,
+      async () => {
+        const index = accountUtils.findIndexFromTemplate({
+          template: await this.fixV4AccountTemplate({ v4account }),
+          path: v4account.path,
+        });
+        if (!isNil(index)) {
+          await serviceAccount.addIndexedAccount({
+            walletId: v5wallet.id,
+            indexes: [index],
+            skipIfExists: true,
           });
-          if (!isNil(index)) {
-            await serviceAccount.addIndexedAccount({
-              walletId: v5wallet.id,
-              indexes: [index],
-              skipIfExists: true,
-            });
-            const coinType = v4account.coinType;
-            if (coinType) {
-              const networkId = v4CoinTypeToNetworkId[coinType];
-              if (networkId) {
-                const { deriveType, deriveInfo } =
-                  await serviceNetwork.getDeriveTypeByTemplate({
-                    networkId,
-                    template: await this.fixV4AccountTemplate({
-                      v4account,
-                    }),
-                  });
-                const networkImpl = networkUtils.getNetworkImpl({ networkId });
-                const indexedAccountId = accountUtils.buildIndexedAccountId({
-                  walletId: v5wallet.id,
-                  index,
-                });
-                return resolve({
-                  index,
+          const coinType = v4account.coinType;
+          if (coinType) {
+            const networkId = v4CoinTypeToNetworkId[coinType];
+            if (networkId) {
+              const { deriveType, deriveInfo } =
+                await serviceNetwork.getDeriveTypeByTemplate({
                   networkId,
-                  networkImpl,
-                  deriveType,
-                  deriveInfo,
-                  coinType,
-                  indexedAccountId,
+                  template: await this.fixV4AccountTemplate({
+                    v4account,
+                  }),
                 });
-              }
+              const networkImpl = networkUtils.getNetworkImpl({ networkId });
+              const indexedAccountId = accountUtils.buildIndexedAccountId({
+                walletId: v5wallet.id,
+                index,
+              });
+              return {
+                index,
+                networkId,
+                networkImpl,
+                deriveType,
+                deriveInfo,
+                coinType,
+                indexedAccountId,
+              };
             }
           }
-          return resolve(undefined);
-        }),
+        }
+        return undefined;
+      },
       {
         name: 'prepareAddHdOrHwAccounts',
         errorResultFn: () => undefined,
@@ -549,7 +552,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             });
             const v5account = result?.accounts?.[0];
             if (v5account) {
-              onAccountMigrated(v5account, v4account);
+              await onAccountMigrated(v5account, v4account);
             }
             return v5account;
           },
@@ -792,7 +795,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                     });
                   const v5account = result?.accounts?.[0];
                   if (v5account) {
-                    onAccountMigrated(v5account, v4account);
+                    await onAccountMigrated(v5account, v4account);
                   }
                   return v5account;
                 },
@@ -860,10 +863,36 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             v4walletId: v4wallet.id,
             v4device,
           });
+          let v4devicePayloadJson: IV4DBDevicePayloadJson | undefined;
+          if (v4device?.payloadJson) {
+            if (isString(v4device?.payloadJson)) {
+              try {
+                v4devicePayloadJson = JSON.parse(v4device.payloadJson || '{}');
+              } catch (error) {
+                //
+              }
+            }
+            if (!v4devicePayloadJson && isObject(v4device?.payloadJson)) {
+              v4devicePayloadJson = v4device.payloadJson as
+                | IV4DBDevicePayloadJson
+                | undefined;
+            }
+          }
+
+          let v5deviceSettings: IDBDeviceSettings | undefined;
+          if (v4devicePayloadJson) {
+            v5deviceSettings = {
+              inputPinOnSoftware: !v4devicePayloadJson.onDeviceInputPin,
+              inputPinOnSoftwareSupport: undefined,
+            };
+          }
+
           const v5device: IDBDevice = {
             ...v4device, // TODO deviceName is wrong in v4 if update hidden wallet name
             connectId: v4device?.mac || '',
-            settingsRaw: '', // TODO convert v4 payloadJson to v5 settingsRaw
+            settingsRaw: v5deviceSettings
+              ? JSON.stringify(v5deviceSettings)
+              : '',
           };
           await v5localDb.addDbDevice({
             device: v5device,
@@ -902,7 +931,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                   features: v5dbDevice.featuresInfo || ({} as any),
                   passphraseState: v4wallet.passphraseState,
                 });
-              onWalletMigrated(v5walletSaved);
+              await onWalletMigrated(v5walletSaved);
               return v5walletSaved;
             },
             {
@@ -928,7 +957,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                   device: v5dbDevice,
                   isFirmwareVerified: false, // TODO v4 isFirmwareVerified
                 });
-              onWalletMigrated(v5walletSaved);
+              await onWalletMigrated(v5walletSaved);
               return v5walletSaved;
             },
             {
@@ -1038,7 +1067,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                         walletId: v5wallet?.id,
                         accounts: [v5account],
                       });
-                      onAccountMigrated(v5account, v4account);
+                      await onAccountMigrated(v5account, v4account);
                       return v5account;
                     },
                     {
@@ -1100,7 +1129,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             text: mnemonic,
           }),
         });
-        onWalletMigrated(v5walletSaved);
+        await onWalletMigrated(v5walletSaved);
         return v5walletSaved;
       },
       {
@@ -1166,7 +1195,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               });
               const v5account = result?.accounts?.[0];
               if (v5account) {
-                onAccountMigrated(v5account, v4account);
+                await onAccountMigrated(v5account, v4account);
               }
             }
           }

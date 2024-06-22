@@ -3,15 +3,14 @@ import { useCallback, useState } from 'react';
 import { StackActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Alert,
   Page,
   Progress,
   SizableText,
   Stack,
-  usePreventRemove,
 } from '@onekeyhq/components';
-import type { IPageScreenProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/v4migration';
@@ -20,7 +19,10 @@ import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { V4MigrationLogCopyHeaderRight } from './components/V4MigrationLogCopy';
+import {
+  V4MigrationLogCopy,
+  V4MigrationLogCopyHeaderRight,
+} from './components/V4MigrationLogCopy';
 import { V4MigrationModalPage } from './components/V4MigrationModalPage';
 import { EModalExitPreventMode } from './hooks/useV4MigrationExitPrevent';
 
@@ -124,16 +126,18 @@ export function V4MigrationProcess({
         alignItems="center"
         justifyContent="center"
       >
-        <Alert
-          alignSelf="stretch"
-          type="warning"
-          title={intl.formatMessage({
-            id: ETranslations.v4_migration_update_in_progress_alert_title,
-          })}
-          description={intl.formatMessage({
-            id: ETranslations.v4_migration_update_in_progress_alert_description,
-          })}
-        />
+        <V4MigrationLogCopy alignSelf="stretch">
+          <Alert
+            type="warning"
+            title={intl.formatMessage({
+              id: ETranslations.v4_migration_update_in_progress_alert_title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.v4_migration_update_in_progress_alert_description,
+            })}
+          />
+        </V4MigrationLogCopy>
+
         <V4MigrationProgressBar />
       </Page.Body>
     </V4MigrationModalPage>
