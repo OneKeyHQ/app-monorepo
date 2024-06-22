@@ -24,6 +24,7 @@ export function AccountSelectorTriggerBase({
       testID="AccountSelectorTriggerBase"
       role="button"
       alignItems="center"
+      maxWidth="$48"
       py="$0.5"
       px="$1.5"
       mx="$-1.5"
@@ -36,7 +37,6 @@ export function AccountSelectorTriggerBase({
       }}
       onPress={showAccountSelector}
       userSelect="none"
-      maxWidth="$40"
     >
       <AccountAvatar
         size="small"
@@ -45,14 +45,11 @@ export function AccountSelectorTriggerBase({
         account={account}
         dbAccount={dbAccount}
       />
-
-      <View pl="$2" pr="$1">
-        {wallet?.name ? (
-          <SizableText size="$bodySm" color="$textSubdued">
-            {wallet?.name ||
-              intl.formatMessage({ id: ETranslations.global_no_wallet })}
-          </SizableText>
-        ) : null}
+      <View pl="$2" pr="$1" minWidth={0}>
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          {wallet?.name ||
+            intl.formatMessage({ id: ETranslations.global_no_wallet })}
+        </SizableText>
         <SizableText size="$bodyMdMedium" numberOfLines={1}>
           {accountName || intl.formatMessage({ id: ETranslations.no_account })}
         </SizableText>

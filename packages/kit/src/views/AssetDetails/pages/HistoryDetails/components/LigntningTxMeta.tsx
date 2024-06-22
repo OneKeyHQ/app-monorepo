@@ -20,6 +20,7 @@ function LightningTxAttributes({
   decodedTx: IDecodedTx;
   txDetails?: IOnChainHistoryTx;
 }) {
+  const intl = useIntl();
   const lightningExtraInfo = decodedTx.extraInfo as IDecodedTxExtraLightning;
 
   if (!lightningExtraInfo) return null;
@@ -30,7 +31,7 @@ function LightningTxAttributes({
     <>
       {lightningExtraInfo?.description ? (
         <InfoItem
-          label="Description"
+          label={intl.formatMessage({ id: ETranslations.global_description })}
           renderContent={lightningExtraInfo.description}
         />
       ) : null}

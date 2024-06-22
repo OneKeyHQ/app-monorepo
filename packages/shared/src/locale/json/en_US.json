@@ -112,7 +112,7 @@
   "balance_detail.disable_protection_warning_description": "Disabling inscription protection may result in the accidental transfer of inscription tokens or NFTs. To migrate your inscription assets safely, please use an inscription-compatible wallet such as Unisat or OKX.",
   "balance_detail.disable_protection_warning_title": "Disabling inscription protection may lead to loss of inscription assets",
   "balance_detail.enable_protection_title": "Enabling Inscription Protection",
-  "balance_detail.enable_protection_warning": "Inscription assets (Ordinals NFT and BRC-20 tokens) are currently not supported.To view the details of the protection, check \"Balance Details\".\nTo migrate your inscription assets safely, please use an inscription-compatible wallet such as Unisat or OKX.",
+  "balance_detail.enable_protection_warning": "Inscription assets (Ordinals NFT and BRC-20 tokens) are currently not supported. To view the details of the protection, check \"Balance Details\". \nTo migrate your inscription assets safely, please use an inscription-compatible wallet such as Unisat or OKX.",
   "balance_detail.frozen": "Frozen",
   "balance_detail.frozen_by_inscription": "Inscription Protection",
   "balance_detail.how_to_migrate": "How to Migrate Ordinals NFT / BRC-20 Tokens?",
@@ -541,6 +541,7 @@
   "global.copy_recovery_phrase": "Copy recovery phrase",
   "global.copy_token_contract": "Copy token contract",
   "global.count_accounts": "{count} accounts",
+  "global.count_addresses": "{count} addresses",
   "global.create_address": "Create address",
   "global.create_invoice": "Create invoice",
   "global.create_wallet": "Create wallet",
@@ -1429,7 +1430,7 @@
   "update.update_required_desc": "Your hardware wallet's version is outdated and must be updated to continue.",
   "update.update_resource_failed": "Update resource failed",
   "update.update_ui_resources_success": "Update UI resources success",
-  "update.updated_to_latest_version": "Updated to the latest version {}",
+  "update.updated_to_latest_version": "Updated to the latest version {version}",
   "update.updating_bootloader": "Updating bootloader",
   "update.updating_ui_resources": "Updating UI resources...",
   "update.verify_status_and_continue": "Verify status and continue",

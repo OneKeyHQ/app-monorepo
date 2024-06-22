@@ -10,11 +10,11 @@ import type {
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
 
-const PRESET_FEE_ICON = ['🚀', '🚗', '🐢'];
+const PRESET_FEE_ICON = ['🐢', '🚗', '🚀'];
 const PRESET_FEE_LABEL = [
-  ETranslations.content__fast,
-  ETranslations.content__normal,
   ETranslations.content__slow,
+  ETranslations.content__normal,
+  ETranslations.content__fast,
 ];
 
 function nilError(message: string): number {

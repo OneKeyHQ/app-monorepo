@@ -400,7 +400,7 @@ class ServiceV4Migration extends ServiceBase {
           backupId: `v4-hd-backup:${w?.wallet?.id}`,
           title: w?.wallet?.name || '--',
           subTitle: appLocale.intl.formatMessage(
-            { id: ETranslations.global_count_accounts },
+            { id: ETranslations.global_count_addresses },
             {
               count: accountsCount,
             },

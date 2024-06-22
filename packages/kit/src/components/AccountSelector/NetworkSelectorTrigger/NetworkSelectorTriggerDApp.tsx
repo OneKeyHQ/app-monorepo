@@ -133,6 +133,8 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
       }
       onPress={handlePress}
       disabled={triggerDisabled}
+      maxWidth="$40"
+      minWidth={0}
     >
       <NetworkAvatar networkId={network?.id} size="$6" />
       {media.gtMd ? (

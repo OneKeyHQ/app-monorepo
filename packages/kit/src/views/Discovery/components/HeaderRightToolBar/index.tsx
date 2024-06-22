@@ -63,24 +63,14 @@ function SingleAccountAndNetworkSelectorTrigger({
     handleAccountChanged,
   });
   return (
-    <>
-      <Stack
-        $gtMd={{
-          flexShrink: 1,
-          minWidth: '$32',
-        }}
-      >
+    <XStack space="$3" alignItems="center">
+      <Stack>
         <NetworkSelectorTriggerBrowserSingle num={num} />
       </Stack>
-      <Stack
-        $gtMd={{
-          flexShrink: 1,
-          minWidth: '$36',
-        }}
-      >
+      <Stack>
         <AccountSelectorTriggerBrowserSingle num={num} />
       </Stack>
-    </>
+    </XStack>
   );
 }
 
