@@ -3,9 +3,9 @@ import {
   SizableText,
   Stack,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import type { IStackProps } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 type IPriceLabelProps = {
   price: number | null;
@@ -133,6 +133,9 @@ export function PriceLabel({
   //   );
   // }
   // const { selectedFiatMoneySymbol } = useSettings();
+
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
   return (
     <Stack
       opacity={opacity}
@@ -144,7 +147,7 @@ export function PriceLabel({
       <NumberSizeableText
         size="$bodyMdMedium"
         formatter="price"
-        formatterOptions={{ currency: '$' }}
+        formatterOptions={{ currency }}
         $md={{ size: '$bodySmMedium', ml: '$2' }}
       >
         {String(price)}

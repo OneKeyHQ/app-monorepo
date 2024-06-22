@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IMarketDetailPlatform,
@@ -48,6 +49,8 @@ export function Overview24PriceChange({
   high: number;
 }) {
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
   return (
     <YStack space="$2.5">
       <SizableText size="$bodyMd" color="$textSubdued">
@@ -62,7 +65,7 @@ export function Overview24PriceChange({
           <NumberSizeableText
             size="$bodyMdMedium"
             formatter="price"
-            formatterOptions={{ currency: '$' }}
+            formatterOptions={{ currency }}
           >
             {low}
           </NumberSizeableText>
@@ -74,7 +77,7 @@ export function Overview24PriceChange({
           <NumberSizeableText
             size="$bodyMdMedium"
             formatter="price"
-            formatterOptions={{ currency: '$' }}
+            formatterOptions={{ currency }}
           >
             {high}
           </NumberSizeableText>
@@ -95,6 +98,7 @@ function OverviewMarketVOLItem({
   currency?: boolean;
   children: INumberSizeableTextProps['children'];
 }) {
+  const [settings] = useSettingsPersistAtom();
   return (
     <YStack
       pb="$3"
@@ -110,7 +114,9 @@ function OverviewMarketVOLItem({
         <NumberSizeableText
           size="$bodyMdMedium"
           formatter="marketCap"
-          formatterOptions={currency ? { currency: '$' } : undefined}
+          formatterOptions={
+            currency ? { currency: settings.currencyInfo.symbol } : undefined
+          }
         >
           {children}
         </NumberSizeableText>

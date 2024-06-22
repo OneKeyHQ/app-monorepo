@@ -5,6 +5,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 export function TextCell({
   title,
@@ -15,6 +16,8 @@ export function TextCell({
   rank?: number;
   children: INumberSizeableTextProps['children'];
 }) {
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
   return (
     <YStack pr="$6" pt="$3">
       <SizableText size="$bodySm" color="$textSubdued">
@@ -25,7 +28,7 @@ export function TextCell({
           numberOfLines={1}
           size="$bodyMdMedium"
           formatter="marketCap"
-          formatterOptions={{ currency: '$' }}
+          formatterOptions={{ currency }}
         >
           {children}
         </NumberSizeableText>
