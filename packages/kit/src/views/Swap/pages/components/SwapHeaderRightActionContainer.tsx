@@ -29,7 +29,9 @@ const SwapHeaderRightActionContainer = ({
   const swapPendingStatusList = useMemo(
     () =>
       swapHistoryPendingList.filter(
-        (i) => i.status === ESwapTxHistoryStatus.PENDING,
+        (i) =>
+          i.status === ESwapTxHistoryStatus.PENDING ||
+          i.status === ESwapTxHistoryStatus.DISCARD,
       ),
     [swapHistoryPendingList],
   );

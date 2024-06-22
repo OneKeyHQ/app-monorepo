@@ -103,7 +103,7 @@ function HeaderView({
     if (isModelScreen) {
       return gtMd
         ? ({ width: 640 } as Layout)
-        : ({ width: window.screen.width } as Layout);
+        : ({ width: window.innerWidth } as Layout);
     }
     return undefined;
   }, [gtMd, isModelScreen]);
