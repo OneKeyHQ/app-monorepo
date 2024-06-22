@@ -208,6 +208,7 @@
     "@babel/highlight": "7.23.4",
     "@babel/types": "7.23.5",
     "@babel/parser": "7.23.5",
+    "electron": "27.0.0",
     "@walletconnect/universal-provider": "2.11.2",
     "@walletconnect/core": "2.11.2",
     "fs": "npm:@favware/skip-dependency@1.2.1",

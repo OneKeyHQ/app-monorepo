@@ -347,11 +347,10 @@ const DesktopWebView = forwardRef(
             'height': '100%',
             ...style,
           }}
+          blinkfeatures="false"
+          nodeintegration={false}
           allowpopups={allowpopups}
-          // @ts-expect-error
-          nodeintegration="true"
-          nodeintegrationinsubframes="true"
-          webpreferences="contextIsolation=0, contextisolation=0, nativeWindowOpen=1, sandbox=0"
+          webpreferences="contextIsolation=0, nativeWindowOpen=1, sandbox=0"
           // mobile user-agent
           // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
           {...props}
