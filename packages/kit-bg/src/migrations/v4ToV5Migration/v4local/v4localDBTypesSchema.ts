@@ -74,6 +74,9 @@ export type IV4DBContext = {
   pendingWallets?: string[];
 };
 
+export type IV4DBDevicePayloadJson = {
+  onDeviceInputPin?: boolean;
+};
 export type IV4DBDevice = IV4DBBaseObjectWithName & {
   features: string; // TODO rename to featuresRaw
   //   featuresInfo?: IOneKeyDeviceFeatures; // readonly field // TODO rename to features
