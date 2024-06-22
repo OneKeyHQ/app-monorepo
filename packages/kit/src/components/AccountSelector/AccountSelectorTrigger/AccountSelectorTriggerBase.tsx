@@ -47,12 +47,10 @@ export function AccountSelectorTriggerBase({
       />
 
       <View pl="$2" pr="$1">
-        {wallet?.name ? (
-          <SizableText size="$bodySm" color="$textSubdued">
-            {wallet?.name ||
-              intl.formatMessage({ id: ETranslations.global_no_wallet })}
-          </SizableText>
-        ) : null}
+        <SizableText size="$bodySm" color="$textSubdued">
+          {wallet?.name ||
+            intl.formatMessage({ id: ETranslations.global_no_wallet })}
+        </SizableText>
         <SizableText size="$bodyMdMedium" numberOfLines={1}>
           {accountName || intl.formatMessage({ id: ETranslations.no_account })}
         </SizableText>

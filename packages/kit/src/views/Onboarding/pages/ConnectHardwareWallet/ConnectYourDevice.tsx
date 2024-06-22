@@ -910,7 +910,9 @@ export function ConnectYourDevicePage() {
           />
         ) : null}
 
-        {tabValue === EConnectDeviceTab.qr ? <ConnectByQrCode /> : null}
+        {tabValue === EConnectDeviceTab.qr ? (
+          <ConnectByQrCodeComingSoon />
+        ) : null}
 
         {/* buy link */}
         <XStack
