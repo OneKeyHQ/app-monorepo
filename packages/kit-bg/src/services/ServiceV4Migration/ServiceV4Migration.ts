@@ -548,8 +548,9 @@ class ServiceV4Migration extends ServiceBase {
       await v4migrationAtom.set((v) => ({ ...v, isProcessing: true }));
       await v4migrationAtom.set((v) => ({
         ...v,
-        progress: 0,
+        progress: 3,
       }));
+      await timerUtils.wait(10);
 
       // **** migrate accounts
       const totalWalletsAndAccounts =
@@ -567,6 +568,7 @@ class ServiceV4Migration extends ServiceBase {
           ...v,
           progress: Math.floor((progress * maxProgress.account) / 100),
         }));
+        await timerUtils.wait(10);
       };
 
       const v4wallets = this.migrationPayload?.wallets || [];

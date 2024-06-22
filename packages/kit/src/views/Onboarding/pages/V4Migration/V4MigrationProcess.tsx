@@ -126,9 +126,8 @@ export function V4MigrationProcess({
         alignItems="center"
         justifyContent="center"
       >
-        <V4MigrationLogCopy>
+        <V4MigrationLogCopy alignSelf="stretch">
           <Alert
-            alignSelf="stretch"
             type="warning"
             title={intl.formatMessage({
               id: ETranslations.v4_migration_update_in_progress_alert_title,
