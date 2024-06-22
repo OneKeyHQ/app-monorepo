@@ -541,6 +541,7 @@
   "global.copy_recovery_phrase": "복구 구문 복사",
   "global.copy_token_contract": "토큰 계약 복사",
   "global.count_accounts": "{count}개의 계정",
+  "global.count_addresses": "{count}개의 주소",
   "global.create_address": "주소 생성",
   "global.create_invoice": "송장 생성",
   "global.create_wallet": "지갑 생성",

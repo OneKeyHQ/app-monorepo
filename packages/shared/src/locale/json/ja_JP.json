@@ -541,6 +541,7 @@
   "global.copy_recovery_phrase": "リカバリーフレーズをコピーする",
   "global.copy_token_contract": "トークン契約をコピーする",
   "global.count_accounts": "{count} アカウント",
+  "global.count_addresses": "{count} 件のアドレス",
   "global.create_address": "住所を作成する",
   "global.create_invoice": "請求書を作成する",
   "global.create_wallet": "ウォレットを作成する",

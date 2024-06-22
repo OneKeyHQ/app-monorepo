@@ -541,6 +541,7 @@
   "global.copy_recovery_phrase": "复制助记词",
   "global.copy_token_contract": "复制代币合约",
   "global.count_accounts": "{count} 个账户",
+  "global.count_addresses": "{count} 个地址",
   "global.create_address": "创建地址",
   "global.create_invoice": "创建发票",
   "global.create_wallet": "创建钱包",

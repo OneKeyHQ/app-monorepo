@@ -541,6 +541,7 @@
   "global.copy_recovery_phrase": "Copia la frase di recupero",
   "global.copy_token_contract": "Copia il contratto del token",
   "global.count_accounts": "{count} account",
+  "global.count_addresses": "{count} indirizzi",
   "global.create_address": "Crea indirizzo",
   "global.create_invoice": "Crea fattura",
   "global.create_wallet": "Crea portafoglio",

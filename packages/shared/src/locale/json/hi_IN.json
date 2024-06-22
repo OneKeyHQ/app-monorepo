@@ -541,6 +541,7 @@
   "global.copy_recovery_phrase": "रिकवरी फ़्रेज़ कॉपी करें",
   "global.copy_token_contract": "टोकन अनुबंध की प्रतिलिपि बनाएं",
   "global.count_accounts": "{count} खाते",
+  "global.count_addresses": "{count} पते",
   "global.create_address": "पता बनाएं",
   "global.create_invoice": "इनवॉइस बनाएं",
   "global.create_wallet": "वॉलेट बनाएं",

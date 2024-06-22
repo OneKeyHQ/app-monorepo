@@ -541,6 +541,7 @@
   "global.copy_recovery_phrase": "Скопіюйте фразу відновлення",
   "global.copy_token_contract": "Скопіюйте контракт токена",
   "global.count_accounts": "{count} облікових записів",
+  "global.count_addresses": "{count} адреси",
   "global.create_address": "Створити адресу",
   "global.create_invoice": "Створити рахунок-фактуру",
   "global.create_wallet": "Створити гаманець",

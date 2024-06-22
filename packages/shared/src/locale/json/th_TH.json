@@ -541,6 +541,7 @@
   "global.copy_recovery_phrase": "คัดลอกวลีการกู้คืน",
   "global.copy_token_contract": "คัดลอกสัญญาโทเค็น",
   "global.count_accounts": "{count} บัญชี",
+  "global.count_addresses": "{count} ที่อยู่",
   "global.create_address": "สร้างที่อยู่",
   "global.create_invoice": "สร้างใบแจ้งหนี้",
   "global.create_wallet": "สร้างกระเป๋าเงิน",

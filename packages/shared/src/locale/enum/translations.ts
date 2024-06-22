@@ -542,6 +542,7 @@ export enum ETranslations {
   global_copy_recovery_phrase = 'global.copy_recovery_phrase',
   global_copy_token_contract = 'global.copy_token_contract',
   global_count_accounts = 'global.count_accounts',
+  global_count_addresses = 'global.count_addresses',
   global_create_address = 'global.create_address',
   global_create_invoice = 'global.create_invoice',
   global_create_wallet = 'global.create_wallet',

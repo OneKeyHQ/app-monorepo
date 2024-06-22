@@ -541,6 +541,7 @@
   "global.copy_recovery_phrase": "複製助記詞",
   "global.copy_token_contract": "複製代幣合約",
   "global.count_accounts": "{count} 個帳戶",
+  "global.count_addresses": "{count} 個地址",
   "global.create_address": "創建地址",
   "global.create_invoice": "創建發票",
   "global.create_wallet": "創建錢包",
