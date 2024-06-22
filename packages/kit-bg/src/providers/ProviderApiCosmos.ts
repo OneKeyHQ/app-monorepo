@@ -93,6 +93,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       return result;
     };
     info.send(data, info.targetOrigin);
+    this.notifyNetworkChangedToDappSite(info.targetOrigin);
   }
 
   public rpcCall() {
