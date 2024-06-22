@@ -5,7 +5,10 @@ import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
 import type { IOffscreenApi } from '@onekeyhq/kit-bg/src/offscreens/instance/IOffscreenApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
 import type { IWebembedApi } from '@onekeyhq/kit-bg/src/webembeds/instance/IWebembedApi';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ETranslations,
+  ETranslationsMock,
+} from '@onekeyhq/shared/src/locale';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
@@ -103,7 +106,7 @@ declare global {
   namespace FormatjsIntl {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     interface Message {
-      ids: ETranslations;
+      ids: ETranslations | ETranslationsMock;
     }
   }
 }

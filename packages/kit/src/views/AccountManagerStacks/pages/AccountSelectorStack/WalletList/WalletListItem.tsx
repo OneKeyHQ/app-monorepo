@@ -6,7 +6,6 @@ import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvat
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IWalletListItemProps = {
   isOthers?: boolean;
@@ -24,6 +23,7 @@ export function WalletListItem({
   badge,
   ...rest
 }: IWalletListItemProps) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
   const media = useMedia();
   let walletAvatarProps: IWalletAvatarProps = {
@@ -44,9 +44,14 @@ export function WalletListItem({
     onPress = () => onWalletPress('$$others');
   }
   const hiddenWallets = wallet?.hiddenWallets;
-  const i18nWalletName = intl.formatMessage({
-    id: walletName as ETranslations,
-  });
+
+  // Use the walletName that has already been processed by i18n in background,
+  // otherwise, every time the walletName is displayed elsewhere, it will need to be processed by i18n again.
+  const i18nWalletName = walletName;
+  // const i18nWalletName = intl.formatMessage({
+  //   id: walletName as ETranslations,
+  // });
+
   const basicComponent = (
     <Stack
       role="button"

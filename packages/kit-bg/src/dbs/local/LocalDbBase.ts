@@ -38,6 +38,7 @@ import {
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -601,13 +602,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       })
     ) {
       if (accountUtils.isWatchingWallet({ walletId: wallet.id })) {
-        wallet.name = ETranslations.global_watched;
+        wallet.name = appLocale.intl.formatMessage({
+          id: ETranslations.global_watched,
+        });
       }
       if (accountUtils.isExternalWallet({ walletId: wallet.id })) {
-        wallet.name = ETranslations.global_connected;
+        wallet.name = appLocale.intl.formatMessage({
+          id: ETranslations.global_connected,
+        });
       }
       if (accountUtils.isImportedWallet({ walletId: wallet.id })) {
-        wallet.name = ETranslations.global_private_key;
+        wallet.name = appLocale.intl.formatMessage({
+          id: ETranslations.global_private_key,
+        });
       }
     }
 
