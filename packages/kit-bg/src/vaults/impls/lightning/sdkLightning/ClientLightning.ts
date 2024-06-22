@@ -227,7 +227,6 @@ class ClientLightning {
             params: { testnet: this.testnet },
             headers: {
               Authorization: authorization,
-              'Content-Type': 'application/json',
             },
           },
         )

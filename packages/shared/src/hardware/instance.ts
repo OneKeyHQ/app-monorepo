@@ -1,5 +1,4 @@
 import {
-  HARDWARE_SDK_IFRAME_SRC_ONEKEYCN,
   HARDWARE_SDK_IFRAME_SRC_ONEKEYSO,
   HARDWARE_SDK_VERSION,
 } from '@onekeyhq/shared/src/config/appConfig';
