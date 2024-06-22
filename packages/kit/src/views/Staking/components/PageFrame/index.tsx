@@ -11,8 +11,13 @@ const PageErrOccurred = ({ onPress }: { onPress?: () => void }) => {
     <Empty
       icon="ErrorOutline"
       title={intl.formatMessage({ id: ETranslations.global_an_error_occurred })}
-      description="We're unable to complete your request. Please refresh the page in a few minutes."
-      buttonProps={{ onPress, children: 'Refresh' }}
+      description={intl.formatMessage({
+        id: ETranslations.global_an_error_occurred_desc,
+      })}
+      buttonProps={{
+        onPress,
+        children: intl.formatMessage({ id: ETranslations.global_refresh }),
+      }}
     />
   );
 };

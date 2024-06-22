@@ -78,6 +78,11 @@ const SettingProtectionModal = () => {
               }}
             />
           </ListItem>
+          <SizableText px="$5" size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.settings_password_bypass_desc,
+            })}
+          </SizableText>
         </YStack>
       </Page.Body>
     </Page>
