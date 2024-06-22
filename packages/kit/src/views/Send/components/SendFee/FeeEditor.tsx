@@ -626,7 +626,7 @@ function FeeEditor(props: IProps) {
     if (customFee.gas) {
       return (
         <Form form={form}>
-          <YStack space="$5">
+          <YStack space="$5" pt="$5">
             <Form.Field
               label={intl.formatMessage(
                 {
@@ -718,7 +718,7 @@ function FeeEditor(props: IProps) {
     if (customFee.feeSol) {
       return (
         <Form form={form}>
-          <YStack space="$5">
+          <YStack pt="$5">
             <Form.Field
               label="Prioritization Fee"
               name="computeUnitPrice"
