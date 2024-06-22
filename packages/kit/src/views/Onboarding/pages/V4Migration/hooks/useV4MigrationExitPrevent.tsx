@@ -14,7 +14,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useV4migrationPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useV4MigrationActions } from './useV4MigrationActions';
@@ -49,6 +49,8 @@ function ModalExitPreventDialogContent({
   preventRemoveData: INavigationPreventRemoveData;
   isAutoStartOnMount?: boolean;
 }) {
+  const intl = useIntl();
+
   const navigation = useAppNavigation();
   const [v4MigrationPersistData, setV4MigrationPersistData] =
     useV4migrationPersistAtom();
@@ -63,7 +65,9 @@ function ModalExitPreventDialogContent({
           <Checkbox
             value={dontShowAgain}
             onChange={() => setDontShowAgain(!dontShowAgain)}
-            label="Never show this migration on App start"
+            label={intl.formatMessage({
+              id: ETranslationsMock.v4_migration_exit_dialog_never_show_again,
+            })}
           />
         </Stack>
       ) : null}

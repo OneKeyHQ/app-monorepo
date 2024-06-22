@@ -46,7 +46,7 @@ class ProviderApiCardano extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    throw new NotImplemented();
+    // ignore
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

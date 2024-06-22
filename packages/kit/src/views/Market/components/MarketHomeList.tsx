@@ -38,7 +38,7 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -53,6 +53,7 @@ import type {
 
 import { listItemPressStyle } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import { MarketMore } from './MarketMore';
 import { MarketStar } from './MarketStar';
@@ -145,13 +146,21 @@ type ITableColumnConfig = Record<
   (item: IMarketToken) => ReactElement | string
 >;
 
+const lineColorMap = {
+  light: ['rgba(0, 113, 63)', 'rgba(196, 0, 6)'],
+  dark: ['rgba(70, 254, 165)', 'rgba(255, 149, 146)'],
+};
+const colorMap = {
+  light: ['rgba(0, 113, 63, 0.2)', 'rgba(196, 0, 6, 0.2)'],
+  dark: ['rgba(70, 254, 165, 0.2)', 'rgba(255, 149, 146, 0.2)'],
+};
 const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
   // const navigation = useAppNavigation();
-  const colors = useThemeValue(
-    ['textSuccess', 'textCritical'],
-    undefined,
-    true,
-  );
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
+  const theme = useThemeVariant();
+  const lineColors = lineColorMap[theme];
+  const colors = colorMap[theme];
   return useMemo(() => {
     const tableRowConfig: ITableColumnConfig = {
       'serialNumber': (item) => (
@@ -206,7 +215,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
         <NumberSizeableText
           size="$bodyMd"
           formatter="price"
-          formatterOptions={{ currency: '$' }}
+          formatterOptions={{ currency }}
         >
           {item.price}
         </NumberSizeableText>
@@ -230,7 +239,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
         <NumberSizeableText
           size="$bodyMd"
           formatter="marketCap"
-          formatterOptions={{ currency: '$' }}
+          formatterOptions={{ currency }}
         >
           {item.totalVolume}
         </NumberSizeableText>
@@ -239,7 +248,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
         <NumberSizeableText
           size="$bodyMd"
           formatter="marketCap"
-          formatterOptions={{ currency: '$' }}
+          formatterOptions={{ currency }}
         >
           {item.marketCap}
         </NumberSizeableText>
@@ -253,8 +262,8 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
             lineColor={
               item.priceChangePercentage7D &&
               Number(item.priceChangePercentage7D) >= 0
-                ? colors[0]
-                : colors[1]
+                ? lineColors[0]
+                : lineColors[1]
             }
             linearGradientColor={
               item.priceChangePercentage7D &&
@@ -280,7 +289,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
       ),
     };
     return tableRowConfig;
-  }, [colors, showMoreAction, tabIndex]);
+  }, [colors, currency, lineColors, showMoreAction, tabIndex]);
 };
 
 function TableRow({
@@ -831,6 +840,8 @@ function BasicMarketHomeList({
     [actions, intl, showMoreAction],
   );
 
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
   const renderMdItem = useCallback(
     ({ item }: { item: IMarketToken }) => {
       const pressEvents = {
@@ -861,7 +872,7 @@ function BasicMarketHomeList({
                     size="$bodySm"
                     formatter="marketCap"
                     color="$textSubdued"
-                    formatterOptions={{ currency: '$' }}
+                    formatterOptions={{ currency }}
                   >
                     {item.totalVolume}
                   </NumberSizeableText>
@@ -874,7 +885,7 @@ function BasicMarketHomeList({
                 numberOfLines={1}
                 size="$bodyLgMedium"
                 formatter={mdColumnKeys[0] === 'price' ? 'price' : 'marketCap'}
-                formatterOptions={{ currency: '$' }}
+                formatterOptions={{ currency }}
               >
                 {item[mdColumnKeys[0]] as string}
               </NumberSizeableText>
@@ -908,7 +919,7 @@ function BasicMarketHomeList({
         </TouchableContainer>
       );
     },
-    [handleMdItemAction, mdColumnKeys, toDetailPage],
+    [currency, handleMdItemAction, mdColumnKeys, toDetailPage],
   );
 
   const renderSelectTrigger = useCallback(

@@ -658,7 +658,6 @@ export enum ETranslations {
   global_pools = 'global.pools',
   global_popular = 'global.popular',
   global_preferences = 'global.preferences',
-  global_preimage = 'global.preimage',
   global_preparing = 'global.preparing',
   global_price = 'global.price',
   global_private_key = 'global.private_key',

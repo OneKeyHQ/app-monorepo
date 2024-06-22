@@ -24,8 +24,8 @@ import { V4MigrationForAccount } from '../../migrations/v4ToV5Migration/V4Migrat
 import { V4MigrationForAddressBook } from '../../migrations/v4ToV5Migration/V4MigrationForAddressBook';
 import { V4MigrationForDiscover } from '../../migrations/v4ToV5Migration/V4MigrationForDiscover';
 import { V4MigrationForHistory } from '../../migrations/v4ToV5Migration/V4MigrationForHistory';
+import { V4MigrationForSecurePassword } from '../../migrations/v4ToV5Migration/V4MigrationForSecurePassword';
 import { V4MigrationForSettings } from '../../migrations/v4ToV5Migration/V4MigrationForSettings';
-import v4MigrationUtils from '../../migrations/v4ToV5Migration/v4MigrationUtils';
 import {
   v4migrationAtom,
   v4migrationPersistAtom,
@@ -66,6 +66,10 @@ class ServiceV4Migration extends ServiceBase {
   });
 
   migrationSettings = new V4MigrationForSettings({
+    backgroundApi: this.backgroundApi,
+  });
+
+  migrationSecurePassword = new V4MigrationForSecurePassword({
     backgroundApi: this.backgroundApi,
   });
 
@@ -244,12 +248,21 @@ class ServiceV4Migration extends ServiceBase {
   async prepareMigration(): Promise<IV4MigrationPayload> {
     this.migrationPayload = undefined;
     let migrateV4PasswordOk = false;
+    let migrateV4SecurePasswordOk = false;
 
     migrateV4PasswordOk = await v4dbHubs.logger.runAsyncWithCatch(
       // TODO if v4 not set password, should not prompt password
       async () => this.migrationAccount.migrateV4PasswordToV5(),
       {
         name: 'migrate v4 password to v5',
+        errorResultFn: () => false,
+      },
+    );
+
+    migrateV4SecurePasswordOk = await v4dbHubs.logger.runAsyncWithCatch(
+      async () => this.migrationSecurePassword.convertV4SecurePasswordToV5(),
+      {
+        name: 'migrate v4 secure password to v5',
         errorResultFn: () => false,
       },
     );
@@ -309,6 +322,7 @@ class ServiceV4Migration extends ServiceBase {
           password,
           v4password: '',
           migrateV4PasswordOk,
+          migrateV4SecurePasswordOk,
           shouldBackup: walletsForBackup.length > 0,
           wallets,
           walletsForBackup,
@@ -328,6 +342,7 @@ class ServiceV4Migration extends ServiceBase {
         logResultFn: (result) =>
           JSON.stringify({
             migrateV4PasswordOk: result?.migrateV4PasswordOk,
+            migrateV4SecurePasswordOk: result?.migrateV4SecurePasswordOk,
             shouldBackup: result?.shouldBackup,
             walletsCount: result?.wallets?.length,
             walletsForBackupCount: result?.walletsForBackup?.length,
@@ -418,11 +433,12 @@ class ServiceV4Migration extends ServiceBase {
                   name: EV4LocalDBStoreNames.Account,
                   id: accountId,
                 });
-                if (
-                  v4MigrationUtils.isCoinTypeSupport({
-                    coinType: account?.coinType,
-                  })
-                ) {
+
+                const isAccountSupport = true;
+                // const isAccountSupport = v4MigrationUtils.isCoinTypeSupport({
+                //   coinType: account?.coinType,
+                // });
+                if (isAccountSupport) {
                   const networkId = v4CoinTypeToNetworkId[account?.coinType];
                   const network =
                     await this.backgroundApi.serviceNetwork.getNetworkSafe({
@@ -432,6 +448,7 @@ class ServiceV4Migration extends ServiceBase {
                   importedAccountsSectionData.data.push({
                     importedAccount: account,
                     network,
+                    networkId,
                     backupId: `v4-imported-backup:${account.id}`,
                     title: account.name || '--',
                     subTitle: accountUtils.shortenAddress({
@@ -531,8 +548,9 @@ class ServiceV4Migration extends ServiceBase {
       await v4migrationAtom.set((v) => ({ ...v, isProcessing: true }));
       await v4migrationAtom.set((v) => ({
         ...v,
-        progress: 0,
+        progress: 3,
       }));
+      await timerUtils.wait(10);
 
       // **** migrate accounts
       const totalWalletsAndAccounts =
@@ -550,6 +568,7 @@ class ServiceV4Migration extends ServiceBase {
           ...v,
           progress: Math.floor((progress * maxProgress.account) / 100),
         }));
+        await timerUtils.wait(10);
       };
 
       const v4wallets = this.migrationPayload?.wallets || [];
@@ -561,21 +580,29 @@ class ServiceV4Migration extends ServiceBase {
               v4wallet: v4walletInfo?.wallet,
             });
             const onWalletMigrated = async (v5wallet?: IDBWallet) => {
-              v4dbHubs.logger.saveWalletDetailsV5({
-                v4walletId: v4walletInfo?.wallet?.id,
-                v5wallet,
-              });
-              await increaseProgressOfAccount();
+              try {
+                v4dbHubs.logger.saveWalletDetailsV5({
+                  v4walletId: v4walletInfo?.wallet?.id,
+                  v5wallet,
+                });
+                await increaseProgressOfAccount();
+              } catch (error) {
+                //
+              }
             };
             const onAccountMigrated: IV4OnAccountMigrated = async (
               v5account: IDBAccount,
               v4account: IV4DBAccount,
             ) => {
-              v4dbHubs.logger.saveAccountDetailsV5({
-                v4accountId: v4account?.id,
-                v5account,
-              });
-              await increaseProgressOfAccount();
+              try {
+                v4dbHubs.logger.saveAccountDetailsV5({
+                  v4accountId: v4account?.id,
+                  v5account,
+                });
+                await increaseProgressOfAccount();
+              } catch (error) {
+                //
+              }
             };
 
             if (v4walletInfo.isHw) {
@@ -586,6 +613,7 @@ class ServiceV4Migration extends ServiceBase {
                     onWalletMigrated,
                     onAccountMigrated,
                   });
+                  await timerUtils.wait(300);
                 },
                 {
                   name: `migrate hw wallet: ${v4walletInfo?.wallet?.id}`,
@@ -602,6 +630,7 @@ class ServiceV4Migration extends ServiceBase {
                     onWalletMigrated,
                     onAccountMigrated,
                   });
+                  await timerUtils.wait(300);
                 },
                 {
                   name: `migrate hd wallet: ${v4walletInfo?.wallet?.id}`,
@@ -618,6 +647,7 @@ class ServiceV4Migration extends ServiceBase {
                     onWalletMigrated,
                     onAccountMigrated,
                   });
+                  await timerUtils.wait(300);
                 },
                 {
                   name: `migrate imported accounts: ${v4walletInfo?.wallet?.id}`,
@@ -634,6 +664,7 @@ class ServiceV4Migration extends ServiceBase {
                     onWalletMigrated,
                     onAccountMigrated,
                   });
+                  await timerUtils.wait(300);
                 },
                 {
                   name: `migrate watching accounts: ${v4walletInfo?.wallet?.id}`,
@@ -663,7 +694,7 @@ class ServiceV4Migration extends ServiceBase {
       }));
 
       // **** migrate address book
-      await timerUtils.wait(1000);
+      await timerUtils.wait(600);
       const v5password = await this.getMigrationPassword();
       if (v5password) {
         await v4dbHubs.logger.runAsyncWithCatch(
@@ -681,7 +712,7 @@ class ServiceV4Migration extends ServiceBase {
       }));
 
       // **** migrate discover
-      await timerUtils.wait(1000);
+      await timerUtils.wait(600);
       await v4dbHubs.logger.runAsyncWithCatch(
         async () => this.migrationDiscover.convertV4DiscoverToV5(),
         {
@@ -695,7 +726,7 @@ class ServiceV4Migration extends ServiceBase {
       }));
 
       // **** migrate history
-      await timerUtils.wait(1000);
+      await timerUtils.wait(600);
       await v4dbHubs.logger.runAsyncWithCatch(
         async () => this.migrationHistory.migrateLocalPendingTxs(),
         {
@@ -709,7 +740,7 @@ class ServiceV4Migration extends ServiceBase {
       }));
 
       // **** migrate settings
-      await timerUtils.wait(1000);
+      await timerUtils.wait(600);
       await v4dbHubs.logger.runAsyncWithCatch(
         async () => this.migrationSettings.convertV4SettingsToV5(),
         {
@@ -723,7 +754,7 @@ class ServiceV4Migration extends ServiceBase {
       }));
 
       // ----------------------------------------------
-      await timerUtils.wait(1000);
+      await timerUtils.wait(600);
       this.migrationPayload = undefined;
       // TODO skip backup within flow
       void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
