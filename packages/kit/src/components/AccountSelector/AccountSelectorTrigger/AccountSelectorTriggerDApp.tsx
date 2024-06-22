@@ -215,6 +215,8 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
         outlineStyle: 'solid',
       }}
       onPress={handlePress}
+      maxWidth="$40"
+      minWidth={0}
     >
       <AccountAvatar
         size="small"

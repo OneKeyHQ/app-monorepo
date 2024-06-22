@@ -218,20 +218,14 @@ export function useV4MigrationExitPrevent({
   isAutoStartOnMount?: boolean;
 }) {
   const intl = useIntl();
-
   const title = intl.formatMessage({
-    id: ETranslationsMock.v4_migration_exit_dialog_title,
+    id: ETranslations.confirm_exit_dialog_title,
   });
   const message = intl.formatMessage({
-    id: ETranslationsMock.v4_migration_exit_dialog_message,
+    id: ETranslations.confirm_exit_dialog_desc,
   });
-  const onConfirmText = intl.formatMessage({
-    id: ETranslationsMock.v4_migration_exit_dialog_confirm_button_text,
-  });
-  const onCancelText = intl.formatMessage({
-    id: ETranslationsMock.v4_migration_exit_dialog_cancel_button_text,
-  });
-
+  const onConfirmText = intl.formatMessage({ id: ETranslations.global_exit });
+  const onCancelText = intl.formatMessage({ id: ETranslations.global_cancel });
   const [v4migrationPersistData] = useV4migrationPersistAtom();
 
   // Prevents screen locking
