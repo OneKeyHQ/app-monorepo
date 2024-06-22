@@ -433,6 +433,12 @@ export default class ServiceSwap extends ServiceBase {
     const index = swapHistoryPendingList.findIndex(
       (i) => i.txInfo.txId === item.txInfo.txId,
     );
+    if (
+      item.status === ESwapTxHistoryStatus.DISCARD &&
+      swapHistoryPendingList[index]?.status === ESwapTxHistoryStatus.DISCARD
+    ) {
+      return;
+    }
     if (index !== -1) {
       const updated = Date.now();
       item.date = { ...item.date, updated };
@@ -445,17 +451,19 @@ export default class ServiceSwap extends ServiceBase {
           swapHistoryPendingList: [...newPendingList],
         };
       });
-      void this.backgroundApi.serviceApp.showToast({
-        method:
-          item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
-        title: appLocale.intl.formatMessage({
-          id:
-            item.status === ESwapTxHistoryStatus.SUCCESS
-              ? ETranslations.swap_page_toast_swap_successful
-              : ETranslations.swap_page_toast_swap_failed,
-        }),
-        message: `${item.baseInfo.fromAmount} ${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toAmount} ${item.baseInfo.toToken.symbol}`,
-      });
+      if (item.status !== ESwapTxHistoryStatus.DISCARD) {
+        void this.backgroundApi.serviceApp.showToast({
+          method:
+            item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
+          title: appLocale.intl.formatMessage({
+            id:
+              item.status === ESwapTxHistoryStatus.SUCCESS
+                ? ETranslations.swap_page_toast_swap_successful
+                : ETranslations.swap_page_toast_swap_failed,
+          }),
+          message: `${item.baseInfo.fromAmount} ${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toAmount} ${item.baseInfo.toToken.symbol}`,
+        });
+      }
     }
   }
 
@@ -514,10 +522,9 @@ export default class ServiceSwap extends ServiceBase {
               : swapTxHistory.baseInfo.toAmount,
           },
         });
+        await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
         if (txStatusRes?.state === ESwapTxHistoryStatus.DISCARD) {
           enableInterval = true;
-        } else {
-          await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
         }
       }
     } catch (e) {
