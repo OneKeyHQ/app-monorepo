@@ -64,8 +64,8 @@ class ProviderApiSolana extends ProviderApiBase {
     info.send(data, info.targetOrigin);
   }
 
-  public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
-    console.log(info);
+  public notifyDappChainChanged() {
+    // noop
   }
 
   @providerApiMethod()

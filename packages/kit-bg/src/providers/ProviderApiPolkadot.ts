@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import { decodeAddress, encodeAddress } from '@polkadot/util-crypto/address';
+import { base58Decode } from '@polkadot/util-crypto';
+import { addressEq } from '@polkadot/util-crypto/address';
 import { Semaphore } from 'async-mutex';
 
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
@@ -10,11 +11,10 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
+
+import settings from '../vaults/impls/dot/settings';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -84,6 +84,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
       return result;
     };
     info.send(data, info.targetOrigin);
+    this.notifyNetworkChangedToDappSite(info.targetOrigin);
   }
 
   public rpcCall() {
@@ -185,27 +186,40 @@ class ProviderApiPolkadot extends ProviderApiBase {
   private async findAccount(request: IJsBridgeMessagePayload, address: string) {
     const accounts = await this.getAccountsInfo(request);
 
-    const selectAccount = accounts.find(({ account }) => {
-      if (account.address === address) {
-        return account;
-      }
+    const selectAccount = accounts.find(({ account }) =>
+      addressEq(account.address, address),
+    );
 
-      const normalAddress =
-        account.address.length === 42
-          ? account.address
-          : encodeAddress(decodeAddress(account.address));
-
-      if (normalAddress === address) {
-        return account;
-      }
-      return undefined;
-    });
-
-    if (!selectAccount)
+    if (!selectAccount) {
       throw web3Errors.provider.custom({
         code: 4002,
         message: 'Account not found',
       });
+    }
+
+    if (selectAccount.account.address !== address) {
+      const decodedAddress = base58Decode(address);
+      const networkId = Object.keys(settings.networkInfo).find((id) => {
+        const { addressPrefix } = settings.networkInfo[id];
+        return id !== 'default' && decodedAddress[0] === +addressPrefix;
+      });
+      if (!networkId) {
+        throw web3Errors.provider.custom({
+          code: 4002,
+          message: 'Account not found',
+        });
+      }
+      const account = await this.backgroundApi.serviceAccount.getAccount({
+        networkId,
+        accountId: selectAccount.account.id,
+      });
+      return {
+        account,
+        accountInfo: {
+          networkId,
+        },
+      };
+    }
 
     return selectAccount;
   }
