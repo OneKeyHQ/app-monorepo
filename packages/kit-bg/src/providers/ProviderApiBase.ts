@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/require-await,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import { debounce } from 'lodash';
 
 import {
   PROVIDER_API_METHOD_PREFIX,
@@ -27,6 +28,8 @@ abstract class ProviderApiBase {
   }
 
   backgroundApi: IBackgroundApi;
+
+  private connectedNetworkCache: Record<string, string> = {};
 
   public abstract providerName: IInjectedProviderNamesStrings;
 
@@ -82,6 +85,48 @@ abstract class ProviderApiBase {
     }
     return accountsInfo;
   };
+
+  notifyNetworkChangedToDappSite = debounce(
+    (targetOrigin: string) => {
+      console.log(
+        '=========>>>>>>>> Base notifyNetworkChangedToDappSite: ',
+        this.providerName,
+        ' .  =>>>: ',
+        targetOrigin,
+      );
+      void this.backgroundApi.serviceDApp.notifyChainSwitchUIToDappSite({
+        targetOrigin,
+        getNetworkName: async () =>
+          (await this._getConnectedNetworkName({
+            origin: targetOrigin,
+            scope: this.providerName,
+          })) ?? '',
+      });
+    },
+    500,
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
+
+  async _getConnectedNetworkName(request: IJsBridgeMessagePayload) {
+    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
+      request,
+    );
+    if (!networks?.[0]) {
+      return null;
+    }
+    let networkName = '';
+    if (request.origin) {
+      const prevNetworkId = this.connectedNetworkCache[`${request.origin}`];
+      if (prevNetworkId && prevNetworkId !== networks?.[0]?.id) {
+        networkName = networks?.[0]?.name;
+      }
+      this.connectedNetworkCache[`${request.origin}`] = networks?.[0]?.id;
+    }
+    return networkName;
+  }
 }
 
 export default ProviderApiBase;

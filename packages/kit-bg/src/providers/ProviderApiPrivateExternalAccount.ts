@@ -46,7 +46,7 @@ class ProviderApiPrivateExternalAccount extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    throw new Error('Method not implemented.');
+    // noop
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

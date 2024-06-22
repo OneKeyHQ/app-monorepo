@@ -853,13 +853,35 @@ class ServiceDApp extends ServiceBase {
   async notifyDAppChainChanged(targetOrigin: string) {
     Object.values(this.backgroundApi.providers).forEach(
       (provider: ProviderApiBase) => {
-        provider.notifyDappChainChanged({
-          send: this.backgroundApi.sendForProvider(provider.providerName),
-          targetOrigin,
-        });
+        try {
+          provider.notifyDappChainChanged({
+            send: this.backgroundApi.sendForProvider(provider.providerName),
+            targetOrigin,
+          });
+        } catch {
+          // ignore error
+        }
       },
     );
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async notifyChainSwitchUIToDappSite(params: {
+    targetOrigin: string;
+    getNetworkName: ({ origin }: { origin: string }) => Promise<string>;
+  }) {
+    const privateProvider = this.backgroundApi.providers
+      .$private as ProviderApiPrivate;
+    void privateProvider.notifyDappSiteOfNetworkChange(
+      {
+        send: this.backgroundApi.sendForProvider('$private'),
+        targetOrigin: params.targetOrigin,
+      },
+      {
+        getNetworkName: params.getNetworkName,
+      },
+    );
   }
 
   @backgroundMethod()

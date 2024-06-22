@@ -18,7 +18,6 @@ import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -96,6 +95,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     };
 
     info.send(data, info.targetOrigin);
+    this.notifyNetworkChangedToDappSite(info.targetOrigin);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -503,6 +503,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     // **** should await return
     await this._switchEthereumChainMemo(request, params);
 
+    this.notifyNetworkChangedToDappSite(request.origin ?? '');
     // Metamask return null
     return null;
   }

@@ -52,7 +52,7 @@ class ProviderApiWebln extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    throw new NotImplemented();
+    // noop
   }
 
   public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {

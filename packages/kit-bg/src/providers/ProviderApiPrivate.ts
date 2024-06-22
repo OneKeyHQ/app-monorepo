@@ -78,6 +78,42 @@ class ProviderApiPrivate extends ProviderApiBase {
     );
   }
 
+  // UI Notify
+  public async notifyDappSiteOfNetworkChange(
+    info: IProviderBaseBackgroundNotifyInfo,
+    params: {
+      getNetworkName: ({ origin }: { origin: string }) => Promise<string>;
+    },
+  ) {
+    const networkName = await params.getNetworkName({
+      origin: info.targetOrigin,
+    });
+    if (!networkName) {
+      return;
+    }
+    const networkChangedText = appLocale.intl.formatMessage(
+      {
+        id: ETranslations.feedback_current_network_message,
+      },
+      {
+        network: networkName,
+      },
+    );
+    console.log(
+      'notifyNetworkChangedToDappSite ======>>>>>>>>>>>>: ',
+      networkChangedText,
+    );
+    info.send(
+      {
+        method: 'wallet_events_dapp_network_changed',
+        params: {
+          networkChangedText,
+        },
+      },
+      info.targetOrigin,
+    );
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public rpcCall(request: IJsBridgeMessagePayload): any {
     // noop

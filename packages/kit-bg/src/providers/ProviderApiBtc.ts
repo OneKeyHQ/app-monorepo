@@ -78,6 +78,7 @@ class ProviderApiBtc extends ProviderApiBase {
       return result;
     };
     info.send(data, info.targetOrigin);
+    this.notifyNetworkChangedToDappSite(info.targetOrigin);
   }
 
   public async rpcCall(): Promise<any> {
@@ -185,6 +186,7 @@ class ProviderApiBtc extends ProviderApiBase {
       oldNetworkId,
       newNetworkId: networkId,
     });
+    this.notifyNetworkChangedToDappSite(request.origin ?? '');
     const network = await this.getNetwork(request);
     return network;
   }
