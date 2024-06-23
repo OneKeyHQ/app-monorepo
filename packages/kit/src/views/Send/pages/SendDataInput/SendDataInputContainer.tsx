@@ -62,6 +62,7 @@ function SendDataInputContainer() {
 
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMaxSend, setIsMaxSend] = useState(false);
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
 
@@ -360,6 +361,7 @@ function SendDataInputContainer() {
         sameModal: true,
         transferPayload: {
           amountToSend: realAmount,
+          isMaxSend,
         },
       });
       setIsSubmitting(false);
@@ -385,6 +387,7 @@ function SendDataInputContainer() {
     amount,
     form,
     intl,
+    isMaxSend,
     isNFT,
     isUseFiat,
     linkedAmount.originalAmount,
@@ -518,6 +521,7 @@ function SendDataInputContainer() {
           required: true,
           validate: handleValidateTokenAmount,
           onChange: (e: { target: { name: string; value: string } }) => {
+            setIsMaxSend(false);
             const value = e.target?.value;
             const valueBN = new BigNumber(value ?? 0);
             if (valueBN.isNaN()) {
@@ -547,6 +551,7 @@ function SendDataInputContainer() {
             onPress: () => {
               form.setValue('amount', maxAmount);
               void form.trigger('amount');
+              setIsMaxSend(true);
             },
           }}
           valueProps={{
