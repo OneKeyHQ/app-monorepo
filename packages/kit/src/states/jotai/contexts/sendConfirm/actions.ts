@@ -14,6 +14,7 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 import {
   contextAtomMethod,
   customFeeAtom,
+  isSinglePresetAtom,
   nativeTokenInfoAtom,
   nativeTokenTransferAmountAtom,
   nativeTokenTransferAmountToUpdateAtom,
@@ -25,6 +26,12 @@ import {
 } from './atoms';
 
 class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
+  updateIsSinglePreset = contextAtomMethod(
+    (get, set, isSinglePreset: boolean) => {
+      set(isSinglePresetAtom(), isSinglePreset);
+    },
+  );
+
   updateUnsignedTxs = contextAtomMethod(
     (get, set, unsignedTxs: IUnsignedTxPro[]) => {
       set(unsignedTxsAtom(), unsignedTxs);
@@ -127,6 +134,7 @@ export function useSendConfirmActions() {
     actions.updateNativeTokenTransferAmountToUpdate.use();
   const updateSendTxStatus = actions.updateSendTxStatus.use();
   const updateNativeTokenInfo = actions.updateNativeTokenInfo.use();
+  const updateIsSinglePreset = actions.updateIsSinglePreset.use();
 
   return useRef({
     updateUnsignedTxs,
@@ -138,5 +146,6 @@ export function useSendConfirmActions() {
     updateNativeTokenTransferAmountToUpdate,
     updateSendTxStatus,
     updateNativeTokenInfo,
+    updateIsSinglePreset,
   });
 }

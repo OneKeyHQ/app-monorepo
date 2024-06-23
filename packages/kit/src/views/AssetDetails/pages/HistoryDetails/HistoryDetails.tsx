@@ -491,10 +491,7 @@ function HistoryDetails() {
   ]);
 
   const renderTxStatus = useCallback(() => {
-    const status =
-      txDetails?.status === EOnChainHistoryTxStatus.Success
-        ? EDecodedTxStatus.Confirmed
-        : historyTx.decodedTx.status;
+    const status = historyTx.decodedTx.status;
     const { key, color } = getTxStatusTextProps(status);
     return (
       <XStack h="$5" alignItems="center">
@@ -514,12 +511,7 @@ function HistoryDetails() {
         ) : null}
       </XStack>
     );
-  }, [
-    historyTx.decodedTx.status,
-    intl,
-    txDetails?.status,
-    vaultSettings?.replaceTxEnabled,
-  ]);
+  }, [historyTx.decodedTx.status, intl, vaultSettings?.replaceTxEnabled]);
 
   const renderTxFlow = useCallback(() => {
     if (vaultSettings?.isUtxo && !txAddresses.isSingleTransfer) return null;

@@ -7,7 +7,6 @@ import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Form,
   Input,
   Page,
@@ -46,6 +45,7 @@ import {
   EAssetSelectorRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -62,6 +62,7 @@ function SendDataInputContainer() {
 
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMaxSend, setIsMaxSend] = useState(false);
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
 
@@ -360,11 +361,21 @@ function SendDataInputContainer() {
         sameModal: true,
         transferPayload: {
           amountToSend: realAmount,
+          isMaxSend,
         },
       });
       setIsSubmitting(false);
     } catch (e: any) {
       setIsSubmitting(false);
+
+      if (accountUtils.isWatchingAccount({ accountId: account?.id ?? '' })) {
+        throw new OneKeyError({
+          message: intl.formatMessage({
+            id: ETranslations.wallet_error_trade_with_watched_acocunt,
+          }),
+          autoToast: true,
+        });
+      }
 
       throw new OneKeyError({
         message: e.message,
@@ -375,6 +386,8 @@ function SendDataInputContainer() {
     account,
     amount,
     form,
+    intl,
+    isMaxSend,
     isNFT,
     isUseFiat,
     linkedAmount.originalAmount,
@@ -508,6 +521,7 @@ function SendDataInputContainer() {
           required: true,
           validate: handleValidateTokenAmount,
           onChange: (e: { target: { name: string; value: string } }) => {
+            setIsMaxSend(false);
             const value = e.target?.value;
             const valueBN = new BigNumber(value ?? 0);
             if (valueBN.isNaN()) {
@@ -537,6 +551,7 @@ function SendDataInputContainer() {
             onPress: () => {
               form.setValue('amount', maxAmount);
               void form.trigger('amount');
+              setIsMaxSend(true);
             },
           }}
           valueProps={{

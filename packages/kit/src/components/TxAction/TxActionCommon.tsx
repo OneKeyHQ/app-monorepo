@@ -295,7 +295,9 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
               isNFT={overview.avatar?.isNFT}
               tokenImageUri={overview.avatar?.src}
             />
-            <SizableText size="$bodyLgMedium">{overview.content}</SizableText>
+            <SizableText size="$bodyLgMedium" numberOfLines={3}>
+              {overview.content}
+            </SizableText>
           </XStack>
         }
       />

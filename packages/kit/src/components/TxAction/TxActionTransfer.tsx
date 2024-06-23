@@ -365,7 +365,9 @@ function TxActionTransferListView(props: ITxActionProps) {
     </SizableText>
   );
 
-  title = isPending ? title : label;
+  if (!isPending && label) {
+    title = label;
+  }
 
   return (
     <TxActionCommonListView

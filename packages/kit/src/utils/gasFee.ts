@@ -235,12 +235,18 @@ export function calculateFeeForSend({
 export function getFeeLabel({
   feeType,
   presetIndex,
+  isSinglePreset,
 }: {
   feeType: EFeeType;
   presetIndex?: number;
+  isSinglePreset?: boolean;
 }) {
   if (feeType === EFeeType.Custom) {
-    return ETranslations.global_advanced;
+    return ETranslations.content__custom;
+  }
+
+  if (isSinglePreset) {
+    return PRESET_FEE_LABEL[1];
   }
 
   return PRESET_FEE_LABEL[presetIndex ?? 1] ?? PRESET_FEE_LABEL[0];
@@ -248,13 +254,17 @@ export function getFeeLabel({
 export function getFeeIcon({
   feeType,
   presetIndex,
+  isSinglePreset,
 }: {
   feeType: EFeeType;
   presetIndex?: number;
+  isSinglePreset?: boolean;
 }) {
   if (feeType === EFeeType.Custom) {
     return '🔧';
   }
+
+  if (isSinglePreset) return PRESET_FEE_ICON[1];
 
   return PRESET_FEE_ICON[presetIndex ?? 1];
 }
@@ -303,6 +313,7 @@ export function getMaxSendFeeUpwardAdjustmentFactor({
   const networkIdMap = getNetworkIdsMap();
   switch (networkId) {
     case networkIdMap.mantle:
+    case networkIdMap.mantapacific:
       return 1.2;
     default:
       return 1;

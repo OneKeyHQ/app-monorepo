@@ -344,6 +344,7 @@ export type IApproveInfo = {
 
 export type ITransferPayload = {
   amountToSend: string;
+  isMaxSend: boolean;
 };
 
 export enum EWrappedType {

@@ -193,11 +193,12 @@ class ProviderApiTron extends ProviderApiBase {
         encodedTx: transaction,
         accountId: accountId ?? '',
         networkId: networkId ?? '',
+        signOnly: true,
       });
 
     console.log('tron_signTransaction DONE', result, request, transaction);
 
-    return JSON.parse(result.txid) as SignedTransaction;
+    return JSON.parse(result.rawTx) as SignedTransaction;
   }
 
   @providerApiMethod()

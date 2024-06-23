@@ -75,10 +75,7 @@ function TxActionsContainer(props: IProps) {
 
     if (
       !vaultSettings?.ignoreUpdateNativeAmount &&
-      !nativeTokenInfo.isLoading &&
-      decodedTxs.length === 1 &&
-      decodedTxs[0].actions.length === 1 &&
-      isSendNativeTokenAction(decodedTxs[0].actions[0])
+      !nativeTokenInfo.isLoading
     ) {
       setIsSendNativeToken(true);
       nativeTokenTransferBN = new BigNumber(
@@ -87,7 +84,10 @@ function TxActionsContainer(props: IProps) {
       const nativeTokenBalanceBN = new BigNumber(nativeTokenInfo.balance);
       const feeBN = new BigNumber(sendSelectedFeeInfo?.totalNative ?? 0);
 
-      if (nativeTokenTransferBN.plus(feeBN).gte(nativeTokenBalanceBN)) {
+      if (
+        transferPayload?.isMaxSend &&
+        nativeTokenTransferBN.plus(feeBN).gte(nativeTokenBalanceBN)
+      ) {
         const transferAmountBN = BigNumber.min(
           nativeTokenBalanceBN,
           nativeTokenTransferBN,
