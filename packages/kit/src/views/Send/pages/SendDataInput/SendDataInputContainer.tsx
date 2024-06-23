@@ -7,7 +7,6 @@ import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Form,
   Input,
   Page,
@@ -56,6 +55,7 @@ import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetail
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 function SendDataInputContainer() {
   const intl = useIntl();
@@ -366,6 +366,15 @@ function SendDataInputContainer() {
     } catch (e: any) {
       setIsSubmitting(false);
 
+      if (accountUtils.isWatchingAccount({ accountId: account?.id ?? '' })) {
+        throw new OneKeyError({
+          message: intl.formatMessage({
+            id: ETranslations.wallet_error_trade_with_watched_acocunt,
+          }),
+          autoToast: true,
+        });
+      }
+
       throw new OneKeyError({
         message: e.message,
         autoToast: true,
@@ -375,6 +384,7 @@ function SendDataInputContainer() {
     account,
     amount,
     form,
+    intl,
     isNFT,
     isUseFiat,
     linkedAmount.originalAmount,
