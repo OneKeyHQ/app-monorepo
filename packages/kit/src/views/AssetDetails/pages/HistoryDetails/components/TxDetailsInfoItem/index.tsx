@@ -32,7 +32,7 @@ export function InfoItem({
   ...rest
 }: {
   label?: string | ReactNode;
-  renderContent: ReactNode;
+  renderContent?: ReactNode;
   description?: ReactNode;
   compact?: boolean;
   disabledCopy?: boolean;

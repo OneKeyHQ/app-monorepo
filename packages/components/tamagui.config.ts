@@ -144,7 +144,7 @@ const animations = createAnimations({
   repeat: {
     type: 'timing',
     duration: 300,
-    repeat: 4,
+    repeat: 2,
   },
   quick: {
     type: 'spring',

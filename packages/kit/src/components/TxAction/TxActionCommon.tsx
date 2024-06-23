@@ -290,12 +290,12 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
       <InfoItem
         label={overview.title}
         renderContent={
-          <XStack alignItems="center" space="$3">
+          <XStack alignItems="center" space="$3" minWidth={0}>
             <Token
               isNFT={overview.avatar?.isNFT}
               tokenImageUri={overview.avatar?.src}
             />
-            <SizableText size="$bodyLgMedium" numberOfLines={3}>
+            <SizableText minWidth={0} maxWidth="$96" size="$bodyLgMedium">
               {overview.content}
             </SizableText>
           </XStack>

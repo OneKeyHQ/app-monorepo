@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNaN, isNil, isNumber } from 'lodash';
@@ -31,6 +31,11 @@ import {
   getFeePriceNumber,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEstimateFeeParams,
@@ -155,7 +160,7 @@ function FeeInfoItem({
 function FeeEditor(props: IProps) {
   const {
     networkId,
-    feeSelectorItems,
+    feeSelectorItems: feeSelectorItemsProp,
     sendSelectedFee,
     originalCustomFee,
     selectedFee,
@@ -166,8 +171,11 @@ function FeeEditor(props: IProps) {
   const intl = useIntl();
   const dialog = useDialogInstance();
 
+  const [feeSelectorItems, setFeeSelectorItems] =
+    useState<IFeeSelectorItem[]>(feeSelectorItemsProp);
+
   const [currentFeeIndex, setCurrentFeeIndex] = useState(
-    getPresetIndex(sendSelectedFee, feeSelectorItems),
+    getPresetIndex(sendSelectedFee, feeSelectorItemsProp),
   );
 
   const [feeAlert, setFeeAlert] = useState('');
@@ -1034,6 +1042,18 @@ function FeeEditor(props: IProps) {
     feeSelectorItems,
     vaultSettings?.checkFeeDetailEnabled,
   ]);
+
+  useEffect(() => {
+    const callback = (
+      event: IAppEventBusPayload[EAppEventBusNames.TxFeeInfoChanged],
+    ) => {
+      setFeeSelectorItems(event.feeSelectorItems);
+    };
+    appEventBus.on(EAppEventBusNames.TxFeeInfoChanged, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.TxFeeInfoChanged, callback);
+    };
+  }, []);
 
   return (
     <>
