@@ -45,6 +45,7 @@ import {
   EAssetSelectorRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -55,7 +56,6 @@ import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetail
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 function SendDataInputContainer() {
   const intl = useIntl();

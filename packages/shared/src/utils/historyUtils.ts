@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import { EOnChainHistoryTxStatus } from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
@@ -11,7 +13,6 @@ import type {
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
 } from '../../types/history';
-import { isNil } from 'lodash';
 
 export function getOnChainHistoryTxStatus(
   onChainTxStatus: EOnChainHistoryTxStatus,
