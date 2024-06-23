@@ -18,8 +18,7 @@ function TxSwapInfoContainer() {
     return null;
   }
 
-  const { sender, receiver, swapBuildResData, receivingAddress } = swapInfo;
-  // TODO
+  const { swapBuildResData, receivingAddress } = swapInfo;
 
   return (
     <InfoItemGroup>

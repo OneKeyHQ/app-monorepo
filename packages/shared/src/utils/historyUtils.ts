@@ -1,6 +1,9 @@
+import { isNil } from 'lodash';
+
 import { EOnChainHistoryTxStatus } from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
+import { OneKeyInternalError } from '../errors';
 
 import { formatDate } from './dateUtils';
 
@@ -134,6 +137,11 @@ export function getHistoryTxDetailInfo({
 }) {
   const { decodedTx } = historyTx;
   let swapInfo;
+  let nonce = txDetails?.nonce;
+
+  if (isNil(nonce) || nonce === 0) {
+    nonce = decodedTx.nonce;
+  }
 
   const date = formatDate(
     new Date(
@@ -143,7 +151,7 @@ export function getHistoryTxDetailInfo({
     ),
   );
   const txid = decodedTx.txid;
-  const nonce = txDetails?.nonce ?? decodedTx.nonce;
+
   const gasFee = txDetails?.gasFee ?? decodedTx.totalFeeInNative ?? '0';
   const gasFeeFiatValue =
     txDetails?.gasFeeFiatValue ?? decodedTx.totalFeeFiatValue ?? '0';
@@ -160,4 +168,20 @@ export function getHistoryTxDetailInfo({
     gasFee,
     gasFeeFiatValue,
   };
+}
+
+export function buildLocalHistoryKey({
+  networkId,
+  accountAddress,
+  xpub,
+}: {
+  networkId: string;
+  accountAddress?: string;
+  xpub?: string;
+}) {
+  if (!accountAddress && !xpub) {
+    throw new OneKeyInternalError('accountAddress or xpub is required');
+  }
+
+  return `${networkId}_${accountAddress ?? xpub ?? ''}`;
 }
