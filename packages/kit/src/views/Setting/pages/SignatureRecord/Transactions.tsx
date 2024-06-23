@@ -14,15 +14,19 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import { useEarnLabelFn } from '@onekeyhq/kit/src/views/Staking/hooks/useLabelFn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
-import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 import type {
   IApproveTransactionData,
+  IEarnTransactionData,
   ISendTransactionData,
   ISignedTransaction,
   ISwapTransactionData,
@@ -30,117 +34,187 @@ import type {
 
 import { useGetSignatureSections } from './hooks';
 
-const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => (
-  <XStack justifyContent="space-between" w="100%" alignItems="center">
-    <XStack alignItems="center">
-      <Token size="lg" tokenImageUri={data.token.logoURI} />
-      <SizableText ml="$3" size="$bodyLgMedium">
-        Send
-      </SizableText>
+const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => {
+  const intl = useIntl();
+  return (
+    <XStack justifyContent="space-between" w="100%" alignItems="center">
+      <XStack alignItems="center">
+        <Token size="lg" tokenImageUri={data.token.logoURI} />
+        <SizableText ml="$3" size="$bodyLgMedium">
+          {intl.formatMessage({ id: ETranslations.global_send })}
+        </SizableText>
+      </XStack>
+      <NumberSizeableText
+        size="$bodyLgMedium"
+        formatter="balance"
+        formatterOptions={{
+          tokenSymbol: data.token.symbol.toUpperCase(),
+          showPlusMinusSigns: true,
+        }}
+      >
+        {`-${data.amount}`}
+      </NumberSizeableText>
     </XStack>
-    <NumberSizeableText
-      size="$bodyLgMedium"
-      formatter="balance"
-      formatterOptions={{
-        tokenSymbol: data.token.symbol.toUpperCase(),
-        showPlusMinusSigns: true,
-      }}
-    >
-      {`-${data.amount}`}
-    </NumberSizeableText>
-  </XStack>
-);
+  );
+};
 
 const ApproveTransactionItem = ({
   data,
 }: {
   data: IApproveTransactionData;
-}) => (
-  <XStack justifyContent="space-between" w="100%" alignItems="center">
-    <XStack alignItems="center">
-      <Token size="lg" tokenImageUri={data.token.logoURI} />
-      <SizableText ml="$3" size="$bodyLgMedium">
-        Approve
-      </SizableText>
+}) => {
+  const intl = useIntl();
+  return (
+    <XStack justifyContent="space-between" w="100%" alignItems="center">
+      <XStack alignItems="center">
+        <Token size="lg" tokenImageUri={data.token.logoURI} />
+        <SizableText ml="$3" size="$bodyLgMedium">
+          {intl.formatMessage({ id: ETranslations.global_approve })}
+        </SizableText>
+      </XStack>
+      <XStack>
+        {data.isUnlimited ? (
+          <SizableText size="$bodyLgMedium">
+            {intl.formatMessage({
+              id: ETranslations.swap_page_provider_approve_amount_un_limit,
+            })}
+          </SizableText>
+        ) : (
+          <NumberSizeableText
+            size="$bodyLgMedium"
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: data.token.symbol.toUpperCase(),
+              showPlusMinusSigns: true,
+            }}
+          >
+            {`-${data.amount}`}
+          </NumberSizeableText>
+        )}
+      </XStack>
     </XStack>
-    <XStack>
-      {data.isUnlimited ? (
-        <SizableText size="$bodyLgMedium" />
-      ) : (
+  );
+};
+
+const SwapTransactionItem = ({ data }: { data: ISwapTransactionData }) => {
+  const intl = useIntl();
+  return (
+    <XStack justifyContent="space-between" w="100%">
+      <XStack alignItems="center">
+        <Stack
+          w={40}
+          h={40}
+          alignItems="flex-end"
+          justifyContent="flex-end"
+          mr="$3"
+        >
+          <Stack position="absolute" left="$0" top="$0">
+            <Token size="sm" tokenImageUri={data.fromToken.logoURI} />
+          </Stack>
+          <Stack
+            borderWidth={2}
+            borderColor="$bgApp"
+            borderRadius="$full"
+            zIndex={1}
+          >
+            <Token size="sm" tokenImageUri={data.toToken.logoURI} />
+          </Stack>
+        </Stack>
+        <SizableText size="$bodyLgMedium">
+          {intl.formatMessage({ id: ETranslations.global_swap })}
+        </SizableText>
+      </XStack>
+      <YStack alignItems="flex-end">
         <NumberSizeableText
           size="$bodyLgMedium"
           formatter="balance"
           formatterOptions={{
-            tokenSymbol: data.token.symbol.toUpperCase(),
+            tokenSymbol: data.toToken.symbol.toUpperCase(),
             showPlusMinusSigns: true,
           }}
         >
-          {`-${data.amount}`}
+          {`+${data.toAmount}`}
         </NumberSizeableText>
-      )}
-    </XStack>
-  </XStack>
-);
-
-const SwapTransactionItem = ({ data }: { data: ISwapTransactionData }) => (
-  <XStack justifyContent="space-between" w="100%">
-    <XStack alignItems="center">
-      <Stack
-        w={40}
-        h={40}
-        alignItems="flex-end"
-        justifyContent="flex-end"
-        mr="$3"
-      >
-        <Stack position="absolute" left="$0" top="$0">
-          <Token size="sm" tokenImageUri={data.fromToken.logoURI} />
-        </Stack>
-        <Stack
-          borderWidth={2}
-          borderColor="$bgApp"
-          borderRadius="$full"
-          zIndex={1}
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: data.fromToken.symbol.toUpperCase(),
+            showPlusMinusSigns: true,
+          }}
         >
-          <Token size="sm" tokenImageUri={data.toToken.logoURI} />
-        </Stack>
-      </Stack>
-      <SizableText size="$bodyLgMedium">Swap</SizableText>
+          {`-${data.fromAmount}`}
+        </NumberSizeableText>
+      </YStack>
     </XStack>
-    <YStack alignItems="flex-end">
-      <NumberSizeableText
-        size="$bodyLgMedium"
-        formatter="balance"
-        formatterOptions={{
-          tokenSymbol: data.toToken.symbol.toUpperCase(),
-          showPlusMinusSigns: true,
-        }}
-      >
-        {`+${data.toAmount}`}
-      </NumberSizeableText>
-      <NumberSizeableText
-        size="$bodyMd"
-        color="$textSubdued"
-        formatter="balance"
-        formatterOptions={{
-          tokenSymbol: data.fromToken.symbol.toUpperCase(),
-          showPlusMinusSigns: true,
-        }}
-      >
-        {`-${data.fromAmount}`}
-      </NumberSizeableText>
-    </YStack>
-  </XStack>
-);
+  );
+};
+
+const EarnLidoTransactionItem = ({ data }: { data: IEarnTransactionData }) => {
+  const labelFn = useEarnLabelFn();
+  let primary = data.receive ? { data: data.receive, symbol: '+' } : undefined;
+  let secondary = data.send ? { data: data.send, symbol: '-' } : undefined;
+  if (!primary && secondary) {
+    primary = secondary;
+    secondary = undefined;
+  }
+  return (
+    <XStack justifyContent="space-between" w="100%">
+      <XStack alignItems="center">
+        <Token
+          size="lg"
+          tokenImageUri={
+            primary?.data?.token.logoURI ?? secondary?.data?.token.logoURI
+          }
+        />
+        <SizableText ml="$3" size="$bodyLgMedium">
+          {labelFn(data.label)}
+        </SizableText>
+      </XStack>
+      <YStack alignItems="flex-end" justifyContent="center">
+        {primary ? (
+          <NumberSizeableText
+            size="$bodyLgMedium"
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: primary.data.token.symbol,
+              showPlusMinusSigns: true,
+            }}
+          >
+            {`${primary.symbol}${primary.data.amount}`}
+          </NumberSizeableText>
+        ) : null}
+        {secondary ? (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="balance"
+            color="$textSubdued"
+            formatterOptions={{
+              tokenSymbol: secondary.data.token.symbol,
+              showPlusMinusSigns: true,
+            }}
+          >
+            {`${secondary.symbol}${secondary.data.amount}`}
+          </NumberSizeableText>
+        ) : null}
+      </YStack>
+    </XStack>
+  );
+};
 
 const TransactionData = ({ data }: { data: ISignedTransaction['data'] }) => {
-  if (data.type === 'send') {
+  if (data.type === ETransactionType.SEND) {
     return <SendTransactionItem data={data} />;
   }
-  if (data.type === 'approve') {
+  if (data.type === ETransactionType.APPROVE) {
     return <ApproveTransactionItem data={data} />;
   }
-  if (data.type === 'swap') {
+  if (data.type === ETransactionType.SWAP) {
     return <SwapTransactionItem data={data} />;
+  }
+  if (data.type === ETransactionType.EARN) {
+    return <EarnLidoTransactionItem data={data} />;
   }
   return null;
 };
@@ -149,12 +223,12 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
   const network = item.network;
   const onPress = useCallback(() => {
     openUrl(
-      buildExplorerAddressUrl({
+      buildTransactionDetailsUrl({
         network,
-        address: item?.address,
+        txid: item.hash,
       }),
     );
-  }, [item?.address, network]);
+  }, [item.hash, network]);
   return (
     <YStack
       borderWidth={StyleSheet.hairlineWidth}

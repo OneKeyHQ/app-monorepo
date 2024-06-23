@@ -7,6 +7,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 import type {
   IBaseSignedMessageContentType,
   IConnectedSite,
@@ -234,6 +235,7 @@ class ServiceSignature extends ServiceBase {
     const networkId = decodedTx.networkId;
     const address = decodedTx.signer;
     const swapInfo = signedTx.swapInfo;
+    const stakingInfo = signedTx.stakingInfo;
     let title = 'OneKey Wallet';
     if (sourceInfo?.origin) {
       title = uriUtils.getHostNameFromUrl({ url: sourceInfo?.origin });
@@ -242,6 +244,8 @@ class ServiceSignature extends ServiceBase {
       if (providerName) {
         title = providerName;
       }
+    } else if (stakingInfo) {
+      title = stakingInfo.protocol;
     }
     if (swapInfo) {
       const fromToken = swapInfo.sender.token;
@@ -252,7 +256,7 @@ class ServiceSignature extends ServiceBase {
         title,
         hash: signedTx.txid,
         data: {
-          type: 'swap',
+          type: ETransactionType.SWAP,
           fromNetworkId: fromToken.networkId,
           toNetworkId: toToken.networkId,
           fromAmount: swapInfo.sender.amount,
@@ -273,7 +277,21 @@ class ServiceSignature extends ServiceBase {
       });
       return;
     }
-    // add stake action here
+    if (stakingInfo) {
+      await this.addSignedTransaction({
+        networkId,
+        address,
+        title,
+        hash: signedTx.txid,
+        data: {
+          type: ETransactionType.EARN,
+          label: stakingInfo.label,
+          send: stakingInfo.send,
+          receive: stakingInfo.receive,
+        },
+      });
+      return;
+    }
     if (actions.length < 1) {
       return;
     }
@@ -289,7 +307,7 @@ class ServiceSignature extends ServiceBase {
           title,
           hash: signedTx.txid,
           data: {
-            type: 'approve',
+            type: ETransactionType.APPROVE,
             amount: tokenApprove.amount,
             token: {
               name: tokenApprove.name,
@@ -314,7 +332,7 @@ class ServiceSignature extends ServiceBase {
         title,
         hash: signedTx.txid,
         data: {
-          type: 'send',
+          type: ETransactionType.SEND,
           amount: assetTransfer.sends[0].amount,
           token: {
             name: assetTransfer.sends[0].name,

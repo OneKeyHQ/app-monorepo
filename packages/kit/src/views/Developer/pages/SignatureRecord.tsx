@@ -5,6 +5,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 
@@ -47,7 +48,7 @@ const SignTransactionButton = () => {
           hash: '0x866c4749db18695e4359f4e3f121a835d7715638315427e5521bcd078724d0d1',
           address: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
           data: {
-            type: 'send',
+            type: ETransactionType.SEND,
             amount: '100000',
             token: {
               name: 'USD Coin',
