@@ -17,7 +17,7 @@ export interface IPageContentOptions {
   pageOffsetRef: MutableRefObject<NativeScrollPoint>;
   footerRef: MutableRefObject<IPageFooterRef>;
   scrollProps?: Omit<IScrollViewProps, 'children'>;
-  confirmedRef?: MutableRefObject<boolean>;
+  closeExtraRef?: MutableRefObject<{ flag?: string }>;
 }
 
 type IPageContentProps = IPageContentOptions;
