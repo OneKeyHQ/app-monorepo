@@ -113,19 +113,25 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async showEnterPinOnDeviceDialog({
-    connectId,
-    payload,
-  }: {
-    connectId: string;
-    payload: IHardwareUiPayload | undefined;
-  }) {
+  async showEnterPinOnDevice() {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PIN,
       payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
     });
+  }
+
+  @backgroundMethod()
+  async sendEnterPinOnDeviceEvent({
+    connectId,
+    payload,
+  }: {
+    connectId: string;
+    payload: IHardwareUiPayload | undefined;
+  }) {
+    await this.showEnterPinOnDevice();
+
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.EnterPinOnDevice,
       connectId,
@@ -235,7 +241,7 @@ class ServiceHardwareUI extends ServiceBase {
           connectId,
           skipDeviceCancel, // auto cancel if device call interaction action
         });
-        await backgroundApiProxy.serviceFirmwareUpdate.resetShouldDetectTimeCheck(
+        void backgroundApiProxy.serviceFirmwareUpdate.delayShouldDetectTimeCheck(
           { connectId },
         );
       }

@@ -50,7 +50,7 @@ function HardwareSingletonDialogCmp(
   const action = state?.action;
   const connectId = state?.connectId || '';
   // state?.payload?.deviceType
-  const { serviceHardware, serviceHardwareUI } = backgroundApiProxy;
+  const { serviceHardwareUI } = backgroundApiProxy;
   const intl = useIntl();
 
   // TODO make sure toast is last session action
@@ -103,7 +103,7 @@ function HardwareSingletonDialogCmp(
           });
         }}
         switchOnDevice={async () => {
-          await serviceHardwareUI.showEnterPinOnDeviceDialog({
+          await serviceHardwareUI.sendEnterPinOnDeviceEvent({
             connectId,
             payload: state?.payload,
           });
@@ -145,25 +145,6 @@ function HardwareSingletonDialogCmp(
     );
   }
 
-  const shouldEnterPinOnDevice =
-    action === EHardwareUiStateAction.REQUEST_PIN &&
-    !state?.payload?.supportInputPinOnSoftware;
-
-  useEffect(() => {
-    if (shouldEnterPinOnDevice) {
-      void serviceHardwareUI.showEnterPinOnDeviceDialog({
-        connectId,
-        payload: state?.payload,
-      });
-    }
-  }, [
-    connectId,
-    serviceHardware,
-    serviceHardwareUI,
-    shouldEnterPinOnDevice,
-    state?.payload,
-  ]);
-
   // Need Open Bluetooth Dialog Container
   if (action === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
     return <OpenBleSettingsDialog ref={ref} {...props} />;
@@ -194,7 +175,7 @@ let toastInstances: IToastShowResult[] = [];
 
 function HardwareUiStateContainerCmp() {
   const [state] = useHardwareUiStateAtom();
-  const { serviceHardware, serviceHardwareUI } = backgroundApiProxy;
+  const { serviceHardwareUI } = backgroundApiProxy;
 
   const action = state?.action;
   const connectId = state?.connectId; // connectId maybe undefined usb-sdk
@@ -218,7 +199,9 @@ function HardwareUiStateContainerCmp() {
     if (action === EHardwareUiStateAction.FIRMWARE_TIP) {
       if (
         state?.payload?.firmwareTipData?.message ===
-        EFirmwareUpdateTipMessages.ConfirmOnDevice
+          EFirmwareUpdateTipMessages.ConfirmOnDevice ||
+        state?.payload?.firmwareTipData?.message ===
+          EFirmwareUpdateTipMessages.InstallingFirmware
       ) {
         return true;
       }
@@ -285,9 +268,13 @@ function HardwareUiStateContainerCmp() {
 
   const HardwareSingletonDialogRender = useCallback(
     ({ ref }: { ref: any }) => (
-      <HardwareSingletonDialog hello="world-338" ref={ref} state={state} />
+      <HardwareSingletonDialog
+        hello="world-338"
+        ref={ref}
+        state={stateRef.current}
+      />
     ),
-    [state],
+    [],
   );
 
   console.log(
@@ -295,13 +282,7 @@ function HardwareUiStateContainerCmp() {
     state,
     action,
     shouldShowAction,
-    [
-      HardwareSingletonDialogRender,
-      connectId,
-      isToastAction,
-      serviceHardware,
-      shouldShowAction,
-    ],
+    [HardwareSingletonDialogRender, connectId, isToastAction, shouldShowAction],
   );
 
   const autoClosedFlag = 'autoClosed';
@@ -317,20 +298,28 @@ function HardwareUiStateContainerCmp() {
       const stateData = stateRef.current;
       log(`start ui  ========= `, stateData);
       // TODO do not cancel device here
-      const closePrevActions = async () => {
-        for (const dialog of dialogInstances) {
-          await dialog?.close?.({ flag: autoClosedFlag });
-        }
+      const closePrevToastActions = async () => {
         for (const toast of toastInstances) {
           await toast?.close?.({ flag: autoClosedFlag });
         }
-        dialogInstances = [];
         toastInstances = [];
-        // await dialogRef.current?.close({ flag: autoClosedFlag });
-        // await toastRef.current?.close({ flag: autoClosedFlag });
-        log(`close prev toast or dialog`);
+        log(`close prev toast`);
       };
-      await closePrevActions();
+
+      const closePrevDialogActions = async () => {
+        for (const dialog of dialogInstances) {
+          await dialog?.close?.({ flag: autoClosedFlag });
+        }
+        dialogInstances = [];
+        log(`close prev dialog`);
+      };
+
+      if (!isToastAction) {
+        await closePrevToastActions();
+      }
+      if (!isDialogAction) {
+        await closePrevDialogActions();
+      }
 
       // for DEBUG test
       if (stateData?.action === 'ui-request_passphrase') {
@@ -376,7 +365,8 @@ function HardwareUiStateContainerCmp() {
           dialogInstances.push(instance);
         }
       } else {
-        await closePrevActions();
+        await closePrevToastActions();
+        await closePrevDialogActions();
       }
 
       // If the interval between toast open and close (prev opened toast) is less than 300ms, the toast cannot be closed, so a delay must be added here.
@@ -392,7 +382,6 @@ function HardwareUiStateContainerCmp() {
     isDialogAction,
     isToastAction,
     isOperationAction,
-    serviceHardware,
     serviceHardwareUI,
     shouldShowAction,
   ]);

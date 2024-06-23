@@ -203,6 +203,29 @@ class ServiceFirmwareUpdate extends ServiceBase {
     this.detectMap.resetLastDetectAt({ connectId });
   }
 
+  /**
+   * Defer device update checks
+   * @param connectId device connectId
+   */
+  @backgroundMethod()
+  async delayShouldDetectTimeCheck({ connectId }: { connectId: string }) {
+    this.detectMap.updateLastDetectAt({ connectId });
+
+    void this.backgroundApi.serviceDevSetting
+      .getFirmwareUpdateDevSettings('showAutoCheckHardwareUpdatesToast')
+      .then((result) => {
+        if (!result) return;
+
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'message',
+          title: '推迟硬件自动更新检测',
+        });
+      })
+      .catch(() => {
+        // ignore
+      });
+  }
+
   @backgroundMethod()
   async getFirmwareUpdateDetectInfo({ connectId }: { connectId: string }) {
     const info = this.detectMap.detectMapCache[connectId];

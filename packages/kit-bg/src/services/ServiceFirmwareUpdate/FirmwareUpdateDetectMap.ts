@@ -26,12 +26,31 @@ export class FirmwareUpdateDetectMap {
 
   firstDetectTimeSpan = timerUtils.getTimeDurationMs({ minute: 1 });
 
+  private showDebugToast(message: string) {
+    void this.backgroundApi.serviceDevSetting
+      .getFirmwareUpdateDevSettings('showAutoCheckHardwareUpdatesToast')
+      .then((result) => {
+        if (!result) return;
+
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'message',
+          title: message,
+        });
+      })
+      .catch(() => {
+        // ignore
+      });
+  }
+
   shouldDetect({ connectId }: { connectId: string }) {
     const now = Date.now();
 
     // Check is not allowed until one minute after the app is started
     if (now - this.firstDetectAt < this.firstDetectTimeSpan) {
       console.log(`skip detectFirmwareUpdates with first check: ${connectId}`);
+
+      this.showDebugToast('刚启动 App，跳过检查更新');
+
       return false;
     }
 
@@ -41,8 +60,12 @@ export class FirmwareUpdateDetectMap {
       now - lastDetectResult.lastDetectAt < this.detectTimeSpan
     ) {
       console.log(`skip detectFirmwareUpdates: ${connectId}`);
+
+      this.showDebugToast('刚刚检查过，跳过检查更新');
       return false;
     }
+
+    this.showDebugToast('开始检查更新');
     return true;
   }
 

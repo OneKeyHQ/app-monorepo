@@ -61,70 +61,66 @@ export function FirmwareUpdateDevSettings() {
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
-
       <FirmwareUpdateSectionFieldItem
         name="shouldUpdateBridge"
         title="Should Update Bridge"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
-
       <FirmwareUpdateSectionFieldItem
         name="shouldUpdateFullRes"
         title="Should Update Full Resouces"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
-
       <FirmwareUpdateSectionFieldItem
         name="shouldUpdateFromWeb"
         title="Should Update from web"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
-
       <FirmwareUpdateSectionFieldItem
         name="allIsUpToDate"
         title="All is up to date"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
-
       <FirmwareUpdateSectionFieldItem
         name="usePreReleaseConfig"
         title="Use pre-release config"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
-
       <FirmwareUpdateSectionFieldItem
         name="forceUpdateResEvenSameVersion"
         title="Force update res even same version"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
-
       <FirmwareUpdateSectionFieldItem
         name="forceUpdateFirmware"
         title="Force update firmware"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
-
       <FirmwareUpdateSectionFieldItem
         name="forceUpdateBle"
         title="Force update bluetooth"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
-
       <FirmwareUpdateSectionFieldItem
         name="forceUpdateBootloader"
         title="Force update bootloader"
       >
         <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>{' '}
+      <FirmwareUpdateSectionFieldItem
+        name="showAutoCheckHardwareUpdatesToast"
+        title="Show Auto Check Hardware Updates Toast"
+      >
+        <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
-
       <SizableText>{JSON.stringify(devSetting, null, 2)}</SizableText>
       <FirmwareUpdateGalleryDemo />
     </YStack>
