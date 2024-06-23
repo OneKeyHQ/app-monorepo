@@ -10,6 +10,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useEarnLabelFn } from '@onekeyhq/kit/src/views/Staking/hooks/useLabelFn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { ILidoHistoryItem } from '@onekeyhq/shared/types/staking';
@@ -18,21 +19,8 @@ type ILidoHistoryProps = {
   items: ILidoHistoryItem[];
 };
 
-function useLidoLabel() {
-  const intl = useIntl();
-  return function (label: string) {
-    if (label.toLowerCase() === 'stake') {
-      return intl.formatMessage({ id: ETranslations.earn_stake });
-    }
-    if (label.toLowerCase() === 'redeem') {
-      return intl.formatMessage({ id: ETranslations.earn_redeem });
-    }
-    return intl.formatMessage({ id: ETranslations.earn_claim });
-  };
-}
-
 export const LidoHistory = ({ items }: ILidoHistoryProps) => {
-  const labelFn = useLidoLabel();
+  const labelFn = useEarnLabelFn();
   const sections = useMemo(() => {
     const result = groupBy(items, (item) =>
       formatDate(new Date(item.timestamp * 1000), { hideTimeForever: true }),
@@ -55,7 +43,7 @@ export const LidoHistory = ({ items }: ILidoHistoryProps) => {
       return (
         <ListItem
           avatarProps={{
-            src: item.receive?.token.logoURI ?? item.send?.token.logoURI,
+            src: primary?.data?.token.logoURI ?? secondary?.data?.token.logoURI,
           }}
           title={labelFn(item.label)}
           subtitle="Lido"
