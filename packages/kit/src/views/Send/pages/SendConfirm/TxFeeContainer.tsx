@@ -556,6 +556,7 @@ function TxFeeContainer(props: IProps) {
       <Divider mx="$5" />
       <InfoItemGroup
         animation="repeat"
+        animateOnly={['opacity']}
         opacity={isLoading && txFeeInit.current ? 0.5 : 1}
       >
         <InfoItem

@@ -1,4 +1,4 @@
-import { NumberSizeableText } from '@onekeyhq/components';
+import { Divider, NumberSizeableText } from '@onekeyhq/components';
 import { useUnsignedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -23,6 +23,7 @@ function TxSwapInfoContainer() {
 
   return (
     <InfoItemGroup>
+      <Divider />
       <InfoItem
         label="Provider"
         renderContent={swapBuildResData?.result?.info?.providerName}
