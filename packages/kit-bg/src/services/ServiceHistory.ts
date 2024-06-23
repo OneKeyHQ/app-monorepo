@@ -85,7 +85,7 @@ class ServiceHistory extends ServiceBase {
     let localHistoryConfirmedTxs: IAccountHistoryTx[] = [];
     let localHistoryPendingTxs: IAccountHistoryTx[] = [];
 
-    // 1. 拿到本地正在 pending 的交易
+    // 1. Get the locally pending transactions
     localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
       networkId,
       accountAddress,
@@ -93,14 +93,14 @@ class ServiceHistory extends ServiceBase {
       tokenIdOnNetwork,
     });
 
-    // 2. 查询本地 pending 的交易是否已经被确认
+    // 2. Check if the locally pending transactions have been confirmed
 
-    // 已经被确认的交易
+    // Confirmed transactions
     const confirmedTxs: IAccountHistoryTx[] = [];
-    // 仍然是 pending 状态的交易
+    // Transactions still in pending status
     const pendingTxs: IAccountHistoryTx[] = [];
 
-    // 查询本地 pending 交易的详情
+    // Fetch details of locally pending transactions
     const onChainHistoryTxsDetails = await Promise.all(
       localHistoryPendingTxs.map((tx) =>
         this.fetchHistoryTxDetails({
@@ -135,8 +135,7 @@ class ServiceHistory extends ServiceBase {
       }
     }
 
-    // 3. 获取本地已经确认的交易
-
+    // 3. Get the locally confirmed transactions
     localHistoryConfirmedTxs = await this.getAccountLocalHistoryConfirmedTxs({
       networkId,
       accountAddress,
@@ -144,23 +143,23 @@ class ServiceHistory extends ServiceBase {
       tokenIdOnNetwork,
     });
 
-    // 4. 获取链上的历史记录
+    // 4. Fetch the on-chain history
     onChainHistoryTxs = await this.fetchAccountOnChainHistory({
       ...params,
       accountAddress,
     });
 
-    // 5. 将刚才查询到的已经确认的交易和本地已经确认的交易和链上的历史记录合并
+    // 5. Merge the just-confirmed transactions, locally confirmed transactions, and on-chain history
 
-    // 将本地已经确认的交易和刚才查询到的已经确认的交易合并
+    // Merge the locally confirmed transactions and the just-confirmed transactions
     const mergedConfirmedTxs = unionBy(
       [...confirmedTxs, ...localHistoryConfirmedTxs],
       (tx) => tx.id,
     );
 
-    // 将合并后的已经确认的交易和链上的历史记录合并
+    // Merge the merged confirmed transactions with the on-chain history
 
-    // 找出通过历史详情查询已经确认的交易，但是链上历史记录中没有的, 这部分是需要保存的
+    // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
     let confirmedTxsToSave: IAccountHistoryTx[] = [];
     if (!saveConfirmedTxsEnabled) {
       confirmedTxsToSave = mergedConfirmedTxs.filter(
@@ -170,7 +169,7 @@ class ServiceHistory extends ServiceBase {
           ),
       );
     }
-    // 如果有的链需要保存所有的已经确认的交易，那么就不过滤直接保存所有的已确认交易
+    // If some chains require saving all confirmed transactions, save all confirmed transactions without filtering
     else {
       confirmedTxsToSave = mergedConfirmedTxs;
     }
@@ -193,7 +192,8 @@ class ServiceHistory extends ServiceBase {
       },
     );
 
-    // 将本地 pending 的交易，已确认交易和链上的历史记录合并返回
+    // Merge the locally pending transactions, confirmed transactions, and on-chain history to return
+
     return unionBy(
       [...pendingTxs, ...mergedConfirmedTxs, ...onChainHistoryTxs],
       (tx) => tx.id,
