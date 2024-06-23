@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 
 import {
   Empty,
+  Icon,
   Image,
   SectionList,
   SizableText,
@@ -47,9 +48,22 @@ const ConnectedSiteItem = ({ item }: { item: IConnectedSite }) => (
         overflow="hidden"
         width={40}
         height={40}
-        src={item.logo}
         mr="$3"
-      />
+      >
+        <Image.Source
+          source={{
+            uri: item.logo,
+          }}
+        />
+        <Image.Fallback
+          alignItems="center"
+          justifyContent="center"
+          bg="$gray5"
+          delayMs={1000}
+        >
+          <Icon size={40} name="GlobusOutline" color="$iconSubdued" />
+        </Image.Fallback>
+      </Image>
       <SizableText size="$bodyLgMedium">
         {getConnectedSiteTitle(item.url)}
       </SizableText>
