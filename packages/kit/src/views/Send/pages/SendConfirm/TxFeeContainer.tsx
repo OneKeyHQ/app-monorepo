@@ -35,6 +35,10 @@ import {
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
@@ -451,6 +455,12 @@ function TxFeeContainer(props: IProps) {
     updateSendFeeStatus,
     updateSendTxStatus,
   ]);
+
+  useEffect(() => {
+    appEventBus.emit(EAppEventBusNames.TxFeeInfoChanged, {
+      feeSelectorItems,
+    });
+  }, [feeSelectorItems]);
 
   const handlePress = useCallback(() => {
     Dialog.show({

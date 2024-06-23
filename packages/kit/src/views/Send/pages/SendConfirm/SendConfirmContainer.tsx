@@ -155,7 +155,7 @@ function SendConfirmContainer() {
             useFeeInTx={useFeeInTx}
           />
           <TxSwapInfoContainer />
-          <TxSimulationContainer />
+          {/* <TxSimulationContainer /> */}
         </Page.Body>
         <SendConfirmActionsContainer
           sourceInfo={sourceInfo}
