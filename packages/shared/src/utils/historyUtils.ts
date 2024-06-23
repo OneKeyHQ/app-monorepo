@@ -11,6 +11,7 @@ import type {
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
 } from '../../types/history';
+import { isNil } from 'lodash';
 
 export function getOnChainHistoryTxStatus(
   onChainTxStatus: EOnChainHistoryTxStatus,
@@ -135,6 +136,11 @@ export function getHistoryTxDetailInfo({
 }) {
   const { decodedTx } = historyTx;
   let swapInfo;
+  let nonce = txDetails?.nonce;
+
+  if (isNil(nonce) || nonce === 0) {
+    nonce = decodedTx.nonce;
+  }
 
   const date = formatDate(
     new Date(
@@ -144,7 +150,7 @@ export function getHistoryTxDetailInfo({
     ),
   );
   const txid = decodedTx.txid;
-  const nonce = txDetails?.nonce ?? decodedTx.nonce;
+
   const gasFee = txDetails?.gasFee ?? decodedTx.totalFeeInNative ?? '0';
   const gasFeeFiatValue =
     txDetails?.gasFeeFiatValue ?? decodedTx.totalFeeFiatValue ?? '0';
