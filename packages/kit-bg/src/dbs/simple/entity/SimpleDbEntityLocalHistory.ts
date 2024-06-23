@@ -23,8 +23,21 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     return this.saveLocalHistoryTxs({ pendingTxs: txs });
   }
 
+  @backgroundMethod()
   public async saveLocalHistoryConfirmedTxs(txs: IAccountHistoryTx[]) {
     return this.saveLocalHistoryTxs({ confirmedTxs: txs });
+  }
+
+  @backgroundMethod()
+  public async updateLocalHistoryConfirmedTxs(txs: IAccountHistoryTx[]) {
+    return this.setRawData(({ rawData }) => {
+      const pendingTxs = rawData?.pendingTxs || [];
+      return {
+        ...(rawData ?? {}),
+        pendingTxs,
+        confirmedTxs: txs,
+      };
+    });
   }
 
   @backgroundMethod()
@@ -76,12 +89,23 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
   public async updateLocalHistoryPendingTxs({
     confirmedTxs,
     onChainHistoryTxs,
+    pendingTxs: pendingTxsFromOut,
   }: {
     confirmedTxs?: IAccountHistoryTx[];
     onChainHistoryTxs?: IAccountHistoryTx[];
+    pendingTxs?: IAccountHistoryTx[];
   }) {
-    if (isEmpty(confirmedTxs) && isEmpty(onChainHistoryTxs)) return;
     const rawData = await this.getRawData();
+
+    if (pendingTxsFromOut) {
+      return this.setRawData({
+        ...rawData,
+        confirmedTxs: rawData?.confirmedTxs || [],
+        pendingTxs: pendingTxsFromOut,
+      });
+    }
+
+    if (isEmpty(confirmedTxs) && isEmpty(onChainHistoryTxs)) return;
 
     const pendingTxs = rawData?.pendingTxs;
 

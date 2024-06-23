@@ -1,3 +1,5 @@
+import { unionBy } from 'lodash';
+
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
 import {
   backgroundClass,
@@ -70,7 +72,6 @@ class ServiceHistory extends ServiceBase {
       accountId,
       networkId,
       tokenIdOnNetwork,
-      onChainHistoryDisabled,
       saveConfirmedTxsEnabled,
       xpub,
     } = params;
@@ -82,93 +83,113 @@ class ServiceHistory extends ServiceBase {
 
     let onChainHistoryTxs: IAccountHistoryTx[] = [];
     let localHistoryConfirmedTxs: IAccountHistoryTx[] = [];
+    let localHistoryPendingTxs: IAccountHistoryTx[] = [];
 
-    if (onChainHistoryDisabled || saveConfirmedTxsEnabled) {
-      const localHistoryPendingTxs =
-        await this.getAccountLocalHistoryPendingTxs({
-          networkId,
-          accountAddress,
-          xpub,
-          tokenIdOnNetwork,
-        });
-
-      // TODO: batch fetch confirmed txs
-      const confirmedTxs = (
-        await Promise.all(
-          localHistoryPendingTxs.map((tx) =>
-            this.fetchHistoryTxDetails({
-              accountId,
-              networkId,
-              accountAddress,
-              txid: tx.decodedTx.txid,
-            }),
-          ),
-        )
-      )
-        .map((tx) => {
-          const confirmedTx = localHistoryPendingTxs.find(
-            (t) => t.decodedTx.txid === tx?.data.tx,
-          );
-
-          if (confirmedTx) {
-            return {
-              ...confirmedTx,
-              decodedTx: {
-                ...confirmedTx.decodedTx,
-                status:
-                  tx?.data.status === EOnChainHistoryTxStatus.Success
-                    ? EDecodedTxStatus.Confirmed
-                    : EDecodedTxStatus.Failed,
-                isFinal: true,
-              },
-            };
-          }
-
-          return null;
-        })
-        .filter(Boolean);
-
-      await this.backgroundApi.simpleDb.localHistory.saveLocalHistoryConfirmedTxs(
-        confirmedTxs,
-      );
-
-      localHistoryConfirmedTxs = await this.getAccountLocalHistoryConfirmedTxs({
-        networkId,
-        accountAddress,
-        xpub,
-        tokenIdOnNetwork,
-      });
-    }
-
-    if (!onChainHistoryDisabled) {
-      onChainHistoryTxs = await this.fetchAccountOnChainHistory({
-        ...params,
-        accountAddress,
-      });
-    }
-
-    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
-      {
-        confirmedTxs: localHistoryConfirmedTxs,
-        onChainHistoryTxs,
-      },
-    );
-
-    const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
+    // 1. 拿到本地正在 pending 的交易
+    localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
       networkId,
       accountAddress,
+      xpub,
       tokenIdOnNetwork,
     });
 
-    if (saveConfirmedTxsEnabled && !onChainHistoryDisabled) {
-      localHistoryConfirmedTxs = [];
+    // 2. 查询本地 pending 的交易是否已经被确认
+
+    // 已经被确认的交易
+    const confirmedTxs: IAccountHistoryTx[] = [];
+    // 仍然是 pending 状态的交易
+    const pendingTxs: IAccountHistoryTx[] = [];
+
+    // 查询本地 pending 交易的详情
+    const onChainHistoryTxsDetails = await Promise.all(
+      localHistoryPendingTxs.map((tx) =>
+        this.fetchHistoryTxDetails({
+          accountId,
+          networkId,
+          accountAddress,
+          txid: tx.decodedTx.txid,
+        }),
+      ),
+    );
+
+    for (const localHistoryPendingTx of localHistoryPendingTxs) {
+      const confirmedTx = onChainHistoryTxsDetails.find(
+        (txDetails) =>
+          localHistoryPendingTx.decodedTx.txid === txDetails?.data.tx,
+      );
+
+      if (confirmedTx) {
+        confirmedTxs.push({
+          ...localHistoryPendingTx,
+          decodedTx: {
+            ...localHistoryPendingTx.decodedTx,
+            status:
+              confirmedTx?.data.status === EOnChainHistoryTxStatus.Success
+                ? EDecodedTxStatus.Confirmed
+                : EDecodedTxStatus.Failed,
+            isFinal: true,
+          },
+        });
+      } else {
+        pendingTxs.push(localHistoryPendingTx);
+      }
     }
 
-    return [
-      ...localHistoryPendingTxs,
-      ...localHistoryConfirmedTxs,
-      ...onChainHistoryTxs,
-    ];
+    // 3. 获取本地已经确认的交易
+
+    localHistoryConfirmedTxs = await this.getAccountLocalHistoryConfirmedTxs({
+      networkId,
+      accountAddress,
+      xpub,
+      tokenIdOnNetwork,
+    });
+
+    // 4. 获取链上的历史记录
+    onChainHistoryTxs = await this.fetchAccountOnChainHistory({
+      ...params,
+      accountAddress,
+    });
+
+    // 5. 将刚才查询到的已经确认的交易和本地已经确认的交易和链上的历史记录合并
+
+    // 将本地已经确认的交易和刚才查询到的已经确认的交易合并
+    const mergedConfirmedTxs = unionBy(
+      [...confirmedTxs, ...localHistoryConfirmedTxs],
+      (tx) => tx.id,
+    );
+
+    // 将合并后的已经确认的交易和链上的历史记录合并
+
+    // 找出通过历史详情查询已经确认的交易，但是链上历史记录中没有的, 这部分是需要保存的
+    let confirmedTxsToSave: IAccountHistoryTx[] = [];
+    if (!saveConfirmedTxsEnabled) {
+      confirmedTxsToSave = mergedConfirmedTxs.filter(
+        (tx) =>
+          !onChainHistoryTxs.find(
+            (onChainHistoryTx) => onChainHistoryTx.id === tx.id,
+          ),
+      );
+    }
+    // 如果有的链需要保存所有的已经确认的交易，那么就不过滤直接保存所有的已确认交易
+    else {
+      confirmedTxsToSave = mergedConfirmedTxs;
+    }
+
+    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
+      confirmedTxsToSave,
+    );
+
+    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
+      {
+        pendingTxs,
+      },
+    );
+
+    // 将本地 pending 的交易，已确认交易和链上的历史记录合并返回
+    return unionBy(
+      [...pendingTxs, ...mergedConfirmedTxs, ...onChainHistoryTxs],
+      (tx) => tx.id,
+    );
   }
 
   @backgroundMethod()
