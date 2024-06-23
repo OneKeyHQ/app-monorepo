@@ -176,11 +176,19 @@ class ServiceHistory extends ServiceBase {
     }
 
     await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
-      confirmedTxsToSave,
+      {
+        networkId,
+        accountAddress,
+        xpub,
+        txs: confirmedTxsToSave,
+      },
     );
 
     await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
       {
+        networkId,
+        accountAddress,
+        xpub,
         pendingTxs,
       },
     );
@@ -329,13 +337,19 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async saveLocalHistoryPendingTxs(params: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
     pendingTxs: IAccountHistoryTx[];
   }) {
-    const { pendingTxs } = params;
+    const { networkId, accountAddress, xpub, pendingTxs } = params;
 
-    return this.backgroundApi.simpleDb.localHistory.saveLocalHistoryPendingTxs(
-      pendingTxs,
-    );
+    return this.backgroundApi.simpleDb.localHistory.saveLocalHistoryPendingTxs({
+      networkId,
+      accountAddress,
+      xpub,
+      txs: pendingTxs,
+    });
   }
 
   @backgroundMethod()
@@ -394,7 +408,24 @@ class ServiceHistory extends ServiceBase {
     if (signedTx.stakingInfo) {
       newHistoryTx.stakingInfo = signedTx.stakingInfo;
     }
-    await this.saveLocalHistoryPendingTxs({ pendingTxs: [newHistoryTx] });
+
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    await this.saveLocalHistoryPendingTxs({
+      networkId,
+      accountAddress,
+      xpub,
+      pendingTxs: [newHistoryTx],
+    });
   }
 }
 

@@ -1,6 +1,7 @@
 import { EOnChainHistoryTxStatus } from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
+import { OneKeyInternalError } from '../errors';
 
 import { formatDate } from './dateUtils';
 
@@ -160,4 +161,20 @@ export function getHistoryTxDetailInfo({
     gasFee,
     gasFeeFiatValue,
   };
+}
+
+export function buildLocalHistoryKey({
+  networkId,
+  accountAddress,
+  xpub,
+}: {
+  networkId: string;
+  accountAddress?: string;
+  xpub?: string;
+}) {
+  if (!accountAddress && !xpub) {
+    throw new OneKeyInternalError('accountAddress or xpub is required');
+  }
+
+  return `${networkId}_${accountAddress ?? xpub ?? ''}`;
 }

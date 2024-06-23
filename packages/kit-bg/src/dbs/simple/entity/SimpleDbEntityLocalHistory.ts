@@ -1,7 +1,8 @@
-import { isEmpty, isNil, uniqBy } from 'lodash';
+import { assign, isEmpty, isNil, uniqBy } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { buildLocalHistoryKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -9,8 +10,8 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface ILocalHistory {
-  pendingTxs: IAccountHistoryTx[];
-  confirmedTxs: IAccountHistoryTx[];
+  pendingTxs: Record<string, IAccountHistoryTx[]>; // Record<networkId_accountAddress/xpub, IAccountHistoryTx[]>
+  confirmedTxs: Record<string, IAccountHistoryTx[]>; // Record<networkId_accountAddress/xpub, IAccountHistoryTx[]>
 }
 
 export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory> {
@@ -19,41 +20,105 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
   override enableCache = false;
 
   @backgroundMethod()
-  public async saveLocalHistoryPendingTxs(txs: IAccountHistoryTx[]) {
-    return this.saveLocalHistoryTxs({ pendingTxs: txs });
+  public async saveLocalHistoryPendingTxs({
+    networkId,
+    accountAddress,
+    xpub,
+    txs,
+  }: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
+    txs: IAccountHistoryTx[];
+  }) {
+    return this.saveLocalHistoryTxs({
+      networkId,
+      accountAddress,
+      xpub,
+      pendingTxs: txs,
+    });
   }
 
   @backgroundMethod()
-  public async saveLocalHistoryConfirmedTxs(txs: IAccountHistoryTx[]) {
-    return this.saveLocalHistoryTxs({ confirmedTxs: txs });
+  public async saveLocalHistoryConfirmedTxs({
+    networkId,
+    accountAddress,
+    xpub,
+    txs,
+  }: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
+    txs: IAccountHistoryTx[];
+  }) {
+    return this.saveLocalHistoryTxs({
+      networkId,
+      accountAddress,
+      xpub,
+      confirmedTxs: txs,
+    });
   }
 
   @backgroundMethod()
-  public async updateLocalHistoryConfirmedTxs(txs: IAccountHistoryTx[]) {
-    return this.setRawData(({ rawData }) => {
-      const pendingTxs = rawData?.pendingTxs || [];
-      return {
-        ...(rawData ?? {}),
-        pendingTxs,
-        confirmedTxs: txs,
-      };
+  public async updateLocalHistoryConfirmedTxs({
+    networkId,
+    accountAddress,
+    xpub,
+    txs,
+  }: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
+    txs: IAccountHistoryTx[];
+  }) {
+    if (!accountAddress && !xpub) {
+      throw new OneKeyInternalError('accountAddress or xpub is required');
+    }
+
+    const rawData = await this.getRawData();
+
+    if (!txs) return;
+
+    const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+
+    if (isEmpty(txs) && isEmpty(rawData?.confirmedTxs[key])) return;
+
+    const pendingTxs = rawData?.pendingTxs || {};
+
+    return this.setRawData({
+      ...(rawData ?? {}),
+      pendingTxs,
+      confirmedTxs: assign({}, rawData?.confirmedTxs, { [key]: txs }),
     });
   }
 
   @backgroundMethod()
   public async saveLocalHistoryTxs({
+    networkId,
+    accountAddress,
+    xpub,
     pendingTxs,
     confirmedTxs,
   }: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
     pendingTxs?: IAccountHistoryTx[];
     confirmedTxs?: IAccountHistoryTx[];
   }) {
+    if (!accountAddress && !xpub) {
+      throw new OneKeyInternalError('accountAddress or xpub is required');
+    }
+
+    const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+
     if (isEmpty(pendingTxs) && isEmpty(confirmedTxs)) return;
     const now = Date.now();
     const rawData = await this.getRawData();
 
-    let finalPendingTxs = rawData?.pendingTxs ?? [];
-    let finalConfirmedTxs = rawData?.confirmedTxs ?? [];
+    let finalPendingTxs = rawData?.pendingTxs[key] ?? [];
+    let finalConfirmedTxs = rawData?.confirmedTxs[key] ?? [];
+
     if (pendingTxs) {
       finalPendingTxs = uniqBy(
         [
@@ -80,34 +145,53 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
     return this.setRawData({
       ...(rawData ?? {}),
-      pendingTxs: finalPendingTxs,
-      confirmedTxs: finalConfirmedTxs,
+      pendingTxs: assign({}, rawData?.pendingTxs, { [key]: finalPendingTxs }),
+      confirmedTxs: assign({}, rawData?.confirmedTxs, {
+        [key]: finalConfirmedTxs,
+      }),
     });
   }
 
   @backgroundMethod()
   public async updateLocalHistoryPendingTxs({
+    networkId,
+    accountAddress,
+    xpub,
     confirmedTxs,
     onChainHistoryTxs,
     pendingTxs: pendingTxsFromOut,
   }: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
     confirmedTxs?: IAccountHistoryTx[];
     onChainHistoryTxs?: IAccountHistoryTx[];
     pendingTxs?: IAccountHistoryTx[];
   }) {
+    if (!accountAddress && !xpub) {
+      throw new OneKeyInternalError('accountAddress or xpub is required');
+    }
+
+    const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+
     const rawData = await this.getRawData();
 
     if (pendingTxsFromOut) {
+      if (isEmpty(pendingTxsFromOut) && isEmpty(rawData?.pendingTxs[key]))
+        return;
+
       return this.setRawData({
         ...rawData,
-        confirmedTxs: rawData?.confirmedTxs || [],
-        pendingTxs: pendingTxsFromOut,
+        confirmedTxs: rawData?.confirmedTxs || {},
+        pendingTxs: assign({}, rawData?.pendingTxs, {
+          [key]: pendingTxsFromOut,
+        }),
       });
     }
 
     if (isEmpty(confirmedTxs) && isEmpty(onChainHistoryTxs)) return;
 
-    const pendingTxs = rawData?.pendingTxs;
+    const pendingTxs = rawData?.pendingTxs?.[key] || [];
 
     if (!pendingTxs || !pendingTxs.length) return;
 
@@ -127,7 +211,8 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
     return this.setRawData({
       ...rawData,
-      pendingTxs: newPendingTxs,
+      confirmedTxs: rawData?.confirmedTxs || {},
+      pendingTxs: assign({}, rawData?.pendingTxs, { [key]: newPendingTxs }),
     });
   }
 
@@ -144,14 +229,9 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    const pendingTxs = (await this.getRawData())?.pendingTxs || [];
+    const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
 
-    let accountPendingTxs = this._getAccountLocalHistoryTxs({
-      txs: pendingTxs,
-      networkId,
-      xpub,
-      accountAddress,
-    });
+    let accountPendingTxs = (await this.getRawData())?.pendingTxs[key] ?? [];
 
     accountPendingTxs = this._arrangeLocalTxs({
       txs: accountPendingTxs,
@@ -164,7 +244,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
   @backgroundMethod()
   public async getAccountLocalHistoryConfirmedTxs(params: {
     networkId: string;
-    accountAddress: string;
+    accountAddress?: string;
     xpub?: string;
     tokenIdOnNetwork?: string;
   }) {
@@ -174,13 +254,10 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    const confirmedTxs = (await this.getRawData())?.confirmedTxs || [];
-    let accountConfirmedTxs = this._getAccountLocalHistoryTxs({
-      txs: confirmedTxs,
-      accountAddress,
-      xpub,
-      networkId,
-    });
+    const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+
+    let accountConfirmedTxs =
+      (await this.getRawData())?.confirmedTxs[key] || [];
 
     accountConfirmedTxs = this._arrangeLocalTxs({
       txs: accountConfirmedTxs,
@@ -226,10 +303,10 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
   @backgroundMethod()
   async clearLocalHistoryPendingTxs() {
     return this.setRawData(({ rawData }) => {
-      const confirmedTxs = rawData?.confirmedTxs || [];
+      const confirmedTxs = rawData?.confirmedTxs || {};
       return {
         ...(rawData ?? {}),
-        pendingTxs: [],
+        pendingTxs: {},
         confirmedTxs,
       };
     });
@@ -238,8 +315,8 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
   @backgroundMethod()
   async clearLocalHistory() {
     return this.setRawData({
-      pendingTxs: [],
-      confirmedTxs: [],
+      pendingTxs: {},
+      confirmedTxs: {},
     });
   }
 
