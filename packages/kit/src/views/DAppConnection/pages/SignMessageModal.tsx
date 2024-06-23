@@ -120,6 +120,9 @@ function SignMessageModal() {
         </Page.Body>
         <Page.Footer>
           <DAppRequestFooter
+            confirmText={intl.formatMessage({
+              id: ETranslations.dapp_connect_confirm,
+            })}
             continueOperate={continueOperate}
             setContinueOperate={(checked) => {
               setContinueOperate(!!checked);
