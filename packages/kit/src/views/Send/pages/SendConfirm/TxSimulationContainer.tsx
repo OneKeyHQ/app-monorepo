@@ -1,22 +1,29 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   Icon,
   NumberSizeableText,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { Container } from '@onekeyhq/kit/src/components/Container';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   useNativeTokenInfoAtom,
   useSendSelectedFeeInfoAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
+
+import {
+  InfoItem,
+  InfoItemGroup,
+} from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 
 export type ITxSimulationItem = {
   label: string;
@@ -35,7 +42,7 @@ function SimulationItem(item: ITxSimulationItem) {
   const { label, icon, isNFT, symbol } = item;
 
   return (
-    <XStack alignItems="center" space="$1">
+    <XStack alignItems="center" space="$2">
       <ListItem.Avatar
         src={icon}
         size="$5"
@@ -55,7 +62,8 @@ function SimulationItem(item: ITxSimulationItem) {
       <NumberSizeableText
         formatter="balance"
         formatterOptions={{ showPlusMinusSigns: true, tokenSymbol: symbol }}
-        size="$bodyMdMedium"
+        size="$bodyMd"
+        color="$textSubdued"
       >
         {label}
       </NumberSizeableText>
@@ -64,6 +72,7 @@ function SimulationItem(item: ITxSimulationItem) {
 }
 
 function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
+  const intl = useIntl();
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
@@ -164,28 +173,32 @@ function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
   if (!swapInfo && !stakingInfo) return null;
 
   return (
-    <Container.Box>
-      <Container.Item
-        title="Total out"
-        subtitle="Include fee"
-        content={renderTxSimulation(simulationDataOut)}
-      />
-      {simulationDataIn.length > 0 ? (
-        <Container.Item
-          title="Total in"
-          content={renderTxSimulation(simulationDataIn)}
-        />
-      ) : null}
-      <Container.Item
-        content={
-          tableLayout ? null : (
-            <SizableText size="$bodySm" color="$textSubdued">
-              For reference only
+    <>
+      <Divider mx="$5" />
+      <InfoItemGroup>
+        <InfoItem
+          label={
+            <SizableText size="$headingXs" color="$textDisabled">
+              {intl.formatMessage({ id: ETranslations.for_reference_only })}
             </SizableText>
-          )
-        }
-      />
-    </Container.Box>
+          }
+        />
+        <InfoItem
+          compact
+          label={intl.formatMessage({
+            id: ETranslations.global_total_out_include_fee,
+          })}
+          renderContent={renderTxSimulation(simulationDataOut)}
+        />
+        {simulationDataIn.length > 0 ? (
+          <InfoItem
+            compact
+            label={intl.formatMessage({ id: ETranslations.global_total_in })}
+            renderContent={renderTxSimulation(simulationDataIn)}
+          />
+        ) : null}
+      </InfoItemGroup>
+    </>
   );
 }
 

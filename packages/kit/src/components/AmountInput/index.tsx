@@ -328,9 +328,8 @@ export function AmountInput({
         {InputElement}
         {TokenSelectorTrigger}
       </XStack>
-      <XStack>
+      <XStack justifyContent="space-between">
         <XStack
-          flex={1}
           alignItems="center"
           px="$3.5"
           pb="$2"
@@ -348,8 +347,10 @@ export function AmountInput({
         >
           {AmountElement}
         </XStack>
-        {BalanceElement}
-        {balanceHelper}
+        <XStack alignItems="center">
+          {BalanceElement}
+          {balanceHelper}
+        </XStack>
       </XStack>
     </Stack>
   );
