@@ -1,3 +1,5 @@
+import { debounce } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -24,6 +26,10 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceSignature extends ServiceBase {
+  private debouncedAddConnectedSite:
+    | ((url: string, networkIds: string[], addresses: string[]) => void)
+    | null = null;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -147,6 +153,24 @@ class ServiceSignature extends ServiceBase {
     const { url, items } = params;
     const networkIds = items.map((item) => item.networkId);
     const addresses = items.map((item) => item.address);
+
+    // Lazy initialization of the debounced function
+    if (!this.debouncedAddConnectedSite) {
+      this.debouncedAddConnectedSite = debounce(
+        this._addConnectedSiteToDb.bind(this),
+        500,
+      );
+    }
+
+    // Avoid repeated calls to dApp or UI hooks
+    this.debouncedAddConnectedSite(url, networkIds, addresses);
+  }
+
+  private async _addConnectedSiteToDb(
+    url: string,
+    networkIds: string[],
+    addresses: string[],
+  ) {
     try {
       await localDb.addConnectedSite({ url, networkIds, addresses });
     } catch (e) {
