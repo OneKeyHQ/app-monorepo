@@ -303,6 +303,7 @@ export function getMaxSendFeeUpwardAdjustmentFactor({
   const networkIdMap = getNetworkIdsMap();
   switch (networkId) {
     case networkIdMap.mantle:
+    case networkIdMap.mantapacific:
       return 1.2;
     default:
       return 1;
