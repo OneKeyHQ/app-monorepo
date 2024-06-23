@@ -154,8 +154,8 @@ function SendConfirmContainer() {
             networkId={networkId}
             useFeeInTx={useFeeInTx}
           />
-          <TxSwapInfoContainer />
-          {/* <TxSimulationContainer /> */}
+          {/* <TxSwapInfoContainer /> */}
+          <TxSimulationContainer />
         </Page.Body>
         <SendConfirmActionsContainer
           sourceInfo={sourceInfo}
