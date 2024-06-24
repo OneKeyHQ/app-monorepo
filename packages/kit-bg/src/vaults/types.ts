@@ -36,15 +36,6 @@ import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import type { SignClientTypes } from '@walletconnect/types';
-import type { MessageDescriptor } from 'react-intl';
-import type { IBackgroundApi } from '../apis/IBackgroundApi';
-import type { EDBAccountType } from '../dbs/local/consts';
-import type {
-  IDBAccount,
-  IDBWalletId,
-  IDBWalletType,
-} from '../dbs/local/types';
 import type {
   IAccountDeriveInfoMapBtc,
   IAccountDeriveTypesBtc,
@@ -54,6 +45,15 @@ import type {
   IAccountDeriveInfoMapEvm,
   IAccountDeriveTypesEvm,
 } from './impls/evm/settings';
+import type { IBackgroundApi } from '../apis/IBackgroundApi';
+import type { EDBAccountType } from '../dbs/local/consts';
+import type {
+  IDBAccount,
+  IDBWalletId,
+  IDBWalletType,
+} from '../dbs/local/types';
+import type { SignClientTypes } from '@walletconnect/types';
+import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',

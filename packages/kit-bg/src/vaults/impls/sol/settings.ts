@@ -1,3 +1,4 @@
+import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   COINTYPE_SOL,
   IMPL_SOL,
@@ -7,7 +8,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
-import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoMapBase,

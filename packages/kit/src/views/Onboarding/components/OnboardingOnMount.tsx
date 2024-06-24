@@ -57,6 +57,10 @@ function OnboardingOnMountCmp() {
   );
 
   useEffect(() => {
+    console.log('OnboardingOnMountOnMount');
+  }, []);
+
+  useEffect(() => {
     console.log('OnboardingOnMount changed: setV4MigrationPersistAtom changed');
   }, [setV4MigrationPersistAtom]);
 
@@ -75,7 +79,9 @@ function OnboardingOnMountCmp() {
 
   useEffect(() => {
     console.log('OnboardingOnMount: checkOnboardingState on appEventBus');
-    const fn = () => checkOnboardingState({ checkingV4Migration: false });
+    const fn = () => {
+      void checkOnboardingState({ checkingV4Migration: false });
+    };
     appEventBus.on(EAppEventBusNames.WalletClear, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletClear, fn);
