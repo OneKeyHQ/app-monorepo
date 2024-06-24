@@ -6,7 +6,7 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Keyboard, type LayoutChangeEvent } from 'react-native';
+import { Keyboard } from 'react-native';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import {
@@ -19,9 +19,7 @@ import {
   TextArea,
   XStack,
   useForm,
-  useKeyboardEvent,
   useMedia,
-  usePage,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
