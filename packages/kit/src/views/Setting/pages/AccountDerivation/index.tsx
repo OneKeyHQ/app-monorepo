@@ -27,7 +27,11 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
     miniMode
     placement="bottom-end"
     renderTrigger={({ label }) => (
-      <ListItem title={title} avatarProps={{ src: icon }}>
+      <ListItem
+        userSelect="none"
+        title={title}
+        avatarProps={{ src: icon, size: '$8' }}
+      >
         <XStack>
           <SizableText mr="$3">{label}</SizableText>
           <ListItem.DrillIn name="ChevronDownSmallSolid" />

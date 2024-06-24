@@ -58,6 +58,7 @@ const ThemeListItem = () => {
 
   return (
     <Select
+      offset={{ mainAxis: -4, crossAxis: -10 }}
       title={intl.formatMessage({ id: ETranslations.settings_theme })}
       items={options}
       value={theme}
@@ -65,6 +66,7 @@ const ThemeListItem = () => {
       placement="bottom-end"
       renderTrigger={({ label }) => (
         <ListItem
+          userSelect="none"
           icon="PaletteOutline"
           title={intl.formatMessage({ id: ETranslations.settings_theme })}
         >
@@ -90,6 +92,7 @@ const LanguageListItem = () => {
   }, []);
   return (
     <Select
+      offset={{ mainAxis: -4, crossAxis: -10 }}
       title={intl.formatMessage({ id: ETranslations.global_language })}
       items={locales}
       value={locale}
@@ -99,6 +102,7 @@ const LanguageListItem = () => {
       sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
       renderTrigger={({ label }) => (
         <ListItem
+          userSelect="none"
           icon="GlobusOutline"
           title={intl.formatMessage({ id: ETranslations.global_language })}
         >
@@ -123,6 +127,7 @@ const CurrencyListItem = () => {
   const text = settings.currencyInfo?.id ?? '';
   return (
     <ListItem
+      userSelect="none"
       icon="DollarOutline"
       title={intl.formatMessage({
         id: ETranslations.settings_default_currency,

@@ -96,6 +96,7 @@ export const CleanDataItem = () => {
   const resetApp = useResetApp();
   return (
     <ActionList
+      offset={{ mainAxis: -4, crossAxis: -10 }}
       title={intl.formatMessage({ id: ETranslations.settings_clear_data })}
       renderTrigger={
         <ListItem

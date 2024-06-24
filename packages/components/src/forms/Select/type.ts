@@ -47,4 +47,5 @@ export type ISelectProps<T extends string | ISelectItem> = PropsWithChildren<{
   floatingPanelProps?: IPopoverProps['floatingPanelProps'];
   placement?: IPopoverProps['placement'];
   testID?: string;
+  offset?: IPopoverProps['offset'];
 }>;

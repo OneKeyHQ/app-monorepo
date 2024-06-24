@@ -175,7 +175,7 @@ export default function SettingCurrencyModal() {
       <Page.Body>
         {currencyListResult?.isLoading ? (
           <Stack h="$48" justifyContent="center" alignItems="center">
-            <Spinner />
+            <Spinner size="large" />
           </Stack>
         ) : (
           <SectionList
