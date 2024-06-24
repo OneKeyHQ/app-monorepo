@@ -74,6 +74,15 @@ export type IAccountSelectorSyncFromSceneParams = {
   num: number;
 };
 
+export type IFinalizeWalletSetupCreateWalletResult = {
+  wallet: IDBWallet;
+  indexedAccount: IDBIndexedAccount;
+  hidden?: {
+    wallet: IDBWallet;
+    indexedAccount: IDBIndexedAccount;
+  };
+};
+
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
@@ -442,14 +451,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         createWalletFn,
         generatingAccountsFn,
       }: {
-        createWalletFn: () => Promise<{
-          wallet: IDBWallet;
-          indexedAccount: IDBIndexedAccount;
-        }>;
-        generatingAccountsFn: (params: {
-          wallet: IDBWallet;
-          indexedAccount: IDBIndexedAccount;
-        }) => Promise<void>;
+        createWalletFn: () => Promise<IFinalizeWalletSetupCreateWalletResult>;
+        generatingAccountsFn: (
+          params: IFinalizeWalletSetupCreateWalletResult,
+        ) => Promise<void>;
       },
     ) => {
       appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
@@ -458,7 +463,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
       await timerUtils.wait(100);
 
-      const [{ wallet, indexedAccount }] = await Promise.all([
+      const [{ wallet, indexedAccount, hidden }] = await Promise.all([
         await createWalletFn(),
         await timerUtils.wait(1000),
       ]);
@@ -470,7 +475,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       await timerUtils.wait(100);
 
       await Promise.all([
-        generatingAccountsFn({ wallet, indexedAccount }),
+        generatingAccountsFn({ wallet, indexedAccount, hidden }),
         await timerUtils.wait(1000),
       ]);
 
@@ -599,8 +604,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (_, set, params: IDBCreateHWWalletParamsBase) =>
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
-          let { wallet, device, indexedAccount } =
+          const { wallet, device, indexedAccount } =
             await this.createHWWallet.call(set, params);
+          let hiddenCreateResult:
+            | {
+                wallet: IDBWallet;
+                indexedAccount: IDBIndexedAccount;
+              }
+            | undefined;
           // add hidden wallet if device passphrase enabled (SearchedDevice.features is cached in web sdk)
           if (device && device.featuresInfo?.passphrase_protection) {
             // wait previous action done, wait device ready
@@ -613,19 +624,35 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }
             await timerUtils.wait(3000);
 
-            ({ wallet, device, indexedAccount } =
-              await this.createHWHiddenWallet.call(set, {
-                walletId: wallet.id,
-                skipDeviceCancel: params.skipDeviceCancel,
-                hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
-              }));
+            hiddenCreateResult = await this.createHWHiddenWallet.call(set, {
+              walletId: wallet.id,
+              skipDeviceCancel: params.skipDeviceCancel,
+              hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+            });
           }
           return {
             wallet,
             indexedAccount,
+            hidden: hiddenCreateResult
+              ? {
+                  wallet: hiddenCreateResult?.wallet,
+                  indexedAccount: hiddenCreateResult?.indexedAccount,
+                }
+              : undefined,
           };
         },
-        generatingAccountsFn: async ({ wallet, indexedAccount }) => {
+        generatingAccountsFn: async ({ wallet, indexedAccount, hidden }) => {
+          if (hidden && hidden.wallet && hidden.indexedAccount) {
+            // hidden wallet account should be first create before normal wallet account
+            // otherwise, passphrase input will be asked many times
+            await this.addDefaultNetworkAccounts.call(set, {
+              wallet: hidden.wallet,
+              indexedAccount: hidden.indexedAccount,
+              skipDeviceCancel: params.skipDeviceCancel,
+              hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+            });
+            await timerUtils.wait(3000);
+          }
           await this.addDefaultNetworkAccounts.call(set, {
             wallet,
             indexedAccount,

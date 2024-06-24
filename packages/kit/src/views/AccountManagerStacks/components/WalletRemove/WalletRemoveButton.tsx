@@ -12,8 +12,12 @@ export function WalletRemoveButton({ wallet }: { wallet?: IDBWallet }) {
   const { config } = useAccountSelectorContextData();
   const intl = useIntl();
 
+  const isHwOrQr =
+    accountUtils.isHwWallet({ walletId: wallet?.id }) ||
+    accountUtils.isQrWallet({ walletId: wallet?.id });
+
   function getTitleAndDescription() {
-    if (wallet?.type === 'hw') {
+    if (isHwOrQr) {
       if (
         accountUtils.isHwHiddenWallet({
           wallet,
@@ -51,7 +55,7 @@ export function WalletRemoveButton({ wallet }: { wallet?: IDBWallet }) {
           config,
           title,
           description,
-          showCheckBox: wallet?.type !== 'hw',
+          showCheckBox: !isHwOrQr,
           defaultChecked: false,
           wallet,
         });

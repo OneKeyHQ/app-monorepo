@@ -186,6 +186,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   async basePrepareAccountsImported(
     params: IPrepareImportedAccountsParams,
     options: {
+      onlyAvailableOnCertainNetworks?: boolean;
       accountType?: EDBAccountType;
       impl?: string;
       coinType?: string;
@@ -194,12 +195,14 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
-    const { name, importedCredential, password, createAtNetwork } = params;
+    const { name, importedCredential, password, networks, createAtNetwork } =
+      params;
     const { privateKey } = decryptImportedCredential({
       credential: importedCredential,
       password,
     });
     const settings = await this.getVaultSettings();
+    const { onlyAvailableOnCertainNetworks } = options;
 
     const accountType = options.accountType || settings.accountType;
     const impl = options.impl || settings.impl;
@@ -217,9 +220,20 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         privateKeyRaw,
       });
 
+    let addressUsed = '';
+    if (onlyAvailableOnCertainNetworks) {
+      addressUsed = addresses?.[createAtNetwork] || '';
+      if (!addressUsed) {
+        throw new Error(
+          `imported account address is empty of network: ${createAtNetwork}`,
+        );
+      }
+    }
+
     const accountId = accountUtils.buildImportedAccountId({
       coinType,
       pub: publicKey,
+      address: addressUsed,
     });
     return Promise.resolve([
       {
@@ -229,6 +243,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         path: '',
         coinType,
         impl,
+        networks: onlyAvailableOnCertainNetworks ? networks : undefined,
         createAtNetwork,
         pub: publicKey,
         address,

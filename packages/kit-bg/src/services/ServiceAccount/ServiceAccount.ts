@@ -650,6 +650,7 @@ class ServiceAccount extends ServiceBase {
       password,
       name: name || '',
       importedCredential: credentialEncrypt,
+      networks: [networkId],
       createAtNetwork: networkId,
     };
     if (deriveType) {

@@ -10,6 +10,7 @@ import type {
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -107,12 +108,14 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async getSafeItems({
     networkId,
   }: {
     networkId?: string;
   }): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
-    const isSafe = await this.verifyHash(true);
+    // throw new Error('address book failed to verify hash');
+    const isSafe: boolean = await this.verifyHash(true);
     if (!isSafe) {
       return { isSafe, items: [] };
     }
