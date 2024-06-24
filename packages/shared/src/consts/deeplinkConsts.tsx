@@ -19,6 +19,8 @@ export type IEOneKeyDeepLinkParams = {
 
 // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=onekey&build=1710747625972
 export const ONEKEY_UNIVERSAL_LINK_HOST = '1key.so';
+export const ONEKEY_UNIVERSAL_TEST_LINK_HOST = 'app.onekeytest.com';
+
 export const WalletConnectUniversalLinkPath = 'wc/connect/wc';
 export const WalletConnectUniversalLinkPathSchema = `/wc/connect/wc`; // do not add ? at the end (which meaning optional)
 // use /wc/connect but not /wc/connect/wc, the last /wc will be added by WalletConnect SDK
