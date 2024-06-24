@@ -87,8 +87,8 @@ export function TestSimpleModal() {
 
   return (
     <Page
-      onClose={(confirmed) => {
-        console.log(`onClose: ${String(confirmed)}`);
+      onClose={(extra) => {
+        console.log(`onClose: ${extra?.flag || ''}`);
       }}
       onCancel={() => {
         console.log('onCancel');
@@ -185,7 +185,7 @@ export function TestSimpleModal() {
         <Page.Footer
           onConfirm={(close) => {
             alert('confirmed');
-            close();
+            close({ flag: 'confirm button was clicked' });
           }}
           confirmButton={
             showConfirmAndCancelButton ? <CustomConfirmButton /> : undefined

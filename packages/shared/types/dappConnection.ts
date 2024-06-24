@@ -73,3 +73,7 @@ export type IConnectedAccountInfo = {
   account: INetworkAccount;
   accountInfo?: Partial<IConnectionAccountInfo>;
 };
+
+export enum EDAppModalPageStatus {
+  Confirmed = 'Confirmed',
+}

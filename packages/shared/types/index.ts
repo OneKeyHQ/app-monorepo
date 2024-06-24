@@ -76,7 +76,6 @@ export enum EAccountSelectorSceneName {
   homeUrlAccount = 'homeUrlAccount',
   swap = 'swap',
   discover = 'discover',
-  settings = 'settings',
   addressInput = 'addressInput', // test Gallery AddressInput test
 }
 

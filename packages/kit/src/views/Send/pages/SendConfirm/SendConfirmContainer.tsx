@@ -26,6 +26,7 @@ import TxActionsContainer from './TxActionsContainer';
 import TxFeeContainer from './TxFeeContainer';
 import TxSimulationContainer from './TxSimulationContainer';
 import { TxSourceInfoContainer } from './TxSourceInfoContainer';
+import { TxSwapInfoContainer } from './TxSwapInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -153,7 +154,7 @@ function SendConfirmContainer() {
             networkId={networkId}
             useFeeInTx={useFeeInTx}
           />
-          {/* TODO: Swap tx details */}
+          {/* <TxSwapInfoContainer /> */}
           <TxSimulationContainer />
         </Page.Body>
         <SendConfirmActionsContainer

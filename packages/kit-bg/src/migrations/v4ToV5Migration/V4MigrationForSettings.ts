@@ -9,11 +9,11 @@ const validThemeValue = ['light', 'dark', 'system'];
 
 export class V4MigrationForSettings extends V4MigrationManagerBase {
   private async getV4Settings(): Promise<IV4ReduxSettingsState | undefined> {
-    const reduxData = await this.v4dbHubs.v4reduxDb.reduxData;
+    const reduxData = await this?.v4dbHubs?.v4reduxDb?.reduxData;
     if (!reduxData) {
       return undefined;
     }
-    return reduxData.settings;
+    return reduxData?.settings;
   }
 
   async convertV4SettingsToV5() {

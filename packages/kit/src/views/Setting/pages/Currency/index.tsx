@@ -3,6 +3,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { INavSearchBarProps } from '@onekeyhq/components';
 import {
   Empty,
   Page,
@@ -31,26 +32,6 @@ export type ICurrencyItem = {
 type ISectionItem = {
   title: string;
   data: ICurrencyItem[];
-};
-
-type IListHeaderComponentProps = {
-  text: string;
-  onChangeText: (value: string) => void;
-};
-const ListHeaderComponent: FC<IListHeaderComponentProps> = ({
-  text,
-  onChangeText,
-}) => {
-  const intl = useIntl();
-  return (
-    <Stack px="$4" pt="$4">
-      <SearchBar
-        value={text}
-        onChangeText={onChangeText}
-        placeholder={intl.formatMessage({ id: ETranslations.global_search })}
-      />
-    </Stack>
-  );
 };
 
 const emptySections: ISectionItem[] = [];
@@ -171,24 +152,34 @@ export default function SettingCurrencyModal() {
     [currency?.id],
   );
 
+  const headerSearchBarOptions = useMemo(
+    () =>
+      ({
+        onChangeText: ({ nativeEvent }) => {
+          const afterTrim = nativeEvent.text.trim();
+          onChangeText(afterTrim);
+        },
+        placeholder: intl.formatMessage({ id: ETranslations.global_search }),
+      } as INavSearchBarProps),
+    [intl],
+  );
+
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.settings_default_currency,
         })}
+        headerSearchBarOptions={headerSearchBarOptions}
       />
       <Page.Body>
         {currencyListResult?.isLoading ? (
           <Stack h="$48" justifyContent="center" alignItems="center">
-            <Spinner />
+            <Spinner size="large" />
           </Stack>
         ) : (
           <SectionList
             estimatedItemSize="$6"
-            ListHeaderComponent={
-              <ListHeaderComponent text={text} onChangeText={onChangeText} />
-            }
             ListEmptyComponent={
               <Empty
                 icon="SearchOutline"

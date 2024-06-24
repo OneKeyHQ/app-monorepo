@@ -318,12 +318,9 @@ class ServiceAccountSelector extends ServiceBase {
     if (walletId && accountUtils.isOthersWallet({ walletId })) {
       return undefined;
     }
-    const currentGlobalDeriveType =
-      await this.backgroundApi.simpleDb.accountSelector.getGlobalDeriveType({
-        networkId,
-      });
-
-    return currentGlobalDeriveType;
+    return this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+      networkId,
+    });
   }
 
   @backgroundMethod()
@@ -358,19 +355,11 @@ class ServiceAccountSelector extends ServiceBase {
         selectedAccount,
       });
       if (currentGlobalDeriveType !== deriveType) {
-        const deriveInfoItems =
-          await serviceNetwork.getDeriveInfoItemsOfNetwork({
-            networkId,
-          });
-        if (deriveInfoItems.find((item) => item.value === deriveType)) {
-          await this.backgroundApi.simpleDb.accountSelector.saveGlobalDeriveType(
-            {
-              eventEmitDisabled,
-              networkId,
-              deriveType,
-            },
-          );
-        }
+        await this.backgroundApi.serviceNetwork.saveGlobalDeriveTypeForNetwork({
+          networkId,
+          deriveType,
+          eventEmitDisabled,
+        });
       } else {
         console.log('syncDeriveType currentGlobalDeriveType !== deriveType', {
           currentGlobalDeriveType,

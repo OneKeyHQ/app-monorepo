@@ -23,6 +23,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
@@ -269,7 +270,10 @@ function HistoryDetails() {
     }
 
     const from = decodedTx.signer;
-    const to = decodedTx.to ?? decodedTx.actions[0]?.assetTransfer?.to;
+    let to = decodedTx.to ?? decodedTx.actions[0]?.assetTransfer?.to;
+    if (vaultSettings?.impl === IMPL_DOT && !to) {
+      to = txDetails?.to;
+    }
 
     return {
       from,
@@ -279,7 +283,14 @@ function HistoryDetails() {
           ? true
           : new BigNumber(sends?.length ?? 0).plus(receives?.length ?? 0).eq(1),
     };
-  }, [accountAddress, historyTx, intl, vaultSettings?.isUtxo]);
+  }, [
+    accountAddress,
+    historyTx,
+    intl,
+    txDetails?.to,
+    vaultSettings?.impl,
+    vaultSettings?.isUtxo,
+  ]);
 
   const renderAssetsChange = useCallback(
     ({
@@ -394,6 +405,17 @@ function HistoryDetails() {
 
     let sends = decodedTx.actions[0]?.assetTransfer?.sends;
     let receives = decodedTx.actions[0]?.assetTransfer?.receives;
+    if (vaultSettings?.impl === IMPL_DOT) {
+      sends = decodedTx.actions[0]?.assetTransfer?.sends.map((e, i) => ({
+        ...e,
+        ...txDetails?.sends?.[i],
+      }));
+      receives = decodedTx.actions[0]?.assetTransfer?.receives.map((e, i) => ({
+        ...e,
+        ...txDetails?.receives?.[i],
+      }));
+    }
+
     const onChainTxPayload = historyTx.decodedTx.payload;
 
     if (vaultSettings?.isUtxo) {
@@ -459,13 +481,17 @@ function HistoryDetails() {
     ];
 
     return transfers.filter(Boolean);
-  }, [historyTx, isSendToSelf, vaultSettings?.isUtxo]);
+  }, [
+    historyTx,
+    isSendToSelf,
+    txDetails?.receives,
+    txDetails?.sends,
+    vaultSettings?.impl,
+    vaultSettings?.isUtxo,
+  ]);
 
   const renderTxStatus = useCallback(() => {
-    const status =
-      txDetails?.status === EOnChainHistoryTxStatus.Success
-        ? EDecodedTxStatus.Confirmed
-        : historyTx.decodedTx.status;
+    const status = historyTx.decodedTx.status;
     const { key, color } = getTxStatusTextProps(status);
     return (
       <XStack h="$5" alignItems="center">
@@ -485,12 +511,7 @@ function HistoryDetails() {
         ) : null}
       </XStack>
     );
-  }, [
-    historyTx.decodedTx.status,
-    intl,
-    txDetails?.status,
-    vaultSettings?.replaceTxEnabled,
-  ]);
+  }, [historyTx.decodedTx.status, intl, vaultSettings?.replaceTxEnabled]);
 
   const renderTxFlow = useCallback(() => {
     if (vaultSettings?.isUtxo && !txAddresses.isSingleTransfer) return null;

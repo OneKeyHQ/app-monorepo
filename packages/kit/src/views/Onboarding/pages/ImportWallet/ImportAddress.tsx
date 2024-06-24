@@ -25,9 +25,9 @@ import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/componen
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import {
   AddressInput,
-  type IAddressInputValue,
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -160,6 +160,11 @@ function ImportAddress() {
           text: inputTextDebounced,
         });
       try {
+        const excludedNetworkIds =
+          networkUtils.getWatchAccountExcludeNetworkIds();
+        if (excludedNetworkIds.includes(networkIdText)) {
+          throw new Error(`Network not supported: ${networkIdText}`);
+        }
         const result =
           await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
             {
@@ -301,7 +306,7 @@ function ImportAddress() {
                 inputTextDebounced ? (
                   <SizableText color="$textCritical">
                     {intl.formatMessage({
-                      id: ETranslations.form_address_error_invalid,
+                      id: ETranslations.form_public_key_error_invalid,
                     })}
                   </SizableText>
                 ) : null}
@@ -316,15 +321,18 @@ function ImportAddress() {
                 rules={{
                   validate: createValidateAddressRule({
                     defaultErrorMessage: intl.formatMessage({
-                      id: ETranslations.form_public_key_error_invalid,
+                      id: ETranslations.form_address_error_invalid,
                     }),
                   }),
                 }}
               >
-                <AddressInput 
+                <AddressInput
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.form_address_placeholder,
+                  })}
+                  networkId={networkIdText ?? ''}
                   testID='import-address-input'
-                  networkId={networkIdText ?? ''
-                } />
+                />
               </Form.Field>
             </>
           ) : null}

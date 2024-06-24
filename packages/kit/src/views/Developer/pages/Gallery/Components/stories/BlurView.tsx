@@ -83,7 +83,7 @@ function ListDemo() {
   );
 }
 
-function DynimicDemo() {
+function DynamicDemo() {
   return (
     <Background>
       <LottieView
@@ -114,7 +114,7 @@ const BlurViewGallery = () => (
       },
       {
         title: 'Dynimic',
-        element: <DynimicDemo />,
+        element: <DynamicDemo />,
       },
     ]}
   />

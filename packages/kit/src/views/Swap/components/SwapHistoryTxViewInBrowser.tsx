@@ -105,7 +105,8 @@ const ExplorersList = ({
             </Image>
             <SizableText size="$bodyLg">{item.name}</SizableText>
           </XStack>
-          {item.status === ESwapTxHistoryStatus.PENDING &&
+          {(item.status === ESwapTxHistoryStatus.PENDING ||
+            item.status === ESwapTxHistoryStatus.DISCARD) &&
           item.type === EExplorerType.TO ? (
             <Badge badgeType="info" badgeSize="lg">
               {intl.formatMessage({

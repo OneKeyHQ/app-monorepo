@@ -7,6 +7,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import HomeSelector from '../../Home/components/HomeSelector';
+import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { HomeHeaderContainer } from '../../Home/pages/HomeHeaderContainer';
 
 function LNHardwareWalletAuth({
   children,
@@ -68,29 +71,35 @@ function LNHardwareWalletAuth({
   }
 
   return (
-    <Stack
-      testID="LNHardware"
-      w="100%"
-      h="100%"
-      justifyContent="center"
-      alignItems="center"
-    >
-      <Empty
-        icon="PasswordOutline"
-        title={intl.formatMessage({ id: ETranslations.ln_authorize_access })}
-        description={intl.formatMessage({
-          id: ETranslations.ln_authorize_access_desc,
-        })}
-        buttonProps={{
-          children: intl.formatMessage({
-            id: ETranslations.global_connect_hardware_wallet,
-          }),
-          onPress: () => {
-            void refreshToken();
-          },
-          loading: isLoading,
-        }}
-      />
+    <Stack testID="LNHardwareAuth" w="100%" h="100%">
+      <HomeTokenListProviderMirror>
+        <Stack testID="Wallet-Tab-Header" p="$5">
+          <HomeSelector mb="$2.5" />
+        </Stack>
+      </HomeTokenListProviderMirror>
+      <Stack
+        flex={1}
+        testID="LNHardware"
+        justifyContent="center"
+        alignItems="center"
+      >
+        <Empty
+          icon="PasswordOutline"
+          title={intl.formatMessage({ id: ETranslations.ln_authorize_access })}
+          description={intl.formatMessage({
+            id: ETranslations.ln_authorize_access_desc,
+          })}
+          buttonProps={{
+            children: intl.formatMessage({
+              id: ETranslations.global_connect_hardware_wallet,
+            }),
+            onPress: () => {
+              void refreshToken();
+            },
+            loading: isLoading,
+          }}
+        />
+      </Stack>
     </Stack>
   );
 }

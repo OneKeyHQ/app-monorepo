@@ -51,6 +51,8 @@ export type INetworkShortCode =
   | 'trx'
   | 'neurai'
   | 'sepolia'
+  | 'mantle'
+  | 'mantapacific'
   | 'fevm';
 
 const checkErrors: string[] = [];
