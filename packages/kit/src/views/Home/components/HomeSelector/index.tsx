@@ -73,7 +73,7 @@ function HomeSelector(props: IProps) {
                   focusable
                 >
                   <Icon name="RepeatOutline" color="$iconSubdued" size="$4.5" />
-                  {media.gtMd ? (
+                  {media.gtSm ? (
                     <SizableText
                       pl="$2"
                       pr="$1"

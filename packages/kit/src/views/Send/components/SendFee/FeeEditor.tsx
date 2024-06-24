@@ -310,9 +310,9 @@ function FeeEditor(props: IProps) {
 
     return {
       gasLimit: gasLimit.toFixed(),
-      description: `Estimate gas limit is ${gasLimit.toFixed()}, recommend ${
-        gasLimitForDisplay.isEqualTo(gasLimit) ? '1.0x' : '1.2x'
-      }`,
+      // description: `Estimate gas limit is ${gasLimit.toFixed()}, recommend ${
+      //   gasLimitForDisplay.isEqualTo(gasLimit) ? '1.0x' : '1.2x'
+      // }`,
     };
   }, [feeSelectorItems]);
 
@@ -322,13 +322,22 @@ function FeeEditor(props: IProps) {
     return !form.formState.isValid;
   }, [currentFeeType, form.formState.isValid]);
 
-  const handleValidateMaxBaseFee = useCallback((value: string) => {
-    const maxBaseFee = new BigNumber(value || 0);
-    if (maxBaseFee.isNaN() || maxBaseFee.isLessThanOrEqualTo(0)) {
-      return false;
-    }
-    return true;
-  }, []);
+  const handleValidateMaxBaseFee = useCallback(
+    (value: string) => {
+      const maxBaseFee = new BigNumber(value || 0);
+      if (maxBaseFee.isNaN() || maxBaseFee.isLessThanOrEqualTo(0)) {
+        return 'must greater then 0';
+      }
+      if (maxBaseFee.isLessThan(customFee.gasEIP1559?.baseFeePerGas ?? 0)) {
+        setFeeAlert('Max base fee must greater than base fee');
+      } else {
+        setFeeAlert('');
+      }
+      // TODO: if greater then the max fee of Fast, show alert
+      return true;
+    },
+    [customFee.gasEIP1559?.baseFeePerGas],
+  );
 
   const handleValidatePriorityFee = useCallback((value: string) => {
     const priorityFee = new BigNumber(value || 0);
@@ -338,17 +347,26 @@ function FeeEditor(props: IProps) {
     return true;
   }, []);
 
-  const handleValidateGasLimit = useCallback((value: string) => {
-    const gasLimit = new BigNumber(value || 0);
-    if (
-      gasLimit.isNaN() ||
-      gasLimit.isLessThan(DEFAULT_GAS_LIMIT_MIN) ||
-      gasLimit.isGreaterThan(DEFAULT_GAS_LIMIT_MAX)
-    ) {
-      return `Gas limit must between ${DEFAULT_GAS_LIMIT_MIN} and ${DEFAULT_GAS_LIMIT_MAX}`;
-    }
-    return true;
-  }, []);
+  const handleValidateGasLimit = useCallback(
+    (value: string) => {
+      const gasLimit = new BigNumber(value || 0);
+      if (
+        gasLimit.isNaN() ||
+        gasLimit.isLessThan(DEFAULT_GAS_LIMIT_MIN) ||
+        gasLimit.isGreaterThan(DEFAULT_GAS_LIMIT_MAX)
+      ) {
+        return intl.formatMessage(
+          { id: ETranslations.form_gas_limit_error_range },
+          {
+            min: DEFAULT_GAS_LIMIT_MIN,
+            max: DEFAULT_GAS_LIMIT_MAX,
+          },
+        );
+      }
+      return true;
+    },
+    [intl],
+  );
 
   const handleValidateGasPrice = useCallback((value: string) => {
     const gasPrice = new BigNumber(value || 0);
@@ -437,9 +455,9 @@ function FeeEditor(props: IProps) {
 
     return (
       <>
-        <SizableText mb={6} size="$bodyMdMedium">
+        {/* <SizableText mb={6} size="$bodyMdMedium">
           {feeTitle}
-        </SizableText>
+        </SizableText> */}
         <SegmentControl
           fullWidth
           value={currentFeeIndex}
@@ -466,7 +484,7 @@ function FeeEditor(props: IProps) {
                 >
                   {item.label}
                 </SizableText>
-                <NumberSizeableText
+                {/* <NumberSizeableText
                   color={currentFeeIndex === index ? '$text' : '$textSubdued'}
                   size="$bodySm"
                   textAlign="center"
@@ -477,7 +495,7 @@ function FeeEditor(props: IProps) {
                     : getFeePriceNumber({
                         feeInfo: item.feeInfo,
                       })}
-                </NumberSizeableText>
+                </NumberSizeableText> */}
               </YStack>
             ),
           }))}
@@ -853,6 +871,11 @@ function FeeEditor(props: IProps) {
             }
           : null,
         {
+          label: intl.formatMessage({ id: ETranslations.global_gas_price }),
+          customValue: gasPrice.toFixed(),
+          customSymbol: feeSymbol,
+        },
+        {
           label: intl.formatMessage({ id: ETranslations.fee_max_fee }),
           nativeValue: maxFeeInNative,
           nativeSymbol,
@@ -875,10 +898,15 @@ function FeeEditor(props: IProps) {
       });
 
       feeInfoItems = [
+        // {
+        //   label: 'vSize',
+        //   customValue: unsignedTxs[0]?.txSize?.toFixed() ?? '0',
+        //   customSymbol: 'vB',
+        // },
         {
-          label: 'vSize',
-          customValue: unsignedTxs[0]?.txSize?.toFixed() ?? '0',
-          customSymbol: 'vB',
+          label: intl.formatMessage({ id: ETranslations.fee_fee_rate }),
+          customValue: feeRate.toFixed() ?? '0',
+          customSymbol: 'sat/vB',
         },
         {
           label: intl.formatMessage({ id: ETranslations.fee_fee }),
@@ -896,7 +924,7 @@ function FeeEditor(props: IProps) {
       });
       feeInfoItems = [
         {
-          label: 'TRX Consumed',
+          label: intl.formatMessage({ id: ETranslations.trx_consumed }),
           nativeValue: maxFeeInNative,
           nativeSymbol,
           fiatValue: new BigNumber(maxFeeInNative)
@@ -1007,7 +1035,7 @@ function FeeEditor(props: IProps) {
     if (fee.feeTron) {
       if (fee.feeTron.requiredBandwidth) {
         feeInfoItems.push({
-          label: 'Bandwidth Consumed',
+          label: intl.formatMessage({ id: ETranslations.bandwidth_consumed }),
           customValue: String(fee.feeTron.requiredBandwidth),
           customSymbol: 'Bandwidth',
         });
@@ -1015,7 +1043,7 @@ function FeeEditor(props: IProps) {
 
       if (fee.feeTron.requiredEnergy) {
         feeInfoItems.push({
-          label: 'Energy Consumed',
+          label: intl.formatMessage({ id: ETranslations.energy_consumed }),
           customValue: String(fee.feeTron.requiredEnergy),
           customSymbol: 'Energy',
         });
@@ -1040,6 +1068,7 @@ function FeeEditor(props: IProps) {
     currentFeeType,
     customFee,
     feeSelectorItems,
+    intl,
     vaultSettings?.checkFeeDetailEnabled,
   ]);
 
