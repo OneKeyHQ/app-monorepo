@@ -75,7 +75,7 @@ const PasswordVerify = ({
       });
     } else {
       actions.push({
-        iconName: secureEntry ? 'EyeOffOutline' : 'EyeOutline',
+        iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
         onPress: () => {
           setSecureEntry(!secureEntry);
         },
