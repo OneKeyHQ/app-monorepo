@@ -19,7 +19,7 @@ export function TextCell({
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   return (
-    <YStack pr="$6" pt="$3">
+    <YStack pt="$3">
       <SizableText size="$bodySm" color="$textSubdued">
         {title}
       </SizableText>
