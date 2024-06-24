@@ -326,23 +326,34 @@ function FeeEditor(props: IProps) {
     (value: string) => {
       const maxBaseFee = new BigNumber(value || 0);
       if (maxBaseFee.isNaN() || maxBaseFee.isLessThanOrEqualTo(0)) {
-        return 'must greater then 0';
+        return 'Max base fee must higher than 0';
       }
+
+      const recommendMaxFee = feeSelectorItems
+        .filter((item) => item.type === EFeeType.Standard)
+        .map((item) => item.feeInfo.gasEIP1559?.maxFeePerGas ?? '0')
+        .filter((item) => item !== '0');
+
+      const recommendMaxFeeMax = BigNumber.max(...recommendMaxFee);
+
       if (maxBaseFee.isLessThan(customFee.gasEIP1559?.baseFeePerGas ?? 0)) {
-        setFeeAlert('Max base fee must greater than base fee');
+        setFeeAlert(
+          'The max base fee is lower than the required base fee. It takes a long time from the transaction to go through.',
+        );
+      } else if (maxBaseFee.isGreaterThan(recommendMaxFeeMax)) {
+        setFeeAlert('The max base fee may be higher than necessary');
       } else {
         setFeeAlert('');
       }
-      // TODO: if greater then the max fee of Fast, show alert
       return true;
     },
-    [customFee.gasEIP1559?.baseFeePerGas],
+    [customFee.gasEIP1559?.baseFeePerGas, feeSelectorItems],
   );
 
   const handleValidatePriorityFee = useCallback((value: string) => {
     const priorityFee = new BigNumber(value || 0);
     if (priorityFee.isNaN() || priorityFee.isLessThanOrEqualTo(0)) {
-      return false;
+      return 'The Priority Fee must higher than 0';
     }
     return true;
   }, []);
@@ -368,13 +379,31 @@ function FeeEditor(props: IProps) {
     [intl],
   );
 
-  const handleValidateGasPrice = useCallback((value: string) => {
-    const gasPrice = new BigNumber(value || 0);
-    if (gasPrice.isNaN() || gasPrice.isLessThanOrEqualTo(0)) {
-      return false;
-    }
-    return true;
-  }, []);
+  const handleValidateGasPrice = useCallback(
+    (value: string) => {
+      const recommendGasPrice = feeSelectorItems
+        .filter((item) => item.type === EFeeType.Standard)
+        .map((item) => item.feeInfo.gas?.gasPrice ?? '0')
+        .filter((item) => item !== '0');
+
+      const recommendGasPriceMax = BigNumber.max(...recommendGasPrice);
+      const recommendGasPriceMin = BigNumber.min(...recommendGasPrice);
+
+      const gasPrice = new BigNumber(value || 0);
+      if (gasPrice.isNaN() || gasPrice.isLessThan(recommendGasPriceMin)) {
+        return `The Gas Price must higher than ${recommendGasPriceMin.toFixed()}`;
+      }
+
+      if (gasPrice.isGreaterThan(recommendGasPriceMax)) {
+        setFeeAlert('The Gas Price may be higher than necessary');
+      } else {
+        setFeeAlert('');
+      }
+
+      return true;
+    },
+    [feeSelectorItems],
+  );
 
   const handleValidateFeeRate = useCallback(
     (value: string) => {
@@ -682,7 +711,7 @@ function FeeEditor(props: IProps) {
                 id: ETranslations.content__gas_limit,
               })}
               name="gasLimit"
-              description={recommendGasLimit.description}
+              // description={recommendGasLimit.description}
               rules={{
                 required: true,
                 validate: handleValidateGasLimit,
@@ -779,7 +808,6 @@ function FeeEditor(props: IProps) {
     handleValidateMaxBaseFee,
     handleValidatePriorityFee,
     intl,
-    recommendGasLimit.description,
     recommendGasLimit.gasLimit,
     recommendPriorityFee.description,
     vaultSettings?.editFeeEnabled,
