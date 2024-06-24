@@ -220,7 +220,7 @@ export function validateTypedSignMessageDataV1(
     // typedSignatureHash will throw if the data is invalid.
     typedSignatureHash(message as any);
   } catch (e) {
-    throw new Error(`Unexpected EIP712 typed data.`);
+    throw new Error(`Expected EIP712 typed data.`);
   }
 }
 
