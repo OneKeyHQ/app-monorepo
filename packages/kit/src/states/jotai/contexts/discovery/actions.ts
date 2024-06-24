@@ -25,6 +25,10 @@ import {
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import {
+  ETrackEventNames,
+  trackEvent,
+} from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
