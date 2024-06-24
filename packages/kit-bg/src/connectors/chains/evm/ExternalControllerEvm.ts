@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { isNil, isString, uniqBy } from 'lodash';
 
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
@@ -32,6 +33,7 @@ import { ExternalConnectorEvmInjected } from './ExternalConnectorEvmInjected';
 
 import type { IDBAccountAddressesMap } from '../../../dbs/local/types';
 import type {
+  IExternalCheckNetworkOrAddressMatchedPayload,
   IExternalHandleWalletConnectEventsParams,
   IExternalSendTransactionByWalletConnectPayload,
   IExternalSendTransactionPayload,
@@ -471,5 +473,39 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     });
 
     return [result];
+  }
+
+  async requestChainId({ connector }: { connector: IExternalConnectorEvm }) {
+    const provider = await connector.getProvider();
+    const chainIdNumOrHexString = await provider.request({
+      method: 'eth_chainId',
+    });
+    return new BigNumber(chainIdNumOrHexString).toNumber();
+  }
+
+  async requestAccounts({ connector }: { connector: IExternalConnectorEvm }) {
+    const provider = await connector.getProvider();
+    return provider.request({
+      method: 'eth_accounts',
+    });
+  }
+
+  override async checkNetworkOrAddressMatched(
+    payload: IExternalCheckNetworkOrAddressMatchedPayload,
+  ): Promise<void> {
+    const { account, networkId } = payload;
+    const chainId = networkUtils.getNetworkChainId({ networkId });
+    const connector = payload.connector as IExternalConnectorEvm;
+    const peerChainIdNum = await this.requestChainId({ connector });
+    const peerAddresses = await this.requestAccounts({ connector });
+
+    if (!peerAddresses.includes(account.address as any)) {
+      throw new Error(`Address not matched: ${networkId} ${account.address}`);
+    }
+    if (chainId !== peerChainIdNum.toString()) {
+      throw new Error(
+        `NetworkId not matched: ${networkId} peerChainId=${peerChainIdNum}`,
+      );
+    }
   }
 }
