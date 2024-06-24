@@ -1,10 +1,13 @@
 import { useCallback } from 'react';
 
+import { debounce } from 'lodash';
+
 import type { IButtonProps } from '..';
 import type { GestureResponderEvent } from 'react-native';
 
 export const useSharedPress = ({
   onPress,
+  onPressDebounce = 0,
   onLongPress,
   stopPropagation = true,
 }: IButtonProps) => {
@@ -28,7 +31,7 @@ export const useSharedPress = ({
     [onLongPress, stopPropagation],
   );
   return {
-    onPress: handlePress,
+    onPress: debounce(handlePress, onPressDebounce),
     onLongPress: handleLongPress,
   };
 };

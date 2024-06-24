@@ -109,6 +109,7 @@ function HomeOverviewContainer() {
           })}
           icon="InfoCircleOutline"
           variant="tertiary"
+          onPressDebounce={150}
           onPress={() =>
             showBalanceDetailsDialog({
               accountId: account?.id ?? '',
