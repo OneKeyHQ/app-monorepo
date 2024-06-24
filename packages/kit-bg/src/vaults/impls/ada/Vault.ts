@@ -225,7 +225,7 @@ export default class Vault extends VaultBase {
       .map((output) => ({
         address: output.address,
         balance: new BigNumber(output.amount)
-          .shiftedBy(network.decimals)
+          .shiftedBy(-network.decimals)
           .toFixed(),
         balanceValue: output.amount,
         symbol: network.symbol,
