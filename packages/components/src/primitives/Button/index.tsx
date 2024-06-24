@@ -31,6 +31,7 @@ export interface IButtonProps extends ThemeableStackProps {
    * @default true
    */
   stopPropagation?: boolean;
+  onPressDebounce?: number;
 }
 
 const BUTTON_VARIANTS: Record<
