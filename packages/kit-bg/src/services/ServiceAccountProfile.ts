@@ -11,7 +11,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IAddressInteractionStatus,
   IAddressValidateStatus,

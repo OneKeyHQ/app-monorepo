@@ -153,9 +153,9 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const account = await this.getAccount();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
       tokenIdOnNetwork: '',
-      accountAddress: account.address,
     });
 
     if (!nativeToken) {

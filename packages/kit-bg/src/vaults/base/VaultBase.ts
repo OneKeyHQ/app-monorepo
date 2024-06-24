@@ -48,6 +48,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
+import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -770,5 +771,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async getAccountXpub(): Promise<string | undefined> {
     return ((await this.getAccount()) as IDBUtxoAccount).xpub;
+  }
+
+  async fillTokensDetails({
+    tokensDetails,
+  }: {
+    tokensDetails: IFetchTokenDetailItem[];
+  }) {
+    return Promise.resolve(tokensDetails);
   }
 }

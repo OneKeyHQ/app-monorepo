@@ -63,16 +63,8 @@ function SendConfirmContainer() {
         balance: '0',
         logoURI: '',
       });
-      const [n, accountAddress, xpub, nativeTokenAddress] = await Promise.all([
+      const [n, nativeTokenAddress] = await Promise.all([
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-        backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          networkId,
-          accountId,
-        }),
-        backgroundApiProxy.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        }),
         backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
       ]);
       const checkInscriptionProtectionEnabled =
@@ -86,9 +78,8 @@ function SendConfirmContainer() {
         checkInscriptionProtectionEnabled && settings.inscriptionProtection;
       const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
         networkId,
-        accountAddress,
+        accountId,
         contractList: [nativeTokenAddress],
-        xpub,
         withFrozenBalance: true,
         withCheckInscription,
       });

@@ -282,8 +282,8 @@ export default class VaultCosmos extends VaultBase {
         const amounts = amount as Array<{ denom: string; amount: string }>;
         const token = await this.backgroundApi.serviceToken.getToken({
           networkId: network.id,
+          accountId: this.accountId,
           tokenIdOnNetwork: amounts[0].denom,
-          accountAddress: account.address,
         });
         const amountNumber = new BigNumber(amounts[0].amount)
           .shiftedBy(-token.decimals)

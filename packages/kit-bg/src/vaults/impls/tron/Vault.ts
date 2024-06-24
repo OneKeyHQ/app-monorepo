@@ -264,8 +264,8 @@ export default class Vault extends VaultBase {
 
     const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
-      accountAddress,
       tokenIdOnNetwork: '',
     });
 
@@ -318,9 +318,9 @@ export default class Vault extends VaultBase {
       const tokenAddress = TronWeb.address.fromHex(contractAddressHex);
 
       const token = await this.backgroundApi.serviceToken.getToken({
+        accountId: this.accountId,
         networkId: this.networkId,
         tokenIdOnNetwork: tokenAddress,
-        accountAddress,
       });
 
       if (!token) return;

@@ -195,9 +195,9 @@ export default class Vault extends VaultBase {
     const account = await this.getAccount();
 
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
       tokenIdOnNetwork: '',
-      accountAddress: account.address,
     });
 
     if (!nativeToken) {
@@ -236,9 +236,9 @@ export default class Vault extends VaultBase {
     for (const output of outputs.filter((o) => !o.isChange)) {
       for (const asset of output.assets) {
         const token = await this.backgroundApi.serviceToken.getToken({
+          accountId: this.accountId,
           networkId: this.networkId,
           tokenIdOnNetwork: asset.unit,
-          accountAddress: account.address,
         });
         sends.push({
           from: account.address,

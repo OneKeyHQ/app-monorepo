@@ -25,7 +25,12 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
 import type {
   IDecodedTx,
   IDecodedTxExtraInfo,
@@ -238,7 +243,7 @@ export default class Vault extends VaultBase {
     const account = await this.getAccount();
     const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
       networkId: this.networkId,
-      accountAddress: account.address,
+      accountId: this.accountId,
     });
 
     const transfer: IDecodedTxTransferInfo = {
@@ -370,5 +375,57 @@ export default class Vault extends VaultBase {
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
     throw new NotImplemented();
+  }
+
+  override async fillTokensDetails({
+    tokensDetails,
+  }: {
+    tokensDetails: IFetchTokenDetailItem[];
+  }): Promise<IFetchTokenDetailItem[]> {
+    const filledTokensDetails: IFetchTokenDetailItem[] = [];
+    for (const token of tokensDetails) {
+      if (token.info.isNative && (await this._checkHasLocalTxOutInPending())) {
+        filledTokensDetails.push({
+          ...token,
+          frozenBalance: token.balance,
+          frozenBalanceParsed: token.balanceParsed,
+        });
+      } else {
+        filledTokensDetails.push(token);
+      }
+    }
+
+    return filledTokensDetails;
+  }
+
+  async _checkHasLocalTxOutInPending() {
+    let hasLocalTxOutInPending = false;
+    const accountAddress = await this.getAccountAddress();
+    await this.backgroundApi.serviceHistory.fetchAccountHistory({
+      networkId: this.networkId,
+      accountId: this.accountId,
+    });
+
+    const pendingTxs =
+      await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs({
+        networkId: this.networkId,
+        accountAddress,
+      });
+
+    for (let i = 0, len = pendingTxs.length; i < len; i = +1) {
+      const item = pendingTxs[i];
+      const action = item.decodedTx.actions[0];
+      if (
+        (action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+          action.assetTransfer?.sends[0].isNative &&
+          EDecodedTxDirection.OUT === action.direction) ||
+        EDecodedTxDirection.SELF === action.direction
+      ) {
+        hasLocalTxOutInPending = true;
+        break;
+      }
+    }
+
+    return hasLocalTxOutInPending;
   }
 }

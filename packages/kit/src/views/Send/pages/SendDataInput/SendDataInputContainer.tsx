@@ -154,11 +154,7 @@ function SendDataInputContainer() {
           checkInscriptionProtectionEnabled && settings.inscriptionProtection;
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId,
-          accountAddress,
-          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId,
-            networkId,
-          }),
+          accountId,
           contractList: [tokenInfo.address],
           withFrozenBalance: true,
           withCheckInscription,
