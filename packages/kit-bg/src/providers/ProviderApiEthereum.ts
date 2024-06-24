@@ -30,7 +30,7 @@ import type {
 
 export type ISwitchEthereumChainParameter = {
   chainId: string;
-  networkId?: string;
+  // networkId?: string; // not use?
 };
 
 function prefixTxValueToHex(value: string) {
