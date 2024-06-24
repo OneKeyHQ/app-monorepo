@@ -31,9 +31,9 @@ import { CoreSDKLoader } from '../hardware/instance';
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
+import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
-import type { SearchDevice } from '@onekeyfe/hd-core';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -188,11 +188,13 @@ function buildImportedAccountId({
   pub,
   xpub,
   addressEncoding,
+  address,
 }: {
   coinType: string;
   pub?: string;
   xpub?: string;
   addressEncoding?: EAddressEncodings | undefined;
+  address?: string;
 }) {
   const publicKey = xpub || pub;
   if (!publicKey) {
@@ -201,6 +203,9 @@ function buildImportedAccountId({
   let id = `${WALLET_TYPE_IMPORTED}--${coinType}--${publicKey}`;
   if (addressEncoding) {
     id += `--${addressEncoding}`;
+  }
+  if (address) {
+    id += `--${address}`;
   }
   return id;
 }
