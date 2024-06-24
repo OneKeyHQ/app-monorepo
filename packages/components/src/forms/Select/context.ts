@@ -21,5 +21,6 @@ export type IContextType = {
   floatingPanelProps?: IPopoverProps['floatingPanelProps'];
   placement?: IPopoverProps['placement'];
   selectedItemRef: MutableRefObject<ISelectItem>;
+  offset?: IPopoverProps['offset'];
 };
 export const SelectContext = createContext<IContextType>({} as IContextType);
