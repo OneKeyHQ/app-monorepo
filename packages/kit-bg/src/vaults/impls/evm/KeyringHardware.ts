@@ -16,6 +16,7 @@ import type {
   IUnsignedMessageEth,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -175,9 +176,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const chainId = Number(await this.getNetworkChainId());
 
     if (message.type === EMessageTypesEth.TYPED_DATA_V1) {
-      throw web3Errors.provider.unsupportedMethod(
-        `Sign message method=${message.type} not supported for this device`,
-      );
+      throw new NotImplemented();
     }
 
     if (
