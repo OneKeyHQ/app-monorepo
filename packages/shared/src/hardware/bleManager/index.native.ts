@@ -1,7 +1,7 @@
 import BleManager from 'react-native-ble-manager';
 
-import platformEnv from '../platformEnv';
-import { equalsIgnoreCase } from '../utils/stringUtils';
+import platformEnv from '../../platformEnv';
+import { equalsIgnoreCase } from '../../utils/stringUtils';
 
 type IPollFn<T> = (time?: number, index?: number, rate?: number) => T;
 const POLL_INTERVAL = 1000;
