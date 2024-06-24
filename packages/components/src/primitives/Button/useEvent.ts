@@ -1,9 +1,26 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { debounce } from 'lodash';
 
 import type { IButtonProps } from '..';
 import type { GestureResponderEvent } from 'react-native';
+
+function debounceEventHandler(
+  onPress: ((event: GestureResponderEvent) => void) | null | undefined,
+  onPressDebounce: number,
+  stopPropagation: boolean,
+) {
+  if (!onPress) {
+    return undefined;
+  }
+  const debounced = debounce(onPress, onPressDebounce);
+  return function (e: GestureResponderEvent) {
+    if (stopPropagation) {
+      e.stopPropagation();
+    }
+    return debounced(e);
+  };
+}
 
 export const useSharedPress = ({
   onPress,
@@ -11,14 +28,9 @@ export const useSharedPress = ({
   onLongPress,
   stopPropagation = true,
 }: IButtonProps) => {
-  const handlePress = useCallback(
-    (event: GestureResponderEvent) => {
-      if (onPress && stopPropagation) {
-        event.stopPropagation();
-      }
-      onPress?.(event);
-    },
-    [onPress, stopPropagation],
+  const handlePress = useMemo(
+    () => debounceEventHandler(onPress, onPressDebounce, stopPropagation),
+    [onPress, onPressDebounce, stopPropagation],
   );
 
   const handleLongPress = useCallback(
@@ -31,7 +43,7 @@ export const useSharedPress = ({
     [onLongPress, stopPropagation],
   );
   return {
-    onPress: debounce(handlePress, onPressDebounce),
+    onPress: handlePress,
     onLongPress: handleLongPress,
   };
 };
