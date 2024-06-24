@@ -28,8 +28,12 @@ const isUserVerifyingPlatformAuthenticatorAvailable = async () => {
 
 export const isSupportWebAuth = async () => {
   let isSupport = false;
-  if (!platformEnv.isE2E && isContextSupportWebAuth) {
-    isSupport = await isUserVerifyingPlatformAuthenticatorAvailable();
+  try {
+    if (!platformEnv.isE2E && isContextSupportWebAuth) {
+      isSupport = await isUserVerifyingPlatformAuthenticatorAvailable();
+    }
+  } catch (e) {
+    console.error('isSupportWebAuth error', e);
   }
   return isSupport;
 };
