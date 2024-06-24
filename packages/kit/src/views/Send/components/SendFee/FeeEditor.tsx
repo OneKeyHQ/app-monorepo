@@ -326,17 +326,26 @@ function FeeEditor(props: IProps) {
     (value: string) => {
       const maxBaseFee = new BigNumber(value || 0);
       if (maxBaseFee.isNaN() || maxBaseFee.isLessThanOrEqualTo(0)) {
-        return 'must greater then 0';
+        return intl.formatMessage(
+          { id: ETranslations.form_must_greater_then_value },
+          {
+            value: 0,
+          },
+        );
       }
       if (maxBaseFee.isLessThan(customFee.gasEIP1559?.baseFeePerGas ?? 0)) {
-        setFeeAlert('Max base fee must greater than base fee');
+        setFeeAlert(
+          intl.formatMessage({
+            id: ETranslations.max_base_fee_lower_then_base_fee_alert_message,
+          }),
+        );
       } else {
         setFeeAlert('');
       }
       // TODO: if greater then the max fee of Fast, show alert
       return true;
     },
-    [customFee.gasEIP1559?.baseFeePerGas],
+    [customFee.gasEIP1559?.baseFeePerGas, intl],
   );
 
   const handleValidatePriorityFee = useCallback((value: string) => {
