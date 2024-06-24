@@ -28,7 +28,7 @@ const HeaderRightComponent = () => {
 
 function ListPage() {
   const intl = useIntl();
-  const { isLoading, result, run } = useAddressBookItems();
+  const { isLoading, result } = useAddressBookItems();
   return (
     <Page>
       <Page.Header
@@ -39,8 +39,7 @@ function ListPage() {
         <ContentContainer
           loading={isLoading}
           error={Boolean(!isLoading && !result)}
-          unsafe={Boolean(result && !result.isSafe)}
-          onRefresh={run}
+          unsafe={result?.isSafe === false}
         >
           <AddressBookListContent items={result?.items ?? []} showActions />
         </ContentContainer>

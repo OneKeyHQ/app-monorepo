@@ -59,13 +59,19 @@ function isLightningNetworkByNetworkId(networkId?: string) {
 function isBTCNetwork(networkId?: string) {
   return (
     networkId === getNetworkIdsMap().btc ||
-    networkId === getNetworkIdsMap().tbtc
+    networkId === getNetworkIdsMap().tbtc ||
+    networkId === getNetworkIdsMap().sbtc
   );
 }
 
 export function getBtcDappNetworkName(network: IServerNetwork) {
   if (network && isBTCNetwork(network.id)) {
     if (network.isTestnet) {
+      if (network.id === getNetworkIdsMap().sbtc) {
+        return Promise.resolve(
+          BtcDappNetworkTypes[EBtcDappNetworkTypeEnum.SIGNET].name,
+        );
+      }
       return Promise.resolve(
         BtcDappNetworkTypes[EBtcDappNetworkTypeEnum.TESTNET].name,
       );
@@ -80,6 +86,7 @@ function getBtcForkNetworkIds() {
   return [
     getNetworkIdsMap().btc,
     getNetworkIdsMap().tbtc,
+    getNetworkIdsMap().sbtc,
     getNetworkIdsMap().ltc,
     getNetworkIdsMap().doge,
     getNetworkIdsMap().bch,
