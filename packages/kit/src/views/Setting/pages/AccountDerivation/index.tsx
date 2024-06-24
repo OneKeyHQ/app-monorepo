@@ -65,26 +65,16 @@ const AccountDerivation = () => {
         </SizableText>
       </Stack>
       {!isLoading ? (
-        <AccountSelectorProviderMirror
-          enabledNum={enabledNum}
-          config={{
-            // TODO remove
-            sceneName: EAccountSelectorSceneName.settings,
-            sceneUrl: '',
-          }}
-          availableNetworksMap={availableNetworksMap}
-        >
-          <Stack>
-            {items.map((o) => (
-              <AccountDerivationListItem
-                key={o.icon}
-                title={o.title}
-                icon={o.icon}
-                networkId={o.defaultNetworkId}
-              />
-            ))}
-          </Stack>
-        </AccountSelectorProviderMirror>
+        <Stack>
+          {items.map((o) => (
+            <AccountDerivationListItem
+              key={o.icon}
+              title={o.title}
+              icon={o.icon}
+              networkId={o.defaultNetworkId}
+            />
+          ))}
+        </Stack>
       ) : null}
     </Page>
   );
