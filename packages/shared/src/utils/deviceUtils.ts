@@ -8,6 +8,7 @@ import {
   EFirmwareUpdateTipMessages,
   EOneKeyDeviceMode,
 } from '../../types/device';
+import bleManagerInstance from '../hardware/bleManager';
 import { CoreSDKLoader } from '../hardware/instance';
 import platformEnv from '../platformEnv';
 
@@ -184,6 +185,10 @@ function getUpdatingConnectId({
   return platformEnv.isNative ? connectId : undefined;
 }
 
+function checkDeviceBonded(connectId: string) {
+  return bleManagerInstance.checkDeviceBonded(connectId);
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -197,4 +202,5 @@ export default {
   getDeviceScanner,
   getUpdatingConnectId,
   isConfirmOnDeviceAction,
+  checkDeviceBonded,
 };

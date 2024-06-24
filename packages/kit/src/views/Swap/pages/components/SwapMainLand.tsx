@@ -94,14 +94,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const onApprove = useCallback(
     async (amount: string, isMax?: boolean, shoutResetApprove?: boolean) => {
       if (shoutResetApprove) {
-        await approveTx(
-          swapApproveResetValue,
-          false,
-          async () => {
-            await approveTx(amount, isMax, undefined, true);
-          },
-          true,
-        );
+        await approveTx(swapApproveResetValue, isMax, amount);
       } else {
         await approveTx(amount, isMax);
       }

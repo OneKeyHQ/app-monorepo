@@ -76,7 +76,8 @@ export function useSwapQuote() {
       swapApprovingTransactionAtom &&
       swapApprovingTransactionAtom.txId &&
       swapApprovingTransactionAtom.status ===
-        ESwapApproveTransactionStatus.SUCCESS
+        ESwapApproveTransactionStatus.SUCCESS &&
+      !swapApprovingTransactionAtom.resetApproveValue
     ) {
       void quoteAction(
         activeAccountAddressRef.current,
@@ -109,12 +110,7 @@ export function useSwapQuote() {
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (pageType !== EPageType.modal) {
-        if (
-          isFocus &&
-          !isHiddenModel &&
-          !swapApprovingTxRef.current?.txId &&
-          !swapApprovingTxRef.current?.isResetApprove
-        ) {
+        if (isFocus && !isHiddenModel && !swapApprovingTxRef.current?.txId) {
           void recoverQuoteInterval(activeAccountAddressRef.current);
         } else {
           cleanQuoteInterval();
@@ -126,11 +122,7 @@ export function useSwapQuote() {
   const isFocused = useIsFocused();
   useEffect(() => {
     if (pageType === EPageType.modal) {
-      if (
-        isFocused &&
-        !swapApprovingTxRef.current?.txId &&
-        !swapApprovingTxRef.current?.isResetApprove
-      ) {
+      if (isFocused && !swapApprovingTxRef.current?.txId) {
         void recoverQuoteInterval(activeAccountAddressRef.current);
       } else {
         cleanQuoteInterval();
