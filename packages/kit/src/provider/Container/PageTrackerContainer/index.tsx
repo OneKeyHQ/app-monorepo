@@ -22,14 +22,17 @@ const getActiveRoute = (state: IState): { name: string; params?: object } => {
 
 export default function PageTrackerContainer() {
   useOnRouterChange((state) => {
-    if (state === undefined) {
-      trackPage(ETabHomeRoutes.TabHome);
-    } else {
-      const page = getActiveRoute(state as IState);
-      if (page) {
-        console.log('page.name', page.name);
-        trackPage(page.name);
+    try {
+      if (state === undefined) {
+        trackPage(ETabHomeRoutes.TabHome);
+      } else {
+        const page = getActiveRoute(state as IState);
+        if (page) {
+          trackPage(page.name);
+        }
       }
+    } catch (error) {
+      console.error('useOnRouterChange error', error);
     }
   });
   return null;
