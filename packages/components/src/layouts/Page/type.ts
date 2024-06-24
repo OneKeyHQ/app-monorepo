@@ -13,7 +13,7 @@ export interface IPageLifeCycle {
   // registers a callback to be called when the page closed but the page confirm button has been clicked.
   onConfirm?: () => void;
   // registers a callback to be called when the page closed.
-  onClose?: (confirmed: boolean) => void;
+  onClose?: (extra?: { flag?: string }) => void;
 }
 
 export type IBasicPageProps = PropsWithChildren<

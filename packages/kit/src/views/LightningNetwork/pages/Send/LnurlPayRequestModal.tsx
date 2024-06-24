@@ -18,6 +18,7 @@ import type {
   EModalSendRoutes,
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 
 import {
@@ -91,7 +92,7 @@ function LnurlPayRequestModal() {
   }, [lnurlDetails]);
 
   const onConfirm = useCallback(
-    async (close?: () => void) => {
+    async (close?: (extra?: { flag?: string }) => void) => {
       if (!lnurlDetails) return;
       if (isLoading) return;
       setIsLoading(true);
@@ -153,7 +154,9 @@ function LnurlPayRequestModal() {
           onSuccess: () => {
             if (!routeParams.isSendFlow) {
               void dappApprove.resolve({
-                close,
+                close: () => {
+                  close?.({ flag: EDAppModalPageStatus.Confirmed });
+                },
                 result: {
                   status: 'OK',
                   data: undefined,

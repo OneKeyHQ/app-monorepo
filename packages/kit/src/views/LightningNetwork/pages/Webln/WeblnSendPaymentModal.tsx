@@ -13,6 +13,7 @@ import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/Dapp
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import { DAppAccountListStandAloneItem } from '../../../DAppConnection/components/DAppAccountList';
 import {
@@ -93,7 +94,7 @@ function WeblnSendPaymentModal() {
   }, [amount, description, useFormReturn]);
 
   const onConfirm = useCallback(
-    async (close?: () => void) => {
+    async (close?: (extra?: { flag?: string }) => void) => {
       if (isLoading) return;
       setIsLoading(true);
 
@@ -116,7 +117,12 @@ function WeblnSendPaymentModal() {
           transfersInfo,
           sameModal: true,
           onSuccess: () => {
-            void dappApprove.resolve({ close, result: paymentHash });
+            void dappApprove.resolve({
+              close: () => {
+                close?.({ flag: EDAppModalPageStatus.Confirmed });
+              },
+              result: paymentHash,
+            });
           },
           onFail: () => {
             void dappApprove.reject();

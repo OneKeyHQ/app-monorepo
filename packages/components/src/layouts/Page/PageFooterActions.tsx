@@ -17,13 +17,12 @@ type IActionButtonProps = Omit<IButtonProps, 'children'>;
 
 export type IFooterActionsProps = {
   onConfirm?: (
-    close: () => void,
-    closePageStack: () => void,
-    updateConfirmed: (confirmed: boolean) => void,
+    close: (extra?: { flag?: string }) => void,
+    closePageStack: (extra?: { flag?: string }) => void,
   ) => void;
   onCancel?: (
-    close: () => void,
-    closePageStack: () => void,
+    close: (extra?: { flag?: string }) => void,
+    closePageStack: (extra?: { flag?: string }) => void,
   ) => void | Promise<void>;
   onConfirmText?: string;
   onCancelText?: string;
@@ -38,17 +37,37 @@ export type IFooterActionsProps = {
 
 const usePageNavigation = () => {
   const navigation = useNavigation<IPageNavigationProp<any>>();
-  const popStack = useCallback(() => {
-    navigation.getParent()?.goBack?.();
-  }, [navigation]);
 
-  const pop = useCallback(() => {
-    if (navigation.canGoBack?.()) {
-      navigation.goBack?.();
-    } else {
-      popStack();
-    }
-  }, [navigation, popStack]);
+  const { closeExtraRef } = useContext(PageContext);
+
+  const updateExtraRef = useCallback(
+    (extra?: { flag?: string }) => {
+      if (closeExtraRef && extra) {
+        closeExtraRef.current = extra;
+      }
+    },
+    [closeExtraRef],
+  );
+
+  const popStack = useCallback(
+    (extra?: { flag?: string }) => {
+      navigation.getParent()?.goBack?.();
+      updateExtraRef(extra);
+    },
+    [navigation, updateExtraRef],
+  );
+
+  const pop = useCallback(
+    (extra?: { flag?: string }) => {
+      if (navigation.canGoBack?.()) {
+        navigation.goBack?.();
+      } else {
+        popStack();
+      }
+      updateExtraRef(extra);
+    },
+    [navigation, popStack, updateExtraRef],
+  );
 
   return {
     pop,
@@ -98,42 +117,10 @@ export function FooterConfirmButton({
 }) {
   const intl = useIntl();
   const { pop, popStack } = usePageNavigation();
-  const { confirmedRef } = useContext(PageContext);
-
-  const updateConfirmedRef = useCallback(
-    (confirmed = true) => {
-      if (confirmedRef) {
-        confirmedRef.current = confirmed;
-      }
-    },
-    [confirmedRef],
-  );
-
-  const popCallback = useCallback(() => {
-    pop();
-    updateConfirmedRef();
-  }, [pop, updateConfirmedRef]);
-
-  const popStackCallback = useCallback(() => {
-    popStack();
-    updateConfirmedRef();
-  }, [popStack, updateConfirmedRef]);
-
-  const setConfirmed = useCallback(
-    (confirmed: boolean) => {
-      setTimeout(() => {
-        updateConfirmedRef(confirmed);
-      });
-    },
-    [updateConfirmedRef],
-  );
 
   const handleConfirm = useCallback(() => {
-    onConfirm?.(popCallback, popStackCallback, setConfirmed);
-    if (confirmedRef) {
-      confirmedRef.current = true;
-    }
-  }, [confirmedRef, onConfirm, popCallback, popStackCallback, setConfirmed]);
+    onConfirm?.(pop, popStack);
+  }, [onConfirm, pop, popStack]);
 
   return (
     <Button

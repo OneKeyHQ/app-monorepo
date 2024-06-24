@@ -8,6 +8,7 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import { WalletConnectAccountTriggerList } from '../../components/DAppAccountList';
 import { DAppRequestedPermissionContent } from '../../components/DAppRequestContent';
@@ -59,7 +60,7 @@ function SessionProposalModal() {
   }, [continueOperate]);
 
   const onApproval = useCallback(
-    async (close: () => void) => {
+    async (close?: (extra?: { flag?: string }) => void) => {
       const accountChangedParamsValues = Object.values(accountChangedParamsMap);
       if (accountChangedParamsValues.length !== sessionAccountsInfo?.length) {
         Toast.success({
@@ -97,7 +98,9 @@ function SessionProposalModal() {
           accountsInfo,
         });
       await dappApprove.resolve({
-        close,
+        close: () => {
+          close?.({ flag: EDAppModalPageStatus.Confirmed });
+        },
         result: { accountsInfo, supportedNamespaces },
       });
       Toast.success({

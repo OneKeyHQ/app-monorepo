@@ -16,6 +16,7 @@ import type {
   EModalSendRoutes,
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import {
   DAppAccountListStandAloneItem,
@@ -162,7 +163,7 @@ function LnurlAuthModal() {
   }, [lnurlDetails?.action, intl]);
 
   const onConfirm = useCallback(
-    async (close?: () => void) => {
+    async (close?: (extra?: { flag?: string }) => void) => {
       if (!lnurlDetails) return;
       if (isLoading) return;
       setIsLoading(true);
@@ -182,7 +183,9 @@ function LnurlAuthModal() {
             navigation.popStack();
           } else {
             void dappApprove.resolve({
-              close,
+              close: () => {
+                close?.({ flag: EDAppModalPageStatus.Confirmed });
+              },
             });
           }
         }, 300);

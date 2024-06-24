@@ -6,6 +6,7 @@ import { Page } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
@@ -71,7 +72,7 @@ function SignMessageModal() {
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '', isRiskSignMethod });
 
   const handleSignMessage = useCallback(
-    async (close: () => void) => {
+    async (close?: (extra?: { flag?: string }) => void) => {
       setIsLoading(true);
       try {
         const result = await backgroundApiProxy.serviceSend.signMessage({
@@ -88,7 +89,7 @@ function SignMessageModal() {
           message: unsignedMessage.message,
           sourceInfo: $sourceInfo,
         });
-        close?.();
+        close?.({ flag: EDAppModalPageStatus.Confirmed });
       } finally {
         setIsLoading(false);
       }
