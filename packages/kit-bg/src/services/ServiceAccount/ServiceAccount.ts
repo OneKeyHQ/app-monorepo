@@ -1470,6 +1470,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async verifyHWAccountAddresses(params: {
     walletId: string;
     networkId: string;

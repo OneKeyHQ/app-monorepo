@@ -38,7 +38,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   BleLocationServiceError,
@@ -59,6 +58,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -702,9 +702,9 @@ function ConnectByUSBOrBLE({
 
   const checkBLEState = useCallback(async () => {
     // hack missing getBleManager.
-    await uiDeviceUtils.getBleManager();
+    await bleManagerInstance.getBleManager();
     await timerUtils.wait(100);
-    const bleManager = await uiDeviceUtils.getBleManager();
+    const bleManager = await bleManagerInstance.getBleManager();
     const checkState = await bleManager?.checkState();
     return checkState === 'on';
   }, []);

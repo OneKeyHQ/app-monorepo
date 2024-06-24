@@ -1,7 +1,6 @@
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 
-import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import {
   backgroundClass,
   backgroundMethod,
@@ -304,7 +303,7 @@ class ServiceHardware extends ServiceBase {
       options?.awaitBonded &&
       connectId
     ) {
-      const checkBonded = await uiDeviceUtils.checkDeviceBonded(connectId);
+      const checkBonded = await deviceUtils.checkDeviceBonded(connectId);
       if (checkBonded) {
         console.log('Android device was bonded, will connect');
         try {

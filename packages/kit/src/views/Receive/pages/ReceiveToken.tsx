@@ -22,7 +22,6 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalReceiveRoutes,
@@ -115,8 +114,9 @@ function ReceiveToken() {
         isSameAddress ? EAddressState.Verified : EAddressState.Unverified,
       );
     } catch (e: any) {
-      uiDeviceUtils.showErrorToast(e);
       setAddressState(EAddressState.Unverified);
+      // verifyHWAccountAddresses handler error toast
+      throw e;
     }
   }, [
     account?.address,
