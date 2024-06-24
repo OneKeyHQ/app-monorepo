@@ -328,7 +328,7 @@ export default class Vault extends VaultBase {
         const { utxoList: utxos } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
-            accountAddress: address,
+            accountId: this.accountId,
             withUTXOList: true,
           });
         if (!utxos || isEmpty(utxos)) {

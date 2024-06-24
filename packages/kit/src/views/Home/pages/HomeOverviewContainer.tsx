@@ -39,19 +39,10 @@ function HomeOverviewContainer() {
   const { result: overview } = usePromiseResult(
     async () => {
       if (!account || !network) return;
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId: account.id,
-          networkId: network.id,
-        });
       const r =
         await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
           networkId: network.id,
-          accountAddress,
-          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId: account.id,
-            networkId: network.id,
-          }),
+          accountId: account.id,
           withNetWorth: true,
           withNonce: false,
         });

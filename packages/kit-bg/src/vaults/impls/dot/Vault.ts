@@ -216,8 +216,8 @@ export default class VaultDot extends VaultBase {
 
     const account =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        accountId: this.accountId,
         networkId: this.networkId,
-        accountAddress: from,
         withNonce: true,
       });
 
@@ -667,7 +667,7 @@ export default class VaultDot extends VaultBase {
       const account =
         await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
           networkId: this.networkId,
-          accountAddress,
+          accountId: this.accountId,
           withNonce: false,
           withNetWorth: true,
         });

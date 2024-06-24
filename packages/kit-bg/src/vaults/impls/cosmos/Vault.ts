@@ -197,7 +197,7 @@ export default class VaultCosmos extends VaultBase {
     const accountInfo =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId: network.id,
-        accountAddress: transfersInfo[0].from,
+        accountId: this.accountId,
         withNonce: true,
       });
     if (!accountInfo) {

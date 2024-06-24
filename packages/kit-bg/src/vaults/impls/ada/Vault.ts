@@ -160,7 +160,11 @@ export default class Vault extends VaultBase {
         [utxoValueTooSmall, insufficientBalance].includes(e.code) ||
         [utxoValueTooSmall, insufficientBalance].includes(e.message)
       ) {
-        throw new InsufficientBalance();
+        throw new InsufficientBalance({
+          info: {
+            symbol: tokenInfo?.symbol ?? '',
+          },
+        });
       }
       throw e;
     }
@@ -288,6 +292,7 @@ export default class Vault extends VaultBase {
       signer: account.address,
       nonce: 0,
       actions,
+      to: utxoTo[0].address,
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -393,14 +398,12 @@ export default class Vault extends VaultBase {
       addresses: Record<string, string>;
       xpub: string;
     }): Promise<IAdaUTXO[]> => {
-      const { addresses, path, address, xpub } = params;
-      const stakeAddress = addresses['2/0'];
+      const { path, address, xpub } = params;
       try {
         const { utxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
-            accountAddress: address,
-            xpub: stakeAddress,
+            accountId: this.accountId,
             withUTXOList: true,
             cardanoPubKey: xpub,
           });

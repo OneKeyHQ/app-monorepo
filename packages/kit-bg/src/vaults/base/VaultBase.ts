@@ -29,6 +29,7 @@ import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
+  IFetchAccountDetailsResp,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
   IPrivateKeyValidation,
@@ -779,5 +780,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokensDetails: IFetchTokenDetailItem[];
   }) {
     return Promise.resolve(tokensDetails);
+  }
+
+  async fillAccountDetails({
+    accountDetails,
+  }: {
+    accountDetails: IFetchAccountDetailsResp;
+  }) {
+    return Promise.resolve(accountDetails);
   }
 }

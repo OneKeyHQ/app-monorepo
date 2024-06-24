@@ -191,7 +191,11 @@ export default class Vault extends VaultBase {
         return transaction;
       } catch (e) {
         if (typeof e === 'string' && e.endsWith('balance is not sufficient.')) {
-          throw new InsufficientBalance();
+          throw new InsufficientBalance({
+            info: {
+              symbol: tokenInfo.symbol,
+            },
+          });
         } else if (typeof e === 'string') {
           throw new Error(e);
         } else {
