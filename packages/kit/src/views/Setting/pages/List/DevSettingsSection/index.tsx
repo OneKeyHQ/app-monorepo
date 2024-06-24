@@ -152,6 +152,7 @@ export const DevSettingsSection = () => {
               'This is a feature specific to development environments. Function used to erase all data in the app.',
             confirmButtonProps: {
               variant: 'destructive',
+              testID: 'clear-double-confirm'
             },
             onConfirm: () => {
               const dialog = Dialog.cancel({
