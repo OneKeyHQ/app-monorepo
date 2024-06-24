@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/core/src/chains/nostr/types';
 import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -169,7 +170,7 @@ function NostrSignEventModal() {
   }, [intl, signType]);
 
   const onSubmit = useCallback(
-    async (close: () => void) => {
+    async (close?: (extra?: { flag?: string }) => void) => {
       try {
         const { serviceNostr, servicePassword } = backgroundApiProxy;
         setIsLoading(true);
@@ -220,7 +221,9 @@ function NostrSignEventModal() {
         setTimeout(() => {
           void dappApprove.resolve({
             result: result?.data ?? null,
-            close,
+            close: () => {
+              close?.({ flag: EDAppModalPageStatus.Confirmed });
+            },
           });
         }, 300);
       } catch (e) {
