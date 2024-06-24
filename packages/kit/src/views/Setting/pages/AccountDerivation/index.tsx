@@ -5,25 +5,25 @@ import { useIntl } from 'react-intl';
 import { Page, SizableText, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import { DeriveTypeSelectorTriggerStandAlone } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 type IAccountDerivationListItemProps = {
-  num: number;
   title: string;
   icon?: string;
+  networkId: string;
 };
 
 const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
-  num,
   title,
   icon,
+  networkId,
 }) => (
-  <DeriveTypeSelectorTrigger
-    num={num}
+  <DeriveTypeSelectorTriggerStandAlone
+    networkId={networkId}
     miniMode
     placement="bottom-end"
     renderTrigger={({ label }) => (
@@ -68,6 +68,7 @@ const AccountDerivation = () => {
         <AccountSelectorProviderMirror
           enabledNum={enabledNum}
           config={{
+            // TODO remove
             sceneName: EAccountSelectorSceneName.settings,
             sceneUrl: '',
           }}
@@ -79,7 +80,7 @@ const AccountDerivation = () => {
                 key={o.icon}
                 title={o.title}
                 icon={o.icon}
-                num={o.num}
+                networkId={o.defaultNetworkId}
               />
             ))}
           </Stack>
