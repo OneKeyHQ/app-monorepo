@@ -130,12 +130,11 @@ export function useModalExitPrevent({
   );
   const shouldPreventRemove =
     exitPreventMode !== EModalExitPreventMode.disabled && isFocused;
-  usePreventRemove(
-    shouldPreventRemove,
+  const preventRemoveCallback =
     exitPreventMode === EModalExitPreventMode.confirm
       ? navPreventRemoveCallback
-      : () => null,
-  );
+      : () => null;
+  usePreventRemove(shouldPreventRemove, preventRemoveCallback);
 }
 
 export function useAppExitPrevent({
@@ -237,12 +236,12 @@ export function useV4MigrationExitPrevent({
       v4migrationPersistData?.v4migrationAutoStartCount <= 1);
 
   // Prevent Modal exit/back
+  const shouldAlwaysPreventExit =
+    isAutoStartInFirstTime && exitPreventMode === EModalExitPreventMode.confirm;
   useModalExitPrevent({
-    exitPreventMode:
-      isAutoStartInFirstTime &&
-      exitPreventMode === EModalExitPreventMode.confirm
-        ? EModalExitPreventMode.always
-        : exitPreventMode,
+    exitPreventMode: shouldAlwaysPreventExit
+      ? EModalExitPreventMode.always
+      : exitPreventMode,
     isAutoStartOnMount,
     title,
     message,
