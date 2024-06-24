@@ -608,7 +608,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
       if (accountUtils.isExternalWallet({ walletId: wallet.id })) {
         wallet.name = appLocale.intl.formatMessage({
-          id: ETranslations.global_connected,
+          id: ETranslations.global_connected_account,
         });
       }
       if (accountUtils.isImportedWallet({ walletId: wallet.id })) {

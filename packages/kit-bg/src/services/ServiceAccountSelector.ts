@@ -463,7 +463,7 @@ class ServiceAccountSelector extends ServiceBase {
           title:
             title ??
             appLocale.intl.formatMessage({
-              id: ETranslations.global_connected,
+              id: ETranslations.global_connected_account,
             }),
           data: accounts,
           walletId,

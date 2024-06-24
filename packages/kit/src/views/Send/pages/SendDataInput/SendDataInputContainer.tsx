@@ -14,6 +14,7 @@ import {
   TextArea,
   XStack,
   useForm,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -59,6 +60,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 function SendDataInputContainer() {
   const intl = useIntl();
+  const media = useMedia();
 
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -710,7 +712,6 @@ function SendDataInputContainer() {
 
   const renderPaymentIdForm = useCallback(() => {
     if (!displayPaymentIdForm) return null;
-
     return (
       <>
         <XStack pt="$5" />
@@ -731,16 +732,22 @@ function SendDataInputContainer() {
                 !hexUtils.isHexString(hexUtils.addHexPrefix(value)) ||
                 hexUtils.stripHexPrefix(value).length !== 64
               ) {
-                return 'Payment ID must be a 64 char hex string';
+                return intl.formatMessage({
+                  id: ETranslations.form_payment_id_error_text,
+                });
               }
             },
           }}
         >
-          <TextArea numberOfLines={2} size="large" placeholder="Payment ID" />
+          <TextArea
+            numberOfLines={2}
+            size={media.gtMd ? 'medium' : 'large'}
+            placeholder="Payment ID"
+          />
         </Form.Field>
       </>
     );
-  }, [displayPaymentIdForm, intl]);
+  }, [displayPaymentIdForm, intl, media.gtMd]);
 
   const renderDataInput = useCallback(() => {
     if (isNFT) {
