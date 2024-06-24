@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { manipulateAsync } from 'expo-image-manipulator';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
@@ -18,6 +19,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -26,7 +28,7 @@ import {
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
-import { THUMB_WIDTH } from '../../config/TabList.constants';
+import { THUMB_CROP_SIZE } from '../../config/TabList.constants';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import {
   useDisabledAddedNewTab,
@@ -39,7 +41,7 @@ import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 
-import type WebView from '@onekeyfe/react-native-webview';
+import type WebView from 'react-native-webview';
 
 interface IMobileBrowserBottomBarProps extends IStackProps {
   id: string;
@@ -96,16 +98,24 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
         captureRef(captureViewRefs[id ?? ''], {
           format: 'jpg',
           quality: 0.2,
-          width: THUMB_WIDTH,
-          height: THUMB_WIDTH,
         })
           .then(async (imageUri) => {
+            const manipulateValue = await manipulateAsync(imageUri, [
+              {
+                crop: {
+                  originX: 0,
+                  originY: 0,
+                  width: THUMB_CROP_SIZE,
+                  height: THUMB_CROP_SIZE,
+                },
+              },
+            ]);
             const path = getScreenshotPath(`${id}-${Date.now()}.jpg`);
             setWebTabData({
               id,
               thumbnail: path,
             });
-            void saveScreenshot(imageUri, path);
+            void saveScreenshot(manipulateValue.uri, path);
             resolve(true);
           })
           .catch((e) => {
@@ -133,8 +143,8 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     if (disabledAddedNewTab) {
       Toast.message({
         title: intl.formatMessage(
-          { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
-          { 0: '20' },
+          { id: ETranslations.explore_toast_tab_limit_reached },
+          { number: '20' },
         ),
       });
       return;
@@ -160,8 +170,12 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
       }
       Toast.success({
         title: isBookmark
-          ? intl.formatMessage({ id: 'msg__bookmark_added' })
-          : intl.formatMessage({ id: 'msg__bookmark_removed' }),
+          ? intl.formatMessage({
+              id: ETranslations.explore_toast_bookmark_added,
+            })
+          : intl.formatMessage({
+              id: ETranslations.explore_toast_bookmark_removed,
+            }),
       });
     },
     [intl, addBrowserBookmark, removeBrowserBookmark, tab?.url, tab?.title],
@@ -172,8 +186,8 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
       setPinnedTab({ id, pinned });
       Toast.success({
         title: pinned
-          ? intl.formatMessage({ id: 'msg__pinned' })
-          : intl.formatMessage({ id: 'msg__unpinned' }),
+          ? intl.formatMessage({ id: ETranslations.explore_toast_pinned })
+          : intl.formatMessage({ id: ETranslations.explore_toast_unpinned }),
       });
     },
     [setPinnedTab, id, intl],

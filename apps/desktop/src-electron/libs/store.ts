@@ -17,7 +17,8 @@ export type IUpdateSettings = {
 const configKeys = {
   WinBounds: 'winBounds',
   UpdateSettings: 'updateSettings',
-  EncryptedData: 'OneKey_EncryptedData',
+  DevTools: 'devTools',
+  EncryptedData: 'EncryptedData',
 };
 
 export const getUpdateSettings = (): IUpdateSettings =>
@@ -27,6 +28,12 @@ export const getUpdateSettings = (): IUpdateSettings =>
 
 export const setUpdateSettings = (updateSettings: IUpdateSettings): void => {
   store.set(configKeys.UpdateSettings, updateSettings);
+};
+
+export const getDevTools = () => store.get(configKeys.DevTools, false);
+
+export const setDevTools = (devTools: boolean) => {
+  store.set(configKeys.DevTools, devTools);
 };
 
 export const getWinBounds = (): Electron.Rectangle =>

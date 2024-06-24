@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { Toast } from '@onekeyhq/components';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppUpdateStatus,
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   downloadPackage,
   installPackage,
@@ -28,6 +32,7 @@ export const useAppChangeLog = (version?: string) => {
 };
 
 export const useAppUpdateInfo = (isFullModal = false) => {
+  const intl = useIntl();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
 
@@ -82,6 +87,11 @@ export const useAppUpdateInfo = (isFullModal = false) => {
           void backgroundApiProxy.serviceAppUpdate.readyToInstall();
         })
         .catch((e: { message: string }) => {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_update_failed,
+            }),
+          });
           void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
         });
     }
@@ -105,9 +115,14 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         toUpdatePreviewPage(isFullModal);
         break;
       case EAppUpdateStatus.ready:
-        void installPackage(appUpdateInfo).catch((e) =>
-          backgroundApiProxy.serviceAppUpdate.notifyFailed(e),
-        );
+        void installPackage(appUpdateInfo).catch((e) => {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_update_failed,
+            }),
+          });
+          void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
+        });
         break;
       case EAppUpdateStatus.failed:
         void backgroundApiProxy.serviceAppUpdate.startDownloading();
@@ -116,13 +131,18 @@ export const useAppUpdateInfo = (isFullModal = false) => {
             void backgroundApiProxy.serviceAppUpdate.readyToInstall();
           })
           .catch((e: { message: string }) => {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_update_failed,
+              }),
+            });
             void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
           });
         break;
       default:
         break;
     }
-  }, [appUpdateInfo, isFullModal, toUpdatePreviewPage]);
+  }, [appUpdateInfo, intl, isFullModal, toUpdatePreviewPage]);
 
   return useMemo(
     () => ({

@@ -10,6 +10,7 @@ import {
   ENABLE_SEARCH_TOKEN_LIST_MIN_LENGTH,
   SEARCH_DEBOUNCE_INTERVAL,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAssetListRoutes,
   IModalAssetListParamList,
@@ -63,7 +64,7 @@ function TokenList() {
 
     return (
       <Popover
-        title="Define"
+        title={intl.formatMessage({ id: ETranslations.low_value_assets })}
         renderTrigger={<HeaderIconButton icon="QuestionmarkOutline" />}
         renderContent={
           <Stack p="$5">
@@ -72,7 +73,7 @@ function TokenList() {
         }
       />
     );
-  }, [helpText]);
+  }, [helpText, intl]);
 
   const handleOnPressToken = useCallback(
     (token: IToken) => {
@@ -118,7 +119,9 @@ function TokenList() {
                     updateSearchKey(e.nativeEvent.text),
                   SEARCH_DEBOUNCE_INTERVAL,
                 ),
-                placeholder: intl.formatMessage({ id: 'form__search' }),
+                placeholder: intl.formatMessage({
+                  id: ETranslations.global_search,
+                }),
               }
             : undefined
         }

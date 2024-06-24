@@ -1,4 +1,15 @@
-import { Button, SizableText, Stack } from '@onekeyhq/components';
+import { useState } from 'react';
+
+import {
+  Button,
+  Dialog,
+  Form,
+  Select,
+  SizableText,
+  Stack,
+  Switch,
+  useForm,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -15,6 +26,10 @@ import { FirmwareUpdateProgressBarView } from '@onekeyhq/kit/src/views/FirmwareU
 import { FirmwareUpdateWarningMessage } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareUpdateWarningMessage';
 import { FirmwareUpdateReminderAlert } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import {
+  EFirmwareAuthenticationDialogContentType,
+  EnumBasicDialogContentContainer,
+} from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import {
@@ -139,6 +154,50 @@ function FirmwareUpdateErrorDemo({
   );
 }
 
+function StaticUIDialog() {
+  const form = useForm({
+    defaultValues: {
+      contentType: EFirmwareAuthenticationDialogContentType.default,
+    },
+  });
+  return (
+    <Form form={form}>
+      <Form.Field name="contentType" label="contentType">
+        <Select
+          title=""
+          items={Object.keys(EFirmwareAuthenticationDialogContentType).map(
+            (i) => ({ label: i, value: i }),
+          )}
+        />
+      </Form.Field>
+
+      <Button
+        onPress={() => {
+          Dialog.show({
+            showFooter: false,
+            renderContent: (
+              <EnumBasicDialogContentContainer
+                {...form.getValues()}
+                errorObj={{
+                  code: 800,
+                }}
+                onActionPress={() => {
+                  alert('onActionPress');
+                }}
+                onContinuePress={() => {
+                  alert('onContinuePress');
+                }}
+              />
+            ),
+          });
+        }}
+      >
+        FirmwareVerify UI Dialog
+      </Button>
+    </Form>
+  );
+}
+
 function FirmwareUpdateGalleryStaticUI() {
   const actions = useFirmwareUpdateActions();
   return (
@@ -247,7 +306,8 @@ function FirmwareUpdateGalleryStaticUI() {
         <SizableText size="$heading2xl">** 安装中</SizableText>
 
         <FirmwareUpdateProgressBarView
-          stepText=""
+          currentStep={undefined}
+          totalStep={undefined}
           title="Preparing..."
           progress={12}
           desc="Checking device..."
@@ -256,16 +316,28 @@ function FirmwareUpdateGalleryStaticUI() {
         />
 
         <FirmwareUpdateProgressBarView
-          stepText="Step 1/3"
+          currentStep={1}
+          totalStep={1}
+          title="Preparing...(Only One Step, no step text bar is displayed)"
+          progress={12}
+          desc="Checking device..."
+          fromVersion=""
+          toVersion=""
+        />
+
+        <FirmwareUpdateProgressBarView
+          currentStep={1}
+          totalStep={3}
           title="Updating firmware..."
           progress={20}
           desc="Downloading..."
-          fromVersion="1.0.0"
+          fromVersion={undefined}
           toVersion="1.0.1"
         />
 
         <FirmwareUpdateProgressBarView
-          stepText="Step 2/3"
+          currentStep={2}
+          totalStep={3}
           title="Updating bluetooth..."
           progress={50}
           desc="Transferring..."
@@ -292,6 +364,11 @@ function FirmwareUpdateGalleryStaticUI() {
           tipMessage={EFirmwareUpdateTipMessages.AutoRebootToBootloader}
           retryInfo={undefined}
         />
+      </Stack>
+
+      <Stack my="$8">
+        <SizableText size="$heading2xl">* StaticUIDialog</SizableText>
+        <StaticUIDialog />
       </Stack>
     </Stack>
   );

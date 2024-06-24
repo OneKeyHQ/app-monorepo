@@ -5,22 +5,25 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-
-import type { ISigner } from '../../base/ChainSigner';
-import type {
-  ICoreApiGetAddressItem,
-  ICoreApiGetAddressQueryImported,
-  ICoreApiGetAddressQueryPublicKey,
-  ICoreApiGetAddressesQueryHd,
-  ICoreApiGetAddressesResult,
-  ICoreApiPrivateKeysMap,
-  ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
-  ICoreApiSignTxPayload,
-  ICurveName,
-  ISignedTxPro,
+import { decrypt } from '../../secret';
+import {
+  ECoreApiExportedSecretKeyType,
+  type ICoreApiGetAddressItem,
+  type ICoreApiGetAddressQueryImported,
+  type ICoreApiGetAddressQueryPublicKey,
+  type ICoreApiGetAddressesQueryHd,
+  type ICoreApiGetAddressesResult,
+  type ICoreApiGetExportedSecretKey,
+  type ICoreApiPrivateKeysMap,
+  type ICoreApiSignBasePayload,
+  type ICoreApiSignMsgPayload,
+  type ICoreApiSignTxPayload,
+  type ICurveName,
+  type ISignedTxPro,
 } from '../../types';
+
 import type { IEncodedTxSol, INativeTxSol } from './types';
+import type { ISigner } from '../../base/ChainSigner';
 
 const curve: ICurveName = 'ed25519';
 
@@ -76,6 +79,39 @@ async function signMessage(message: string, signer: ISigner): Promise<string> {
 }
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override async getExportedSecretKey(
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    const {
+      // networkInfo,
+
+      password,
+      keyType,
+      credentials,
+      account,
+      // addressEncoding,
+    } = query;
+    console.log(
+      'ExportSecretKeys >>>> sol',
+      this.baseGetCredentialsType({ credentials }),
+    );
+
+    const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
+
+    if (!privateKeyRaw) {
+      throw new Error('privateKeyRaw is required');
+    }
+    if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
+      return bs58.encode(
+        Buffer.concat([
+          decrypt(password, privateKeyRaw),
+          bs58.decode(account.pub ?? ''),
+        ]),
+      );
+    }
+    throw new Error(`SecretKey type not support: ${keyType}`);
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {

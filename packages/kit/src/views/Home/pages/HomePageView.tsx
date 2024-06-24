@@ -5,6 +5,7 @@ import { Animated, Easing } from 'react-native';
 
 import { Empty, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -91,14 +92,14 @@ export function HomePageView({
       [
         {
           title: intl.formatMessage({
-            id: 'asset__tokens',
+            id: ETranslations.global_crypto,
           }),
           page: memo(TokenListContainerWithProvider, () => true),
         },
         isNFTEnabled
           ? {
               title: intl.formatMessage({
-                id: 'asset__collectibles',
+                id: ETranslations.global_nft,
               }),
               page: memo(NFTListContainerWithProvider, () => true),
             }
@@ -109,7 +110,7 @@ export function HomePageView({
         // },
         {
           title: intl.formatMessage({
-            id: 'transaction__history',
+            id: ETranslations.global_history,
           }),
           page: memo(TxHistoryListContainerWithProvider, () => true),
         },
@@ -138,10 +139,14 @@ export function HomePageView({
           <HomeSelector createAddressDisabled padding="$5" />
           <Stack flex={1} justifyContent="center">
             <Empty
-              icon="LinkSolid"
-              title="Selected network supports only 「Classic」"
+              icon="GlobusOutline"
+              title={intl.formatMessage(
+                { id: ETranslations.selected_network_only_supports_device },
+                {
+                  deviceType: 'OneKey Classic',
+                },
+              )}
             />
-            ;
           </Stack>
         </YStack>
       );
@@ -219,5 +224,8 @@ export function HomePageView({
     );
   }, [ready, wallet, sceneName, renderHomePageContent]);
 
-  return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
+  return useMemo(
+    () => <Page fullPage>{renderHomePage()}</Page>,
+    [renderHomePage],
+  );
 }

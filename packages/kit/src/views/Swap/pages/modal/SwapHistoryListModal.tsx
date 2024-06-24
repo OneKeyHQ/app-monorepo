@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import {
   Dialog,
@@ -21,6 +22,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalSwapRoutes,
   type IModalSwapParamList,
@@ -37,6 +39,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 interface ISectionData {
   title: string;
+  status?: ESwapTxHistoryStatus;
   data: ISwapTxHistory[];
 }
 
@@ -45,6 +48,7 @@ interface ISwapHistoryListModalProps {
 }
 
 const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
+  const intl = useIntl();
   const [swapPendingList] = useInAppNotificationAtom();
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
     async () => {
@@ -63,11 +67,15 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
   const sectionData = useMemo(() => {
     const pendingData =
       swapTxHistoryList?.filter(
-        (item) => item.status === ESwapTxHistoryStatus.PENDING,
+        (item) =>
+          item.status === ESwapTxHistoryStatus.PENDING ||
+          item.status === ESwapTxHistoryStatus.DISCARD,
       ) ?? [];
     const otherData =
       swapTxHistoryList?.filter(
-        (item) => item.status !== ESwapTxHistoryStatus.PENDING,
+        (item) =>
+          item.status !== ESwapTxHistoryStatus.PENDING &&
+          item.status !== ESwapTxHistoryStatus.DISCARD,
       ) ?? [];
     const groupByDay = otherData.reduce<Record<string, ISwapTxHistory[]>>(
       (acc, item) => {
@@ -95,22 +103,35 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
       }),
     );
     if (pendingData.length > 0) {
-      result = [{ title: 'Pending', data: pendingData }, ...result];
+      result = [
+        {
+          title: intl.formatMessage({
+            id: ETranslations.swap_history_status_pending,
+          }),
+          status: ESwapTxHistoryStatus.PENDING,
+          data: pendingData,
+        },
+        ...result,
+      ];
     }
     return result;
-  }, [formatDate, swapTxHistoryList]);
+  }, [formatDate, intl, swapTxHistoryList]);
 
   const onDeleteHistory = useCallback(() => {
     // dialog
     if (!swapTxHistoryList?.length) return;
     Dialog.confirm({
-      title: 'Are you sure to delete all history?',
+      title: intl.formatMessage({
+        id: ETranslations.swap_history_detail_delete_title,
+      }),
       onConfirm: () => {
         void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems();
       },
-      onConfirmText: 'Delete',
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.swap_history_detail_delete_confirm,
+      }),
     });
-  }, [swapTxHistoryList?.length]);
+  }, [intl, swapTxHistoryList?.length]);
 
   const deleteButton = useCallback(
     () => <HeaderIconButton onPress={onDeleteHistory} icon="DeleteOutline" />,
@@ -153,9 +174,9 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
           renderItem={renderItem}
           sections={sectionData}
           py="$1"
-          renderSectionHeader={({ section: { title } }) => (
+          renderSectionHeader={({ section: { title, status } }) => (
             <XStack px="$5" py="$2" space="$3" alignItems="center">
-              {title === 'Pending' ? (
+              {status === ESwapTxHistoryStatus.PENDING ? (
                 <Stack
                   w="$2"
                   h="$2"
@@ -165,14 +186,25 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
               ) : null}
               <Heading
                 size="$headingSm"
-                color={title === 'Pending' ? '$textCaution' : '$textSubdued'}
+                color={
+                  status === ESwapTxHistoryStatus.PENDING
+                    ? '$textCaution'
+                    : '$textSubdued'
+                }
               >
                 {title}
               </Heading>
             </XStack>
           )}
           estimatedItemSize="$10"
-          ListEmptyComponent={<Empty icon="InboxOutline" title="No Results" />}
+          ListEmptyComponent={
+            <Empty
+              icon="InboxOutline"
+              title={intl.formatMessage({
+                id: ETranslations.global_no_results,
+              })}
+            />
+          }
         />
       )}
     </Page>

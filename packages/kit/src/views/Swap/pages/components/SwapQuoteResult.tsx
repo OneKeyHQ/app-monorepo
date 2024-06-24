@@ -1,21 +1,27 @@
-import { memo } from 'react';
+import { memo, useCallback, useRef } from 'react';
 
-import { EPageType, NumberSizeableText, YStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Dialog, NumberSizeableText, YStack } from '@onekeyhq/components';
 import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSlippagePopoverOpeningAtom,
+  useSwapSlippageDialogOpeningAtom,
+  useSwapSlippagePercentageAtom,
+  useSwapSlippagePercentageCustomValueAtom,
+  useSwapSlippagePercentageModeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  EJotaiContextStoreNames,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+  ESwapSlippageSegmentKey,
+  type IFetchQuoteResult,
+  type ISwapSlippageSegmentItem,
+} from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import { useSwapQuoteLoading } from '../../hooks/useSwapState';
-import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageContentContainer from './SwapSlippageContentContainer';
@@ -25,20 +31,58 @@ interface ISwapQuoteResultProps {
   receivedAddress?: string;
   quoteResult: IFetchQuoteResult;
   onOpenProviderList?: () => void;
-  pageType?: EPageType.modal;
 }
 
 const SwapQuoteResult = ({
   onOpenProviderList,
   quoteResult,
-  pageType,
 }: ISwapQuoteResultProps) => {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
+  const intl = useIntl();
+  const [, setSwapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
+  const [{ slippageItem, autoValue }] = useSwapSlippagePercentageAtom();
+  const [, setSwapSlippageCustomValue] =
+    useSwapSlippagePercentageCustomValueAtom();
+  const [, setSwapSlippageMode] = useSwapSlippagePercentageModeAtom();
+  const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+  const slippageOnSave = useCallback(
+    (item: ISwapSlippageSegmentItem) => {
+      setSwapSlippageMode(item.key);
+      if (item.key === ESwapSlippageSegmentKey.CUSTOM) {
+        setSwapSlippageCustomValue(item.value);
+      }
+      void dialogRef.current?.close();
+    },
+    [setSwapSlippageCustomValue, setSwapSlippageMode],
+  );
 
-  const [, setSwapSlippagePopOverOpening] = useSwapSlippagePopoverOpeningAtom();
+  const slippageHandleClick = useCallback(() => {
+    dialogRef.current = Dialog.show({
+      title: intl.formatMessage({ id: ETranslations.slippage_tolerance_title }),
+      renderContent: (
+        <SwapSlippageContentContainer
+          swapSlippage={slippageItem}
+          autoValue={autoValue}
+          onSave={slippageOnSave}
+        />
+      ),
+      onOpen: () => {
+        setSwapSlippageDialogOpening(true);
+      },
+      onClose: () => {
+        setSwapSlippageDialogOpening(false);
+      },
+    });
+  }, [
+    intl,
+    slippageItem,
+    autoValue,
+    slippageOnSave,
+    setSwapSlippageDialogOpening,
+  ]);
 
   return (
     <YStack space="$4">
@@ -56,35 +100,26 @@ const SwapQuoteResult = ({
           rate={quoteResult.instantRate}
           fromToken={fromToken}
           toToken={toToken}
-          showBest={quoteResult.isBest}
+          // showBest={quoteResult.isBest}
           showLock={!!quoteResult.allowanceResult}
           onPress={() => {
             onOpenProviderList?.();
           }}
         />
       ) : null}
-      {quoteResult.toAmount && !quoteResult.allowanceResult ? (
+      {quoteResult.toAmount &&
+      !quoteResult.allowanceResult &&
+      !quoteResult.unSupportSlippage ? (
         <SwapSlippageTriggerContainer
           isLoading={swapQuoteLoading}
-          renderPopoverContent={() => (
-            <SwapProviderMirror
-              storeName={
-                pageType === EPageType.modal
-                  ? EJotaiContextStoreNames.swapModal
-                  : EJotaiContextStoreNames.swap
-              }
-            >
-              <SwapSlippageContentContainer />
-            </SwapProviderMirror>
-          )}
-          popoverOnOpenChange={(open) => {
-            setSwapSlippagePopOverOpening(open);
-          }}
+          onPress={slippageHandleClick}
         />
       ) : null}
       {quoteResult.fee?.estimatedFeeFiatValue ? (
         <SwapCommonInfoItem
-          title="Est network fee"
+          title={intl.formatMessage({
+            id: ETranslations.swap_page_provider_est_network_fee,
+          })}
           isLoading={swapQuoteLoading}
           valueComponent={
             <NumberSizeableText

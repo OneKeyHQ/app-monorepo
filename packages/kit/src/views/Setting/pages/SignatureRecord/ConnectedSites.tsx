@@ -1,7 +1,9 @@
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
   Empty,
+  Icon,
   Image,
   SectionList,
   SizableText,
@@ -11,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IConnectedSite } from '@onekeyhq/shared/types/signatureRecord';
@@ -45,9 +48,22 @@ const ConnectedSiteItem = ({ item }: { item: IConnectedSite }) => (
         overflow="hidden"
         width={40}
         height={40}
-        src={item.logo}
         mr="$3"
-      />
+      >
+        <Image.Source
+          source={{
+            uri: item.logo,
+          }}
+        />
+        <Image.Fallback
+          alignItems="center"
+          justifyContent="center"
+          bg="$gray5"
+          delayMs={1000}
+        >
+          <Icon size={40} name="GlobusOutline" color="$iconSubdued" />
+        </Image.Fallback>
+      </Image>
       <SizableText size="$bodyLgMedium">
         {getConnectedSiteTitle(item.url)}
       </SizableText>
@@ -74,13 +90,20 @@ type ISectionListData = {
   data: IConnectedSite[];
 };
 
-const ListEmptyComponent = () => (
-  <Empty
-    title="No Connected Sites"
-    description="All sites connected through OneKey will appear here"
-    icon="ClockAlertOutline"
-  />
-);
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+  return (
+    <Empty
+      title={intl.formatMessage({
+        id: ETranslations.settings_no_connected_sites,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.settings_no_connected_sites_desc,
+      })}
+      icon="ClockAlertOutline"
+    />
+  );
+};
 
 export const ConnectedSites = () => {
   const { sections, onEndReached } = useGetSignatureSections(async (params) =>

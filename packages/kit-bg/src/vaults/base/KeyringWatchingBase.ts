@@ -5,6 +5,8 @@ import {
   InvalidAddress,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
@@ -17,6 +19,7 @@ import type {
   IDBAccount,
   IDBSimpleAccount,
   IDBUtxoAccount,
+  IDBVariantAccount,
 } from '../../dbs/local/types';
 import type { IPrepareWatchingAccountsParams } from '../types';
 
@@ -25,13 +28,17 @@ export abstract class KeyringWatchingBase extends KeyringBase {
 
   async signTransaction(): Promise<ISignedTxPro> {
     throw new OneKeyInternalError(
-      'signTransaction is not supported for watching accounts',
+      appLocale.intl.formatMessage({
+        id: ETranslations.wallet_error_trade_with_watched_acocunt,
+      }),
     );
   }
 
   async signMessage(): Promise<string[]> {
     throw new OneKeyInternalError(
-      'signMessage is not supported for watching accounts',
+      appLocale.intl.formatMessage({
+        id: ETranslations.wallet_error_trade_with_watched_acocunt,
+      }),
     );
   }
 
@@ -46,6 +53,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       name,
       deriveInfo,
       isUrlAccount,
+      addresses,
     } = params;
     if (!address && !xpub) {
       throw new Error(
@@ -95,7 +103,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       xpub: xpub || '',
       xpubSegwit,
       path: '',
-      addresses: {},
+      addresses: addresses || {},
     };
     return [account];
   }
@@ -140,6 +148,53 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       pub: '',
       path: '',
     };
+    return Promise.resolve([account]);
+  }
+
+  async basePrepareVariantWatchingAccounts(
+    params: IPrepareWatchingAccountsParams,
+    options: {
+      impl?: string;
+      coinType?: string;
+    } = {},
+  ): Promise<IDBAccount[]> {
+    const { address, name, createAtNetwork, isUrlAccount } = params;
+    if (!address) {
+      throw new InvalidAddress();
+    }
+    if (!createAtNetwork) {
+      throw new Error(
+        'basePrepareSimpleWatchingAccounts ERROR: createAtNetwork is not defined',
+      );
+    }
+
+    const settings = await this.getVaultSettings();
+    const coinType = options.coinType || settings.coinTypeDefault;
+    const impl = options.impl || settings.impl;
+
+    const id = accountUtils.buildWatchingAccountId({
+      coinType,
+      address,
+      isUrlAccount,
+    });
+
+    const { normalizedAddress } = await this.vault.validateAddress(
+      address || '',
+    );
+
+    const account: IDBVariantAccount = {
+      id,
+      name: name || '',
+      type: EDBAccountType.VARIANT,
+      path: '',
+      coinType,
+      pub: '',
+      impl,
+      createAtNetwork,
+      address: '',
+      addresses: { [this.networkId]: normalizedAddress },
+    };
+
     return Promise.resolve([account]);
   }
 }

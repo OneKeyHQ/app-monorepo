@@ -1,14 +1,14 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { IconButton, Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 
 import { AddressBookListContent } from '../../components/AddressBookListContent';
-import { PageLoading } from '../../components/PageLoading';
-import { UnsafeContent } from '../../components/UnsafeContent';
+import { ContentContainer } from '../../components/ContentContainer';
 import { useAddressBookItems } from '../../hooks/useAddressBook';
 
 const HeaderRightComponent = () => {
@@ -28,30 +28,22 @@ const HeaderRightComponent = () => {
 
 function ListPage() {
   const intl = useIntl();
-  const [searchText, setSearchText] = useState<string>('');
-  const { isLoading, result } = useAddressBookItems();
-  if (isLoading) {
-    return <PageLoading />;
-  }
-  if (!result?.isSafe) {
-    return <UnsafeContent />;
-  }
+  const { isLoading, result, run } = useAddressBookItems();
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: 'title__address_book' })}
+        title={intl.formatMessage({ id: ETranslations.address_book_title })}
         headerRight={HeaderRightComponent}
-        headerSearchBarOptions={{
-          placeholder: intl.formatMessage({ id: 'form__search' }),
-          onChangeText: (e) => setSearchText(e.nativeEvent.text),
-        }}
       />
       <Page.Body>
-        <AddressBookListContent
-          items={result.items}
-          showActions
-          searchKey={searchText.trim()}
-        />
+        <ContentContainer
+          loading={isLoading}
+          error={Boolean(!isLoading && !result)}
+          unsafe={Boolean(result && !result.isSafe)}
+          onRefresh={run}
+        >
+          <AddressBookListContent items={result?.items ?? []} showActions />
+        </ContentContainer>
       </Page.Body>
     </Page>
   );

@@ -1,17 +1,20 @@
 import { useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Badge,
   Icon,
   Image,
+  NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapProviderInfoItemProps {
@@ -34,24 +37,41 @@ const SwapProviderInfoItem = ({
   onPress,
   isLoading,
 }: ISwapProviderInfoItemProps) => {
+  const intl = useIntl();
+  const { md } = useMedia();
   const rateIsExit = useMemo(() => {
     const rateBN = new BigNumber(rate ?? 0);
     return !rateBN.isZero();
   }, [rate]);
   const rateContent = useMemo(() => {
-    if (!rateIsExit || !fromToken || !toToken) return 'Insufficient liquidity';
+    if (!rateIsExit || !fromToken || !toToken)
+      return (
+        <SizableText>
+          {intl.formatMessage({
+            id: ETranslations.swap_page_provider_provider_insufficient_liquidity,
+          })}
+        </SizableText>
+      );
     const rateBN = new BigNumber(rate ?? 0);
-    const formatRate = numberFormat(rateBN.toFixed(), {
-      formatter: 'balance',
-    });
-    return `1 ${fromToken.symbol.toUpperCase()} = ${formatRate as string} ${
-      toToken.symbol
-    }`;
-  }, [fromToken, rate, rateIsExit, toToken]);
+    return (
+      <SizableText
+        size="$bodyMdMedium"
+        pl="$1"
+        maxWidth={md ? 240 : 360}
+        textAlign="right"
+      >
+        {`1 ${fromToken.symbol.toUpperCase()} = `}
+        <NumberSizeableText size="$bodyMdMedium" formatter="balance">
+          {rateBN.toFixed()}
+        </NumberSizeableText>{' '}
+        <SizableText size="$bodyMdMedium">{toToken.symbol}</SizableText>
+      </SizableText>
+    );
+  }, [fromToken, intl, md, rate, rateIsExit, toToken]);
   return (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMd" color="$textSubdued">
-        Provider
+        {intl.formatMessage({ id: ETranslations.swap_page_provider_provider })}
       </SizableText>
 
       {isLoading ? (
@@ -80,9 +100,7 @@ const SwapProviderInfoItem = ({
               borderRadius="$1"
             />
           )}
-          <SizableText size="$bodyMdMedium" pl="$1">
-            {rateContent}
-          </SizableText>
+          {rateContent}
           {showLock ? (
             <Icon name="LockOutline" color="$iconSubdued" ml="$1" size="$5" />
           ) : null}

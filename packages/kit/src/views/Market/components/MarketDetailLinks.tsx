@@ -1,3 +1,6 @@
+import { useIntl } from 'react-intl';
+
+import type { ITabPageProps } from '@onekeyhq/components';
 import {
   Button,
   IconButton,
@@ -5,6 +8,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
@@ -13,14 +17,23 @@ export function MarketDetailLinks({
     links: { discordUrl, homePageUrl, telegramUrl, twitterUrl, whitepaper },
     explorers,
   },
-}: {
+  onContentSizeChange,
+}: ITabPageProps & {
   token: IMarketTokenDetail;
 }) {
+  const intl = useIntl();
   return (
-    <YStack px="$5">
+    <YStack
+      px="$5"
+      onLayout={({
+        nativeEvent: {
+          layout: { width, height },
+        },
+      }) => onContentSizeChange(width, height)}
+    >
       <YStack py="$5" space="$2">
         <SizableText size="$headingSm" color="$textSubdued">
-          Community
+          {intl.formatMessage({ id: ETranslations.global_community })}
         </SizableText>
         <XStack space="$3">
           {twitterUrl ? (
@@ -45,7 +58,7 @@ export function MarketDetailLinks({
       </YStack>
       <YStack py="$5" space="$2">
         <SizableText size="$headingSm" color="$textSubdued">
-          Official Links
+          {intl.formatMessage({ id: ETranslations.global_official_links })}
         </SizableText>
         <XStack space="$3">
           {homePageUrl ? (
@@ -54,24 +67,29 @@ export function MarketDetailLinks({
               iconAfter="OpenOutline"
               onPress={() => openUrlExternal(homePageUrl)}
             >
-              Website
+              {intl.formatMessage({ id: ETranslations.global_website })}
             </Button>
           ) : null}
           {whitepaper ? (
-            <Button icon="BookOpenOutline" iconAfter="OpenOutline">
-              White Paper
+            <Button
+              icon="BookOpenOutline"
+              iconAfter="OpenOutline"
+              onPress={() => openUrlExternal(whitepaper)}
+            >
+              {intl.formatMessage({ id: ETranslations.global_white_paper })}
             </Button>
           ) : null}
         </XStack>
       </YStack>
       <YStack py="$5">
         <SizableText size="$headingSm" color="$textSubdued">
-          Explorers
+          {intl.formatMessage({ id: ETranslations.global_explorers })}
         </SizableText>
-        <XStack flexWrap="wrap" space="$3">
+        <XStack flexWrap="wrap">
           {explorers.map(({ url, name }) => (
             <Button
               mt="$2"
+              mr="$3"
               key={url}
               iconAfter="OpenOutline"
               onPress={() => openUrlExternal(url)}

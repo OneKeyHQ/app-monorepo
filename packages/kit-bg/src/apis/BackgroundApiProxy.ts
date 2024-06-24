@@ -40,6 +40,7 @@ import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
+import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
@@ -48,6 +49,7 @@ import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
+import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 
@@ -123,6 +125,10 @@ class BackgroundApiProxy
 
   serviceDemo = this._createProxyService('serviceDemo') as ServiceDemo;
 
+  serviceV4Migration = this._createProxyService(
+    'serviceV4Migration',
+  ) as ServiceV4Migration;
+
   serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
 
   serviceDappSide = this._createProxyService(
@@ -132,6 +138,10 @@ class BackgroundApiProxy
   serviceWalletConnect = this._createProxyService(
     'serviceWalletConnect',
   ) as ServiceWalletConnect;
+
+  serviceQrWallet = this._createProxyService(
+    'serviceQrWallet',
+  ) as ServiceQrWallet;
 
   serviceAccountProfile = this._createProxyService(
     'serviceAccountProfile',

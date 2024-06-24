@@ -129,12 +129,12 @@ function MobileBrowser() {
   const { top } = useSafeAreaInsets();
 
   return (
-    <Page>
+    <Page fullPage>
       <Page.Header headerShown={false} />
       {/* custom header */}
       <XStack
         pt={top}
-        mx="$5"
+        px="$5"
         alignItems="center"
         my="$1"
         mt={platformEnv.isNativeAndroid ? '$3' : undefined}

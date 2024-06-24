@@ -1,6 +1,8 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { ITokenData } from '@onekeyhq/shared/types/token';
 
 export enum EQRCodeHandlerType {
   UNKNOWN = 'UNKNOWN',
@@ -116,10 +118,24 @@ export type IQRCodeHandler<T extends IBaseValue> = (
 export type IQRCodeHandlerParseResult<T extends IBaseValue> =
   IQRCodeHandlerResult<T> & { raw: string };
 
+export enum EQRCodeHandlerNames {
+  bitcoin = 'bitcoin',
+  ethereum = 'ethereum',
+  solana = 'solana',
+  walletconnect = 'walletconnect',
+  migrate = 'migrate',
+  animation = 'animation',
+  urlAccount = 'urlAccount',
+  marketDetail = 'marketDetail',
+}
+
 export type IQRCodeHandlerParseOutsideOptions = {
+  handlers: EQRCodeHandlerNames[];
   autoHandleResult?: boolean;
-  accountId?: string;
-  mask?: boolean;
+  account?: INetworkAccount;
+  tokens?: ITokenData;
+  qrWalletScene?: boolean;
+  showProTutorial?: boolean;
 };
 
 export type IQRCodeHandlerParseOptions = IQRCodeHandlerParseOutsideOptions &

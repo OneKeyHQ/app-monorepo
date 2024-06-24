@@ -56,6 +56,24 @@ const restrictedImportsPatterns = [
     message:
       'import localDbInstance directly is not allowd, use localDb instead',
   },
+  {
+    group: ['**/v4localDbInstance.native'],
+    message:
+      'import v4localDbInstance.native directly is not allowd, use v4localDbInstance instead',
+  },
+  {
+    group: [
+      '**/v4ToV5Migration',
+      'v4ToV5Migration/**',
+      '**/v4ToV5Migration/**',
+    ],
+    message: 'import **/v4ToV5Migration/** not allowed ',
+  },
+  {
+    group: ['**/v4localDBStoreNames.native'],
+    message: 'import v4localDBStoreNames instead ',
+  },
+  //
 ];
 const tsRules = {
   '@typescript-eslint/no-restricted-imports': [
@@ -169,29 +187,7 @@ module.exports = {
   ignorePatterns: [
     '*.wasm.bin',
     'apps/desktop/public/static/js-sdk*',
-    'packages/components/src/primitives/Icon/*',
-    'packages/kit/src/store',
-    'packages/shared/src/engine',
-    'packages/core/src/chains/ada',
-    'packages/core/src/chains/algo',
-    'packages/core/src/chains/apt',
-    'packages/core/src/chains/bch',
-    'packages/core/src/chains/btc',
-    'packages/core/src/chains/cfx',
-    'packages/core/src/chains/cosmos',
-    'packages/core/src/chains/doge',
-    'packages/core/src/chains/dot',
-    'packages/core/src/chains/fil',
-    'packages/core/src/chains/kaspa',
-    'packages/core/src/chains/ltc',
-    'packages/core/src/chains/near',
-    'packages/core/src/chains/nexa',
-    'packages/core/src/chains/sol',
-    'packages/core/src/chains/stc',
-    'packages/core/src/chains/sui',
-    'packages/core/src/chains/tron',
-    'packages/core/src/chains/xmr',
-    'packages/core/src/chains/xrp',
+    'packages/components/src/primitives/Icon/react/*',
   ],
   env: {
     browser: true,
@@ -228,6 +224,7 @@ module.exports = {
           /Erc20/i,
           /Erc721/i,
           /Erc1155/i,
+          /protobufjs/i,
         ],
         'skipIfMatch': ['http://[^s]*'],
         'minLength': 3,

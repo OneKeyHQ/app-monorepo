@@ -2,8 +2,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
@@ -34,6 +33,8 @@ export type IFirmwareAuthenticateParams = {
   device: SearchDevice | IDBDevice; // TODO split SearchDevice and IDBDevice
   skipDeviceCancel?: boolean;
 };
+
+const deviceCheckingCodes = [0, 10104, 10105, 10106, 10107];
 
 export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
@@ -118,66 +119,48 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
           skipDeviceCancel: true, // firmwareAuthenticate close dialog before api call
           connectId,
         });
+        appEventBus.emit(
+          EAppEventBusNames.HardwareVerifyAfterDeviceConfirm,
+          undefined,
+        );
         const client = await this.serviceHardware.getClient(
           EServiceEndpointEnum.Wallet,
         );
-        const shouldUseProxy =
-          platformEnv.isDev && process.env.ONEKEY_PROXY && platformEnv.isWeb;
+
         const payload = {
           deviceType,
           data,
           cert,
           signature,
         };
-        let verified = false;
-        let result:
-          | {
-              message?: string;
-              data?: string;
-              code?: number;
-            }
-          | undefined;
-        try {
-          const resp = await client.post<{
-            message?: string;
-            data?: string;
-            code?: number;
-          }>(
-            '/wallet/v1/hardware/verify',
-            // shouldUseProxy ? CERTIFICATE_URL_PATH : CERTIFICATE_URL,
+        const resp = await client.post<{
+          message?: string;
+          data?: string;
+          code?: number;
+        }>(
+          '/wallet/v1/hardware/verify',
 
-            payload,
-            {
-              headers: shouldUseProxy
-                ? {
-                    // 'X-Proxy': CERTIFICATE_URL_LOCAL_DEV_PROXY,
-                  }
-                : {},
-            },
-          );
-          result = resp.data;
-          console.log('firmwareAuthenticate result: ', result, connectId);
+          payload,
+        );
+        const result = resp.data;
+        console.log('firmwareAuthenticate result: ', result, connectId);
 
-          // result.message = 'false';
+        // result.message = 'false';
 
-          // result.data = 'CLA45F0024'; // server return SN
-          // SearchDevice.connectId (web sdk return SN, but ble sdk return uuid)
-          verified = result.code === 0;
-        } catch (error) {
-          const serverError = error as OneKeyServerApiError;
-          if (
-            serverError?.className ===
-              EOneKeyErrorClassNames.OneKeyServerApiError &&
-            serverError?.data?.code &&
-            serverError?.data?.code !== 0
-          ) {
-            // data.code=0 Error:         unofficial firmware
-            verified = false;
-          } else {
-            // other http network error:  unable to verify
-            throw error;
-          }
+        // result.data = 'CLA45F0024'; // server return SN
+        // SearchDevice.connectId (web sdk return SN, but ble sdk return uuid)
+
+        if (
+          typeof result.code !== 'number' ||
+          !deviceCheckingCodes.includes(result.code)
+        ) {
+          throw new OneKeyServerApiError({
+            code: result.code,
+            message: result.message,
+          });
         }
+
+        const verified = result.code === 0;
 
         const dbDevice = device as IDBDevice;
         if (dbDevice?.id) {

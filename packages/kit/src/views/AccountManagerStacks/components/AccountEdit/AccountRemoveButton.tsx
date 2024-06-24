@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 
-import { ActionList, Dialog } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { ActionList, Dialog, Toast } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -11,6 +13,7 @@ import type {
   IDBAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export function AccountRemoveDialog({
@@ -20,6 +23,7 @@ export function AccountRemoveDialog({
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
 }) {
+  const intl = useIntl();
   const actions = useAccountSelectorActions();
   const [loading, setLoading] = useState(false);
   return (
@@ -34,6 +38,11 @@ export function AccountRemoveDialog({
           await actions.current.removeAccount({
             indexedAccount,
             account,
+          });
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_change_saved,
+            }),
           });
         } finally {
           setLoading(false);
@@ -84,6 +93,7 @@ export function AccountRemoveButton({
   account?: IDBAccount;
   onClose?: () => void;
 }) {
+  const intl = useIntl();
   const { config } = useAccountSelectorContextData();
 
   const desc = useMemo(() => {
@@ -95,22 +105,29 @@ export function AccountRemoveButton({
         accountId: account.id,
       });
       if (walletId && accountUtils.isImportedWallet({ walletId })) {
-        return `You can restore the account using its private key after removal. Ensure it's backed up to avoid permanent loss of access.`;
+        return intl.formatMessage({
+          id: ETranslations.remove_private_key_account_desc,
+        });
       }
     }
-    return 'This account will be removed.';
-  }, [account, indexedAccount]);
+    return intl.formatMessage({ id: ETranslations.remove_account_desc });
+  }, [account, indexedAccount, intl]);
 
   return (
     <ActionList.Item
       icon="DeleteOutline"
-      label="Remove"
+      label={intl.formatMessage({ id: ETranslations.global_remove })}
       destructive
       onClose={onClose}
       onPress={async () => {
         showAccountRemoveDialog({
           config,
-          title: `Remove ${name}`,
+          title: intl.formatMessage(
+            { id: ETranslations.global_remove_account_name },
+            {
+              account: name,
+            },
+          ),
           description: desc,
           account,
           indexedAccount,

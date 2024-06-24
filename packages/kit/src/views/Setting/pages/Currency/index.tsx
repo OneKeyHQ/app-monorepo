@@ -1,8 +1,10 @@
-import { type FC, useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Empty,
   Page,
   SearchBar,
   SectionList,
@@ -12,8 +14,10 @@ import {
 import {} from '@onekeyhq/components/src/layouts/SectionList';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type ICurrencyType = 'crypto' | 'fiat' | 'popular';
 
@@ -43,7 +47,7 @@ const ListHeaderComponent: FC<IListHeaderComponentProps> = ({
       <SearchBar
         value={text}
         onChangeText={onChangeText}
-        placeholder={intl.formatMessage({ id: 'form__search' })}
+        placeholder={intl.formatMessage({ id: ETranslations.global_search })}
       />
     </Stack>
   );
@@ -58,26 +62,36 @@ const currencyFilterFn = (keyword: string, item: ICurrencyItem) => {
   );
 };
 
-const CurrencyItem: FC<{ item: ICurrencyItem }> = ({ item }) => {
-  const [settings] = useSettingsPersistAtom();
-  const onPress = useCallback(async () => {
-    await backgroundApiProxy.serviceSetting.setCurrency({
-      id: item.id,
-      symbol: item.unit,
-    });
-  }, [item]);
+const CurrencyItem: FC<{
+  item: ICurrencyItem;
+  currency?: ICurrencyItem;
+  onPress: (item: ICurrencyItem) => void;
+}> = ({ item, onPress, currency }) => {
+  const handlePress = useCallback(() => {
+    onPress(item);
+  }, [item, onPress]);
   return (
     <ListItem
       title={`${item.id.toUpperCase()} - ${item.unit}`}
       subtitle={item.name}
-      checkMark={settings.currencyInfo.id === item.id}
-      onPress={onPress}
+      checkMark={currency?.id === item.id}
+      onPress={handlePress}
     />
   );
 };
 
 export default function SettingCurrencyModal() {
+  const navigation = useAppNavigation();
+  const [settings] = useSettingsPersistAtom();
   const [text, onChangeText] = useState('');
+  const currencyRef = useRef({
+    id: settings.currencyInfo.id,
+    unit: settings.currencyInfo.symbol,
+  });
+  const [currency, setCurrency] = useState<ICurrencyItem | undefined>(
+    currencyRef.current as ICurrencyItem,
+  );
+  const intl = useIntl();
   const currencyListResult = usePromiseResult<ICurrencyItem[]>(
     async () => {
       const items = await backgroundApiProxy.serviceSetting.getCurrencyList();
@@ -109,23 +123,29 @@ export default function SettingCurrencyModal() {
     }
     return [
       {
-        title: 'popular',
+        title: intl.formatMessage({ id: ETranslations.global_popular }),
         data: section.popular,
       },
       {
-        title: 'crypto',
+        title: intl.formatMessage({ id: ETranslations.global_crypto }),
         data: section.crypto,
       },
       {
-        title: 'fiat',
+        title: intl.formatMessage({ id: ETranslations.settings_fiat }),
         data: section.fiat,
       },
     ].filter((item) => item.data.length > 0);
-  }, [currencyListResult, text]);
+  }, [currencyListResult, text, intl]);
+
+  const handlePress = useCallback((item: ICurrencyItem) => {
+    setCurrency(item);
+  }, []);
 
   const renderItem = useCallback(
-    ({ item }: { item: ICurrencyItem }) => <CurrencyItem item={item} />,
-    [],
+    ({ item }: { item: ICurrencyItem }) => (
+      <CurrencyItem item={item} currency={currency} onPress={handlePress} />
+    ),
+    [currency, handlePress],
   );
   const renderSectionHeader = useCallback(
     ({ section }: { section: ISectionItem }) => (
@@ -133,23 +153,66 @@ export default function SettingCurrencyModal() {
     ),
     [],
   );
+
+  const handleConfirm = useCallback(async () => {
+    if (currency) {
+      await backgroundApiProxy.serviceSetting.setCurrency({
+        id: currency.id,
+        symbol: currency.unit,
+      });
+      setTimeout(() => {
+        backgroundApiProxy.serviceApp.restartApp();
+      });
+    }
+  }, [currency]);
+
+  const disabled = useMemo(
+    () => currencyRef.current.id === currency?.id,
+    [currency?.id],
+  );
+
   return (
     <Page>
-      {currencyListResult?.isLoading ? (
-        <Stack h="$48" justifyContent="center" alignItems="center">
-          <Spinner />
-        </Stack>
-      ) : (
-        <SectionList
-          estimatedItemSize="$6"
-          ListHeaderComponent={
-            <ListHeaderComponent text={text} onChangeText={onChangeText} />
-          }
-          sections={sections ?? emptySections}
-          renderItem={renderItem}
-          renderSectionHeader={renderSectionHeader}
-        />
-      )}
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.settings_default_currency,
+        })}
+      />
+      <Page.Body>
+        {currencyListResult?.isLoading ? (
+          <Stack h="$48" justifyContent="center" alignItems="center">
+            <Spinner />
+          </Stack>
+        ) : (
+          <SectionList
+            estimatedItemSize="$6"
+            ListHeaderComponent={
+              <ListHeaderComponent text={text} onChangeText={onChangeText} />
+            }
+            ListEmptyComponent={
+              <Empty
+                icon="SearchOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.global_no_results,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.global_search_no_results_desc,
+                })}
+              />
+            }
+            sections={sections ?? emptySections}
+            renderItem={renderItem}
+            renderSectionHeader={renderSectionHeader}
+            extraData={currency}
+          />
+        )}
+      </Page.Body>
+      <Page.Footer
+        onConfirm={handleConfirm}
+        confirmButtonProps={{
+          disabled,
+        }}
+      />
     </Page>
   );
 }

@@ -6,10 +6,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -55,7 +52,7 @@ class ProviderApiWebln extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    throw new NotImplemented();
+    // noop
   }
 
   public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {

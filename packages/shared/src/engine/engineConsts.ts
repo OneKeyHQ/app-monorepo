@@ -93,7 +93,7 @@ const COINTYPE_LIGHTNING_TESTNET = '81297820149140';
 const IMPL_NOSTR = 'nostr';
 const COINTYPE_NOSTR = '1237';
 
-const IMPL_DNX = 'dnx';
+const IMPL_DNX = 'dynex';
 const COINTYPE_DNX = '29538';
 
 const IMPL_CKB = 'nervos';
@@ -175,7 +175,7 @@ export const HISTORY_CONSTS = {
   PENDING_QUEUE_MAX_LENGTH: 10,
 };
 
-export enum SocketEvents {
+export enum EAppSocketEvents {
   'Notification' = 'notification',
 }
 
@@ -193,6 +193,7 @@ export const getEnabledNFTNetworkIds = (): string[] => [
   getNetworkIdsMap().polygon,
   getNetworkIdsMap().arbitrum,
   getNetworkIdsMap().avalanche,
+  getNetworkIdsMap().sol,
 ];
 
 function getSupportedImpls() {

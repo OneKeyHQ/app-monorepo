@@ -133,6 +133,12 @@ export function parseUrl(url: string): IUrlValue | null {
 
 export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
 
+// check the ens format 元宇宙.bnb / diamondgs198.x
+export const addressIsEnsFormat = (address: string) => {
+  const parts = address.split('.');
+  return parts.length > 1 && parts.every((o) => Boolean(o) && o === o.trim());
+};
+
 export function buildExplorerAddressUrl({
   network,
   address,
@@ -141,6 +147,28 @@ export function buildExplorerAddressUrl({
   address: string | undefined;
 }) {
   if (!network || !address) return '';
+
+  const addressUrl = network.explorers[0]?.address;
+
+  if (!addressUrl) return '';
+
+  return addressUrl.replace('{address}', address);
+}
+
+export function buildTokenDetailsUrl({
+  network,
+  address,
+}: {
+  network: IServerNetwork | undefined;
+  address: string | undefined;
+}) {
+  if (!network || !address) return '';
+
+  const tokenUrl = network.explorers[0]?.token;
+
+  if (tokenUrl) {
+    return tokenUrl.replace('{token}', address);
+  }
 
   const addressUrl = network.explorers[0]?.address;
 

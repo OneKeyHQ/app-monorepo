@@ -9,38 +9,40 @@ import {
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import bs58check from 'bs58check';
 import { ECPairFactory } from 'ecpair';
-
-import {
-  CKDPub,
-  IBip32ExtendedKey,
-  ecc,
-  generateRootFingerprint,
-  secp256k1,
-} from '../../../secret';
+import { cloneDeep, isNil, omit } from 'lodash';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import {
+import type {
   IAddressValidation,
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { ISignPsbtParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
+
+import {
+  CKDPub,
+  ecc,
+  generateRootFingerprint,
+  secp256k1,
+} from '../../../secret';
+import { EAddressEncodings } from '../../../types';
+
+import { getBtcForkNetwork } from './networks';
+
+import type { IBip32ExtendedKey } from '../../../secret';
+import type {
+  ICoreApiSignAccount,
+  ICurveName,
+  ITxInputToSign,
+} from '../../../types';
+import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
 import type { BIP32API } from 'bip32/types/bip32';
 import type { Payment, Psbt, networks } from 'bitcoinjs-lib';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 import type { ECPairAPI } from 'ecpair/src/ecpair';
-import { isNil, omit } from 'lodash';
-import {
-  EAddressEncodings,
-  ICurveName,
-  type ICoreApiSignAccount,
-  type ITxInputToSign,
-} from '../../../types';
-import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
-import { getBtcForkNetwork } from './networks';
-import { ISignPsbtParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 
 export * from './networks';
 
@@ -134,6 +136,23 @@ export const loadOPReturn = (
 export const isTaprootPath = (pathPrefix: string) =>
   pathPrefix.startsWith(`m/86'/`);
 
+export function scriptPkToAddress(
+  scriptPk: string | Buffer,
+  psbtNetwork: networks.Network,
+) {
+  initBitcoinEcc();
+  try {
+    // 0/0
+    const address = BitcoinJsAddress.fromOutputScript(
+      typeof scriptPk === 'string' ? Buffer.from(scriptPk, 'hex') : scriptPk,
+      psbtNetwork,
+    );
+    return address;
+  } catch (e) {
+    return '';
+  }
+}
+
 export function getInputsToSignFromPsbt({
   psbt,
   psbtNetwork,
@@ -162,6 +181,7 @@ export function getInputsToSignFromPsbt({
 
     if (script && !isSigned) {
       const address = scriptPkToAddress(script, psbtNetwork);
+      // 0/0
       if (account.address === address) {
         inputsToSign.push({
           index,
@@ -169,7 +189,9 @@ export function getInputsToSignFromPsbt({
           address,
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });
+        // P2TR taproot
         if (account.template?.startsWith(`m/86'/`) && !v.tapInternalKey) {
+          // slice pub length from 33 to 32
           v.tapInternalKey = toXOnly(
             Buffer.from(checkIsDefined(account.pub), 'hex'),
           );
@@ -186,22 +208,6 @@ export function getInputsToSignFromPsbt({
     }
   });
   return inputsToSign;
-}
-
-export function scriptPkToAddress(
-  scriptPk: string | Buffer,
-  psbtNetwork: networks.Network,
-) {
-  initBitcoinEcc();
-  try {
-    const address = BitcoinJsAddress.fromOutputScript(
-      typeof scriptPk === 'string' ? Buffer.from(scriptPk, 'hex') : scriptPk,
-      psbtNetwork,
-    );
-    return address;
-  } catch (e) {
-    return '';
-  }
 }
 
 export function isBRC20Token(tokenAddress?: string) {
@@ -483,6 +489,105 @@ export function buildBtcXpubSegwit({
   return xpubSegwit;
 }
 
+export function getBip32FromBase58({
+  network,
+  key,
+}: {
+  network: IBtcForkNetwork;
+  key: string;
+}) {
+  // if (impl === IMPL_BTC) {
+  //   network = getBtcForkNetwork('btc');
+  // }
+  // if (impl === IMPL_TBTC) {
+  //   network = getBtcForkNetwork('tbtc');
+  // }
+  // if (!network) {
+  //   throw new Error(`network not support: ${impl}`);
+  // }
+
+  // const accountNameInfoMap = getAccountNameInfoByImpl(IMPL_BTC);
+  // const accountNameInfo = Object.values(accountNameInfoMap);
+
+  const buffer = Buffer.from(bs58check.decode(key));
+  const version = buffer.readUInt32BE(0);
+
+  const versionByteOptions = [
+    network.bip32,
+    ...Object.values(network.segwitVersionBytes || {}),
+  ];
+  let bip32Info = cloneDeep(network.bip32);
+  for (const versionByte of versionByteOptions) {
+    if (versionByte.private === version || versionByte.public === version) {
+      bip32Info = cloneDeep(versionByte);
+      break;
+    }
+  }
+  const newNetwork = cloneDeep(network);
+  newNetwork.bip32 = bip32Info;
+  const bip32Api = getBitcoinBip32().fromBase58(key, newNetwork);
+  return bip32Api;
+}
+
+export function pubkeyToPayment({
+  pubkey,
+  encoding,
+  network,
+}: {
+  pubkey: Buffer | undefined;
+  encoding: EAddressEncodings;
+  network: IBtcForkNetwork;
+}): Payment {
+  initBitcoinEcc();
+  let payment: Payment = {
+    pubkey,
+    network,
+  };
+
+  switch (encoding) {
+    case EAddressEncodings.P2PKH:
+      payment = payments.p2pkh(payment);
+      break;
+
+    case EAddressEncodings.P2WPKH:
+      payment = payments.p2wpkh(payment);
+      break;
+
+    case EAddressEncodings.P2SH_P2WPKH:
+      payment = payments.p2sh({
+        redeem: payments.p2wpkh(payment),
+        network,
+      });
+      break;
+    case EAddressEncodings.P2TR:
+      payment = payments.p2tr({
+        // this input may not belongs to self, can not get pubkey
+        internalPubkey: pubkey ? toXOnly(pubkey) : undefined,
+        //    internalPubkey: pubkey ? pubkey.slice(1, 33) : undefined,
+        network,
+      });
+      break;
+
+    default:
+      throw new Error(`Invalid encoding: ${encoding as string}`);
+  }
+
+  return payment;
+}
+
+export type IGetAddressFromXpubParams = {
+  curve: ICurveName;
+  network: IBtcForkNetwork;
+  xpub: string;
+  relativePaths: Array<string>;
+  addressEncoding?: EAddressEncodings;
+  encodeAddress: (address: string) => string;
+};
+export type IGetAddressFromXpubResult = {
+  addresses: Record<string, string>;
+  publicKeys: Record<string, string>;
+  xpubSegwit: string;
+};
 export function getAddressFromXpub({
   curve,
   network,
@@ -490,17 +595,7 @@ export function getAddressFromXpub({
   relativePaths,
   addressEncoding,
   encodeAddress,
-}: {
-  curve: ICurveName;
-  network: IBtcForkNetwork;
-  xpub: string;
-  relativePaths: Array<string>;
-  addressEncoding?: EAddressEncodings;
-  encodeAddress: (address: string) => string;
-}): Promise<{
-  addresses: Record<string, string>;
-  xpubSegwit: string;
-}> {
+}: IGetAddressFromXpubParams): Promise<IGetAddressFromXpubResult> {
   // Only used to generate addresses locally.
   const decodedXpub = bs58check.decode(xpub);
   const decodedXpubHex = bufferUtils.bytesToHex(decodedXpub);
@@ -519,12 +614,13 @@ export function getAddressFromXpub({
     encoding = supportEncodings[0];
   }
 
-  let xpubSegwit = buildBtcXpubSegwit({
+  const xpubSegwit = buildBtcXpubSegwit({
     xpub,
     addressEncoding: encoding,
   });
 
   const ret: Record<string, string> = {};
+  const publicKeys: Record<string, string> = {};
 
   const startExtendedKey: IBip32ExtendedKey = {
     chainCode: bufferUtils.toBuffer(decodedXpub.slice(13, 45)),
@@ -562,51 +658,48 @@ export function getAddressFromXpub({
     if (typeof address === 'string' && address.length > 0) {
       address = encodeAddress(address);
       ret[path] = address;
+      publicKeys[path] = bufferUtils.bytesToHex(extendedKey.key);
     }
   }
-  return Promise.resolve({ addresses: ret, xpubSegwit });
+  return Promise.resolve({ addresses: ret, publicKeys, xpubSegwit });
 }
 
-export function pubkeyToPayment({
-  pubkey,
-  encoding,
+export function getPublicKeyFromXpub({
+  xpub,
   network,
+  relPath = '0/0',
 }: {
-  pubkey: Buffer;
-  encoding: EAddressEncodings;
+  xpub: string;
   network: IBtcForkNetwork;
-}): Payment {
-  initBitcoinEcc();
-  let payment: Payment = {
-    pubkey,
+  relPath: string;
+}) {
+  const node = getBip32FromBase58({
     network,
+    key: xpub,
+  }).derivePath(relPath);
+
+  const pub = node.publicKey.toString('hex');
+  return pub;
+}
+
+/*
+ const { getHDPath, getScriptType } = await CoreSDKLoader();
+ const addressN = getHDPath(fullPath);
+ const sdkScriptType = getScriptType(addressN);
+*/
+export function convertBtcScriptTypeForHardware(sdkScriptType: string) {
+  const map: Record<string, number> = {
+    SPENDADDRESS: 0,
+    SPENDMULTISIG: 1,
+    EXTERNAL: 2,
+    SPENDWITNESS: 3,
+    SPENDP2SHWITNESS: 4,
+    SPENDTAPROOT: 5,
   };
+  const val = map[sdkScriptType];
 
-  switch (encoding) {
-    case EAddressEncodings.P2PKH:
-      payment = payments.p2pkh(payment);
-      break;
-
-    case EAddressEncodings.P2WPKH:
-      payment = payments.p2wpkh(payment);
-      break;
-
-    case EAddressEncodings.P2SH_P2WPKH:
-      payment = payments.p2sh({
-        redeem: payments.p2wpkh(payment),
-        network,
-      });
-      break;
-    case EAddressEncodings.P2TR:
-      payment = payments.p2tr({
-        internalPubkey: pubkey.slice(1, 33),
-        network,
-      });
-      break;
-
-    default:
-      throw new Error(`Invalid encoding: ${encoding as string}`);
+  if (isNil(val)) {
+    throw new Error(`${sdkScriptType} not found in map`);
   }
-
-  return payment;
+  return val;
 }

@@ -1,10 +1,12 @@
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
+
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
 import { EAddressEncodings } from '../../types';
 
 import CoreChainHd from './CoreChainHd';
-import { IEncodedTxBtc } from './types';
+
+import type { IEncodedTxBtc } from './types';
 
 const {
   hdCredential,
@@ -73,8 +75,10 @@ const {
             address:
               'tb1pzutpcaymsyxtmz325ucsjed4evp9mea05tsf32wnkx46vsjrqtrq4d3dmr',
             relPath: '0/0',
+            fullPath: "m/86'/1'/0'/0/0",
           },
         },
+        addressToPath: {},
         inputAddressesEncodings: [EAddressEncodings.P2TR],
         nonWitnessPrevTxs: {},
       },
@@ -92,7 +96,7 @@ const {
 });
 
 // yarn jest packages/core/src/chains/btc/CoreChainSoftware.tbtc.test.ts
-describe('BTC Core tests', () => {
+describe('TBTC Core tests', () => {
   it('mnemonic verify', () => {
     coreTestsUtils.expectMnemonicValid({
       hdCredential,
@@ -151,6 +155,6 @@ describe('BTC Core tests', () => {
   it.skip('signMessage', async () => {
     // const coreApi = new CoreChainHd();
     // coreApi.signMessage
-    throw new NotImplemented();;
+    throw new NotImplemented();
   });
 });

@@ -1,7 +1,11 @@
 import type { IDecodedTxExtraAlgo } from '@onekeyhq/core/src/chains/algo/types';
+import type { IDecodedTxExtraDnx } from '@onekeyhq/core/src/chains/dnx/types';
+import type { IDecodedTxExtraLightning } from '@onekeyhq/core/src/chains/lightning/types';
+import type { IDecodedTxExtraXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import type { IFeeInfoUnit } from './fee';
+import type { EOnChainHistoryTxType } from './history';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received
@@ -58,6 +62,12 @@ export type IDecodedTxInteractInfo = {
   provider?: string;
 };
 
+export type IDecodedTxPayload = {
+  value: string;
+  label: string;
+  type: EOnChainHistoryTxType;
+};
+
 export type IUtxoAddressInfo = {
   address: string;
   balance: string;
@@ -65,6 +75,12 @@ export type IUtxoAddressInfo = {
   symbol: string;
   isMine: boolean;
 };
+
+export type IDecodedTxExtraInfo =
+  | IDecodedTxExtraAlgo
+  | IDecodedTxExtraLightning
+  | IDecodedTxExtraXrp
+  | IDecodedTxExtraDnx;
 
 export type IDecodedTx = {
   txid: string; // blockHash
@@ -86,6 +102,7 @@ export type IDecodedTx = {
 
   networkId: string;
   accountId: string;
+  xpub?: string;
 
   feeInfo?: IFeeInfoUnit;
   totalFeeInNative?: string;
@@ -93,12 +110,12 @@ export type IDecodedTx = {
 
   interactInfo?: IDecodedTxInteractInfo;
 
-  extraInfo: null | IDecodedTxExtraAlgo;
+  extraInfo: null | IDecodedTxExtraInfo;
 
   encodedTx?: IEncodedTx;
   // used for speed up double check if encodedTx modified by some bugs
   encodedTxEncrypted?: string;
-  payload?: any;
+  payload?: IDecodedTxPayload;
 
   tokenIdOnNetwork?: string; // indicates this tx belongs to which token
   nativeAmount?: string;

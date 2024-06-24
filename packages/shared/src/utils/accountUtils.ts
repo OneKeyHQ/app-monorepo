@@ -1,5 +1,5 @@
 /* eslint-disable spellcheck/spell-checker */
-import { add, isNil } from 'lodash';
+import { isNil } from 'lodash';
 
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
@@ -28,12 +28,10 @@ import {
 import { CoreSDKLoader } from '../hardware/instance';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
-import type {
-  IOneKeyDeviceFeatures,
-  IQrWalletDevice,
-} from '../../types/device';
+import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -62,11 +60,13 @@ function shortenAddress({
   minLength = 14,
   leadingLength = 8,
   trailingLength = 6,
+  showDot = true,
 }: {
   address: string | undefined;
   leadingLength?: number;
   trailingLength?: number;
   minLength?: number;
+  showDot?: boolean;
 }) {
   if (!address) {
     return '';
@@ -74,9 +74,9 @@ function shortenAddress({
   if (address.length <= minLength) {
     return address;
   }
-  return `${address.slice(0, leadingLength)}...${address.slice(
-    -trailingLength,
-  )}`;
+  return `${address.slice(0, leadingLength)}${
+    showDot ? '...' : ''
+  }${address.slice(-trailingLength)}`;
 }
 
 function isHdWallet({ walletId }: { walletId: string | undefined }) {
@@ -94,7 +94,8 @@ function isHwWallet({ walletId }: { walletId: string | undefined }) {
 function isHwHiddenWallet({ wallet }: { wallet: IDBWallet | undefined }) {
   return (
     wallet &&
-    isHwWallet({ walletId: wallet.id }) &&
+    (isHwWallet({ walletId: wallet.id }) ||
+      isQrWallet({ walletId: wallet.id })) &&
     Boolean(wallet.passphraseState)
   );
 }
@@ -209,6 +210,11 @@ function isExternalAccount({ accountId }: { accountId: string }) {
   return isExternalWallet({ walletId });
 }
 
+function isWatchingAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isWatchingWallet({ walletId });
+}
+
 function buildPathFromTemplate({
   template,
   index,
@@ -220,6 +226,28 @@ function buildPathFromTemplate({
     INDEX_PLACEHOLDER,
     index.toString(),
   );
+}
+
+function findIndexFromTemplate({
+  template,
+  path,
+}: {
+  template: string;
+  path: string;
+}) {
+  const templateItems = template.split('/');
+  const pathItems = path.split('/');
+  for (let i = 0; i < templateItems.length; i += 1) {
+    const tplItem = templateItems[i];
+    const pathItem = pathItems[i];
+    if (tplItem === INDEX_PLACEHOLDER && pathItem) {
+      return Number(pathItem);
+    }
+    if (tplItem === `${INDEX_PLACEHOLDER}'` && pathItem) {
+      return Number(pathItem.replace(/'+$/, ''));
+    }
+  }
+  return undefined;
 }
 
 function buildHDAccountId({
@@ -317,11 +345,12 @@ function buildLocalTokenId({
 
 function buildLocalHistoryId(params: {
   networkId: string;
+  accountAddress: string;
   txid: string;
-  accountId: string;
+  xpub?: string;
 }) {
-  const { networkId, txid, accountId } = params;
-  const historyId = `${networkId}_${txid}_${accountId}`;
+  const { networkId, txid, accountAddress, xpub } = params;
+  const historyId = `${networkId}_${txid}_${xpub ?? accountAddress}`;
   return historyId;
 }
 
@@ -590,6 +619,10 @@ function formatUtxoPath(path: string): string {
   return newPath;
 }
 
+function buildDeviceDbId() {
+  return generateUUID();
+}
+
 async function buildDeviceName({
   device,
   features,
@@ -613,6 +646,17 @@ function buildUtxoAddressRelPath({
 }: { isChange?: boolean; addressIndex?: number } = {}) {
   const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
   return addressRelPath;
+}
+
+function removePathLastSegment({
+  path,
+  removeCount,
+}: {
+  path: string;
+  removeCount: number;
+}) {
+  const arr = path.split('/');
+  return arr.slice(0, -removeCount).filter(Boolean).join('/');
 }
 
 export default {
@@ -641,6 +685,7 @@ export default {
   isHwAccount,
   isQrAccount,
   isExternalAccount,
+  isWatchingAccount,
   parseAccountId,
   parseIndexedAccountId,
   shortenAddress,
@@ -655,7 +700,10 @@ export default {
   buildLnToBtcPath,
   buildLightningAccountId,
   buildDeviceName,
+  buildDeviceDbId,
   getWalletConnectMergedNetwork,
   formatUtxoPath,
   buildPathFromTemplate,
+  findIndexFromTemplate,
+  removePathLastSegment,
 };

@@ -1,9 +1,13 @@
+import { debounce } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 import type {
   IBaseSignedMessageContentType,
   IConnectedSite,
@@ -23,13 +27,26 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceSignature extends ServiceBase {
+  private debouncedAddConnectedSite:
+    | ((url: string, networkIds: string[], addresses: string[]) => void)
+    | null = null;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
   @backgroundMethod()
   public async addSignedMessage(params: ICreateSignedMessageParams) {
-    await localDb.addSignedMessage(params);
+    try {
+      await localDb.addSignedMessage(params);
+    } catch (e) {
+      const errMsg = (e as Error).message;
+      defaultLogger.signatureRecord.normal.failToCreateSignedMessage({
+        params,
+        error: errMsg,
+      });
+      console.error(errMsg);
+    }
   }
 
   @backgroundMethod()
@@ -74,7 +91,16 @@ class ServiceSignature extends ServiceBase {
 
   @backgroundMethod()
   public async addSignedTransaction(params: ICreateSignedTransactionParams) {
-    await localDb.addSignedTransaction(params);
+    try {
+      await localDb.addSignedTransaction(params);
+    } catch (e: unknown) {
+      const errMsg = (e as Error).message;
+      defaultLogger.signatureRecord.normal.failToCreateSignedTransaction({
+        params,
+        error: errMsg,
+      });
+      console.error(errMsg);
+    }
   }
 
   @backgroundMethod()
@@ -128,7 +154,34 @@ class ServiceSignature extends ServiceBase {
     const { url, items } = params;
     const networkIds = items.map((item) => item.networkId);
     const addresses = items.map((item) => item.address);
-    await localDb.addConnectedSite({ url, networkIds, addresses });
+
+    // Lazy initialization of the debounced function
+    if (!this.debouncedAddConnectedSite) {
+      this.debouncedAddConnectedSite = debounce(
+        this._addConnectedSiteToDb.bind(this),
+        500,
+      );
+    }
+
+    // Avoid repeated calls to dApp or UI hooks
+    this.debouncedAddConnectedSite(url, networkIds, addresses);
+  }
+
+  private async _addConnectedSiteToDb(
+    url: string,
+    networkIds: string[],
+    addresses: string[],
+  ) {
+    try {
+      await localDb.addConnectedSite({ url, networkIds, addresses });
+    } catch (e) {
+      const errMsg = (e as Error).message;
+      defaultLogger.signatureRecord.normal.failToAddConnectedSite({
+        params: { url, networkIds, addresses },
+        error: errMsg,
+      });
+      console.error(errMsg);
+    }
   }
 
   @backgroundMethod()
@@ -173,8 +226,7 @@ class ServiceSignature extends ServiceBase {
     return items;
   }
 
-  @backgroundMethod()
-  async addItemFromSendProcess(
+  private async addSignedTransactionFromSend(
     data: ISendTxOnSuccessData,
     sourceInfo?: IDappSourceInfo,
   ) {
@@ -183,9 +235,18 @@ class ServiceSignature extends ServiceBase {
     const networkId = decodedTx.networkId;
     const address = decodedTx.signer;
     const swapInfo = signedTx.swapInfo;
-    const title = sourceInfo?.origin
-      ? uriUtils.getHostNameFromUrl({ url: sourceInfo?.origin })
-      : 'OneKey Wallet';
+    const stakingInfo = signedTx.stakingInfo;
+    let title = 'OneKey Wallet';
+    if (sourceInfo?.origin) {
+      title = uriUtils.getHostNameFromUrl({ url: sourceInfo?.origin });
+    } else if (swapInfo) {
+      const providerName = swapInfo.swapBuildResData.result?.info?.providerName;
+      if (providerName) {
+        title = providerName;
+      }
+    } else if (stakingInfo) {
+      title = stakingInfo.protocol;
+    }
     if (swapInfo) {
       const fromToken = swapInfo.sender.token;
       const toToken = swapInfo.receiver.token;
@@ -195,7 +256,7 @@ class ServiceSignature extends ServiceBase {
         title,
         hash: signedTx.txid,
         data: {
-          type: 'swap',
+          type: ETransactionType.SWAP,
           fromNetworkId: fromToken.networkId,
           toNetworkId: toToken.networkId,
           fromAmount: swapInfo.sender.amount,
@@ -216,7 +277,21 @@ class ServiceSignature extends ServiceBase {
       });
       return;
     }
-    // add stake action here
+    if (stakingInfo) {
+      await this.addSignedTransaction({
+        networkId,
+        address,
+        title,
+        hash: signedTx.txid,
+        data: {
+          type: ETransactionType.EARN,
+          label: stakingInfo.label,
+          send: stakingInfo.send,
+          receive: stakingInfo.receive,
+        },
+      });
+      return;
+    }
     if (actions.length < 1) {
       return;
     }
@@ -232,7 +307,7 @@ class ServiceSignature extends ServiceBase {
           title,
           hash: signedTx.txid,
           data: {
-            type: 'approve',
+            type: ETransactionType.APPROVE,
             amount: tokenApprove.amount,
             token: {
               name: tokenApprove.name,
@@ -257,7 +332,7 @@ class ServiceSignature extends ServiceBase {
         title,
         hash: signedTx.txid,
         data: {
-          type: 'send',
+          type: ETransactionType.SEND,
           amount: assetTransfer.sends[0].amount,
           token: {
             name: assetTransfer.sends[0].name,
@@ -271,7 +346,18 @@ class ServiceSignature extends ServiceBase {
   }
 
   @backgroundMethod()
-  async addItemFromSignMessage(data: {
+  async addItemFromSendProcess(
+    data: ISendTxOnSuccessData,
+    sourceInfo?: IDappSourceInfo,
+  ) {
+    try {
+      await this.addSignedTransactionFromSend(data, sourceInfo);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  private async addSignMessageFromDapp(data: {
     networkId: string;
     accountId: string;
     message: string;
@@ -288,8 +374,8 @@ class ServiceSignature extends ServiceBase {
       });
     const getContentType = (str: string): IBaseSignedMessageContentType => {
       try {
-        JSON.parse(str);
-        return 'json';
+        const obj = JSON.parse(str);
+        return typeof obj === 'object' ? 'json' : 'text';
       } catch {
         return 'text';
       }
@@ -301,6 +387,27 @@ class ServiceSignature extends ServiceBase {
       message,
       contentType: getContentType(message),
     });
+  }
+
+  @backgroundMethod()
+  async addItemFromSignMessage(data: {
+    networkId: string;
+    accountId: string;
+    message: string;
+    sourceInfo?: IDappSourceInfo;
+  }) {
+    try {
+      await this.addSignMessageFromDapp(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  @backgroundMethod()
+  async deleteAllSignatureRecords() {
+    await localDb.removeAllSignedTransaction();
+    await localDb.removeAllSignedMessage();
+    await localDb.removeAllConnectedSite();
   }
 }
 

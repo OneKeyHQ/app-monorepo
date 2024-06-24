@@ -23,6 +23,7 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSlippagePercentageAtom,
@@ -35,13 +36,14 @@ export function useSwapBuildTx() {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [slippagePercentage] = useSwapSlippagePercentageAtom();
+  const [{ slippageItem }] = useSwapSlippagePercentageAtom();
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setSwapApprovingTransaction] = useSwapApprovingTransactionAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const [, setQuoteListAtom] = useSwapQuoteListAtom();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
   const { navigationToSendConfirm } = useSendConfirm({
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
@@ -85,16 +87,6 @@ export function useSwapBuildTx() {
     [setSwapApprovingTransaction],
   );
 
-  const handleWrappedTxSuccess = useCallback(
-    async (data: ISendTxOnSuccessData[]) => {
-      if (data?.[0]) {
-        setSwapFromTokenAmount('');
-      }
-      setSwapBuildTxFetching(false);
-    },
-    [setSwapBuildTxFetching, setSwapFromTokenAmount],
-  );
-
   const handleTxFail = useCallback(() => {
     setSwapBuildTxFetching(false);
   }, [setSwapBuildTxFetching]);
@@ -119,8 +111,8 @@ export function useSwapBuildTx() {
     ) {
       setSwapBuildTxFetching(true);
       const wrappedType = fromToken.isNative
-        ? EWrappedType.WITHDRAW
-        : EWrappedType.DEPOSIT;
+        ? EWrappedType.DEPOSIT
+        : EWrappedType.WITHDRAW;
       const wrappedInfo: IWrappedInfo = {
         from: swapFromAddressInfo.address,
         type: wrappedType,
@@ -146,7 +138,7 @@ export function useSwapBuildTx() {
       await navigationToSendConfirm({
         wrappedInfo,
         swapInfo,
-        onSuccess: handleWrappedTxSuccess,
+        onSuccess: handleBuildTxSuccess,
         onFail: handleTxFail,
         onCancel: handleTxFail,
       });
@@ -161,12 +153,17 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     setSwapBuildTxFetching,
     navigationToSendConfirm,
-    handleWrappedTxSuccess,
+    handleBuildTxSuccess,
     handleTxFail,
   ]);
 
   const approveTx = useCallback(
-    async (amount: string, isMax?: boolean, onApproveSuccess?: () => void) => {
+    async (
+      amount: string,
+      isMax?: boolean,
+      onApproveSuccess?: () => void,
+      isResetApprove?: boolean,
+    ) => {
       const allowanceInfo = selectQuote?.allowanceResult;
       if (
         allowanceInfo &&
@@ -185,24 +182,56 @@ export function useSwapBuildTx() {
             isMax,
             tokenInfo: {
               ...fromToken,
+              isNative: !!fromToken.isNative,
               address: fromToken.contractAddress,
               name: fromToken.name ?? fromToken.symbol,
             },
           };
-          if (!onApproveSuccess) {
-            setSwapApprovingTransaction({
-              provider: selectQuote.info.provider,
-              fromToken,
-              toToken,
-              amount,
-              useAddress: swapFromAddressInfo.address,
-              spenderAddress: allowanceInfo.allowanceTarget,
-              status: ESwapApproveTransactionStatus.PENDING,
-            });
-          }
+          setSwapApprovingTransaction({
+            provider: selectQuote?.info.provider,
+            fromToken,
+            toToken,
+            amount,
+            useAddress: swapFromAddressInfo.address,
+            spenderAddress: allowanceInfo.allowanceTarget,
+            status: ESwapApproveTransactionStatus.PENDING,
+            isResetApprove,
+          });
           await navigationToSendConfirm({
             approveInfo,
-            onSuccess: onApproveSuccess || handleApproveTxSuccess,
+            onSuccess: (data) => {
+              // update quote result allowance info
+              if (isResetApprove && new BigNumber(amount).isZero()) {
+                setQuoteListAtom((prev) =>
+                  prev.map((item) => {
+                    if (
+                      item.allowanceResult?.shouldResetApprove &&
+                      item.allowanceResult?.allowanceTarget ===
+                        allowanceInfo.allowanceTarget &&
+                      item.fromTokenInfo.contractAddress ===
+                        fromToken.contractAddress &&
+                      item.info.provider === selectQuote.info.provider
+                    ) {
+                      return {
+                        ...item,
+                        allowanceResult: {
+                          ...item.allowanceResult,
+                          shouldResetApprove: false,
+                        },
+                      };
+                    }
+                    return item;
+                  }),
+                );
+              }
+              if (onApproveSuccess) {
+                setTimeout(() => {
+                  onApproveSuccess();
+                }, 500);
+              } else {
+                void handleApproveTxSuccess(data);
+              }
+            },
             onFail: cancelApproveTx,
             onCancel: cancelApproveTx,
           });
@@ -220,10 +249,11 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.accountInfo?.account?.id,
       swapFromAddressInfo.address,
       setSwapBuildTxFetching,
-      navigationToSendConfirm,
-      handleApproveTxSuccess,
-      cancelApproveTx,
       setSwapApprovingTransaction,
+      navigationToSendConfirm,
+      cancelApproveTx,
+      handleApproveTxSuccess,
+      setQuoteListAtom,
     ],
   );
 
@@ -232,7 +262,7 @@ export function useSwapBuildTx() {
       fromToken &&
       toToken &&
       fromTokenAmount &&
-      slippagePercentage &&
+      slippageItem &&
       selectQuote?.toAmount &&
       swapFromAddressInfo.address &&
       swapToAddressInfo.address &&
@@ -245,7 +275,7 @@ export function useSwapBuildTx() {
           toToken,
           toTokenAmount: selectQuote.toAmount,
           fromTokenAmount,
-          slippagePercentage: slippagePercentage.value,
+          slippagePercentage: slippageItem.value,
           receivingAddress: swapToAddressInfo.address,
           userAddress: swapFromAddressInfo.address,
           provider: selectQuote.info.provider,
@@ -259,9 +289,12 @@ export function useSwapBuildTx() {
             transferInfo = {
               from: swapFromAddressInfo.address,
               tokenInfo: {
-                ...fromToken,
-                address: fromToken.contractAddress,
-                name: fromToken.name ?? fromToken.symbol,
+                ...res.result.fromTokenInfo,
+                isNative: !!res.result.fromTokenInfo.isNative,
+                address: res.result.fromTokenInfo.contractAddress,
+                name:
+                  res.result.fromTokenInfo.name ??
+                  res.result.fromTokenInfo.symbol,
               },
               to: res.swftOrder.platformAddr,
               amount: res.swftOrder.depositCoinAmt,
@@ -272,11 +305,14 @@ export function useSwapBuildTx() {
             transferInfo = {
               from: swapFromAddressInfo.address,
               tokenInfo: {
-                ...fromToken,
-                address: fromToken.contractAddress,
-                name: fromToken.name ?? fromToken.symbol,
+                ...res.result.fromTokenInfo,
+                isNative: !!res.result.fromTokenInfo.isNative,
+                address: res.result.fromTokenInfo.contractAddress,
+                name:
+                  res.result.fromTokenInfo.name ??
+                  res.result.fromTokenInfo.symbol,
               },
-              to: swapToAddressInfo.address,
+              to: res.thorSwapCallData.vault,
               opReturn: res.thorSwapCallData.hasStreamingSwap
                 ? res.thorSwapCallData.memoStreamingSwap
                 : res.thorSwapCallData.memo,
@@ -311,7 +347,6 @@ export function useSwapBuildTx() {
             receivingAddress: swapToAddressInfo.address,
             swapBuildResData: res,
           };
-
           await navigationToSendConfirm({
             transfersInfo: transferInfo ? [transferInfo] : undefined,
             encodedTx,
@@ -331,7 +366,7 @@ export function useSwapBuildTx() {
     fromToken,
     toToken,
     fromTokenAmount,
-    slippagePercentage,
+    slippageItem,
     selectQuote,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,

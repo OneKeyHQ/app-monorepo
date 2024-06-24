@@ -22,7 +22,9 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useBuyToken } from '../../../hooks/useBuyToken';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useReceiveToken } from '../../../hooks/useReceiveToken';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -34,11 +36,24 @@ function TokenListContainer({
   ...props
 }: ITabPageProps) {
   const { onContentSizeChange } = props;
-  const { isFocused } = useTabIsRefreshingFocused();
+  const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
+    useTabIsRefreshingFocused();
 
   const {
     activeAccount: { account, network, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
+
+  const { handleOnBuy, isSupported } = useBuyToken({
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+  });
+  const { handleOnReceive } = useReceiveToken({
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+    walletId: wallet?.id ?? '',
+    deriveInfo,
+    deriveType,
+  });
 
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -57,7 +72,7 @@ function TokenListContainer({
     updateSearchKey,
   } = useTokenListActions().current;
 
-  usePromiseResult(
+  const { run } = usePromiseResult(
     async () => {
       try {
         if (!account || !network) return;
@@ -124,6 +139,8 @@ function TokenListContainer({
         } else {
           throw e;
         }
+      } finally {
+        setIsHeaderRefreshing(false);
       }
     },
     [
@@ -139,12 +156,26 @@ function TokenListContainer({
       refreshAllTokenList,
       refreshAllTokenListMap,
       updateTokenListState,
+      setIsHeaderRefreshing,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
+  );
+  useEffect(() => {
+    if (isHeaderRefreshing) {
+      void run();
+    }
+  }, [isHeaderRefreshing, run]);
+
+  const { result: vaultSettings } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId: network?.id ?? '',
+      }),
+    [network?.id],
   );
 
   useEffect(() => {
@@ -185,13 +216,22 @@ function TokenListContainer({
     <>
       {showWalletActions ? (
         <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
-          <WalletActions />
+          <WalletActions
+            pt="$5"
+            $gtLg={{
+              pt: 0,
+            }}
+          />
         </Portal.Body>
       ) : null}
       <TokenListView
         withHeader
         withFooter
         withPrice
+        withBuyAndReceive={!vaultSettings?.disabledSendAction}
+        isBuyTokenSupported={isSupported}
+        onBuyToken={handleOnBuy}
+        onReceiveToken={handleOnReceive}
         onPressToken={handleOnPressToken}
         onContentSizeChange={onContentSizeChange}
         {...(media.gtLg && {

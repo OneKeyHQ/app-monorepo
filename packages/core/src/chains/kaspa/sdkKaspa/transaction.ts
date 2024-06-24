@@ -5,6 +5,7 @@ import * as necc from '@noble/secp256k1';
 import BigNumber from 'bignumber.js';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import ecc from '../../../secret/nobleSecp256k1Wrapper';
@@ -13,9 +14,9 @@ import { DEFAULT_SEQNUMBER } from './constant';
 import { UnspentOutput } from './types';
 
 import type {
-  SubmitTransactionRequest,
-  TransactionInput,
-  TransactionOutput,
+  IKaspaSubmitTransactionRequest,
+  IKaspaTransactionInput,
+  IKaspaTransactionOutput,
 } from './types';
 import type { IEncodedTxKaspa, IKaspaSigner } from '../types';
 import type { Script } from '@kaspa/core-lib';
@@ -47,7 +48,7 @@ export function toTransaction(tx: IEncodedTxKaspa): Transaction {
   if (sendAmount.isLessThan(0)) {
     throw new OneKeyInternalError({
       message: 'Insufficient Balance.',
-      key: 'msg__insufficient_balance',
+      key: ETranslations.swap_page_button_insufficient_balance,
     });
   }
 
@@ -272,11 +273,11 @@ export function transactionFromString(hex: string): Transaction {
 
 export function submitTransactionFromString(
   hex: string,
-): SubmitTransactionRequest {
+): IKaspaSubmitTransactionRequest {
   const tx = new Transaction(hex);
 
   const { nLockTime: lockTime, version } = tx;
-  const inputs: TransactionInput[] = tx.inputs.map(
+  const inputs: IKaspaTransactionInput[] = tx.inputs.map(
     (input: Transaction.Input) => ({
       previousOutpoint: {
         transactionId: input.prevTxId.toString('hex'),
@@ -288,7 +289,7 @@ export function submitTransactionFromString(
     }),
   );
 
-  const outputs: TransactionOutput[] = tx.outputs.map(
+  const outputs: IKaspaTransactionOutput[] = tx.outputs.map(
     (output: Transaction.Output) => ({
       amount: output.satoshis,
       scriptPublicKey: {

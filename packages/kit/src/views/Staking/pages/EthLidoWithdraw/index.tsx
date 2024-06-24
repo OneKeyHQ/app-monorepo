@@ -8,10 +8,10 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ELidoLabels } from '@onekeyhq/shared/types/staking';
 
 import { LidoWithdraw } from '../../components/LidoWithdraw';
 import { useLidoWithdraw } from '../../hooks/useLidoEthHooks';
-import { LIDO_ETH_LOGO_URI } from '../../utils/const';
 
 const EthLidoWithdraw = () => {
   const route = useAppRoute<
@@ -24,10 +24,11 @@ const EthLidoWithdraw = () => {
   const lidoWithdraw = useLidoWithdraw({ accountId, networkId });
   const onConfirm = useCallback(
     async (value: string) => {
-      const amount = BigNumber(value).shiftedBy(token.decimals).toFixed();
+      const amount = BigNumber(value).shiftedBy(token.decimals).toFixed(0);
       await lidoWithdraw({
         amount,
         stakingInfo: {
+          label: ELidoLabels.Redeem,
           protocol: 'lido',
           send: { token, amount: value },
           tags: ['lido-eth'],
@@ -42,8 +43,9 @@ const EthLidoWithdraw = () => {
       receivingTokenSymbol={receivingToken.symbol}
       price={price}
       balance={balance}
+      minAmount={BigNumber(100).shiftedBy(-token.decimals).toFixed()}
       tokenSymbol={token.symbol}
-      tokenImageUri={LIDO_ETH_LOGO_URI}
+      tokenImageUri={token.logoURI}
       onConfirm={onConfirm}
     />
   );

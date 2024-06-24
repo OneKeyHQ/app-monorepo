@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Checkbox, SizableText, Stack } from '@onekeyhq/components';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import {
@@ -8,6 +10,7 @@ import {
   useFirmwareUpdateWorkflowRunningAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -19,30 +22,46 @@ export function FirmwareUpdateCheckList({
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
+  const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [, setWorkflowIsRunning] = useFirmwareUpdateWorkflowRunningAtom();
 
   const [checkValueList, setCheckValueList] = useState([
     {
-      label: "I've backed up my recovery phrase.",
+      label: intl.formatMessage({
+        id: ETranslations.update_i_have_backed_up_my_recovery_phrase,
+      }),
+      emoji: '✅',
       value: false,
     },
     {
-      label: platformEnv.isNative
-        ? 'My device is connected via bluetooth.'
-        : 'My device is connected via USB cable.',
+      label: intl.formatMessage({
+        id: platformEnv.isNative
+          ? ETranslations.update_device_connected_via_bluetooth
+          : ETranslations.update_device_connected_via_usb,
+      }),
+      emoji: '📲',
       value: false,
     },
     {
-      label: 'The device battery is fully charged.',
+      label: intl.formatMessage({
+        id: ETranslations.update_device_fully_charged,
+      }),
+      emoji: '🔋',
       value: false,
     },
     {
-      label: 'Only one device is connected.',
+      label: intl.formatMessage({
+        id: ETranslations.update_only_one_device_connected,
+      }),
+      emoji: '📱',
       value: false,
     },
     {
-      label: 'All other OneKey Apps and web upgrade tools are closed.',
+      label: intl.formatMessage({
+        id: ETranslations.update_all_other_apps_closed,
+      }),
+      emoji: '🆗',
       value: false,
     },
   ]);
@@ -61,14 +80,20 @@ export function FirmwareUpdateCheckList({
   return (
     <Stack>
       <SizableText size="$heading2xl" my="$8">
-        Ready to Upgrade? Let’s Check You're all set 📝
+        {intl.formatMessage({
+          id: ETranslations.update_ready_to_upgrade_checklist,
+        })}
       </SizableText>
       <Stack space="$3">
         {checkValueList.map((checkValue) => (
           <Checkbox
             key={checkValue.label}
             value={checkValue.value}
-            label={checkValue.label}
+            label={
+              checkValue.value
+                ? `${checkValue.label} ${checkValue.emoji}`
+                : checkValue.label
+            }
             onChange={() => onCheckChanged(checkValue)}
           />
         ))}
@@ -115,7 +140,9 @@ export function FirmwareUpdateCheckList({
               }
             : undefined
         }
-        onConfirmText="Continue"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_continue,
+        })}
       />
     </Stack>
   );

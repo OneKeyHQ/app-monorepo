@@ -1,11 +1,15 @@
 import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
+import type { IActionListSection } from '@onekeyhq/components';
 import {
   ActionList,
   Alert,
   Divider,
+  Heading,
   NumberSizeableText,
   Page,
   Skeleton,
@@ -16,14 +20,17 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalReceiveRoutes,
   EModalRoutes,
@@ -32,6 +39,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
+import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import ActionBuy from './ActionBuy';
@@ -40,6 +48,7 @@ import ActionSell from './ActionSell';
 import type { RouteProp } from '@react-navigation/core';
 
 export function TokenDetails() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
 
   const route =
@@ -67,60 +76,63 @@ export function TokenDetails() {
   const [isBlocked, setIsBlocked] = useState(!!tokenIsBlocked);
   const [initialized, setInitialized] = useState(false);
 
-  const { result: [tokenHistory, tokenDetails, account] = [], isLoading } =
-    usePromiseResult(
-      async () => {
-        const a = await backgroundApiProxy.serviceAccount.getAccount({
+  const {
+    result: [tokenHistory, tokenDetails, account, network] = [],
+    isLoading,
+  } = usePromiseResult(
+    async () => {
+      const a = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      const b = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+        networkId,
+      });
+      const accountAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
           accountId,
           networkId,
         });
-        const accountAddress =
-          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-            accountId,
-            networkId,
-          });
 
-        if (!a) return;
-        const [xpub, vaultSettings] = await Promise.all([
-          backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId,
-            networkId,
-          }),
-          backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId,
-          }),
-        ]);
-        const [history, details] = await Promise.all([
-          backgroundApiProxy.serviceHistory.fetchAccountHistory({
-            accountId: a.id,
-            accountAddress,
-            xpub,
-            networkId,
-            tokenIdOnNetwork: tokenInfo.address,
-            onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
-          }),
-          backgroundApiProxy.serviceToken.fetchTokensDetails({
-            networkId,
-            xpub,
-            accountAddress,
-            contractList: [tokenInfo.address],
-          }),
-        ]);
+      if (!a) return;
+      const [xpub, vaultSettings] = await Promise.all([
+        backgroundApiProxy.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId,
+        }),
+      ]);
+      const [history, details] = await Promise.all([
+        backgroundApiProxy.serviceHistory.fetchAccountHistory({
+          accountId: a.id,
+          accountAddress,
+          xpub,
+          networkId,
+          tokenIdOnNetwork: tokenInfo.address,
+          onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
+          saveConfirmedTxsEnabled: vaultSettings.saveConfirmedTxsEnabled,
+        }),
+        backgroundApiProxy.serviceToken.fetchTokensDetails({
+          networkId,
+          xpub,
+          accountAddress,
+          contractList: [tokenInfo.address],
+        }),
+      ]);
 
-        setInitialized(true);
+      setInitialized(true);
 
-        return [history, details[0], a];
-      },
-      [accountId, networkId, tokenInfo.address],
-      {
-        watchLoading: true,
-      },
-    );
+      return [history, details[0], a, b];
+    },
+    [accountId, networkId, tokenInfo.address],
+    {
+      watchLoading: true,
+    },
+  );
 
   const handleOnSwap = useCallback(async () => {
-    const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
-      networkId,
-    });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
@@ -139,6 +151,7 @@ export function TokenDetails() {
     });
   }, [
     navigation,
+    network?.logoURI,
     networkId,
     tokenInfo.address,
     tokenInfo.decimals,
@@ -162,14 +175,25 @@ export function TokenDetails() {
   }, [accountId, deriveInfo, deriveType, navigation, networkId, walletId]);
 
   const handleHistoryItemPress = useCallback(
-    (tx: IAccountHistoryTx) => {
+    async (tx: IAccountHistoryTx) => {
+      if (!account || !network) return;
+
       navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
+        accountId,
         networkId,
-        accountAddress: account?.address,
+        accountAddress:
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            accountId: account.id,
+            networkId: network.id,
+          }),
+        xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
+          accountId: account.id,
+          networkId: network.id,
+        }),
         historyTx: tx,
       });
     },
-    [account?.address, navigation, networkId],
+    [account, accountId, navigation, network, networkId],
   );
 
   const handleSendPress = useCallback(() => {
@@ -199,39 +223,67 @@ export function TokenDetails() {
     }
   }, [isBlocked, networkId, tokenInfo.address]);
 
-  const headerRight = useCallback(
-    () => (
+  const headerRight = useCallback(() => {
+    const sections: IActionListSection[] = [];
+
+    if (!tokenInfo.isNative) {
+      sections.push({
+        items: [
+          {
+            label: isBlocked
+              ? intl.formatMessage({ id: ETranslations.global_unhide })
+              : intl.formatMessage({ id: ETranslations.global_hide }),
+            icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
+            onPress: handleToggleBlockedToken,
+          },
+        ],
+      });
+    }
+
+    if (tokenInfo.address !== '') {
+      sections.unshift({
+        items: [
+          {
+            label: intl.formatMessage({
+              id: ETranslations.global_copy_token_contract,
+            }),
+            icon: 'Copy1Outline',
+            onPress: () => copyText(tokenInfo.address),
+          },
+        ],
+      });
+
+      const tokenDetailsUrl = buildExplorerAddressUrl({
+        network,
+        address: tokenInfo.address,
+      });
+
+      if (tokenDetailsUrl !== '') {
+        sections[0].items.push({
+          label: intl.formatMessage({
+            id: ETranslations.global_view_in_blockchain_explorer,
+          }),
+          icon: 'ShareOutline',
+          onPress: () => openUrl(tokenDetailsUrl),
+        });
+      }
+    }
+    return isEmpty(sections) ? null : (
       <ActionList
-        title="Actions"
+        title={intl.formatMessage({ id: ETranslations.global_more })}
         renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
-        sections={[
-          {
-            items: [
-              {
-                label: 'Copy Token Contract',
-                icon: 'Copy1Outline',
-                onPress: () => copyText(tokenInfo.address),
-              },
-              {
-                label: 'View on Etherscan',
-                icon: 'ShareOutline',
-              },
-            ],
-          },
-          {
-            items: [
-              {
-                label: isBlocked ? 'Unhide' : 'Hide',
-                icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
-                onPress: handleToggleBlockedToken,
-              },
-            ],
-          },
-        ]}
+        sections={sections}
       />
-    ),
-    [copyText, handleToggleBlockedToken, isBlocked, tokenInfo.address],
-  );
+    );
+  }, [
+    copyText,
+    handleToggleBlockedToken,
+    intl,
+    isBlocked,
+    network,
+    tokenInfo.address,
+    tokenInfo.isNative,
+  ]);
 
   // const renderTokenAddress = useCallback(() => {
   //   if (!tokenInfo.address) return null;
@@ -310,12 +362,18 @@ export function TokenDetails() {
   //   );
   // }, [media.gtMd, network?.logoURI, tokenInfo.address]);
 
+  const customHeaderTitle = useCallback(
+    () => (
+      <Heading size="$headingLg" numberOfLines={1}>
+        {tokenInfo.name ?? tokenDetails?.info.name}
+      </Heading>
+    ),
+    [tokenDetails?.info.name, tokenInfo.name],
+  );
+
   return (
     <Page>
-      <Page.Header
-        headerTitle={tokenInfo.name ?? tokenDetails?.info.name}
-        headerRight={headerRight}
-      />
+      <Page.Header headerTitle={customHeaderTitle} headerRight={headerRight} />
       <Page.Body>
         <ProviderJotaiContextHistoryList>
           <TxHistoryListView
@@ -330,9 +388,13 @@ export function TokenDetails() {
                     icon="EyeOffOutline"
                     fullBleed
                     type="warning"
-                    title="This token is currently hidden and won't appear in the list"
+                    title={intl.formatMessage({
+                      id: ETranslations.token_hidden_message,
+                    })}
                     action={{
-                      primary: 'Unhide',
+                      primary: intl.formatMessage({
+                        id: ETranslations.global_unhide,
+                      }),
                       onPrimaryPress: handleToggleBlockedToken,
                     }}
                     mb="$5"
@@ -349,7 +411,7 @@ export function TokenDetails() {
                       }
                       size="xl"
                     />
-                    <Stack ml="$3">
+                    <Stack ml="$3" flex={1}>
                       {isLoading ? (
                         <YStack>
                           <Stack py="$1.5">
@@ -384,19 +446,25 @@ export function TokenDetails() {
                   </XStack>
                   {/* Actions */}
                   <RawActions>
+                    <ReviewControl>
+                      <ActionBuy
+                        networkId={networkId}
+                        accountId={accountId}
+                        tokenAddress={tokenInfo.address}
+                      />
+                    </ReviewControl>
+
+                    <RawActions.Swap onPress={handleOnSwap} />
+
                     <RawActions.Send onPress={handleSendPress} />
                     <RawActions.Receive onPress={handleReceivePress} />
-                    <RawActions.Swap onPress={handleOnSwap} />
-                    <ActionBuy
-                      networkId={networkId}
-                      accountId={accountId}
-                      tokenAddress={tokenInfo.address}
-                    />
-                    <ActionSell
-                      networkId={networkId}
-                      accountId={accountId}
-                      tokenAddress={tokenInfo.address}
-                    />
+                    <ReviewControl>
+                      <ActionSell
+                        networkId={networkId}
+                        accountId={accountId}
+                        tokenAddress={tokenInfo.address}
+                      />
+                    </ReviewControl>
                   </RawActions>
                 </Stack>
 

@@ -1,11 +1,18 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import type { IActionListItemProps } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import type { IActionListItemProps, IStackProps } from '@onekeyhq/components';
 import { ActionList, IconButton } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useWatchListAction } from './wachListHooks';
 
-function BasicMarketMore({ coingeckoId }: { coingeckoId: string }) {
+function BasicMarketMore({
+  coingeckoId,
+  ...props
+}: { coingeckoId: string } & IStackProps) {
+  const intl = useIntl();
   const actions = useWatchListAction();
   const handleRemove = useCallback(() => {
     actions.removeFormWatchList(coingeckoId);
@@ -17,21 +24,23 @@ function BasicMarketMore({ coingeckoId }: { coingeckoId: string }) {
     () => [
       {
         items: [
-          {
-            destructive: true,
-            icon: 'DeleteOutline',
-            label: 'Remove from Favorites',
-            onPress: handleRemove,
-          },
+          // {
+          //   destructive: true,
+          //   icon: 'DeleteOutline',
+          //   label: intl.formatMessage({
+          //     id: ETranslations.market_remove_from_watchlist,
+          //   }),
+          //   onPress: handleRemove,
+          // },
           {
             icon: 'ArrowTopOutline',
-            label: 'Move to Top',
+            label: intl.formatMessage({ id: ETranslations.market_move_to_top }),
             onPress: MoveToTop,
           },
         ] as IActionListItemProps[],
       },
     ],
-    [MoveToTop, handleRemove],
+    [MoveToTop, intl],
   );
   return (
     <ActionList
@@ -40,8 +49,8 @@ function BasicMarketMore({ coingeckoId }: { coingeckoId: string }) {
         <IconButton
           icon="DotVerSolid"
           variant="tertiary"
-          mx="$3"
           iconSize="$5"
+          {...props}
         />
       }
       sections={sections}

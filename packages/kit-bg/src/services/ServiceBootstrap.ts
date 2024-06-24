@@ -13,9 +13,11 @@ class ServiceBootstrap extends ServiceBase {
       this.backgroundApi.serviceSetting.refreshLocaleMessages(),
       this.backgroundApi.walletConnect.initializeOnStart(),
       this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
-      this.backgroundApi.serviceContextMenu.init(),
       this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
+      this.backgroundApi.serviceSetting.fetchReviewControl(),
     ]);
+    // wait for local messages to be loaded
+    void this.backgroundApi.serviceContextMenu.init();
   }
 }
 

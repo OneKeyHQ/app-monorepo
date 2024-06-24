@@ -1,54 +1,134 @@
-import type { IImageProps } from '@onekeyhq/components';
-import { Image, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
+
+import type {
+  IIconProps,
+  ISizableTextProps,
+  IStackProps,
+} from '@onekeyhq/components';
+import { Empty, Icon, SizableText, Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+type IProps = {
+  isBuyTokenSupported?: boolean;
+  onBuy?: () => void;
+  onReceive?: () => void;
+  withBuyAndReceive?: boolean;
+};
 
 function EmptyTokenItem({
-  image,
   content,
+  onPress,
+  iconProps,
+  textProps,
+  ...rest
 }: {
-  image: IImageProps['source'];
   content: string;
   tableLayout?: boolean;
-}) {
+  onPress?: () => void;
+  iconProps?: IIconProps;
+  textProps?: ISizableTextProps;
+} & IStackProps) {
   return (
-    <Stack flexBasis="50%" maxWidth="$64" p="$2.5">
-      <Stack pb="100%">
-        <Stack position="absolute" left={0} top={0} right={0} bottom={0}>
-          <Image w="100%" h="100%" source={image} borderRadius="$3" />
-          <SizableText
-            size="$headingMd"
-            color="$blackA12"
-            position="absolute"
-            left="$5"
-            top="$4"
-            right="$5"
-          >
-            {content}
-          </SizableText>
-        </Stack>
-      </Stack>
+    <Stack
+      flexDirection="row"
+      alignItems="center"
+      p="$4"
+      space="$3"
+      bg="$bgSubdued"
+      userSelect="none"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      borderRadius="$3"
+      borderCurve="continuous"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusable
+      focusStyle={{
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+        outlineOffset: 2,
+      }}
+      onPress={onPress}
+      {...rest}
+    >
+      <Icon {...iconProps} />
+      <SizableText size="$bodyLgMedium" {...textProps}>
+        {content}
+      </SizableText>
     </Stack>
   );
 }
 
-function EmptyToken() {
-  return (
-    <Stack py="$2">
-      <SizableText size="$bodyLg" color="$textSubdued" px="$5">
-        You have no tokens yet.
-      </SizableText>
+function EmptyToken(props: IProps) {
+  const { onBuy, onReceive, isBuyTokenSupported, withBuyAndReceive } = props;
+  const intl = useIntl();
 
-      <XStack mt="$2.5" px="$2.5">
+  if (withBuyAndReceive) {
+    return (
+      <Stack mt="$2" px="$5" space="$4">
+        {isBuyTokenSupported ? (
+          <EmptyTokenItem
+            bg="$purple2"
+            borderColor="$purple3"
+            content={intl.formatMessage({
+              id: ETranslations.wallet_buy_crypto_instruction,
+            })}
+            onPress={onBuy}
+            iconProps={{
+              name: 'PlusCircleSolid',
+              color: '$purple9',
+            }}
+            textProps={{
+              color: '$purple12',
+            }}
+            hoverStyle={{
+              bg: '$purple3',
+            }}
+            pressStyle={{
+              bg: '$purple4',
+            }}
+          />
+        ) : null}
+
         <EmptyTokenItem
-          image={require('@onekeyhq/kit/assets/buy_assets.png')}
-          content="Buy with trusted providers"
+          bg="$info2"
+          borderColor="$info3"
+          content={intl.formatMessage({
+            id: ETranslations.wallet_receive_token_instruction,
+          })}
+          onPress={onReceive}
+          iconProps={{
+            name: 'ArrowBottomCircleSolid',
+            color: '$info9',
+          }}
+          textProps={{
+            color: '$info12',
+          }}
+          hoverStyle={{
+            bg: '$info3',
+          }}
+          pressStyle={{
+            bg: '$info4',
+          }}
         />
-        <EmptyTokenItem
-          image={require('@onekeyhq/kit/assets/receive_assets.png')}
-          content="Receive Tokens or NFTs"
-        />
-      </XStack>
-    </Stack>
+      </Stack>
+    );
+  }
+
+  return (
+    <Empty
+      testID="Wallet-No-Token-Empty"
+      icon="CryptoCoinOutline"
+      title={intl.formatMessage({ id: ETranslations.send_no_token_message })}
+    />
   );
+
   // TODO: App review mode
 }
 

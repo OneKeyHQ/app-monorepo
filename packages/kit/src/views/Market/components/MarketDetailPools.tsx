@@ -1,11 +1,10 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
-import { groupBy } from 'lodash';
+import { useIntl } from 'react-intl';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
+import type { ISizableTextProps, ITabPageProps } from '@onekeyhq/components';
 import {
-  Button,
   Dialog,
   Icon,
   ListView,
@@ -17,14 +16,15 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
+import type { IMarketResponsePool } from '@onekeyhq/shared/types/market';
 
 import { listItemPressStyle } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 
 import { MarketPoolIcon } from './MarketPoolIcon';
-import { PoolDetails } from './PoolDetails';
+import { PoolDetailDialog } from './PoolDetailDialog';
 import { useSortType } from './useSortType';
 
 function HeaderColumn({
@@ -70,6 +70,7 @@ function HeaderColumn({
       ai="center"
       onPress={handlePress}
       jc={jc}
+      cursor="pointer"
     >
       {jc === 'flex-end' ? renderOrderIcon() : null}
       <SizableText size="$bodySmMedium" color="$textSubdued">
@@ -101,7 +102,8 @@ function HeaderRow({
     order: 'asc' | 'desc' | undefined;
   }) => void;
 }) {
-  const { gtMd } = useMedia();
+  const intl = useIntl();
+  const { gtMd, gtXl } = useMedia();
   const useSortFunc = !!(sortType || onSortTypeChange);
   const handleColumnPress = useCallback(
     (key: string) => {
@@ -138,7 +140,7 @@ function HeaderRow({
         order={sortType?.order}
         onPress={handleColumnPress}
       >
-        Pair
+        {intl.formatMessage({ id: ETranslations.global_pair })}
       </HeaderColumn>
       {gtMd ? (
         <HeaderColumn
@@ -148,10 +150,10 @@ function HeaderRow({
           order={sortType?.order}
           onPress={handleColumnPress}
         >
-          Price
+          {intl.formatMessage({ id: ETranslations.global_price })}
         </HeaderColumn>
       ) : null}
-      {gtMd ? (
+      {gtXl ? (
         <HeaderColumn
           name="txTotal"
           jc="flex-end"
@@ -159,7 +161,7 @@ function HeaderRow({
           order={sortType?.order}
           onPress={handleColumnPress}
         >
-          24H Txns
+          {intl.formatMessage({ id: ETranslations.market_24h_txns })}
         </HeaderColumn>
       ) : null}
       <HeaderColumn
@@ -169,7 +171,9 @@ function HeaderRow({
         order={sortType?.order}
         onPress={handleColumnPress}
       >
-        24H Volume
+        {intl.formatMessage({
+          id: ETranslations.market_twenty_four_hour_volume,
+        })}
       </HeaderColumn>
       <HeaderColumn
         name="reserveInUsd"
@@ -178,9 +182,11 @@ function HeaderRow({
         order={sortType?.order}
         onPress={handleColumnPress}
       >
-        Liquidity
+        {intl.formatMessage({ id: ETranslations.global_liquidity })}
       </HeaderColumn>
-      <Stack h="$4" w={platformEnv.isNative ? '$4' : '$7'} />
+      <View flex={1}>
+        <View w="$4" h="$4" />
+      </View>
     </XStack>
   );
 }
@@ -195,7 +201,7 @@ function NetworkIdSelect({
   onChange: (selectedIndex: number) => void;
 }) {
   return (
-    <XStack space="$2" px="$5">
+    <XStack space="$2" px="$5" py="$2">
       {options.map((networkId, index) => (
         <Stack
           key={networkId}
@@ -212,21 +218,23 @@ function NetworkIdSelect({
   );
 }
 
-export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
-  const { gtMd } = useMedia();
-  const partitions = useMemo(() => groupBy(pools, 'onekeyNetworkId'), [pools]);
-  const onekeyNetworkIds = useMemo(() => Object.keys(partitions), [partitions]);
-  const [index, selectIndex] = useState(0);
-  const listData = useMemo(
-    () => partitions[onekeyNetworkIds[index]],
-    [index, onekeyNetworkIds, partitions],
+export function MarketDetailPools({
+  pools,
+  // eslint-disable-next-line react/prop-types
+  onContentSizeChange,
+}: ITabPageProps & { pools: IMarketResponsePool[] }) {
+  const intl = useIntl();
+  const { gtMd, gtXl } = useMedia();
+  const oneKeyNetworkIds = useMemo(
+    () =>
+      pools.map((i) => i.onekeyNetworkId).filter((i) => Boolean(i)) as string[],
+    [pools],
   );
-  const formatListData = listData.map((i) => ({
+  const [index, selectIndex] = useState(0);
+  const listData = useMemo(() => pools[index], [index, pools]);
+  const formatListData = listData.data.map((i) => ({
     ...i,
-    dexDataName: i.relationships.dex.data.id
-      .split('_')
-      .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
-      .join(' '),
+    dexDataName: i.dexName,
     price: Number(i.attributes.baseTokenPriceUsd),
     txTotal: Number(
       i.attributes.transactions.h24.buys + i.attributes.transactions.h24.sells,
@@ -243,112 +251,118 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
     index,
   );
   return (
-    <YStack pb="$2" pt="$5">
-      <NetworkIdSelect
-        options={onekeyNetworkIds}
-        value={index}
-        onChange={handleChange}
-      />
-      <ListView
-        data={sortedListData}
-        estimatedItemSize={38}
-        ListHeaderComponent={
+    <ListView
+      data={sortedListData}
+      estimatedItemSize={38}
+      onContentSizeChange={onContentSizeChange}
+      scrollEnabled={platformEnv.isWebTouchable}
+      disableScrollViewPanResponder
+      ListHeaderComponent={
+        <YStack pb="$2" pt="$5">
+          <NetworkIdSelect
+            options={oneKeyNetworkIds}
+            value={index}
+            onChange={handleChange}
+          />
           <HeaderRow
             sortType={sortByType}
             onSortTypeChange={handleSortTypeChange}
           />
-        }
-        extraData={index}
-        renderItem={
-          (({ item }: { item: (typeof formatListData)[0] }) => {
-            const {
-              attributes,
-              dexLogoUrl,
-              dexDataName,
-              price,
-              txTotal,
-              volumeUsdH24,
-              reserveInUsd,
-            } = item;
-            return (
-              <XStack
-                px="$5"
-                py="$2"
-                {...listItemPressStyle}
-                onPress={() => {
-                  Dialog.confirm({
-                    title: 'Pool Details',
-                    renderContent: <PoolDetails item={item} />,
-                  });
-                }}
-              >
-                <ItemColumn flexGrow={5}>
-                  <XStack space="$2.5" ai="center">
-                    <MarketPoolIcon uri={dexLogoUrl} />
-                    <YStack flexShrink={1}>
-                      <SizableText size="$bodyMdMedium" numberOfLines={1}>
-                        {attributes.name}
-                      </SizableText>
-                      <SizableText
-                        size="$bodySm"
-                        color="$textSubdued"
-                        numberOfLines={1}
-                      >
-                        {dexDataName}
-                      </SizableText>
-                    </YStack>
-                  </XStack>
-                </ItemColumn>
+        </YStack>
+      }
+      extraData={index}
+      renderItem={
+        (({ item }: { item: (typeof formatListData)[0] }) => {
+          const {
+            attributes,
+            dexLogoUrl,
+            dexDataName,
+            price,
+            txTotal,
+            volumeUsdH24,
+            reserveInUsd,
+          } = item;
+          return (
+            <XStack
+              px="$5"
+              py="$2"
+              borderRadius="$3"
+              {...listItemPressStyle}
+              onPress={() => {
+                Dialog.confirm({
+                  title: intl.formatMessage({
+                    id: ETranslations.market_pool_details,
+                  }),
+                  renderContent: <PoolDetailDialog item={item} />,
+                });
+              }}
+            >
+              <ItemColumn flexGrow={5}>
+                <XStack space="$2.5" ai="center">
+                  <MarketPoolIcon uri={dexLogoUrl} />
+                  <YStack flexShrink={1}>
+                    <SizableText size="$bodyMdMedium" numberOfLines={1}>
+                      {attributes.name}
+                    </SizableText>
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                    >
+                      {dexDataName}
+                    </SizableText>
+                  </YStack>
+                </XStack>
+              </ItemColumn>
 
-                {gtMd ? (
-                  <ItemColumn>
-                    <NumberSizeableText
-                      size="$bodyMd"
-                      formatter="price"
-                      formatterOptions={{ currency: '$' }}
-                      textAlign="right"
-                    >
-                      {price}
-                    </NumberSizeableText>
-                  </ItemColumn>
-                ) : null}
-                {gtMd ? (
-                  <ItemColumn>
-                    <NumberSizeableText
-                      size="$bodyMd"
-                      formatter="marketCap"
-                      textAlign="right"
-                    >
-                      {txTotal}
-                    </NumberSizeableText>
-                  </ItemColumn>
-                ) : null}
+              {gtMd ? (
+                <ItemColumn>
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    formatter="price"
+                    formatterOptions={{ currency: '$' }}
+                    textAlign="right"
+                  >
+                    {price}
+                  </NumberSizeableText>
+                </ItemColumn>
+              ) : null}
+              {gtXl ? (
                 <ItemColumn>
                   <NumberSizeableText
                     size="$bodyMd"
                     formatter="marketCap"
                     textAlign="right"
                   >
-                    {volumeUsdH24}
+                    {txTotal}
                   </NumberSizeableText>
                 </ItemColumn>
-                <ItemColumn>
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    formatter="marketCap"
-                    textAlign="right"
-                  >
-                    {reserveInUsd}
-                  </NumberSizeableText>
-                </ItemColumn>
-                <View jc="center">
-                  <Icon name="ChevronRightSmallOutline" size="$4" pl="$3" />
-                </View>
-              </XStack>
-            );
-          }) as any
-        }
-      />
-    </YStack>
+              ) : null}
+              <ItemColumn>
+                <NumberSizeableText
+                  size="$bodyMd"
+                  formatter="marketCap"
+                  textAlign="right"
+                >
+                  {volumeUsdH24}
+                </NumberSizeableText>
+              </ItemColumn>
+              <ItemColumn>
+                <NumberSizeableText
+                  size="$bodyMd"
+                  formatter="marketCap"
+                  textAlign="right"
+                >
+                  {reserveInUsd}
+                </NumberSizeableText>
+              </ItemColumn>
+              <View jc="center" ai="center" flex={1}>
+                <Icon name="ChevronRightSmallOutline" size="$4" />
+              </View>
+            </XStack>
+          );
+        }) as any
+      }
+    />
   );
 }

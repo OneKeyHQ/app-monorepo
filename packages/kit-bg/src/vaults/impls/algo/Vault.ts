@@ -6,6 +6,7 @@ import type {
   IEncodedTxAlgo,
   IEncodedTxGroupAlgo,
 } from '@onekeyhq/core/src/chains/algo/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -38,7 +39,6 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import sdkAlgo from './sdkAlgo';
 import ClientAlgo from './sdkAlgo/ClientAlog';
@@ -48,7 +48,6 @@ import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -62,9 +61,11 @@ import type {
 } from '../../types';
 
 export default class Vault extends VaultBase {
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override coreApi = coreChainApi.algo.hd;
+
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -312,13 +313,13 @@ export default class Vault extends VaultBase {
           const transfer: IDecodedTxTransferInfo = {
             from: assetSender ?? sender,
             to,
-            tokenIdOnNetwork: nativeToken.address,
-            icon: nativeToken.logoURI ?? '',
-            name: nativeToken.name,
-            symbol: nativeToken.symbol,
+            tokenIdOnNetwork: token.address,
+            icon: token.logoURI ?? '',
+            name: token.name,
+            symbol: token.symbol,
             amount: new BigNumber(amount).shiftedBy(-token.decimals).toFixed(),
             isNFT: false,
-            isNative: true,
+            isNative: false,
           };
           action = await this.buildTxTransferAssetAction({
             from: sender,

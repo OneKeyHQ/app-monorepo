@@ -9,6 +9,7 @@ import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
@@ -81,7 +82,9 @@ const PasswordVerifyContainer = ({
     } catch (e) {
       setStatues({
         value: EPasswordVerifyStatus.ERROR,
-        message: intl.formatMessage({ id: 'msg__verification_failure' }),
+        message: intl.formatMessage({
+          id: ETranslations.auth_error_password_incorrect,
+        }),
       });
     }
   }, [
@@ -110,11 +113,13 @@ const PasswordVerifyContainer = ({
       } catch (e) {
         setStatues({
           value: EPasswordVerifyStatus.ERROR,
-          message: 'password verify error',
+          message: intl.formatMessage({
+            id: ETranslations.auth_error_password_incorrect,
+          }),
         });
       }
     },
-    [onVerifyRes],
+    [intl, onVerifyRes],
   );
 
   return (

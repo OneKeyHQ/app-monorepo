@@ -1,7 +1,10 @@
 import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
 import type {
   EAddressEncodings,
+  ECoreApiExportedSecretKeyType,
   ICoreApiGetAddressItem,
+  ICoreApiPrivateKeysMap,
+  ICoreApiSignBasePayload,
   ICoreImportedCredentialEncryptHex,
   ICurveName,
   IEncodedTx,
@@ -10,6 +13,8 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
+import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
@@ -39,7 +44,11 @@ import type {
 } from './impls/evm/settings';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
-import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
+import type {
+  IDBAccount,
+  IDBWalletId,
+  IDBWalletType,
+} from '../dbs/local/types';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -58,6 +67,10 @@ export type IAccountDeriveInfoItems = {
   label: string;
   item: IAccountDeriveInfo;
   description: string | undefined;
+  descI18n?: {
+    id: ETranslations;
+    data: Record<string | number, string>;
+  };
 };
 export interface IAccountDeriveInfo {
   // because the first account path of ledger live template is the same as the bip44 account path, so we should set idSuffix to uniq them
@@ -81,6 +94,8 @@ export interface IAccountDeriveInfo {
   };
   desc?: string;
   subDesc?: string;
+
+  disableWalletTypes?: IDBWalletType[];
 
   // recommended?: boolean;
   // notRecommended?: boolean;
@@ -116,6 +131,9 @@ export type IVaultSettings = {
   hardwareAccountEnabled: boolean;
   softwareAccountDisabled?: boolean;
 
+  disabledSwapAction?: boolean;
+  disabledSendAction?: boolean;
+
   isUtxo: boolean;
   isSingleToken: boolean;
   NFTEnabled: boolean;
@@ -128,7 +146,6 @@ export type IVaultSettings = {
 
   minTransferAmount?: string;
   utxoDustAmount?: string;
-  signOnlyFullTxRequired?: boolean;
 
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;
@@ -141,12 +158,35 @@ export type IVaultSettings = {
   allowZeroFee?: boolean;
 
   onChainHistoryDisabled?: boolean;
+  saveConfirmedTxsEnabled?: boolean;
 
   cannotSendToSelf?: boolean;
+
+  /**
+   * xrp destination tag
+   * cosmos memo
+   * https://xrpl.org/source-and-destination-tags.html
+   * https://support.ledger.com/hc/en-us/articles/4409603715217-What-is-a-Memo-Tag-?support=true
+   */
+  withMemo?: boolean;
+  memoMaxLength?: number;
+  numericOnlyMemo?: boolean;
 
   withPaymentId?: boolean;
 
   enabledOnClassicOnly?: boolean;
+
+  hideFeeInfoInHistoryList?: boolean;
+
+  hasFrozenBalance?: boolean;
+
+  withL1BaseFee?: boolean;
+
+  hideBlockExplorer?: boolean;
+
+  ignoreUpdateNativeAmount?: boolean;
+
+  withoutBroadcastTxId?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -161,13 +201,15 @@ export type IVaultOptions = IVaultFactoryOptions & {
 };
 
 // PrepareAccounts ----------------------------------------------
+export type IGetDefaultPrivateKeyParams = ICoreApiSignBasePayload;
+export type IGetDefaultPrivateKeyResult = {
+  privateKeyRaw: string; // encrypted privateKey hex of default full path
+};
 export type IGetPrivateKeysParams = {
   password: string;
   relPaths?: string[] | undefined;
 };
-export type IGetPrivateKeysResult = {
-  [path: string]: Buffer;
-};
+export type IGetPrivateKeysResult = ICoreApiPrivateKeysMap;
 export type IPrepareExternalAccountsParams = {
   name: string;
   networks?: string[];
@@ -185,6 +227,7 @@ export type IPrepareWatchingAccountsParams = {
   template?: string; // TODO use deriveInfo, for BTC taproot address importing
   deriveInfo?: IAccountDeriveInfo;
   isUrlAccount?: boolean;
+  addresses?: Record<string, string>;
 };
 export type IPrepareImportedAccountsParams = {
   password: string;
@@ -199,9 +242,13 @@ export type IPrepareHdAccountsParamsBase = {
   names?: Array<string>; // custom names
   deriveInfo: IAccountDeriveInfo;
   skipCheckAccountExist?: boolean; // BTC required
+  isVerifyAddressAction?: boolean;
 };
 export type IPrepareHdAccountsParams = IPrepareHdAccountsParamsBase & {
   password: string;
+};
+export type IPrepareQrAccountsParams = IPrepareHdAccountsParamsBase & {
+  // isVerifyAddress?: boolean;
 };
 export type IPrepareHdAccountsOptions = {
   checkIsAccountUsed?: (query: {
@@ -221,6 +268,7 @@ export type IPrepareAccountsParams =
   | IPrepareImportedAccountsParams
   | IPrepareHdAccountsParams
   | IPrepareHardwareAccountsParams
+  | IPrepareQrAccountsParams
   | IPrepareExternalAccountsParams;
 
 // PrepareAccountByAddressIndex
@@ -231,6 +279,13 @@ export type IPrepareAccountByAddressIndexParams = {
   addressIndex: number;
 };
 
+export type IExportAccountSecretKeysParams = {
+  password: string;
+  keyType: ECoreApiExportedSecretKeyType;
+  relPaths?: string[]; // used for get privateKey of other utxo address
+};
+
+export type IExportAccountSecretKeysResult = string;
 // GetAddress ----------------------------------------------
 export type IHardwareGetAddressParams = {
   path: string;
@@ -269,7 +324,7 @@ export type ITransferInfo = {
   useCustomAddressesBalance?: boolean;
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
-  destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
+  memo?: string; // Ripple chain destination tag, Cosmos chain memo
   keepAlive?: boolean; // Polkadot chain keep alive
 
   // Lightning network
@@ -285,6 +340,11 @@ export type IApproveInfo = {
   amount: string;
   isMax?: boolean;
   tokenInfo?: IToken;
+};
+
+export type ITransferPayload = {
+  amountToSend: string;
+  isMaxSend: boolean;
 };
 
 export enum EWrappedType {
@@ -316,6 +376,10 @@ export type IUtxoInfo = {
     scriptPublicKey: string;
     version: number;
   };
+  // Use for Dynex UTXO info
+  globalIndex: number;
+  prevOutPubkey: string;
+  txPubkey: string;
 };
 
 export type INativeAmountInfo = {
@@ -387,6 +451,8 @@ export interface ISignMessageParams {
 export interface IBuildHistoryTxParams {
   accountId: string;
   networkId: string;
+  accountAddress: string;
+  xpub?: string;
   onChainHistoryTx: IOnChainHistoryTx;
   tokens: Record<string, IOnChainHistoryTxToken>;
   nfts: Record<string, IOnChainHistoryTxNFT>;
@@ -406,4 +472,22 @@ export type IValidateGeneralInputParams = {
   validateXpub?: boolean;
   validateXprvt?: boolean;
   validatePrivateKey?: boolean;
+};
+
+export type IGetChildPathTemplatesParams = {
+  airGapAccount: IAirGapAccount;
+  index: number;
+};
+
+export type IGetChildPathTemplatesResult = {
+  childPathTemplates: string[];
+};
+
+export type IQrWalletGetVerifyAddressChainParamsQuery = {
+  fullPath: string;
+};
+
+export type IQrWalletGetVerifyAddressChainParamsResult = {
+  scriptType?: string; // BTC only
+  chainId?: string; // EVM only
 };

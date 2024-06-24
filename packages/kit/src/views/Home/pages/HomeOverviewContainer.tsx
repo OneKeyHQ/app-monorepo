@@ -1,17 +1,29 @@
 import { useEffect, useState } from 'react';
 
-import { NumberSizeableText, Skeleton, Stack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  Button,
+  IconButton,
+  NumberSizeableText,
+  Skeleton,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOTAL_VALUE,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
 function HomeOverviewContainer() {
+  const intl = useIntl();
   const num = 0;
   const {
     activeAccount: { account, network, wallet },
@@ -56,6 +68,14 @@ function HomeOverviewContainer() {
     },
   );
 
+  const { result: vaultSettings } = usePromiseResult(async () => {
+    if (!network) return;
+    const s = backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId: network.id,
+    });
+    return s;
+  }, [network]);
+
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
       setOverviewState({
@@ -73,13 +93,31 @@ function HomeOverviewContainer() {
     );
 
   return (
-    <NumberSizeableText
-      formatter="value"
-      formatterOptions={{ currency: settings.currencyInfo.symbol }}
-      size="$heading5xl"
-    >
-      {overview?.netWorth ?? 0}
-    </NumberSizeableText>
+    <XStack alignItems="center" space="$2">
+      <NumberSizeableText
+        minWidth={0}
+        formatter="value"
+        formatterOptions={{ currency: settings.currencyInfo.symbol }}
+        size="$heading5xl"
+      >
+        {overview?.netWorth ?? 0}
+      </NumberSizeableText>
+      {vaultSettings?.hasFrozenBalance ? (
+        <IconButton
+          title={intl.formatMessage({
+            id: ETranslations.balance_detail_button_balance,
+          })}
+          icon="InfoCircleOutline"
+          variant="tertiary"
+          onPress={() =>
+            showBalanceDetailsDialog({
+              accountId: account?.id ?? '',
+              networkId: network?.id ?? '',
+            })
+          }
+        />
+      ) : null}
+    </XStack>
   );
 }
 

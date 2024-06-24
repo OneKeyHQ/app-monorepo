@@ -13,6 +13,7 @@ import {
   useTokenListAtom,
   withTokenListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EAssetSelectorRoutes,
   IAssetSelectorParamList,
@@ -78,7 +79,17 @@ function TokenSelector() {
       updateTokenListState({ isRefreshing: false });
       throw new Error('allTokens not found from fetchAccountTokensWithMemo ');
     }
-    refreshTokenList({ keys: allTokens.keys, tokens: allTokens.data });
+
+    const blockedTokens =
+      await backgroundApiProxy.serviceToken.getBlockedTokens({
+        networkId,
+      });
+
+    const filteredTokens = allTokens.data.filter(
+      (token) => !blockedTokens[token.address],
+    );
+
+    refreshTokenList({ keys: allTokens.keys, tokens: filteredTokens });
     refreshTokenListMap(allTokens.map);
     updateTokenListState({ initialized: true, isRefreshing: false });
   }, [
@@ -91,15 +102,29 @@ function TokenSelector() {
 
   useEffect(() => {
     // use route params token
-    if (tokens && tokens.data.length) {
-      refreshTokenList({ tokens: tokens.data, keys: tokens.keys });
-      refreshTokenListMap(tokens.map);
-      updateTokenListState({ initialized: true, isRefreshing: false });
-    } else {
-      void fetchAccountTokens();
-    }
+    const updateTokenList = async () => {
+      if (tokens && tokens.data.length) {
+        const blockedTokens =
+          await backgroundApiProxy.serviceToken.getBlockedTokens({
+            networkId,
+          });
+
+        const filteredTokens = tokens.data.filter(
+          (token) => !blockedTokens[token.address],
+        );
+
+        refreshTokenList({ tokens: filteredTokens, keys: tokens.keys });
+        refreshTokenListMap(tokens.map);
+        updateTokenListState({ initialized: true, isRefreshing: false });
+      } else {
+        void fetchAccountTokens();
+      }
+    };
+
+    void updateTokenList();
   }, [
     fetchAccountTokens,
+    networkId,
     refreshTokenList,
     refreshTokenListMap,
     tokens,
@@ -113,7 +138,9 @@ function TokenSelector() {
     () =>
       tokensLength > 10
         ? {
-            placeholder: 'Search symbol or contract address',
+            placeholder: intl.formatMessage({
+              id: ETranslations.send_token_selector_search_placeholder,
+            }),
             onChangeText: ({
               nativeEvent,
             }: {
@@ -123,18 +150,23 @@ function TokenSelector() {
             },
           }
         : undefined,
-    [debounceUpdateSearchKey, tokensLength],
+    [debounceUpdateSearchKey, intl, tokensLength],
   );
 
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: 'action__select_token' })}
+        title={intl.formatMessage({
+          id: ETranslations.global_select_crypto,
+        })}
         headerSearchBarOptions={headerSearchBarOptions}
       />
       <Page.Body>
-        {networkName ? <SectionList.SectionHeader title={networkName} /> : null}
-        <TokenListView onPressToken={handleTokenOnPress} />
+        {/* {networkName ? <SectionList.SectionHeader title={networkName} /> : null} */}
+        <TokenListView
+          withPresetVerticalPadding={false}
+          onPressToken={handleTokenOnPress}
+        />
       </Page.Body>
     </Page>
   );

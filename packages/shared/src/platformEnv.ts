@@ -1,6 +1,8 @@
 import MobileDetect from 'mobile-detect';
 import { Platform } from 'react-native';
 
+import { isWebInDappMode } from './utils/devModeUtils';
+
 /*
 DO NOT Expose any sensitive data here, this file will be injected to Dapp!!!!
  */
@@ -51,6 +53,7 @@ export type IPlatformEnv = {
 
   /** running in the browsers */
   isWeb?: boolean;
+  isWebDappMode?: boolean;
   isWebTouchable?: boolean;
   isWebEmbed?: boolean;
   isWebMobile?: boolean;
@@ -305,6 +308,7 @@ let isWebMobile = false;
 let isWebMobileAndroid = false;
 let isWebMobileIOS = false;
 let isWebSafari = false;
+let isWebDappMode = false;
 (function () {
   if (!isWeb) {
     return;
@@ -320,6 +324,7 @@ let isWebSafari = false;
   isWebMobileIOS = os === 'iOS' || os === 'iPadOS';
   isWebSafari =
     ua === 'Safari' || window.navigator?.userAgent?.includes('Safari');
+  isWebDappMode = isWebInDappMode();
 })();
 
 const isRuntimeChrome = checkIsRuntimeChrome();
@@ -391,6 +396,7 @@ const platformEnv: IPlatformEnv = {
   isE2E,
 
   isWeb,
+  isWebDappMode,
   isWebTouchable,
   isWebEmbed,
   isWebMobile,

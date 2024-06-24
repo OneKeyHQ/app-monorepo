@@ -1,20 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import { decodeAddress, encodeAddress } from '@polkadot/util-crypto/address';
+import { base58Decode } from '@polkadot/util-crypto';
+import { addressEq } from '@polkadot/util-crypto/address';
+import { Semaphore } from 'async-mutex';
 
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
+
+import settings from '../vaults/impls/dot/settings';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -57,6 +57,8 @@ export interface ISignerResult {
 class ProviderApiPolkadot extends ProviderApiBase {
   public providerName = IInjectedProviderNames.polkadot;
 
+  private _queue = new Semaphore(1);
+
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const data = async ({ origin }: { origin: string }) => {
@@ -82,14 +84,14 @@ class ProviderApiPolkadot extends ProviderApiBase {
       return result;
     };
     info.send(data, info.targetOrigin);
+    this.notifyNetworkChangedToDappSite(info.targetOrigin);
   }
 
   public rpcCall() {
     throw web3Errors.rpc.methodNotSupported();
   }
 
-  @providerApiMethod()
-  public async web3Enable(request: IJsBridgeMessagePayload): Promise<boolean> {
+  private async _enable(request: IJsBridgeMessagePayload) {
     if (await this.account(request)) {
       return true;
     }
@@ -99,6 +101,19 @@ class ProviderApiPolkadot extends ProviderApiBase {
     );
 
     return !!res;
+  }
+
+  @providerApiMethod()
+  public web3Enable(request: IJsBridgeMessagePayload): Promise<boolean> {
+    return this._queue.runExclusive(async () => {
+      if (await this.account(request)) {
+        return true;
+      }
+      const res = await this.backgroundApi.serviceDApp.openConnectionModal(
+        request,
+      );
+      return !!res;
+    });
   }
 
   @permissionRequired()
@@ -171,27 +186,40 @@ class ProviderApiPolkadot extends ProviderApiBase {
   private async findAccount(request: IJsBridgeMessagePayload, address: string) {
     const accounts = await this.getAccountsInfo(request);
 
-    const selectAccount = accounts.find(({ account }) => {
-      if (account.address === address) {
-        return account;
-      }
+    const selectAccount = accounts.find(({ account }) =>
+      addressEq(account.address, address),
+    );
 
-      const normalAddress =
-        account.address.length === 42
-          ? account.address
-          : encodeAddress(decodeAddress(account.address));
-
-      if (normalAddress === address) {
-        return account;
-      }
-      return undefined;
-    });
-
-    if (!selectAccount)
+    if (!selectAccount) {
       throw web3Errors.provider.custom({
         code: 4002,
         message: 'Account not found',
       });
+    }
+
+    if (selectAccount.account.address !== address) {
+      const decodedAddress = base58Decode(address);
+      const networkId = Object.keys(settings.networkInfo).find((id) => {
+        const { addressPrefix } = settings.networkInfo[id];
+        return id !== 'default' && decodedAddress[0] === +addressPrefix;
+      });
+      if (!networkId) {
+        throw web3Errors.provider.custom({
+          code: 4002,
+          message: 'Account not found',
+        });
+      }
+      const account = await this.backgroundApi.serviceAccount.getAccount({
+        networkId,
+        accountId: selectAccount.account.id,
+      });
+      return {
+        account,
+        accountInfo: {
+          networkId,
+        },
+      };
+    }
 
     return selectAccount;
   }
@@ -212,13 +240,13 @@ class ProviderApiPolkadot extends ProviderApiBase {
     };
 
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: encodeTx,
         signOnly: true,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
-      })) as ISignedTxPro;
+      });
 
     return Promise.resolve({
       id: request.id ?? 0,

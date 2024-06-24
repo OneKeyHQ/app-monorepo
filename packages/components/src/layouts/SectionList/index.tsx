@@ -9,6 +9,8 @@ import {
 
 import { withStaticProperties } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SizableText, Stack, XStack } from '../../primitives';
 import { ListView } from '../ListView/list';
 
@@ -72,6 +74,7 @@ function BaseSectionList<T>(
     renderItem,
     renderSectionHeader,
     renderSectionFooter,
+    ListHeaderComponent,
     SectionSeparatorComponent = <Stack h="$5" />,
     stickySectionHeadersEnabled = false,
     keyExtractor,
@@ -115,16 +118,24 @@ function BaseSectionList<T>(
     return reloadSectionList;
   }, [sections]);
 
+  const reloadSectionHeaderIndex = useCallback(
+    (index: number) =>
+      ListHeaderComponent && !platformEnv.isNative ? index + 1 : index,
+    [ListHeaderComponent],
+  );
+
   const reloadStickyHeaderIndices = useMemo(() => {
     if (!stickySectionHeadersEnabled) {
       return undefined;
     }
     return reloadSections
       .map((item, index) =>
-        item.type === ESectionLayoutType.Header ? index : null,
+        item.type === ESectionLayoutType.Header
+          ? reloadSectionHeaderIndex(index)
+          : null,
       )
       .filter((index) => index != null) as number[];
-  }, [stickySectionHeadersEnabled, reloadSections]);
+  }, [reloadSectionHeaderIndex, stickySectionHeadersEnabled, reloadSections]);
 
   const ref = useRef<IListViewRef<T>>(null);
   useImperativeHandle(parentRef as any, () => ({
@@ -205,9 +216,10 @@ function BaseSectionList<T>(
       ref={ref}
       data={reloadSections as T[]}
       renderItem={renderSectionAndItem as ListRenderItem<T>}
+      ListHeaderComponent={ListHeaderComponent}
       stickyHeaderIndices={reloadStickyHeaderIndices}
       getItemType={getItemType}
-      keyExtractor={reloadKeyExtractor}
+      keyExtractor={platformEnv.isNative ? reloadKeyExtractor : undefined}
       {...restProps}
     />
   );

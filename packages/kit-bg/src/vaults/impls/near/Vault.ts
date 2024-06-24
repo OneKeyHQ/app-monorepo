@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { getAddressFromAccountOrAddress } from 'aptos';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
@@ -42,7 +43,6 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import ClientNear from './sdkNear/ClientNear';
 import settings from './settings';
@@ -81,9 +81,9 @@ import type {
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.near.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -294,13 +294,14 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxNear;
+    const accountAddress = await this.getAccountAddress();
 
     const nativeTx = deserializeTransaction(encodedTx);
     const decodedTx: IDecodedTx = {
       txid: '',
-      owner: await this.getAccountAddress(),
+      owner: accountAddress,
       signer: nativeTx.signerId,
-      nonce: parseFloat(nativeTx.nonce.toString()),
+      nonce: 0,
       actions: await this._nativeTxActionToEncodedTxAction(nativeTx),
 
       status: EDecodedTxStatus.Pending,

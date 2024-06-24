@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import { Empty, ListView, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
@@ -5,31 +7,27 @@ import {
   NetworkAvatar,
 } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-const ListEmptyComponent = () => (
-  <Empty icon="SearchOutline" title="No Results" />
-);
+import type { IServerNetworkMatch } from '../../types';
 
-const implArr = ['evm', 'dot', 'cosmos'];
-
-export type IBaseListViewProps = {
-  networks: IServerNetwork[];
-  onPressItem?: (item: IServerNetwork) => void;
-  networkId?: string;
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+  return (
+    <Empty
+      icon="SearchOutline"
+      title={intl.formatMessage({
+        id: ETranslations.global_no_results,
+      })}
+    />
+  );
 };
 
-export const filterNetwork =
-  (key: string, impl?: boolean) =>
-  (o: IServerNetwork): boolean => {
-    if (impl && implArr.includes(key)) {
-      return o.impl === key;
-    }
-    return (
-      o.name.toLowerCase().includes(key) ||
-      o.shortname.toLowerCase().includes(key)
-    );
-  };
+export type IBaseListViewProps = {
+  networks: IServerNetworkMatch[];
+  onPressItem?: (item: IServerNetworkMatch) => void;
+  networkId?: string;
+};
 
 export const BaseListView = ({
   networks,
@@ -38,7 +36,6 @@ export const BaseListView = ({
 }: IBaseListViewProps) => (
   <ListView
     ListEmptyComponent={ListEmptyComponent}
-    ListHeaderComponent={<Stack h="$2" />}
     ListFooterComponent={<Stack h="$2" />}
     estimatedItemSize={48}
     data={networks}
@@ -54,6 +51,7 @@ export const BaseListView = ({
           )
         }
         title={item.name}
+        titleMatch={item.titleMatch}
         onPress={() => onPressItem?.(item)}
         testID={`select-item-${item.id}`}
       >

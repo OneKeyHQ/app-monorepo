@@ -31,6 +31,7 @@ import {
   getWatchingAccountUUID,
 } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import ServiceBase from '../ServiceBase';
 
@@ -146,17 +147,29 @@ class ServiceCloudBackup extends ServiceBase {
             type: wallet.type,
             accounts: [],
             accountIds: [],
-            nextAccountIds: wallet.nextAccountIds,
+            indexedAccountUUIDs: [],
+            nextIds: wallet.nextIds,
             avatar: wallet.avatarInfo,
             version: HDWALLET_BACKUP_VERSION,
           };
           const HDAccountUUID = getHDAccountUUID(account);
+          if (account.indexedAccountId) {
+            const indexedAccount = await serviceAccount.getIndexedAccount({
+              id: account.indexedAccountId,
+            });
+            account.name = indexedAccount.name;
+            walletToBackup.indexedAccountUUIDs.push(account.indexedAccountId);
+          }
           walletToBackup.accounts.push(account);
           walletToBackup.accountIds.push(HDAccountUUID);
+
           publicBackupData.HDWallets[wallet.id] = {
             name: walletToBackup.name,
             avatar: walletToBackup.avatar,
             accountUUIDs: walletToBackup.accountIds,
+            indexedAccountUUIDs: Array.from(
+              new Set(walletToBackup.indexedAccountUUIDs),
+            ).map(() => generateUUID()),
           };
           privateBackupData.wallets[wallet.id] = walletToBackup;
         }
@@ -229,7 +242,7 @@ class ServiceCloudBackup extends ServiceBase {
         walletCount: Object.keys(cloudData.publicData.HDWallets).length,
         accountCount:
           Object.values(cloudData.publicData.HDWallets).reduce(
-            (count, wallet) => count + wallet.accountUUIDs.length,
+            (count, wallet) => count + wallet.indexedAccountUUIDs.length,
             0,
           ) +
           Object.keys(cloudData.publicData.importedAccounts).length +
@@ -466,7 +479,7 @@ class ServiceCloudBackup extends ServiceBase {
         ) {
           alreadyOnDevice.HDWallets[HDWalletId] = HDWallet;
         } else {
-          diffCount += HDWallet.accountUUIDs.length;
+          diffCount += HDWallet.indexedAccountUUIDs.length;
           notOnDevice.HDWallets[HDWalletId] = HDWallet;
         }
       }
@@ -491,7 +504,9 @@ class ServiceCloudBackup extends ServiceBase {
   }) {
     const { serviceAccount, servicePassword, serviceAddressBook, simpleDb } =
       this.backgroundApi;
-    await servicePassword.promptPasswordVerify();
+    await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+    });
 
     let privateData: IPrivateBackupData;
     try {
@@ -517,7 +532,7 @@ class ServiceCloudBackup extends ServiceBase {
       });
 
       for (const id of restoreList.HDWallets) {
-        const { version, accounts, avatar } = privateData.wallets[id];
+        const { version, name, accounts, avatar } = privateData.wallets[id];
         if (version !== HDWALLET_BACKUP_VERSION) {
           return;
         }
@@ -540,6 +555,10 @@ class ServiceCloudBackup extends ServiceBase {
         await serviceAccount.restoreAccountsToWallet({
           walletId: wallet.id,
           accounts,
+        });
+        await serviceAccount.setWalletNameAndAvatar({
+          walletId: wallet?.id,
+          name,
         });
       }
 
@@ -687,23 +706,31 @@ class ServiceCloudBackup extends ServiceBase {
 
   private getDataFromCloud = memoizee(
     async (filename: string) => {
-      if (
-        filename === CLOUD_METADATA_FILE_NAME &&
-        this.metaDataCache.length > 0
-      ) {
-        return this.metaDataCache;
-      }
       try {
-        return await CloudFs.downloadFromCloud(
+        const content = await CloudFs.downloadFromCloud(
           platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
         );
+        if (
+          filename === CLOUD_METADATA_FILE_NAME &&
+          (content?.length ?? 0) <= 0 &&
+          this.metaDataCache.length > 0
+        ) {
+          return this.metaDataCache;
+        }
+        return content;
       } catch (e) {
+        if (
+          filename === CLOUD_METADATA_FILE_NAME &&
+          this.metaDataCache.length > 0
+        ) {
+          return this.metaDataCache;
+        }
         return '[]';
       }
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 30 }),
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
       max: 50,
     },
   );

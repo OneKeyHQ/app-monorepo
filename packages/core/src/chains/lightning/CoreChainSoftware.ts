@@ -8,6 +8,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -35,6 +36,7 @@ import type {
   ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
+  ICoreApiGetExportedSecretKey,
   ICoreApiNetworkInfo,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
@@ -50,6 +52,12 @@ import type { IBtcForkNetwork } from '../btc/types';
 const curve: ICurveName = 'secp256k1';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override getExportedSecretKey(
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    throw new NotImplemented();
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
@@ -156,13 +164,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }): Promise<ISigner> {
     const btcNetworkInfo = isTestnet
       ? {
-          networkChainCode: IMPL_TBTC,
+          networkChainCode: 'tbtc', // presetNetworks.code not impl
           networkImpl: IMPL_TBTC,
           networkId: 'tbtc--0',
           chainId: '',
         }
       : {
-          networkChainCode: IMPL_BTC,
+          networkChainCode: 'btc', // presetNetworks.code not impl
           networkImpl: IMPL_BTC,
           networkId: 'btc--0',
           chainId: '',

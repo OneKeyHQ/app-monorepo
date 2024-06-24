@@ -65,14 +65,14 @@ class ProviderApiAptos extends ProviderApiBase {
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const data = async ({ origin }: { origin: string }) => {
-      const params = await this.account({ origin, scope: 'aptos' });
+      const params = await this.account({ origin, scope: this.providerName });
       const result = {
         method: 'wallet_events_accountChanged',
         params,
       };
       return result;
     };
-    info.send(data, origin);
+    info.send(data, info.targetOrigin);
   }
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
@@ -179,14 +179,14 @@ class ProviderApiAptos extends ProviderApiBase {
 
     const { account, accountInfo } = accounts[0];
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: encodeTx,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
-      })) as string;
+      });
 
-    const tx = await this.getTransaction(request, result);
+    const tx = await this.getTransaction(request, result.txid);
 
     return Promise.resolve(JSON.stringify(tx));
   }
@@ -261,14 +261,14 @@ class ProviderApiAptos extends ProviderApiBase {
     );
 
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: encodeTx,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
-      })) as string;
+      });
 
-    return result;
+    return result.txid;
   }
 
   @permissionRequired()
@@ -288,16 +288,16 @@ class ProviderApiAptos extends ProviderApiBase {
     );
 
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: encodeTx,
         signOnly: true,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
-      })) as string;
+      });
 
     return Promise.resolve(
-      bufferUtils.hexToBytes(hexUtils.stripHexPrefix(result)).toString(),
+      bufferUtils.hexToBytes(hexUtils.stripHexPrefix(result.rawTx)).toString(),
     );
   }
 
@@ -309,15 +309,15 @@ class ProviderApiAptos extends ProviderApiBase {
   ) {
     const { account, accountInfo } = await this._getAccount(request);
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: params,
         signOnly: true,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
-      })) as string;
+      });
 
-    return result;
+    return result.rawTx;
   }
 
   @permissionRequired()
@@ -376,14 +376,14 @@ class ProviderApiAptos extends ProviderApiBase {
 
     const { account, accountInfo } = await this._getAccount(request);
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: encodeTx,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
-      })) as string;
+      });
 
-    return result;
+    return result.txid;
   }
 
   @providerApiMethod()
@@ -405,14 +405,14 @@ class ProviderApiAptos extends ProviderApiBase {
     );
 
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: encodeTx,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
-      })) as string;
+      });
 
-    return result;
+    return result.txid;
   }
 
   @providerApiMethod()
@@ -451,14 +451,14 @@ class ProviderApiAptos extends ProviderApiBase {
     );
 
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: encodeTx,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
-      })) as string;
+      });
 
-    return Promise.resolve(result);
+    return Promise.resolve(result.txid);
   }
 
   private async getAptosVault(

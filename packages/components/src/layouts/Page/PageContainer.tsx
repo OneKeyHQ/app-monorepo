@@ -9,7 +9,7 @@ import { BasicPageFooter } from './PageFooter';
 import type { IPageProps } from './type';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
-export function PageContainer({ children, skipLoading }: IPageProps) {
+export function PageContainer({ children, skipLoading, fullPage }: IPageProps) {
   const { scrollEnabled, pageRef, pageOffsetRef, scrollProps } =
     useContext(PageContext);
 
@@ -22,7 +22,7 @@ export function PageContainer({ children, skipLoading }: IPageProps) {
 
   return useMemo(
     () => (
-      <BasicPage skipLoading={skipLoading}>
+      <BasicPage skipLoading={skipLoading} fullPage={fullPage}>
         {scrollEnabled ? (
           <ScrollView
             ref={pageRef}
@@ -38,6 +38,14 @@ export function PageContainer({ children, skipLoading }: IPageProps) {
         <BasicPageFooter />
       </BasicPage>
     ),
-    [skipLoading, scrollEnabled, pageRef, handleScroll, scrollProps, children],
+    [
+      skipLoading,
+      fullPage,
+      scrollEnabled,
+      pageRef,
+      handleScroll,
+      scrollProps,
+      children,
+    ],
   );
 }

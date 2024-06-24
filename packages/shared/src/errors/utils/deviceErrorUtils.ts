@@ -175,6 +175,12 @@ export function convertDeviceError(
       return new HardwareErrors.IncompleteFileError({ payload });
     case HardwareErrorCode.NotInSigningMode:
       return new HardwareErrors.NotInSigningModeError({ payload });
+    case HardwareErrorCode.DataOverload:
+      return new HardwareErrors.DeviceDataOverload({ payload });
+
+    // Bridge error
+    case 'ERR_BAD_REQUEST':
+      return new HardwareErrors.HardwareCommunicationError({ payload });
     default:
       return new HardwareErrors.UnknownHardwareError({ payload });
 

@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { swapQuoteIntervalMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapCheckWarningDef,
   ISwapState,
@@ -31,7 +35,6 @@ import { useSwapAddressInfo } from './useSwapAccount';
 
 function useSwapWarningCheck() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
-  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [networks] = useSwapNetworksAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -45,28 +48,19 @@ function useSwapWarningCheck() {
       networkId: undefined,
       accountInfo: undefined,
     },
-    swapToAddressInfo: {
-      address: undefined,
-      networkId: undefined,
-      accountInfo: undefined,
-    },
   });
-
+  const isFocused = useIsFocused();
   const asyncRefContainer = useCallback(() => {
     if (refContainer.current.swapFromAddressInfo !== swapFromAddressInfo) {
       refContainer.current.swapFromAddressInfo = swapFromAddressInfo;
     }
-    if (refContainer.current.swapToAddressInfo !== swapToAddressInfo) {
-      refContainer.current.swapToAddressInfo = swapToAddressInfo;
-    }
-  }, [swapFromAddressInfo, swapToAddressInfo]);
+  }, [swapFromAddressInfo]);
 
   useEffect(() => {
-    asyncRefContainer();
-    void checkSwapWarning(
-      refContainer.current.swapFromAddressInfo,
-      refContainer.current.swapToAddressInfo,
-    );
+    if (isFocused) {
+      asyncRefContainer();
+      void checkSwapWarning(refContainer.current.swapFromAddressInfo);
+    }
   }, [
     asyncRefContainer,
     checkSwapWarning,
@@ -76,6 +70,7 @@ function useSwapWarningCheck() {
     fromTokenBalance,
     quoteCurrentSelect,
     networks,
+    isFocused,
   ]);
 }
 
@@ -86,6 +81,7 @@ export function useSwapQuoteLoading() {
 }
 
 export function useSwapActionState() {
+  const intl = useIntl();
   const quoteLoading = useSwapQuoteLoading();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [buildTxFetching] = useSwapBuildTxFetchingAtom();
@@ -99,29 +95,42 @@ export function useSwapActionState() {
   const [selectedFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const { getQuoteIntervalCount } = useSwapActions().current;
+  const isRefreshQuote = getQuoteIntervalCount() >= swapQuoteIntervalMaxCount;
   const hasError = alerts.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
-      label: 'Swap',
+      label: intl.formatMessage({ id: ETranslations.swap_page_swap_button }),
     };
     if (quoteLoading) {
-      infoRes.label = 'Fetching quotes';
+      infoRes.label = intl.formatMessage({
+        id: ETranslations.swap_page_button_fetching_quotes,
+      });
     } else {
       if (isCrossChain && fromToken && toToken) {
-        infoRes.label = 'Cross-Chain Swap';
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_cross_chain,
+        });
       }
       if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
-        infoRes.label = 'Wrapped';
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_wrap,
+        });
       }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
         infoRes.label = swapQuoteApproveAllowanceUnLimit
-          ? `Approve Unlimited ${fromToken?.symbol ?? ''} to ${
+          ? `${intl.formatMessage({
+              id: ETranslations.swap_page_button_approve_unlimited,
+            })} ${fromToken?.symbol ?? ''} to ${
               quoteCurrentSelect?.info.providerName ?? ''
             }`
-          : `Approve  ${
+          : `${intl.formatMessage({
+              id: ETranslations.swap_page_provider_approve,
+            })}  ${
               numberFormat(fromTokenAmount, {
                 formatter: 'balance',
               }) as string
@@ -134,23 +143,53 @@ export function useSwapActionState() {
         !quoteCurrentSelect.toAmount &&
         !quoteCurrentSelect.limit
       ) {
-        infoRes.label = 'No liquidity for this trade';
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_alert_no_provider_supports_trade,
+        });
         infoRes.disable = true;
       }
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount);
+
+      if (
+        quoteCurrentSelect &&
+        quoteCurrentSelect.toAmount &&
+        !swapToAddressInfo.address
+      ) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_enter_a_recipient,
+        });
+        infoRes.disable = true;
+      }
+
       const balanceBN = new BigNumber(selectedFromTokenBalance ?? 0);
-      const reserveBN = new BigNumber(fromToken?.reservationValue ?? 0);
-      if (!reserveBN.isZero() && fromTokenAmountBN.lte(reserveBN)) {
-        infoRes.label = 'Not enough to cover network fee';
-        infoRes.disable = true;
-      }
+      const fromTokenAmountBN = new BigNumber(fromTokenAmount);
       if (
         fromToken &&
         swapFromAddressInfo.address &&
         balanceBN.lt(fromTokenAmountBN)
       ) {
-        infoRes.label = 'Insufficient balance';
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_insufficient_balance,
+        });
         infoRes.disable = true;
+      }
+
+      if (!fromToken || !toToken) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_select_token,
+        });
+        infoRes.disable = true;
+      }
+      if (!fromTokenAmount) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_enter_amount,
+        });
+        infoRes.disable = true;
+      }
+      if (isRefreshQuote && !quoteLoading) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_refresh_quotes,
+        });
+        infoRes.disable = false;
       }
     }
     return infoRes;
@@ -158,12 +197,15 @@ export function useSwapActionState() {
     fromToken,
     fromTokenAmount,
     hasError,
+    intl,
     isCrossChain,
+    isRefreshQuote,
     quoteCurrentSelect,
     quoteLoading,
     selectedFromTokenBalance,
     swapFromAddressInfo.address,
     swapQuoteApproveAllowanceUnLimit,
+    swapToAddressInfo.address,
     toToken,
   ]);
 
@@ -177,6 +219,7 @@ export function useSwapActionState() {
     shoutResetApprove:
       !!quoteCurrentSelect?.allowanceResult?.shouldResetApprove,
     isWrapped: !!quoteCurrentSelect?.isWrapped,
+    isRefreshQuote: isRefreshQuote && !quoteLoading,
   };
   return stepState;
 }

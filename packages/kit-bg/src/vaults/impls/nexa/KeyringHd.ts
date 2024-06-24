@@ -5,6 +5,8 @@ import { KeyringHdBase } from '../../base/KeyringHdBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
@@ -27,6 +29,12 @@ export class KeyringHd extends KeyringHdBase {
     return this.basePrepareAccountsHdUtxo(params, {
       checkIsAccountUsed: () => Promise.resolve({ isUsed: true }),
     });
+  }
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async signTransaction(

@@ -7,7 +7,9 @@ import { Page, Toast, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
+import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IRequestInvoiceArgs } from '@onekeyhq/shared/types/lightning/webln';
 
 import { DAppAccountListStandAloneItem } from '../../../DAppConnection/components/DAppAccountList';
@@ -47,7 +49,9 @@ function WeblnMakeInvoiceModal() {
 
   const useFormReturn = useForm<IMakeInvoiceFormValues>({
     defaultValues: {
-      amount: `${makeInvoiceParams.amount ?? ''}`,
+      amount: `${
+        makeInvoiceParams.amount ?? makeInvoiceParams.defaultAmount ?? ''
+      }`,
       description: makeInvoiceParams.defaultMemo ?? '',
     },
   });
@@ -80,9 +84,9 @@ function WeblnMakeInvoiceModal() {
         });
       } catch (e: any) {
         dappApprove.reject();
+        const message = (e as Error)?.message ?? e;
         throw new OneKeyError({
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          info: e.message ?? e,
+          message,
           autoToast: true,
         });
       } finally {
@@ -93,52 +97,57 @@ function WeblnMakeInvoiceModal() {
   );
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title={intl.formatMessage({ id: 'title__create_invoice' })}
-          subtitleShown={false}
-          origin={$sourceInfo?.origin ?? ''}
-          urlSecurityInfo={urlSecurityInfo}
-        >
-          <DAppAccountListStandAloneItem readonly />
-          <LNMakeInvoiceForm
-            isWebln
-            accountId={accountId}
-            networkId={networkId}
-            useFormReturn={useFormReturn}
-            amount={new BigNumber(makeInvoiceParams.amount ?? '').toNumber()}
-            minimumAmount={new BigNumber(
-              makeInvoiceParams.minimumAmount ?? '',
-            ).toNumber()}
-            maximumAmount={new BigNumber(
-              makeInvoiceParams.maximumAmount ?? '',
-            ).toNumber()}
-            amountReadOnly={Number(makeInvoiceParams.amount) > 0}
-            descriptionLabelId="form__withdraw_description"
-            memo={makeInvoiceParams.defaultMemo}
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title={intl.formatMessage({
+              id: ETranslations.dapp_connect_create_invoice_request,
+            })}
+            subtitleShown={false}
+            origin={$sourceInfo?.origin ?? ''}
+            urlSecurityInfo={urlSecurityInfo}
+          >
+            <DAppAccountListStandAloneItem readonly />
+            <LNMakeInvoiceForm
+              isWebln
+              accountId={accountId}
+              networkId={networkId}
+              useFormReturn={useFormReturn}
+              amount={new BigNumber(makeInvoiceParams.amount ?? '').toNumber()}
+              minimumAmount={new BigNumber(
+                makeInvoiceParams.minimumAmount ?? '',
+              ).toNumber()}
+              maximumAmount={new BigNumber(
+                makeInvoiceParams.maximumAmount ?? '',
+              ).toNumber()}
+              amountReadOnly={Number(makeInvoiceParams.amount) > 0}
+              memo={makeInvoiceParams.defaultMemo}
+            />
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            confirmText={intl.formatMessage({
+              id: ETranslations.dapp_connect_create,
+            })}
+            continueOperate={continueOperate}
+            setContinueOperate={(checked) => {
+              setContinueOperate(!!checked);
+            }}
+            onConfirm={onConfirm}
+            onCancel={() => dappApprove.reject()}
+            confirmButtonProps={{
+              loading: isLoading,
+              disabled: !continueOperate,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
           />
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          confirmText="Continue"
-          continueOperate={continueOperate}
-          setContinueOperate={(checked) => {
-            setContinueOperate(!!checked);
-          }}
-          onConfirm={onConfirm}
-          onCancel={() => dappApprove.reject()}
-          confirmButtonProps={{
-            loading: isLoading,
-            disabled: !continueOperate,
-          }}
-          showContinueOperateCheckbox={showContinueOperate}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 

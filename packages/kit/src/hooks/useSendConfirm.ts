@@ -5,6 +5,7 @@ import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IApproveInfo,
   ITransferInfo,
+  ITransferPayload,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
@@ -34,6 +35,7 @@ type IBuildUnsignedTxParams = {
   onFail?: (error: Error) => void;
   onCancel?: () => void;
   sameModal?: boolean;
+  transferPayload?: ITransferPayload;
 };
 
 function useSendConfirm(params: IParams) {
@@ -43,7 +45,14 @@ function useSendConfirm(params: IParams) {
 
   const normalizeSendConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
-      const { sameModal, onSuccess, onFail, onCancel, ...rest } = params;
+      const {
+        sameModal,
+        onSuccess,
+        onFail,
+        onCancel,
+        transferPayload,
+        ...rest
+      } = params;
       try {
         const unsignedTx =
           await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
@@ -59,6 +68,7 @@ function useSendConfirm(params: IParams) {
             onSuccess,
             onFail,
             onCancel,
+            transferPayload,
           });
         } else {
           navigation.pushModal(EModalRoutes.SendModal, {
@@ -70,6 +80,7 @@ function useSendConfirm(params: IParams) {
               onSuccess,
               onFail,
               onCancel,
+              transferPayload,
             },
           });
         }
@@ -86,7 +97,7 @@ function useSendConfirm(params: IParams) {
 
   const lightningSendConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
-      const { sameModal, onSuccess, onFail, onCancel } = params;
+      const { onSuccess, onFail, onCancel } = params;
 
       const { transfersInfo } = params;
       if (!transfersInfo?.length || transfersInfo?.length > 1) {

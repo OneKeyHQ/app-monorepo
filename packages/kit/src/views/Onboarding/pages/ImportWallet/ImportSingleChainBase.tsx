@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { trim } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Form,
+  Icon,
   Input,
   Page,
   SizableText,
+  Stack,
+  useClipboard,
   useForm,
   useFormWatch,
   useMedia,
@@ -22,6 +26,7 @@ import type {
   IValidateGeneralInputParams,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
 import type { UseFormReturn } from 'react-hook-form';
@@ -44,6 +49,7 @@ export function ImportSingleChainBase({
   invalidMessage,
   children,
   onConfirm,
+  excludedNetworkIds,
 }: {
   validationParams: IValidateGeneralInputParams;
   title: string;
@@ -56,11 +62,14 @@ export function ImportSingleChainBase({
   onConfirm: (
     form: UseFormReturn<IFormValues, any, undefined>,
   ) => Promise<void>;
+  excludedNetworkIds?: string[];
 }) {
+  const intl = useIntl();
   const media = useMedia();
   const {
     activeAccount: { network },
   } = useAccountSelectorTrigger({ num: 0 });
+  const { clearText } = useClipboard();
   const form = useForm<IFormValues>({
     values: {
       networkId: network?.id ?? getNetworkIdsMap().btc,
@@ -95,6 +104,8 @@ export function ImportSingleChainBase({
           );
         setValidateResult(result);
         console.log('validateGeneralInputOfImporting result', result);
+        // TODO: need to replaced by https://github.com/mattermost/react-native-paste-input
+        clearText();
       } catch (error) {
         setValidateResult({
           isValid: false,
@@ -103,7 +114,13 @@ export function ImportSingleChainBase({
     } else {
       setValidateResult(undefined);
     }
-  }, [inputTextDebounced, networkIdText, setValue, validationParams]);
+  }, [
+    clearText,
+    inputTextDebounced,
+    networkIdText,
+    setValue,
+    validationParams,
+  ]);
 
   useEffect(() => {
     void (async () => {
@@ -129,8 +146,13 @@ export function ImportSingleChainBase({
       <Page.Header title={title} />
       <Page.Body px="$5">
         <Form form={form}>
-          <Form.Field label="Network" name="networkId">
-            <ControlledNetworkSelectorTrigger />
+          <Form.Field
+            label={intl.formatMessage({ id: ETranslations.global_network })}
+            name="networkId"
+          >
+            <ControlledNetworkSelectorTrigger
+              excludedNetworkIds={excludedNetworkIds}
+            />
           </Form.Field>
           <Form.Field label={inputLabel} name="input">
             <Input
@@ -142,7 +164,10 @@ export function ImportSingleChainBase({
                 {
                   iconName: 'ScanOutline',
                   onPress: async () => {
-                    const result = await start({ autoHandleResult: false });
+                    const result = await start({
+                      handlers: [],
+                      autoHandleResult: false,
+                    });
                     form.setValue('input', result.raw);
                   },
                 },
@@ -150,10 +175,43 @@ export function ImportSingleChainBase({
             />
           </Form.Field>
           {validateResult?.deriveInfoItems ? (
-            <Form.Field label="Derivation Path" name="deriveType">
+            <Form.Field
+              label={intl.formatMessage({ id: ETranslations.derivation_path })}
+              name="deriveType"
+            >
               <DeriveTypeSelectorTriggerStaticInput
                 networkId={form.getValues().networkId || ''}
                 items={validateResult?.deriveInfoItems || []}
+                renderTrigger={({ label }) => (
+                  <Stack
+                    userSelect="none"
+                    flexDirection="row"
+                    px="$3.5"
+                    py="$2.5"
+                    borderWidth={1}
+                    borderColor="$borderStrong"
+                    borderRadius="$3"
+                    $gtMd={{
+                      px: '$3',
+                      py: '$1.5',
+                      borderRadius: '$2',
+                    }}
+                    borderCurve="continuous"
+                    hoverStyle={{
+                      bg: '$bgHover',
+                    }}
+                    pressStyle={{
+                      bg: '$bgActive',
+                    }}
+                  >
+                    <SizableText flex={1}>{label}</SizableText>
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      color="$iconSubdued"
+                      mr="$-0.5"
+                    />
+                  </Stack>
+                )}
               />
             </Form.Field>
           ) : null}

@@ -11,6 +11,8 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -232,7 +234,10 @@ class ServiceAccountSelector extends ServiceBase {
       indexedAccount = undefined;
     }
 
-    const isOthersWallet = Boolean(account && !indexedAccountId);
+    const isOthersWallet =
+      accountUtils.isOthersWallet({
+        walletId: wallet?.id || '',
+      }) || Boolean(account && !indexedAccountId);
     const universalAccountName = (() => {
       // hd account or others account
       if (account) {
@@ -267,7 +272,8 @@ class ServiceAccountSelector extends ServiceBase {
         //
       }
     }
-
+    const canCreateAddress = !isOthersWallet && !account?.address;
+    const isNetworkNotMatched = isOthersWallet && !account && !indexedAccount;
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
       dbAccount,
@@ -283,6 +289,8 @@ class ServiceAccountSelector extends ServiceBase {
       }),
       ready: true,
       isOthersWallet,
+      canCreateAddress,
+      isNetworkNotMatched,
     };
     const selectedAccountFixed: IAccountSelectorSelectedAccount = {
       othersWalletAccountId: isOthersWallet
@@ -435,29 +443,44 @@ class ServiceAccountSelector extends ServiceBase {
     }): IAccountSelectorAccountsListSectionData => {
       if (walletId === WALLET_TYPE_WATCHING) {
         return {
-          title: title ?? 'Watchlist',
+          title:
+            title ??
+            appLocale.intl.formatMessage({
+              id: ETranslations.global_watched,
+            }),
           data: accounts,
           walletId,
-          emptyText:
-            'Your watchlist is empty. Import a address to start monitoring.',
+          emptyText: appLocale.intl.formatMessage({
+            id: ETranslations.no_watched_account_message,
+          }),
         };
       }
       if (walletId === WALLET_TYPE_IMPORTED) {
         return {
-          title: title ?? 'Private Key',
+          title:
+            title ??
+            appLocale.intl.formatMessage({
+              id: ETranslations.global_private_key,
+            }),
           data: accounts,
           walletId,
-          emptyText:
-            'No private key accounts. Add a new account to manage your assets.',
+          emptyText: appLocale.intl.formatMessage({
+            id: ETranslations.no_private_key_account_message,
+          }),
         };
       }
       if (walletId === WALLET_TYPE_EXTERNAL) {
         return {
-          title: title ?? 'External account',
+          title:
+            title ??
+            appLocale.intl.formatMessage({
+              id: ETranslations.global_connected,
+            }),
           data: accounts,
           walletId,
-          emptyText:
-            'No external wallets connected. Link a third-party wallet to view here.',
+          emptyText: appLocale.intl.formatMessage({
+            id: ETranslations.no_external_wallet_message,
+          }),
         };
       }
       // hw and hd accounts
@@ -511,10 +534,20 @@ class ServiceAccountSelector extends ServiceBase {
 
     // others singleton wallet
     if (accountUtils.isOthersWallet({ walletId })) {
-      const { accounts } = await serviceAccount.getSingletonAccountsOfWallet({
+      let { accounts } = await serviceAccount.getSingletonAccountsOfWallet({
         walletId: walletId as any,
         activeNetworkId: othersNetworkId,
       });
+      if (linkedNetworkId) {
+        accounts = accounts
+          .filter((account) =>
+            accountUtils.isAccountCompatibleWithNetwork({
+              account,
+              networkId: linkedNetworkId,
+            }),
+          )
+          .filter(Boolean);
+      }
       return [
         buildAccountsData({
           accounts,

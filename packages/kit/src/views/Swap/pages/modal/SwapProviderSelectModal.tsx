@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -23,6 +24,7 @@ import {
   useSwapSortedQuoteListAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -35,10 +37,15 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 
+enum ESwapProviderStatus {
+  AVAILABLE = 'Available',
+  UNAVAILABLE = 'Unavailable',
+}
+
 const SwapProviderSelectModal = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-
+  const intl = useIntl();
   const [swapSortedList] = useSwapSortedQuoteListAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -61,21 +68,42 @@ const SwapProviderSelectModal = () => {
   // todo i18n
   const swapProviderSortSelectItems = useMemo(
     () => [
-      { label: 'Recommend', value: ESwapProviderSort.RECOMMENDED },
-      { label: 'Gas fee', value: ESwapProviderSort.GAS_FEE },
-      { label: 'Swap Duration', value: ESwapProviderSort.SWAP_DURATION },
-      { label: 'Received', value: ESwapProviderSort.RECEIVED },
+      {
+        label: intl.formatMessage({ id: ETranslations.provider_recommend }),
+        value: ESwapProviderSort.RECOMMENDED,
+      },
+      {
+        label: intl.formatMessage({ id: ETranslations.provider_sort_item_gas }),
+        value: ESwapProviderSort.GAS_FEE,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.provider_sort_item_swap_duration,
+        }),
+        value: ESwapProviderSort.SWAP_DURATION,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.provider_sort_item_received,
+        }),
+        value: ESwapProviderSort.RECEIVED,
+      },
     ],
-    [],
+    [intl],
   );
   const sectionData = useMemo(() => {
-    const availableList = swapSortedList.filter((item) => item.toAmount);
-    const unavailableList = swapSortedList.filter((item) => !item.toAmount);
+    const availableList = swapSortedList.filter(
+      (item) => item.toAmount && !item.limit?.min && !item.limit?.max,
+    );
+    const unavailableList = swapSortedList.filter(
+      (item) => !item.toAmount || item.limit?.min || item.limit?.max,
+    );
     return [
       ...(availableList?.length > 0
         ? [
             {
               title: 'Available',
+              type: ESwapProviderStatus.AVAILABLE,
               data: availableList,
             },
           ]
@@ -83,13 +111,16 @@ const SwapProviderSelectModal = () => {
       ...(unavailableList?.length > 0
         ? [
             {
-              title: 'Unavailable',
+              title: intl.formatMessage({
+                id: ETranslations.provider_unavailable,
+              }),
+              type: ESwapProviderStatus.UNAVAILABLE,
               data: unavailableList,
             },
           ]
         : []),
     ];
-  }, [swapSortedList]);
+  }, [intl, swapSortedList]);
   const onSelectQuote = useCallback(
     (item: IFetchQuoteResult) => {
       setSwapManualSelect(item);
@@ -153,11 +184,13 @@ const SwapProviderSelectModal = () => {
         estimatedItemSize="$10"
         renderItem={renderItem}
         sections={sectionData}
-        renderSectionHeader={({ section: { title } }) => {
-          if (title === 'Available') {
+        renderSectionHeader={({ section: { type, title } }) => {
+          if (type === ESwapProviderStatus.AVAILABLE) {
             return (
               <Select
-                title="Sort"
+                title={intl.formatMessage({
+                  id: ETranslations.provider_sort_title,
+                })}
                 items={swapProviderSortSelectItems}
                 onChange={onSelectSortChange}
                 value={providerSort}

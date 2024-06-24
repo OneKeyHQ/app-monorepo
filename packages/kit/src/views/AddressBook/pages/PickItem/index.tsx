@@ -1,18 +1,18 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
 } from '@onekeyhq/shared/src/routes/addressBook';
 
 import { AddressBookListContent } from '../../components/AddressBookListContent';
-import { PageLoading } from '../../components/PageLoading';
-import { UnsafeContent } from '../../components/UnsafeContent';
+import { ContentContainer } from '../../components/ContentContainer';
 import { useAddressBookItems } from '../../hooks/useAddressBook';
 
 import type { IAddressItem } from '../../type';
@@ -28,8 +28,7 @@ const PickItemPage = () => {
       >
     >();
   const { onPick, networkId } = route.params;
-  const [searchKey, setSearchKey] = useState<string>('');
-  const { isLoading, result } = useAddressBookItems(networkId);
+  const { isLoading, result, run } = useAddressBookItems(networkId);
   const navigation = useAppNavigation();
 
   const onPressItem = useCallback(
@@ -39,31 +38,26 @@ const PickItemPage = () => {
     },
     [onPick, navigation],
   );
-
-  if (isLoading) {
-    return <PageLoading />;
-  }
-  if (!result?.isSafe) {
-    return <UnsafeContent />;
-  }
   return (
     <Page>
       <Page.Header
-        title="Select Address"
-        headerSearchBarOptions={{
-          placeholder: intl.formatMessage({ id: 'form__search' }),
-          onChangeText(e) {
-            setSearchKey(e.nativeEvent.text);
-          },
-        }}
+        title={intl.formatMessage({
+          id: ETranslations.address_book_select_title,
+        })}
       />
       <Page.Body px="$4">
-        <AddressBookListContent
-          onPressItem={onPressItem}
-          items={result?.items ?? []}
-          searchKey={searchKey.trim()}
-          hideEmptyAddButton
-        />
+        <ContentContainer
+          loading={isLoading}
+          error={Boolean(!isLoading && !result)}
+          unsafe={Boolean(result && !result.isSafe)}
+          onRefresh={run}
+        >
+          <AddressBookListContent
+            onPressItem={onPressItem}
+            items={result?.items ?? []}
+            hideEmptyAddButton
+          />
+        </ContentContainer>
       </Page.Body>
     </Page>
   );

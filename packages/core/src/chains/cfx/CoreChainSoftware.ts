@@ -1,31 +1,35 @@
 import { keccak256 } from '@ethersproject/keccak256';
-import { secp256k1, uncompressPublicKey } from '@onekeyhq/core/src/secret';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-
-import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-
-import { pubkeyToCfxAddress, signTransactionWithSigner } from './sdkCfx';
-
-import { conflux } from './sdkCfx/conflux';
-
 import { getMessage } from 'cip-23';
 
+import {
+  decrypt,
+  secp256k1,
+  uncompressPublicKey,
+} from '@onekeyhq/core/src/secret';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import type {
-  ICoreApiGetAddressItem,
-  ICoreApiGetAddressQueryImported,
-  ICoreApiGetAddressQueryPublicKey,
-  ICoreApiGetAddressesQueryHd,
-  ICoreApiGetAddressesResult,
-  ICoreApiPrivateKeysMap,
-  ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
-  ICoreApiSignTxPayload,
-  ICurveName,
-  ISignedTxPro,
-  IUnsignedMessageEth,
+
+import { CoreChainApiBase } from '../../base/CoreChainApiBase';
+import {
+  ECoreApiExportedSecretKeyType,
+  type ICoreApiGetAddressItem,
+  type ICoreApiGetAddressQueryImported,
+  type ICoreApiGetAddressQueryPublicKey,
+  type ICoreApiGetAddressesQueryHd,
+  type ICoreApiGetAddressesResult,
+  type ICoreApiGetExportedSecretKey,
+  type ICoreApiPrivateKeysMap,
+  type ICoreApiSignBasePayload,
+  type ICoreApiSignMsgPayload,
+  type ICoreApiSignTxPayload,
+  type ICurveName,
+  type ISignedTxPro,
+  type IUnsignedMessageEth,
 } from '../../types';
+
+import { pubkeyToCfxAddress, signTransactionWithSigner } from './sdkCfx';
+import { conflux } from './sdkCfx/conflux';
 
 const curve: ICurveName = 'secp256k1';
 
@@ -49,6 +53,32 @@ function hashCfxMessage(typedMessage: IUnsignedMessageEth): string {
 }
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override async getExportedSecretKey(
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    const {
+      // networkInfo,
+      password,
+      keyType,
+      credentials,
+      // addressEncoding,
+    } = query;
+    console.log(
+      'ExportSecretKeys >>>> cfx',
+      this.baseGetCredentialsType({ credentials }),
+    );
+
+    const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
+
+    if (!privateKeyRaw) {
+      throw new Error('privateKeyRaw is required');
+    }
+    if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
+      return `0x${decrypt(password, privateKeyRaw).toString('hex')}`;
+    }
+    throw new Error(`SecretKey type not support: ${keyType}`);
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {

@@ -25,6 +25,7 @@ export type IDesktopAPI = {
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   canPromptTouchID: () => boolean;
+  openDevTools: () => void;
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
   secureGetItemAsync: (key: string) => Promise<string | null>;
@@ -76,6 +77,7 @@ export type IDesktopAPI = {
   clearWebViewData: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   setAllowedPhishingUrls: (urls: string[]) => void;
+  clearWebViewCache: () => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -168,6 +170,7 @@ const desktopApi = {
   openPreferences: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFERENCES),
   toggleMaximizeWindow: () =>
     ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
+  openDevTools: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_DEV_TOOLS),
   canPromptTouchID: () =>
     ipcRenderer.sendSync(ipcMessageKeys.TOUCH_ID_CAN_PROMPT) as boolean,
   promptTouchID: async (
@@ -270,6 +273,9 @@ const desktopApi = {
   },
   setAllowedPhishingUrls: (urls: string[]) => {
     ipcRenderer.send(ipcMessageKeys.SET_ALLOWED_PHISHING_URLS, urls);
+  },
+  clearWebViewCache: () => {
+    ipcRenderer.send(ipcMessageKeys.CLEAR_WEBVIEW_CACHE);
   },
 };
 

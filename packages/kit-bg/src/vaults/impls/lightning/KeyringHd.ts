@@ -193,17 +193,25 @@ export class KeyringHd extends KeyringHdBase {
     const credentials = await this.baseGetCredentialsInfo(params);
     const network = await this.getNetwork();
 
+    const networkBtc = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: getNetworkIdsMap().btc,
+    });
+    const networkTbtc = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: getNetworkIdsMap().tbtc,
+    });
+
     const btcPath = accountUtils.buildLnToBtcPath({
       path: account.path,
       isTestnet: network.isTestnet,
     });
     const btcImpl = network.isTestnet ? IMPL_TBTC : IMPL_BTC;
+    const btcCode = network.isTestnet ? networkTbtc.code : networkBtc.code;
     const btcNetworkId = network.isTestnet
       ? getNetworkIdsMap().tbtc
       : getNetworkIdsMap().btc;
     const networkInfo = {
       isTestnet: network.isTestnet,
-      networkChainCode: btcImpl,
+      networkChainCode: btcCode,
       chainId: '0',
       networkId: btcNetworkId,
       networkImpl: btcImpl,
@@ -216,7 +224,7 @@ export class KeyringHd extends KeyringHdBase {
         const signature = await coreChainApi.btc.hd.signMessage({
           networkInfo: {
             isTestnet: networkInfo.isTestnet,
-            networkChainCode: IMPL_BTC,
+            networkChainCode: networkBtc.code,
             chainId: '',
             networkId: getNetworkIdsMap().btc,
             networkImpl: IMPL_BTC,
@@ -232,8 +240,8 @@ export class KeyringHd extends KeyringHdBase {
             ...account,
             address: accountAddress,
             path: btcPath,
-            relPaths: ['0/0'],
           },
+          relPaths: ['0/0'],
           password,
           credentials,
           btcExtraInfo: {
@@ -241,6 +249,14 @@ export class KeyringHd extends KeyringHdBase {
               [`${btcPath}/0/0`]: {
                 address: accountAddress,
                 relPath: '0/0',
+                fullPath: `${btcPath}/0/0`,
+              },
+            },
+            addressToPath: {
+              [accountAddress]: {
+                address: accountAddress,
+                relPath: '0/0',
+                fullPath: `${btcPath}/0/0`,
               },
             },
           },

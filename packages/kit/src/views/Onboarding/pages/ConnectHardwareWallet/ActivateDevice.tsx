@@ -1,3 +1,6 @@
+import { useIntl } from 'react-intl';
+
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Divider,
   Group,
@@ -8,215 +11,272 @@ import {
   Stack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EOnboardingPages,
+  IOnboardingParamList,
+} from '@onekeyhq/shared/src/routes';
+
+import {
+  getCreateNewWalletStepImage,
+  getEnterRecoveryPhraseStepImage,
+  getImportWalletStepImage,
+  getSetPinStepImage,
+  getWriteDownRecoveryPhraseStepImage,
+} from './ActivateDeviceResource';
+
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type IStep = {
-  title?: string;
-  description?: string;
-  type: 'classic' | 'mini' | 'touch' | 'pro';
+  title?: ETranslations;
+  description?: ETranslations;
+  type: IDeviceType;
+  uri: any;
 };
 
-const getCreateNewWalletStep = (type: IStep['type']) => {
-  const images = {
-    classic: require('@onekeyhq/kit/assets/onboarding/classic-create-new-wallet.png'),
-    mini: require('@onekeyhq/kit/assets/onboarding/mini-create-new-wallet.png'),
-    touch: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
-    pro: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
-  };
-
-  return {
-    title: 'Select "Create New Wallet"',
-    description:
-      "Initiate your wallet setup by selecting 'Create New Wallet.' You will be guided through creating a unique recovery phrase and setting a secure PIN.",
-    uri: images[type],
-  };
-};
-
-const getWriteDownRecoveryPhraseStep = (type: IStep['type']) => {
-  const images = {
-    classic: require('@onekeyhq/kit/assets/onboarding/classic-write-down-recovery-phrase.png'),
-    mini: require('@onekeyhq/kit/assets/onboarding/mini-write-down-recovery-phrase.png'),
-    touch: require('@onekeyhq/kit/assets/onboarding/touch-write-down-recovery-phrase.png'),
-    pro: require('@onekeyhq/kit/assets/onboarding/touch-write-down-recovery-phrase.png'),
-  };
-
-  return {
-    title: 'Write Down All Recovery Phrase',
-    description:
-      "Securely record your recovery phrase and complete the check. It's crucial for accessing your wallet if you forget your PIN or lose your device.",
-    uri: images[type],
-  };
-};
-
-const getSetPinStep = (type: IStep['type']) => {
-  const images = {
-    classic: require('@onekeyhq/kit/assets/onboarding/classic-set-pin.png'),
-    mini: require('@onekeyhq/kit/assets/onboarding/mini-set-pin.png'),
-    touch: require('@onekeyhq/kit/assets/onboarding/touch-set-pin.png'),
-    pro: require('@onekeyhq/kit/assets/onboarding/touch-set-pin.png'),
-  };
-
-  return {
-    title: 'Set PIN',
-    description:
-      'Create a strong PIN to protect your wallet just like you would with a bank card. Avoid easy sequences or repeated numbers.',
-    uri: images[type],
-  };
-};
-
-const getImportWalletStep = (type: IStep['type']) => {
-  const images = {
-    classic: require('@onekeyhq/kit/assets/onboarding/classic-import-wallet.png'),
-    mini: require('@onekeyhq/kit/assets/onboarding/mini-import-wallet.png'),
-    touch: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
-    pro: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
-  };
-
-  return {
-    title:
-      type === 'mini' ? 'Select "Restore Wallet"' : 'Select "Import Wallet"',
-    description:
-      'Follow the prompts to secure your wallet with a PIN and enter your recovery phrase to complete the process.',
-    uri: images[type],
-  };
-};
-
-const getEnterRecoveryPhraseStep = (type: IStep['type']) => {
-  const images = {
-    classic: require('@onekeyhq/kit/assets/onboarding/classic-enter-recovery-phrase.png'),
-    mini: require('@onekeyhq/kit/assets/onboarding/mini-enter-recovery-phrase.png'),
-    touch: require('@onekeyhq/kit/assets/onboarding/touch-enter-recovery-phrase.png'),
-    pro: require('@onekeyhq/kit/assets/onboarding/touch-enter-recovery-phrase.png'),
-  };
-
-  return {
-    title: 'Enter Recovery Phrase',
-    description:
-      'Carefully enter your recovery phrase word by word. This unique phrase is essential for the security and recovery of your wallet.',
-    uri: images[type],
-  };
-};
-
-const classicCreateNewWalletSteps = [
-  getCreateNewWalletStep('classic'),
-  getWriteDownRecoveryPhraseStep('classic'),
-  getSetPinStep('classic'),
-];
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const classicImportWalletSteps = [
-  getImportWalletStep('classic'),
-  getEnterRecoveryPhraseStep('classic'),
-  getSetPinStep('classic'),
-];
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const miniCreateNewWalletSteps = [
-  getCreateNewWalletStep('mini'),
-  getWriteDownRecoveryPhraseStep('mini'),
-  getSetPinStep('mini'),
-];
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const miniImportWalletSteps = [
-  getImportWalletStep('mini'),
-  getEnterRecoveryPhraseStep('mini'),
-  getSetPinStep('mini'),
-];
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const touchCreateNewWalletSteps = [
-  getCreateNewWalletStep('touch'),
-  getSetPinStep('touch'),
-  getWriteDownRecoveryPhraseStep('touch'),
-];
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const touchImportWalletSteps = [
-  getImportWalletStep('touch'),
-  getSetPinStep('touch'),
-  getEnterRecoveryPhraseStep('touch'),
-];
-
-export function ActivateDevice() {
+export function ActivateDevice({
+  route,
+}: IPageScreenProps<IOnboardingParamList, EOnboardingPages.ActivateDevice>) {
   const navigation = useAppNavigation();
+  const intl = useIntl();
+  const { tutorialType, deviceType } = route.params;
 
   const handleConfirmPress = () => {
     navigation.pop();
   };
 
+  const getCreateNewWalletStep = (type: IStep['type']) => ({
+    title: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_create_new_wallet,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_create_new_wallet_desc,
+    }),
+    uri: getCreateNewWalletStepImage(type),
+  });
+
+  const getWriteDownRecoveryPhraseStep = (type: IStep['type']) => ({
+    title: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_backup,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_backup_desc,
+    }),
+    uri: getWriteDownRecoveryPhraseStepImage(type),
+  });
+
+  const getSetPinStep = (type: IStep['type']) => ({
+    title: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_pin,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_pin_desc,
+    }),
+    uri: getSetPinStepImage(type),
+  });
+
+  const getImportWalletStep = (type: IStep['type']) => ({
+    title:
+      type === 'mini'
+        ? intl.formatMessage({
+            id: ETranslations.onboarding_device_mini_set_up_import,
+          })
+        : intl.formatMessage({
+            id: ETranslations.onboarding_device_set_up_import,
+          }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_import_desc,
+    }),
+    uri: getImportWalletStepImage(type),
+  });
+
+  const getEnterRecoveryPhraseStep = (type: IStep['type']) => ({
+    title: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_enter_recovery_phrase,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_device_set_up_enter_recovery_phrase_desc,
+    }),
+    uri: getEnterRecoveryPhraseStepImage(type),
+  });
+
+  type IDeviceStepType = 'create' | 'restore';
+  type IDeviceStepDetail = {
+    title: string;
+    description: string;
+    uri: any | undefined;
+  };
+
+  const getDeviceSteps = (
+    onekeyDeviceType: IDeviceType,
+    stepType: IDeviceStepType,
+  ): IDeviceStepDetail[] | undefined => {
+    switch (onekeyDeviceType) {
+      case 'unknown':
+        return;
+      case 'classic':
+      case 'classic1s':
+        switch (stepType) {
+          case 'create':
+            return [
+              getCreateNewWalletStep('classic'),
+              getWriteDownRecoveryPhraseStep('classic'),
+              getSetPinStep('classic'),
+            ];
+          case 'restore':
+            return [
+              getImportWalletStep('classic'),
+              getEnterRecoveryPhraseStep('classic'),
+              getSetPinStep('classic'),
+            ];
+          default:
+            // eslint-disable-next-line no-case-declarations, @typescript-eslint/no-unused-vars
+            const _exhaustiveCheck: never = stepType;
+        }
+        return;
+      case 'mini':
+        if (stepType === 'create') {
+          return [
+            getCreateNewWalletStep('mini'),
+            getWriteDownRecoveryPhraseStep('mini'),
+            getSetPinStep('mini'),
+          ];
+        }
+        if (stepType === 'restore') {
+          return [
+            getImportWalletStep('mini'),
+            getEnterRecoveryPhraseStep('mini'),
+            getSetPinStep('mini'),
+          ];
+        }
+        return;
+      case 'touch':
+        if (stepType === 'create') {
+          return [
+            getCreateNewWalletStep('touch'),
+            getWriteDownRecoveryPhraseStep('touch'),
+            getSetPinStep('touch'),
+          ];
+        }
+        if (stepType === 'restore') {
+          return [
+            getImportWalletStep('touch'),
+            getEnterRecoveryPhraseStep('touch'),
+            getSetPinStep('touch'),
+          ];
+        }
+        return;
+      case 'pro':
+        if (stepType === 'create') {
+          return [
+            getCreateNewWalletStep('pro'),
+            getWriteDownRecoveryPhraseStep('pro'),
+            getSetPinStep('pro'),
+          ];
+        }
+        if (stepType === 'restore') {
+          return [
+            getImportWalletStep('pro'),
+            getEnterRecoveryPhraseStep('pro'),
+            getSetPinStep('pro'),
+          ];
+        }
+        return;
+      default:
+        // eslint-disable-next-line no-case-declarations, @typescript-eslint/no-unused-vars
+        const _exhaustiveCheck: never = onekeyDeviceType;
+    }
+  };
+
+  const steps = getDeviceSteps(deviceType, tutorialType);
+
   return (
     <Page scrollEnabled>
-      <Page.Header title="Activate Your Device" />
+      <Page.Header
+        title={
+          tutorialType === 'create'
+            ? intl.formatMessage({
+                id: ETranslations.onboarding_activate_device_by_set_up_new_wallet,
+              })
+            : intl.formatMessage({
+                id: ETranslations.onboarding_activate_device_by_restore,
+              })
+        }
+      />
       <Page.Body px="$5">
         <SizableText color="$textSubdued">
-          After choosing a language on your device and reviewing the basic
-          guide:
+          {intl.formatMessage({
+            id: ETranslations.onboarding_activate_device_choosing_language_message,
+          })}
         </SizableText>
         <Group separator={<Divider />}>
-          {classicCreateNewWalletSteps.map(
-            ({ title, description, uri }, index) => (
-              <Group.Item key={title}>
+          {steps?.map(({ title, description, uri }, index) => (
+            <Group.Item key={title}>
+              <Stack
+                $gtMd={{
+                  flexDirection: 'row',
+                }}
+                py="$5"
+              >
                 <Stack
+                  h="$64"
                   $gtMd={{
-                    flexDirection: 'row',
+                    w: '$56',
+                    h: '$56',
                   }}
-                  py="$5"
+                  bg="$bgSubdued"
+                  borderRadius="$3"
+                  borderCurve="continuous"
                 >
-                  <Stack
-                    h="$64"
+                  <Image
+                    width="100%"
+                    height="$64"
                     $gtMd={{
                       w: '$56',
                       h: '$56',
                     }}
-                    bg="$bgSubdued"
-                    borderRadius="$3"
-                    borderCurve="continuous"
+                    resizeMode="contain"
+                    source={uri}
+                  />
+                  <SizableText
+                    size="$bodySmMedium"
+                    position="absolute"
+                    top="$2.5"
+                    left="$2.5"
+                    borderRadius="$1"
+                    minWidth="$5"
+                    py="$0.5"
+                    bg="$bgInfo"
+                    color="$textInfo"
+                    textAlign="center"
                   >
-                    <Image
-                      width="100%"
-                      height="$64"
-                      $gtMd={{
-                        w: '$56',
-                        h: '$56',
-                      }}
-                      resizeMode="contain"
-                      source={uri}
-                    />
-                    <SizableText
-                      size="$bodySmMedium"
-                      position="absolute"
-                      top="$2.5"
-                      left="$2.5"
-                      borderRadius="$1"
-                      minWidth="$5"
-                      py="$0.5"
-                      bg="$bgInfo"
-                      color="$textInfo"
-                      textAlign="center"
-                    >
-                      {index + 1}
-                    </SizableText>
-                  </Stack>
-                  <Stack
-                    flex={1}
-                    pt="$5"
-                    $gtMd={{
-                      pt: 0,
-                      pl: '$5',
-                    }}
-                  >
-                    <Heading size="$headingMd">{title}</Heading>
-                    <SizableText color="$textSubdued" mt="$1">
-                      {description}
-                    </SizableText>
-                  </Stack>
+                    {index + 1}
+                  </SizableText>
                 </Stack>
-              </Group.Item>
-            ),
-          )}
+                <Stack
+                  flex={1}
+                  pt="$5"
+                  $gtMd={{
+                    pt: 0,
+                    pl: '$5',
+                  }}
+                >
+                  <Heading size="$headingMd">{title}</Heading>
+                  <SizableText color="$textSubdued" mt="$1">
+                    {description}
+                  </SizableText>
+                </Stack>
+              </Stack>
+            </Group.Item>
+          ))}
         </Group>
       </Page.Body>
-      <Page.Footer onConfirmText="All Set!" onConfirm={handleConfirmPress} />
+      <Page.Footer
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.onboarding_activate_device_all_set,
+        })}
+        onConfirm={handleConfirmPress}
+      />
     </Page>
   );
 }

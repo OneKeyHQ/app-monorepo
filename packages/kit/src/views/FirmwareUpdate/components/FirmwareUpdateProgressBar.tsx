@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNumber } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -17,6 +18,7 @@ import {
   useHardwareUiStateAtom,
   useHardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IDeviceFirmwareType } from '@onekeyhq/shared/types/device';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
@@ -40,35 +42,44 @@ type IProgressConfigItem = {
   desc: () => string;
 };
 
-const defaultDesc = () => `Checking device`;
-
 const checkingMaxProgress = 10;
 
 export function FirmwareUpdateProgressBarView({
-  stepText,
+  totalStep,
+  currentStep,
   title,
   fromVersion: versionFrom,
   toVersion: versionTo,
   progress,
   desc,
 }: {
-  stepText: string | undefined;
+  totalStep: number | undefined;
+  currentStep: number | undefined;
   title: string;
   fromVersion: string | undefined;
   toVersion: string | undefined;
   progress: number | null | undefined;
   desc: string;
 }) {
+  const intl = useIntl();
   const phaseStepView = useMemo(() => {
-    if (!stepText) {
+    if (!totalStep || !currentStep) {
       return <Skeleton width={120} height={16} />;
+    }
+    if (totalStep <= 1) {
+      return null;
     }
     return (
       <SizableText size="$bodyMd" color="$textSubdued">
-        {stepText}
+        {intl.formatMessage(
+          { id: ETranslations.global_step_str },
+          {
+            step: `${currentStep}/${totalStep}`,
+          },
+        )}
       </SizableText>
     );
-  }, [stepText]);
+  }, [intl, currentStep, totalStep]);
 
   const versionView = useMemo(() => {
     if (!versionTo) {
@@ -106,6 +117,7 @@ export function FirmwareUpdateProgressBar({
   lastFirmwareTipMessage: EFirmwareUpdateTipMessages | undefined;
   isDone?: boolean;
 }) {
+  const intl = useIntl();
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
   const [state] = useHardwareUiStateAtom();
   const [stateFull] = useHardwareUiStateCompletedAtom();
@@ -117,6 +129,10 @@ export function FirmwareUpdateProgressBar({
 
   const progressMaxRef = useRef(checkingMaxProgress);
 
+  const defaultDesc = useCallback(
+    () => intl.formatMessage({ id: ETranslations.global_checking_device }),
+    [intl],
+  );
   const [desc, setDesc] = useState(defaultDesc());
 
   const firmwareType: IDeviceFirmwareType | undefined = useMemo(() => {
@@ -125,6 +141,22 @@ export function FirmwareUpdateProgressBar({
         stepInfo.payload.installingTarget?.updateInfo?.firmwareType || undefined
       );
     }
+  }, [stepInfo.payload, stepInfo?.step]);
+
+  const { totalStep, currentStep } = useMemo(() => {
+    if (stepInfo?.step === EFirmwareUpdateSteps.installing) {
+      const installingTarget = stepInfo?.payload?.installingTarget;
+      if (installingTarget) {
+        return {
+          totalStep: installingTarget.totalPhase.length,
+          currentStep:
+            installingTarget.totalPhase.findIndex(
+              (item) => item === installingTarget.currentPhase,
+            ) + 1,
+        };
+      }
+    }
+    return { totalPhase: null, currentPhase: null };
   }, [stepInfo.payload, stepInfo?.step]);
 
   const firmwareVersionInfo = useMemo(() => {
@@ -159,38 +191,37 @@ export function FirmwareUpdateProgressBar({
 
   const installProgressList = useRef<string[]>([]);
 
-  const phaseStepText = useMemo(() => {
-    // TODO use <Skeleton width={250} height={24} />
-    // let phaseStepText = 'Step */*';
-    let text = '';
-    if (stepInfo?.step === EFirmwareUpdateSteps.installing) {
-      if (stepInfo?.payload?.installingTarget) {
-        const { totalPhase, currentPhase } = stepInfo.payload.installingTarget;
-        text = `Step ${
-          totalPhase.findIndex((item) => item === currentPhase) + 1
-        }/${totalPhase.length}`;
-      }
-    }
-    return text;
-  }, [stepInfo]);
-
   const titleText = useMemo(() => {
-    let text = 'Preparing...';
+    let text = intl.formatMessage({ id: ETranslations.global_preparing });
     if (lastFirmwareTipMessage) {
-      text = 'Updating...';
+      text = intl.formatMessage({ id: ETranslations.global_updating });
     }
     if (firmwareType) {
       // type IDeviceFirmwareType = 'firmware' | 'ble' | 'bootloader';
-      text = `Updating ${firmwareType}...`;
+      text = intl.formatMessage(
+        {
+          id: ETranslations.global_updating_type,
+        },
+        {
+          type: firmwareType,
+        },
+      );
       if (firmwareType === 'ble') {
-        text = `Updating bluetooth...`;
+        text = intl.formatMessage(
+          {
+            id: ETranslations.global_updating_type,
+          },
+          {
+            type: intl.formatMessage({ id: ETranslations.global_bluetooth }),
+          },
+        );
       }
     }
     if (isDone) {
-      text = `Done`;
+      text = intl.formatMessage({ id: ETranslations.global_done });
     }
     return text;
-  }, [firmwareType, isDone, lastFirmwareTipMessage]);
+  }, [intl, firmwareType, isDone, lastFirmwareTipMessage]);
 
   const updateProgress = useCallback(
     (type: IProgressType) => {
@@ -204,37 +235,56 @@ export function FirmwareUpdateProgressBar({
         {
           type: [EFirmwareUpdateTipMessages.CheckLatestUiResource],
           progress: () => 2,
-          desc: () => `CheckLatestUiResource`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_checking_latest_ui_resources,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.DownloadLatestUiResource],
           progress: () => 3,
-          desc: () => `DownloadLatestUiResource`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_downloading_latest_ui_resources,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.DownloadLatestUiResourceSuccess],
           progress: () => 5,
-          desc: () => `DownloadLatestUiResourceSuccess`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_download_success,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.UpdateSysResource],
           progress: () => 7,
-          desc: () => `UpdateSysResource`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_updating_ui_resources,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.UpdateSysResourceSuccess],
           progress: () => 9,
-          desc: () => `UpdateSysResourceSuccess`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_update_ui_resources_success,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.AutoRebootToBootloader],
           progress: () => 10,
-          desc: () => `Reboot to bootloader mode`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_reboot_to_bootloader_mode,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.GoToBootloaderSuccess],
           progress: () => 12,
-          desc: () => `Reboot success, downloading`,
+          desc: () =>
+            intl.formatMessage({ id: ETranslations.update_reboot_success }),
         },
         {
           type: [
@@ -242,7 +292,8 @@ export function FirmwareUpdateProgressBar({
             EFirmwareUpdateTipMessages.DownloadLatestBootloaderResource,
           ],
           progress: () => 14,
-          desc: () => `Downloading`,
+          desc: () =>
+            intl.formatMessage({ id: ETranslations.update_downloading }),
         },
         {
           type: [
@@ -250,12 +301,14 @@ export function FirmwareUpdateProgressBar({
             EFirmwareUpdateTipMessages.DownloadLatestBootloaderResourceSuccess,
           ],
           progress: () => 20,
-          desc: () => `Download success`,
+          desc: () =>
+            intl.formatMessage({ id: ETranslations.update_download_success }),
         },
         {
           type: [EFirmwareUpdateTipMessages.FirmwareEraseSuccess],
           progress: () => 25,
-          desc: () => `Transferring data`,
+          desc: () =>
+            intl.formatMessage({ id: ETranslations.update_transferring_data }),
         },
         {
           type: [
@@ -275,15 +328,22 @@ export function FirmwareUpdateProgressBar({
           },
           desc: () => {
             if (firmwareProgressRef.current === 100) {
-              return `Data transferred, installing...`;
+              return intl.formatMessage({
+                id: ETranslations.update_installing,
+              });
             }
-            return `Transferring data`;
+            return intl.formatMessage({
+              id: ETranslations.update_transferring_data,
+            });
           },
         },
         {
           type: ['done'],
           progress: () => 100,
-          desc: () => `Firmware Update Done!`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_update_completed,
+            }),
         },
       ];
       const index = progressConfig.findIndex((c) => c.type.includes(type));
@@ -315,6 +375,8 @@ export function FirmwareUpdateProgressBar({
       }
     },
     [
+      intl,
+      defaultDesc,
       // do not add any deps here, use ref instead
     ],
   );
@@ -347,7 +409,7 @@ export function FirmwareUpdateProgressBar({
     if (stepInfo?.step === EFirmwareUpdateSteps.updateStart || !firmwareType) {
       setDesc(defaultDesc());
     }
-  }, [firmwareType, stepInfo?.step]);
+  }, [defaultDesc, firmwareType, stepInfo?.step]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -451,7 +513,8 @@ export function FirmwareUpdateProgressBar({
   return (
     <Stack>
       <FirmwareUpdateProgressBarView
-        stepText={phaseStepText}
+        totalStep={totalStep}
+        currentStep={currentStep}
         title={titleText}
         progress={progress}
         desc={desc}

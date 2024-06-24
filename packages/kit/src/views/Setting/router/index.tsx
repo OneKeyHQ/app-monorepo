@@ -20,9 +20,6 @@ const SettingAppAutoLockModal = LazyLoadPage(
 const SettingCurrencyModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Currency'),
 );
-const SettingHardwareSdkUrlModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/Setting/pages/HardwareSdkUrl'),
-);
 const SettingListModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/List'),
 );
@@ -42,6 +39,10 @@ const FirmwareUpdateDevSettings = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings'),
 );
 
+const V4MigrationDevSettings = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/V4MigrationDevSettings'),
+);
+
 export const ModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -49,37 +50,26 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingListModal,
     component: SettingListModal,
-    translationId: 'title__settings',
   },
   {
     name: EModalSettingRoutes.SettingCurrencyModal,
     component: SettingCurrencyModal,
-    translationId: 'content__currency',
   },
   {
     name: EModalSettingRoutes.SettingSpendUTXOModal,
     component: SettingSpendUTXOModal,
-    translationId: 'form__spend_dust_utxo',
   },
   {
     name: EModalSettingRoutes.SettingAccountDerivationModal,
     component: SettingAccountDerivationModal,
-    translationId: 'form__theme',
-  },
-  {
-    name: EModalSettingRoutes.SettingHardwareSdkUrlModal,
-    component: SettingHardwareSdkUrlModal,
-    translationId: 'form__hardware_bridge_sdk_url',
   },
   {
     name: EModalSettingRoutes.SettingAppAutoLockModal,
     component: SettingAppAutoLockModal,
-    translationId: 'form__app_lock',
   },
   {
     name: EModalSettingRoutes.SettingProtectModal,
     component: SettingProtectionModal,
-    translationId: 'action__protection',
   },
   {
     name: EModalSettingRoutes.SettingSignatureRecordModal,
@@ -88,6 +78,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevFirmwareUpdateModal,
     component: FirmwareUpdateDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevV4MigrationModal,
+    component: V4MigrationDevSettings,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

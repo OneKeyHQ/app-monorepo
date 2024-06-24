@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { memo } from 'react';
 
 import { useMedia } from 'tamagui';
@@ -10,7 +11,7 @@ import HeaderIconButton from './HeaderIconButton';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
 import type { IIconButtonProps } from '../../../actions';
-import type { HeaderBackButtonProps } from '@react-navigation/elements';
+import type { HeaderBackButtonProps } from '@react-navigation/elements/src/types';
 
 type INavButtonProps = Omit<IIconButtonProps, 'icon' | 'testID'>;
 
@@ -40,8 +41,12 @@ function HeaderBackButton({
   isRootScreen,
   canGoBack,
   disableClose,
+  renderLeft,
   ...props
-}: IOnekeyStackHeaderProps & HeaderBackButtonProps) {
+}: IOnekeyStackHeaderProps &
+  HeaderBackButtonProps & {
+    renderLeft?: (props: any) => ReactNode | undefined;
+  }) {
   const isVerticalLayout = useMedia().md;
 
   const showCloseButton = isModelScreen && !isRootScreen && !canGoBack;
@@ -64,14 +69,20 @@ function HeaderBackButton({
     ) : null;
 
   // If neither button should be shown, return null early.
-  if (!showCollapseButton && !showBackButton) {
+  if (!showCollapseButton && !showBackButton && !renderLeft) {
     return null;
   }
 
   return (
     <HeaderButtonGroup mr="$4">
       {renderCollapseButton()}
-      {!disableClose ? renderBackButton() : null}
+      {!disableClose && !renderLeft ? renderBackButton() : null}
+      {renderLeft
+        ? renderLeft({
+            canGoBack,
+            ...props,
+          })
+        : null}
     </HeaderButtonGroup>
   );
 }

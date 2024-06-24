@@ -1,8 +1,10 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
 import { Dialog } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalFirmwareUpdateRoutes,
@@ -16,6 +18,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import type { IAppNavigation } from '../../../hooks/useAppNavigation';
 
 export function useFirmwareUpdateActions() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
 
   const openChangeLogOfExtension = useThrottledCallback(
@@ -91,35 +94,74 @@ export function useFirmwareUpdateActions() {
   }, [navigation]);
 
   const showBootloaderMode = useCallback(
-    ({ connectId }: { connectId: string | undefined }) => {
-      Dialog.show({
-        title: 'Device in bootloader mode',
-        description:
-          'Your hardware wallet is in bootloader mode, which is used for software updates. Would you like to update now? If you prefer not to update, please manually restart the device to return to normal mode.',
-        dismissOnOverlayPress: false,
-        onConfirm: async () => {
-          openChangeLogModal({ connectId });
-        },
-        onConfirmText: 'Update now',
-      });
+    ({
+      connectId,
+      existsFirmware,
+    }: {
+      connectId: string | undefined;
+      existsFirmware?: boolean;
+    }) => {
+      if (existsFirmware) {
+        Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.update_device_in_bootloader_mode,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.update_hardware_wallet_in_bootloader_mode_restart,
+          }),
+          dismissOnOverlayPress: false,
+          onConfirm: async ({ close }) => {
+            void close?.();
+          },
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
+          onCancel: async () => {
+            openChangeLogModal({ connectId });
+          },
+          onCancelText: intl.formatMessage({
+            id: ETranslations.update_update_now,
+          }),
+        });
+      } else {
+        Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.update_device_in_bootloader_mode,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.update_hardware_wallet_in_bootloader_mode,
+          }),
+          dismissOnOverlayPress: false,
+          showCancelButton: false,
+          onConfirm: async () => {
+            openChangeLogModal({ connectId });
+          },
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.update_update_now,
+          }),
+        });
+      }
     },
-    [openChangeLogModal],
+    [intl, openChangeLogModal],
   );
 
   const showForceUpdate = useCallback(
     ({ connectId }: { connectId: string | undefined }) => {
       Dialog.show({
-        title: 'Update required',
-        description:
-          "Your hardware wallet's version is outdated and must be updated to continue.",
+        title: intl.formatMessage({ id: ETranslations.update_update_required }),
+        description: intl.formatMessage({
+          id: ETranslations.update_update_required_desc,
+        }),
         dismissOnOverlayPress: false,
         onConfirm: async () => {
           openChangeLogModal({ connectId });
         },
-        onConfirmText: 'Update now',
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.update_update_now,
+        }),
       });
     },
-    [openChangeLogModal],
+    [intl, openChangeLogModal],
   );
 
   return {

@@ -9,10 +9,12 @@ import {
 } from 'react';
 
 import { AuthenticationType } from 'expo-local-authentication';
+import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IPropsWithTestId } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
@@ -42,6 +44,7 @@ const PasswordVerify = ({
   onPasswordChange,
   onInputPasswordAuth,
 }: IPasswordVerifyProps) => {
+  const intl = useIntl();
   const form = useForm<IPasswordVerifyForm>({
     mode: 'onSubmit',
     reValidateMode: 'onSubmit',
@@ -62,15 +65,17 @@ const PasswordVerify = ({
     if (isEnable && !passwordInput) {
       actions.push({
         iconName:
-          authType && authType.includes(AuthenticationType.FACIAL_RECOGNITION)
-            ? 'FaceArcSolid'
+          authType &&
+          (authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
+            authType.includes(AuthenticationType.IRIS))
+            ? 'FaceIdOutline'
             : 'TouchId2Outline',
         onPress: onBiologyAuth,
         loading: status.value === EPasswordVerifyStatus.VERIFYING,
       });
     } else {
       actions.push({
-        iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
+        iconName: secureEntry ? 'EyeOffOutline' : 'EyeOutline',
         onPress: () => {
           setSecureEntry(!secureEntry);
         },
@@ -139,7 +144,12 @@ const PasswordVerify = ({
       <Form.Field
         name="password"
         rules={{
-          required: { value: true, message: 'req input text' },
+          required: {
+            value: true,
+            message: intl.formatMessage({
+              id: ETranslations.auth_error_password_incorrect,
+            }),
+          },
           onChange: onPasswordChange,
         }}
       >
@@ -147,12 +157,17 @@ const PasswordVerify = ({
           autoFocus
           selectTextOnFocus
           size="large"
-          disabled={status.value === EPasswordVerifyStatus.VERIFYING}
-          placeholder="Enter your password"
+          editable={status.value !== EPasswordVerifyStatus.VERIFYING}
+          placeholder={intl.formatMessage({
+            id: ETranslations.auth_enter_your_password,
+          })}
           flex={1}
           onChangeText={(text) => text.replace(PasswordRegex, '')}
           keyboardType={getPasswordKeyboardType(!secureEntry)}
           secureTextEntry={secureEntry}
+          // fix Keyboard Flickering on TextInput with secureTextEntry #39411
+          // https://github.com/facebook/react-native/issues/39411
+          textContentType="oneTimeCode"
           onSubmitEditing={form.handleSubmit(onInputPasswordAuth)}
           addOns={rightActions}
           testID="enter-password"

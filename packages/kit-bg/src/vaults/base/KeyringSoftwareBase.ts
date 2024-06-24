@@ -7,12 +7,10 @@ import type {
   ICoreImportedCredentialEncryptHex,
   ISignedMessagePro,
   ISignedTxPro,
-  IVerifiedMessagePro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import localDb from '../../dbs/local/localDb';
@@ -27,6 +25,8 @@ import type {
 } from '../../dbs/local/types';
 import type VaultBtc from '../impls/btc/Vault';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareHdAccountsOptions,
@@ -81,14 +81,16 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     const networkInfo = await this.getCoreApiNetworkInfo();
 
-    const { account, btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
-      unsignedTx,
-    });
+    const { account, btcExtraInfo, relPaths } =
+      await vault.prepareBtcSignExtraInfo({
+        unsignedTx,
+      });
 
     const result = await this.coreApi.signTransaction({
       networkInfo,
       unsignedTx,
       account,
+      relPaths,
       password,
       credentials,
       btcExtraInfo, // TODO move btcExtraInfo to unsignedTx
@@ -104,18 +106,17 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     }
 
     const { password, unsignedTx } = params;
+
     const account = await this.vault.getAccount();
-
     const credentials = await this.baseGetCredentialsInfo(params);
-
     const networkInfo = await this.getCoreApiNetworkInfo();
 
     const result = await this.coreApi.signTransaction({
       networkInfo,
-      unsignedTx,
-      account,
       password,
+      account,
       credentials,
+      unsignedTx,
     });
     return result;
   }
@@ -163,44 +164,22 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     const result = await Promise.all(
       messages.map(async (msg) => {
-        const { account, btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
-          unsignedMessage: msg,
-        });
+        const { account, btcExtraInfo, relPaths } =
+          await vault.prepareBtcSignExtraInfo({
+            unsignedMessage: msg,
+          });
 
         return checkIsDefined(this.coreApi).signMessage({
           networkInfo,
           unsignedMsg: msg,
           account,
+          relPaths,
           password,
           credentials,
           btcExtraInfo,
         });
       }),
     );
-    return result;
-  }
-
-  async baseGetPrivateKeys(
-    params: IGetPrivateKeysParams,
-  ): Promise<IGetPrivateKeysResult> {
-    const { password, relPaths } = params;
-    if (!this.coreApi) {
-      throw new Error('coreApi is not defined');
-    }
-    const account = await this.vault.getAccount();
-    const credentials = await this.baseGetCredentialsInfo({ password });
-    const networkInfo = await this.getCoreApiNetworkInfo();
-
-    const privateKeys = await this.coreApi.getPrivateKeys({
-      networkInfo,
-      password,
-      account: { ...account, relPaths },
-      credentials,
-    });
-    const result: IGetPrivateKeysResult = {};
-    Object.entries(privateKeys).forEach(([path, privateKey]) => {
-      result[path] = bufferUtils.toBuffer(privateKey);
-    }, {});
     return result;
   }
 
@@ -382,7 +361,64 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     });
   }
 
-  // TODO import type { Signer } from '../../proxy';
+  async baseExportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    const { password, keyType, relPaths } = params;
+    const account = await this.vault.getAccount();
+    const networkInfo = await this.getCoreApiNetworkInfo();
+
+    const credentials = await this.baseGetCredentialsInfo({
+      password,
+    });
+
+    const { deriveInfo } =
+      await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
+        networkId: this.networkId,
+        template: account.template,
+      });
+    const addressEncoding = deriveInfo?.addressEncoding;
+
+    if (!this.coreApi) {
+      throw new Error('coreApi is not defined');
+    }
+
+    return this.coreApi.getExportedSecretKey({
+      networkInfo,
+
+      password,
+      credentials,
+
+      account,
+      relPaths,
+
+      keyType,
+      addressEncoding,
+    });
+  }
+
+  async baseGetPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    const { password, relPaths } = params;
+    if (!this.coreApi) {
+      throw new Error('coreApi is not defined');
+    }
+
+    const account = await this.vault.getAccount();
+    const credentials = await this.baseGetCredentialsInfo({ password });
+    const networkInfo = await this.getCoreApiNetworkInfo();
+
+    const privateKeys = await this.coreApi.getPrivateKeys({
+      networkInfo,
+      password,
+      account,
+      relPaths,
+      credentials,
+    });
+    return privateKeys;
+  }
+
   abstract getPrivateKeys(
     params: IGetPrivateKeysParams,
   ): Promise<IGetPrivateKeysResult>;

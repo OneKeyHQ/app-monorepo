@@ -36,8 +36,7 @@ export async function checkRequestIsOneKeyDomain({
 
   if (!isOneKeyDomain) {
     if (platformEnv.isDev && process.env.ONEKEY_PROXY) {
-      const proxyUrl =
-        config?.headers?.['X-Proxy'] || config?.headers?.['x-proxy'];
+      const proxyUrl = config?.headers?.['X-OneKey-Dev-Proxy'];
       await check(proxyUrl);
     }
   }
@@ -68,10 +67,12 @@ export async function getRequestHeaders() {
   const channel = platformEnv.appChannel;
   const headerPlatform = [platform, channel].filter(Boolean).join('-');
 
+  const requestId = generateUUID();
   return {
-    [normalizeHeaderKey('X-Onekey-Request-ID')]: generateUUID(),
+    [normalizeHeaderKey('X-Onekey-Request-ID')]: requestId,
+    [normalizeHeaderKey('X-Amzn-Trace-Id')]: requestId,
     [normalizeHeaderKey('X-Onekey-Request-Currency')]: settings.currencyInfo.id,
-    [normalizeHeaderKey('X-Onekey-Request-Locale')]: locale,
+    [normalizeHeaderKey('X-Onekey-Request-Locale')]: locale.toLowerCase(),
     [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
     [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,
     [normalizeHeaderKey('X-Onekey-Request-Version')]: platformEnv.version,

@@ -1,5 +1,7 @@
-import { isFunction } from 'lodash';
+import { flatten, groupBy } from 'lodash';
+import semver from 'semver';
 
+import { isTaprootPath } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
@@ -7,16 +9,27 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  IMPL_BTC,
+  IMPL_EVM,
+  IMPL_LTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
-import { LOCALES } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
+import {
+  getDefaultLocale,
+  getLocaleMessages,
+} from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { EOnekeyDomain } from '@onekeyhq/shared/types';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
+import {
+  EReasonForNeedPassword,
+  type IClearCacheOnAppState,
+} from '@onekeyhq/shared/types/setting';
 
 import {
   settingsLastActivityAtom,
@@ -39,21 +52,12 @@ class ServiceSetting extends ServiceBase {
     super({ backgroundApi });
   }
 
+  @backgroundMethod()
   async refreshLocaleMessages() {
     const { locale: rawLocale } = await settingsPersistAtom.get();
-    const locale: ILocaleSymbol =
-      rawLocale === 'system' ? getDefaultLocale() : rawLocale;
-
-    const messagesBuilder = await (LOCALES[locale] as unknown as Promise<
-      (() => Promise<Record<string, string>>) | Promise<Record<string, string>>
-    >);
-    let messages: Record<string, string> = {};
-    if (isFunction(messagesBuilder)) {
-      messages = await messagesBuilder();
-    } else {
-      messages = messagesBuilder;
-    }
-    appLocale.setLocale(locale, messages);
+    const locale = rawLocale === 'system' ? getDefaultLocale() : rawLocale;
+    const messages = await getLocaleMessages(locale);
+    appLocale.setLocale(locale, messages as any);
   }
 
   @backgroundMethod()
@@ -69,6 +73,9 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async setProtectCreateTransaction(value: boolean) {
+    await this.backgroundApi.servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
+    });
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       protectCreateTransaction: value,
@@ -77,6 +84,9 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async setProtectCreateOrRemoveWallet(value: boolean) {
+    await this.backgroundApi.servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
+    });
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       protectCreateOrRemoveWallet: value,
@@ -88,14 +98,6 @@ class ServiceSetting extends ServiceBase {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       spendDustUTXO: value,
-    }));
-  }
-
-  @backgroundMethod()
-  public async setHardwareConnectSrc(value: EOnekeyDomain) {
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      hardwareConnectSrc: value,
     }));
   }
 
@@ -135,67 +137,108 @@ class ServiceSetting extends ServiceBase {
   public async clearCacheOnApp(values: IClearCacheOnAppState) {
     if (values.tokenAndNFT) {
       // clear token and nft
+      await this.backgroundApi.simpleDb.localTokens.clearRawData();
     }
     if (values.transactionHistory) {
       // clear transaction history
+      await this.backgroundApi.simpleDb.localHistory.clearRawData();
     }
     if (values.swapHistory) {
       // clear swap history
+      await this.backgroundApi.serviceSwap.cleanSwapHistoryItems();
     }
     if (values.browserCache) {
-      // clear browser cache
+      await this.backgroundApi.serviceDiscovery.clearCache();
     }
     if (values.browserHistory) {
       // clear Browser History, Bookmarks, Pins
       await this.backgroundApi.simpleDb.browserTabs.clearRawData();
       await this.backgroundApi.simpleDb.browserHistory.clearRawData();
       await this.backgroundApi.simpleDb.browserBookmarks.clearRawData();
+      await this.backgroundApi.simpleDb.browserRiskWhiteList.clearRawData();
+      this.backgroundApi.serviceDiscovery._isUrlExistInRiskWhiteList.clear();
     }
     if (values.connectSites) {
       // clear connect sites
       await this.backgroundApi.simpleDb.dappConnection.clearRawData();
     }
+    if (values.signatureRecord) {
+      // clear signature record
+      await this.backgroundApi.serviceSignature.deleteAllSignatureRecords();
+    }
   }
 
   @backgroundMethod()
   public async clearPendingTransaction() {
-    // TODO: clear pending transaction
+    await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxs();
   }
 
   @backgroundMethod()
   public async getAccountDerivationConfig() {
-    const networks = await this.backgroundApi.serviceNetwork.getAllNetworks();
-    const networkIds = networks.networks.map((n) => n.id);
-    const btc = networks.networks.find((n) => n.id === getNetworkIdsMap().btc);
-    const eth = networks.networks.find((n) => n.id === getNetworkIdsMap().eth);
-    const ltc = networks.networks.find((n) => n.id === getNetworkIdsMap().ltc);
-    const tbtc = networks.networks.find(
+    const { serviceNetwork } = this.backgroundApi;
+    const allNetworks =
+      await this.backgroundApi.serviceNetwork.getAllNetworks();
+    let { networks } = allNetworks;
+    const mainNetworks = networks.filter((o) => !o.isTestnet);
+
+    const networkGroup = groupBy(mainNetworks, (item) => item.impl);
+    networks = flatten(Object.values(networkGroup).map((o) => o[0]));
+
+    const networksVaultSettings = await Promise.all(
+      networks.map((o) => serviceNetwork.getVaultSettings({ networkId: o.id })),
+    );
+
+    if (networksVaultSettings.length !== networks.length) {
+      throw new Error('failed to get account derivation config');
+    }
+
+    networks = networks.filter((o, i) => {
+      const vaultSettings = networksVaultSettings[i];
+      return Object.values(vaultSettings.accountDeriveInfo).length > 1;
+    });
+
+    const toppedImpl = [IMPL_BTC, IMPL_EVM, IMPL_LTC].reduce(
+      (result, o, index) => {
+        result[o] = index;
+        return result;
+      },
+      {} as Record<string, number>,
+    );
+
+    const topped: IServerNetwork[] = [];
+    const bottomed: IServerNetwork[] = [];
+
+    for (let i = 0; i < networks.length; i += 1) {
+      const network = networks[i];
+      if (toppedImpl[network.impl] !== undefined) {
+        topped.push(network);
+      } else {
+        bottomed.push(network);
+      }
+    }
+
+    topped.sort((a, b) => toppedImpl[a.impl] ?? 0 - toppedImpl[b.impl] ?? 0);
+
+    networks = [...topped, ...bottomed];
+    const networkIds = networks.map((n) => n.id);
+
+    const config: IAccountDerivationConfigItem[] = networks.map(
+      (network, i) => ({
+        num: i,
+        title: network.impl === IMPL_EVM ? 'EVM' : network.name,
+        icon: network?.logoURI,
+        networkIds,
+        defaultNetworkId: network.id,
+      }),
+    );
+
+    // const config: IAccountDerivationConfigItem[] = [];
+
+    const tbtc = allNetworks.networks.find(
       (n) => n.id === getNetworkIdsMap().tbtc,
     );
-    const config: IAccountDerivationConfigItem[] = [
-      {
-        num: 0,
-        title: 'Bitcoin',
-        icon: btc?.logoURI,
-        networkIds,
-        defaultNetworkId: getNetworkIdsMap().btc,
-      },
-      {
-        num: 1,
-        title: 'EVM',
-        icon: eth?.logoURI,
-        networkIds,
-        defaultNetworkId: getNetworkIdsMap().eth,
-      },
-      {
-        num: 2,
-        title: 'Litecoin',
-        icon: ltc?.logoURI,
-        networkIds,
-        defaultNetworkId: getNetworkIdsMap().ltc,
-      },
-    ];
-    if (platformEnv.isDev) {
+
+    if (platformEnv.isDev && tbtc) {
       config.push({
         num: 10000,
         title: 'Test Bitcoin',
@@ -204,7 +247,7 @@ class ServiceSetting extends ServiceBase {
         defaultNetworkId: getNetworkIdsMap().tbtc,
       });
     }
-    return {
+    const data = {
       enabledNum: config.map((o) => o.num),
       availableNetworksMap: config.reduce((result, item) => {
         result[item.num] = {
@@ -215,6 +258,7 @@ class ServiceSetting extends ServiceBase {
       }, {} as IAccountSelectorAvailableNetworksMap),
       items: config,
     };
+    return data;
   }
 
   @backgroundMethod()
@@ -229,6 +273,65 @@ class ServiceSetting extends ServiceBase {
     const confirmedRiskTokens =
       await this.backgroundApi.simpleDb.riskyTokens.getConfirmedRiskTokens();
     return confirmedRiskTokens.includes(tokenId);
+  }
+
+  @backgroundMethod()
+  public async fetchReviewControl() {
+    const { reviewControl } = await settingsPersistAtom.get();
+    const isReviewControlEnv = platformEnv.isAppleStoreEnv || platformEnv.isMas;
+    if (!reviewControl && isReviewControlEnv) {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const key = platformEnv.isAppleStoreEnv
+        ? 'Intelligent_Diligent_Resourceful_Capable'
+        : 'Mindful_Driven_Responsible_Curious';
+      const response = await client.get<{
+        data: { value: string; key: string }[];
+      }>('/utility/v1/setting', {
+        params: {
+          key,
+        },
+      });
+      const data = response.data.data;
+      if (data.length !== 1 && data[0].key !== key) {
+        return;
+      }
+      const reviewControlValue = data[0].value;
+      if (reviewControlValue && platformEnv.version) {
+        if (semver.lte(platformEnv.version, reviewControlValue)) {
+          await settingsPersistAtom.set((prev) => ({
+            ...prev,
+            reviewControl: true,
+          }));
+        }
+      }
+    }
+  }
+
+  @backgroundMethod()
+  public async getInscriptionProtection() {
+    const { inscriptionProtection } = await settingsPersistAtom.get();
+    return inscriptionProtection;
+  }
+
+  @backgroundMethod()
+  public async checkInscriptionProtectionEnabled({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    if (!networkId || !accountId) {
+      return false;
+    }
+    if (!networkUtils.isBTCNetwork(networkId)) {
+      return false;
+    }
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      networkId,
+      accountId,
+    });
+    return isTaprootPath(account.path);
   }
 }
 

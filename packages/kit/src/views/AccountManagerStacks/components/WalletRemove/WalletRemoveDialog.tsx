@@ -1,11 +1,14 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { ICheckedState } from '@onekeyhq/components';
-import { Checkbox, Dialog } from '@onekeyhq/components';
+import { Checkbox, Dialog, Toast } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ETrackEventNames,
   trackEvent,
@@ -20,6 +23,7 @@ export function WalletRemoveDialog({
   wallet?: IDBWallet;
   showCheckBox: boolean;
 }) {
+  const intl = useIntl();
   const [value, changeValue] = useState(defaultValue);
   const handleChange = useCallback((checked: ICheckedState) => {
     changeValue(!!checked);
@@ -31,11 +35,13 @@ export function WalletRemoveDialog({
         <Checkbox
           value={value}
           onChange={handleChange}
-          label="I've written down the recovery phrase"
+          label={intl.formatMessage({
+            id: ETranslations.remove_wallet_double_confirm_message,
+          })}
         />
       ) : null}
       <Dialog.Footer
-        onConfirmText="Remove"
+        onConfirmText={intl.formatMessage({ id: ETranslations.global_remove })}
         confirmButtonProps={{
           disabled: showCheckBox && !value,
           variant: 'destructive',
@@ -45,6 +51,12 @@ export function WalletRemoveDialog({
             walletId: wallet?.id || '',
           });
           trackEvent(ETrackEventNames.DeleteWallet);
+
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_change_saved,
+            }),
+          });
         }}
       />
     </>

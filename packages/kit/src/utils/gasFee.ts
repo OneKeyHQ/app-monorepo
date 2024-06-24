@@ -1,15 +1,21 @@
 import BigNumber from 'bignumber.js';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
-import {
-  EFeeType,
-  type IFeeInfoUnit,
-  type IGasEIP1559,
-  type IGasLegacy,
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EFeeType } from '@onekeyhq/shared/types/fee';
+import type {
+  IEstimateFeeParams,
+  IFeeInfoUnit,
+  IGasEIP1559,
+  IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
 
-const PRESET_FEE_ICON = ['🚅️', '🚗', '🚴‍♂️'];
-const PRESET_FEE_LABEL = ['content__fast', 'content__normal', 'content__slow'];
+const PRESET_FEE_ICON = ['🐢', '🚗', '🚀'];
+const PRESET_FEE_LABEL = [
+  ETranslations.content__slow,
+  ETranslations.content__normal,
+  ETranslations.content__fast,
+];
 
 function nilError(message: string): number {
   throw new Error(message);
@@ -22,12 +28,35 @@ function nanToZeroString(value: string | number | unknown) {
   return value as string;
 }
 
+export function calculateSolTotalFee({
+  computeUnitPrice,
+  computeUnitLimit,
+  computeUnitPriceDecimals,
+  baseFee,
+  feeInfo,
+}: {
+  computeUnitPrice: string | BigNumber;
+  computeUnitLimit: string | BigNumber;
+  computeUnitPriceDecimals: number | BigNumber;
+  baseFee: string | BigNumber;
+  feeInfo: IFeeInfoUnit;
+}) {
+  return new BigNumber(computeUnitPrice)
+    .times(computeUnitLimit)
+    .shiftedBy(-computeUnitPriceDecimals)
+    .plus(baseFee)
+    .shiftedBy(-feeInfo.common.feeDecimals)
+    .toFixed();
+}
+
 export function calculateTotalFeeRange({
   feeInfo,
   txSize,
+  estimateFeeParams,
 }: {
   feeInfo: IFeeInfoUnit;
   txSize?: number;
+  estimateFeeParams?: IEstimateFeeParams;
 }) {
   const { gas, gasEIP1559 } = feeInfo;
   if (feeInfo.gasEIP1559) {
@@ -104,6 +133,26 @@ export function calculateTotalFeeRange({
       maxForDisplay: nanToZeroString(max),
     };
   }
+  if (feeInfo.feeSol && estimateFeeParams?.estimateFeeParamsSol) {
+    const { computeUnitPrice } = feeInfo.feeSol;
+    const { computeUnitLimit, baseFee, computeUnitPriceDecimals } =
+      estimateFeeParams.estimateFeeParamsSol;
+    const max = calculateSolTotalFee({
+      computeUnitLimit,
+      computeUnitPrice,
+      computeUnitPriceDecimals,
+      baseFee,
+      feeInfo,
+    });
+
+    return {
+      min: nanToZeroString(max),
+      max: nanToZeroString(max),
+      minForDisplay: nanToZeroString(max),
+      maxForDisplay: nanToZeroString(max),
+      withoutBaseFee: true,
+    };
+  }
 
   return {
     min: '0',
@@ -115,13 +164,15 @@ export function calculateTotalFeeRange({
 export function calculateTotalFeeNative({
   amount, // in GWEI
   feeInfo,
+  withoutBaseFee,
 }: {
   amount: string | BigNumber;
   feeInfo: IFeeInfoUnit;
+  withoutBaseFee?: boolean;
 }) {
   const { common } = feeInfo;
   return new BigNumber(amount)
-    .plus(common?.baseFee ?? 0)
+    .plus(withoutBaseFee ? 0 : common?.baseFee ?? 0)
     .shiftedBy(
       common?.feeDecimals ??
         nilError('calculateTotalFeeNative ERROR: info.feeDecimals missing'),
@@ -139,24 +190,29 @@ export function calculateFeeForSend({
   feeInfo,
   nativeTokenPrice,
   txSize,
+  estimateFeeParams,
 }: {
   feeInfo: IFeeInfoUnit;
   nativeTokenPrice: number;
   txSize?: number;
+  estimateFeeParams?: IEstimateFeeParams;
 }) {
   const feeRange = calculateTotalFeeRange({
     feeInfo,
     txSize,
+    estimateFeeParams,
   });
   const total = feeRange.max;
   const totalForDisplay = feeRange.maxForDisplay;
   const totalNative = calculateTotalFeeNative({
     amount: total,
     feeInfo,
+    withoutBaseFee: feeRange.withoutBaseFee,
   });
   const totalNativeForDisplay = calculateTotalFeeNative({
     amount: totalForDisplay,
     feeInfo,
+    withoutBaseFee: feeRange.withoutBaseFee,
   });
   const totalFiat = new BigNumber(totalNative)
     .multipliedBy(nativeTokenPrice)
@@ -179,27 +235,36 @@ export function calculateFeeForSend({
 export function getFeeLabel({
   feeType,
   presetIndex,
+  isSinglePreset,
 }: {
   feeType: EFeeType;
   presetIndex?: number;
+  isSinglePreset?: boolean;
 }) {
   if (feeType === EFeeType.Custom) {
-    return 'content__custom';
+    return ETranslations.content__custom;
   }
 
-  return (PRESET_FEE_LABEL[presetIndex ?? 1] ??
-    PRESET_FEE_LABEL[0]) as ILocaleIds;
+  if (isSinglePreset) {
+    return PRESET_FEE_LABEL[1];
+  }
+
+  return PRESET_FEE_LABEL[presetIndex ?? 1] ?? PRESET_FEE_LABEL[0];
 }
 export function getFeeIcon({
   feeType,
   presetIndex,
+  isSinglePreset,
 }: {
   feeType: EFeeType;
   presetIndex?: number;
+  isSinglePreset?: boolean;
 }) {
   if (feeType === EFeeType.Custom) {
-    return '⚙️';
+    return '🔧';
   }
+
+  if (isSinglePreset) return PRESET_FEE_ICON[1];
 
   return PRESET_FEE_ICON[presetIndex ?? 1];
 }
@@ -233,5 +298,24 @@ export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
 
   if (feeInfo.feeUTXO) {
     return feeInfo.feeUTXO.feeRate;
+  }
+
+  if (feeInfo.feeSol) {
+    return feeInfo.common.baseFee;
+  }
+}
+
+export function getMaxSendFeeUpwardAdjustmentFactor({
+  networkId,
+}: {
+  networkId: string;
+}) {
+  const networkIdMap = getNetworkIdsMap();
+  switch (networkId) {
+    case networkIdMap.mantle:
+    case networkIdMap.mantapacific:
+      return 1.2;
+    default:
+      return 1;
   }
 }

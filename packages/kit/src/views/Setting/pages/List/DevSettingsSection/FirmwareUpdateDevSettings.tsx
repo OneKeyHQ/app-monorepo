@@ -104,6 +104,27 @@ export function FirmwareUpdateDevSettings() {
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
 
+      <FirmwareUpdateSectionFieldItem
+        name="forceUpdateFirmware"
+        title="Force update firmware"
+      >
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
+
+      <FirmwareUpdateSectionFieldItem
+        name="forceUpdateBle"
+        title="Force update bluetooth"
+      >
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
+
+      <FirmwareUpdateSectionFieldItem
+        name="forceUpdateBootloader"
+        title="Force update bootloader"
+      >
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
+
       <SizableText>{JSON.stringify(devSetting, null, 2)}</SizableText>
       <FirmwareUpdateGalleryDemo />
     </YStack>

@@ -16,9 +16,6 @@ import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
   ISignedTxPro,
-  ITxInput,
-  ITxOutput,
-  ITxUTXO,
 } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -51,7 +48,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const vault = this.vault as VaultBtc;
     const coinName = await this.coreApi.getCoinName({ network });
     const addresses = inputs.map((input) => input.address);
-    const utxosInfo = await vault._collectUTXOsInfoByApi();
+    const { utxoList: utxosInfo } = await vault._collectUTXOsInfoByApi();
 
     const signers: Record<string, string> = {};
     for (const utxo of utxosInfo) {
@@ -206,17 +203,19 @@ export class KeyringHardware extends KeyringHardwareBase {
           const item = publicKeys[i];
           const { path, xpub, xpubSegwit } = item;
           const addressRelPath = accountUtils.buildUtxoAddressRelPath();
-          const { addresses: addressFromXpub } =
+          const { addresses: addressFromXpub, publicKeys: publicKeysMap } =
             await this.coreApi.getAddressFromXpub({
               network,
               xpub,
               relativePaths: [addressRelPath],
               addressEncoding,
             });
+          const { [addressRelPath]: publicKey } = publicKeysMap;
           const { [addressRelPath]: address } = addressFromXpub;
+
           const addressInfo: ICoreApiGetAddressItem = {
             address,
-            publicKey: '', // TODO return pub from getAddressFromXpub
+            publicKey,
             path,
             relPath: addressRelPath,
             xpub,
@@ -230,5 +229,38 @@ export class KeyringHardware extends KeyringHardwareBase {
         return ret;
       },
     });
+  }
+
+  override async batchGetAddresses(params: IPrepareHardwareAccountsParams) {
+    const { indexes } = params;
+    const addresses = await this.baseGetDeviceAccountAddresses({
+      params,
+      usedIndexes: indexes,
+      sdkGetAddressFn: async ({
+        connectId,
+        deviceId,
+        pathPrefix,
+        pathSuffix,
+        coinName,
+        showOnOnekeyFn,
+      }) => {
+        const sdk = await this.getHardwareSDKInstance();
+
+        const response = await sdk.btcGetAddress(connectId, deviceId, {
+          ...params.deviceParams.deviceCommonParams,
+          bundle: indexes.map((index, arrIndex) => ({
+            path: `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
+            coin: coinName?.toLowerCase(),
+            showOnOneKey: showOnOnekeyFn(arrIndex),
+          })),
+        });
+        return response;
+      },
+    });
+
+    return addresses.map((item) => ({
+      path: item.path ?? '',
+      address: item.address ?? '',
+    }));
   }
 }

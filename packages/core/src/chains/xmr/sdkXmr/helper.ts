@@ -11,8 +11,8 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { cnFastHash } from './moneroAddress';
 
-import type { MoneroCoreInstance } from './moneroCore/moneroCoreTypes';
-import type { MoneroUtilInstance } from './moneroUtil/moneroUtilTypes';
+import type { IMoneroCoreInstance } from './moneroCore/moneroCoreTypes';
+import type { IMoneroUtilInstance } from './moneroUtil/moneroUtilTypes';
 import type { ISignedTxPro } from '../../../types';
 import type { ISendFundsArgs, ISendFundsCallback } from '../types';
 
@@ -38,11 +38,14 @@ const handleMoneroCoreResponse = <T>(
 };
 
 class Helper {
-  utilModule: MoneroUtilInstance;
+  utilModule: IMoneroUtilInstance;
 
-  coreModule: MoneroCoreInstance;
+  coreModule: IMoneroCoreInstance;
 
-  constructor(utilModule: MoneroUtilInstance, coreModule: MoneroCoreInstance) {
+  constructor(
+    utilModule: IMoneroUtilInstance,
+    coreModule: IMoneroCoreInstance,
+  ) {
     this.utilModule = utilModule;
     this.coreModule = coreModule;
   }

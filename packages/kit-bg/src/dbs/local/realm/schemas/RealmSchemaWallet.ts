@@ -17,11 +17,9 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public accounts?: string[];
 
-  public nextIndex!: number;
-
   public walletNo!: number;
 
-  public nextAccountIds?: Realm.Dictionary<number>;
+  public nextIds?: Realm.Dictionary<number>;
 
   public associatedDevice?: string;
 
@@ -43,9 +41,8 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       type: 'string',
       backuped: { type: 'bool', default: false },
       accounts: 'string?[]',
-      nextIndex: { type: 'int', default: 0 },
       walletNo: 'int',
-      nextAccountIds: {
+      nextIds: {
         type: 'dictionary',
         default: {},
         objectType: 'int',
@@ -65,13 +62,11 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       avatar: this.avatar,
       type: this.type,
       backuped: this.backuped || false,
-      // convert RealmDB list to array
+      // convert RealmDB list to JS plain array
       accounts: Array.from(this.accounts || []),
-      nextIndex: this.nextIndex,
       walletNo: this.walletNo,
-      nextAccountIds: Object.fromEntries(
-        Object.entries(Object(this.nextAccountIds)),
-      ),
+      // convert RealmDB dictionary to JS plain object
+      nextIds: (this.nextIds?.toJSON() as any) || {},
       associatedDevice: this.associatedDevice,
       isTemp: this.isTemp,
       passphraseState: this.passphraseState,

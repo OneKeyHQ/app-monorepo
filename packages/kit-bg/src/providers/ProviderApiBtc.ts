@@ -1,5 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { Semaphore } from 'async-mutex';
 import BigNumber from 'bignumber.js';
 import { Psbt } from 'bitcoinjs-lib';
 import { isEmpty, isNil } from 'lodash';
@@ -42,6 +43,8 @@ import type * as BitcoinJS from 'bitcoinjs-lib';
 class ProviderApiBtc extends ProviderApiBase {
   public providerName = IInjectedProviderNames.btc;
 
+  private semaphore = new Semaphore(1);
+
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
@@ -75,6 +78,7 @@ class ProviderApiBtc extends ProviderApiBase {
       return result;
     };
     info.send(data, info.targetOrigin);
+    this.notifyNetworkChangedToDappSite(info.targetOrigin);
   }
 
   public async rpcCall(): Promise<any> {
@@ -93,12 +97,14 @@ class ProviderApiBtc extends ProviderApiBase {
   // Provider API
   @providerApiMethod()
   public async requestAccounts(request: IJsBridgeMessagePayload) {
-    const accounts = await this.getAccounts(request);
-    if (accounts && accounts.length) {
-      return accounts;
-    }
-    await this.backgroundApi.serviceDApp.openConnectionModal(request);
-    return this.getAccounts(request);
+    return this.semaphore.runExclusive(async () => {
+      const accounts = await this.getAccounts(request);
+      if (accounts && accounts.length) {
+        return accounts;
+      }
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      return this.getAccounts(request);
+    });
   }
 
   @providerApiMethod()
@@ -180,6 +186,7 @@ class ProviderApiBtc extends ProviderApiBase {
       oldNetworkId,
       newNetworkId: networkId,
     });
+    this.notifyNetworkChangedToDappSite(request.origin ?? '');
     const network = await this.getNetwork(request);
     return network;
   }
@@ -268,7 +275,7 @@ class ProviderApiBtc extends ProviderApiBase {
         networkId: networkId ?? '',
         transfersInfo,
       });
-    return result;
+    return result.txid;
   }
 
   @providerApiMethod()
@@ -466,7 +473,7 @@ class ProviderApiBtc extends ProviderApiBase {
     });
 
     const resp =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         accountId,
         networkId,
@@ -488,8 +495,14 @@ class ProviderApiBtc extends ProviderApiBase {
           disabledCoinSelect: true,
         },
         signOnly: true,
-      })) as { psbtHex: string };
+      });
 
+    if (!resp.psbtHex) {
+      throw web3Errors.provider.custom({
+        code: 4001,
+        message: 'Failed to sign psbt',
+      });
+    }
     const respPsbt = Psbt.fromHex(resp.psbtHex, { network: psbtNetwork });
 
     if (options && options.autoFinalized === false) {
@@ -558,13 +571,17 @@ class ProviderApiBtc extends ProviderApiBase {
         networkId,
         accountId,
       });
-    const result = await this.backgroundApi.serviceGas.estimateFee({
-      networkId,
-      encodedTx: await this.backgroundApi.serviceGas.buildEstimateFeeParams({
+
+    const { encodedTx } =
+      await this.backgroundApi.serviceGas.buildEstimateFeeParams({
         accountId,
         networkId,
         encodedTx: {} as IEncodedTx,
-      }),
+      });
+
+    const result = await this.backgroundApi.serviceGas.estimateFee({
+      networkId,
+      encodedTx,
       accountAddress,
     });
     if (result.feeUTXO && result.feeUTXO.length === 3) {

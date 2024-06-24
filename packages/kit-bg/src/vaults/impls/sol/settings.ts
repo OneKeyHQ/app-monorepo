@@ -3,6 +3,7 @@ import {
   IMPL_SOL,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -22,7 +23,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapSol = {
     namePrefix: 'SOL',
     template: `m/44'/${COINTYPE_SOL}'/${INDEX_PLACEHOLDER}'/0'`,
     coinType: COINTYPE_SOL,
-    labelKey: 'form__bip44_standard',
+    labelKey: ETranslations.bip44__standard,
     desc: 'OneKey, Phantom, Sollet, m/44’/501’/*’/0’',
   },
   ledgerLive: {
@@ -31,6 +32,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapSol = {
     coinType: COINTYPE_SOL,
     label: 'Ledger Live',
     desc: 'Ledger Live, Solflare, m/44’/501’/*’',
+    disableWalletTypes: ['hw'],
   },
 };
 
@@ -51,7 +53,7 @@ const settings: IVaultSettings = {
   NFTEnabled: true,
   nonceRequired: false,
   feeUTXORequired: false,
-  editFeeEnabled: false,
+  editFeeEnabled: true,
   replaceTxEnabled: false,
 
   accountDeriveInfo,
@@ -61,6 +63,7 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+  hasFrozenBalance: true,
 };
 
 export default Object.freeze(settings);

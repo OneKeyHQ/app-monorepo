@@ -8,11 +8,11 @@ import {
   parseISO,
 } from 'date-fns';
 
+import { ETranslations, type ILocaleSymbol } from '../locale';
 import { appLocale } from '../locale/appLocale';
 import { DateLocaleMap } from '../locale/dateLocaleMap';
 import { getDefaultLocale } from '../locale/getDefaultLocale';
 
-import type { ILocaleSymbol } from '../locale';
 import type { Duration } from 'date-fns';
 
 const parseLocal = (localeSymbol: ILocaleSymbol) => {
@@ -66,21 +66,29 @@ export function formatDate(date: Date | string, options?: IFormatDateOptions) {
     parsedDate = date;
   }
 
+  const locale = appLocale.getLocale();
+
+  let formatTemplate = 'yyyy/LL/dd, HH:mm:ss';
+
+  if (['de', 'es', 'en-US', 'fr-FR', 'it-IT', 'uk-UA'].includes(locale)) {
+    formatTemplate = 'LL/dd/yyyy, HH:mm:ss';
+  }
+
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
-  let formatTemplate = 'LLL dd yyyy, HH:mm:ss';
 
   if (
     (currentYear === parsedDate.getFullYear() && options?.hideTheYear) ||
     options?.hideYear
   ) {
-    formatTemplate = formatTemplate.replace(' yyyy', '');
+    formatTemplate = formatTemplate.replace('yyyy/', '');
+    formatTemplate = formatTemplate.replace('/yyyy', '');
   }
   if (
     (currentMonth === parsedDate.getMonth() && options?.hideTheMonth) ||
     options?.hideMonth
   ) {
-    formatTemplate = formatTemplate.replace('LLL ', '');
+    formatTemplate = formatTemplate.replace('LL/', '');
   }
   if (options?.hideTimeForever) {
     formatTemplate = formatTemplate.replace(', HH:mm:ss', '');
@@ -144,9 +152,11 @@ export function formatDuration(duration: Duration) {
 export function formatRelativeDate(date: Date) {
   const formatRelativeLocale: Record<string, string> = {
     yesterday: `${appLocale.intl.formatMessage({
-      id: 'content__yesterday',
+      id: ETranslations.global_date_yesterday,
     })}`,
-    today: `${appLocale.intl.formatMessage({ id: 'content__today' })}`,
+    today: `${appLocale.intl.formatMessage({
+      id: ETranslations.global_date_today,
+    })}`,
     other: 'LLL dd yyyy',
   };
 

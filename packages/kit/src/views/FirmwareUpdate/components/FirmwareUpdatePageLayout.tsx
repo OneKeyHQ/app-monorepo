@@ -1,13 +1,19 @@
+import { useIntl } from 'react-intl';
+
 import { Page, Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 export function FirmwareUpdatePageHeader() {
+  const intl = useIntl();
   return (
     <Page.Header
       dismissOnOverlayPress={false}
       // disableClose
-      title="Hardware Update"
+      title={intl.formatMessage({
+        id: ETranslations.update_hardware_update,
+      })}
     />
   );
 }

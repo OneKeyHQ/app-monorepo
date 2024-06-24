@@ -1,11 +1,12 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
@@ -26,6 +27,12 @@ export class KeyringImported extends KeyringImportedBase {
     params: IPrepareImportedAccountsParams,
   ): Promise<IDBAccount[]> {
     return this.basePrepareAccountsImportedUtxo(params);
+  }
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async signTransaction(

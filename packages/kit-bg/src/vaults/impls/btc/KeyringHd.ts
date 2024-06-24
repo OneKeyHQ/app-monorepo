@@ -1,11 +1,20 @@
-import { checkBtcAddressIsUsed } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import bs58check from 'bs58check';
+
+import {
+  checkBtcAddressIsUsed,
+  getBtcForkNetwork,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import { type ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
-import type { IDBAccount } from '../../../dbs/local/types';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type VaultBtc from './Vault';
+import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
@@ -22,6 +31,12 @@ export class KeyringHd extends KeyringHdBase {
     return this.baseGetPrivateKeys(params);
   }
 
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    return this.baseExportAccountSecretKeys(params);
+  }
+
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
@@ -36,6 +51,21 @@ export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
+    // const { password, unsignedTx } = params;
+    // const vault = this.vault as VaultBtc;
+    // const networkInfo = await this.getCoreApiNetworkInfo();
+    // const { account, btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
+    //   unsignedTx,
+    // });
+    // const credentials = await this.baseGetCredentialsInfo(params);
+
+    // // TODO remove
+    // void buildPsbt({
+    //   network: getBtcForkNetwork(networkInfo.networkChainCode),
+    //   unsignedTx,
+    //   btcExtraInfo,
+    //   getPubKey: () => Promise.resolve(Buffer.from('')),
+    // });
     return this.baseSignTransactionBtc(params);
   }
 

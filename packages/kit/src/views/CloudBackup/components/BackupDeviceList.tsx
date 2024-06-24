@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { deviceName, osName } from 'expo-device';
+import { useIntl } from 'react-intl';
 
 import {
   Icon,
@@ -19,6 +20,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMetaDataObject } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 import { useCloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ECloudBackupRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
@@ -36,7 +38,8 @@ export default function BackupDeviceList<T>({
   | 'CellRendererComponent'
   | 'getItemType'
 > & { ListEmptyComponent?: ReactElement }) {
-  const [{ isInProgress }] = useCloudBackupPersistAtom();
+  const intl = useIntl();
+  const [{ isEnabled, isInProgress }] = useCloudBackupPersistAtom();
   const navigation = useAppNavigation();
   const iconList: Record<string, string> = useMemo(
     () => ({
@@ -49,19 +52,24 @@ export default function BackupDeviceList<T>({
   const { result: data, run } = usePromiseResult(async () => {
     const backupDeviceList =
       await backgroundApiProxy.serviceCloudBackup.getBackupDeviceList();
-    return backupDeviceList.map((item) => ({
-      deviceName: item.deviceInfo.deviceName,
-      osName: item.deviceInfo.osName,
-      detail: `Updated: ${formatDate(new Date(item.backupTime))}`,
-      icon:
-        item.deviceInfo.osName in iconList
-          ? iconList[item.deviceInfo.osName]
-          : 'SuqarePlaceholderOutline',
-      isCurrentDevice:
-        item.deviceInfo.deviceName === deviceName &&
-        item.deviceInfo.osName === osName,
-    }));
-  }, [iconList]);
+    return !ListEmptyComponent && !isEnabled
+      ? []
+      : backupDeviceList.map((item) => ({
+          deviceName: item.deviceInfo.deviceName,
+          osName: item.deviceInfo.osName,
+          detail: intl.formatMessage(
+            { id: ETranslations.backup_updated_time },
+            { time: formatDate(new Date(item.backupTime)) },
+          ),
+          icon:
+            item.deviceInfo.osName in iconList
+              ? iconList[item.deviceInfo.osName]
+              : 'SuqarePlaceholderOutline',
+          isCurrentDevice:
+            item.deviceInfo.deviceName === deviceName &&
+            item.deviceInfo.osName === osName,
+        }));
+  }, [intl, iconList, ListEmptyComponent, isEnabled]);
   const hasData = (data?.length ?? 0) > 0;
   const isFocused = useIsFocused();
   useEffect(() => {
@@ -71,7 +79,7 @@ export default function BackupDeviceList<T>({
     if (isFocused) {
       void run();
     }
-  }, [isInProgress, isFocused, run]);
+  }, [isInProgress, isFocused, run, isEnabled]);
   if (!data) {
     return <BackupListLoading />;
   }
@@ -86,9 +94,14 @@ export default function BackupDeviceList<T>({
             ]
           : []
       }
-      renderSectionHeader={() => (
-        <SectionList.SectionHeader mt="$5" title="All Devices" />
-      )}
+      renderSectionHeader={() =>
+        !ListEmptyComponent && !isEnabled ? null : (
+          <SectionList.SectionHeader
+            mt="$5"
+            title={intl.formatMessage({ id: ETranslations.backup_all_devices })}
+          />
+        )
+      }
       renderItem={({
         item,
       }: {
@@ -124,7 +137,9 @@ export default function BackupDeviceList<T>({
                       borderRadius="$1"
                     >
                       <SizableText size="$bodySmMedium" color="$textInfo">
-                        Current
+                        {intl.formatMessage({
+                          id: ETranslations.global_current,
+                        })}
                       </SizableText>
                     </Stack>
                   ) : null}
@@ -150,8 +165,9 @@ export default function BackupDeviceList<T>({
       ListFooterComponent={
         !hasData && ListEmptyComponent ? null : (
           <SizableText size="$bodySm" color="$textSubdued" px="$5" pt="$3">
-            OneKey won't back up your hardware wallets, you should write down
-            your phrase and keep it safe.
+            {intl.formatMessage({
+              id: ETranslations.backup_onekey_doesnt_back_up_hardware_wallets,
+            })}
           </SizableText>
         )
       }

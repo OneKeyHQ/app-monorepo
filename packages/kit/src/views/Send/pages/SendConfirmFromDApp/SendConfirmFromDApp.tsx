@@ -6,6 +6,7 @@ import { AppState } from 'react-native';
 import { Page, Spinner, Stack } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
@@ -23,6 +24,7 @@ function SendConfirmFromDApp() {
     signOnly = false,
     accountId,
     networkId,
+    useFeeInTx = true,
     _$t = undefined,
   } = useDappQuery<{
     encodedTx: IEncodedTx;
@@ -30,8 +32,14 @@ function SendConfirmFromDApp() {
     accountId: string;
     networkId: string;
     signOnly: boolean;
+    useFeeInTx: boolean;
     _$t: number | undefined;
   }>();
+
+  useDappApproveAction({
+    id: $sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
 
   useEffect(() => {
     // OK-16560: navigate when app in background would cause modal render in wrong size
@@ -63,6 +71,7 @@ function SendConfirmFromDApp() {
           unsignedTxs: [unsignedTx],
           sourceInfo: $sourceInfo,
           signOnly,
+          useFeeInTx,
           // @ts-ignore
           _disabledAnimationOfNavigate: true,
           _$t,
@@ -94,6 +103,7 @@ function SendConfirmFromDApp() {
     $sourceInfo,
     _$t,
     transfersInfo,
+    useFeeInTx,
   ]);
 
   return (

@@ -14,15 +14,14 @@ import {
   scriptToAddress,
 } from '@onekeyhq/core/src/chains/ckb/sdkCkb';
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
-  NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { isSendNativeTokenAction } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -34,8 +33,10 @@ import type {
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
-  type IDecodedTx,
-  type IDecodedTxAction,
+} from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -44,7 +45,6 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import ClientCkb from './sdkCkb/ClientCkb';
 import { isValidateAddress } from './utils/address';
@@ -77,9 +77,11 @@ import type { Config } from '@ckb-lumos/config-manager';
 import type { TransactionSkeletonType } from '@ckb-lumos/helpers';
 
 export default class Vault extends VaultBase {
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override coreApi = coreChainApi.ckb.hd;
+
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -256,7 +258,7 @@ export default class Vault extends VaultBase {
         const miniAmount = new BigNumber(
           minimalCellCapacityCompatible(lastOutput).toString(),
         )
-          .shiftedBy(network.decimals)
+          .shiftedBy(-network.decimals)
           .toFixed();
         throw new Error(
           `The balance after the transaction must not be less than ${miniAmount}`,
@@ -353,7 +355,7 @@ export default class Vault extends VaultBase {
       config,
     });
 
-    let actions: IDecodedTxAction[] = [];
+    let transfers: IDecodedTxTransferInfo[] = [];
 
     const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
       networkId: this.networkId,
@@ -375,13 +377,7 @@ export default class Vault extends VaultBase {
         isNative: true,
       };
 
-      const action = await this.buildTxTransferAssetAction({
-        from: accountAddress,
-        to: toAddress,
-        transfers: [transfer],
-      });
-
-      actions.push(action);
+      transfers.push(transfer);
     }
 
     const tokens = inputs.reduce((acc, cur) => {
@@ -394,27 +390,27 @@ export default class Vault extends VaultBase {
 
     let existsToken = false;
     for (const tokenAddress of tokens) {
-      const tokenActions = await this._decodeTokenActions({
+      const tokenTransfers = await this._decodeTokenTransfers({
         txSkeleton: txs,
         config,
         tokenAddress,
       });
-      actions = [...actions, ...tokenActions];
-      if (tokenActions.length > 0) {
+      transfers = [...transfers, ...tokenTransfers];
+      if (tokenTransfers.length > 0) {
         existsToken = true;
       }
     }
 
-    if (existsToken && actions.length > 1) {
-      const action = actions[0];
-      const isNativeToken = isSendNativeTokenAction(action);
+    if (existsToken && transfers.length > 1) {
+      const transfer = transfers[0];
+      const isNativeToken = transfer.isNative;
 
-      const isZero = new BigNumber(
-        action.assetTransfer?.sends[0].amount ?? '0',
-      ).isLessThanOrEqualTo('0');
+      const isZero = new BigNumber(transfer.amount ?? '0').isLessThanOrEqualTo(
+        '0',
+      );
 
       if (isNativeToken && isZero) {
-        actions = actions.slice(1);
+        transfers = transfers.slice(1);
       }
     }
 
@@ -435,12 +431,18 @@ export default class Vault extends VaultBase {
 
     const fee = totalInput.minus(totalOutput).toFixed();
 
+    const action = await this.buildTxTransferAssetAction({
+      from: accountAddress,
+      to: toAddress,
+      transfers,
+    });
+
     return {
       txid: '',
       owner: accountAddress,
       signer: accountAddress,
       nonce: 0,
-      actions,
+      actions: [action],
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -449,7 +451,7 @@ export default class Vault extends VaultBase {
     };
   }
 
-  async _decodeTokenActions({
+  async _decodeTokenTransfers({
     txSkeleton,
     config,
     tokenAddress,
@@ -516,7 +518,7 @@ export default class Vault extends VaultBase {
       to = res ? res.address : accountAddress;
       amountValue = utxoToWithoutMine
         .filter((utxo) => utxo.address === to)
-        .reduce((acc, cur) => acc.plus(cur.balance), new BigNumber(0))
+        .reduce((acc, cur) => acc.plus(cur.balanceValue), new BigNumber(0))
         .toFixed();
       amount = new BigNumber(amountValue).shiftedBy(-token.decimals).toFixed();
     } else {
@@ -524,12 +526,12 @@ export default class Vault extends VaultBase {
       const res = utxoFrom.find((output) => !output.isMine);
       from = res ? res.address : accountAddress;
       amountValue = utxoToWithMine
-        .reduce((acc, cur) => acc.plus(cur.balance), new BigNumber(0))
+        .reduce((acc, cur) => acc.plus(cur.balanceValue), new BigNumber(0))
         .toFixed();
       amount = new BigNumber(amountValue).shiftedBy(-token.decimals).toFixed();
     }
 
-    let action: IDecodedTxAction;
+    let transfers: IDecodedTxTransferInfo[] = [];
 
     if (utxoToWithoutMine && utxoToWithoutMine.length) {
       const outputTo =
@@ -537,7 +539,7 @@ export default class Vault extends VaultBase {
           ? utxoToWithoutMine
           : utxoToWithMine;
 
-      const transfers = outputTo.map((utxo) => ({
+      transfers = outputTo.map((utxo) => ({
         from,
         to: utxo.address,
         tokenIdOnNetwork: token.address,
@@ -548,33 +550,23 @@ export default class Vault extends VaultBase {
         isNFT: false,
         isNative: false,
       }));
-
-      action = await this.buildTxTransferAssetAction({
-        from,
-        to,
-        transfers,
-      });
     } else {
-      const transfer = {
-        from,
-        to,
-        tokenIdOnNetwork: token.address,
-        icon: token.logoURI ?? '',
-        name: token.name,
-        symbol: token.symbol,
-        amount,
-        isNFT: false,
-        isNative: true,
-      };
-
-      action = await this.buildTxTransferAssetAction({
-        from,
-        to,
-        transfers: [transfer],
-      });
+      transfers = [
+        {
+          from,
+          to,
+          tokenIdOnNetwork: token.address,
+          icon: token.logoURI ?? '',
+          name: token.name,
+          symbol: token.symbol,
+          amount,
+          isNFT: false,
+          isNative: true,
+        },
+      ];
     }
 
-    return [action];
+    return transfers;
   }
 
   override async buildUnsignedTx(

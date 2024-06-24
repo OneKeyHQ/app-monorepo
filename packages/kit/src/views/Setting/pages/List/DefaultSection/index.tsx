@@ -11,11 +11,11 @@ import {
   useAddressBookPersistAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ECloudBackupRoutes,
@@ -33,20 +33,27 @@ const AddressBookItem = () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EModalAddressBookRoutes.ListItemModal);
   }, [navigation]);
-  const [{ updateTimestamp }] = useAddressBookPersistAtom();
+  const [{ hideDialogInfo }] = useAddressBookPersistAtom();
   const onPress = useCallback(async () => {
-    if (!updateTimestamp) {
+    if (!hideDialogInfo) {
       Dialog.show({
-        title: 'Encrypted storage',
-        icon: 'PlaceholderOutline',
-        description:
-          'All your address book data is encrypted with your login password. ',
+        title: intl.formatMessage({
+          id: ETranslations.address_book_encrypted_storage_title,
+        }),
+        icon: 'ShieldKeyholeOutline',
+        description: intl.formatMessage({
+          id: ETranslations.address_book_encrypted_storage_description,
+        }),
         tone: 'default',
         showConfirmButton: true,
-        showCancelButton: true,
+        showCancelButton: false,
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.address_book_button_next,
+        }),
         onConfirm: async (inst) => {
           await inst.close();
           await showAddressBook();
+          await backgroundApiProxy.serviceAddressBook.hideDialogInfo();
         },
         confirmButtonProps: {
           testID: 'encrypted-storage-confirm',
@@ -55,11 +62,11 @@ const AddressBookItem = () => {
     } else {
       await showAddressBook();
     }
-  }, [showAddressBook, updateTimestamp]);
+  }, [showAddressBook, hideDialogInfo, intl]);
   return (
     <ListItem
-      icon="BookOpenOutline"
-      title={intl.formatMessage({ id: 'title__address_book' })}
+      icon="ContactsOutline"
+      title={intl.formatMessage({ id: ETranslations.settings_address_book })}
       drillIn
       onPress={onPress}
       testID="setting-address-book"
@@ -83,13 +90,14 @@ const LockNowButton = () => {
   return (
     <ListItem
       icon="LockOutline"
-      title={intl.formatMessage({ id: 'action__lock_now' })}
+      title={intl.formatMessage({ id: ETranslations.settings_lock_now })}
       onPress={onLock}
     />
   );
 };
 
 const DefaultWalletSetting = () => {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { result, isLoading, run } = usePromiseResult(
     async () =>
@@ -109,7 +117,9 @@ const DefaultWalletSetting = () => {
   return (
     <ListItem
       icon="ThumbtackOutline"
-      title="Default Wallet Settings"
+      title={intl.formatMessage({
+        id: ETranslations.settings_default_wallet_settings,
+      })}
       drillIn
       onPress={() => {
         navigation.pushModal(EModalRoutes.DAppConnectionModal, {
@@ -119,7 +129,11 @@ const DefaultWalletSetting = () => {
     >
       {isLoading ? null : (
         <ListItem.Text
-          primary={result?.isDefaultWallet ? 'On' : 'Off'}
+          primary={
+            result?.isDefaultWallet
+              ? intl.formatMessage({ id: ETranslations.global_on })
+              : intl.formatMessage({ id: ETranslations.global_off })
+          }
           align="right"
         />
       )}
@@ -139,7 +153,11 @@ export const DefaultSection = () => {
       {platformEnv.isNative ? (
         <ListItem
           icon="RepeatOutline"
-          title={`${backupPlatform().cloudName} Backup`}
+          title={intl.formatMessage({
+            id: platformEnv.isNativeAndroid
+              ? ETranslations.settings_google_drive_backup
+              : ETranslations.settings_icloud_backup,
+          })}
           drillIn
           onPress={async () => {
             navigation.pushModal(EModalRoutes.CloudBackupModal, {
@@ -157,7 +175,7 @@ export const DefaultSection = () => {
       {platformEnv.isNative ? (
         <ListItem
           icon="OnekeyLiteOutline"
-          title="OneKey Lite"
+          title={intl.formatMessage({ id: ETranslations.global_onekey_lite })}
           drillIn
           onPress={() => {
             navigation.pushModal(EModalRoutes.LiteCardModal, {
@@ -168,7 +186,7 @@ export const DefaultSection = () => {
       ) : null}
       <ListItem
         icon="OnekeyKeytagOutline"
-        title="OneKey KeyTag"
+        title={intl.formatMessage({ id: ETranslations.global_onekey_keytag })}
         drillIn
         onPress={() => {
           navigation.pushModal(EModalRoutes.KeyTagModal, {

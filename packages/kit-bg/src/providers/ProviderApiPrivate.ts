@@ -11,6 +11,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/shared/src/utils/originUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -72,6 +74,42 @@ class ProviderApiPrivate extends ProviderApiBase {
     const params = await this.getWalletInfo();
     info.send(
       { method: 'wallet_events_ext_switch_changed', params },
+      info.targetOrigin,
+    );
+  }
+
+  // UI Notify
+  public async notifyDappSiteOfNetworkChange(
+    info: IProviderBaseBackgroundNotifyInfo,
+    params: {
+      getNetworkName: ({ origin }: { origin: string }) => Promise<string>;
+    },
+  ) {
+    const networkName = await params.getNetworkName({
+      origin: info.targetOrigin,
+    });
+    if (!networkName) {
+      return;
+    }
+    const networkChangedText = appLocale.intl.formatMessage(
+      {
+        id: ETranslations.feedback_current_network_message,
+      },
+      {
+        network: networkName,
+      },
+    );
+    console.log(
+      'notifyNetworkChangedToDappSite ======>>>>>>>>>>>>: ',
+      networkChangedText,
+    );
+    info.send(
+      {
+        method: 'wallet_events_dapp_network_changed',
+        params: {
+          networkChangedText,
+        },
+      },
       info.targetOrigin,
     );
   }
@@ -177,20 +215,29 @@ class ProviderApiPrivate extends ProviderApiBase {
       const securityInfo =
         await this.backgroundApi.serviceDiscovery.checkUrlSecurity(
           request.origin,
-          true,
         );
       return {
         securityInfo,
         isExtension: !!platformEnv.isExtension,
         i18n: {
-          title: 'Malicious Dapp',
-          description:
-            'The current website may be malicious. Continue visiting could result in loss of assets.',
-          continueMessage:
-            'If you understand the risks and want to proceed, you can',
-          continueLink: 'dismiss',
-          addToWhiteListLink: 'add to whitelist',
-          sourceMessage: 'Powered by',
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp,
+          }),
+          description: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_description,
+          }),
+          continueMessage: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_continueMessage,
+          }),
+          continueLink: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_continueLink,
+          }),
+          addToWhiteListLink: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_addToWhiteListLink,
+          }),
+          sourceMessage: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
+          }),
         },
       };
     }

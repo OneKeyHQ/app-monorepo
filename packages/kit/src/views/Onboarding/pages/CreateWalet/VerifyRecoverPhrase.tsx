@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
@@ -14,6 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ETrackEventNames,
   trackEvent,
@@ -33,7 +36,14 @@ function WordButton({
     onPress(children);
   }, [children, onPress]);
   return (
-    <Button onPress={handlePress} {...props}>
+    <Button
+      borderWidth={2}
+      focusStyle={{
+        bg: '$bgActive',
+      }}
+      onPress={handlePress}
+      {...props}
+    >
       {children}
     </Button>
   );
@@ -79,6 +89,7 @@ export function VerifyRecoveryPhrase({
   IOnboardingParamList,
   EOnboardingPages.VerifyRecoverPhrase
 >) {
+  const intl = useIntl();
   const { servicePassword } = backgroundApiProxy;
   const { mnemonic, verifyRecoveryPhrases } = route.params || {};
   const [settings] = useSettingsPersistAtom();
@@ -111,22 +122,40 @@ export function VerifyRecoveryPhrase({
         });
       } else {
         Toast.error({
-          title: 'Invalid words',
-          message: 'Double-check and retry',
+          title: intl.formatMessage({
+            id: ETranslations.feedback_invalid_words_title,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.feedback_invalid_words_title_message,
+          }),
         });
       }
     }
-  }, [mnemonic, navigation, phrases, selectedWords, verifyRecoveryPhrases]);
+  }, [
+    intl,
+    mnemonic,
+    navigation,
+    phrases,
+    selectedWords,
+    settings.isBiologyAuthSwitchOn,
+    verifyRecoveryPhrases,
+  ]);
 
   return (
     <Page>
-      <Page.Header title="Verify your Recovery Phrase" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.onboarding_verify_recovery_phrase_title,
+        })}
+      />
       <Page.Body p="$5">
         {phrases && verifyRecoveryPhrases ? (
           <YStack space="$5">
             {verifyRecoveryPhrases.map(([wordIndex, phraseArray], index) => (
               <YStack key={String(wordIndex)} space="$2.5">
-                <SizableText>{`Word #${Number(wordIndex) + 1}`}</SizableText>
+                <SizableText>{`${intl.formatMessage({
+                  id: ETranslations.word,
+                })} #${Number(wordIndex) + 1}`}</SizableText>
                 <WordSelector
                   words={phraseArray}
                   selectedWord={selectedWords[index]}
@@ -143,7 +172,7 @@ export function VerifyRecoveryPhrase({
         ) : null}
       </Page.Body>
       <Page.Footer
-        onConfirmText="Confirm"
+        onConfirmText={intl.formatMessage({ id: ETranslations.global_confirm })}
         onConfirm={handleConfirm}
         confirmButtonProps={{ disabled: selectedWords.length < 3 }}
       />

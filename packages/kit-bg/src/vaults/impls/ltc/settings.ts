@@ -5,6 +5,8 @@ import {
   IMPL_LTC,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import settingsBtc from '../btc/settings';
 
@@ -27,8 +29,8 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinName: COINNAME_LTC,
     label: 'Nested SegWit',
     descI18n: {
-      id: 'form__bitcoin__nested_segwit_desc',
-      data: { 0: 'M' },
+      id: ETranslations.litecoin_nested_segwit_desc,
+      data: {},
     },
     addressEncoding: EAddressEncodings.P2SH_P2WPKH,
   },
@@ -39,8 +41,8 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinName: COINNAME_LTC,
     label: 'Native SegWit',
     descI18n: {
-      id: 'form__bitcoin__native_segwit_desc',
-      data: { 0: 'ltc1' },
+      id: ETranslations.litecoin_native_segwit_desc,
+      data: {},
     },
     addressEncoding: EAddressEncodings.P2WPKH,
   },
@@ -50,7 +52,9 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinType: COINTYPE_LTC,
     coinName: COINNAME_LTC,
     label: 'Legacy',
-    descI18n: { id: 'form__bitcoin__legacy_desc', data: { 0: 'L' } },
+    desc: `${appLocale.intl.formatMessage({
+      id: ETranslations.litecoin_legacy_desc,
+    })} BIP44, P2PKH, Base58`,
     addressEncoding: EAddressEncodings.P2PKH,
   },
 };
@@ -61,6 +65,7 @@ const settings: IVaultSettings = {
   impl: IMPL_LTC,
   coinTypeDefault: COINTYPE_LTC,
   minTransferAmount: '0.00000546',
+  hasFrozenBalance: false,
 };
 
 export default Object.freeze(settings);

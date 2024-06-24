@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -18,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
@@ -53,7 +55,7 @@ enum ESearchStatus {
 }
 
 const SkeletonItem = () => (
-  <XStack px="$5" py="$2" alignItems="center">
+  <XStack py="$2" alignItems="center">
     <Skeleton w="$10" h="$10" radius="round" />
     <YStack ml="$3">
       <Stack py="$1.5">
@@ -71,6 +73,7 @@ export function UniversalSearch({
 }: {
   searchType?: EUniversalSearchType;
 }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
@@ -94,13 +97,13 @@ export function UniversalSearch({
       });
     if (result?.[EUniversalSearchType.MarketToken]?.items) {
       searchResultSections.push({
-        title: 'Trending',
+        title: intl.formatMessage({ id: ETranslations.market_trending }),
         data: result?.[EUniversalSearchType.MarketToken]
           ?.items as IUniversalSearchResultItem[],
       });
     }
     setRecommendSections(searchResultSections);
-  }, [searchType]);
+  }, [intl, searchType]);
 
   useEffect(() => {
     void fetchRecommendList();
@@ -108,34 +111,38 @@ export function UniversalSearch({
 
   const handleTextChange = useDebouncedCallback(async (val: string) => {
     const input = val?.trim?.() || '';
-    const result =
-      await backgroundApiProxy.serviceUniversalSearch.universalSearch({
-        input,
-        networkId: activeAccount?.network?.id,
-        searchTypes: [searchType || EUniversalSearchType.Address],
-      });
-    const searchResultSections: {
-      title: string;
-      data: IUniversalSearchResultItem[];
-    }[] = [];
-    if (result?.[EUniversalSearchType.Address]?.items) {
-      searchResultSections.push({
-        title: 'Wallet',
-        data: result?.[EUniversalSearchType.Address]
-          ?.items as IUniversalSearchResultItem[],
-      });
-    }
+    if (input) {
+      const result =
+        await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+          input,
+          networkId: activeAccount?.network?.id,
+          searchTypes: [searchType || EUniversalSearchType.Address],
+        });
+      const searchResultSections: {
+        title: string;
+        data: IUniversalSearchResultItem[];
+      }[] = [];
+      if (result?.[EUniversalSearchType.Address]?.items?.length) {
+        searchResultSections.push({
+          title: 'Wallet',
+          data: result?.[EUniversalSearchType.Address]
+            ?.items as IUniversalSearchResultItem[],
+        });
+      }
 
-    if (result?.[EUniversalSearchType.MarketToken]?.items) {
-      searchResultSections.push({
-        title: 'Market Token',
-        data: result?.[EUniversalSearchType.MarketToken]
-          ?.items as IUniversalSearchResultItem[],
-      });
+      if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
+        searchResultSections.push({
+          title: 'Market Token',
+          data: result?.[EUniversalSearchType.MarketToken]
+            ?.items as IUniversalSearchResultItem[],
+        });
+      }
+      setSections(searchResultSections);
+      console.log('---searchResultSections', searchResultSections);
+      setSearchStatus(ESearchStatus.done);
+    } else {
+      setSearchStatus(ESearchStatus.init);
     }
-
-    setSections(searchResultSections);
-    setSearchStatus(ESearchStatus.done);
   }, 1200);
 
   const handleChangeText = useCallback(() => {
@@ -194,7 +201,6 @@ export function UniversalSearch({
                 setTimeout(async () => {
                   navigation.push(ETabMarketRoutes.MarketDetail, {
                     coinGeckoId: coingeckoId,
-                    icon: image,
                     symbol,
                   });
                   setTimeout(() => {
@@ -222,7 +228,7 @@ export function UniversalSearch({
                 >
                   {price}
                 </NumberSizeableText>
-                <MarketStar coingeckoId={coingeckoId} />
+                <MarketStar coingeckoId={coingeckoId} mx="$3" />
               </XStack>
             </ListItem>
           );
@@ -245,6 +251,16 @@ export function UniversalSearch({
               renderSectionHeader={renderSectionHeader}
               sections={recommendSections}
               renderItem={renderItem}
+              ListEmptyComponent={
+                <YStack px="$5">
+                  <SizableText numberOfLines={1} size="$headingSm">
+                    {intl.formatMessage({ id: ETranslations.market_trending })}
+                  </SizableText>
+                  <SkeletonItem />
+                  <SkeletonItem />
+                  <SkeletonItem />
+                </YStack>
+              }
               estimatedItemSize="$16"
             />
           </>
@@ -252,7 +268,7 @@ export function UniversalSearch({
 
       case ESearchStatus.loading:
         return (
-          <YStack>
+          <YStack px="$5">
             <SkeletonItem />
             <SkeletonItem />
             <SkeletonItem />
@@ -265,7 +281,15 @@ export function UniversalSearch({
             sections={sections}
             // renderSectionHeader={renderSectionHeader}
             ListEmptyComponent={
-              <Empty icon="SearchOutline" title="No Results" />
+              <Empty
+                icon="SearchOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.global_no_results,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.global_search_no_results_desc,
+                })}
+              />
             }
             renderItem={renderItem}
             estimatedItemSize="$16"
@@ -275,6 +299,7 @@ export function UniversalSearch({
         break;
     }
   }, [
+    intl,
     recommendSections,
     renderItem,
     renderSectionHeader,
@@ -285,12 +310,16 @@ export function UniversalSearch({
 
   return (
     <Page>
-      <Page.Header title="Search" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_search })}
+      />
       <Page.Body>
         <View p="$5" pt={0}>
           <SearchBar
             autoFocus
-            placeholder="Search"
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_search,
+            })}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
           />

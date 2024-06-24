@@ -2,7 +2,9 @@ import { memo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Form, Input, useForm } from '@onekeyhq/components';
+import type { IButtonProps } from '@onekeyhq/components';
+import { Button, Form, Input, Unspaced, useForm } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PasswordRegex, getPasswordKeyboardType } from '../utils';
 
@@ -38,17 +40,36 @@ const PasswordSetup = ({
   return (
     <Form form={form}>
       <Form.Field
-        label="New Password"
+        label={intl.formatMessage({
+          id: ETranslations.auth_new_password_form_label,
+        })}
         name="password"
         rules={{
-          required: { value: true, message: 'Please enter a password' },
+          required: {
+            value: true,
+            message: intl.formatMessage({
+              id: ETranslations.auth_error_password_empty,
+            }),
+          },
           minLength: {
             value: 8,
-            message: 'Password must be at least 8 characters',
+            message: intl.formatMessage(
+              { id: ETranslations.auth_error_password_too_short },
+              {
+                length: 8,
+              },
+            ),
           },
           maxLength: {
             value: 128,
-            message: 'Password cannot exceed 128 characters',
+            message: intl.formatMessage(
+              {
+                id: ETranslations.auth_erro_password_too_long,
+              },
+              {
+                length: 128,
+              },
+            ),
           },
           onChange: () => {
             form.clearErrors();
@@ -60,7 +81,9 @@ const PasswordSetup = ({
           $gtMd={{
             size: 'medium',
           }}
-          placeholder="Create a strong password"
+          placeholder={intl.formatMessage({
+            id: ETranslations.auth_new_password_form_placeholder,
+          })}
           disabled={loading}
           autoFocus
           keyboardType={getPasswordKeyboardType(!secureEntry)}
@@ -68,7 +91,7 @@ const PasswordSetup = ({
           secureTextEntry={secureEntry}
           addOns={[
             {
-              iconName: secureEntry ? 'EyeOffOutline' : 'EyeOutline',
+              iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
               onPress: () => {
                 setSecureEntry(!secureEntry);
               },
@@ -79,7 +102,9 @@ const PasswordSetup = ({
         />
       </Form.Field>
       <Form.Field
-        label="Confirm Password"
+        label={intl.formatMessage({
+          id: ETranslations.auth_confirm_password_form_label,
+        })}
         name="confirmPassword"
         rules={{
           validate: {
@@ -87,7 +112,9 @@ const PasswordSetup = ({
               const state = form.getFieldState('password');
               if (!state.error) {
                 return v !== values.password
-                  ? 'Passwords do not match'
+                  ? intl.formatMessage({
+                      id: ETranslations.auth_error_password_not_match,
+                    })
                   : undefined;
               }
               return undefined;
@@ -103,14 +130,16 @@ const PasswordSetup = ({
           $gtMd={{
             size: 'medium',
           }}
-          placeholder="Re-enter your password"
+          placeholder={intl.formatMessage({
+            id: ETranslations.auth_confirm_password_form_placeholder,
+          })}
           disabled={loading}
           keyboardType={getPasswordKeyboardType(!secureReentry)}
           onChangeText={(text) => text.replace(PasswordRegex, '')}
           secureTextEntry={secureReentry}
           addOns={[
             {
-              iconName: secureReentry ? 'EyeOffOutline' : 'EyeOutline',
+              iconName: secureReentry ? 'EyeOutline' : 'EyeOffOutline',
               onPress: () => {
                 setSecureReentry(!secureReentry);
               },
@@ -120,14 +149,21 @@ const PasswordSetup = ({
           testID="confirm-password"
         />
       </Form.Field>
-      {biologyAuthSwitchContainer}
+      <Unspaced>{biologyAuthSwitchContainer}</Unspaced>
       <Button
+        size="large"
+        $gtMd={
+          {
+            size: 'medium',
+          } as IButtonProps
+        }
         variant="primary"
         loading={loading}
         onPress={form.handleSubmit(onSetupPassword)}
         testID="set-password"
       >
-        {confirmBtnText ?? intl.formatMessage({ id: 'title__set_password' })}
+        {confirmBtnText ??
+          intl.formatMessage({ id: ETranslations.auth_set_password })}
       </Button>
     </Form>
   );

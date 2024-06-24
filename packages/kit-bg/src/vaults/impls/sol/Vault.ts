@@ -28,6 +28,7 @@ import {
   getAssociatedTokenAddressSync,
 } from '@solana/spl-token';
 import {
+  ComputeBudgetInstruction,
   ComputeBudgetProgram,
   PublicKey,
   SYSVAR_INSTRUCTIONS_PUBKEY,
@@ -49,7 +50,7 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -61,6 +62,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IEstimateFeeParams,
+  IFeeInfoUnit,
+} from '@onekeyhq/shared/types/fee';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
@@ -78,13 +83,16 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import ClientSol from './sdkSol/ClientSol';
 import {
+  BASE_FEE,
+  COMPUTE_UNIT_PRICE_DECIMALS,
   TOKEN_AUTH_RULES_ID,
   masterEditionAddress,
   metadataAddress,
+  parseComputeUnitLimit,
+  parseNativeTxDetail,
   parseToNativeTx,
   tokenRecordAddress,
 } from './utils';
@@ -93,7 +101,6 @@ import type { IAssociatedTokenInfo, IParsedAccountInfo } from './types';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -114,9 +121,9 @@ import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sol.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -649,11 +656,11 @@ export default class Vault extends VaultBase {
       signature = null;
     }
 
-    const owner = await this.getAccountAddress();
+    const accountAddress = await this.getAccountAddress();
     const decodedTx: IDecodedTx = {
       txid: signature ? bs58.encode(signature) : '',
-      owner,
-      signer: (nativeTx as Transaction).feePayer?.toString() || owner,
+      owner: accountAddress,
+      signer: (nativeTx as Transaction).feePayer?.toString() || accountAddress,
       nonce: 0,
       actions,
       status: EDecodedTxStatus.Pending,
@@ -838,7 +845,7 @@ export default class Vault extends VaultBase {
     const swapSendToken = swapInfo.sender.token;
     const action = await this.buildTxTransferAssetAction({
       from: swapInfo.accountAddress,
-      to: '',
+      to: swapInfo.receivingAddress,
       transfers: [
         {
           from: swapInfo.accountAddress,
@@ -871,7 +878,7 @@ export default class Vault extends VaultBase {
 
     return {
       payload: {
-        feePayer: new PublicKey(accountAddress),
+        feePayer: accountAddress,
       },
       encodedTx,
     };
@@ -880,13 +887,19 @@ export default class Vault extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, nativeAmountInfo } = params;
+    const { unsignedTx, nativeAmountInfo, feeInfo } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxSol;
 
     if (nativeAmountInfo) {
       encodedTxNew = await this._updateNativeTokenAmount({
         encodedTx: encodedTxNew,
         nativeAmountInfo,
+      });
+    }
+    if (feeInfo) {
+      encodedTxNew = await this._attachFeeInfoToEncodedTx({
+        encodedTx: encodedTxNew,
+        feeInfo,
       });
     }
 
@@ -936,6 +949,90 @@ export default class Vault extends VaultBase {
             );
           }
         }
+      }
+    }
+
+    return Promise.resolve(encodedTx);
+  }
+
+  async _attachFeeInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxSol;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTxSol> {
+    const { encodedTx, feeInfo } = params;
+    const client = await this.getClient();
+
+    if (feeInfo.feeSol) {
+      let isComputeUnitPriceExist = false;
+      const { computeUnitPrice } = feeInfo.feeSol;
+      const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+      const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
+      const prioritizationFeeInstruction =
+        ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports: Number(computeUnitPrice),
+        });
+
+      const {
+        instructions,
+        addressLookupTableAccounts,
+        versionedTransactionMessage,
+      } = await parseNativeTxDetail({
+        nativeTx,
+        client,
+      });
+
+      for (let i = 0; i < instructions.length; i += 1) {
+        const instruction = instructions[i];
+        if (
+          instruction.programId.toString() ===
+          ComputeBudgetProgram.programId.toString()
+        ) {
+          const instructionType =
+            ComputeBudgetInstruction.decodeInstructionType(instruction);
+          if (instructionType === 'SetComputeUnitPrice') {
+            const { microLamports } =
+              ComputeBudgetInstruction.decodeSetComputeUnitPrice(instruction);
+            if (!isNil(microLamports)) {
+              isComputeUnitPriceExist = true;
+
+              if (isVersionedTransaction && versionedTransactionMessage) {
+                versionedTransactionMessage.instructions[i] =
+                  prioritizationFeeInstruction;
+                nativeTx.message =
+                  versionedTransactionMessage.compileToV0Message(
+                    addressLookupTableAccounts,
+                  );
+              } else {
+                (nativeTx as Transaction).instructions[i] =
+                  prioritizationFeeInstruction;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (!isComputeUnitPriceExist) {
+        if (isVersionedTransaction && versionedTransactionMessage) {
+          versionedTransactionMessage.instructions.unshift(
+            prioritizationFeeInstruction,
+          );
+          nativeTx.message = versionedTransactionMessage.compileToV0Message(
+            addressLookupTableAccounts,
+          );
+        } else {
+          (nativeTx as Transaction).instructions.unshift(
+            prioritizationFeeInstruction,
+          );
+        }
+      }
+
+      try {
+        return bs58.encode(
+          (nativeTx as Transaction).serialize({ requireAllSignatures: false }),
+        );
+      } catch {
+        return '';
       }
     }
 
@@ -1019,5 +1116,35 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxSol | undefined;
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+
+    const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+    const client = await this.getClient();
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client,
+    });
+
+    const computeUnitLimit = parseComputeUnitLimit(instructions);
+
+    return {
+      encodedTx,
+      estimateFeeParams: {
+        estimateFeeParamsSol: {
+          baseFee: String(BASE_FEE),
+          computeUnitPriceDecimals: COMPUTE_UNIT_PRICE_DECIMALS,
+          computeUnitLimit: String(computeUnitLimit),
+        },
+      },
+    };
   }
 }

@@ -1,5 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { Semaphore } from 'async-mutex';
 
 import { EAdaNetworkId } from '@onekeyhq/core/src/chains/ada/types';
 import type IAdaVault from '@onekeyhq/kit-bg/src/vaults/impls/ada/Vault';
@@ -24,6 +25,8 @@ import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-ty
 class ProviderApiCardano extends ProviderApiBase {
   public providerName = IInjectedProviderNames.cardano;
 
+  private semaphore = new Semaphore(1);
+
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
@@ -43,7 +46,7 @@ class ProviderApiCardano extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    throw new NotImplemented();
+    // ignore
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -84,12 +87,14 @@ class ProviderApiCardano extends ProviderApiBase {
   // Provider API
   @providerApiMethod()
   async connect(request: IJsBridgeMessagePayload) {
-    const connectedAddress = await this.cardano_accounts(request);
-    if (connectedAddress) {
-      return connectedAddress;
-    }
-    await this.backgroundApi.serviceDApp.openConnectionModal(request);
-    return this.cardano_accounts(request);
+    return this.semaphore.runExclusive(async () => {
+      const connectedAddress = await this.cardano_accounts(request);
+      if (connectedAddress) {
+        return connectedAddress;
+      }
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      return this.cardano_accounts(request);
+    });
   }
 
   @providerApiMethod()
@@ -120,7 +125,8 @@ class ProviderApiCardano extends ProviderApiBase {
     if (!vault) {
       throw new Error('Not connected to any account.');
     }
-    return vault.getUtxosForDapp(params.amount);
+    const result = await vault.getUtxosForDapp(params.amount);
+    return result ?? [];
   }
 
   @providerApiMethod()
@@ -185,8 +191,9 @@ class ProviderApiCardano extends ProviderApiBase {
         encodedTx,
         accountId: accountId ?? '',
         networkId: networkId ?? '',
+        signOnly: true,
       });
-    return result;
+    return result.rawTx;
   }
 
   @providerApiMethod()

@@ -26,13 +26,9 @@ import CoreChainTron from '../chains/tron';
 import CoreChainXrp from '../chains/xrp';
 
 export class CoreChainApiHub {
-  ada = new CoreChainAda();
-
   evm = new CoreChainEvm();
 
   btc = new CoreChainBtc();
-
-  cosmos = new CoreChainCosmos();
 
   bch = new CoreChainBch();
 
@@ -41,6 +37,10 @@ export class CoreChainApiHub {
   doge = new CoreChainDoge();
 
   lightning = new CoreChainLightning();
+
+  ada = new CoreChainAda();
+
+  cosmos = new CoreChainCosmos();
 
   algo = new CoreChainAlgo();
 
@@ -74,7 +74,7 @@ export class CoreChainApiHub {
 
   neurai = new CoreChainNeurai();
 
-  dnx = new CoreChainDnx();
+  dynex = new CoreChainDnx();
 
   ckb = new CoreChainCkb();
 }

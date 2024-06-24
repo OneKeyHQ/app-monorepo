@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -16,18 +17,17 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import {
   EAssetSelectorRoutes,
-  EModalReceiveRoutes,
   EModalRoutes,
   EModalSendRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionMore } from './WalletActionMore';
+import { WalletActionReceive } from './WalletActionReceive';
 
 function WalletActionSend() {
   const navigation =
@@ -40,16 +40,16 @@ function WalletActionSend() {
   const [map] = useAllTokenListMapAtom();
   const [tokenListState] = useTokenListStateAtom();
 
-  const isSingleToken = usePromiseResult(async () => {
+  const vaultSettings = usePromiseResult(async () => {
     const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
       networkId: network?.id ?? '',
     });
-    return settings.isSingleToken;
+    return settings;
   }, [network?.id]).result;
 
   const handleOnSend = useCallback(async () => {
     if (!account || !network) return;
-    if (isSingleToken) {
+    if (vaultSettings?.isSingleToken) {
       const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
         networkId: network.id,
         accountAddress: account.address,
@@ -95,7 +95,7 @@ function WalletActionSend() {
     account,
     allTokens.keys,
     allTokens.tokens,
-    isSingleToken,
+    vaultSettings,
     map,
     navigation,
     network,
@@ -104,71 +104,55 @@ function WalletActionSend() {
   return (
     <RawActions.Send
       onPress={handleOnSend}
-      disabled={!tokenListState.initialized}
+      disabled={
+        vaultSettings?.disabledSendAction || !tokenListState.initialized
+      }
     />
   );
-}
-
-function WalletActionReceive() {
-  const {
-    activeAccount: { account, network, wallet, deriveInfo, deriveType },
-  } = useActiveAccount({ num: 0 });
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
-
-  const handleOnReceive = useCallback(() => {
-    if (!account || !network || !wallet || !deriveInfo) return;
-    if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
-      navigation.pushModal(EModalRoutes.ReceiveModal, {
-        screen: EModalReceiveRoutes.CreateInvoice,
-        params: {
-          networkId: network.id,
-          accountId: account.id,
-        },
-      });
-      return;
-    }
-    navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveToken,
-      params: {
-        networkId: network.id,
-        accountId: account.id,
-        walletId: wallet.id,
-        deriveInfo,
-        deriveType,
-      },
-    });
-  }, [account, deriveInfo, deriveType, navigation, network, wallet]);
-
-  return <RawActions.Receive onPress={handleOnReceive} />;
 }
 
 function WalletActionSwap({ networkId }: { networkId?: string }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const vaultSettings = usePromiseResult(async () => {
+    const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId: networkId ?? '',
+    });
+    return settings;
+  }, [networkId]).result;
   const handleOnSwap = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: { importNetworkId: networkId },
     });
   }, [navigation, networkId]);
-  return <RawActions.Swap onPress={handleOnSwap} />;
+  return (
+    <RawActions.Swap
+      onPress={handleOnSwap}
+      disabled={vaultSettings?.disabledSwapAction}
+    />
+  );
 }
 
-function WalletActions() {
+function WalletActions({ ...rest }: IXStackProps) {
   const {
-    activeAccount: { network, account },
+    activeAccount: { network, account, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
 
   return (
-    <RawActions>
-      <WalletActionBuy
-        networkId={network?.id ?? ''}
-        accountId={account?.id ?? ''}
-      />
+    <RawActions {...rest}>
+      <ReviewControl>
+        <WalletActionBuy networkId={network?.id} accountId={account?.id} />
+      </ReviewControl>
       <WalletActionSwap networkId={network?.id} />
       <WalletActionSend />
-      <WalletActionReceive />
+      <WalletActionReceive
+        accountId={account?.id}
+        networkId={network?.id}
+        walletId={wallet?.id}
+        deriveInfo={deriveInfo}
+        deriveType={deriveType}
+      />
       <WalletActionMore />
     </RawActions>
   );

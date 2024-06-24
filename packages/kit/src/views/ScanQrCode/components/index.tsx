@@ -8,10 +8,12 @@ import { useIntl } from 'react-intl';
 import {
   BlurView,
   Dialog,
+  Image,
   SizableText,
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -20,10 +22,13 @@ import { ScanCamera } from './ScanCamera';
 
 export type IScanQrCodeProps = {
   handleBarCodeScanned: (value: string) => Promise<{ progress?: number }>;
-  mask?: boolean;
+  qrWalletScene?: boolean;
 };
 
-export function ScanQrCode({ handleBarCodeScanned, mask }: IScanQrCodeProps) {
+export function ScanQrCode({
+  handleBarCodeScanned,
+  qrWalletScene,
+}: IScanQrCodeProps) {
   const intl = useIntl();
   const scanned = useRef<string | undefined>(undefined);
   const [currentPermission, setCurrentPermission] = useState<PermissionStatus>(
@@ -75,16 +80,18 @@ export function ScanQrCode({ handleBarCodeScanned, mask }: IScanQrCodeProps) {
         Dialog.show({
           tone: 'warning',
           icon: 'ErrorOutline',
-          title: intl.formatMessage({ id: 'modal__camera_access_not_granted' }),
+          title: intl.formatMessage({
+            id: ETranslations.scan_camera_access_denied,
+          }),
           description: intl.formatMessage({
             id: isExtensionUiPopup
-              ? 'msg__approving_camera_permission_needs_to_be_turned_on_in_expand_view'
-              : 'modal__camera_access_not_granted_desc',
+              ? ETranslations.scan_grant_camera_access_in_expand_view
+              : ETranslations.scan_enable_camera_permissions,
           }),
           onConfirmText: intl.formatMessage({
             id: isExtensionUiPopup
-              ? 'form__expand_view'
-              : 'action__go_to_settings',
+              ? ETranslations.global_expand_view
+              : ETranslations.global_go_to_settings,
           }),
           showCancelButton: true,
           showConfirmButton: true,
@@ -110,34 +117,31 @@ export function ScanQrCode({ handleBarCodeScanned, mask }: IScanQrCodeProps) {
       isActive={isFocused}
       handleScanResult={reloadHandleBarCodeScanned}
     >
-      <YStack
-        fullscreen
-        alignItems="center"
-        justifyContent="center"
-        overflow="hidden"
-      >
-        <Stack
-          borderWidth={400}
-          borderColor="rgba(0,0,0,.5)"
-          borderRadius={425}
-        >
-          <Stack w={256} h={256} borderRadius="$6" />
-          {mask ? (
-            <YStack fullscreen>
-              <BlurView flex={1} borderRadius="$6" />
-            </YStack>
-          ) : null}
-          {progress ? (
-            <YStack fullscreen justifyContent="flex-end" alignItems="flex-end">
-              <Stack bg="white" borderRadius="$1" px="$3" py="$2">
-                <SizableText size="$headingXxs" color="black">{`${(
-                  progress * 100
-                ).toFixed(2)}%`}</SizableText>
-              </Stack>
-            </YStack>
-          ) : null}
-        </Stack>
-      </YStack>
+      {qrWalletScene ? (
+        <YStack fullscreen>
+          {platformEnv.isNativeAndroid ? (
+            <Image flex={1} source={require('@onekeyhq/kit/assets/blur.png')} />
+          ) : (
+            <BlurView flex={1} contentStyle={{ flex: 1 }} />
+          )}
+        </YStack>
+      ) : null}
+      {progress ? (
+        <YStack fullscreen justifyContent="flex-end" alignItems="flex-end">
+          <Stack
+            bg="$blackA9"
+            borderRadius="$2"
+            mr="$3"
+            mb="$3"
+            px="$2"
+            py="$1"
+          >
+            <SizableText size="$bodySmMedium" color="$whiteA12">{`Scanning ${(
+              progress * 100
+            ).toFixed(0)}%`}</SizableText>
+          </Stack>
+        </YStack>
+      ) : null}
     </ScanCamera>
   ) : null;
 }

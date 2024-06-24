@@ -9,8 +9,10 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DAppAccountListStandAloneItem } from '../../../DAppConnection/components/DAppAccountList';
 import {
@@ -113,15 +115,22 @@ function WeblnSendPaymentModal() {
         await sendConfirm.normalizeSendConfirm({
           transfersInfo,
           sameModal: true,
-          onSuccess: () => dappApprove.resolve({ close, result: paymentHash }),
-          onFail: () => dappApprove.reject(),
+          onSuccess: () => {
+            void dappApprove.resolve({ close, result: paymentHash });
+          },
+          onFail: () => {
+            void dappApprove.reject();
+          },
+          onCancel: () => {
+            void dappApprove.reject();
+          },
         });
       } catch (e: any) {
         console.log('lnurl withdraw error: ', e);
         dappApprove.reject();
+        const message = (e as Error)?.message ?? e;
         throw new OneKeyError({
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          info: e.message ?? e,
+          message,
           autoToast: true,
         });
       } finally {
@@ -141,47 +150,52 @@ function WeblnSendPaymentModal() {
   );
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title={intl.formatMessage({ id: 'title__lnurl_pay' })}
-          subtitleShown={false}
-          origin={$sourceInfo?.origin ?? ''}
-          urlSecurityInfo={urlSecurityInfo}
-        >
-          <DAppAccountListStandAloneItem readonly />
-          <LNSendPaymentForm
-            isWebln
-            accountId={accountId}
-            networkId={networkId}
-            useFormReturn={useFormReturn}
-            amount={amount.toNumber()}
-            amountReadOnly={amount.toNumber() !== 0}
-            descriptionLabelId="title__invoice_description"
-            commentAllowedLength={Number.MAX_SAFE_INTEGER}
-            commentReadOnly
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title={intl.formatMessage({
+              id: ETranslations.dapp_connect_invoice_payment_request,
+            })}
+            subtitleShown={false}
+            origin={$sourceInfo?.origin ?? ''}
+            urlSecurityInfo={urlSecurityInfo}
+          >
+            <DAppAccountListStandAloneItem readonly />
+            <LNSendPaymentForm
+              isWebln
+              accountId={accountId}
+              networkId={networkId}
+              useFormReturn={useFormReturn}
+              amount={amount.toNumber()}
+              amountReadOnly={amount.toNumber() !== 0}
+              commentAllowedLength={Number.MAX_SAFE_INTEGER}
+              commentReadOnly
+            />
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            confirmText={intl.formatMessage({
+              id: ETranslations.global_continue,
+            })}
+            continueOperate={continueOperate}
+            setContinueOperate={(checked) => {
+              setContinueOperate(!!checked);
+            }}
+            onConfirm={onConfirm}
+            onCancel={() => dappApprove.reject()}
+            confirmButtonProps={{
+              loading: isLoading,
+              disabled: !continueOperate,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
           />
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          confirmText="Continue"
-          continueOperate={continueOperate}
-          setContinueOperate={(checked) => {
-            setContinueOperate(!!checked);
-          }}
-          onConfirm={onConfirm}
-          onCancel={() => dappApprove.reject()}
-          confirmButtonProps={{
-            loading: isLoading,
-            disabled: !continueOperate,
-          }}
-          showContinueOperateCheckbox={showContinueOperate}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 

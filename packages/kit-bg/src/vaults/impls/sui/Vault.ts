@@ -12,6 +12,7 @@ import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -38,7 +39,6 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { OneKeySuiClient } from './sdkSui/ClientSui';
 import { createCoinSendTransaction } from './sdkSui/coin-helper';
@@ -73,9 +73,9 @@ import type {
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sui.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -259,7 +259,7 @@ export default class Vault extends VaultBase {
             break;
         }
       }
-    } catch {
+    } catch (e) {
       // ignore parse error
     }
 
@@ -272,9 +272,6 @@ export default class Vault extends VaultBase {
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
-      payload: {
-        type: EOnChainHistoryTxType.Send,
-      },
       extraInfo: null,
       encodedTx,
     };
@@ -546,20 +543,38 @@ export default class Vault extends VaultBase {
 
     let to = '';
     if (transaction.address.kind === 'Input') {
-      const argValue = get(transaction.address.value, 'Pure', undefined);
-      if (argValue) {
+      if (transaction.address.value) {
+        const argValue = get(transaction.address.value, 'Pure', undefined);
+        if (argValue) {
+          try {
+            to = builder.de('vector<u8>', argValue);
+          } catch (e) {
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+              to = argValue.toString();
+            } catch (error) {
+              // ignore
+            }
+          }
+        } else {
+          to = transaction.address.value;
+        }
+      } else {
+        const input = inputs[transaction.address.index];
+        const addressValue = get(input?.value, 'Pure', undefined);
         try {
-          to = builder.de('vector<u8>', argValue);
+          to = builder.de(
+            'vector<u8>',
+            new Uint8Array(Buffer.from(addressValue)),
+          );
         } catch (e) {
           try {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-            to = argValue.toString();
+            to = `0x${bufferUtils.bytesToHex(Buffer.from(addressValue))}`;
           } catch (error) {
             // ignore
           }
         }
-      } else {
-        to = transaction.address.value;
       }
     }
 

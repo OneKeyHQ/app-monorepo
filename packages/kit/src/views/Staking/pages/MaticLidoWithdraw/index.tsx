@@ -8,6 +8,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ELidoLabels } from '@onekeyhq/shared/types/staking';
 
 import { LidoWithdraw } from '../../components/LidoWithdraw';
 import { useLidoMaticWithdraw } from '../../hooks/useLidoMaticHooks';
@@ -29,6 +30,7 @@ const MaticLidoWithdraw = () => {
       await lidoWithdraw({
         amount,
         stakingInfo: {
+          label: ELidoLabels.Redeem,
           protocol: 'lido',
           send: { amount: value, token },
           tags: ['lido-matic'],
@@ -44,6 +46,7 @@ const MaticLidoWithdraw = () => {
       price={price}
       balance={balance}
       tokenSymbol={token.symbol}
+      minAmount={BigNumber(1).shiftedBy(-token.decimals).toFixed()}
       tokenImageUri={LIDO_MATIC_LOGO_URI}
       onConfirm={onConfirm}
       rate={rate}

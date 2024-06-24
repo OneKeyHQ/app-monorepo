@@ -39,12 +39,15 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { AptosClient } from './sdkAptos/AptosClient';
 import {
   APTOS_NATIVE_COIN,
+  APTOS_NATIVE_TRANSFER_FUNC,
+  APTOS_TRANSFER_FUNC,
+  buildSignedTx,
   generateTransferCoin,
+  generateUnsignedTransaction,
   getTransactionTypeByPayload,
 } from './utils';
 
@@ -66,9 +69,9 @@ import type {
 export default class VaultAptos extends VaultBase {
   override coreApi = coreChainApi.aptos.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -118,7 +121,7 @@ export default class VaultAptos extends VaultBase {
 
     const amountValue = new BigNumber(amount)
       .shiftedBy(tokenInfo.decimals)
-      .toFixed();
+      .toFixed(0);
 
     const encodedTx: IEncodedTxAptos = {
       ...generateTransferCoin(
@@ -294,7 +297,13 @@ export default class VaultAptos extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxAptos);
+      const result = await this._buildUnsignedTxFromEncodedTx(
+        encodedTx as IEncodedTxAptos,
+      );
+      return {
+        ...result,
+        transfersInfo: params.transfersInfo,
+      };
     }
     throw new OneKeyInternalError();
   }
@@ -345,7 +354,7 @@ export default class VaultAptos extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, feeInfo } = params;
+    const { unsignedTx, feeInfo, nativeAmountInfo } = params;
     let encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
     if (feeInfo) {
       encodedTx = await this._attachFeeInfoToEncodedTx({
@@ -353,6 +362,23 @@ export default class VaultAptos extends VaultBase {
         feeInfo,
       });
     }
+    // max native token transfer update
+    if (
+      nativeAmountInfo &&
+      [APTOS_NATIVE_TRANSFER_FUNC, APTOS_TRANSFER_FUNC].includes(
+        encodedTx?.function ?? '',
+      ) &&
+      unsignedTx.transfersInfo
+    ) {
+      const decimals = unsignedTx.transfersInfo[0].tokenInfo?.decimals ?? 0;
+      const amount = new BigNumber(nativeAmountInfo.maxSendAmount ?? '0')
+        .shiftedBy(decimals)
+        .toFixed(0);
+
+      const [to] = encodedTx.arguments || [];
+      encodedTx.arguments = [to, amount];
+    }
+
     return {
       ...unsignedTx,
       encodedTx,
@@ -403,5 +429,42 @@ export default class VaultAptos extends VaultBase {
 
   async getTransactionByHash(txId: string) {
     return this.client.getTransactionByHash(txId);
+  }
+
+  override async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx | undefined;
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+
+    let rawTx: TxnBuilderTypes.RawTransaction;
+    const unSignedEncodedTx = encodedTx as IEncodedTxAptos;
+    if (unSignedEncodedTx.bscTxn && unSignedEncodedTx.bscTxn?.length > 0) {
+      const deserializer = new BCS.Deserializer(
+        bufferUtils.hexToBytes(unSignedEncodedTx.bscTxn),
+      );
+      rawTx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
+    } else {
+      rawTx = await generateUnsignedTransaction(this.client, {
+        encodedTx,
+      });
+    }
+
+    const account = await this.getAccount();
+    const invalidSigBytes = new Uint8Array(64);
+    const { rawTx: rawSignTx } = await buildSignedTx(
+      rawTx,
+      account.pub ?? '',
+      bufferUtils.bytesToHex(invalidSigBytes),
+    );
+    return {
+      encodedTx: {
+        ...(encodedTx as object),
+        rawSignTx,
+      } as unknown as IEncodedTx,
+    };
   }
 }

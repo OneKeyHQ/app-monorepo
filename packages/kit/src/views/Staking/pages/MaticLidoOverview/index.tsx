@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Dialog,
@@ -16,13 +17,16 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import type {
-  ILidoMaticOverview,
-  ILidoMaticRequest,
+import {
+  ELidoLabels,
+  type ILidoMaticOverview,
+  type ILidoMaticRequest,
+  type ILidoTokenItem,
 } from '@onekeyhq/shared/types/staking';
 
 import { MaticLidoFAQs } from '../../components/LidoFAQs';
@@ -31,10 +35,11 @@ import {
   MaticWithdrawShouldUnderstand,
 } from '../../components/LidoShouldUnderstand';
 import { NftListItemStatus } from '../../components/NftListItemStatus';
-import { PageSkeleton } from '../../components/PageSkeleton';
+import { PageFrame } from '../../components/PageFrame';
 import { ProtocolIntro } from '../../components/ProtocolIntro';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { StakingProfit } from '../../components/StakingProfit';
+import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useLidoMaticClaim } from '../../hooks/useLidoMaticHooks';
 import {
   LIDO_LOGO_URI,
@@ -73,25 +78,39 @@ const ListItemClaim = ({
   requests,
   accountId,
   networkId,
+  token,
 }: {
   requests: ILidoMaticRequest[];
   accountId: string;
   networkId: string;
+  token: ILidoTokenItem;
 }) => {
+  const appNavigation = useAppNavigation();
   const lidoClaim = useLidoMaticClaim({ accountId, networkId });
   const amount = useMemo(
     () => requests.reduce((a, b) => a + Number(b.amount), 0),
     [requests],
   );
   const onClaim = useCallback(async () => {
-    await lidoClaim({
-      tokenId: Number(requests[0].id),
-      stakingInfo: {
-        protocol: 'lido',
-        tags: ['lido-matic'],
-      },
-    });
-  }, [lidoClaim, requests]);
+    if (requests.length === 1) {
+      await lidoClaim({
+        tokenId: Number(requests[0].id),
+        stakingInfo: {
+          label: ELidoLabels.Claim,
+          protocol: 'lido',
+          tags: ['lido-matic'],
+          receive: { token: token.info, amount: String(amount) },
+        },
+      });
+    } else {
+      appNavigation.push(EModalStakingRoutes.MaticLidoClaim, {
+        accountId,
+        networkId,
+        requests,
+        token: token.info,
+      });
+    }
+  }, [lidoClaim, requests, appNavigation, accountId, networkId, token, amount]);
   if (requests.length === 0) {
     return null;
   }
@@ -123,12 +142,13 @@ const MaticLidoOverviewContent = ({
 }: IMaticLidoOverviewContentProps) => {
   const { matic, stMatic, requests, matic2StMatic } = overview;
   const appNavigation = useAppNavigation();
+  const intl = useIntl();
   const [loading, setLoading] = useState<boolean>(false);
   const onStake = useCallback(async () => {
     Dialog.show({
-      renderContent: <MaticStakeShouldUnderstand />,
+      renderContent: <MaticStakeShouldUnderstand apr={apr} />,
       showCancelButton: false,
-      onConfirmText: 'Got it!',
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
       onConfirm: async ({ close }) => {
         setLoading(true);
         try {
@@ -156,12 +176,21 @@ const MaticLidoOverviewContent = ({
         }
       },
     });
-  }, [appNavigation, accountId, networkId, matic, apr, stMatic, matic2StMatic]);
+  }, [
+    appNavigation,
+    accountId,
+    networkId,
+    matic,
+    apr,
+    stMatic,
+    matic2StMatic,
+    intl,
+  ]);
   const onRedeem = useCallback(async () => {
     Dialog.show({
       renderContent: <MaticWithdrawShouldUnderstand />,
       showCancelButton: false,
-      onConfirmText: 'Got it!',
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
       onConfirm: () => {
         appNavigation.push(EModalStakingRoutes.MaticLidoWithdraw, {
           accountId,
@@ -174,7 +203,15 @@ const MaticLidoOverviewContent = ({
         });
       },
     });
-  }, [accountId, networkId, appNavigation, stMatic, matic, matic2StMatic]);
+  }, [
+    accountId,
+    networkId,
+    appNavigation,
+    stMatic,
+    matic,
+    matic2StMatic,
+    intl,
+  ]);
 
   const showRedeemButton = useMemo(
     () => new BigNumber(stMatic.balanceParsed).gt(0),
@@ -200,10 +237,12 @@ const MaticLidoOverviewContent = ({
   }, [requests]);
 
   return (
-    <Stack px="$5">
+    <Stack px="$5" pt="$5">
       <YStack>
         <Stack>
-          <SizableText size="$headingLg">Staked Value</SizableText>
+          <SizableText size="$headingLg">
+            {intl.formatMessage({ id: ETranslations.earn_staked_value })}
+          </SizableText>
           <NumberSizeableText
             size="$heading3xl"
             formatter="value"
@@ -213,11 +252,23 @@ const MaticLidoOverviewContent = ({
           </NumberSizeableText>
         </Stack>
         <XStack mt="$2" space="$1">
-          <NumberSizeableText size="$bodyMd" formatter="balance">
-            {matic.balanceParsed}
-          </NumberSizeableText>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {matic.info.symbol} available to stake
+            {intl.formatMessage(
+              { id: ETranslations.earn_token_available_to_stake },
+              {
+                'token': (
+                  <SizableText>
+                    <NumberSizeableText size="$bodyMd" formatter="balance">
+                      {matic.balanceParsed}
+                    </NumberSizeableText>
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {' '}
+                      {matic.info.symbol}
+                    </SizableText>
+                  </SizableText>
+                ),
+              },
+            )}
           </SizableText>
         </XStack>
         <YStack space="$2" mt="$5">
@@ -227,6 +278,7 @@ const MaticLidoOverviewContent = ({
             requests={nfts.finished}
             accountId={accountId}
             networkId={networkId}
+            token={matic}
           />
         </YStack>
         <ProtocolIntro
@@ -242,13 +294,13 @@ const MaticLidoOverviewContent = ({
         <MaticLidoFAQs />
       </YStack>
       <Page.Footer
-        onConfirmText="Stake"
+        onConfirmText={intl.formatMessage({ id: ETranslations.earn_stake })}
         confirmButtonProps={{
           loading,
           variant: 'primary',
           onPress: onStake,
         }}
-        onCancelText="Redeem"
+        onCancelText={intl.formatMessage({ id: ETranslations.earn_redeem })}
         cancelButtonProps={
           showRedeemButton
             ? {
@@ -262,6 +314,12 @@ const MaticLidoOverviewContent = ({
         networkId={networkId}
         stakeTag="lido-matic"
         onRefresh={onRefresh}
+        onPress={() =>
+          appNavigation.push(EModalStakingRoutes.MaticLidoHistory, {
+            accountId,
+            networkId,
+          })
+        }
       />
     </Stack>
   );
@@ -287,11 +345,18 @@ const MaticLidoOverview = () => {
     [accountId, networkId],
     { watchLoading: true },
   );
+  const intl = useIntl();
   return (
     <Page scrollEnabled>
-      <Page.Header title="Stake MATIC" />
+      <Page.Header
+        title={intl.formatMessage(
+          { id: ETranslations.earn_stake_token },
+          { 'token': 'MATIC' },
+        )}
+      />
       <Page.Body>
-        <PageSkeleton
+        <PageFrame
+          LoadingSkeleton={OverviewSkeleton}
           loading={Boolean(result === undefined && isLoading === true)}
           error={Boolean(result === undefined && isLoading === false)}
           onRefresh={run}
@@ -305,7 +370,7 @@ const MaticLidoOverview = () => {
               onRefresh={run}
             />
           ) : null}
-        </PageSkeleton>
+        </PageFrame>
       </Page.Body>
     </Page>
   );

@@ -30,6 +30,7 @@ export enum ETokenRiskLevel {
   WARNING = 2,
   SPAM = 1000,
   MALICIOUS = 1001,
+  SCAM = 1002,
 }
 
 export interface ISwapInitParams {
@@ -52,15 +53,18 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   logoURI?: string;
   explorers?: INetworkExplorerConfig[];
 }
-export interface ISwapToken {
+
+export interface ISwapTokenBase {
   networkId: string;
   contractAddress: string;
-  isNative: boolean | undefined;
+  isNative?: boolean;
   symbol: string;
   decimals: number;
   name?: string;
   logoURI?: string;
+}
 
+export interface ISwapToken extends ISwapTokenBase {
   balanceParsed?: string;
   price?: string;
   fiatValue?: string;
@@ -92,7 +96,28 @@ export interface IFetchTokensParams {
   limit?: number;
   accountAddress?: string;
   accountNetworkId?: string;
+  accountId?: string;
+}
+
+export interface IFetchTokenListParams {
+  protocol: string;
+  networkId?: string;
+  accountAddress?: string;
+  accountNetworkId?: string;
   accountXpub?: string;
+  withCheckInscription?: boolean;
+  limit?: number;
+  keywords?: string;
+}
+
+export interface IFetchTokenDetailParams {
+  protocol: string;
+  networkId: string;
+  accountAddress?: string;
+  contractAddress: string;
+  accountNetworkId?: string;
+  xpub?: string;
+  withCheckInscription?: boolean;
 }
 
 // quote
@@ -101,6 +126,7 @@ export enum ESwapApproveTransactionStatus {
   PENDING = 'pending',
   SUCCESS = 'success',
   CANCEL = 'cancel',
+  DISCARD = 'discard',
   FAILED = 'failed',
 }
 export interface ISwapApproveTransaction {
@@ -111,6 +137,7 @@ export interface ISwapApproveTransaction {
   spenderAddress: string;
   amount: string;
   status: ESwapApproveTransactionStatus;
+  isResetApprove?: boolean;
   txId?: string;
   blockNumber?: number;
 }
@@ -118,6 +145,7 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userAddress?: string;
   receivingAddress?: string;
   slippagePercentage?: number;
+  autoSlippage?: boolean;
   blockNumber?: number;
 }
 interface ISocketAsset {
@@ -169,6 +197,10 @@ export interface IFetchQuoteResult {
   unSupportReceiveAddressDifferent?: boolean;
   routesData?: IQuoteRoutePath[];
   quoteExtraData?: IQuoteExtraData;
+  autoSuggestedSlippage?: number;
+  unSupportSlippage?: boolean;
+  fromTokenInfo: ISwapTokenBase;
+  toTokenInfo: ISwapTokenBase;
 }
 
 export interface IAllowanceResult {
@@ -212,11 +244,11 @@ export interface ISwapState {
   isCrossChain: boolean;
   shoutResetApprove?: boolean;
   approveUnLimit?: boolean;
+  isRefreshQuote?: boolean;
 }
 
 export interface ISwapCheckWarningDef {
   swapFromAddressInfo: ReturnType<typeof useSwapAddressInfo>;
-  swapToAddressInfo: ReturnType<typeof useSwapAddressInfo>;
 }
 
 export enum ESwapAlertLevel {
@@ -304,6 +336,7 @@ export enum ESwapTxHistoryStatus {
   SUCCESS = 'success',
   FAILED = 'failed',
   PENDING = 'pending',
+  DISCARD = 'discard',
 }
 
 export interface IFetchSwapTxHistoryStatusResponse {
@@ -318,6 +351,7 @@ export interface IFetchSwapTxHistoryStatusResponse {
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   ctx?: any;
+  currency?: string;
   baseInfo: {
     fromToken: ISwapToken;
     toToken: ISwapToken;

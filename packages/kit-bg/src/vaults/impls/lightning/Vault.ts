@@ -7,6 +7,7 @@ import {
   getBtcForkNetwork,
   validateBtcAddress,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import type { IDecodedTxExtraLightning } from '@onekeyhq/core/src/chains/lightning/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
@@ -16,13 +17,18 @@ import type {
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   ChannelInsufficientLiquidityError,
+  InsufficientBalance,
   InvalidLightningPaymentRequest,
+  InvalidTransferValue,
   InvoiceAlreadyPaid,
   InvoiceExpiredError,
   NoRouteFoundError,
   NotImplemented,
+  OneKeyError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -37,7 +43,10 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IFetchAccountHistoryParams } from '@onekeyhq/shared/types/history';
+import type {
+  IFetchAccountHistoryParams,
+  IOnChainHistoryTx,
+} from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type {
   IEncodedTxLightning,
@@ -58,7 +67,6 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import ClientLightning from './sdkLightning/ClientLightning';
 import { findLnurl, isLightningAddress } from './sdkLightning/lnurl';
@@ -78,9 +86,9 @@ import type {
 } from '../../types';
 
 export default class Vault extends VaultBase {
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -247,9 +255,6 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: null,
-      payload: {
-        type: EOnChainHistoryTxType.Send,
-      },
       encodedTx,
     };
 
@@ -353,14 +358,16 @@ export default class Vault extends VaultBase {
     encodedTx,
   }: {
     encodedTx: IEncodedTxLightning | undefined;
-  }): Promise<IEncodedTx | undefined> {
+  }) {
     if (!encodedTx) {
-      return {} as IEncodedTxLightning;
+      return { encodedTx };
     }
     return Promise.resolve({
-      dest: encodedTx?.decodedInvoice?.payeeNodeKey ?? '',
-      amt: encodedTx?.amount,
-    } as unknown as IEncodedTxLightning);
+      encodedTx: {
+        dest: encodedTx?.decodedInvoice?.payeeNodeKey ?? '',
+        amt: encodedTx?.amount,
+      } as unknown as IEncodedTxLightning,
+    });
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
@@ -553,6 +560,105 @@ export default class Vault extends VaultBase {
       message,
       signature,
       address: account.addressDetail.normalizedAddress,
+    });
+  }
+
+  override validateSendAmount(params: {
+    amount: string;
+    tokenBalance: string;
+    to: string;
+  }): Promise<boolean> {
+    const ZeroInvoiceMaxSendAmount = 1000000;
+    if (new BigNumber(params.amount).isGreaterThan(ZeroInvoiceMaxSendAmount)) {
+      const satsText = appLocale.intl.formatMessage({
+        id: ETranslations.global_sats,
+      });
+      throw new InvalidTransferValue(
+        appLocale.intl.formatMessage(
+          {
+            id: ETranslations.dapp_connect_amount_should_not_exceed,
+          },
+          {
+            0: `${ZeroInvoiceMaxSendAmount} ${satsText}`,
+          },
+        ),
+      );
+    }
+    return Promise.resolve(true);
+  }
+
+  override async precheckUnsignedTx(params: {
+    unsignedTx: IUnsignedTxPro;
+  }): Promise<boolean> {
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxLightning;
+    const { invoice: paymentRequest, amount } = encodedTx;
+    const invoice = await this._decodedInvoiceCache(paymentRequest);
+    const finalAmount = amount;
+    if (this._isZeroAmountInvoice(invoice)) {
+      if (new BigNumber(amount).isLessThan(1)) {
+        const satsText = appLocale.intl.formatMessage({
+          id: ETranslations.global_sats,
+        });
+
+        throw new InvalidTransferValue({
+          key: ETranslations.dapp_connect_amount_should_be_at_least,
+          info: {
+            // @ts-expect-error
+            0: `1 ${satsText}`,
+          },
+        });
+      }
+    }
+
+    const client = await this.getClient();
+    try {
+      await client.preCheckBolt11({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        amount: finalAmount,
+        paymentRequest,
+      });
+    } catch (e: any) {
+      console.log('===>E: ', e);
+      throw new Error((e as Error)?.message ?? e);
+    }
+
+    const paymentHash = invoice.tags.find(
+      (tag) => tag.tagName === 'payment_hash',
+    );
+    if (paymentHash?.data) {
+      try {
+        const existInvoice = await client.specialInvoice({
+          accountId: this.accountId,
+          networkId: this.networkId,
+          paymentHash: paymentHash.data as string,
+        });
+        if (existInvoice.is_paid) {
+          throw new OneKeyError({
+            key: ETranslations.send_invoice_is_already_paid,
+          });
+        }
+      } catch (e: any) {
+        if (
+          (e as OneKeyError)?.key === ETranslations.send_invoice_is_already_paid
+        ) {
+          throw new InvoiceAlreadyPaid();
+        }
+        // ignore other error
+      }
+    }
+
+    return true;
+  }
+
+  override async buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraLightning> {
+    return Promise.resolve({
+      preImage: onChainHistoryTx.preimage,
+      description: onChainHistoryTx.description,
     });
   }
 

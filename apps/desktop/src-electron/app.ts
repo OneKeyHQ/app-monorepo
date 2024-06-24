@@ -94,7 +94,19 @@ const template = [
       ]
     : []),
   { role: 'editMenu' },
-  { role: 'viewMenu' },
+  // remove `Reload`, 'Force reload' and 'Toggle Developer Tools' from `View` menu
+  isDev || store.getDevTools()
+    ? { role: 'viewMenu' }
+    : {
+        label: 'View',
+        submenu: [
+          { role: 'resetZoom' },
+          { role: 'zoomIn' },
+          { role: 'zoomOut' },
+          { type: 'separator' },
+          { role: 'togglefullscreen' },
+        ],
+      },
   {
     label: 'Window',
     submenu: [
@@ -218,11 +230,15 @@ function createMainWindow() {
       webviewTag: true,
       webSecurity: !isDev,
       nativeWindowOpen: true,
-      allowRunningInsecureContent: isDev,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
       // webview injected js needs isolation=false, because property can not be exposeInMainWorld() when isolation enabled.
       contextIsolation: false,
       preload: path.join(__dirname, 'preload.js'),
       sandbox: false,
+      nodeIntegration: false,
+      nodeIntegrationInWorker: false,
+      autoplayPolicy: 'user-gesture-required',
     },
     icon: path.join(staticPath, 'images/icons/512x512.png'),
     ...savedWinBounds,
@@ -349,6 +365,14 @@ function createMainWindow() {
     event.returnValue = !!result;
   });
 
+  ipcMain.on(ipcMessageKeys.APP_OPEN_DEV_TOOLS, () => {
+    store.setDevTools(true);
+    setTimeout(() => {
+      void app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+      app.exit(0);
+    }, 10);
+  });
+
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
     try {
       await systemPreferences.promptTouchID(msg);
@@ -403,6 +427,12 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
     systemIdleHandler(setIdleTime, event);
+  });
+
+  ipcMain.on(ipcMessageKeys.CLEAR_WEBVIEW_CACHE, () => {
+    void session.defaultSession.clearStorageData({
+      storages: ['cookies', 'cachestorage'],
+    });
   });
 
   let templatePhishingUrls: string[] = [];

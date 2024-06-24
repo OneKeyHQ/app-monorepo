@@ -41,10 +41,27 @@ class ServiceNFT extends ServiceBase {
       '/wallet/v1/account/nft/detail',
       {
         ...rest,
-        nftIds: nfts.map((nft) => `${nft.collectionAddress}:${nft.itemId}`),
+        nftIds: nfts.map((nft) =>
+          isNil(nft.itemId)
+            ? nft.collectionAddress
+            : `${nft.collectionAddress}:${nft.itemId}`,
+        ),
       },
     );
-    return resp.data.data;
+    const result = resp.data.data;
+
+    return result.map((nft) => {
+      if (nft.metadata?.attributes) {
+        nft.metadata.attributes = nft.metadata.attributes
+          .filter((attr) => !!attr)
+          .map((attr) => ({
+            ...attr,
+            traitType: attr.trait_type,
+            displayType: attr.display_type,
+          }));
+      }
+      return nft;
+    });
   }
 
   @backgroundMethod()
@@ -52,6 +69,7 @@ class ServiceNFT extends ServiceBase {
     networkId: string;
     nftId: string;
     collectionAddress: string;
+    accountAddress: string;
   }) {
     try {
       return {
@@ -67,14 +85,17 @@ class ServiceNFT extends ServiceBase {
       networkId,
       nftId,
       collectionAddress,
+      accountAddress,
     }: {
       networkId: string;
       nftId: string;
       collectionAddress: string;
+      accountAddress: string;
     }) => {
       const nftDetails = await this.fetchNFTDetails({
         networkId,
         nfts: [{ collectionAddress, itemId: nftId }],
+        accountAddress,
       });
       return nftDetails[0];
     },

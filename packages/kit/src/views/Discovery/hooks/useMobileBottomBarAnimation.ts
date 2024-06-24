@@ -49,11 +49,14 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
         Math.round(contentSize.height) >
         Math.round(
           layoutMeasurement.height + contentInset.top + contentInset.bottom,
-        );
+        ) +
+          MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE +
+          BROWSER_BOTTOM_BAR_HEIGHT;
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       toolbarRef?.current?.setNativeProps?.({
-        position: webViewCanScroll ? 'absolute' : 'relative',
+        // position: webViewCanScroll ? 'absolute' : 'relative',
+        position: 'relative',
       });
       if (!webViewCanScroll) {
         toolbarHeight.value = withTiming(BROWSER_BOTTOM_BAR_HEIGHT);

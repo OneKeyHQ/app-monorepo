@@ -1,3 +1,5 @@
+import { unionBy } from 'lodash';
+
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
 import {
   backgroundClass,
@@ -60,13 +62,19 @@ class ServiceHistory extends ServiceBase {
       networkId,
       tokenIdOnNetwork,
       onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
+      saveConfirmedTxsEnabled: vaultSettings.saveConfirmedTxsEnabled,
     });
   }
 
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
-    const { accountId, networkId, tokenIdOnNetwork, onChainHistoryDisabled } =
-      params;
+    const {
+      accountId,
+      networkId,
+      tokenIdOnNetwork,
+      saveConfirmedTxsEnabled,
+      xpub,
+    } = params;
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
@@ -75,88 +83,129 @@ class ServiceHistory extends ServiceBase {
 
     let onChainHistoryTxs: IAccountHistoryTx[] = [];
     let localHistoryConfirmedTxs: IAccountHistoryTx[] = [];
+    let localHistoryPendingTxs: IAccountHistoryTx[] = [];
 
-    if (onChainHistoryDisabled) {
-      const localHistoryPendingTxs =
-        await this.getAccountLocalHistoryPendingTxs({
-          networkId,
-          accountId,
-          tokenIdOnNetwork,
-        });
-
-      // TODO: batch fetch confirmed txs
-      const confirmedTxs = (
-        await Promise.all(
-          localHistoryPendingTxs.map((tx) =>
-            this.fetchHistoryTxDetails({
-              networkId,
-              accountAddress,
-              txid: tx.decodedTx.txid,
-            }),
-          ),
-        )
-      )
-        .map((tx) => {
-          const confirmedTx = localHistoryPendingTxs.find(
-            (t) => t.decodedTx.txid === tx?.data.tx,
-          );
-
-          if (confirmedTx) {
-            return {
-              ...confirmedTx,
-              decodedTx: {
-                ...confirmedTx.decodedTx,
-                status:
-                  tx?.data.status === EOnChainHistoryTxStatus.Success
-                    ? EDecodedTxStatus.Confirmed
-                    : EDecodedTxStatus.Failed,
-                isFinal: true,
-              },
-            };
-          }
-
-          return null;
-        })
-        .filter(Boolean);
-
-      await this.backgroundApi.simpleDb.localHistory.saveLocalHistoryConfirmedTxs(
-        confirmedTxs,
-      );
-
-      localHistoryConfirmedTxs = await this.getAccountLocalHistoryConfirmedTxs({
-        networkId,
-        accountId,
-        tokenIdOnNetwork,
-      });
-    } else {
-      onChainHistoryTxs = await this.fetchAccountOnChainHistory({
-        ...params,
-        accountAddress,
-      });
-    }
-
-    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
-      {
-        confirmedTxs: localHistoryConfirmedTxs,
-        onChainHistoryTxs,
-      },
-    );
-
-    const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
+    // 1. Get the locally pending transactions
+    localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
       networkId,
-      accountId,
+      accountAddress,
+      xpub,
       tokenIdOnNetwork,
     });
 
-    return [
-      ...localHistoryPendingTxs,
-      ...localHistoryConfirmedTxs,
-      ...onChainHistoryTxs,
-    ];
+    // 2. Check if the locally pending transactions have been confirmed
+
+    // Confirmed transactions
+    const confirmedTxs: IAccountHistoryTx[] = [];
+    // Transactions still in pending status
+    const pendingTxs: IAccountHistoryTx[] = [];
+
+    // Fetch details of locally pending transactions
+    const onChainHistoryTxsDetails = await Promise.all(
+      localHistoryPendingTxs.map((tx) =>
+        this.fetchHistoryTxDetails({
+          accountId,
+          networkId,
+          accountAddress,
+          txid: tx.decodedTx.txid,
+        }),
+      ),
+    );
+
+    for (const localHistoryPendingTx of localHistoryPendingTxs) {
+      const confirmedTx = onChainHistoryTxsDetails.find(
+        (txDetails) =>
+          localHistoryPendingTx.decodedTx.txid === txDetails?.data.tx,
+      );
+
+      if (confirmedTx) {
+        confirmedTxs.push({
+          ...localHistoryPendingTx,
+          decodedTx: {
+            ...localHistoryPendingTx.decodedTx,
+            status:
+              confirmedTx?.data.status === EOnChainHistoryTxStatus.Success
+                ? EDecodedTxStatus.Confirmed
+                : EDecodedTxStatus.Failed,
+            isFinal: true,
+          },
+        });
+      } else {
+        pendingTxs.push(localHistoryPendingTx);
+      }
+    }
+
+    // 3. Get the locally confirmed transactions
+    localHistoryConfirmedTxs = await this.getAccountLocalHistoryConfirmedTxs({
+      networkId,
+      accountAddress,
+      xpub,
+      tokenIdOnNetwork,
+    });
+
+    // 4. Fetch the on-chain history
+    onChainHistoryTxs = await this.fetchAccountOnChainHistory({
+      ...params,
+      accountAddress,
+    });
+
+    // 5. Merge the just-confirmed transactions, locally confirmed transactions, and on-chain history
+
+    // Merge the locally confirmed transactions and the just-confirmed transactions
+    const mergedConfirmedTxs = unionBy(
+      [...confirmedTxs, ...localHistoryConfirmedTxs],
+      (tx) => tx.id,
+    );
+
+    // Merge the merged confirmed transactions with the on-chain history
+
+    // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
+    let confirmedTxsToSave: IAccountHistoryTx[] = [];
+    if (!saveConfirmedTxsEnabled) {
+      confirmedTxsToSave = mergedConfirmedTxs.filter(
+        (tx) =>
+          !onChainHistoryTxs.find(
+            (onChainHistoryTx) => onChainHistoryTx.id === tx.id,
+          ),
+      );
+    }
+    // If some chains require saving all confirmed transactions, save all confirmed transactions without filtering
+    else {
+      confirmedTxsToSave = mergedConfirmedTxs;
+    }
+
+    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
+      {
+        networkId,
+        accountAddress,
+        xpub,
+        txs: confirmedTxsToSave,
+      },
+    );
+
+    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
+      {
+        networkId,
+        accountAddress,
+        xpub,
+        pendingTxs,
+      },
+    );
+
+    // Merge the locally pending transactions, confirmed transactions, and on-chain history to return
+
+    return unionBy(
+      [...pendingTxs, ...mergedConfirmedTxs, ...onChainHistoryTxs],
+      (tx) => tx.id,
+    );
   }
 
   @backgroundMethod()
-  async buildFetchHistoryListParams(params: IFetchAccountHistoryParams) {
+  async buildFetchHistoryListParams(params: {
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+  }) {
     const { networkId, accountId } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildFetchHistoryListParams(params);
@@ -188,7 +237,7 @@ class ServiceHistory extends ServiceBase {
       const error = e as OneKeyServerApiError;
       // Exchange the token on the first error to ensure subsequent polling requests succeed
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (error.data?.data?.code === 50401) {
+      if (error.data?.data?.message?.code === 50401) {
         // 50401 -> Lightning service special error code
         await (vault as ILightningVault).exchangeToken();
       }
@@ -203,6 +252,8 @@ class ServiceHistory extends ServiceBase {
           vault.buildOnChainHistoryTx({
             accountId,
             networkId,
+            accountAddress,
+            xpub,
             onChainHistoryTx: tx,
             tokens,
             nfts,
@@ -218,7 +269,11 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
-      const { networkId, txid, accountAddress } = params;
+      const { networkId, txid, accountAddress, xpub } = params;
+      const extraParams = await this.buildFetchHistoryListParams({
+        ...params,
+        accountAddress: accountAddress || '',
+      });
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
         '/wallet/v1/account/history/detail',
@@ -226,7 +281,9 @@ class ServiceHistory extends ServiceBase {
           params: {
             networkId,
             txid,
+            xpub,
             accountAddress,
+            ...extraParams,
           },
         },
       );
@@ -248,22 +305,29 @@ class ServiceHistory extends ServiceBase {
         networkId,
         accountId,
       });
-    return this.fetchHistoryTxDetails({ networkId, accountAddress, txid });
+    return this.fetchHistoryTxDetails({
+      accountId,
+      networkId,
+      accountAddress,
+      txid,
+    });
   }
 
   @backgroundMethod()
   public async getAccountLocalHistoryPendingTxs(params: {
     networkId: string;
-    accountId: string;
+    accountAddress: string;
+    xpub?: string;
     tokenIdOnNetwork?: string;
     limit?: number;
   }) {
-    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const { accountAddress, xpub, networkId, tokenIdOnNetwork } = params;
     const localHistoryPendingTxs =
       await this.backgroundApi.simpleDb.localHistory.getAccountLocalHistoryPendingTxs(
         {
           networkId,
-          accountId,
+          accountAddress,
+          xpub,
           tokenIdOnNetwork,
         },
       );
@@ -273,28 +337,46 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async saveLocalHistoryPendingTxs(params: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
     pendingTxs: IAccountHistoryTx[];
   }) {
-    const { pendingTxs } = params;
+    const { networkId, accountAddress, xpub, pendingTxs } = params;
 
-    return this.backgroundApi.simpleDb.localHistory.saveLocalHistoryPendingTxs(
-      pendingTxs,
-    );
+    return this.backgroundApi.simpleDb.localHistory.saveLocalHistoryPendingTxs({
+      networkId,
+      accountAddress,
+      xpub,
+      txs: pendingTxs,
+    });
+  }
+
+  @backgroundMethod()
+  public async clearLocalHistoryPendingTxs() {
+    return this.backgroundApi.simpleDb.localHistory.clearLocalHistoryPendingTxs();
+  }
+
+  @backgroundMethod()
+  public async clearLocalHistory() {
+    return this.backgroundApi.simpleDb.localHistory.clearLocalHistory();
   }
 
   @backgroundMethod()
   public async getAccountLocalHistoryConfirmedTxs(params: {
     networkId: string;
-    accountId: string;
+    accountAddress: string;
+    xpub?: string;
     tokenIdOnNetwork?: string;
     limit?: number;
   }) {
-    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const { accountAddress, xpub, networkId, tokenIdOnNetwork } = params;
     const localHistoryPendingTxs =
       await this.backgroundApi.simpleDb.localHistory.getAccountLocalHistoryConfirmedTxs(
         {
           networkId,
-          accountId,
+          accountAddress,
+          xpub,
           tokenIdOnNetwork,
         },
       );
@@ -326,7 +408,24 @@ class ServiceHistory extends ServiceBase {
     if (signedTx.stakingInfo) {
       newHistoryTx.stakingInfo = signedTx.stakingInfo;
     }
-    await this.saveLocalHistoryPendingTxs({ pendingTxs: [newHistoryTx] });
+
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    await this.saveLocalHistoryPendingTxs({
+      networkId,
+      accountAddress,
+      xpub,
+      pendingTxs: [newHistoryTx],
+    });
   }
 }
 

@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -17,6 +18,8 @@ import {
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
+
+import DappOpenModalPage from './DappOpenModalPage';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 import type { IConnectedAccountInfoChangedParams } from '../components/DAppAccountList';
@@ -63,8 +66,15 @@ function ConnectionModal() {
     if (!selectedAccount?.network?.name) {
       return '';
     }
-    return `Allow this site to access your ${selectedAccount?.network?.name} address.`;
-  }, [selectedAccount?.network?.name]);
+    return intl.formatMessage(
+      {
+        id: ETranslations.dapp_connect_allow_this_site_to_access,
+      },
+      {
+        chain: selectedAccount?.network?.name ?? '',
+      },
+    );
+  }, [selectedAccount?.network?.name, intl]);
 
   const confirmDisabled = useMemo(() => {
     if (!continueOperate) {
@@ -131,9 +141,7 @@ function ConnectionModal() {
         result: accountInfo,
       });
       Toast.success({
-        title: intl.formatMessage({
-          id: 'content__connected',
-        }),
+        title: intl.formatMessage({ id: ETranslations.global_connected }),
       });
     },
     [
@@ -149,38 +157,40 @@ function ConnectionModal() {
   );
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title="Connection Request"
-          subtitle={subtitle}
-          origin={$sourceInfo?.origin ?? ''}
-          urlSecurityInfo={urlSecurityInfo}
-        >
-          <DAppAccountListStandAloneItem
-            handleAccountChanged={handleAccountChanged}
-            onConnectedAccountInfoChanged={setConnectedAccountInfo}
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title={intl.formatMessage({
+              id: ETranslations.dapp_connect_connection_request,
+            })}
+            subtitle={subtitle}
+            origin={$sourceInfo?.origin ?? ''}
+            urlSecurityInfo={urlSecurityInfo}
+          >
+            <DAppAccountListStandAloneItem
+              handleAccountChanged={handleAccountChanged}
+              onConnectedAccountInfoChanged={setConnectedAccountInfo}
+            />
+            <DAppRequestedPermissionContent />
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            continueOperate={continueOperate}
+            setContinueOperate={(value) => setContinueOperate(!!value)}
+            onConfirm={onApproval}
+            onCancel={() => dappApprove.reject()}
+            confirmButtonProps={{
+              disabled: confirmDisabled,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
           />
-          <DAppRequestedPermissionContent />
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          continueOperate={continueOperate}
-          setContinueOperate={(value) => setContinueOperate(!!value)}
-          onConfirm={onApproval}
-          onCancel={() => {
-            dappApprove.reject();
-          }}
-          confirmButtonProps={{
-            disabled: confirmDisabled,
-          }}
-          showContinueOperateCheckbox={showContinueOperate}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 

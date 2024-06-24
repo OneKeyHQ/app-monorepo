@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Input, Portal } from '@onekeyhq/components';
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
-import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
+import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -16,8 +16,7 @@ export function useLocaleOptions() {
       [
         {
           label: intl.formatMessage({
-            id: 'form__auto',
-            defaultMessage: 'System',
+            id: ETranslations.global_auto,
           }),
           value: 'system',
         },
@@ -44,14 +43,13 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
   return useCallback(() => {
     Dialog.show({
       ...(inAppStateLock ? inAppStateLockStyle : undefined),
-      title: intl.formatMessage({ id: 'action__reset' }),
+      title: intl.formatMessage({ id: ETranslations.global_reset }),
       icon: 'ErrorOutline',
       tone: 'destructive',
       portalContainer: inAppStateLock
         ? Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY
         : undefined,
-      description:
-        'This will delete all the data you have created on OneKey. After making sure that you have a proper backup, enter "RESET" to reset the App',
+      description: intl.formatMessage({ id: ETranslations.reset_app_desc }),
       renderContent: (
         <Dialog.Form
           formProps={{
@@ -73,7 +71,7 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
           const { getValues } = getForm() || {};
           if (getValues) {
             const { text } = getValues() as { text: string };
-            return text.trim().toUpperCase() !== 'RESET';
+            return text.trim() !== 'RESET';
           }
           return true;
         },

@@ -1,18 +1,28 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
-import { ActionList, Button, Page, Spinner, Stack } from '@onekeyhq/components';
+import {
+  ActionList,
+  Button,
+  Page,
+  Spinner,
+  Stack,
+  Toast,
+} from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { generateUploadNFTParams } from '@onekeyhq/shared/src/utils/nftUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -20,6 +30,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { getNFTDetailsComponents } from '../../../utils/getNFTDetailsComponents';
 
+import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 
 export function NFTDetails() {
@@ -39,27 +50,35 @@ export function NFTDetails() {
     itemId,
   } = route.params;
 
+  const [isCollecting, setIsCollecting] = useState(false);
+  const modalClosed = useRef(false);
+
   const { ImageContent, DetailContent } = getNFTDetailsComponents();
 
   const { result, isLoading } = usePromiseResult(
     async () => {
       const isHardware = accountUtils.isHwWallet({ walletId });
 
-      const requests: [Promise<IAccountNFT[]>, Promise<IDBDevice | undefined>] =
-        [
-          backgroundApiProxy.serviceNFT.fetchNFTDetails({
-            networkId,
-            accountAddress,
-            nfts: [{ collectionAddress, itemId }],
-          }),
-          isHardware
-            ? backgroundApiProxy.serviceAccount.getWalletDevice({ walletId })
-            : Promise.resolve(undefined),
-        ];
+      const requests: [
+        Promise<IServerNetwork>,
+        Promise<IAccountNFT[]>,
+        Promise<IDBDevice | undefined>,
+      ] = [
+        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+        backgroundApiProxy.serviceNFT.fetchNFTDetails({
+          networkId,
+          accountAddress,
+          nfts: [{ collectionAddress, itemId }],
+        }),
+        isHardware
+          ? backgroundApiProxy.serviceAccount.getWalletDevice({ walletId })
+          : Promise.resolve(undefined),
+      ];
 
-      const [details, device] = await Promise.all(requests);
+      const [n, details, device] = await Promise.all(requests);
 
       return {
+        network: n,
         nft: details[0],
         device,
       };
@@ -70,19 +89,67 @@ export function NFTDetails() {
     },
   );
 
-  const { nft, device } = result ?? {};
+  const { network, nft, device } = result ?? {};
+
+  const handleCollectNFTToDevice = useCallback(async () => {
+    if (!nft || !nft.metadata || !nft.metadata.image || !device) return;
+
+    setIsCollecting(true);
+    let uploadResParams: DeviceUploadResourceParams | undefined;
+    try {
+      const name = nft.metadata?.name;
+      uploadResParams = await generateUploadNFTParams({
+        imageUri: nft.metadata?.image ?? '',
+        metadata: {
+          header: name && name?.length > 0 ? name : `#${nft.collectionAddress}`,
+          subheader: nft.metadata?.description ?? '',
+          network: network?.name ?? '',
+          owner: accountAddress,
+        },
+        deviceType: device.deviceType,
+      });
+    } catch (e) {
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.update_download_failed }),
+      });
+      setIsCollecting(false);
+      return;
+    }
+    if (uploadResParams && !modalClosed.current) {
+      try {
+        await backgroundApiProxy.serviceHardware.uploadResource(
+          device?.connectId ?? '',
+          uploadResParams,
+        );
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.feedback_change_saved,
+          }),
+        });
+      } catch (e) {
+        Toast.error({ title: (e as Error).message });
+      } finally {
+        setIsCollecting(false);
+      }
+    }
+  }, [accountAddress, device, intl, network?.name, nft]);
 
   const headerRight = useCallback(() => {
     const actions: IActionListItemProps[] = [];
 
     if (
+      nft &&
+      nft.metadata &&
+      nft.metadata.image &&
       device &&
       (device.deviceType === 'touch' || device.deviceType === 'pro')
     ) {
       // TODO collect to device
       actions.push({
-        label: `Collect to ${device.deviceType}`,
+        label: `Collect to ${String(device.deviceType).toUpperCase()}`,
         icon: 'InboxOutline',
+        onPress: handleCollectNFTToDevice,
+        disabled: isCollecting,
       });
     }
 
@@ -99,7 +166,7 @@ export function NFTDetails() {
         items={actions}
       />
     );
-  }, [device]);
+  }, [device, handleCollectNFTToDevice, isCollecting, nft]);
 
   const handleSendPress = useCallback(() => {
     if (!nft) return;
@@ -113,6 +180,13 @@ export function NFTDetails() {
       },
     });
   }, [accountId, navigation, networkId, nft]);
+
+  useEffect(
+    () => () => {
+      modalClosed.current = true;
+    },
+    [],
+  );
 
   if (!nft)
     return (
@@ -129,7 +203,7 @@ export function NFTDetails() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title={nft.metadata?.name} headerRight={headerRight} />
+      <Page.Header title={nft.metadata?.name} />
       <Page.Body>
         <Stack
           $gtMd={{
@@ -149,8 +223,13 @@ export function NFTDetails() {
                 <ImageContent nft={nft} />
               </Stack>
             </Stack>
-            <Button icon="ArrowTopOutline" mt="$5" onPress={handleSendPress}>
-              {intl.formatMessage({ id: 'action__send' })}
+            <Button
+              icon="ArrowTopOutline"
+              mt="$5"
+              variant="primary"
+              onPress={handleSendPress}
+            >
+              {intl.formatMessage({ id: ETranslations.global_send })}
             </Button>
           </Stack>
           <DetailContent networkId={networkId} nft={nft} />

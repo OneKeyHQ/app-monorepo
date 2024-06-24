@@ -5,6 +5,8 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { swapHistoryStateFetchInterval } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -14,6 +16,8 @@ import type {
   IFetchQuotesParams,
   IFetchResponse,
   IFetchSwapTxHistoryStatusResponse,
+  IFetchTokenDetailParams,
+  IFetchTokenListParams,
   IFetchTokensParams,
   ISwapNetwork,
   ISwapNetworkBase,
@@ -103,20 +107,39 @@ export default class ServiceSwap extends ServiceBase {
     limit = 50,
     accountAddress,
     accountNetworkId,
-    accountXpub,
+    accountId,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
     await this.cancelFetchTokenList();
-    const params = {
+    const params: IFetchTokenListParams = {
       protocol: EProtocolOfExchange.SWAP,
       networkId,
       keywords,
       limit,
       accountAddress,
       accountNetworkId,
-      accountXpub,
     };
     this._tokenListAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
+    if (accountId && accountAddress && networkId) {
+      params.accountXpub =
+        await this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        });
+
+      const inscriptionProtection =
+        await this.backgroundApi.serviceSetting.getInscriptionProtection();
+      const checkInscriptionProtectionEnabled =
+        await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+          {
+            networkId,
+            accountId,
+          },
+        );
+      const withCheckInscription =
+        checkInscriptionProtectionEnabled && inscriptionProtection;
+      params.withCheckInscription = withCheckInscription;
+    }
     try {
       const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
         '/swap/v1/tokens',
@@ -147,22 +170,39 @@ export default class ServiceSwap extends ServiceBase {
   async fetchSwapTokenDetails({
     networkId,
     accountAddress,
-    xpub,
+    accountId,
     contractAddress,
   }: {
     networkId: string;
     accountAddress?: string;
-    xpub?: string;
+    accountId?: string;
     contractAddress: string;
   }): Promise<ISwapToken[] | undefined> {
-    const params = {
+    const params: IFetchTokenDetailParams = {
       protocol: EProtocolOfExchange.SWAP,
       networkId,
       accountAddress,
-      xpub,
       contractAddress,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
+    if (accountId && accountAddress && networkId) {
+      params.xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      });
+      const inscriptionProtection =
+        await this.backgroundApi.serviceSetting.getInscriptionProtection();
+      const checkInscriptionProtectionEnabled =
+        await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+          {
+            networkId,
+            accountId,
+          },
+        );
+      const withCheckInscription =
+        checkInscriptionProtectionEnabled && inscriptionProtection;
+      params.withCheckInscription = withCheckInscription;
+    }
     const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
       '/swap/v1/token/detail',
       { params },
@@ -177,6 +217,7 @@ export default class ServiceSwap extends ServiceBase {
     fromTokenAmount,
     userAddress,
     slippagePercentage,
+    autoSlippage,
     blockNumber,
   }: {
     fromToken: ISwapToken;
@@ -184,6 +225,7 @@ export default class ServiceSwap extends ServiceBase {
     fromTokenAmount: string;
     userAddress?: string;
     slippagePercentage: number;
+    autoSlippage?: boolean;
     blockNumber?: number;
   }): Promise<IFetchQuoteResult[]> {
     await this.cancelFetchQuotes();
@@ -196,6 +238,7 @@ export default class ServiceSwap extends ServiceBase {
       protocol: EProtocolOfExchange.SWAP,
       userAddress,
       slippagePercentage,
+      autoSlippage,
       blockNumber,
     };
     this._quoteAbortController = new AbortController();
@@ -219,16 +262,15 @@ export default class ServiceSwap extends ServiceBase {
         throw new Error('swap fetch quote cancel', {
           cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
         });
-      } else {
-        const error = e as { code: number; message: string };
-        void this.backgroundApi.serviceApp.showToast({
-          method: 'error',
-          title: 'error',
-          message: error?.message,
-        });
       }
     }
-    return [{ info: { provider: '', providerName: '' } }]; //  no support providers
+    return [
+      {
+        info: { provider: '', providerName: '' },
+        fromTokenInfo: fromToken,
+        toTokenInfo: toToken,
+      },
+    ]; //  no support providers
   }
 
   @backgroundMethod()
@@ -357,7 +399,9 @@ export default class ServiceSwap extends ServiceBase {
   async syncSwapHistoryPendingList() {
     const histories = await this.fetchSwapHistoryListFromSimple();
     const pendingHistories = histories.filter(
-      (history) => history.status === ESwapTxHistoryStatus.PENDING,
+      (history) =>
+        history.status === ESwapTxHistoryStatus.PENDING ||
+        history.status === ESwapTxHistoryStatus.DISCARD,
     );
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
@@ -389,6 +433,12 @@ export default class ServiceSwap extends ServiceBase {
     const index = swapHistoryPendingList.findIndex(
       (i) => i.txInfo.txId === item.txInfo.txId,
     );
+    if (
+      item.status === ESwapTxHistoryStatus.DISCARD &&
+      swapHistoryPendingList[index]?.status === ESwapTxHistoryStatus.DISCARD
+    ) {
+      return;
+    }
     if (index !== -1) {
       const updated = Date.now();
       item.date = { ...item.date, updated };
@@ -401,15 +451,19 @@ export default class ServiceSwap extends ServiceBase {
           swapHistoryPendingList: [...newPendingList],
         };
       });
-      void this.backgroundApi.serviceApp.showToast({
-        method:
-          item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
-        title:
-          item.status === ESwapTxHistoryStatus.SUCCESS
-            ? 'Swap successful'
-            : 'Swap failed',
-        message: `${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toToken.symbol}`,
-      });
+      if (item.status !== ESwapTxHistoryStatus.DISCARD) {
+        void this.backgroundApi.serviceApp.showToast({
+          method:
+            item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
+          title: appLocale.intl.formatMessage({
+            id:
+              item.status === ESwapTxHistoryStatus.SUCCESS
+                ? ETranslations.swap_page_toast_swap_successful
+                : ETranslations.swap_page_toast_swap_failed,
+          }),
+          message: `${item.baseInfo.fromAmount} ${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toAmount} ${item.baseInfo.toToken.symbol}`,
+        });
+      }
     }
   }
 
@@ -469,6 +523,9 @@ export default class ServiceSwap extends ServiceBase {
           },
         });
         await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
+        if (txStatusRes?.state === ESwapTxHistoryStatus.DISCARD) {
+          enableInterval = true;
+        }
       }
     } catch (e) {
       const error = e as { message?: string };
@@ -489,7 +546,9 @@ export default class ServiceSwap extends ServiceBase {
   async swapHistoryStatusFetchLoop() {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const statusPendingList = swapHistoryPendingList.filter(
-      (item) => item.status === ESwapTxHistoryStatus.PENDING,
+      (item) =>
+        item.status === ESwapTxHistoryStatus.PENDING ||
+        item.status === ESwapTxHistoryStatus.DISCARD,
     );
     await this.cleanHistoryStateIntervals();
     if (!statusPendingList.length) return;

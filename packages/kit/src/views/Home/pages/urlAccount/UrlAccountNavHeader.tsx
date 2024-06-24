@@ -1,19 +1,18 @@
 import { useCallback } from 'react';
 
-import * as ExpoSharing from 'expo-sharing';
-
 import {
   HeaderIconButton,
   IconButton,
   SizableText,
   XStack,
-  useClipboard,
+  useShare,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { OpenInAppButton } from '@onekeyhq/kit/src/components/OpenInAppButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -112,7 +111,7 @@ function ShareButton() {
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
-  const { copyText } = useClipboard();
+  const { shareText } = useShare();
 
   if (!account?.address || !network?.id) {
     return null;
@@ -124,12 +123,7 @@ function ShareButton() {
           account,
           network,
         });
-        if (await ExpoSharing.isAvailableAsync()) {
-          // https://docs.expo.dev/versions/latest/sdk/sharing/
-          await ExpoSharing.shareAsync(text);
-        } else {
-          copyText(text);
-        }
+        await shareText(text);
       }}
       icon="ShareOutline"
     />

@@ -1,4 +1,4 @@
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export enum ECustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,
@@ -46,7 +46,7 @@ export interface IOneKeyError<
   data?: DataT;
   // ---- OneKeyError props
   className?: EOneKeyErrorClassNames;
-  key?: ILocaleIds; // i18n key
+  key?: ETranslations; // i18n key
   info?: InfoT; // i18n params
   constructorName?: string;
   /*
@@ -61,6 +61,9 @@ export interface IOneKeyError<
   payload?: IOneKeyHardwareErrorPayload; // raw payload from hardware sdk error response
   reconnect?: boolean;
   $isHardwareError?: boolean;
+
+  // ---server props
+  requestId?: string;
 }
 
 export type IOneKeyHardwareErrorPayload = {
@@ -83,13 +86,17 @@ export type IOneKeyErrorMeta = {
 };
 
 export type IOneKeyRpcError = {
-  message: string;
-  endpoint: string;
-  error: {
-    code: number;
-    message: string;
-    data: string;
+  req: {
+    method: string;
+    params: [any];
   };
-  method: string;
-  params: [any];
+  res: {
+    id: number;
+    jsonrpc: string;
+    error: {
+      code: number;
+      message: string;
+      data: string;
+    };
+  };
 };

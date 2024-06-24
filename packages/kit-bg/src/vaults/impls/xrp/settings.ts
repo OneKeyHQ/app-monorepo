@@ -3,6 +3,7 @@ import {
   IMPL_XRP,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -11,7 +12,7 @@ import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
     namePrefix: 'Ripple',
-    labelKey: 'form__bip44_standard',
+    labelKey: ETranslations.bip44__standard,
     template: `m/44'/${COINTYPE_XRP}'/${INDEX_PLACEHOLDER}'/0/0`,
     coinType: COINTYPE_XRP,
   },
@@ -45,7 +46,14 @@ const settings: IVaultSettings = {
     },
   },
 
+  minTransferAmount: '0.001',
+
+  withMemo: true,
+  memoMaxLength: 10,
+  numericOnlyMemo: true,
+
   cannotSendToSelf: true,
+  hasFrozenBalance: true,
 };
 
 export default Object.freeze(settings);

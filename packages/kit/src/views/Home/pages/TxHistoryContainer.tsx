@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
@@ -8,10 +8,15 @@ import {
   POLLING_INTERVAL_FOR_HISTORY,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
   EModalAssetDetailRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -24,14 +29,18 @@ import {
 
 function TxHistoryListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
-  const { isFocused } = useTabIsRefreshingFocused();
+  const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
+    useTabIsRefreshingFocused();
 
   const { updateSearchKey } = useHistoryListActions().current;
+
+  const [historyData, setHistoryData] = useState<IAccountHistoryTx[]>([]);
 
   const [historyState, setHistoryState] = useState({
     initialized: false,
     isRefreshing: false,
   });
+
   const media = useMedia();
   const navigation = useAppNavigation();
   const {
@@ -39,21 +48,30 @@ function TxHistoryListContainer(props: ITabPageProps) {
   } = useActiveAccount({ num: 0 });
 
   const handleHistoryItemPress = useCallback(
-    (history: IAccountHistoryTx) => {
+    async (history: IAccountHistoryTx) => {
       if (!account || !network) return;
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.HistoryDetails,
         params: {
           networkId: network.id,
-          accountAddress: account.address,
+          accountId: account.id,
+          accountAddress:
+            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+              accountId: account.id,
+              networkId: network.id,
+            }),
           historyTx: history,
+          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
+            accountId: account.id,
+            networkId: network.id,
+          }),
         },
       });
     },
     [account, navigation, network],
   );
 
-  const history = usePromiseResult(
+  const { run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
       const [xpub, vaultSettings] = await Promise.all([
@@ -71,14 +89,16 @@ function TxHistoryListContainer(props: ITabPageProps) {
         accountAddress: account.address,
         xpub,
         onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
+        saveConfirmedTxsEnabled: vaultSettings.saveConfirmedTxsEnabled,
       });
       setHistoryState({
         initialized: true,
         isRefreshing: false,
       });
-      return r;
+      setIsHeaderRefreshing(false);
+      setHistoryData(r);
     },
-    [account, network],
+    [account, network, setIsHeaderRefreshing],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
@@ -96,10 +116,28 @@ function TxHistoryListContainer(props: ITabPageProps) {
     }
   }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 
+  useEffect(() => {
+    if (isHeaderRefreshing) {
+      void run();
+    }
+  }, [isHeaderRefreshing, run]);
+
+  useEffect(() => {
+    const callback = () => {
+      setHistoryData((prev) =>
+        prev.filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending),
+      );
+    };
+    appEventBus.on(EAppEventBusNames.ClearLocalHistoryPendingTxs, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ClearLocalHistoryPendingTxs, callback);
+    };
+  }, []);
+
   return (
     <TxHistoryListView
       showIcon
-      data={history.result ?? []}
+      data={historyData ?? []}
       onPressHistory={handleHistoryItemPress}
       showHeader
       isLoading={historyState.isRefreshing}

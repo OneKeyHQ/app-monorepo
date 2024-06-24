@@ -5,41 +5,51 @@ import {
   forwardRef,
   useCallback,
   useContext,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { IconButton } from '../../actions/IconButton';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
 import { useBackHandler, useKeyboardHeight } from '../../hooks';
-import { Icon, SizableText, Stack } from '../../primitives';
+import { Stack } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
 import { Footer, FooterAction } from './Footer';
+import {
+  DialogDescription,
+  DialogHeader,
+  DialogHeaderContext,
+  DialogIcon,
+  DialogTitle,
+  SetDialogHeader,
+} from './Header';
 import { renderToContainer } from './renderToContainer';
 
 import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
+  IDialogHeaderProps,
   IDialogInstance,
   IDialogProps,
   IDialogShowProps,
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
-import type { ColorTokens } from 'tamagui';
 
 export * from './hooks';
 export type {
@@ -56,17 +66,15 @@ export const FIX_SHEET_PROPS: IStackProps = {
 function DialogFrame({
   open,
   onClose,
-  title,
-  icon,
   modal,
-  description,
   renderContent,
   showFooter = true,
   footerProps,
   onConfirm,
-  onConfirmText = 'Confirm',
+  onConfirmText,
   onCancel,
-  onCancelText = 'Cancel',
+  onOpen,
+  onCancelText,
   tone,
   confirmButtonProps,
   cancelButtonProps,
@@ -79,6 +87,7 @@ function DialogFrame({
   showCancelButton = true,
   testID,
 }: IDialogProps) {
+  const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
   const [position, setPosition] = useState(0);
   const onBackdropPress = useMemo(
@@ -96,6 +105,10 @@ function DialogFrame({
     },
     [onClose],
   );
+
+  useEffect(() => {
+    onOpen?.();
+  }, [onOpen]);
 
   const handleBackPress = useCallback(() => {
     if (!open) {
@@ -117,86 +130,15 @@ function DialogFrame({
     }
   }, [footerRef.props?.onCancel, onCancel, onClose]);
 
-  const getColors = (): {
-    iconWrapperBg: ColorTokens;
-    iconColor: ColorTokens;
-  } => {
-    switch (tone) {
-      case 'destructive': {
-        return {
-          iconWrapperBg: '$bgCritical',
-          iconColor: '$iconCritical',
-        };
-      }
-      case 'warning': {
-        return {
-          iconWrapperBg: '$bgCaution',
-          iconColor: '$iconCaution',
-        };
-      }
-      case 'success': {
-        return {
-          iconWrapperBg: '$bgSuccess',
-          iconColor: '$iconSuccess',
-        };
-      }
-      default: {
-        return {
-          iconWrapperBg: '$bgStrong',
-          iconColor: '$icon',
-        };
-      }
-    }
-  };
-
   const media = useMedia();
   const keyboardHeight = useKeyboardHeight();
   const renderDialogContent = (
-    <Stack {...(bottom && { pb: bottom })}>
-      {/* leading icon */}
-      {icon ? (
-        <Stack
-          alignSelf="flex-start"
-          p="$3"
-          ml="$5"
-          mt="$5"
-          borderRadius="$full"
-          bg={getColors().iconWrapperBg}
-        >
-          <Icon name={icon} size="$8" color={getColors().iconColor} />
-        </Stack>
-      ) : null}
-
-      {/* title and description */}
-      {title || description ? (
-        <Stack p="$5" pr="$16">
-          {title ? (
-            <SizableText size="$headingXl" py="$px">
-              {title}
-            </SizableText>
-          ) : null}
-          {description ? (
-            <SizableText size="$bodyLg" pt="$1.5">
-              {description}
-            </SizableText>
-          ) : null}
-        </Stack>
-      ) : null}
-
-      {/* close button */}
-      <IconButton
-        position="absolute"
-        zIndex={1}
-        right="$5"
-        top="$5"
-        icon="CrossedSmallOutline"
-        iconProps={{
-          color: '$iconSubdued',
-        }}
-        size="small"
-        onPress={handleCancelButtonPress}
-      />
-
+    <Stack
+      {...(bottom &&
+        // remove safe area padding when keyboard is shown
+        !keyboardHeight && { pb: bottom })}
+    >
+      <DialogHeader onClose={handleCancelButtonPress} />
       {/* extra children */}
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
         {renderContent}
@@ -210,9 +152,19 @@ function DialogFrame({
         cancelButtonProps={cancelButtonProps}
         onConfirm={onConfirm}
         onCancel={handleCancelButtonPress}
-        onConfirmText={onConfirmText}
+        onConfirmText={
+          onConfirmText ||
+          intl.formatMessage({
+            id: ETranslations.global_confirm,
+          })
+        }
         confirmButtonProps={confirmButtonProps}
-        onCancelText={onCancelText}
+        onCancelText={
+          onCancelText ||
+          intl.formatMessage({
+            id: ETranslations.global_cancel,
+          })
+        }
       />
     </Stack>
   );
@@ -292,12 +244,8 @@ function DialogFrame({
               onPress={handleBackdropPress}
               zIndex={floatingPanelProps?.zIndex}
             />
-            {
-              /* fix missing title warnings in html dialog element on Web */
-              platformEnv.isRuntimeBrowser ? (
-                <TMDialog.Title display="none">{title}</TMDialog.Title>
-              ) : null
-            }
+            {/* /* fix missing title warnings in html dialog element on Web */}
+            <TMDialog.Title display="none" />
             <TMDialog.Content
               elevate
               key="content"
@@ -333,7 +281,17 @@ function DialogFrame({
 }
 
 function BaseDialogContainer(
-  { onOpen, onClose, renderContent, ...props }: IDialogContainerProps,
+  {
+    onOpen,
+    onClose,
+    renderContent,
+    title,
+    tone,
+    description,
+    icon,
+    showExitButton,
+    ...props
+  }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstance>,
 ) {
   const [isOpen, changeIsOpen] = useState(true);
@@ -381,16 +339,29 @@ function BaseDialogContainer(
     }),
     [handleImperativeClose],
   );
+  const [headerProps, setHeaderProps] = useState<IDialogHeaderProps>({
+    title,
+    tone,
+    description,
+    icon,
+    showExitButton,
+  });
+  const headerContextValue = useMemo(
+    () => ({ headerProps, setHeaderProps }),
+    [headerProps],
+  );
   return (
     <DialogContext.Provider value={contextValue}>
-      <DialogFrame
-        contextValue={contextValue}
-        open={isOpen}
-        onOpen={handleOpen}
-        renderContent={renderContent}
-        onClose={handleContainerClose}
-        {...props}
-      />
+      <DialogHeaderContext.Provider value={headerContextValue}>
+        <DialogFrame
+          contextValue={contextValue}
+          open={isOpen}
+          onOpen={handleOpen}
+          renderContent={renderContent}
+          onClose={handleContainerClose}
+          {...props}
+        />
+      </DialogHeaderContext.Provider>
     </DialogContext.Provider>
   );
 }
@@ -438,51 +409,6 @@ function dialogShow({
           resolve();
         }, 300);
       });
-
-  if (platformEnv.isDev) {
-    const {
-      showFooter = true,
-      onCancel,
-      onCancelText,
-      cancelButtonProps,
-      showConfirmButton = true,
-      showCancelButton = true,
-      onConfirm,
-      onConfirmText,
-      confirmButtonProps,
-    } = props;
-    if (
-      showFooter === false &&
-      (onCancel ||
-        onCancelText ||
-        cancelButtonProps ||
-        onConfirm ||
-        onConfirmText ||
-        confirmButtonProps)
-    ) {
-      throw new Error(
-        'When showFooter is false, onCancel, onCancelText, cancelButtonProps, onConfirm, onConfirmText, confirmButtonProps cannot assign value',
-      );
-    }
-
-    if (
-      showConfirmButton === false &&
-      (onConfirm || onConfirmText || confirmButtonProps)
-    ) {
-      throw new Error(
-        'When showConfirmButton is false, onConfirm, onConfirmText, confirmButtonProps cannot assign value',
-      );
-    }
-
-    if (
-      showCancelButton === false &&
-      (onCancel || onCancelText || cancelButtonProps)
-    ) {
-      throw new Error(
-        'When showCancelButton is false, onCancel, onCancelText, cancelButtonProps cannot assign value',
-      );
-    }
-  }
 
   const element = (() => {
     if (dialogContainer) {
@@ -535,9 +461,13 @@ const dialogCancel = (props: IDialogCancelProps) =>
   });
 
 export const Dialog = {
+  Header: SetDialogHeader,
+  Title: DialogTitle,
+  Description: DialogDescription,
+  Icon: DialogIcon,
+  Footer: FooterAction,
   Form: DialogForm,
   FormField: Form.Field,
-  Footer: FooterAction,
   show: dialogShow,
   confirm: dialogConfirm,
   cancel: dialogCancel,

@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { FormattedMessage } from 'react-intl';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { SizableText } from '../../primitives';
@@ -10,7 +10,7 @@ import { SizableText } from '../../primitives';
 import type { ISizableTextProps } from '../../primitives';
 
 export type IRichSizeableTextProps = Omit<ISizableTextProps, 'children'> & {
-  children?: string | ILocaleIds;
+  children?: string | ETranslations;
   linkList?: ILinkItemType[];
   i18NValues?: Record<string, string | ((value: any) => React.JSX.Element)>;
 };
@@ -40,7 +40,7 @@ export function RichSizeableText({
     <SizableText size="$bodyLg" color="$textSubdued" {...rest}>
       {linkList || i18NValues ? (
         <FormattedMessage
-          id={children as ILocaleIds}
+          id={children as ETranslations}
           defaultMessage={children}
           values={
             {
@@ -56,12 +56,14 @@ export function RichSizeableText({
                     <SizableText
                       color="$textInfo"
                       {...link}
+                      cursor="pointer"
                       onPress={() => onLinkDidPress(link)}
                     >
                       {text}
                     </SizableText>
                   );
                 };
+                values.url = values.a;
                 return values;
               }, {} as Record<string, string | ((value: any) => React.JSX.Element)>),
               ...i18NValues,

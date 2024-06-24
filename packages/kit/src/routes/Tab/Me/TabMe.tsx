@@ -1,8 +1,6 @@
 import { useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Button, Dialog, Page, YStack } from '@onekeyhq/components';
+import { Button, Page, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -17,30 +15,9 @@ import {
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-
-const AddressBookHashButton = () => {
-  const onPress = useCallback(async () => {
-    Dialog.show({
-      title: 'Tamper Address Book',
-      description:
-        'This is a feature specific to development environments. Function used to simulate address data being tampered with',
-      confirmButtonProps: {
-        variant: 'destructive',
-      },
-      onConfirm: () => {
-        void backgroundApiProxy.serviceAddressBook.__dangerTamperVerifyHashForTest();
-      },
-    });
-  }, []);
-  return (
-    <Button onPress={onPress} testID="temper-address-book">
-      Tamper Address Book
-    </Button>
-  );
-};
+import { useV4MigrationActions } from '../../../views/Onboarding/pages/V4Migration/hooks/useV4MigrationActions';
 
 const TabMe = () => {
-  const intl = useIntl();
   const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
@@ -50,6 +27,9 @@ const TabMe = () => {
   const onExpand = useCallback(() => {
     extUtils.openUrlInTab(EXT_HTML_FILES.uiExpandTab).catch(console.error);
   }, []);
+
+  const { navigateToV4MigrationPage } = useV4MigrationActions();
+
   return (
     <Page>
       <Page.Body>
@@ -71,13 +51,10 @@ const TabMe = () => {
             Onboarding
           </Button>
           <Button onPress={onPress} testID="me-settings">
-            {intl.formatMessage({ id: 'title__settings' })}
+            设置
           </Button>
-          <AddressBookHashButton />
           {platformEnv.isExtensionUiPopup ? (
-            <Button onPress={onExpand}>
-              {intl.formatMessage({ id: 'action__expand' })}
-            </Button>
+            <Button onPress={onExpand}>全屏</Button>
           ) : null}
           <Button
             onPress={() => {
@@ -102,6 +79,14 @@ const TabMe = () => {
             }}
           >
             DApp 连接管理
+          </Button>
+
+          <Button
+            onPress={() => {
+              void navigateToV4MigrationPage();
+            }}
+          >
+            V4 迁移
           </Button>
         </YStack>
       </Page.Body>

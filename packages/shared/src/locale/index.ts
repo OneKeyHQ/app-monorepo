@@ -4,17 +4,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { LOCALES as _LOCALES } from './localeJsonMap';
 
-import type { ILocaleIds, ILocaleSymbol } from './type';
+import type { ETranslations } from './enum/translations';
+import type { ILocaleSymbol } from './type';
 
-export const LOCALES = _LOCALES as Record<
+export const LOCALES = _LOCALES as unknown as Record<
   ILocaleSymbol,
-  Record<ILocaleIds, string> | (() => Promise<any>)
+  Record<ETranslations, string> | (() => Promise<Record<ETranslations, string>>)
 >;
 
 const defaultLanguage: Record<string, string> = {
   'zh-CN': '简体中文',
-  'zh-HK': '繁體中文',
-  'fil': 'Filipino',
+  'zh-HK': '繁體中文（香港）',
+  'zh-TW': '繁體中文（臺灣）',
+  'pt-BR': 'Português(Brasil)',
 };
 
 const getLanguage = (symbol: string): string => {
@@ -45,3 +47,5 @@ if (platformEnv.isExtensionBackground) {
 export { LOCALES_OPTION };
 
 export * from './type';
+export * from './enum/translations';
+export * from './enum/translationsMock';

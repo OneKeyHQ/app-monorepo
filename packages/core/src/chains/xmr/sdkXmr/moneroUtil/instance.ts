@@ -1,8 +1,8 @@
-import type { MoneroUtilInstance } from './moneroUtilTypes';
+import type { IMoneroUtilInstance } from './moneroUtilTypes';
 
-let inst: MoneroUtilInstance | null = null;
+let inst: IMoneroUtilInstance | null = null;
 
-export const getMoneroUtilInstance = async (): Promise<MoneroUtilInstance> => {
+export const getMoneroUtilInstance = async (): Promise<IMoneroUtilInstance> => {
   const { loadWasmInstance } = require('./load') as typeof import('./load');
   if (!inst) {
     inst = await loadWasmInstance({});

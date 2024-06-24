@@ -1,11 +1,11 @@
-type Destination = {
+type IXmrDestination = {
   'to_address': string;
   'send_amount': string;
 };
 
 export type IEncodedTxXmr = {
   tx_hash?: string;
-  destinations: Destination[];
+  destinations: IXmrDestination[];
   priority: number;
   address: string;
   shouldSweep: boolean;
@@ -14,7 +14,7 @@ export type IEncodedTxXmr = {
 };
 
 export type ISendFundsArgs = {
-  destinations: Destination[];
+  destinations: IXmrDestination[];
   fromWallet_didFailToBoot: boolean;
   fromWallet_didFailToInitialize: boolean;
   fromWallet_needsImport: boolean;

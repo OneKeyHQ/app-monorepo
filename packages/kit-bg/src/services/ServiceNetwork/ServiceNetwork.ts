@@ -1,3 +1,5 @@
+import { uniq } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -186,6 +188,70 @@ class ServiceNetwork extends ServiceBase {
     return settings.accountDeriveInfo;
   }
 
+  async getDeriveTypeByTemplate({
+    networkId,
+    template,
+  }: {
+    networkId: string;
+    template: string | undefined;
+  }): Promise<{
+    deriveType: IAccountDeriveTypes;
+    deriveInfo: IAccountDeriveInfo | undefined;
+  }> {
+    if (!template) {
+      return { deriveType: 'default', deriveInfo: undefined };
+    }
+    const deriveInfoItems = await this.getDeriveInfoItemsOfNetwork({
+      networkId,
+    });
+    const deriveInfo = deriveInfoItems.find(
+      (item) => item.item.template === template,
+    );
+    const deriveType = deriveInfo?.value as IAccountDeriveTypes | undefined;
+    return {
+      deriveType: deriveType || 'default',
+      deriveInfo: deriveInfo?.item,
+    };
+  }
+
+  async getDeriveTemplateByPath({
+    networkId,
+    path,
+  }: {
+    networkId: string;
+    path: string;
+  }): Promise<string | undefined> {
+    const deriveInfoItems = await this.getDeriveInfoItemsOfNetwork({
+      networkId,
+    });
+    const findMap: { [template: string]: number } = {};
+    const pathSegments = path.split('/');
+    for (const item of deriveInfoItems) {
+      const template = item.item.template;
+      const templateSegments = template.split('/');
+      let matchedCount = 0;
+      for (let i = 0; i < pathSegments.length; i += 1) {
+        if (pathSegments[i] === templateSegments[i]) {
+          matchedCount += 1;
+        } else {
+          break;
+        }
+      }
+      findMap[template] = matchedCount;
+    }
+
+    let findTemplate: string | undefined;
+    let findMatchedCount = 0;
+    Object.entries(findMap).forEach(([k, v]) => {
+      if (v >= findMatchedCount) {
+        findTemplate = k;
+        findMatchedCount = v;
+      }
+    });
+
+    return findTemplate;
+  }
+
   @backgroundMethod()
   async getDeriveInfoItemsOfNetwork({
     networkId,
@@ -220,6 +286,7 @@ class ServiceNetwork extends ServiceBase {
         return {
           item: v,
           description,
+          descI18n,
           value: k,
           label:
             (v.labelKey
@@ -265,6 +332,59 @@ class ServiceNetwork extends ServiceBase {
     return resp.networks.sort(
       (a, b) => networkIdsIndex[a.id] - networkIdsIndex[b.id],
     );
+  }
+
+  async getAccountImportingDeriveTypes({
+    networkId,
+    input,
+    validateAddress,
+    validateXpub,
+    validatePrivateKey,
+    validateXprvt,
+    template,
+  }: {
+    networkId: string;
+    input: string;
+    validateAddress?: boolean;
+    validateXpub?: boolean;
+    validateXprvt?: boolean;
+    validatePrivateKey?: boolean;
+    template: string | undefined;
+  }) {
+    const { serviceAccount, servicePassword, serviceNetwork } =
+      this.backgroundApi;
+
+    const { deriveType: deriveTypeInTpl } =
+      await serviceNetwork.getDeriveTypeByTemplate({
+        networkId,
+        template,
+      });
+    let deriveTypes: IAccountDeriveTypes[] = [deriveTypeInTpl];
+
+    const validateResult = await serviceAccount.validateGeneralInputOfImporting(
+      {
+        networkId,
+        input: await servicePassword.encodeSensitiveText({ text: input }),
+        validateAddress,
+        validateXpub,
+        validatePrivateKey,
+        validateXprvt,
+      },
+    );
+    if (validateResult?.deriveInfoItems?.length) {
+      const availableDeriveTypes = (
+        await serviceNetwork.getDeriveInfoItemsOfNetwork({
+          networkId,
+          enabledItems: validateResult.deriveInfoItems,
+        })
+      ).map((item) => item.value);
+      deriveTypes = [
+        ...deriveTypes,
+        ...(availableDeriveTypes as IAccountDeriveTypes[]),
+      ];
+    }
+    deriveTypes = uniq(deriveTypes);
+    return deriveTypes;
   }
 }
 

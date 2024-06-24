@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
 import { ImageBackground } from 'react-native';
 
 import {
   Button,
-  Dialog,
   Icon,
   Page,
   SizableText,
@@ -16,6 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ONEKEY_KEY_TAG_PURCHASE_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalKeyTagRoutes,
   EModalRoutes,
@@ -25,37 +26,17 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 const UserOptions = () => {
   const md = useMedia();
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const onBackup = useCallback(() => {
     navigation.pushModal(EModalRoutes.KeyTagModal, {
       screen: EModalKeyTagRoutes.BackupWallet,
     });
   }, [navigation]);
-  const onImport = useCallback(() => {
-    const dialog = Dialog.show({
-      tone: 'warning',
-      icon: 'ErrorOutline',
-      title: 'Security Alert',
-      description:
-        "For the safety of your assets, please do not import the recovery phrase of your hardware wallet. Use 'Connect Hardware Wallet' to maintain the highest level of security.",
-      renderContent: (
-        <Stack>
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              await dialog.close();
-              await backgroundApiProxy.servicePassword.promptPasswordVerify();
-              navigation.pushModal(EModalRoutes.OnboardingModal, {
-                screen: EOnboardingPages.ImportKeyTag,
-              });
-            }}
-            testID="acknowledged"
-          >
-            Acknowledged
-          </Button>
-        </Stack>
-      ),
-      showFooter: false,
+  const onImport = useCallback(async () => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ImportKeyTag,
     });
   }, [navigation]);
   const onGetOne = useCallback(() => {
@@ -77,10 +58,14 @@ const UserOptions = () => {
             >
               <Stack px="$5" pt="$9" pb="$6">
                 <SizableText size="$headingXl" color="rgba(0, 0, 0, 0.95)">
-                  OneKey KeyTag
+                  {intl.formatMessage({
+                    id: ETranslations.global_onekey_keytag,
+                  })}
                 </SizableText>
                 <SizableText size="$bodyMd" color="rgba(0, 0, 0, 0.6)" pr={130}>
-                  Powerful wallet backup kit made of titanium alloy
+                  {intl.formatMessage({
+                    id: ETranslations.settings_onekey_keytag_desc,
+                  })}
                 </SizableText>
                 <Button
                   bg="rgba(0, 0, 0, 0.95)"
@@ -94,7 +79,7 @@ const UserOptions = () => {
                   hoverStyle={{ bg: 'rgba(0, 0, 0, 0.75)' }}
                   onPress={onGetOne}
                 >
-                  Buy One
+                  {intl.formatMessage({ id: ETranslations.global_get_one })}
                 </Button>
               </Stack>
             </ImageBackground>
@@ -103,8 +88,10 @@ const UserOptions = () => {
         <YStack>
           <ListItem
             icon="FolderUploadOutline"
-            title="Back up"
-            subtitle="Backup your recovery phrase to OneKey KeyTag"
+            title={intl.formatMessage({ id: ETranslations.global_backup })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.settings_backup_recovery_phrase_to_onekey_keytag,
+            })}
             drillIn
             onPress={onBackup}
             renderIcon={
@@ -115,8 +102,10 @@ const UserOptions = () => {
           />
           <ListItem
             icon="FolderDownloadOutline"
-            title="Import"
-            subtitle="Import recovery phrase from your OneKey KeyTag"
+            title={intl.formatMessage({ id: ETranslations.global_import })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.settings_import_recovery_phrase_from_onekey_keytag,
+            })}
             drillIn
             onPress={onImport}
             renderIcon={

@@ -23,7 +23,9 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IAddressInteractionStatus,
@@ -48,6 +50,7 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
   options,
   onChange,
 }) => {
+  const intl = useIntl();
   if (options.length <= 1) {
     return (
       <Badge badgeSize="sm">
@@ -61,8 +64,12 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
   }
   return (
     <Select
-      title="Choose an Address"
-      placeholder="Choose an Address"
+      title={intl.formatMessage({
+        id: ETranslations.send_ens_choose_address_title,
+      })}
+      placeholder={intl.formatMessage({
+        id: ETranslations.send_ens_choose_address_title,
+      })}
       renderTrigger={() => (
         <Badge badgeSize="sm" userSelect="none">
           <Badge.Text>
@@ -90,17 +97,18 @@ type IAddressInteractionStatusProps = {
 const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
   status,
 }) => {
+  const intl = useIntl();
   if (status === 'not-interacted') {
     return (
       <Badge badgeType="warning" badgeSize="sm">
-        First Transfer
+        {intl.formatMessage({ id: ETranslations.send_label_first_transfer })}
       </Badge>
     );
   }
   if (status === 'interacted') {
     return (
       <Badge badgeType="success" badgeSize="sm">
-        Transferred
+        {intl.formatMessage({ id: ETranslations.send_label_transferred })}
       </Badge>
     );
   }
@@ -178,19 +186,19 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   }
   if (result) {
     return (
-      <XStack space="$2" flex={1} flexWrap="wrap">
+      <XStack space="$2" my="$-1" flex={1} flexWrap="wrap">
         {result.walletAccountName ? (
-          <Badge badgeType="success" badgeSize="sm" mb="$1">
+          <Badge badgeType="success" badgeSize="sm" my="$0.5">
             {result.walletAccountName}
           </Badge>
         ) : null}
         {result.addressBookName ? (
-          <Badge badgeType="success" badgeSize="sm" mb="$1">
+          <Badge badgeType="success" badgeSize="sm" my="$0.5">
             {result.addressBookName}
           </Badge>
         ) : null}
         {result.resolveAddress ? (
-          <Stack mb="$1">
+          <Stack my="$0.5">
             <ResolvedAddress
               value={result.resolveAddress}
               options={result.resolveOptions ?? []}
@@ -198,7 +206,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        <Stack mb="$1">
+        <Stack my="$0.5">
           <AddressInteractionStatus status={result.addressInteractionStatus} />
         </Stack>
       </XStack>
@@ -206,6 +214,18 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   }
   return null;
 }
+
+export const createValidateAddressRule =
+  ({ defaultErrorMessage }: { defaultErrorMessage: string }) =>
+  (value: IAddressInputValue) => {
+    if (value.pending) {
+      return;
+    }
+    if (!value.resolved) {
+      return value.validateError?.message ?? defaultErrorMessage;
+    }
+    return undefined;
+  };
 
 export function AddressInput(props: IAddressInputProps) {
   const {
@@ -310,9 +330,15 @@ export function AddressInput(props: IAddressInputProps) {
         Exclude<IAddressValidateStatus, 'valid'>,
         string
       > = {
-        'unknown': 'Check request error, please refresh again',
-        'prohibit-send-to-self': 'Cannot send to myself',
-        'invalid': intl.formatMessage({ id: 'form__address_invalid' }),
+        'unknown': intl.formatMessage({
+          id: ETranslations.send_check_request_error,
+        }),
+        'prohibit-send-to-self': intl.formatMessage({
+          id: ETranslations.send_cannot_send_to_self,
+        }),
+        'invalid': intl.formatMessage({
+          id: ETranslations.send_address_invalid,
+        }),
       };
       return message[status];
     },
@@ -408,15 +434,21 @@ export function AddressInput(props: IAddressInputProps) {
     ],
   );
 
+  const getAddressInputPlaceholder = useMemo(() => {
+    if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+      return intl.formatMessage({
+        id: ETranslations.form_recipient_ln_placeholder,
+      });
+    }
+
+    return intl.formatMessage({ id: ETranslations.send_to_placeholder });
+  }, [intl, networkId]);
+
   return (
     <BaseInput
       value={inputText}
       onChangeText={onChangeText}
-      placeholder={
-        placeholder ??
-        // intl.formatMessage({ id: 'form__address_and_domain_placeholder' })
-        'Enter address or domain name'
-      }
+      placeholder={placeholder ?? getAddressInputPlaceholder}
       extension={AddressInputExtension}
       {...rest}
     />

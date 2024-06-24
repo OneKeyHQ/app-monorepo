@@ -4,6 +4,7 @@ import { useIsFocused } from '@react-navigation/core';
 
 import { ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -111,35 +112,39 @@ function DashboardContent({
           }}
           isLoading={isLoading}
         />
-        <BookmarksAndHistoriesSection
-          key="BookmarksAndHistoriesSection"
-          bookmarksData={bookmarksData}
-          historiesData={historiesData}
-          onPressMore={onPressMore}
-          handleOpenWebSite={({ webSite }) => {
-            handleOpenWebSite({
-              webSite,
-              navigation,
-              shouldPopNavigation: false,
-            });
-          }}
-        />
-        <SuggestedAndExploreSection
-          key="SuggestedAndExploreSection"
-          suggestedData={
-            Array.isArray(homePageData?.categories)
-              ? homePageData.categories
-              : []
-          }
-          handleOpenWebSite={({ webSite }) => {
-            handleOpenWebSite({
-              webSite,
-              navigation,
-              shouldPopNavigation: false,
-            });
-          }}
-          isLoading={isLoading}
-        />
+        {!platformEnv.isExtension ? (
+          <BookmarksAndHistoriesSection
+            key="BookmarksAndHistoriesSection"
+            bookmarksData={bookmarksData}
+            historiesData={historiesData}
+            onPressMore={onPressMore}
+            handleOpenWebSite={({ webSite }) =>
+              handleOpenWebSite({
+                webSite,
+                navigation,
+                shouldPopNavigation: false,
+              })
+            }
+          />
+        ) : null}
+        <ReviewControl>
+          <SuggestedAndExploreSection
+            key="SuggestedAndExploreSection"
+            suggestedData={
+              Array.isArray(homePageData?.categories)
+                ? homePageData.categories
+                : []
+            }
+            handleOpenWebSite={({ webSite }) =>
+              handleOpenWebSite({
+                webSite,
+                navigation,
+                shouldPopNavigation: false,
+              })
+            }
+            isLoading={isLoading}
+          />
+        </ReviewControl>
       </>
     ),
     [

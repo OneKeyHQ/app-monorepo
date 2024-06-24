@@ -2,8 +2,15 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  Badge,
+  Icon,
+  NumberSizeableText,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
@@ -45,15 +52,20 @@ const SwapTxHistoryListCell = ({
       hideYear: true,
       onlyTime: item.status !== ESwapTxHistoryStatus.PENDING,
     });
-
     return (
       <XStack space="$2">
         <SizableText size="$bodyMd" color="$textSubdued">
           {dateStr}
         </SizableText>
-        {item.status === ESwapTxHistoryStatus.FAILED ? (
+        {item.status === ESwapTxHistoryStatus.FAILED ||
+        item.status === ESwapTxHistoryStatus.DISCARD ? (
           <Badge badgeType="critical" badgeSize="lg">
-            {intl.formatMessage({ id: 'transaction__failed' })}
+            {intl.formatMessage({
+              id:
+                item.status === ESwapTxHistoryStatus.DISCARD
+                  ? ETranslations.swap_history_status_discard
+                  : ETranslations.swap_history_status_failed,
+            })}
           </Badge>
         ) : null}
       </XStack>
@@ -74,7 +86,6 @@ const SwapTxHistoryListCell = ({
     ),
     [item.baseInfo.fromToken.symbol, item.baseInfo.toToken.symbol],
   );
-
   return (
     <ListItem
       onPress={onClickCell}
@@ -89,19 +100,35 @@ const SwapTxHistoryListCell = ({
       <ListItem.Text flex={1} primary={title} secondary={subContent} />
       <ListItem.Text
         align="right"
-        primary={`+${
-          numberFormat(item.baseInfo.toAmount, {
-            formatter: 'balance',
-          }) as string
-        } ${item.baseInfo.toToken.symbol.toUpperCase()}`}
+        primary={
+          <SizableText color="$textSuccess">
+            +
+            <NumberSizeableText color="$textSuccess" formatter="balance">
+              {item.baseInfo.toAmount}
+            </NumberSizeableText>{' '}
+            <SizableText color="$textSuccess">
+              {item.baseInfo.toToken.symbol.toUpperCase()}
+            </SizableText>
+          </SizableText>
+        }
         primaryTextProps={{
           color: '$textSuccess',
         }}
-        secondary={`-${
-          numberFormat(item.baseInfo.fromAmount, {
-            formatter: 'balance',
-          }) as string
-        } ${item.baseInfo.fromToken.symbol.toUpperCase()}`}
+        secondary={
+          <SizableText textAlign="right" size="$bodyMd" color="$textSubdued">
+            -
+            <NumberSizeableText
+              formatter="balance"
+              size="$bodyMd"
+              color="$textSubdued"
+            >
+              {item.baseInfo.fromAmount}
+            </NumberSizeableText>{' '}
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {item.baseInfo.fromToken.symbol.toUpperCase()}
+            </SizableText>
+          </SizableText>
+        }
       />
     </ListItem>
   );

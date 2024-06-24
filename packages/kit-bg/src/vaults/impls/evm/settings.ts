@@ -5,6 +5,7 @@ import {
   IMPL_EVM,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -16,7 +17,7 @@ import type {
 
 export type IAccountDeriveInfoMapEvm = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;
-  etcNative: IAccountDeriveInfo;
+  // etcNative: IAccountDeriveInfo;
   ledgerLive: IAccountDeriveInfo;
 };
 export type IAccountDeriveTypesEvm = keyof IAccountDeriveInfoMapEvm;
@@ -25,26 +26,26 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
   default: {
     // category: `44'/${COINTYPE_ETH}'`,
     namePrefix: 'EVM',
-    labelKey: 'form__bip44_standard',
+    labelKey: ETranslations.bip44__standard,
     template: `m/44'/${COINTYPE_ETH}'/0'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_ETH,
     desc: 'OneKey, MetaMask, Trezor, imToken, m/44’/60’/0’/0/*',
   },
   // TODO
-  etcNative: {
-    // category: `44'/${COINTYPE_ETH}'`,
-    namePrefix: 'ETC-Native',
-    labelKey: 'form__bip44_standard_cointype_61',
-    template: `m/44'/${COINTYPE_ETC}'/0'/0/${INDEX_PLACEHOLDER}`,
-    coinType: COINTYPE_ETC,
-    desc: 'm’/44’/61’/0’/*',
-    // ETC only, hide in other EVM chains
-    enableConditions: [
-      {
-        networkId: [NETWORK_ID_ETC], // ETC
-      },
-    ],
-  },
+  // etcNative: {
+  //   // category: `44'/${COINTYPE_ETH}'`,
+  //   namePrefix: 'ETC-Native',
+  //   labelKey: 'form__bip44_standard_cointype_61',
+  //   template: `m/44'/${COINTYPE_ETC}'/0'/0/${INDEX_PLACEHOLDER}`,
+  //   coinType: COINTYPE_ETC,
+  //   desc: 'm’/44’/61’/0’/*',
+  //   // ETC only, hide in other EVM chains
+  //   enableConditions: [
+  //     {
+  //       networkId: [NETWORK_ID_ETC], // ETC
+  //     },
+  //   ],
+  // },
   ledgerLive: {
     // category: `44'/${COINTYPE_ETH}'`,
     namePrefix: 'Ledger Live',
@@ -75,6 +76,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: true,
   replaceTxEnabled: true,
+  withL1BaseFee: true,
 
   accountDeriveInfo,
   networkInfo: {

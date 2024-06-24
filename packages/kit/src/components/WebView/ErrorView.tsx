@@ -1,11 +1,10 @@
 import { type FC, useMemo } from 'react';
 
-import { ERROR_CODE } from '@onekeyfe/react-native-webview/lib/WebViewShared';
 import { useIntl } from 'react-intl';
+import { ERROR_CODE } from 'react-native-webview/lib/WebViewShared';
 
 import { Empty, Stack } from '@onekeyhq/components';
-
-import type { MessageDescriptor } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface IErrorViewProps {
   errorCode?: number;
@@ -15,18 +14,18 @@ interface IErrorViewProps {
 const ErrorView: FC<IErrorViewProps> = ({ errorCode, onRefresh }) => {
   const intl = useIntl();
   const messages: {
-    title: MessageDescriptor['id'];
-    subTitle: MessageDescriptor['id'];
+    title: ETranslations;
+    subTitle: ETranslations;
   } = useMemo(() => {
     if (errorCode === ERROR_CODE.CONNECTION_FAILED) {
       return {
-        title: 'title__connection_refused',
-        subTitle: 'title__connection_refused_desc',
+        title: ETranslations.global_connection_failed,
+        subTitle: ETranslations.global_connection_failed,
       };
     }
     return {
-      title: 'empty__network_issue_connect',
-      subTitle: 'empty__network_issue_refresh',
+      title: ETranslations.global_network_error,
+      subTitle: ETranslations.explore_network_issue_detected,
     };
   }, [errorCode]);
 
@@ -37,7 +36,7 @@ const ErrorView: FC<IErrorViewProps> = ({ errorCode, onRefresh }) => {
         title={intl.formatMessage({ id: messages.title })}
         description={intl.formatMessage({ id: messages.subTitle })}
         buttonProps={{
-          children: intl.formatMessage({ id: 'action__refresh' }),
+          children: intl.formatMessage({ id: ETranslations.global_refresh }),
           onPress: () => onRefresh?.(),
           testID: 'error-view-refresh',
         }}

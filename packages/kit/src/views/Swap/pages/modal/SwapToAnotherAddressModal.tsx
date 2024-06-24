@@ -4,13 +4,14 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Button, Form, Page, useForm } from '@onekeyhq/components';
+import { Form, Page, useForm } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInput } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSwapToAnotherAccountAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -98,7 +99,7 @@ const SwapToAnotherAddressPage = () => {
       <Page.Body px="$5" space="$4">
         <Form form={form}>
           <Form.Field
-            label="Enter a address"
+            label={intl.formatMessage({ id: ETranslations.global_recipient })}
             name="address"
             rules={{
               required: true,
@@ -110,7 +111,7 @@ const SwapToAnotherAddressPage = () => {
                   return (
                     value.validateError?.message ??
                     intl.formatMessage({
-                      id: 'form__address_invalid',
+                      id: ETranslations.send_address_invalid,
                     })
                   );
                 }
@@ -133,21 +134,15 @@ const SwapToAnotherAddressPage = () => {
       <Page.Footer
         onConfirm={() => form.handleSubmit(handleOnConfirm)()}
         onConfirmText={intl.formatMessage({
-          id: 'action__confirm',
+          id: ETranslations.global_confirm,
         })}
-        onCancelText={intl.formatMessage({ id: 'action__reset' })}
+        onCancelText={intl.formatMessage({
+          id: ETranslations.swap_account_to_address_edit_button,
+        })}
         onCancel={handleOnCancel}
       />
     </Page>
-  ) : (
-    <Button
-      onPress={() => {
-        navigation.pop();
-      }}
-    >
-      no account info please go back
-    </Button>
-  );
+  ) : null;
 };
 
 const SwapToAnotherAddressPageWithProvider = () => {

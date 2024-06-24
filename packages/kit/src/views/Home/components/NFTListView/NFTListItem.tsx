@@ -1,5 +1,9 @@
-import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
-import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { useState } from 'react';
+
+import BigNumber from 'bignumber.js';
+
+import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
+import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
   nft: IAccountNFT;
@@ -8,6 +12,7 @@ type IProps = {
 
 function NFTListItem(props: IProps) {
   const { nft, onPress } = props;
+  const [isVideo, setIsVideo] = useState<boolean>(true);
 
   return (
     <Stack
@@ -48,7 +53,19 @@ function NFTListItem(props: IProps) {
       >
         <Stack position="absolute" left={0} top={0} right={0} bottom={0}>
           <Image w="100%" h="100%" borderRadius="$2.5">
-            <Image.Source src={nft.metadata?.image} />
+            {isVideo ? (
+              <Video
+                source={{ uri: nft.metadata?.image }}
+                onError={() => setIsVideo(false)}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                }}
+                autoPlay={false}
+              />
+            ) : (
+              <Image.Source src={nft.metadata?.image} />
+            )}
             <Image.Fallback
               bg="$bgStrong"
               justifyContent="center"
@@ -57,21 +74,22 @@ function NFTListItem(props: IProps) {
               <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
             </Image.Fallback>
           </Image>
-          {Number.parseInt(nft.amount, 10) > 1 ? (
-            <SizableText
+          {nft.collectionType === ENFTType.ERC1155 &&
+          new BigNumber(nft.amount ?? 1).gt(1) ? (
+            <Stack
+              borderRadius="$2.5"
               position="absolute"
               right="$0"
               bottom="$0"
-              size="$bodyMdMedium"
               px="$2"
               bg="$bgInverse"
-              color="$textInverse"
-              borderRadius="$2.5"
               borderWidth={2}
               borderColor="$bgApp"
             >
-              x{nft.amount}
-            </SizableText>
+              <SizableText size="$bodyMdMedium" color="$textInverse">
+                x{nft.amount}
+              </SizableText>
+            </Stack>
           ) : null}
         </Stack>
       </Stack>

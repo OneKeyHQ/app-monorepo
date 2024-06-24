@@ -3,6 +3,7 @@ import {
   IMPL_NOSTR,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -11,7 +12,7 @@ import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
     namePrefix: 'NOSTR',
-    labelKey: 'form__bip44_standard',
+    labelKey: ETranslations.bip44__standard,
     template: `m/44'/${COINTYPE_NOSTR}'/${INDEX_PLACEHOLDER}'/0/0`,
     coinType: COINTYPE_NOSTR,
   },
@@ -26,6 +27,9 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: false,
+
+  disabledSendAction: true,
+  disabledSwapAction: true,
 
   defaultFeePresetIndex: 0,
 
@@ -44,6 +48,8 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+
+  hideBlockExplorer: true,
 };
 
 export default Object.freeze(settings);

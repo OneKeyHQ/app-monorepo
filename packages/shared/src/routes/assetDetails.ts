@@ -1,4 +1,3 @@
-import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -6,10 +5,12 @@ import type {
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import type { IUtxoAddressInfo } from '../../types/tx';
+
 export enum EModalAssetDetailRoutes {
   TokenDetails = 'TokenDetails',
   NFTDetails = 'NFTDetails',
-  HistoryDetails = 'HistoryDetail',
+  HistoryDetails = 'HistoryDetails',
   UTXODetails = 'UTXODetails',
 }
 
@@ -33,12 +34,17 @@ export type IModalAssetDetailsParamList = {
     itemId: string;
   };
   [EModalAssetDetailRoutes.HistoryDetails]: {
+    accountId: string;
     networkId: string;
     accountAddress: string;
+    xpub?: string;
     historyTx: IAccountHistoryTx;
   };
   [EModalAssetDetailRoutes.UTXODetails]: {
-    inputs: IEncodedTxBtc['inputs'];
-    outputs: IEncodedTxBtc['outputs'];
+    accountId: string;
+    networkId: string;
+    txId: string;
+    inputs?: IUtxoAddressInfo[];
+    outputs?: IUtxoAddressInfo[];
   };
 };

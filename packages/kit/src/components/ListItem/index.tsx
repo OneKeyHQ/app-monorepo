@@ -3,6 +3,7 @@ import type {
   ComponentType,
   PropsWithChildren,
   ReactElement,
+  ReactNode,
 } from 'react';
 import { isValidElement, useCallback } from 'react';
 
@@ -259,9 +260,9 @@ export type IListItemProps = PropsWithChildren<{
   subTitleMatch?: IFuseResultMatch;
   subtitleProps?: IListItemTextProps['secondaryTextProps'];
   avatarProps?: IListItemAvatarProps;
-  renderAvatar?: ComponentType | ReactElement;
-  renderIcon?: ComponentType | ReactElement;
-  renderItemText?: ComponentType | ReactElement;
+  renderAvatar?: ComponentType | ReactNode;
+  renderIcon?: ComponentType | ReactNode;
+  renderItemText?: ComponentType | ReactNode;
   icon?: IIconProps['name'];
   iconProps?: Exclude<ComponentProps<typeof Icon>, 'name'>;
   drillIn?: boolean;
@@ -285,7 +286,7 @@ export const listItemPressStyle = {
 const renderWithFallback = (
   Component: ComponentType,
   props?: any,
-  render?: ComponentType | ReactElement,
+  render?: ComponentType | ReactNode,
 ) => {
   if (render) {
     if (typeof render === 'function') {
@@ -336,7 +337,10 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
       borderRadius="$3"
       borderCurve="continuous"
       onPress={onPress}
-      {...(onPress && listItemPressStyle)}
+      {...(props.disabled && {
+        opacity: 0.5,
+      })}
+      {...(onPress && !props.disabled && listItemPressStyle)}
       {...rest}
     >
       {renderWithFallback(

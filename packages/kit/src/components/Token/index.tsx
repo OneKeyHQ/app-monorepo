@@ -4,7 +4,7 @@
 */
 
 import type { IImageProps, SizeTokens } from '@onekeyhq/components';
-import { Icon, Image, Stack } from '@onekeyhq/components';
+import { Icon, Image, Skeleton, Stack } from '@onekeyhq/components';
 
 import type { ImageURISource } from 'react-native';
 
@@ -57,15 +57,18 @@ export function Token({
       <Image.Fallback
         alignItems="center"
         justifyContent="center"
-        bg="$bgStrong"
+        bg="$gray5"
         delayMs={1000}
       >
         <Icon
           size={fallbackIconSize}
-          name={isNFT ? 'ImageWavesOutline' : 'CoinOutline'}
-          color="$iconDisabled"
+          name={isNFT ? 'ImageWavesOutline' : 'CryptoCoinOutline'}
+          color="$iconSubdued"
         />
       </Image.Fallback>
+      <Image.Loading>
+        <Skeleton width="100%" height="100%" radius="round" />
+      </Image.Loading>
     </Image>
   );
 

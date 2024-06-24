@@ -1,13 +1,15 @@
-import { forwardRef, useCallback, useMemo } from 'react';
+import { forwardRef, useCallback, useMemo, useRef } from 'react';
 import type { ForwardedRef } from 'react';
 
 import { PageHeaderView } from '@onekeyfe/react-native-tab-page-view';
 import { useProps, useStyle } from '@tamagui/core';
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { useThemeValue } from '../../hooks';
+import { Icon } from '../../primitives';
 
 import type { StackStyleProps, TextStyleProps } from '@tamagui/web/types/types';
+import type { NativeScrollEvent, View } from 'react-native';
 import type { GetProps } from 'tamagui';
 
 export type IHeaderProps = Omit<
@@ -29,6 +31,7 @@ export type IHeaderProps = Omit<
     itemTitleNormalStyle?: TextStyleProps & { color: string };
     itemTitleSelectedStyle?: TextStyleProps & { color: string };
     cursorStyle?: StackStyleProps;
+    showHorizontalScrollButton?: boolean;
   };
 
 const HeaderComponent = (
@@ -47,10 +50,20 @@ const HeaderComponent = (
       h: '$1',
       bg: '$bgPrimary',
     },
+    showHorizontalScrollButton,
     ...props
   }: IHeaderProps,
   ref: ForwardedRef<PageHeaderView>,
 ) => {
+  const scrollValue = useRef<
+    Omit<NativeScrollEvent, 'contentInset' | 'zoomScale'>
+  >({
+    layoutMeasurement: { width: 0, height: 0 },
+    contentOffset: { x: 0, y: 0 },
+    contentSize: { width: 0, height: 0 },
+  });
+  const leftArrowRef = useRef<View>(null);
+  const rightArrowRef = useRef<View>(null);
   const normalColor = itemTitleNormalStyle.color;
   const selectedColor = itemTitleSelectedStyle.color;
   const [rawNormalColor, rawSelectedColor] = useThemeValue(
@@ -60,12 +73,14 @@ const HeaderComponent = (
   );
   const rawStyle = useStyle(
     {
-      ...{
-        h: '$11',
-        bg: '$bgApp',
-        borderBottomColor: '$borderSubdued',
-        borderBottomWidth: StyleSheet.hairlineWidth,
-      },
+      ...(props.data.length > 0
+        ? {
+            h: '$11',
+            bg: '$bgApp',
+            borderBottomColor: '$borderSubdued',
+            borderBottomWidth: StyleSheet.hairlineWidth,
+          }
+        : {}),
       ...style,
     } as Record<string, unknown>,
     {
@@ -147,21 +162,107 @@ const HeaderComponent = (
   rawCursorStyle.right = reloadWebPxNumber(rawCursorStyle?.right);
   rawCursorStyle.width = reloadWebPxNumber(rawCursorStyle?.width);
   return (
-    <PageHeaderView
-      ref={ref}
-      titleFromItem={titleFromItem}
-      style={rawStyle as any}
-      contentContainerStyle={rawContentContainerStyle}
-      scrollContainerStyle={rawScrollContainerStyle}
-      containerStyle={rawContainerStyle}
-      itemContainerStyle={rawItemContainerStyle}
-      itemTitleStyle={rawItemTitleStyle}
-      itemTitleNormalStyle={rawItemTitleNormalStyle}
-      itemTitleSelectedStyle={rawItemTitleSelectedStyle}
-      cursorStyle={rawCursorStyle}
-      {...rawProps}
-      data={data}
-    />
+    <>
+      <PageHeaderView
+        ref={ref}
+        titleFromItem={titleFromItem}
+        style={rawStyle as any}
+        contentContainerStyle={rawContentContainerStyle}
+        scrollContainerStyle={rawScrollContainerStyle}
+        containerStyle={rawContainerStyle}
+        itemContainerStyle={rawItemContainerStyle}
+        itemTitleStyle={rawItemTitleStyle}
+        itemTitleNormalStyle={rawItemTitleNormalStyle}
+        itemTitleSelectedStyle={rawItemTitleSelectedStyle}
+        cursorStyle={rawCursorStyle}
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          scrollValue.current = event.nativeEvent;
+          rawProps?.onScroll?.(event);
+          const leftDisabled = scrollValue.current.contentOffset.x <= 100;
+          const rightDisabled =
+            scrollValue.current.contentOffset.x >=
+            scrollValue.current.contentSize.width -
+              scrollValue.current.layoutMeasurement.width -
+              100;
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          leftArrowRef?.current?.setNativeProps?.({
+            pointerEvents: leftDisabled ? 'none' : null,
+            style: {
+              opacity: leftDisabled ? 0 : 1,
+            },
+          });
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          rightArrowRef?.current?.setNativeProps?.({
+            pointerEvents: rightDisabled ? 'none' : null,
+            style: {
+              opacity: rightDisabled ? 0 : 1,
+            },
+          });
+        }}
+        {...rawProps}
+        data={data}
+      />
+      {showHorizontalScrollButton ? (
+        <>
+          <Pressable
+            ref={leftArrowRef}
+            style={{
+              position: 'absolute',
+              top: 3,
+              zIndex: 1,
+              opacity: 0,
+            }}
+            pointerEvents="none"
+            onPress={() => {
+              // @ts-expect-error
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+              ref?.current?.scrollView?.current?.scrollTo?.({
+                x:
+                  scrollValue.current.contentOffset.x -
+                  scrollValue.current.layoutMeasurement.width,
+              });
+            }}
+          >
+            <Icon
+              name="ArrowLeftOutline"
+              size="small"
+              px="$3"
+              h="$10"
+              bg="$bgApp"
+            />
+          </Pressable>
+          <Pressable
+            ref={rightArrowRef}
+            style={{
+              position: 'absolute',
+              top: 3,
+              right: 0,
+              zIndex: 1,
+              opacity: 0,
+            }}
+            pointerEvents="none"
+            onPress={() => {
+              // @ts-expect-error
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+              ref?.current?.scrollView?.current?.scrollTo?.({
+                x:
+                  scrollValue.current.contentOffset.x +
+                  scrollValue.current.layoutMeasurement.width,
+              });
+            }}
+          >
+            <Icon
+              name="ArrowRightOutline"
+              size="small"
+              px="$3"
+              h="$10"
+              bg="$bgApp"
+            />
+          </Pressable>
+        </>
+      ) : null}
+    </>
   );
 };
 

@@ -1,6 +1,6 @@
 import { isObject, isString, isUndefined, omitBy } from 'lodash';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
@@ -31,6 +31,7 @@ export function toPlainErrorObject(error: IOneKeyError) {
       code: error.code,
       message: error.message,
       autoToast: error.autoToast,
+      requestId: error.requestId,
       data: error.data,
       info: error.info,
       payload: error.payload,
@@ -103,8 +104,8 @@ export function getDeviceErrorPayloadMessage(
 export function normalizeErrorProps(
   props?: IOneKeyError | string,
   config?: {
-    defaultMessage?: string;
-    defaultKey?: ILocaleIds;
+    defaultMessage?: string | ETranslations;
+    defaultKey?: ETranslations;
     defaultAutoToast?: boolean;
     alwaysAppendDefaultMessage?: boolean;
   },
@@ -149,6 +150,7 @@ export function normalizeErrorProps(
     message: msg,
     key,
     autoToast: (props as IOneKeyError)?.autoToast ?? config?.defaultAutoToast,
+    requestId: (props as IOneKeyError)?.requestId,
     ...(isString(props) ? {} : props),
   };
 }
@@ -156,7 +158,27 @@ export function normalizeErrorProps(
 function autoPrintErrorIgnore(error: unknown | undefined) {
   const e = error as IOneKeyError | undefined;
   if (e) {
+    // disable autoLogger Error in DEV
     e.$$autoPrintErrorIgnore = true;
+  }
+}
+
+function toastIfError(error: unknown) {
+  if (error instanceof Error) {
+    const e = error as IOneKeyError | undefined;
+    if (e) {
+      // handle autoToast error by BackgroundApiProxyBase
+      e.autoToast = true;
+    }
+  }
+}
+
+function toastIfErrorDisable(error: unknown) {
+  if (error instanceof Error) {
+    const e = error as IOneKeyError | undefined;
+    if (e) {
+      e.autoToast = false;
+    }
   }
 }
 
@@ -168,4 +190,6 @@ export default {
   interceptConsoleErrorWithExtraInfo,
   errorsIntlFormatter,
   getDeviceErrorPayloadMessage,
+  toastIfError,
+  toastIfErrorDisable,
 };

@@ -174,7 +174,8 @@ export type IQrWalletDevice = {
   // TODO deviceType
   deviceId: string;
   version: string;
-  xfp: string;
+  xfp: string; // different in passphrase
+  buildBy: 'hdkey' | 'multiAccounts';
 };
 
 export type IDeviceFirmwareType = 'firmware' | 'ble' | 'bootloader';
@@ -208,8 +209,10 @@ export const UI_REQUEST = {
 
 export enum EOneKeyDeviceMode {
   bootloader = 'bootloader',
-  initialize = 'initialize',
-  seedless = 'seedless',
+  notInitialized = 'notInitialized',
+  // initialize = 'initialize',
+  backupMode = 'backupMode',
+  // seedless = 'seedless',
   normal = 'normal',
 }
 

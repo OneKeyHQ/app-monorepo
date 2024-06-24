@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Alert,
@@ -16,30 +17,37 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { LIDO_LOGO_URI } from '../../utils/const';
+import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type ILidoStakeProps = {
   price: string;
   balance: string;
   minAmount?: string;
-  tokenImageUri: string;
+  tokenImageUri?: string;
   tokenSymbol: string;
   stTokenSymbol: string;
+  minTransactionFee?: string;
   apr?: number;
   onConfirm?: (amount: string) => Promise<void>;
 };
+
+const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 
 export const LidoStake = ({
   price,
   balance,
   apr = 4,
   minAmount = '0',
+  minTransactionFee = '0',
   tokenImageUri,
   tokenSymbol,
   stTokenSymbol,
   onConfirm,
 }: PropsWithChildren<ILidoStakeProps>) => {
+  const intl = useIntl();
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState('');
   const [
@@ -68,6 +76,16 @@ export const LidoStake = ({
     }
   }, [onConfirm, amountValue]);
 
+  const onMax = useCallback(() => {
+    const balanceBN = new BigNumber(balance);
+    const remainBN = balanceBN.minus(minTransactionFee);
+    if (remainBN.gt(0)) {
+      onChangeAmountValue(remainBN.toFixed());
+    } else {
+      onChangeAmountValue(balance);
+    }
+  }, [onChangeAmountValue, balance, minTransactionFee]);
+
   const currentValue = useMemo<string | undefined>(() => {
     const amountValueBn = new BigNumber(amountValue);
     if (amountValueBn.isNaN()) return undefined;
@@ -75,7 +93,7 @@ export const LidoStake = ({
   }, [amountValue, price]);
 
   const isInsufficientBalance = useMemo<boolean>(
-    () => new BigNumber(amountValue).gte(balance),
+    () => new BigNumber(amountValue).gt(balance),
     [amountValue, balance],
   );
 
@@ -88,13 +106,15 @@ export const LidoStake = ({
     return false;
   }, [minAmount, amountValue]);
 
-  const isDisable = useMemo(
-    () =>
-      BigNumber(amountValue).isNaN() ||
+  const isDisable = useMemo(() => {
+    const amountValueBN = BigNumber(amountValue);
+    return (
+      amountValueBN.isNaN() ||
+      amountValueBN.isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
-      isLessThanMinAmount,
-    [amountValue, isInsufficientBalance, isLessThanMinAmount],
-  );
+      isLessThanMinAmount
+    );
+  }, [amountValue, isInsufficientBalance, isLessThanMinAmount]);
 
   const estAnnualRewards = useMemo(() => {
     const bn = BigNumber(amountValue);
@@ -103,24 +123,12 @@ export const LidoStake = ({
     }
     const amountBN = BigNumber(amountValue).multipliedBy(apr).dividedBy(100);
     return (
-      <XStack space="$1">
-        <SizableText>
-          <NumberSizeableText
-            formatter="balance"
-            formatterOptions={{ tokenSymbol }}
-          >
-            {amountBN.toFixed()}
-          </NumberSizeableText>
-          (
-          <NumberSizeableText
-            formatter="value"
-            formatterOptions={{ currency: symbol }}
-          >
-            {amountBN.multipliedBy(price).toFixed()}
-          </NumberSizeableText>
-          )
-        </SizableText>
-      </XStack>
+      <ValuePriceListItem
+        amount={amountBN.toFixed()}
+        tokenSymbol={tokenSymbol}
+        fiatSymbol={symbol}
+        fiatValue={amountBN.multipliedBy(price).toFixed()}
+      />
     );
   }, [amountValue, apr, price, symbol, tokenSymbol]);
 
@@ -137,6 +145,7 @@ export const LidoStake = ({
           }}
           balanceProps={{
             value: balance,
+            onPress: onMax,
           }}
           inputProps={{
             placeholder: '0',
@@ -145,20 +154,26 @@ export const LidoStake = ({
             value: currentValue,
             currency: currentValue ? symbol : undefined,
           }}
+          enableMaxAmount
         />
         <YStack space="$1">
           {isLessThanMinAmount ? (
             <Alert
               icon="InfoCircleOutline"
               type="critical"
-              title={`The minimum amount for this staking is ${minAmount} ETH.`}
+              title={intl.formatMessage(
+                { id: ETranslations.earn_minimum_amount },
+                { number: `${minAmount} ${tokenSymbol}` },
+              )}
             />
           ) : null}
           {isInsufficientBalance ? (
             <Alert
               icon="InfoCircleOutline"
               type="critical"
-              title="Insufficient staked balance."
+              title={intl.formatMessage({
+                id: ETranslations.earn_insufficient_balance,
+              })}
             />
           ) : null}
         </YStack>
@@ -167,47 +182,63 @@ export const LidoStake = ({
         <YStack>
           {estAnnualRewards ? (
             <ListItem
-              title="Est. annual rewards"
-              titleProps={{ color: '$textSubdued' }}
+              title={intl.formatMessage({
+                id: ETranslations.earn_est_annual_rewards,
+              })}
+              titleProps={fieldTitleProps}
             >
               {estAnnualRewards}
             </ListItem>
           ) : null}
           {amountValue ? (
             <ListItem
-              title="Est. receive"
-              titleProps={{ color: '$textSubdued' }}
+              title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
+              titleProps={fieldTitleProps}
             >
               <NumberSizeableText
                 formatter="balance"
+                size="$bodyLgMedium"
                 formatterOptions={{ tokenSymbol: stTokenSymbol }}
               >
                 {amountValue}
               </NumberSizeableText>
             </ListItem>
           ) : null}
-          <ListItem title="APR" titleProps={{ color: '$textSubdued' }}>
+          <ListItem
+            title={intl.formatMessage({ id: ETranslations.global_apr })}
+            titleProps={fieldTitleProps}
+          >
             <ListItem.Text
               primary={`${apr}%`}
               primaryTextProps={{ color: '$textSuccess' }}
             />
           </ListItem>
-          <ListItem title="Protocol" titleProps={{ color: '$textSubdued' }}>
+          <ListItem
+            title={intl.formatMessage({ id: ETranslations.global_protocol })}
+            titleProps={fieldTitleProps}
+          >
             <XStack space="$2" alignItems="center">
-              <Token size="sm" tokenImageUri={LIDO_LOGO_URI} />
-              <SizableText size="$bodyMdMedium">Lido</SizableText>
+              <Token size="xs" tokenImageUri={LIDO_LOGO_URI} />
+              <SizableText size="$bodyLgMedium">Lido</SizableText>
             </XStack>
           </ListItem>
           <ListItem
-            title="Stake Release Period"
-            titleProps={{ color: '$textSubdued' }}
+            title={intl.formatMessage({
+              id: ETranslations.earn_stake_release_period,
+            })}
+            titleProps={fieldTitleProps}
           >
-            <ListItem.Text primary="< 4 Days" />
+            <ListItem.Text
+              primary={intl.formatMessage(
+                { id: ETranslations.earn_less_than_number_days },
+                { number: 4 },
+              )}
+            />
           </ListItem>
         </YStack>
       </Stack>
       <Page.Footer
-        onConfirmText="Stake"
+        onConfirmText={intl.formatMessage({ id: ETranslations.earn_stake })}
         confirmButtonProps={{
           onPress,
           loading,

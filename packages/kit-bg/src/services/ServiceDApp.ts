@@ -1,7 +1,12 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import { Semaphore } from 'async-mutex';
 import { debounce } from 'lodash';
 
-import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedMessage,
+} from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -27,7 +32,6 @@ import {
   EAccountSelectorSceneName,
   type IDappSourceInfo,
 } from '@onekeyhq/shared/types';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IConnectedAccountInfo,
   IConnectionAccountInfo,
@@ -96,6 +100,10 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
 
 @backgroundClass()
 class ServiceDApp extends ServiceBase {
+  private semaphore = new Semaphore(1);
+
+  private existingWindowId: number | null | undefined = null;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -112,61 +120,70 @@ class ServiceDApp extends ServiceBase {
     params?: any;
     fullScreen?: boolean;
   }) {
-    return new Promise((resolve, reject) => {
-      if (!request.origin) {
-        throw new Error('origin is required');
+    // Try to open an existing window anyway in the extension
+    this.tryOpenExistingExtensionWindow();
+
+    return this.semaphore.runExclusive(async () => {
+      try {
+        return await new Promise((resolve, reject) => {
+          if (!request.origin) {
+            throw new Error('origin is required');
+          }
+          if (!request.scope) {
+            throw new Error('scope is required');
+          }
+          const id = this.backgroundApi.servicePromise.createCallback({
+            resolve,
+            reject,
+          });
+          const modalScreens = screens;
+          const routeNames = [
+            fullScreen ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
+            ...modalScreens,
+          ];
+          const $sourceInfo: IDappSourceInfo = {
+            id,
+            origin: request.origin,
+            hostname: uriUtils.getHostNameFromUrl({ url: request.origin }),
+            scope: request.scope,
+            data: request.data as any,
+            isWalletConnectRequest: !!request.isWalletConnectRequest,
+          };
+
+          const routeParams = {
+            // stringify required, nested object not working with Ext route linking
+            query: JSON.stringify(
+              {
+                $sourceInfo,
+                ...params,
+                _$t: Date.now(),
+              },
+              (key, value) =>
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                typeof value === 'bigint' ? value.toString() : value,
+            ),
+          };
+
+          const modalParams = buildModalRouteParams({
+            screens: routeNames,
+            routeParams,
+          });
+
+          ensureSerializable(modalParams);
+
+          void this._openModalByRouteParamsDebounced({
+            routeNames,
+            routeParams,
+            modalParams,
+          });
+        });
+      } finally {
+        this.existingWindowId = null;
       }
-      if (!request.scope) {
-        throw new Error('scope is required');
-      }
-      const id = this.backgroundApi.servicePromise.createCallback({
-        resolve,
-        reject,
-      });
-      const modalScreens = screens;
-      const routeNames = [
-        fullScreen ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
-        ...modalScreens,
-      ];
-      const $sourceInfo: IDappSourceInfo = {
-        id,
-        origin: request.origin,
-        hostname: uriUtils.getHostNameFromUrl({ url: request.origin }),
-        scope: request.scope,
-        data: request.data as any,
-        isWalletConnectRequest: !!request.isWalletConnectRequest,
-      };
-
-      const routeParams = {
-        // stringify required, nested object not working with Ext route linking
-        query: JSON.stringify(
-          {
-            $sourceInfo,
-            ...params,
-            _$t: Date.now(),
-          },
-          (key, value) =>
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-            typeof value === 'bigint' ? value.toString() : value,
-        ),
-      };
-
-      const modalParams = buildModalRouteParams({
-        screens: routeNames,
-        routeParams,
-      });
-
-      ensureSerializable(modalParams);
-
-      this._openModalByRouteParamsDebounced({
-        routeNames,
-        routeParams,
-        modalParams,
-      });
     });
   }
 
-  _openModalByRouteParams = ({
+  _openModalByRouteParams = async ({
     modalParams,
     routeParams,
     routeNames,
@@ -177,10 +194,11 @@ class ServiceDApp extends ServiceBase {
   }) => {
     if (platformEnv.isExtension) {
       // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
-      void extUtils.openStandaloneWindow({
+      const extensionWindow = await extUtils.openStandaloneWindow({
         routes: routeNames,
         params: routeParams,
       });
+      this.existingWindowId = extensionWindow.id;
     } else {
       const doOpenModal = () =>
         global.$navigationRef.current?.navigate(
@@ -201,6 +219,12 @@ class ServiceDApp extends ServiceBase {
       trailing: true,
     },
   );
+
+  private tryOpenExistingExtensionWindow() {
+    if (platformEnv.isExtension && this.existingWindowId) {
+      extUtils.openExistWindow({ windowId: this.existingWindowId });
+    }
+  }
 
   @backgroundMethod()
   async openConnectionModal(
@@ -226,11 +250,13 @@ class ServiceDApp extends ServiceBase {
     unsignedMessage,
     accountId,
     networkId,
+    sceneName,
   }: {
     request: IJsBridgeMessagePayload;
     unsignedMessage: IUnsignedMessage;
     accountId: string;
     networkId: string;
+    sceneName?: EAccountSelectorSceneName;
   }) {
     if (!accountId || !networkId) {
       throw new Error('accountId and networkId required');
@@ -242,6 +268,7 @@ class ServiceDApp extends ServiceBase {
         unsignedMessage,
         accountId,
         networkId,
+        sceneName,
       },
       fullScreen: true,
     });
@@ -262,7 +289,7 @@ class ServiceDApp extends ServiceBase {
     networkId: string;
     transfersInfo?: ITransferInfo[];
     signOnly?: boolean;
-  }) {
+  }): Promise<ISignedTxPro> {
     return this.openModal({
       request,
       screens: [EModalRoutes.SendModal, EModalSendRoutes.SendConfirmFromDApp],
@@ -274,7 +301,7 @@ class ServiceDApp extends ServiceBase {
         signOnly,
       },
       fullScreen: true,
-    });
+    }) as Promise<ISignedTxPro>;
   }
 
   // connection allowance
@@ -370,6 +397,15 @@ class ServiceDApp extends ServiceBase {
         storageType,
       },
     );
+    await this.backgroundApi.serviceSignature.addConnectedSite({
+      url: origin,
+      items: [
+        {
+          networkId: updatedAccountInfo.networkId ?? '',
+          address: updatedAccountInfo.address,
+        },
+      ],
+    });
   }
 
   @backgroundMethod()
@@ -636,7 +672,8 @@ class ServiceDApp extends ServiceBase {
       isWalletConnectRequest: request.isWalletConnectRequest,
     });
     if (!accountsInfo) {
-      throw new Error('Network not found');
+      console.log('getConnectedNetworks: ===> Network not found');
+      return [];
     }
     const networkIds = accountsInfo.map(
       (accountInfo) => accountInfo.networkId || '',
@@ -785,6 +822,19 @@ class ServiceDApp extends ServiceBase {
     return Object.values(rawData.data.injectedProvider);
   }
 
+  @backgroundMethod()
+  async removeDappConnectionAfterWalletRemove(params: { walletId: string }) {
+    return this.backgroundApi.simpleDb.dappConnection.removeWallet(params);
+  }
+
+  @backgroundMethod()
+  async removeDappConnectionAfterAccountRemove(params: {
+    accountId?: string;
+    indexedAccountId?: string;
+  }) {
+    return this.backgroundApi.simpleDb.dappConnection.removeAccount(params);
+  }
+
   // notification
   @backgroundMethod()
   async notifyDAppAccountsChanged(targetOrigin: string) {
@@ -803,13 +853,35 @@ class ServiceDApp extends ServiceBase {
   async notifyDAppChainChanged(targetOrigin: string) {
     Object.values(this.backgroundApi.providers).forEach(
       (provider: ProviderApiBase) => {
-        provider.notifyDappChainChanged({
-          send: this.backgroundApi.sendForProvider(provider.providerName),
-          targetOrigin,
-        });
+        try {
+          provider.notifyDappChainChanged({
+            send: this.backgroundApi.sendForProvider(provider.providerName),
+            targetOrigin,
+          });
+        } catch {
+          // ignore error
+        }
       },
     );
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async notifyChainSwitchUIToDappSite(params: {
+    targetOrigin: string;
+    getNetworkName: ({ origin }: { origin: string }) => Promise<string>;
+  }) {
+    const privateProvider = this.backgroundApi.providers
+      .$private as ProviderApiPrivate;
+    void privateProvider.notifyDappSiteOfNetworkChange(
+      {
+        send: this.backgroundApi.sendForProvider('$private'),
+        targetOrigin: params.targetOrigin,
+      },
+      {
+        getNetworkName: params.getNetworkName,
+      },
+    );
   }
 
   @backgroundMethod()

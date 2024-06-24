@@ -12,7 +12,13 @@ export type IToken = {
 export type ITokenFiat = {
   balance: string;
   balanceParsed: string;
+  frozenBalance?: string;
+  frozenBalanceParsed?: string;
+  totalBalance?: string;
+  totalBalanceParsed?: string;
   fiatValue: string;
+  frozenBalanceFiatValue?: string;
+  totalBalanceFiatValue?: string;
   price: number;
   price24h?: number;
 };
@@ -52,6 +58,11 @@ export type IFetchTokenDetailParams = {
   xpub?: string;
   contractList: string[];
   accountAddress?: string;
+  withFrozenBalance?: boolean;
+  withCheckInscription?: boolean;
 };
 
 export type IFetchTokenDetailResp = IAccountToken[];
+export type IFetchTokenDetailItem = {
+  info: IToken;
+} & ITokenFiat;

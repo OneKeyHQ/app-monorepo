@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { buildTxActionDirection } from '@onekeyhq/shared/src/utils/txActionUtils';
+import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
@@ -34,6 +35,8 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
+import { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IFetchAccountHistoryParams,
@@ -44,10 +47,12 @@ import type {
   IOnChainHistoryTxTransfer,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionAssetTransfer,
+  IDecodedTxExtraInfo,
   IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 import {
@@ -61,6 +66,7 @@ import type { KeyringBase } from './KeyringBase';
 import type {
   IDBAccount,
   IDBExternalAccount,
+  IDBUtxoAccount,
   IDBWalletType,
 } from '../../dbs/local/types';
 import type {
@@ -98,8 +104,13 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   }
 
   // **** address parser: dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
-  // async addressFromBase(account: DBAccount): Promise<string> {
-  // async addressToBase(address: string): Promise<string> {
+  async addressFromBase(account: IDBAccount): Promise<string> {
+    throw new NotImplemented();
+  }
+
+  async addressToBase(address: string): Promise<string> {
+    throw new NotImplemented();
+  }
   // async getDisplayAddress(address: string): Promise<string> {
 
   abstract validateAddress(address: string): Promise<IAddressValidation>;
@@ -224,6 +235,18 @@ export abstract class VaultBaseChainOnly extends VaultContext {
       isValid: true,
     });
   }
+
+  async checkIsDomainName({ name }: { name: string }) {
+    return addressIsEnsFormat(name);
+  }
+
+  async resolveDomainName({
+    name,
+  }: {
+    name: string;
+  }): Promise<IResolveNameResp | null> {
+    return null;
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -233,7 +256,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   keyring!: KeyringBase;
 
-  abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBase>;
+  abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBase | undefined>;
 
   async init(config: IVaultInitConfig) {
     await this.initKeyring(config);
@@ -275,7 +298,23 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
-  async validateSendAmount() {
+  async validateSendAmount(params: {
+    amount: string;
+    tokenBalance: string;
+    to: string;
+  }) {
+    return Promise.resolve(true);
+  }
+
+  async buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<null | IDecodedTxExtraInfo> {
+    return null;
+  }
+
+  async precheckUnsignedTx(params: { unsignedTx: IUnsignedTxPro }) {
     return Promise.resolve(true);
   }
 
@@ -283,11 +322,20 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     encodedTx,
   }: {
     encodedTx: IEncodedTx | undefined;
-  }) {
-    return Promise.resolve(encodedTx);
+  }): Promise<{
+    encodedTx: IEncodedTx | undefined;
+    estimateFeeParams?: IEstimateFeeParams;
+  }> {
+    return Promise.resolve({
+      encodedTx,
+    });
   }
 
-  async buildFetchHistoryListParams(params: IFetchAccountHistoryParams) {
+  async buildFetchHistoryListParams(params: {
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+  }) {
     return Promise.resolve({});
   }
 
@@ -309,8 +357,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       throw new Error('buildHistoryTx txid not found');
     }
     const address = await this.getAccountAddress();
+    const xpub = await this.getAccountXpub();
     decodedTx.txid = txid || decodedTx.txid;
     decodedTx.owner = address;
+    decodedTx.xpub = xpub;
     if (isSigner) {
       decodedTx.signer = address;
     }
@@ -319,7 +369,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const historyId = accountUtils.buildLocalHistoryId({
       networkId: this.networkId,
       txid,
-      accountId: this.accountId,
+      accountAddress: address,
+      xpub,
     });
     const historyTx: IAccountHistoryTx = {
       id: historyId,
@@ -336,7 +387,15 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async buildOnChainHistoryTx(
     params: IBuildHistoryTxParams,
   ): Promise<IAccountHistoryTx | null> {
-    const { accountId, networkId, onChainHistoryTx, tokens, nfts } = params;
+    const {
+      accountId,
+      networkId,
+      onChainHistoryTx,
+      tokens,
+      nfts,
+      accountAddress,
+      xpub,
+    } = params;
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     try {
@@ -349,9 +408,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       const decodedTx: IDecodedTx = {
         txid: onChainHistoryTx.tx,
 
-        owner: onChainHistoryTx.from,
+        owner: accountAddress,
         signer: onChainHistoryTx.from,
-
+        to: onChainHistoryTx.to,
         nonce: onChainHistoryTx.nonce,
         actions: [action],
 
@@ -359,6 +418,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         networkId,
         accountId,
+        xpub,
 
         totalFeeInNative: onChainHistoryTx.gasFee,
 
@@ -366,9 +426,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         nativeAmount: vaultSettings.isUtxo ? onChainHistoryTx.value : undefined,
 
-        extraInfo: null,
+        extraInfo: await this.buildOnChainHistoryTxExtraInfo({
+          onChainHistoryTx,
+        }),
         payload: {
           type: onChainHistoryTx.type,
+          value: onChainHistoryTx.value,
+          label: onChainHistoryTx.label,
         },
       };
 
@@ -449,7 +513,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
-  buildHistoryTransferAction({
+  async buildHistoryTransferAction({
     tx,
     tokens,
     nfts,
@@ -457,7 +521,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tx: IOnChainHistoryTx;
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
-  }): IDecodedTxAction {
+  }): Promise<IDecodedTxAction> {
     return {
       type: EDecodedTxActionType.ASSET_TRANSFER,
       assetTransfer: {
@@ -538,6 +602,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         icon,
         name,
         symbol,
+        label: tx.label,
         tokenIdOnNetwork: tokenApprove.token,
         amount: new BigNumber(tokenApprove.amount)
           .shiftedBy(-decimals)
@@ -704,6 +769,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async getAccountXpub(): Promise<string | undefined> {
-    return undefined;
+    return ((await this.getAccount()) as IDBUtxoAccount).xpub;
   }
 }

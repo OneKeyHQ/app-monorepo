@@ -1,7 +1,9 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { Semaphore } from 'async-mutex';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
+import stringify from 'fast-json-stable-stringify';
 import { isNil } from 'lodash';
 
 import { hashMessage } from '@onekeyhq/core/src/chains/evm/message';
@@ -13,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -50,6 +53,16 @@ function prefixTxValueToHex(value: string) {
 class ProviderApiEthereum extends ProviderApiBase {
   public providerName = IInjectedProviderNames.ethereum;
 
+  private semaphore = new Semaphore(1);
+
+  // return a mocked chainId in non-evm, as empty string may cause dapp error
+  private _getNetworkMockInfo() {
+    return {
+      chainId: '0x736d17dc',
+      networkVersion: '1936529372',
+    };
+  }
+
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
@@ -82,6 +95,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     };
 
     info.send(data, info.targetOrigin);
+    this.notifyNetworkChangedToDappSite(info.targetOrigin);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -104,13 +118,14 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
-    // throw new Error('some error')
-    const accounts = await this.eth_accounts(request);
-    if (accounts && accounts.length) {
-      return accounts;
-    }
-    await this.backgroundApi.serviceDApp.openConnectionModal(request);
-    return this.eth_accounts(request);
+    return this.semaphore.runExclusive(async () => {
+      const accounts = await this.eth_accounts(request);
+      if (accounts && accounts.length) {
+        return accounts;
+      }
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      return this.eth_accounts(request);
+    });
   }
 
   @providerApiMethod()
@@ -190,6 +205,8 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (!isNil(networks?.[0]?.chainId)) {
       return hexUtils.hexlify(Number(networks?.[0]?.chainId));
     }
+
+    return this._getNetworkMockInfo().chainId;
   }
 
   @providerApiMethod()
@@ -200,6 +217,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (!isNil(networks?.[0]?.chainId)) {
       return networks?.[0]?.chainId;
     }
+    return this._getNetworkMockInfo().networkVersion;
   }
 
   @providerApiMethod()
@@ -238,11 +256,16 @@ class ProviderApiEthereum extends ProviderApiBase {
     }
 
     const nonceBN = new BigNumber(transaction.nonce ?? 0);
+    const gasPriceBN = new BigNumber(transaction.gasPrice ?? 0);
 
     // https://app.chainspot.io/
     // some dapp may send tx with incorrect nonce 0
     if (nonceBN.isNaN() || nonceBN.isLessThanOrEqualTo(0)) {
       delete transaction.nonce;
+    }
+
+    if (gasPriceBN.isNaN() || gasPriceBN.isLessThanOrEqualTo(0)) {
+      delete transaction.gasPrice;
     }
 
     const result =
@@ -255,7 +278,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
     console.log('eth_sendTransaction DONE', result, request, transaction);
 
-    return result;
+    return result.txid;
   }
 
   @providerApiMethod()
@@ -465,33 +488,62 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISwitchEthereumChainParameter,
   ) {
-    return this._switchEthereumChain(request, params);
-  }
-
-  _switchEthereumChain = async (
-    request: IJsBridgeMessagePayload,
-    params: ISwitchEthereumChainParameter,
-  ) => {
-    const newNetworkId = `evm--${new BigNumber(params.chainId).toString(10)}`;
-    const containsNetwork =
-      await this.backgroundApi.serviceNetwork.containsNetwork({
-        impls: [IMPL_EVM],
-        networkId: newNetworkId,
-      });
-    if (!containsNetwork) {
-      // https://uniswap-v3.scroll.io/#/swap required Error response
-      throw web3Errors.provider.custom({
-        code: 4902, // error code should be 4902 here
-        message: `Unrecognized chain ID ${params.chainId}. Try adding the chain using wallet_addEthereumChain first.`,
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    if (this._switchEthereumChainMemo._has(request, params)) {
+      throw web3Errors.rpc.resourceUnavailable({
+        message: `Request of type 'wallet_addEthereumChain' already pending for origin ${
+          request?.origin || ''
+        }. Please wait.`,
       });
     }
-    await this.backgroundApi.serviceDApp.switchConnectedNetwork({
-      origin: request.origin ?? '',
-      scope: request.scope ?? this.providerName,
-      newNetworkId,
-    });
+
+    // some dapp will call methods many times, like https://beta.layer3.xyz/bounties/dca-into-mean
+    // some dapp should wait this method response, like https://app.uniswap.org/#/swap
+    // **** should await return
+    await this._switchEthereumChainMemo(request, params);
+
+    this.notifyNetworkChangedToDappSite(request.origin ?? '');
+    // Metamask return null
     return null;
-  };
+  }
+
+  _switchEthereumChainMemo = memoizee(
+    async (
+      request: IJsBridgeMessagePayload,
+      params: ISwitchEthereumChainParameter,
+    ) => {
+      const newNetworkId = `evm--${new BigNumber(params.chainId).toString(10)}`;
+      const containsNetwork =
+        await this.backgroundApi.serviceNetwork.containsNetwork({
+          impls: [IMPL_EVM],
+          networkId: newNetworkId,
+        });
+      if (!containsNetwork) {
+        // https://uniswap-v3.scroll.io/#/swap required Error response
+        throw web3Errors.provider.custom({
+          code: 4902, // error code should be 4902 here
+          message: `Unrecognized chain ID ${params.chainId}. Try adding the chain using wallet_addEthereumChain first.`,
+        });
+      }
+      await this.backgroundApi.serviceDApp.switchConnectedNetwork({
+        origin: request.origin ?? '',
+        scope: request.scope ?? this.providerName,
+        newNetworkId,
+      });
+    },
+    {
+      max: 1,
+      maxAge: 800,
+      normalizer([request, params]: [
+        IJsBridgeMessagePayload,
+        ISwitchEthereumChainParameter,
+      ]): string {
+        const p = request?.data ?? [params];
+        return stringify(p);
+      },
+    },
+  );
 
   _isValidAddress = async ({
     networkId,

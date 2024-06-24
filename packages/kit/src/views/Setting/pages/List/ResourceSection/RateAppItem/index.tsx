@@ -8,6 +8,7 @@ import {
   EXT_RATE_URL,
   PLAY_STORE_LINK,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -22,7 +23,10 @@ export const RateAppItem = () => {
     if (platformEnv.isExtension) {
       let url = EXT_RATE_URL.chrome;
       if (platformEnv.isExtFirefox) url = EXT_RATE_URL.firefox;
-      window.open(url, intl.formatMessage({ id: 'form__rate_our_app' }));
+      window.open(
+        url,
+        intl.formatMessage({ id: ETranslations.settings_rate_app }),
+      );
     } else if (platformEnv.isNativeAndroidGooglePlay) {
       openUrlExternal(PLAY_STORE_LINK);
     } else if (platformEnv.isNativeIOS) {
@@ -33,7 +37,8 @@ export const RateAppItem = () => {
     <ListItem
       onPress={onPress}
       icon="StarOutline"
-      title={intl.formatMessage({ id: 'form__rate_our_app' })}
+      title={intl.formatMessage({ id: ETranslations.settings_rate_app })}
+      drillIn
     />
   ) : null;
 };

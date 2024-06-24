@@ -1,3 +1,4 @@
+import { IEndExpectation } from '@aivenio/tsc-output-parser';
 import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
@@ -9,7 +10,8 @@ import {
 } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import numberUtils, {
@@ -91,7 +93,7 @@ export default class Vault extends VaultBase {
     return this.baseValidatePrivateKey(privateKey);
   }
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: KeyringQr,
     hw: KeyringHardware,
@@ -487,7 +489,7 @@ export default class Vault extends VaultBase {
       .encode(['address', 'uint256'], [spender, amountHex])
       .slice(2)}`;
     return {
-      from: owner,
+      from: owner.toLowerCase(),
       to: tokenInfo.address,
       value: '0x0',
       data,
@@ -857,6 +859,7 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       collectionAddress: encodedTx.to,
       nftId,
+      accountAddress,
     });
 
     let nftAmount = amount;
@@ -904,15 +907,30 @@ export default class Vault extends VaultBase {
   }: {
     encodedTx: IEncodedTxEvm | undefined;
   }) {
-    if (!encodedTx) return;
+    if (!encodedTx) {
+      return { encodedTx };
+    }
     const { chainId, nonce, from, to, data, value } = encodedTx;
+    let transferValue = value;
+
+    const nativeTx = await parseToNativeTx({ encodedTx });
+
+    // try using value=0 to calculate native transfer gas limit to avoid maximum transfer failure.
+    if (checkIsEvmNativeTransfer({ tx: nativeTx })) {
+      transferValue =
+        // the estimated limit will be insufficient when value is 0x0 on filecoin evm
+        this.networkId === getNetworkIdsMap().fevm ? '0x1' : '0x0';
+    }
+
     return Promise.resolve({
-      chainId,
-      nonce,
-      from,
-      to,
-      data,
-      value,
+      encodedTx: {
+        chainId,
+        nonce,
+        from,
+        to,
+        data,
+        value: transferValue,
+      },
     });
   }
 }

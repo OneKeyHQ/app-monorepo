@@ -1,4 +1,7 @@
-import { decodeAddress } from '@onekeyhq/core/src/chains/bch/sdkBch';
+import {
+  decodeAddress,
+  encodeAddress,
+} from '@onekeyhq/core/src/chains/bch/sdkBch';
 import { validateBtcAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 
 import VaultBtc from '../btc/Vault';
@@ -13,7 +16,7 @@ import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 
 export default class Vault extends VaultBtc {
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: KeyringQr,
     hw: KeyringHardware,
@@ -23,9 +26,32 @@ export default class Vault extends VaultBtc {
   };
 
   override async validateAddress(address: string) {
-    return validateBtcAddress({
+    const network = await this.getBtcForkNetwork();
+    if (address.startsWith('xpub')) {
+      return validateBtcAddress({
+        address,
+        network,
+      });
+    }
+    const addressValidationResult = validateBtcAddress({
       address: decodeAddress(address),
-      network: await this.getBtcForkNetwork(),
+      network,
     });
+
+    const bchAddress = encodeAddress(
+      addressValidationResult.normalizedAddress ??
+        addressValidationResult.displayAddress,
+    );
+
+    if (!bchAddress) {
+      throw new Error('Invalid BCH address');
+    }
+
+    const result = {
+      ...addressValidationResult,
+      normalizedAddress: bchAddress,
+      displayAddress: bchAddress,
+    };
+    return result;
   }
 }

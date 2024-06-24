@@ -16,6 +16,7 @@ import {
   i18nSupportEventKinds,
 } from '@onekeyhq/core/src/chains/nostr/types';
 import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -26,6 +27,8 @@ import {
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
+
+import DappOpenModalPage from './DappOpenModalPage';
 
 function NostrSignEventModal() {
   const {
@@ -93,7 +96,10 @@ function NostrSignEventModal() {
       return sigHash;
     }
     return (
-      event?.content ?? `(${intl.formatMessage({ id: 'msg__no_content' })})`
+      event?.content ??
+      `(${intl.formatMessage({
+        id: ETranslations.dapp_connect_msg_no_content,
+      })})`
     );
   }, [signType, event, plaintext, ciphertext, sigHash, intl]);
 
@@ -103,35 +109,64 @@ function NostrSignEventModal() {
     }
     if (i18nSupportEventKinds.includes(Number(event?.kind))) {
       return intl.formatMessage({
-        id: `msg__nostr_event_kind_${event?.kind ?? 'unknown'}`,
-      } as any);
+        id: ETranslations[
+          `dapp_connect_nostr_event_kind_${event?.kind ?? 'unknown'}`
+        ],
+      });
     }
     return intl.formatMessage(
-      { id: 'msg__nostr_event_kind_unknown' },
+      { id: ETranslations.dapp_connect_nostr_event_kind_unknown },
       { kind: event?.kind },
     );
   }, [intl, signType, event]);
 
-  const subtitle = useMemo(() => {
+  const title = useMemo(() => {
     if (signType === ENostrSignType.encrypt) {
       return intl.formatMessage({
-        id: 'msg__nostr_allow_website_to_encrypt_data',
+        id: ETranslations.dapp_connect_encrypted_request,
       });
     }
     if (signType === ENostrSignType.decrypt) {
       return intl.formatMessage({
-        id: 'msg__nostr_allow_website_to_decrypt_data',
+        id: ETranslations.dapp_connect_decrypted_request,
       });
+    }
+    return intl.formatMessage({
+      id: ETranslations.dapp_connect_signature_request,
+    });
+  }, [intl, signType]);
+
+  const subtitle = useMemo(() => {
+    if (signType === ENostrSignType.encrypt) {
+      return intl.formatMessage(
+        {
+          id: ETranslations.dapp_connect_allow_to_access_your_chain_encrypted_message,
+        },
+        {
+          chain: 'Nostr',
+        },
+      );
+    }
+    if (signType === ENostrSignType.decrypt) {
+      return intl.formatMessage(
+        {
+          id: ETranslations.dapp_connect_allow_to_access_your_chain_decrypted_message,
+        },
+        {
+          chain: 'Nostr',
+        },
+      );
     }
     return intl.formatMessage(
       {
-        id: 'msg__allow_sign_event',
+        id: ETranslations.dapp_connect_allow_to_access_your_chain_message_signature,
       },
       {
-        kind: eventKindText,
+        chain:
+          signType === ENostrSignType.signSchnorr ? 'Nostr Schnorr' : 'Nostr',
       },
     );
-  }, [intl, signType, eventKindText]);
+  }, [intl, signType]);
 
   const onSubmit = useCallback(
     async (close: () => void) => {
@@ -152,6 +187,10 @@ function NostrSignEventModal() {
             walletId,
             accountId,
             networkId,
+            options: {
+              origin: $sourceInfo?.origin ?? '',
+              autoSign,
+            },
           });
         } else if (signType === ENostrSignType.encrypt) {
           result = await serviceNostr.encrypt({
@@ -201,27 +240,35 @@ function NostrSignEventModal() {
       plaintext,
       ciphertext,
       sigHash,
+      autoSign,
+      $sourceInfo?.origin,
     ],
   );
 
   const renderEventDetails = useCallback(() => {
     if (!event) return null;
     return (
-      <>
+      <YStack space="$2">
         <Button
           variant="secondary"
           onPress={() => setDisplayDetails(!displayDetails)}
         >
-          {displayDetails ? '隐藏完整消息' : '查看完整消息'}
+          {displayDetails
+            ? intl.formatMessage({
+                id: ETranslations.dapp_connect_hide_full_message,
+              })
+            : intl.formatMessage({
+                id: ETranslations.dapp_connect_view_full_message,
+              })}
         </Button>
         {displayDetails ? (
-          <TextArea my="$2" disabled editable={false} numberOfLines={14}>
+          <TextArea editable={false} numberOfLines={11}>
             {JSON.stringify(event, null, 2)}
           </TextArea>
         ) : null}
-      </>
+      </YStack>
     );
-  }, [event, displayDetails]);
+  }, [intl, event, displayDetails]);
 
   const [savedPlaintext, setSavedPlaintext] = useState<string | null>(null);
   const isDMEvent = useMemo(
@@ -249,9 +296,12 @@ function NostrSignEventModal() {
       return (
         <YStack space="$2">
           <SizableText>
-            {intl.formatMessage({ id: 'form__nostr_plaintext' })}:
+            {intl.formatMessage({
+              id: ETranslations.dapp_connect_nostr_plaintext,
+            })}
+            :
           </SizableText>
-          <TextArea disabled editable={false} numberOfLines={2}>
+          <TextArea editable={false} numberOfLines={5}>
             {savedPlaintext}
           </TextArea>
         </YStack>
@@ -261,52 +311,56 @@ function NostrSignEventModal() {
   }, [intl, savedPlaintext, isDMEvent]);
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title="Message Signature Request"
-          subtitle={subtitle}
-          origin={$sourceInfo?.origin ?? ''}
-          urlSecurityInfo={urlSecurityInfo}
-        >
-          <DAppAccountListStandAloneItem readonly />
-          {/* Content Start */}
-          <YStack space="$2">
-            <SizableText>{eventKindText}</SizableText>
-            <TextArea disabled editable={false} numberOfLines={2}>
-              {content}
-            </TextArea>
-            {renderEncryptSignEventPlaintext()}
-            {renderEventDetails()}
-          </YStack>
-          {signType === ENostrSignType.signEvent ? (
-            <Checkbox
-              label="记住我的选择，不再提示"
-              value={autoSign}
-              onChange={(checked) => setAutoSign(!!checked)}
-            />
-          ) : null}
-          {/* Content End  */}
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          continueOperate={continueOperate}
-          setContinueOperate={(checked) => {
-            setContinueOperate(!!checked);
-          }}
-          onConfirm={onSubmit}
-          onCancel={() => dappApprove.reject()}
-          confirmButtonProps={{
-            loading: isLoading,
-            disabled: !continueOperate,
-          }}
-          showContinueOperateCheckbox={showContinueOperate}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title={title}
+            subtitle={subtitle}
+            origin={$sourceInfo?.origin ?? ''}
+            urlSecurityInfo={urlSecurityInfo}
+          >
+            <DAppAccountListStandAloneItem readonly />
+            {/* Content Start */}
+            <YStack space="$2">
+              <SizableText>{eventKindText}</SizableText>
+              <TextArea editable={false} numberOfLines={5}>
+                {content}
+              </TextArea>
+              {renderEncryptSignEventPlaintext()}
+              {renderEventDetails()}
+            </YStack>
+            {signType === ENostrSignType.signEvent ? (
+              <Checkbox
+                label={intl.formatMessage({
+                  id: ETranslations.dapp_connect_do_not_ask_again,
+                })}
+                value={autoSign}
+                onChange={(checked) => setAutoSign(!!checked)}
+              />
+            ) : null}
+            {/* Content End  */}
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            continueOperate={continueOperate}
+            setContinueOperate={(checked) => {
+              setContinueOperate(!!checked);
+            }}
+            onConfirm={onSubmit}
+            onCancel={() => dappApprove.reject()}
+            confirmButtonProps={{
+              loading: isLoading,
+              disabled: !continueOperate,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
+          />
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 

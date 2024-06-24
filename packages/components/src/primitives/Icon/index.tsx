@@ -121,8 +121,8 @@ const BasicIcon = styled(IconContainer, {
         //
         // But the 'width' and 'height' attributes of SVG don't accept CSS variables,
         // so you have to manually retrieve the values."
-        type SizeType = keyof typeof tokens.size;
-        const size = tokens.size[rawSize as SizeType].val;
+        type IBasicIconSizeType = keyof typeof tokens.size;
+        const size = tokens.size[rawSize as IBasicIconSizeType].val;
         return {
           width: size,
           height: size,

@@ -3,6 +3,7 @@ import { type PropsWithChildren, useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Empty, Spinner, Stack, Toast } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -46,7 +47,7 @@ function LNHardwareWalletAuth({
       console.error('refresh lightning network token failed: ', e);
       Toast.error({
         title: intl.formatMessage({
-          id: 'msg__authentication_failed_verify_again',
+          id: ETranslations.ln_authorize_access_network_error,
         }),
       });
     } finally {
@@ -56,7 +57,7 @@ function LNHardwareWalletAuth({
 
   if (!verifyAuth) {
     return (
-      <Stack w="full" h="full">
+      <Stack w="100%" h="100%" alignItems="center" justifyContent="center">
         <Spinner size="large" />
       </Stack>
     );
@@ -76,10 +77,14 @@ function LNHardwareWalletAuth({
     >
       <Empty
         icon="PasswordOutline"
-        title="Authorize Access"
-        description="Connecting your hardware wallet to access the Lightning account"
+        title={intl.formatMessage({ id: ETranslations.ln_authorize_access })}
+        description={intl.formatMessage({
+          id: ETranslations.ln_authorize_access_desc,
+        })}
         buttonProps={{
-          children: intl.formatMessage({ id: 'action__connect' }),
+          children: intl.formatMessage({
+            id: ETranslations.global_connect_hardware_wallet,
+          }),
           onPress: () => {
             void refreshToken();
           },

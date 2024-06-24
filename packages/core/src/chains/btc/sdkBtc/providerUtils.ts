@@ -1,7 +1,31 @@
-import { IServerNetwork } from '@onekeyhq/shared/types';
+import {
+  getBtcForkNetwork,
+  loadOPReturn,
+  pubkeyToPayment,
+  scriptPkToAddress,
+} from '.';
+
+import BigNumber from 'bignumber.js';
 import * as BitcoinJS from 'bitcoinjs-lib';
-import { Psbt, Transaction } from 'bitcoinjs-lib';
-import { scriptPkToAddress } from '.';
+import { Psbt, Transaction, payments } from 'bitcoinjs-lib';
+import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
+import { isEmpty } from 'lodash';
+
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
+
+import { EAddressEncodings } from '../../../types';
+
+import type { ICoreApiSignBtcExtraInfo, IUnsignedTxPro } from '../../../types';
+import type {
+  IBtcForkNetwork,
+  IBtcForkTransactionMixin,
+  IEncodedTxBtc,
+} from '../types';
+import type {
+  Bip32Derivation,
+  TapBip32Derivation,
+} from 'bip174/src/lib/interfaces';
 
 export function formatPsbtHex(psbtHex: string) {
   let formatData = '';
@@ -18,14 +42,17 @@ export function formatPsbtHex(psbtHex: string) {
   return formatData;
 }
 
-export function toPsbtNetwork(network: IServerNetwork) {
-  if (network.isTestnet) {
-    return BitcoinJS.networks.testnet;
-  }
-  return BitcoinJS.networks.bitcoin;
+export function toPsbtNetwork(
+  network: IServerNetwork,
+): BitcoinJS.networks.Network {
+  return getBtcForkNetwork(network.code);
 }
 
-export function decodedPsbt({psbt, psbtNetwork}:{
+// psbtToTx
+export function decodedPsbt({
+  psbt,
+  psbtNetwork,
+}: {
   psbt: Psbt;
   psbtNetwork: BitcoinJS.networks.Network;
 }) {
@@ -33,7 +60,7 @@ export function decodedPsbt({psbt, psbtNetwork}:{
     const txid = Buffer.from(input.hash).reverse().toString('hex');
     let value: number | undefined = 0;
     let script: Buffer | undefined;
-    const v = psbt.data.inputs[index]
+    const v = psbt.data.inputs[index];
     if (v.witnessUtxo) {
       script = v.witnessUtxo?.script;
       value = v.witnessUtxo?.value;
@@ -53,15 +80,16 @@ export function decodedPsbt({psbt, psbtNetwork}:{
       txid,
       vout: input.index,
       value,
-      address
+      address,
     };
   });
 
-  const outputs = psbt.txOutputs.map(output => {
+  const outputs = psbt.txOutputs.map((output) => {
     let address = '';
     try {
       address = scriptPkToAddress(output.script, psbtNetwork);
     } catch (err) {
+      //
     }
 
     return {
@@ -80,5 +108,163 @@ export function decodedPsbt({psbt, psbtNetwork}:{
     fee,
   };
 
-  return result
+  return result;
+}
+
+export function getPsbtBtcDefault({
+  network,
+}: {
+  network: IBtcForkNetwork;
+}): Psbt {
+  return new Psbt({ network });
+}
+
+// txToPsbt
+export async function buildPsbt({
+  network,
+  unsignedTx,
+  btcExtraInfo,
+  buildInputMixinInfo,
+  getPsbt = getPsbtBtcDefault,
+}: {
+  unsignedTx: IUnsignedTxPro;
+  btcExtraInfo: ICoreApiSignBtcExtraInfo | undefined;
+  network: IBtcForkNetwork;
+  getPsbt?: (params: { network: IBtcForkNetwork }) => Psbt;
+  // psbtGlobalUpdate: PsbtGlobalUpdate;
+  buildInputMixinInfo: (params: { address: string }) => Promise<{
+    pubkey: Buffer | undefined;
+    bip32Derivation?: Bip32Derivation[] | TapBip32Derivation[];
+  }>;
+}) {
+  const { inputs, outputs } = unsignedTx.encodedTx as IEncodedTxBtc;
+
+  const inputAddressesEncodings = checkIsDefined(
+    btcExtraInfo?.inputAddressesEncodings,
+  );
+
+  const psbt = getPsbt({ network });
+
+  // psbt.updateGlobal({
+  // })
+
+  for (let i = 0; i < inputs.length; i += 1) {
+    const input = inputs[i];
+
+    const inputValue: number = new BigNumber(input.value).toNumber();
+    const encoding = inputAddressesEncodings[i];
+    if (!encoding) {
+      throw new Error(`inputAddressesEncodings missing encoding at index ${i}`);
+    }
+    const mixin: IBtcForkTransactionMixin = {};
+
+    const { pubkey, bip32Derivation } = await buildInputMixinInfo({
+      address: input.address,
+    });
+
+    if (!isEmpty(bip32Derivation)) {
+      mixin.bip32Derivation = bip32Derivation;
+    }
+
+    switch (encoding) {
+      case EAddressEncodings.P2PKH: {
+        const nonWitnessPrevTxs = checkIsDefined(
+          btcExtraInfo?.nonWitnessPrevTxs,
+        );
+        mixin.nonWitnessUtxo = Buffer.from(
+          nonWitnessPrevTxs[input.txid],
+          'hex',
+        );
+        break;
+      }
+      case EAddressEncodings.P2WPKH:
+        mixin.witnessUtxo = {
+          script: checkIsDefined(
+            pubkeyToPayment({
+              pubkey,
+              encoding,
+              network,
+            }),
+          ).output as Buffer,
+          value: inputValue,
+        };
+        break;
+      case EAddressEncodings.P2SH_P2WPKH:
+        {
+          const payment = checkIsDefined(
+            pubkeyToPayment({
+              pubkey,
+              encoding,
+              network,
+            }),
+          );
+          mixin.witnessUtxo = {
+            script: payment.output as Buffer,
+            value: inputValue,
+          };
+          mixin.redeemScript = payment.redeem?.output as Buffer;
+        }
+        break;
+      case EAddressEncodings.P2TR:
+        {
+          const payment = checkIsDefined(
+            pubkeyToPayment({
+              pubkey,
+              encoding,
+              network,
+            }),
+          );
+          mixin.witnessUtxo = {
+            script: payment.output as Buffer,
+            value: inputValue,
+          };
+          mixin.tapInternalKey = payment.internalPubkey;
+
+          // not allowed bip32Derivation for taproot
+          // https://github.com/bitcoinjs/bitcoinjs-lib/blob/master/src/psbt/bip371.js#L236
+          delete mixin.bip32Derivation;
+          if (bip32Derivation) {
+            mixin.tapBip32Derivation = bip32Derivation.map((item) => ({
+              ...item,
+              pubkey: toXOnly(item.pubkey),
+              leafHashes: [], // TODO how to build leafHashes
+            }));
+          }
+        }
+        break;
+      default:
+        break;
+    }
+
+    psbt.addInput({
+      hash: input.txid,
+      index: input.vout,
+      ...mixin,
+    });
+  }
+
+  outputs.forEach((output) => {
+    const { payload } = output;
+    if (
+      payload?.opReturn &&
+      typeof payload?.opReturn === 'string' &&
+      payload?.opReturn.length > 0
+    ) {
+      const embed = payments.embed({
+        data: [loadOPReturn(payload?.opReturn)],
+      });
+      psbt.addOutput({
+        script: checkIsDefined(embed.output),
+        value: 0,
+      });
+    } else {
+      const outputValue: number = new BigNumber(output.value).toNumber();
+      psbt.addOutput({
+        address: output.address,
+        value: outputValue,
+      });
+    }
+  });
+
+  return psbt;
 }

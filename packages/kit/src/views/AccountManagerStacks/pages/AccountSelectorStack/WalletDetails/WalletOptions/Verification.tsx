@@ -1,10 +1,14 @@
+import { useIntl } from 'react-intl';
+
 import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
 import { useFirmwareVerifyDialog } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { WalletOptionItem } from './WalletOptionItem';
 
 export function Verification({ device }: { device?: IDBDevice | undefined }) {
+  const intl = useIntl();
   // const returnVerified = () => {
   //   setVerified(true);
   //   Toast.success({
@@ -48,9 +52,7 @@ export function Verification({ device }: { device?: IDBDevice | undefined }) {
 
   const { iconColor, iconName } = getIconNameAndIconColor();
 
-  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog({
-    noContinue: true,
-  });
+  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
 
   return (
     <WalletOptionItem
@@ -58,7 +60,9 @@ export function Verification({ device }: { device?: IDBDevice | undefined }) {
       iconColor={iconColor}
       // icon="BadgeVerifiedSolid"
       // iconColor="$iconSuccess"
-      label="Device Authentication"
+      label={intl.formatMessage({
+        id: ETranslations.device_auth_request_title,
+      })}
       onPress={async () => {
         if (!device) {
           return;

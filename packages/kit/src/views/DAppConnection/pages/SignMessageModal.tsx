@@ -1,15 +1,22 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Toast } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
+import {
+  DAppAccountListStandAloneItem,
+  DAppAccountListStandAloneItemForHomeScene,
+} from '../components/DAppAccountList';
 import { DAppSignMessageContent } from '../components/DAppRequestContent';
 import {
   DAppRequestFooter,
@@ -17,14 +24,19 @@ import {
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
 
+import DappOpenModalPage from './DappOpenModalPage';
+
 function SignMessageModal() {
   const intl = useIntl();
-  const { $sourceInfo, unsignedMessage, accountId, networkId } = useDappQuery<{
-    unsignedMessage: IUnsignedMessage;
-    accountId: string;
-    networkId: string;
-    indexedAccountId: string;
-  }>();
+  const [isLoading, setIsLoading] = useState(false);
+  const { $sourceInfo, unsignedMessage, accountId, networkId, sceneName } =
+    useDappQuery<{
+      unsignedMessage: IUnsignedMessage;
+      accountId: string;
+      networkId: string;
+      indexedAccountId: string;
+      sceneName: EAccountSelectorSceneName;
+    }>();
 
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
@@ -36,12 +48,19 @@ function SignMessageModal() {
     [networkId],
   );
 
+  const isRiskSignMethod = unsignedMessage.type === EMessageTypesEth.ETH_SIGN;
+
   const subtitle = useMemo(() => {
     if (!currentNetwork?.name) {
       return '';
     }
-    return `Allow this site to request your ${currentNetwork.name} message signature.`;
-  }, [currentNetwork]);
+    return intl.formatMessage(
+      {
+        id: ETranslations.dapp_connect_allow_to_access_your_chain_message_signature,
+      },
+      { chain: currentNetwork.name },
+    );
+  }, [intl, currentNetwork]);
 
   const {
     showContinueOperate,
@@ -49,64 +68,77 @@ function SignMessageModal() {
     setContinueOperate,
     riskLevel,
     urlSecurityInfo,
-  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
+  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '', isRiskSignMethod });
 
   const handleSignMessage = useCallback(
     async (close: () => void) => {
-      const result = await backgroundApiProxy.serviceSend.signMessage({
-        unsignedMessage,
-        networkId,
-        accountId,
-      });
-      void dappApprove.resolve({
-        result,
-      });
-      await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
-        networkId,
-        accountId,
-        message: unsignedMessage.message,
-        sourceInfo: $sourceInfo,
-      });
-      Toast.success({
-        title: intl.formatMessage({
-          id: 'msg__success',
-        }),
-      });
-      close?.();
+      setIsLoading(true);
+      try {
+        const result = await backgroundApiProxy.serviceSend.signMessage({
+          unsignedMessage,
+          networkId,
+          accountId,
+        });
+        void dappApprove.resolve({
+          result,
+        });
+        await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
+          networkId,
+          accountId,
+          message: unsignedMessage.message,
+          sourceInfo: $sourceInfo,
+        });
+        close?.();
+      } finally {
+        setIsLoading(false);
+      }
     },
-    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo, intl],
+    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo],
   );
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title="Message Signature Request"
-          subtitle={subtitle}
-          origin={$sourceInfo?.origin ?? ''}
-          urlSecurityInfo={urlSecurityInfo}
-        >
-          <DAppAccountListStandAloneItem readonly />
-          <DAppSignMessageContent content={unsignedMessage.message} />
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          continueOperate={continueOperate}
-          setContinueOperate={(checked) => {
-            setContinueOperate(!!checked);
-          }}
-          onConfirm={(params) => handleSignMessage(params)}
-          onCancel={() => dappApprove.reject()}
-          confirmButtonProps={{
-            disabled: !continueOperate,
-          }}
-          showContinueOperateCheckbox={showContinueOperate}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title={intl.formatMessage({
+              id: ETranslations.dapp_connect_initiate_message_signature_request,
+            })}
+            subtitle={subtitle}
+            origin={$sourceInfo?.origin ?? ''}
+            urlSecurityInfo={urlSecurityInfo}
+            isRiskSignMethod={isRiskSignMethod}
+          >
+            {sceneName === EAccountSelectorSceneName.home ? (
+              <DAppAccountListStandAloneItemForHomeScene />
+            ) : (
+              <DAppAccountListStandAloneItem readonly />
+            )}
+            <DAppSignMessageContent unsignedMessage={unsignedMessage} />
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            confirmText={intl.formatMessage({
+              id: ETranslations.dapp_connect_confirm,
+            })}
+            continueOperate={continueOperate}
+            setContinueOperate={(checked) => {
+              setContinueOperate(!!checked);
+            }}
+            onConfirm={(params) => handleSignMessage(params)}
+            onCancel={() => dappApprove.reject()}
+            confirmButtonProps={{
+              loading: isLoading,
+              disabled: !continueOperate,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={isRiskSignMethod ? EHostSecurityLevel.High : riskLevel}
+          />
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 

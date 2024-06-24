@@ -1,3 +1,7 @@
+import { Children } from 'react';
+
+import { useIntl } from 'react-intl';
+
 import type {
   IActionListProps,
   IButtonProps,
@@ -14,6 +18,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IActionItemsProps = {
   icon?: IKeyOfIcons;
@@ -44,7 +49,7 @@ function ActionItem({
   }
 
   return (
-    <Stack>
+    <Stack alignItems="center">
       <IconButton size="large" icon={icon} {...rest} />
       <SizableText
         mt="$2"
@@ -59,36 +64,78 @@ function ActionItem({
 }
 
 function ActionBuy(props: IActionItemsProps) {
-  return <ActionItem label="Buy" icon="PlusLargeOutline" {...props} />;
+  const intl = useIntl();
+  return (
+    <ActionItem
+      label={intl.formatMessage({ id: ETranslations.global_buy })}
+      icon="PlusLargeOutline"
+      {...props}
+    />
+  );
 }
 
 function ActionSell(props: IActionItemsProps) {
-  return <ActionItem label="Sell" icon="MinusLargeOutline" {...props} />;
+  const intl = useIntl();
+  return (
+    <ActionItem
+      label={intl.formatMessage({ id: ETranslations.global_sell })}
+      icon="MinusLargeOutline"
+      {...props}
+    />
+  );
 }
 
 function ActionSend(props: IActionItemsProps) {
-  return <ActionItem label="Send" icon="ArrowTopOutline" {...props} />;
+  const intl = useIntl();
+  return (
+    <ActionItem
+      label={intl.formatMessage({ id: ETranslations.global_send })}
+      icon="ArrowTopOutline"
+      {...props}
+    />
+  );
 }
 
 function ActionReceive(props: IActionItemsProps) {
-  return <ActionItem label="Receive" icon="ArrowBottomOutline" {...props} />;
+  const intl = useIntl();
+  return (
+    <ActionItem
+      label={intl.formatMessage({ id: ETranslations.global_receive })}
+      icon="ArrowBottomOutline"
+      {...props}
+    />
+  );
 }
 
 function ActionSwap(props: IActionItemsProps) {
-  return <ActionItem label="Swap" icon="SwitchHorOutline" {...props} />;
+  const intl = useIntl();
+  return (
+    <ActionItem
+      label={intl.formatMessage({ id: ETranslations.global_swap })}
+      icon="SwitchHorOutline"
+      {...props}
+    />
+  );
 }
 
 function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
+  const intl = useIntl();
   const media = useMedia();
-
   return (
     <ActionList
-      title="More"
+      title={intl.formatMessage({
+        id: ETranslations.global_more,
+      })}
+      floatingPanelProps={{
+        w: '$60',
+      }}
       renderTrigger={
         <ActionItem
           icon="DotHorOutline"
           {...(media.sm && {
-            label: 'More',
+            label: intl.formatMessage({
+              id: ETranslations.global_more,
+            }),
           })}
         />
       }
@@ -101,14 +148,13 @@ function RawActions({ children, ...rest }: IXStackProps) {
   return (
     <XStack
       justifyContent="space-between"
-      pt="$5"
       $gtSm={{
-        justifyContent: 'unset',
+        justifyContent: 'flex-start',
         space: '$2',
       }}
       {...rest}
     >
-      {children}
+      {Children.toArray(children)}
     </XStack>
   );
 }

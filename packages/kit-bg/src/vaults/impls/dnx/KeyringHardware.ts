@@ -28,7 +28,7 @@ import type {
 } from '../../types';
 
 export class KeyringHardware extends KeyringHardwareBase {
-  override coreApi = coreChainApi.dnx.hd;
+  override coreApi = coreChainApi.dynex.hd;
 
   override prepareAccounts(
     params: IPrepareHardwareAccountsParams,

@@ -1,13 +1,10 @@
-import { useState } from 'react';
+import { useIntl } from 'react-intl';
 
 import { Empty } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import {
-  useAccountSelectorActions,
-  useSelectedAccount,
-} from '../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { AccountSelectorCreateAddressButton } from '../AccountSelector/AccountSelectorCreateAddressButton';
-import { useAccountSelectorCreateAddress } from '../AccountSelector/hooks/useAccountSelectorCreateAddress';
 
 type IProps = {
   name: string;
@@ -19,23 +16,45 @@ const num = 0;
 
 function EmptyAccount(props: IProps) {
   const { name, chain, type } = props;
-  const actions = useAccountSelectorActions();
-  const { selectedAccount } = useSelectedAccount({ num });
-  const { createAddress } = useAccountSelectorCreateAddress();
-  const [isLoading, setIsLoading] = useState(false);
+  const intl = useIntl();
+  const { activeAccount } = useActiveAccount({ num });
+  let description: string | undefined;
+  if (activeAccount?.canCreateAddress) {
+    const showDerivationType = activeAccount.deriveInfoItems.length > 1;
+    description = intl.formatMessage(
+      {
+        id: ETranslations.wallet_no_address_desc,
+      },
+      {
+        name,
+        chain: `${chain} ${showDerivationType && type ? `(${type})` : ''}`,
+      },
+    );
+  } else if (activeAccount?.isNetworkNotMatched) {
+    description = intl.formatMessage({
+      id: ETranslations.global_network_not_matched,
+    });
+  }
 
   return (
     <Empty
       testID="Wallet-No-Address-Empty"
-      title="No Address"
-      description={`${name} does not have a ${chain} (${type}) address yet. Please create one to continue`}
+      title={intl.formatMessage({ id: ETranslations.wallet_no_address })}
+      description={description}
       button={
-        <AccountSelectorCreateAddressButton
-          num={num}
-          selectAfterCreate
-          account={selectedAccount}
-          buttonRender={Empty.Button}
-        />
+        activeAccount?.canCreateAddress ? (
+          <AccountSelectorCreateAddressButton
+            num={num}
+            selectAfterCreate
+            account={{
+              walletId: activeAccount?.wallet?.id,
+              networkId: activeAccount?.network?.id,
+              indexedAccountId: activeAccount?.indexedAccount?.id,
+              deriveType: activeAccount?.deriveType,
+            }}
+            buttonRender={Empty.Button}
+          />
+        ) : null
       }
     />
   );

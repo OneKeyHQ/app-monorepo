@@ -1,25 +1,26 @@
-import enUS from './en-US.json';
+// This file is automatically created by `yarn fetch:locale`.
+import enUS from './json/en_US.json';
 
 export const LOCALES = {
+  'bn': () => import('./json/bn.json'),
+  'de': () => import('./json/de.json'),
   'en-US': enUS,
-  'zh-CN': () => import('./zh-CN.json'),
-  'zh-HK': () => import('./zh_HK.json'),
-  'ja-JP': () => import('./ja_JP.json'),
-  'ko-KR': () => import('./ko_KR.json'),
-  'bn': () => import('./bn.json'),
-  'de': () => import('./de.json'),
-  'es': () => import('./es.json'),
-  'fil': () => import('./fil.json'),
-  'fr-FR': () => import('./fr_FR.json'),
-  'hi-IN': () => import('./hi_IN.json'),
-  'it-IT': () => import('./it_IT.json'),
-  'mn-MN': () => import('./mn_MN.json'),
-  'pt': () => import('./pt.json'),
-  'ru': () => import('./ru.json'),
-  'th-TH': () => import('./th_TH.json'),
-  'uk-UA': () => import('./uk_UA.json'),
-  'vi': () => import('./vi.json'),
-  'id': () => import('./id.json'),
+  'es': () => import('./json/es.json'),
+  'fr-FR': () => import('./json/fr_FR.json'),
+  'hi-IN': () => import('./json/hi_IN.json'),
+  'id': () => import('./json/id.json'),
+  'it-IT': () => import('./json/it_IT.json'),
+  'ja-JP': () => import('./json/ja_JP.json'),
+  'ko-KR': () => import('./json/ko_KR.json'),
+  'pt': () => import('./json/pt.json'),
+  'pt-BR': () => import('./json/pt_BR.json'),
+  'ru': () => import('./json/ru.json'),
+  'th-TH': () => import('./json/th_TH.json'),
+  'uk-UA': () => import('./json/uk_UA.json'),
+  'vi': () => import('./json/vi.json'),
+  'zh-CN': () => import('./json/zh_CN.json'),
+  'zh-HK': () => import('./json/zh_HK.json'),
+  'zh-TW': () => import('./json/zh_TW.json'),
 };
 
 export { enUS };

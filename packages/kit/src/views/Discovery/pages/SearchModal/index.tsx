@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
 import {
@@ -20,6 +21,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -27,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
+import { DiscoveryIcon } from '../../components/DiscoveryIcon';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { DappSearchModalSectionHeader } from './DappSearchModalSectionHeader';
@@ -42,6 +45,7 @@ const LoadingSkeleton = (
 );
 
 function SearchModal() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const route =
     useRoute<
@@ -101,14 +105,16 @@ function SearchModal() {
         {
           dappId: SEARCH_ITEM_ID,
           // TODO: i18n
-          name: `Search "${searchValue}"`,
+          name: `${intl.formatMessage({
+            id: ETranslations.explore_search_placeholder,
+          })} "${searchValue}"`,
           url: '',
           logo,
         } as IDApp,
         ...(searchResult ?? []),
       ]);
     })();
-  }, [searchValue, searchResult]);
+  }, [searchValue, searchResult, intl]);
 
   const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
   const displayBookmarkList =
@@ -175,7 +181,11 @@ function SearchModal() {
 
   return (
     <Page safeAreaEnabled>
-      <Page.Header headerTitle="Search" />
+      <Page.Header
+        headerTitle={intl.formatMessage({
+          id: ETranslations.explore_search_placeholder,
+        })}
+      />
       <Page.Body>
         <Stack mx="$4">
           <SearchBar
@@ -209,7 +219,9 @@ function SearchModal() {
           {displayBookmarkList ? (
             <Stack>
               <DappSearchModalSectionHeader
-                title="Bookmarks"
+                title={intl.formatMessage({
+                  id: ETranslations.explore_bookmarks,
+                })}
                 onMorePress={() => {
                   jumpPageRef.current = true;
                   navigation.pushModal(EModalRoutes.DiscoveryModal, {
@@ -239,13 +251,11 @@ function SearchModal() {
                       });
                     }}
                   >
-                    <Image w="$14" h="$14" borderRadius="$3">
-                      <Image.Source
-                        source={{
-                          uri: item.logo,
-                        }}
-                      />
-                    </Image>
+                    <DiscoveryIcon
+                      uri={item.logo}
+                      size="$14"
+                      borderRadius="$3"
+                    />
                     <SizableText
                       mt="$2"
                       px="$2"
@@ -266,7 +276,9 @@ function SearchModal() {
           {displayHistoryList ? (
             <Stack pt="$5">
               <DappSearchModalSectionHeader
-                title="History"
+                title={intl.formatMessage({
+                  id: ETranslations.explore_history,
+                })}
                 onMorePress={() => {
                   jumpPageRef.current = true;
                   navigation.pushModal(EModalRoutes.DiscoveryModal, {

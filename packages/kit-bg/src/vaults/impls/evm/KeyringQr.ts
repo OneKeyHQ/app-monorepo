@@ -23,7 +23,6 @@ import {
   getAirGapSdk,
 } from '@onekeyhq/qr-wallet-sdk';
 import type {
-  IAirGapAccount,
   IAirGapGenerateSignRequestParamsEvm,
   IAirGapSignature,
 } from '@onekeyhq/qr-wallet-sdk/src/types';
@@ -32,15 +31,19 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
-import { WALLET_CONNECT_CLIENT_NAME } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import localDb from '../../../dbs/local/localDb';
+import { UR_DEFAULT_ORIGIN } from '../../../services/ServiceQrWallet/qrWalletConsts';
 import { KeyringQrBase } from '../../base/KeyringQrBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
-  IPrepareHardwareAccountsParams,
+  IGetChildPathTemplatesParams,
+  IGetChildPathTemplatesResult,
+  IPrepareQrAccountsParams,
+  IQrWalletGetVerifyAddressChainParamsQuery,
+  IQrWalletGetVerifyAddressChainParamsResult,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
@@ -48,17 +51,28 @@ import type {
 export class KeyringQr extends KeyringQrBase {
   override coreApi: CoreChainApiBase = coreChainApi.evm.hd;
 
-  override buildAirGapAccountChildPathTemplate(params: {
-    airGapAccount: IAirGapAccount;
-  }): string {
-    const { airGapAccount } = params;
-    if (airGapAccount.note === EAirGapAccountNoteEvm.Standard) {
-      return '0/*';
+  override getChildPathTemplates(
+    params: IGetChildPathTemplatesParams,
+  ): IGetChildPathTemplatesResult {
+    const { airGapAccount, index } = params;
+    // TODO get deriveType by path
+    if (
+      airGapAccount.note &&
+      airGapAccount.note === EAirGapAccountNoteEvm.Standard
+    ) {
+      return {
+        childPathTemplates: ['0/*'],
+      };
     }
-    return '';
+    return {
+      childPathTemplates: [
+        '0/*', // standard
+        '0/0', // ledger live
+      ],
+    };
   }
 
-  override generateSignRequest(
+  generateSignRequest(
     params: IAirGapGenerateSignRequestParamsEvm,
   ): Promise<AirGapUR> {
     if (!params.xfp) {
@@ -67,12 +81,12 @@ export class KeyringQr extends KeyringQrBase {
     const sdk = getAirGapSdk();
     const signRequestUr = sdk.eth.generateSignRequest({
       ...params,
-      origin: params.origin ?? WALLET_CONNECT_CLIENT_NAME,
+      origin: params.origin ?? UR_DEFAULT_ORIGIN,
     });
     return Promise.resolve(signRequestUr);
   }
 
-  override parseSignature(ur: AirGapUR): Promise<IAirGapSignature> {
+  parseSignature(ur: AirGapUR): Promise<IAirGapSignature> {
     const sdk = getAirGapSdk();
     const sig = sdk.eth.parseSignature(ur);
     return Promise.resolve(sig);
@@ -129,7 +143,10 @@ export class KeyringQr extends KeyringQrBase {
             });
             return signRequestUr;
           },
-          signedResultBuilder: async ({ signature }) => {
+          signedResultBuilder: async ({ signatureUr }) => {
+            const signature = await this.parseSignature(
+              checkIsDefined(signatureUr),
+            );
             const signatureHex = signature.signature;
             return hexUtils.addHexPrefix(signatureHex);
           },
@@ -169,15 +186,18 @@ export class KeyringQr extends KeyringQrBase {
         });
         return signRequestUr;
       },
-      signedResultBuilder: async ({ signature }) => {
+      signedResultBuilder: async ({ signatureUr }) => {
+        const signature = await this.parseSignature(
+          checkIsDefined(signatureUr),
+        );
         const signatureHex = signature.signature;
 
-        const verifyMessageFn = verifyMessage;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const verifyResult = verifyMessageFn(
-          hexUtils.stripHexPrefix(serializedTxWithout0x),
-          hexUtils.addHexPrefix(signatureHex),
-        ); // verify signature
+        // const verifyMessageFn = verifyMessage;
+        // // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // const verifyResult = verifyMessageFn(
+        //   hexUtils.stripHexPrefix(serializedTxWithout0x),
+        //   hexUtils.addHexPrefix(signatureHex),
+        // ); // verify signature
 
         const r = hexUtils.addHexPrefix(signatureHex.slice(0, 32 * 2));
         const s = hexUtils.addHexPrefix(signatureHex.slice(32 * 2, 64 * 2));
@@ -191,13 +211,26 @@ export class KeyringQr extends KeyringQrBase {
             v,
           },
         });
-        return { txid, rawTx, encodedTx: params.unsignedTx.encodedTx };
+        return Promise.resolve({
+          txid,
+          rawTx,
+          encodedTx: params.unsignedTx.encodedTx,
+        });
       },
     });
   }
 
+  override async getVerifyAddressChainParams(
+    query: IQrWalletGetVerifyAddressChainParamsQuery,
+  ): Promise<IQrWalletGetVerifyAddressChainParamsResult> {
+    const chainId = await this.getNetworkChainId();
+    return {
+      chainId,
+    };
+  }
+
   override async prepareAccounts(
-    params: IPrepareHardwareAccountsParams,
+    params: IPrepareQrAccountsParams,
   ): Promise<IDBAccount[]> {
     const wallet = await localDb.getWallet({ walletId: this.walletId });
 
@@ -205,8 +238,18 @@ export class KeyringQr extends KeyringQrBase {
       buildAddressesInfo: async ({ usedIndexes }) => {
         const ret: ICoreApiGetAddressItem[] = [];
         for (const index of usedIndexes) {
+          // TODO move to base
+          if (params?.isVerifyAddressAction) {
+            return this.verifyQrWalletAddressByTwoWayScan(params, {
+              indexes: usedIndexes,
+            });
+          }
+
           const { fullPath, airGapAccount, childPathTemplate } =
-            await this.findQrWalletAirGapAccount(params, { index, wallet });
+            await this.findAirGapAccountInPrepareAccounts(params, {
+              index,
+              wallet,
+            });
 
           if (!airGapAccount) {
             throw new OneKeyErrorAirGapAccountNotFound();

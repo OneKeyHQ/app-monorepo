@@ -4,11 +4,17 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EthereumMatic,
+  SepoliaMatic,
+} from '@onekeyhq/shared/src/consts/addresses';
 import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
+  IFetchTokenDetailItem,
   IFetchTokenDetailParams,
   IToken,
   ITokenData,
@@ -41,6 +47,15 @@ class ServiceToken extends ServiceBase {
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
     const { mergeTokens, flag, ...rest } = params;
+    const { networkId, contractList = [] } = rest;
+    if (
+      [getNetworkIdsMap().eth, getNetworkIdsMap().sepolia].includes(networkId)
+    ) {
+      // Add native/matic token address to the contract list, due to the fact that lack of native/matic staking entry page
+      const maticAddress =
+        networkId === getNetworkIdsMap().eth ? EthereumMatic : SepoliaMatic;
+      rest.contractList = ['', maticAddress, ...contractList];
+    }
     const vault = await vaultFactory.getChainOnlyVault({
       networkId: rest.networkId,
     });
@@ -75,13 +90,14 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchTokensDetails(params: IFetchTokenDetailParams) {
+  public async fetchTokensDetails(
+    params: IFetchTokenDetailParams,
+  ): Promise<IFetchTokenDetailItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.post<{
-      data: ({
-        info: IToken;
-      } & ITokenFiat)[];
-    }>('/wallet/v1/account/token/search', params);
+    const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
+      '/wallet/v1/account/token/search',
+      params,
+    );
 
     return resp.data.data;
   }
@@ -98,6 +114,11 @@ class ServiceToken extends ServiceBase {
       networkId,
       tokens,
     });
+  }
+
+  @backgroundMethod()
+  public async clearLocalTokens() {
+    return this.backgroundApi.simpleDb.localTokens.clearTokens();
   }
 
   @backgroundMethod()

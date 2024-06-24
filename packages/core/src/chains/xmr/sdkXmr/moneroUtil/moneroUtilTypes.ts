@@ -1,4 +1,4 @@
-export interface MoneroUtilInstance
+export interface IMoneroUtilInstance
   extends Record<string, WebAssembly.ExportValue | ArrayBuffer> {
   _malloc(size: number): number;
   ccall(
@@ -17,7 +17,7 @@ export interface MoneroUtilInstance
   HEAPU32: Uint32Array;
 }
 
-export enum MoneroNetTypeEnum {
+export enum EMoneroNetTypeEnum {
   MainNet = 0,
   TestNet = 1,
   StageNet = 2,

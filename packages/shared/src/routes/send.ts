@@ -1,5 +1,8 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  ITransferInfo,
+  ITransferPayload,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -40,9 +43,11 @@ export type IModalSendParamList = {
     unsignedTxs: IUnsignedTxPro[];
     sourceInfo?: IDappSourceInfo;
     signOnly?: boolean;
+    useFeeInTx?: boolean;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
+    transferPayload?: ITransferPayload;
   };
   [EModalSendRoutes.SendConfirmFromDApp]: undefined;
 

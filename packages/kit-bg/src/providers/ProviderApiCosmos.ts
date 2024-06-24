@@ -6,7 +6,7 @@ import { Semaphore } from 'async-mutex';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
-import type { StdSignDoc } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import type { ICosmosStdSignDoc } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import {
   TransactionWrapper,
   deserializeTx,
@@ -93,6 +93,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       return result;
     };
     info.send(data, info.targetOrigin);
+    this.notifyNetworkChangedToDappSite(info.targetOrigin);
   }
 
   public rpcCall() {
@@ -202,7 +203,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: {
       signer: string;
-      signDoc: StdSignDoc;
+      signDoc: ICosmosStdSignDoc;
       signOptions?: any;
     },
   ): Promise<any> {
@@ -217,16 +218,16 @@ class ProviderApiCosmos extends ProviderApiBase {
     const account = await this._getAccount(request, networkId);
 
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: txWrapper.toObject(),
         networkId,
         accountId: account?.account.id ?? '',
         signOnly: true,
-      })) as string;
+      });
 
     const txInfo = deserializeTx(
-      hexToBytes(Buffer.from(result, 'base64').toString('hex')),
+      hexToBytes(Buffer.from(result.rawTx, 'base64').toString('hex')),
     );
 
     const signDoc = getAminoSignDoc(txWrapper);
@@ -292,16 +293,16 @@ class ProviderApiCosmos extends ProviderApiBase {
       undefined,
     );
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: txWrapper.toObject(),
         networkId,
         accountId: account?.account.id ?? '',
         signOnly: true,
-      })) as string;
+      });
 
     const txInfo = deserializeTx(
-      hexToBytes(Buffer.from(result, 'base64').toString('hex')),
+      hexToBytes(Buffer.from(result.rawTx, 'base64').toString('hex')),
     );
 
     const [signerInfo] = txInfo.authInfo.signerInfos;

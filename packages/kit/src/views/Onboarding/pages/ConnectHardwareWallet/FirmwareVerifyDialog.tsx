@@ -1,22 +1,33 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
-import type { IButtonProps, IStackProps } from '@onekeyhq/components';
+import type { IButtonProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
-  HeightTransition,
-  Icon,
   SizableText,
   Spinner,
   Stack,
+  YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { OneKeyError } from '@onekeyhq/shared/src/errors';
+import type {
+  OneKeyError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -26,7 +37,15 @@ type IFirmwareAuthenticationState =
   | 'unofficial'
   | 'error';
 
-type IFirmwareErrorState = 'UnexpectedBootloaderMode' | undefined;
+export enum EFirmwareAuthenticationDialogContentType {
+  default = 'default',
+  verifying = 'verifying',
+  verification_successful = 'verification_successful',
+  network_error = 'network_error',
+  unofficial_device_detected = 'unofficial_device_detected',
+  verification_temporarily_unavailable = 'verification_temporarily_unavailable',
+  error_fallback = 'error_fallback',
+}
 
 function useFirmwareVerifyBase({
   device,
@@ -36,11 +55,30 @@ function useFirmwareVerifyBase({
   skipDeviceCancel?: boolean;
 }) {
   const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
-  const [errorState, setErrorState] = useState<IFirmwareErrorState>();
-
+  const [errorObj, setErrorObj] = useState<{ code: number; message?: string }>({
+    code: 0,
+  });
+  const [contentType, setContentType] = useState(
+    EFirmwareAuthenticationDialogContentType.default,
+  );
+  const dialogInstance = useDialogInstance();
+  useEffect(() => {
+    const callback = () => {
+      setContentType(EFirmwareAuthenticationDialogContentType.verifying);
+    };
+    appEventBus.on(
+      EAppEventBusNames.HardwareVerifyAfterDeviceConfirm,
+      callback,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.HardwareVerifyAfterDeviceConfirm,
+        callback,
+      );
+    };
+  }, []);
   const verify = useCallback(async () => {
     try {
-      setErrorState(undefined);
       const authResult =
         await backgroundApiProxy.serviceHardware.firmwareAuthenticate({
           device,
@@ -49,17 +87,59 @@ function useFirmwareVerifyBase({
       console.log('firmwareAuthenticate >>>> ', authResult);
       if (authResult.verified) {
         setResult('official');
-        // setResult('unofficial');
+        setContentType(
+          EFirmwareAuthenticationDialogContentType.verification_successful,
+        );
       } else {
         setResult('unofficial');
+        setContentType(
+          EFirmwareAuthenticationDialogContentType.unofficial_device_detected,
+        );
       }
     } catch (error) {
       setResult('error');
+
+      // Handle server-side exceptions
       if (
-        (error as OneKeyError).code ===
-        HardwareErrorCode.DeviceUnexpectedBootloaderMode
+        (error as OneKeyServerApiError).className ===
+        EOneKeyErrorClassNames.OneKeyServerApiError
       ) {
-        setErrorState('UnexpectedBootloaderMode');
+        const { code, message } = error as OneKeyError;
+        setContentType(EFirmwareAuthenticationDialogContentType.error_fallback);
+        setErrorObj({ code, message });
+        return;
+      }
+
+      // Handle local exceptions
+      const { code, message } = error as OneKeyError;
+      switch (code) {
+        case HardwareErrorCode.ActionCancelled:
+        case HardwareErrorCode.NewFirmwareForceUpdate:
+          void dialogInstance.close();
+          break;
+        case HardwareErrorCode.NetworkError:
+        case HardwareErrorCode.BridgeNetworkError:
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.network_error,
+          );
+          break;
+        case 'ERR_NETWORK' as any:
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.network_error,
+          );
+          break;
+        case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.unofficial_device_detected,
+          );
+          setErrorObj({ code, message });
+          break;
+        default:
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.error_fallback,
+          );
+          setErrorObj({ code, message });
+          break;
       }
       throw error;
     } finally {
@@ -68,10 +148,12 @@ function useFirmwareVerifyBase({
         skipDeviceCancel,
       });
     }
-  }, [device, skipDeviceCancel]);
+  }, [device, dialogInstance, skipDeviceCancel]);
 
   useEffect(() => {
-    void verify();
+    setTimeout(async () => {
+      await verify();
+    }, 50);
     // setTimeout(() => {
     //   setIsConfirmOnDevice(true);
     //   setTimeout(() => {
@@ -82,97 +164,140 @@ function useFirmwareVerifyBase({
 
   const reset = useCallback(() => {
     setResult('unknown');
-    setErrorState(undefined);
   }, []);
 
-  return { result, reset, errorState, verify };
+  return { result, reset, verify, contentType, setContentType, errorObj };
 }
 
-export function FirmwareAuthenticationDialogContentLegacy({
-  onContinue,
-  device,
-  skipDeviceCancel,
+export function EnumBasicDialogContentContainer({
+  contentType,
+  onActionPress,
+  onContinuePress,
+  errorObj,
 }: {
-  onContinue: (params: { checked: boolean }) => void;
-  device: SearchDevice;
-  skipDeviceCancel?: boolean;
+  contentType: EFirmwareAuthenticationDialogContentType;
+  errorObj: {
+    code: number;
+    message?: string;
+  };
+  onActionPress?: () => void;
+  onContinuePress?: () => void;
 }) {
-  const { result, reset, verify } = useFirmwareVerifyBase({
-    device,
-    skipDeviceCancel,
-  });
-  const requestsUrl = useHelpLink({ path: 'requests/new' });
+  const intl = useIntl();
 
-  return (
-    <Stack>
-      <HeightTransition initialHeight={106}>
-        <Stack
-          borderRadius="$3"
-          p="$5"
-          bg="$bgSubdued"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$transparent"
-          {...(result === 'official' && {
-            bg: '$bgSuccessSubdued',
-            borderColor: '$borderSuccessSubdued',
-          })}
-          {...(result === 'unofficial' && {
-            bg: '$bgCriticalSubdued',
-            borderColor: '$borderCriticalSubdued',
-          })}
-          {...(result === 'error' && {
-            bg: '$bgCautionSubdued',
-            borderColor: '$borderCautionSubdued',
-          })}
-          borderCurve="continuous"
-        >
-          <Stack>
-            <Stack justifyContent="center" alignItems="center">
-              {result === 'unknown' ? (
-                <Spinner size="large" />
-              ) : (
-                <Icon
-                  name="BadgeVerifiedSolid"
-                  size="$9"
-                  color="$iconSuccess"
-                  {...(result === 'unofficial' && {
-                    name: 'ErrorSolid',
-                    color: '$iconCritical',
-                  })}
-                  {...(result === 'error' && {
-                    name: 'ErrorSolid',
-                    color: '$iconCaution',
-                  })}
-                />
-              )}
-            </Stack>
-
-            <SizableText
-              textAlign="center"
-              mt="$5"
-              {...(result === 'official' && {
-                color: '$textSuccess',
+  const [showRiskyWarning, setShowRiskyWarning] = useState(false);
+  const renderFooter = useCallback(
+    () => (
+      <Stack pt="$4">
+        {!showRiskyWarning ? (
+          <Button
+            $md={
+              {
+                size: 'large',
+              } as IButtonProps
+            }
+            onPress={() => setShowRiskyWarning(true)}
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_continue_anyway,
+            })}
+          </Button>
+        ) : (
+          <YStack
+            p="$5"
+            space="$5"
+            bg="$bgCautionSubdued"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderCautionSubdued"
+            borderRadius="$3"
+            borderCurve="continuous"
+          >
+            <SizableText size="$bodyLgMedium" color="$textCaution">
+              {intl.formatMessage({
+                id: ETranslations.device_auth_continue_anyway_warning_message,
               })}
-              {...(result === 'unofficial' && {
-                color: '$textCritical',
-              })}
-              {...(result === 'error' && {
-                color: '$textCaution',
-              })}
-            >
-              {result === 'unknown' ? 'Verifying official firmware' : null}
-              {result === 'official'
-                ? 'Your device is running official firmware'
-                : null}
-              {result === 'unofficial' ? 'Unofficial firmware detected!' : null}
-              {result === 'error'
-                ? 'Unable to verify firmware: internet connection required'
-                : null}
             </SizableText>
-          </Stack>
-        </Stack>
-        {result !== 'unknown' ? (
-          <Stack pt="$5">
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              onPress={onContinuePress}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_i_understand,
+              })}
+            </Button>
+          </YStack>
+        )}
+      </Stack>
+    ),
+    [intl, onContinuePress, showRiskyWarning],
+  );
+
+  const content = useMemo(() => {
+    switch (contentType) {
+      case EFirmwareAuthenticationDialogContentType.default:
+        return (
+          <Dialog.Header>
+            <Dialog.Icon icon="DocumentSearch2Outline" tone="success" />
+            <Dialog.Title>
+              {intl.formatMessage({
+                id: ETranslations.device_auth_request_title,
+              })}
+            </Dialog.Title>
+            <Dialog.Description>
+              {intl.formatMessage({
+                id: ETranslations.device_auth_request_desc,
+              })}
+            </Dialog.Description>
+          </Dialog.Header>
+        );
+      case EFirmwareAuthenticationDialogContentType.verifying:
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="DotHorOutline" tone="success" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_verifying_title,
+                })}
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_verifying_desc,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
+            <Stack
+              p="$5"
+              alignItems="center"
+              justifyContent="center"
+              bg="$bgStrong"
+              borderRadius="$3"
+              borderCurve="continuous"
+            >
+              <Spinner size="large" />
+            </Stack>
+          </>
+        );
+      case EFirmwareAuthenticationDialogContentType.verification_successful:
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="BadgeVerifiedSolid" tone="success" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_successful_title,
+                })}
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_successful_desc,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
             <Button
               $md={
                 {
@@ -180,237 +305,235 @@ export function FirmwareAuthenticationDialogContentLegacy({
                 } as IButtonProps
               }
               variant="primary"
-              {...(result === 'official' && {
-                onPress: () => onContinue({ checked: true }),
-              })}
-              {...(result === 'unofficial' && {
-                onPress: async () => {
-                  // Contact OneKey Support
-                  await Linking.openURL(requestsUrl);
-                },
-              })}
-              {...(result === 'error' && {
-                onPress: async () => {
-                  reset();
-                  // Retry
-                  await verify();
-                },
-              })}
+              onPress={onActionPress}
             >
-              {result === 'official' ? 'Continue' : null}
-              {result === 'unofficial' ? 'Contact OneKey Support' : null}
-              {result === 'error' ? 'Retry' : null}
+              {intl.formatMessage({ id: ETranslations.global_continue })}
             </Button>
-          </Stack>
-        ) : null}
-        {result === 'error' ? (
-          <Stack pt="$3">
+          </>
+        );
+      case EFirmwareAuthenticationDialogContentType.network_error:
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="WorldOutline" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.global_network_error,
+                })}
+                <SizableText>{`(${errorObj.code})`}</SizableText>
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.global_network_error_help_text,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
             <Button
-              variant="tertiary"
-              m="$0"
-              onPress={() => onContinue({ checked: false })}
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              variant="primary"
+              onPress={onActionPress}
             >
-              Continue Anyway(Legacy)
+              {intl.formatMessage({ id: ETranslations.global_retry })}
             </Button>
-          </Stack>
-        ) : null}
-      </HeightTransition>
-    </Stack>
-  );
+            {renderFooter()}
+          </>
+        );
+      case EFirmwareAuthenticationDialogContentType.unofficial_device_detected:
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="ErrorOutline" tone="destructive" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_unofficial_device_detected,
+                })}
+                <SizableText>{`(${errorObj.code})`}</SizableText>
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_unofficial_device_detected_help_text,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              variant="primary"
+              onPress={() =>
+                Linking.openURL('https://help.onekey.so/hc/requests/new')
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_contact_us })}
+            </Button>
+            {platformEnv.isDev ? (
+              <Button
+                $md={
+                  {
+                    size: 'large',
+                  } as IButtonProps
+                }
+                onPress={onContinuePress}
+              >
+                Skip it And Create Wallet(Only in Dev)
+              </Button>
+            ) : null}
+          </>
+        );
+      case EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable:
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="ServerOutline" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_temporarily_unavailable,
+                })}
+                <SizableText>{`(${errorObj.code})`}</SizableText>
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_temporarily_unavailable_help_text,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              variant="primary"
+              onPress={onActionPress}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+            {renderFooter()}
+          </>
+        );
+      default:
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon tone="warning" icon="ErrorOutline" />
+              <Dialog.Title>
+                {errorObj.message ||
+                  intl.formatMessage({
+                    id: ETranslations.global_unknown_error,
+                  })}
+                ({errorObj.code || 'unknown'})
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.global_unknown_error_retry_message,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              variant="primary"
+              onPress={onActionPress}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+            {renderFooter()}
+          </>
+        );
+    }
+  }, [
+    contentType,
+    errorObj.code,
+    errorObj.message,
+    intl,
+    onActionPress,
+    onContinuePress,
+    renderFooter,
+  ]);
+  return <YStack>{content}</YStack>;
 }
 
 export function FirmwareAuthenticationDialogContent({
   onContinue,
   device,
   skipDeviceCancel,
-  noContinue,
 }: {
   onContinue: (params: { checked: boolean }) => void;
   device: SearchDevice | IDBDevice;
   skipDeviceCancel?: boolean;
-  noContinue?: boolean;
 }) {
-  const [isShowingRiskWarning, setIsShowingRiskWarning] = useState(true);
-
-  const { result, reset, errorState, verify } = useFirmwareVerifyBase({
-    device,
-    skipDeviceCancel,
-  });
+  const { result, reset, verify, contentType, setContentType, errorObj } =
+    useFirmwareVerifyBase({
+      device,
+      skipDeviceCancel,
+    });
 
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
+  const handleContinuePress = useCallback(() => {
+    onContinue({ checked: false });
+  }, [onContinue]);
+
   const content = useMemo(() => {
-    if (result === 'unknown') {
-      return (
-        <Stack
-          p="$5"
-          bg="$bgSubdued"
-          borderRadius="$3"
-          borderCurve="continuous"
-        >
-          <Spinner size="large" />
-        </Stack>
-      );
-    }
     const propsMap: Record<
       IFirmwareAuthenticationState,
       {
         onPress: () => void;
-        button: string;
-        textStackProps?: IStackProps;
       }
     > = {
       unknown: {
         onPress: () => {},
-        button: 'Loading',
       },
       official: {
         onPress: () => onContinue({ checked: true }),
-        button: 'Continue',
-        textStackProps: {
-          bg: '$bgSuccessSubdued',
-          borderColor: '$borderSuccessSubdued',
-        },
       },
       unofficial: {
         onPress: async () => {
           await Linking.openURL(requestsUrl);
         },
-        button: 'Contact us',
-        textStackProps: {
-          bg: '$bgCriticalSubdued',
-          borderColor: '$borderCriticalSubdued',
-        },
       },
       error: {
         onPress: async () => {
           reset();
-          setIsShowingRiskWarning(true);
+          setContentType(EFirmwareAuthenticationDialogContentType.verifying);
           await verify();
-        },
-        button: 'Retry',
-        textStackProps: {
-          bg: '$bgCautionSubdued',
-          borderColor: '$borderCautionSubdued',
         },
       },
     };
-    let confirmButton: JSX.Element | null = (
-      <Button
-        $md={
-          {
-            size: 'large',
-          } as IButtonProps
-        }
-        variant="primary"
-        onPress={propsMap[result].onPress}
-      >
-        {propsMap[result].button}
-      </Button>
-    );
-    if (result === 'official' && noContinue) {
-      confirmButton = null;
-    }
-
-    const stackPropsShared: IStackProps = {
-      p: '$5',
-      space: '$5',
-      borderRadius: '$3',
-      borderCurve: 'continuous',
-      borderWidth: StyleSheet.hairlineWidth,
-      ...propsMap[result].textStackProps,
-    };
-    const officialText =
-      result === 'official' ? (
-        <Stack {...stackPropsShared}>
-          <SizableText textAlign="center">
-            Your device is running official firmware
-          </SizableText>
-        </Stack>
-      ) : null;
-
-    const unofficialText =
-      result === 'unofficial' ? (
-        <Stack {...stackPropsShared}>
-          <SizableText textAlign="center">
-            Unofficial firmware detected!
-          </SizableText>
-        </Stack>
-      ) : null;
-
-    let errorContinueButton: JSX.Element | null = isShowingRiskWarning ? (
-      <Button
-        $md={
-          {
-            size: 'large',
-          } as IButtonProps
-        }
-        onPress={() =>
-          noContinue
-            ? onContinue({ checked: false })
-            : setIsShowingRiskWarning(false)
-        }
-      >
-        I Understand
-      </Button>
-    ) : (
-      <Button
-        key="continue-anyway"
-        $md={
-          {
-            size: 'large',
-          } as IButtonProps
-        }
-        variant="destructive"
-        //   variant="tertiary"
-        //   mx="$0"
-        onPress={() => onContinue({ checked: false })}
-      >
-        Continue Anyway
-      </Button>
-    );
-    let errorMessage = `We're currently unable to verify your device. Continuing may pose
-    security risks.`;
-    if (result === 'error' && errorState === 'UnexpectedBootloaderMode') {
-      errorContinueButton = null;
-      errorMessage = 'Device is in unexpected bootloader mode.';
-    }
-    const riskText =
-      result === 'error' ? (
-        <Stack {...stackPropsShared}>
-          <SizableText>{errorMessage}</SizableText>
-
-          {errorContinueButton}
-        </Stack>
-      ) : null;
 
     return (
-      <Stack space="$4">
-        {officialText}
-        {unofficialText}
-        {confirmButton}
-        {riskText}
-      </Stack>
+      <EnumBasicDialogContentContainer
+        errorObj={errorObj}
+        contentType={contentType}
+        onActionPress={propsMap[result].onPress}
+        onContinuePress={handleContinuePress}
+      />
     );
   }, [
     result,
-    noContinue,
-    isShowingRiskWarning,
-    errorState,
+    errorObj,
+    contentType,
+    handleContinuePress,
     onContinue,
     requestsUrl,
     reset,
+    setContentType,
     verify,
   ]);
 
   return <Stack space="$5">{content}</Stack>;
 }
 
-export function useFirmwareVerifyDialog({
-  noContinue,
-}: {
-  noContinue?: boolean;
-} = {}) {
+export function useFirmwareVerifyDialog() {
   const showFirmwareVerifyDialog = useCallback(
     async ({
       device,
@@ -422,16 +545,13 @@ export function useFirmwareVerifyDialog({
       const firmwareAuthenticationDialog = Dialog.show({
         tone: 'success',
         icon: 'DocumentSearch2Outline',
-        // title: 'Firmware Authentication',
-        title: 'Device Authentication',
-        description:
-          'Confirm on your device to verify its authenticity and secure your connection.',
+        title: ' ',
+        description: ' ',
         dismissOnOverlayPress: false,
         showFooter: false,
         renderContent: (
           <FirmwareAuthenticationDialogContent
             device={device}
-            noContinue={noContinue}
             onContinue={async ({ checked }) => {
               await firmwareAuthenticationDialog.close();
               await onContinue({ checked });
@@ -453,7 +573,7 @@ export function useFirmwareVerifyDialog({
         },
       });
     },
-    [noContinue],
+    [],
   );
   return {
     showFirmwareVerifyDialog,

@@ -2,16 +2,18 @@ import type { RefObject } from 'react';
 import { createRef } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
-import { toast } from 'burnt';
-import { getTokens } from 'tamagui';
+import { useWindowDimensions } from 'react-native';
+import { SizableText, YStack } from 'tamagui';
 
 import { Portal } from '../../hocs';
-import { Icon } from '../../primitives';
+import { Button, Icon, XStack } from '../../primitives';
 
-import { ShowToaster, ShowToasterClose } from './ShowToaster';
+import { ShowCustom, ShowToasterClose } from './ShowCustom';
+import { showMessage } from './showMessage';
 
-import type { IShowToasterInstance, IShowToasterProps } from './ShowToaster';
+import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IPortalManager } from '../../hocs';
+import type { IButtonProps, ISizableTextProps } from '../../primitives';
 
 export interface IToastProps {
   title: string;
@@ -20,6 +22,7 @@ export interface IToastProps {
    * Duration in seconds.
    */
   duration?: number;
+  actionsProps?: IButtonProps;
 }
 
 export interface IToastBaseProps extends IToastProps {
@@ -34,36 +37,121 @@ export interface IToastBaseProps extends IToastProps {
 }
 
 const iconMap = {
-  success: {
-    ios: {
-      name: 'checkmark.circle.fill',
-      color: getTokens().color.iconSuccessLight.val,
-    },
-    web: <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />,
-  },
-  error: {
-    ios: {
-      name: 'x.circle.fill',
-      color: getTokens().color.iconCriticalLight.val,
-    },
-    web: <Icon name="XCircleSolid" color="$iconCritical" size="$5" />,
-  },
+  success: <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />,
+  error: <Icon name="XCircleSolid" color="$iconCritical" size="$5" />,
 };
 
-function burntToast({
+const RenderLines = ({
+  icon,
+  size,
+  children: text,
+  hasMessage = false,
+}: {
+  children?: string;
+  size: ISizableTextProps['size'];
+  icon?: JSX.Element;
+  hasMessage?: boolean;
+}) => {
+  if (!text) {
+    return null;
+  }
+  const lines = text?.split('\n') || [];
+  return lines.length > 0 ? (
+    <YStack>
+      {lines.map((v, index) =>
+        index === 0 ? (
+          <XStack
+            $platform-native={{
+              justifyContent: hasMessage ? 'flex-start' : 'center',
+            }}
+            alignItems="center"
+            key={index}
+            space="$1.5"
+          >
+            {icon}
+            <SizableText selectable={false} size={size} wordWrap="break-word">
+              {v}
+            </SizableText>
+          </XStack>
+        ) : (
+          <SizableText
+            selectable={false}
+            $platform-native={{
+              textAlign: 'center',
+            }}
+            size={size}
+            wordWrap="break-word"
+            width="100%"
+            key={index}
+          >
+            {v}
+          </SizableText>
+        ),
+      )}
+    </YStack>
+  ) : (
+    icon
+  );
+};
+
+function Title({
   title,
   message,
-  duration,
+  icon,
+  maxWidth,
+  actionsProps,
+}: {
+  title: string;
+  message?: string;
+  maxWidth?: number;
+  icon?: JSX.Element;
+  actionsProps?: IToastProps['actionsProps'];
+}) {
+  const { height } = useWindowDimensions();
+  return (
+    <YStack
+      flex={1}
+      maxWidth={maxWidth}
+      maxHeight={height - 100}
+      $platform-native={{
+        maxHeight: height - 200,
+      }}
+      $platform-web={{
+        overflow: 'hidden',
+      }}
+    >
+      <YStack>
+        <RenderLines size="$headingSm" icon={icon} hasMessage={!!message}>
+          {title}
+        </RenderLines>
+        <RenderLines size="$bodySm">{message}</RenderLines>
+        {actionsProps ? <Button {...actionsProps} /> : null}
+      </YStack>
+    </YStack>
+  );
+}
+
+function toastMessage({
+  title,
+  message,
+  duration = 5000,
   haptic,
   preset = 'custom',
+  actionsProps,
 }: IToastBaseProps) {
-  toast({
-    title,
-    message,
+  showMessage({
+    renderContent: (props) => (
+      <Title
+        title={title}
+        maxWidth={props?.width}
+        message={message}
+        icon={iconMap[haptic as keyof typeof iconMap]}
+        actionsProps={actionsProps}
+      />
+    ),
     duration,
     haptic,
     preset,
-    icon: iconMap[haptic as keyof typeof iconMap],
   });
 }
 
@@ -74,14 +162,15 @@ export type IToastShowResult = {
 };
 export const Toast = {
   success: (props: IToastProps) => {
-    burntToast({ haptic: 'success', ...props });
+    toastMessage({ haptic: 'success', ...props });
   },
   error: (props: IToastProps) => {
-    burntToast({ haptic: 'error', ...props });
+    toastMessage({ haptic: 'error', ...props });
   },
   message: (props: IToastProps) => {
-    burntToast({ haptic: 'warning', preset: 'none', ...props });
+    toastMessage({ haptic: 'warning', preset: 'none', ...props });
   },
+  /* show custom view on Toast */
   show: ({
     onClose,
     children,
@@ -113,9 +202,9 @@ export const Toast = {
     portalRef = {
       current: Portal.Render(
         Portal.Constant.TOASTER_OVERLAY_PORTAL,
-        <ShowToaster ref={instanceRef} onClose={handleClose} {...others}>
+        <ShowCustom ref={instanceRef} onClose={handleClose} {...others}>
           {children}
-        </ShowToaster>,
+        </ShowCustom>,
       ),
     };
     const r: IToastShowResult = {
@@ -127,8 +216,8 @@ export const Toast = {
   Close: ShowToasterClose,
 };
 
-export { useToaster } from './ShowToaster';
-export type { IShowToasterProps } from './ShowToaster';
+export { useToaster } from './ShowCustom';
+export type { IShowToasterProps } from './ShowCustom';
 
 export function ShowToastProvider() {
   return (

@@ -10,6 +10,7 @@ import type {
   IAprItem,
   IAprToken,
   ILidoEthOverview,
+  ILidoHistoryItem,
   ILidoMaticOverview,
   IServerEvmTransaction,
   IStakeTag,
@@ -59,6 +60,26 @@ class ServiceStaking extends ServiceBase {
     const resp = await client.get<{
       data: ILidoEthOverview;
     }>(`/earn/v1/lido-eth/overview`, { params: { accountAddress, networkId } });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async getLidoEthHistory({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: ILidoHistoryItem[];
+    }>(`/earn/v1/lido-eth/history`, { params: { accountAddress, networkId } });
     return resp.data.data;
   }
 
@@ -169,6 +190,28 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getLidoMaticHistory({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: ILidoHistoryItem[];
+    }>(`/earn/v1/lido-matic/history`, {
+      params: { accountAddress, networkId },
+    });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
   public async buildLidoMaticStakingTransaction({
     amount,
     networkId,
@@ -248,10 +291,22 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     stakeTag: IStakeTag;
   }) {
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+    ]);
+
     const pendingTxs =
       await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs({
         networkId,
-        accountId,
+        accountAddress,
+        xpub,
       });
     const stakingTxs = pendingTxs.filter(
       (o) => o.stakingInfo && o.stakingInfo.tags.includes(stakeTag),

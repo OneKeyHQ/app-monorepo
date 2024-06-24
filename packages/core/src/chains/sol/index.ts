@@ -1,9 +1,13 @@
+import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { CoreChainScopeBase } from '../../base/CoreChainScopeBase';
 
 import type CoreChainHd from './CoreChainHd';
 import type CoreChainImported from './CoreChainImported';
 
 export default class extends CoreChainScopeBase {
+  override impl = IMPL_SOL;
+
   override hd: CoreChainHd = this._createApiProxy('hd') as CoreChainHd;
 
   protected override _hd = async () => (await import('./CoreChainHd')).default;

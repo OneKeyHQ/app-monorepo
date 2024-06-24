@@ -31,6 +31,7 @@ import {
   firmwareUpdateWorkflowRunningAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
+  v4migrationAtom,
 } from '../../states/jotai/atoms';
 import {
   passwordAtom,
@@ -181,10 +182,13 @@ export default class ServicePassword extends ServiceBase {
   // biologyAuth&WebAuth ------------------------------
   async saveBiologyAuthPassword(password: string): Promise<void> {
     ensureSensitiveTextEncoded(password);
-    const { isSupport } = await passwordBiologyAuthInfoAtom.get();
-    if (isSupport) {
-      await biologyAuthUtils.savePassword(password);
-    }
+    /* The password also needs to be stored when the system closes the fingerprint identification, 
+       so that the user can open the system fingerprint identification later
+    */
+    // const { isSupport } = await passwordBiologyAuthInfoAtom.get();
+    // if (isSupport) {
+    await biologyAuthUtils.savePassword(password);
+    // }
   }
 
   async deleteBiologyAuthPassword(): Promise<void> {
@@ -364,6 +368,17 @@ export default class ServicePassword extends ServiceBase {
   async promptPasswordVerify(options?: {
     reason?: EReasonForNeedPassword;
   }): Promise<IPasswordRes> {
+    const v4migrationData = await v4migrationAtom.get();
+    if (v4migrationData?.isProcessing) {
+      const v4migrationPassword =
+        await this.backgroundApi.serviceV4Migration.getMigrationPassword();
+      if (v4migrationPassword) {
+        return {
+          password: v4migrationPassword,
+        };
+      }
+    }
+
     const { reason } = options || {};
     // check ext ui open
     if (
@@ -503,6 +518,14 @@ export default class ServicePassword extends ServiceBase {
   async lockApp() {
     const isRunning = await firmwareUpdateWorkflowRunningAtom.get();
     if (isRunning) {
+      return;
+    }
+
+    const v4migrationData = await v4migrationAtom.get();
+    if (
+      v4migrationData?.isProcessing ||
+      v4migrationData?.isMigrationModalOpen
+    ) {
       return;
     }
 

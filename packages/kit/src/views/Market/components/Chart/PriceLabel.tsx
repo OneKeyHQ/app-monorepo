@@ -1,12 +1,11 @@
-// import BigNumber from 'bignumber.js';
-
 import {
   NumberSizeableText,
   SizableText,
+  Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import type { IStackProps } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 type IPriceLabelProps = {
   price: number | null;
@@ -15,7 +14,7 @@ type IPriceLabelProps = {
   opacity: IStackProps['opacity'];
 };
 
-// function formatMarketValueForFiexd(value?: number, fractionDigits?: number) {
+// function formatMarketValueForFixed(value?: number, fractionDigits?: number) {
 //   if (value) {
 //     // const resValue = fractionDigits
 //     //   ? value.toFixed(fractionDigits).replace(/0+$/g, '')
@@ -34,15 +33,15 @@ type IPriceLabelProps = {
 // }
 
 // function formatDecimalZero(value: number) {
-//   if (value >= 1) return formatMarketValueForFiexd(value);
+//   if (value >= 1) return formatMarketValueForFixed(value);
 //   const noRexponentail = parseExponential(value);
 //   const effectIndex = noRexponentail.toString().search(/[^-.0]/g);
 //   const zeroCount = effectIndex - 2;
-//   const fiexdValue = formatMarketValueForFiexd(value, 3 + zeroCount);
+//   const fixedValue = formatMarketValueForFixed(value, 3 + zeroCount);
 //   if (zeroCount >= 3) {
-//     return `0.{${zeroCount}}${fiexdValue.toString().substring(effectIndex)}`;
+//     return `0.{${zeroCount}}${fixedValue.toString().substring(effectIndex)}`;
 //   }
-//   return fiexdValue;
+//   return fixedValue;
 // }
 
 // function calculateGains({
@@ -113,7 +112,11 @@ export function PriceLabel({
     // });
     displayInfo = (
       <>
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          $md={{ size: '$bodySm', color: '$text' }}
+        >
           {time}
         </SizableText>
         {/* <SizableText size="$bodyMdMedium" color={gainTextColor}>
@@ -130,16 +133,25 @@ export function PriceLabel({
   //   );
   // }
   // const { selectedFiatMoneySymbol } = useSettings();
+
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
   return (
-    <YStack opacity={opacity}>
+    <Stack
+      opacity={opacity}
+      flexDirection="column"
+      $md={{ flexDirection: 'row', pt: '$6' }}
+      $gtMd={{ height: '$10' }}
+    >
       <XStack>{displayInfo}</XStack>
       <NumberSizeableText
         size="$bodyMdMedium"
         formatter="price"
-        formatterOptions={{ currency: '$' }}
+        formatterOptions={{ currency }}
+        $md={{ size: '$bodySmMedium', ml: '$2' }}
       >
         {String(price)}
       </NumberSizeableText>
-    </YStack>
+    </Stack>
   );
 }

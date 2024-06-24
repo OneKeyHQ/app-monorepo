@@ -1,5 +1,6 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { Toast } from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
@@ -19,6 +20,10 @@ if (platformEnv.isRuntimeBrowser) {
   window._frameTimestamp = null;
 }
 
+if (process.env.NODE_ENV !== 'production') {
+  global.$$Toast = Toast;
+}
+
 const LastActivityTracker = LazyLoad(
   () => import('../components/LastActivityTracker'),
   3000,
@@ -30,17 +35,17 @@ export function KitProvider() {
   useDebugComponentRemountLog({ name: 'KitProvider' });
   return (
     <GlobalJotaiReady>
-      <ThemeProvider>
-        <SplashProvider>
-          <GestureHandlerRootView style={flexStyle}>
+      <GestureHandlerRootView style={flexStyle}>
+        <ThemeProvider>
+          <SplashProvider>
             <Container />
-          </GestureHandlerRootView>
-        </SplashProvider>
-        <PasswordVerifyPromptMount />
-        <WebViewWebEmbedProvider />
-        <LastActivityTracker />
-        <InAppNotification />
-      </ThemeProvider>
+          </SplashProvider>
+          <PasswordVerifyPromptMount />
+          <WebViewWebEmbedProvider />
+          <LastActivityTracker />
+          <InAppNotification />
+        </ThemeProvider>
+      </GestureHandlerRootView>
     </GlobalJotaiReady>
   );
 }

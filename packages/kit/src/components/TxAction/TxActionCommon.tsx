@@ -11,9 +11,13 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
-import { Container } from '../Container';
+import {
+  InfoItem,
+  InfoItemGroup,
+} from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import { Token } from '../Token';
 
 import type {
@@ -89,7 +93,7 @@ function TxActionCommonDescription({
         />
       ) : null}
       <SizableText size="$bodyMd" color="$textSubdued">
-        {description?.children || '-'}
+        {description?.children}
       </SizableText>
     </XStack>
   );
@@ -135,10 +139,14 @@ function TxActionCommonFee({
 }: Pick<ITxActionCommonListViewProps, 'fee' | 'feeFiatValue' | 'feeSymbol'> & {
   currencySymbol: string;
 }) {
+  const intl = useIntl();
+
   return (
     <Stack flexGrow={1} flexBasis={0}>
       <SizableText size="$bodyMd" color="$textSubdued">
-        Gas Fee
+        {intl.formatMessage({
+          id: ETranslations.swap_history_detail_network_fee,
+        })}
       </SizableText>
       <XStack alignItems="center" space="$1">
         <NumberSizeableText
@@ -177,9 +185,10 @@ function TxActionCommonListView(
     pending,
     tableLayout,
     showIcon,
+    hideFeeInfo,
     ...rest
   } = props;
-
+  const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
 
@@ -213,9 +222,11 @@ function TxActionCommonListView(
                       hideSeconds: true,
                     })}
                   </SizableText>
-                  <SizableText size="$bodyMd" color="$textSubdued" mx="$1">
-                    •
-                  </SizableText>
+                  {description && description.children ? (
+                    <SizableText size="$bodyMd" color="$textSubdued" mx="$1">
+                      •
+                    </SizableText>
+                  ) : null}
                 </>
               ) : null}
               <TxActionCommonDescription
@@ -246,7 +257,7 @@ function TxActionCommonListView(
             changeDescription
           )}
         </Stack>
-        {tableLayout ? (
+        {tableLayout && !hideFeeInfo ? (
           <TxActionCommonFee
             fee={fee}
             feeFiatValue={feeFiatValue}
@@ -260,9 +271,11 @@ function TxActionCommonListView(
       {pending ? (
         <XStack pl={52} space="$3">
           <Button size="small" variant="primary">
-            Speed Up
+            {intl.formatMessage({ id: ETranslations.global_speed_up })}
           </Button>
-          <Button size="small">Cancel</Button>
+          <Button size="small">
+            {intl.formatMessage({ id: ETranslations.global_cancel })}
+          </Button>
         </XStack>
       ) : null}
     </ListItem>
@@ -273,37 +286,44 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
   const { overview, target, source } = props;
   const intl = useIntl();
   return (
-    <Container.Box>
-      <Container.Item
-        title={overview.title}
-        content={
-          <XStack alignItems="center" space="$1" flex={1}>
+    <InfoItemGroup>
+      <InfoItem
+        label={overview.title}
+        renderContent={
+          <XStack alignItems="center" space="$3" minWidth={0}>
             <Token
-              size="md"
               isNFT={overview.avatar?.isNFT}
               tokenImageUri={overview.avatar?.src}
             />
-            <SizableText size="$headingLg" flex={1} numberOfLines={2}>
+            <SizableText minWidth={0} maxWidth="$96" size="$bodyLgMedium">
               {overview.content}
             </SizableText>
           </XStack>
         }
       />
-      {target && target.content ? (
-        <Container.Item
-          title={target.title ?? intl.formatMessage({ id: 'content__to' })}
-          content={target.content}
-          description={target.description}
+
+      {source && source.content ? (
+        <InfoItem
+          label={
+            source.title ??
+            intl.formatMessage({ id: ETranslations.content__from })
+          }
+          renderContent={source.content}
+          description={source.description?.content}
         />
       ) : null}
 
-      {source && source.content ? (
-        <Container.Item
-          title={source.title ?? intl.formatMessage({ id: 'content__from' })}
-          content={source.content}
+      {target && target.content ? (
+        <InfoItem
+          label={
+            target.title ??
+            intl.formatMessage({ id: ETranslations.content__to })
+          }
+          renderContent={target.content}
+          description={target.description?.content}
         />
       ) : null}
-    </Container.Box>
+    </InfoItemGroup>
   );
 }
 

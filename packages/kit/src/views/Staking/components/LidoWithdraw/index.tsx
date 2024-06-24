@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Alert,
@@ -16,13 +17,17 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { LIDO_LOGO_URI } from '../../utils/const';
+import { ValuePriceListItem } from '../ValuePriceListItem';
+
+const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 
 type ILidoWithdrawProps = {
   balance: string;
   price: string;
-  tokenImageUri: string;
+  tokenImageUri?: string;
   tokenSymbol: string;
   receivingTokenSymbol: string;
   rate?: string;
@@ -109,30 +114,20 @@ export const LidoWithdraw = ({
       .dividedBy(rate)
       .toFixed();
     return (
-      <XStack space="$1">
-        <SizableText>
-          <NumberSizeableText
-            formatter="balance"
-            formatterOptions={{ tokenSymbol: receivingTokenSymbol }}
-          >
-            {receivingAmount}
-          </NumberSizeableText>
-          (
-          <NumberSizeableText
-            formatter="value"
-            formatterOptions={{ currency: symbol }}
-          >
-            {receivingValue}
-          </NumberSizeableText>
-          )
-        </SizableText>
-      </XStack>
+      <ValuePriceListItem
+        amount={receivingAmount}
+        fiatSymbol={symbol}
+        fiatValue={receivingValue}
+        tokenSymbol={receivingTokenSymbol}
+      />
     );
   }, [amountValue, price, symbol, receivingTokenSymbol, rate]);
-
+  const intl = useIntl();
   return (
     <Page>
-      <Page.Header title="Redeem" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.earn_redeem })}
+      />
       <Page.Body>
         <YStack>
           <Stack mx="$2" px="$3" space="$5">
@@ -162,29 +157,41 @@ export const LidoWithdraw = ({
                 <Alert
                   icon="InfoCircleOutline"
                   type="critical"
-                  title={`The minimum amount for this staking is ${minAmount} ETH.`}
+                  title={intl.formatMessage(
+                    { id: ETranslations.earn_minimum_amount },
+                    { number: `${minAmount} ${tokenSymbol}` },
+                  )}
                 />
               ) : null}
               {isInsufficientBalance ? (
                 <Alert
                   icon="InfoCircleOutline"
                   type="critical"
-                  title="Insufficient staked balance."
+                  title={intl.formatMessage({
+                    id: ETranslations.earn_insufficient_staked_balance,
+                  })}
                 />
               ) : null}
             </YStack>
           </Stack>
           <YStack>
             {receiving ? (
-              <ListItem title="Receive" titleProps={{ color: '$textSubdued' }}>
+              <ListItem
+                title={intl.formatMessage({ id: ETranslations.earn_receive })}
+                titleProps={fieldTitleProps}
+              >
                 {receiving}
               </ListItem>
             ) : null}
             {amountValue ? (
-              <ListItem title="Pay with" titleProps={{ color: '$textSubdued' }}>
+              <ListItem
+                title={intl.formatMessage({ id: ETranslations.earn_pay_with })}
+                titleProps={fieldTitleProps}
+              >
                 <SizableText>
                   <NumberSizeableText
                     formatter="balance"
+                    size="$bodyLgMedium"
                     formatterOptions={{ tokenSymbol }}
                   >
                     {amountValue}
@@ -192,23 +199,33 @@ export const LidoWithdraw = ({
                 </SizableText>
               </ListItem>
             ) : null}
-            <ListItem title="Protocol" titleProps={{ color: '$textSubdued' }}>
+            <ListItem
+              title={intl.formatMessage({ id: ETranslations.global_protocol })}
+              titleProps={fieldTitleProps}
+            >
               <XStack space="$2" alignItems="center">
-                <Token size="sm" tokenImageUri={LIDO_LOGO_URI} />
-                <SizableText size="$bodyMdMedium">Lido</SizableText>
+                <Token size="xs" tokenImageUri={LIDO_LOGO_URI} />
+                <SizableText size="$bodyLgMedium">Lido</SizableText>
               </XStack>
             </ListItem>
             <ListItem
-              title="Stake Release Period"
-              titleProps={{ color: '$textSubdued' }}
+              title={intl.formatMessage({
+                id: ETranslations.earn_stake_release_period,
+              })}
+              titleProps={fieldTitleProps}
             >
-              <ListItem.Text primary="< 4 Days" />
+              <ListItem.Text
+                primary={intl.formatMessage(
+                  { id: ETranslations.earn_less_than_number_days },
+                  { number: 4 },
+                )}
+              />
             </ListItem>
           </YStack>
         </YStack>
       </Page.Body>
       <Page.Footer
-        onConfirmText="Redeem"
+        onConfirmText={intl.formatMessage({ id: ETranslations.earn_redeem })}
         confirmButtonProps={{
           onPress,
           loading,

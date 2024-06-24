@@ -19,6 +19,8 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -44,10 +46,9 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 
-import type { IDBWalletType } from '../../../dbs/local/types';
+import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
@@ -66,9 +67,9 @@ import type {
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.nexa.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -219,10 +220,8 @@ export default class Vault extends VaultBase {
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
+      xpub: (account as IDBUtxoAccount).xpub,
       extraInfo: null,
-      payload: {
-        type: EOnChainHistoryTxType.Send,
-      },
       encodedTx,
       // totalFeeInNative,
       nativeAmount: sendNativeTokenAmountBN.toFixed(),
@@ -333,7 +332,11 @@ export default class Vault extends VaultBase {
             withUTXOList: true,
           });
         if (!utxos || isEmpty(utxos)) {
-          throw new OneKeyInternalError('Failed to get UTXO list.');
+          throw new OneKeyInternalError(
+            appLocale.intl.formatMessage({
+              id: ETranslations.feedback_failed_to_get_utxos,
+            }),
+          );
         }
 
         return utxos.map((utxo) => ({
@@ -343,7 +346,11 @@ export default class Vault extends VaultBase {
           address,
         }));
       } catch (e) {
-        throw new OneKeyInternalError('Failed to get UTXO list.');
+        throw new OneKeyInternalError(
+          appLocale.intl.formatMessage({
+            id: ETranslations.feedback_failed_to_get_utxos,
+          }),
+        );
       }
     },
     {

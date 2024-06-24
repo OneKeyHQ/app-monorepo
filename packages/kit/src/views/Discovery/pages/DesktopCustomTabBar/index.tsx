@@ -1,6 +1,16 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Divider, ScrollView, Stack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  Button,
+  Divider,
+  Icon,
+  ScrollView,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -17,6 +27,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -37,6 +48,7 @@ import type {
 
 const ITEM_HEIGHT = 32;
 function DesktopCustomTabBar() {
+  const intl = useIntl();
   // register desktop shortcuts for browser tab
   useShortcuts();
   // register desktop new window event
@@ -206,7 +218,7 @@ function DesktopCustomTabBar() {
   }, [pinContainerHeight, pinnedData.length]);
 
   return (
-    <Stack flex={1} onLayout={handleLayout}>
+    <Stack testID="sideabr-browser-section" flex={1} onLayout={handleLayout}>
       <HandleRebuildBrowserData />
       {/* Pin Tabs */}
       <Stack height={pinnedBarHeight}>
@@ -227,13 +239,49 @@ function DesktopCustomTabBar() {
           ))}
         </ScrollView>
       </Stack>
-      {pinnedData.length > 0 ? (
-        <Divider m="$1.5" testID="pin-tab-divider" />
-      ) : null}
+      <XStack group="sidebarBrowserDivider" alignItems="center" p="$1.5">
+        <Divider testID="pin-tab-divider" />
+        <XStack
+          position="absolute"
+          px="1"
+          group="sidebarClearButton"
+          alignItems="center"
+          userSelect="none"
+          right="$0"
+          top="50%"
+          bg="$bgSidebar"
+          opacity={0}
+          $group-sidebarBrowserDivider-hover={{
+            opacity: 1,
+          }}
+          style={{
+            containerType: 'normal',
+            transform: 'translateY(-50%)',
+          }}
+          onPress={closeAllWebTabs}
+        >
+          <Icon
+            flexShrink={0}
+            color="$iconSubdued"
+            name="ArrowBottomOutline"
+            size="$3"
+          />
+          <SizableText
+            pl="$1"
+            color="$textSubdued"
+            size="$bodySmMedium"
+            $group-sidebarClearButton-hover={{
+              color: '$text',
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_clear })}
+          </SizableText>
+        </XStack>
+      </XStack>
       {/* New Tab */}
       <DesktopTabItem
         key="AddTabButton"
-        label="New Tab"
+        label={intl.formatMessage({ id: ETranslations.explore_new_tab })}
         icon="PlusSmallOutline"
         testID="browser-bar-add"
         onPress={(e) => {

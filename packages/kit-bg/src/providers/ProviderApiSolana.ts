@@ -2,16 +2,13 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import bs58 from 'bs58';
+import { isArray } from 'lodash';
 import isString from 'lodash/isString';
 
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -67,8 +64,8 @@ class ProviderApiSolana extends ProviderApiBase {
     info.send(data, info.targetOrigin);
   }
 
-  public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
-    console.log(info);
+  public notifyDappChainChanged() {
+    // noop
   }
 
   @providerApiMethod()
@@ -118,15 +115,15 @@ class ProviderApiSolana extends ProviderApiBase {
     }
 
     const rawTx =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         accountId: accountId ?? '',
         networkId: networkId ?? '',
         request,
         encodedTx: params.message,
         signOnly: true,
-      })) as string;
+      });
     // Signed transaction is base64 encoded, inpage provider expects base58.
-    return bs58.encode(Buffer.from(rawTx, 'base64'));
+    return bs58.encode(Buffer.from(rawTx.rawTx, 'base64'));
   }
 
   @providerApiMethod()
@@ -134,8 +131,24 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: { message: string[] },
   ) {
-    // TODO: need request queue
-    throw new NotImplemented();
+    const { message: txsToBeSigned } = params;
+
+    if (
+      !isArray(txsToBeSigned) ||
+      txsToBeSigned.length === 0 ||
+      !txsToBeSigned.every(isString)
+    ) {
+      throw web3Errors.rpc.invalidInput();
+    }
+
+    console.log('solana signAllTransactions', request, params);
+
+    const ret: string[] = [];
+    for (const tx of txsToBeSigned) {
+      const signedTx = await this.signTransaction(request, { message: tx });
+      ret.push(signedTx);
+    }
+    return ret;
   }
 
   @providerApiMethod()
@@ -154,16 +167,16 @@ class ProviderApiSolana extends ProviderApiBase {
     )[0];
 
     const txid =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         accountId: accountId ?? '',
         networkId: networkId ?? '',
         request,
         encodedTx: message,
         signOnly: false,
-      })) as string;
+      });
     console.log('solana signTransaction', request, params);
     return {
-      signature: txid,
+      signature: txid.txid,
       publicKey: address ?? '',
     };
   }

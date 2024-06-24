@@ -1,7 +1,13 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
-import { Button, Dialog, Page, YStack } from '@onekeyhq/components';
+import { Button, Dialog, Input, Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
+
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 
 const SignMessageButton = () => {
   const ref = useRef<number>(0);
@@ -42,7 +48,7 @@ const SignTransactionButton = () => {
           hash: '0x866c4749db18695e4359f4e3f121a835d7715638315427e5521bcd078724d0d1',
           address: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
           data: {
-            type: 'send',
+            type: ETransactionType.SEND,
             amount: '100000',
             token: {
               name: 'USD Coin',
@@ -84,14 +90,60 @@ const ConnectSiteButton = () => {
   return <Button onPress={onPress}>Connected Site</Button>;
 };
 
-const DevHomeStack2 = () => (
-  <Page>
-    <YStack px="$4" space="$4">
-      <SignMessageButton />
-      <SignTransactionButton />
-      <ConnectSiteButton />
+const CustomSignMessage = ({ num }: { num: number }) => {
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num });
+  const onPress = useCallback(async () => {
+    if (account && network) {
+      try {
+        setLoading(true);
+        await backgroundApiProxy.serviceDApp.openSignMessageModal({
+          accountId: account.id,
+          networkId: network.id,
+          request: { origin: 'https://www.onekey.so', scope: 'ethereum' },
+          unsignedMessage: {
+            type: EMessageTypesEth.PERSONAL_SIGN,
+            message,
+          },
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+  }, [message, account, network]);
+  return (
+    <YStack space="$4">
+      <Input value={message} onChangeText={setMessage} placeholder="message" />
+      <Button onPress={onPress} loading={loading} disabled={!message.trim()}>
+        Sign Message
+      </Button>
     </YStack>
-  </Page>
-);
+  );
+};
+
+const DevHomeStack2 = () => {
+  const num = 1;
+  return (
+    <Page>
+      <YStack px="$4" space="$4">
+        <SignMessageButton />
+        <SignTransactionButton />
+        <ConnectSiteButton />
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName: EAccountSelectorSceneName.home,
+            sceneUrl: '',
+          }}
+          enabledNum={[num]}
+        >
+          <CustomSignMessage num={num} />
+        </AccountSelectorProviderMirror>
+      </YStack>
+    </Page>
+  );
+};
 
 export default DevHomeStack2;

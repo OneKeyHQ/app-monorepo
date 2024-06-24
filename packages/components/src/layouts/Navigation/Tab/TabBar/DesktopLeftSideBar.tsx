@@ -21,6 +21,7 @@ import {
   YStack,
 } from '@onekeyhq/components/src/primitives';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -98,7 +99,7 @@ function DownloadButton(props: IXStackProps) {
       {...props}
     >
       <SizableText size="$bodyMdMedium" flex={1}>
-        {intl.formatMessage({ id: 'action__download' })}
+        {intl.formatMessage({ id: ETranslations.global_download })}
       </SizableText>
       <XStack space="$1">
         <Icon name="AppleBrand" color="$iconSubdued" size="$5" />
@@ -209,16 +210,10 @@ export function DesktopLeftSideBar({
         <DesktopDragZoneAbsoluteBar
           position="relative"
           testID="Desktop-AppSideBar-DragZone"
+          h="$10"
         />
       ) : null}
-      <YStack
-        flex={1}
-        testID="Desktop-AppSideBar-Content-Container"
-        // Need to replaced by HeaderHeightContext
-        $platform-web={{
-          h: platformEnv.isDesktopMac ? 'calc(100vh - 64px)' : '100vh',
-        }}
-      >
+      <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
         <OneKeyLogo />
         <YStack flex={1} p="$3">
           {tabs}

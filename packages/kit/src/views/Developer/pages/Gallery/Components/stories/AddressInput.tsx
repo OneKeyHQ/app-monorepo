@@ -15,6 +15,7 @@ import {
   AddressInput,
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Layout } from './utils/Layout';
@@ -50,7 +51,7 @@ const Demo1 = () => {
               if (!value.resolved) {
                 return (
                   value.validateError?.message ??
-                  intl.formatMessage({ id: 'form__address_invalid' })
+                  intl.formatMessage({ id: ETranslations.send_address_invalid })
                 );
               }
               return undefined;
@@ -120,10 +121,7 @@ const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
                   return;
                 }
                 if (!value.resolved) {
-                  return (
-                    value.validateError?.message ??
-                    intl.formatMessage({ id: 'form__address_invalid' })
-                  );
+                  return value.validateError?.message ?? 'Incorrect address.';
                 }
                 return undefined;
               },

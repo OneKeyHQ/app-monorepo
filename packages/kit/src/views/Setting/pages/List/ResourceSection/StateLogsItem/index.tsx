@@ -2,33 +2,60 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, SizableText, useClipboard } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { exportLogs } from './logs';
 
 export const StateLogsItem = () => {
   const intl = useIntl();
+  const { copyText } = useClipboard();
   const onPress = useCallback(() => {
     Dialog.show({
-      title: 'Export State Logs',
-      description:
-        'This will help OneKey support debug any issue you might encounter. Please send to hi@onekey.so or OneKey support only.',
+      title: intl.formatMessage({
+        id: ETranslations.settings_export_state_logs,
+      }),
+      renderContent: (
+        <SizableText>
+          <SizableText size="$bodyLg">
+            {intl.formatMessage(
+              {
+                id: ETranslations.settings_export_state_logs_desc,
+              },
+              {
+                email: (
+                  <SizableText
+                    size="$bodyLg"
+                    textDecorationLine="underline"
+                    onPress={() => copyText('hi@onekey.so')}
+                  >
+                    hi@onekey.so
+                  </SizableText>
+                ),
+              },
+            )}
+          </SizableText>
+        </SizableText>
+      ),
       confirmButtonProps: {
         variant: 'primary',
       },
-      onConfirmText: 'Export',
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_export }),
       onConfirm: () => {
         const str = new Date().toISOString().replace(/[-:.]/g, '');
         void exportLogs(`OneKeyLogs-${str}`);
       },
     });
-  }, []);
+  }, [copyText, intl]);
   return (
     <ListItem
       icon="FileDownloadOutline"
       onPress={onPress}
-      title={intl.formatMessage({ id: 'content__state_logs' })}
+      title={intl.formatMessage({
+        id: ETranslations.settings_export_state_logs,
+      })}
+      drillIn
     />
   );
 };

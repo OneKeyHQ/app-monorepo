@@ -10,6 +10,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
@@ -19,6 +21,7 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import type { IHardwareUiPayload } from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
 export type IWithHardwareProcessingOptions = {
@@ -109,7 +112,13 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async showEnterPinOnDeviceDialog({ connectId }: { connectId: string }) {
+  async showEnterPinOnDeviceDialog({
+    connectId,
+    payload,
+  }: {
+    connectId: string;
+    payload: IHardwareUiPayload | undefined;
+  }) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
     await this.sendUiResponse({
@@ -119,7 +128,7 @@ class ServiceHardwareUI extends ServiceBase {
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.EnterPinOnDevice,
       connectId,
-      payload: undefined,
+      payload,
     });
   }
 
@@ -181,7 +190,11 @@ class ServiceHardwareUI extends ServiceBase {
       isMutexLocked =
         this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
       if (isMutexLocked) {
-        throw new Error('Hardware is busy, please try again later.');
+        throw new Error(
+          appLocale.intl.formatMessage({
+            id: ETranslations.feedback_hardware_is_busy,
+          }),
+        );
       }
     }
 

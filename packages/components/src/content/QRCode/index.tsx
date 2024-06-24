@@ -90,7 +90,7 @@ const transformMatrixIntoPath = (matrix: number[][], size: number) => {
 };
 
 function BasicQRCode({
-  ecl = 'M',
+  ecl = 'H',
   logo,
   logoSvg,
   logoBackgroundColor: logoBGColor = 'bgApp',
@@ -100,7 +100,7 @@ function BasicQRCode({
   size,
   value,
   quietZone = 0,
-  drawType = 'dot',
+  drawType = 'line',
   enableLinearGradient = false,
   gradientDirection = ['0%', '0%', '100%', '100%'],
   linearGradient = ['rgb(255,0,0)', 'rgb(0,255,255)'],
@@ -238,13 +238,14 @@ function BasicQRCode({
       </Defs>
       <Rect fill={secondaryColor} height={size} width={size} />
       {result}
-      {drawType === 'dot' && (logo || logoSvg) ? (
+      {logo || logoSvg ? (
         <G x={logoPosition} y={logoPosition}>
           <Rect
             clipPath="url(#clip-wrapper)"
             fill={logoBackgroundColor}
             height={logoWrapperSize}
             width={logoWrapperSize}
+            rx={drawType === 'line' ? 9999 : undefined}
           />
           <G x={logoMargin} y={logoMargin}>
             {logo ? (
@@ -290,11 +291,15 @@ export function QRCode({
       if (!valueUr) {
         throw new Error('valueUr is required for animated QRCode');
       }
-      const { nextPart } = airGapUrUtils.createAnimatedUREncoder({
+      const { nextPart, encodeWhole } = airGapUrUtils.createAnimatedUREncoder({
         ur: valueUr,
         maxFragmentLength: 100,
         firstSeqNum: 0,
       });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('QRCode >>>> encodeWhole', encodeWhole());
+        console.log(`\n\n ${encodeWhole().join('\n\n').toUpperCase()} \n\n`);
+      }
       // const urEncoder = new UREncoder(UR.fromBuffer(Buffer.from(value)));
       timerId = setInterval(() => {
         const part = nextPart();

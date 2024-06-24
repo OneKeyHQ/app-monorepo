@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import { Empty, ListView, Page, SizableText } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -9,7 +10,8 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMetaDataObject } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
-import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ECloudBackupRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { ICloudBackupParamList } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -17,6 +19,7 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { RouteProp } from '@react-navigation/core';
 
 export default function List() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const route =
     useRoute<
@@ -34,9 +37,15 @@ export default function List() {
     return backupList.map((item) => ({
       ...item,
       title: formatDate(new Date(item.backupTime)),
-      detail: `${item.walletCount} Wallets · ${item.accountCount} Accounts`,
+      detail: intl.formatMessage(
+        { id: ETranslations.backup_number_wallets_number_accounts },
+        {
+          number0: item.walletCount,
+          number1: item.accountCount,
+        },
+      ),
     }));
-  }, [deviceInfo]);
+  }, [intl, deviceInfo]);
   const isFocused = useIsFocused();
   useEffect(() => {
     if (isFocused) {
@@ -75,18 +84,20 @@ export default function List() {
           estimatedItemSize="$16"
           ListFooterComponent={
             <SizableText size="$bodySm" color="$textSubdued" px="$5" pt="$3">
-              We'll securely store your most recent 30 daily backups plus the
-              last monthly backup for each of the past 24 months, ready for
-              restoration at any time.
+              {intl.formatMessage({
+                id: ETranslations.backup_securely_store_recent_backups,
+              })}
             </SizableText>
           }
           ListEmptyComponent={
             <Empty
               icon="SearchOutline"
-              title="No Data"
-              description={`You have no ${
-                backupPlatform().cloudName
-              } backups on this device`}
+              title={intl.formatMessage({ id: ETranslations.backup_no_data })}
+              description={intl.formatMessage({
+                id: platformEnv.isNativeAndroid
+                  ? ETranslations.backup_no_available_google_drive_backups_to_import
+                  : ETranslations.backup_no_available_icloud_backups_to_import,
+              })}
             />
           }
         />

@@ -1,11 +1,18 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { useMedia } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -22,19 +29,32 @@ export function HeaderRight({
 }: {
   sceneName: EAccountSelectorSceneName;
 }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const scanQrCode = useScanQrCode();
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
   const openSettingPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
     });
   }, [navigation]);
   const onScanButtonPressed = useCallback(
-    () => scanQrCode.start({ autoHandleResult: true, accountId: account?.id }),
-    [scanQrCode, account?.id],
+    () =>
+      scanQrCode.start({
+        handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
+        autoHandleResult: true,
+        account,
+        tokens: {
+          data: allTokens.tokens,
+          keys: allTokens.keys,
+          map,
+        },
+      }),
+    [scanQrCode, account, allTokens, map],
   );
 
   const openExtensionExpandTab = useCallback(async () => {
@@ -48,7 +68,7 @@ export function HeaderRight({
     const settingsButton = (
       <HeaderIconButton
         key="setting"
-        title="Settings"
+        title={intl.formatMessage({ id: ETranslations.settings_settings })}
         icon="SettingsOutline"
         testID="setting"
         onPress={openSettingPage}
@@ -57,7 +77,7 @@ export function HeaderRight({
     const expandExtView = (
       <HeaderIconButton
         key="expandExtView"
-        title="Expand View"
+        title={intl.formatMessage({ id: ETranslations.global_expand_view })}
         icon="CameraExposureSquareOutline"
         onPress={openExtensionExpandTab}
       />
@@ -65,7 +85,7 @@ export function HeaderRight({
     const scanButton = (
       <HeaderIconButton
         key="scan"
-        title="Scan"
+        title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
         icon="ScanOutline"
         onPress={onScanButtonPressed}
       />
@@ -89,6 +109,7 @@ export function HeaderRight({
 
     return [scanButton, settingsButton, searchInput];
   }, [
+    intl,
     media.gtMd,
     onScanButtonPressed,
     openExtensionExpandTab,

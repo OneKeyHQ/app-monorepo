@@ -23,9 +23,9 @@ module.exports = ({ basePath }) => ({
       overlay: false,
     },
     onBeforeSetupMiddleware: (devServer) => {
-      // proxy all requests with x-proxy header
+      // proxy all requests with x-onekey-dev-proxy header
       devServer.app.use((request, response, next) => {
-        const target = request.headers['x-proxy'];
+        const target = request.headers['x-onekey-dev-proxy'];
         if (target) {
           const proxyMiddleware = createProxyMiddleware({
             target,
@@ -34,7 +34,7 @@ module.exports = ({ basePath }) => ({
             logLevel: 'silent',
           });
           console.log(
-            `[X-Proxy] ${request.method} ${request.originalUrl} -> ${target}`,
+            `[X-OneKey-Dev-Proxy] ${request.method} ${request.originalUrl} -> ${target}`,
           );
           return proxyMiddleware(request, response, next);
         }

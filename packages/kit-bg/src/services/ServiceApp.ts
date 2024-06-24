@@ -25,7 +25,7 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  private restartApp() {
+  restartApp() {
     if (platformEnv.isNative) {
       return RNRestart.restart();
     }
@@ -45,6 +45,7 @@ class ServiceApp extends ServiceBase {
   async resetApp() {
     await localDb.reset();
     await appStorage.clear();
+    await this.backgroundApi.serviceDiscovery.clearDiscoveryPageData();
     this.restartApp();
   }
 

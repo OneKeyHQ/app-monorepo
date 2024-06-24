@@ -1,19 +1,24 @@
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useRef } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
-  Empty,
   SearchBar,
   SectionList,
-  SortableListView,
+  SortableSectionList,
   Stack,
 } from '@onekeyhq/components';
+import type { ISortableSectionListRef } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { filterNetwork } from '../BaseView';
+import { networkFuseSearch } from '../../utils';
+
+import type { IServerNetworkMatch } from '../../types';
 
 type IEditableViewContext = {
   isEditMode?: boolean;
@@ -32,7 +37,15 @@ const EditableViewContext = createContext<IEditableViewContext>({
 
 const CELL_HEIGHT = 48;
 
-const EditableViewListItem = ({ item }: { item: IServerNetwork }) => {
+const EditableViewListItem = ({
+  item,
+  sectionIndex,
+  drag,
+}: {
+  item: IServerNetworkMatch;
+  sectionIndex: number;
+  drag: () => void;
+}) => {
   const {
     isEditMode,
     networkId,
@@ -44,20 +57,12 @@ const EditableViewListItem = ({ item }: { item: IServerNetwork }) => {
   return (
     <ListItem
       title={item.name}
+      titleMatch={item.titleMatch}
       h={CELL_HEIGHT}
       renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
-      {!isEditMode && networkId === item.id ? (
-        <ListItem.CheckMark
-          key="checkmark"
-          enterStyle={{
-            opacity: 0,
-            scale: 0,
-          }}
-        />
-      ) : null}
-      {isEditMode ? (
+      {sectionIndex !== 0 && isEditMode ? (
         <ListItem.IconButton
           onPress={() => {
             if (topNetworkIds.has(item.id)) {
@@ -83,72 +88,29 @@ const EditableViewListItem = ({ item }: { item: IServerNetwork }) => {
           }}
         />
       ) : null}
+      {sectionIndex === 0 && networkId === item.id && !isEditMode ? (
+        <ListItem.CheckMark
+          key="checkmark"
+          enterStyle={{
+            opacity: 0,
+            scale: 0,
+          }}
+        />
+      ) : null}
+      {isEditMode && sectionIndex === 0 ? (
+        <ListItem.IconButton
+          key="darg"
+          animation="quick"
+          enterStyle={{
+            opacity: 0,
+            scale: 0,
+          }}
+          cursor="move"
+          icon="DragOutline"
+          onPressIn={drag}
+        />
+      ) : null}
     </ListItem>
-  );
-};
-
-const ListHeaderComponent = () => {
-  const {
-    setTopNetworks,
-    isEditMode,
-    topNetworks,
-    networkId,
-    searchText,
-    onPressItem,
-  } = useContext(EditableViewContext);
-  const networks = useMemo(
-    () => topNetworks.filter(filterNetwork(searchText?.trim() ?? '')),
-    [topNetworks, searchText],
-  );
-  if (searchText) {
-    return null;
-  }
-  return (
-    <SortableListView
-      data={networks}
-      enabled={isEditMode}
-      keyExtractor={(item) => `${item.id}`}
-      getItemLayout={(_, index) => ({
-        length: CELL_HEIGHT,
-        offset: index * CELL_HEIGHT,
-        index,
-      })}
-      renderItem={({ item, drag }) => (
-        <ListItem
-          h={CELL_HEIGHT}
-          renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
-          title={item.name}
-          onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
-        >
-          {isEditMode ? (
-            <ListItem.IconButton
-              key="darg"
-              animation="quick"
-              enterStyle={{
-                opacity: 0,
-                scale: 0,
-              }}
-              cursor="move"
-              icon="DragOutline"
-              onPressIn={drag}
-            />
-          ) : null}
-          {!isEditMode && networkId === item.id ? (
-            <ListItem.CheckMark
-              key="checkmark"
-              enterStyle={{
-                opacity: 0,
-                scale: 0,
-              }}
-            />
-          ) : null}
-        </ListItem>
-      )}
-      onDragEnd={(result) => setTopNetworks?.(result.data)}
-      scrollEnabled={false}
-      ListHeaderComponent={<Stack h="$2" />}
-      ListFooterComponent={<Stack h="$5" />} // Act as padding bottom
-    />
   );
 };
 
@@ -161,10 +123,6 @@ type IEditableViewProps = {
   onTopNetworksChange?: (networks: IServerNetwork[]) => void;
 };
 
-const ListEmptyComponent = () => (
-  <Empty icon="SearchOutline" title="No Results" />
-);
-
 export const EditableView: FC<IEditableViewProps> = ({
   allNetworks,
   onPressItem,
@@ -175,8 +133,10 @@ export const EditableView: FC<IEditableViewProps> = ({
 }) => {
   const [searchText, setSearchText] = useState('');
   const [topNetworks, setTopNetworks] = useState(defaultTopNetworks ?? []);
+  const intl = useIntl();
   const lastIsEditMode = usePrevious(isEditMode);
   const trimSearchText = searchText.trim();
+  const scrollView = useRef<ISortableSectionListRef>(null);
 
   useEffect(() => {
     if (!isEditMode && lastIsEditMode) {
@@ -190,9 +150,7 @@ export const EditableView: FC<IEditableViewProps> = ({
 
   const sections = useMemo<{ title?: string; data: IServerNetwork[] }[]>(() => {
     if (trimSearchText) {
-      const data = allNetworks.filter(
-        filterNetwork(trimSearchText.toLowerCase(), true),
-      );
+      const data = networkFuseSearch(allNetworks, trimSearchText);
       return data.length === 0
         ? []
         : [
@@ -210,10 +168,37 @@ export const EditableView: FC<IEditableViewProps> = ({
 
       return result;
     }, {} as Record<string, IServerNetwork[]>);
-    return Object.entries(data)
+    const sectionList = Object.entries(data)
       .map(([key, value]) => ({ title: key, data: value }))
       .sort((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
-  }, [allNetworks, trimSearchText]);
+    return [{ data: topNetworks }, ...sectionList];
+  }, [allNetworks, trimSearchText, topNetworks]);
+
+  const hasScrollToSelectedCell = useRef(false);
+  useEffect(() => {
+    if (sections.length <= 1 || hasScrollToSelectedCell.current) {
+      return;
+    }
+    let y = 0;
+    for (const section of sections) {
+      const index = section.data.findIndex((item) => item.id === networkId);
+      if (index !== -1) {
+        // eslint-disable-next-line @typescript-eslint/no-loop-func, no-loop-func
+        setTimeout(() => {
+          y += index * CELL_HEIGHT;
+          y -= section.title ? 20 : 0;
+          scrollView?.current?.scrollTo?.({
+            y,
+            animated: false,
+          });
+          hasScrollToSelectedCell.current = true;
+        });
+        break;
+      }
+      y += 36 + 20;
+      y += section.data.length * CELL_HEIGHT;
+    }
+  }, [defaultTopNetworks, sections, networkId]);
 
   const ctx = useMemo<IEditableViewContext>(
     () => ({
@@ -235,10 +220,22 @@ export const EditableView: FC<IEditableViewProps> = ({
     ],
   );
   const renderItem = useCallback(
-    ({ item }: { item: IServerNetwork }) => (
-      <EditableViewListItem item={item} />
+    ({
+      item,
+      section,
+      drag,
+    }: {
+      item: IServerNetwork;
+      section: { data: IServerNetwork[]; title: string };
+      drag: () => void;
+    }) => (
+      <EditableViewListItem
+        item={item}
+        sectionIndex={sections.findIndex((_section) => _section === section)}
+        drag={drag}
+      />
     ),
-    [],
+    [sections],
   );
 
   const renderSectionHeader = useCallback(
@@ -254,22 +251,30 @@ export const EditableView: FC<IEditableViewProps> = ({
   return (
     <EditableViewContext.Provider value={ctx}>
       <Stack flex={1}>
-        <Stack px="$4">
+        <Stack px="$5">
           <SearchBar
-            w="100%"
-            placeholder="Search"
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_search,
+            })}
             value={searchText}
             onChangeText={(text) => setSearchText(text.trim())}
           />
         </Stack>
         <Stack flex={1}>
-          <SectionList
-            ListHeaderComponent={ListHeaderComponent}
+          <SortableSectionList
+            // @ts-ignore
+            ref={scrollView}
+            enabled={isEditMode}
+            stickySectionHeadersEnabled
             sections={sections}
-            estimatedItemSize="$12"
             renderItem={renderItem}
             keyExtractor={(item) => (item as IServerNetwork).id}
-            ListEmptyComponent={ListEmptyComponent}
+            onDragEnd={(result) => setTopNetworks(result.sections[0].data)}
+            getItemLayout={(_, index) => ({
+              length: CELL_HEIGHT,
+              offset: index * CELL_HEIGHT,
+              index,
+            })}
             renderSectionHeader={renderSectionHeader}
             ListFooterComponent={<Stack h="$2" />} // Act as padding bottom
           />

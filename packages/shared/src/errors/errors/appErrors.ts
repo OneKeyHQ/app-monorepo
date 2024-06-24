@@ -1,6 +1,6 @@
 /* eslint max-classes-per-file: "off" */
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 // import type { LocaleKeyInfoMap } from '@onekeyhq/shared/src/localeKeyInfoMap';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
@@ -24,7 +24,7 @@ export class IncorrectPassword extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyError: IncorrectPassword',
-        defaultKey: 'form__password_invalid',
+        defaultKey: ETranslations.auth_error_password_incorrect,
       }),
     );
   }
@@ -35,7 +35,7 @@ export class NotImplemented extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyError: NotImplemented',
-        defaultKey: 'msg__engine__not_implemented',
+        defaultKey: ETranslations.send_engine_not_implemented,
       }),
     );
   }
@@ -82,7 +82,7 @@ export class OneKeyInternalError extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyError: InternalError',
-        defaultKey: 'msg__engine__internal_error',
+        defaultKey: ETranslations.send_engine_internal_error,
       }),
     );
   }
@@ -93,7 +93,7 @@ export class FailedToTransfer extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FailedToTransfer',
-        defaultKey: 'msg__engine__failed_to_transfer',
+        defaultKey: ETranslations.send_engine_failed_to_transfer,
       }),
     );
   }
@@ -104,7 +104,7 @@ export class WrongPassword extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'WrongPassword',
-        defaultKey: 'msg__engine__incorrect_password',
+        defaultKey: ETranslations.send_engine_incorrect_password,
         defaultAutoToast: true,
       }),
     );
@@ -116,7 +116,7 @@ export class PasswordNotSet extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordNotSet',
-        defaultKey: 'msg__engine__password_not_set' as any,
+        defaultKey: ETranslations.send_engine_password_not_set,
         defaultAutoToast: true,
       }),
     );
@@ -128,7 +128,7 @@ export class PasswordStrengthValidationFailed extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordStrengthValidationFailed',
-        defaultKey: 'msg__password_validation',
+        defaultKey: ETranslations.send_password_validation,
       }),
     );
   }
@@ -139,7 +139,7 @@ export class PasswordUpdateSameFailed extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordUpdateSameFailed',
-        defaultKey: 'form__password_invalid',
+        defaultKey: ETranslations.auth_error_password_incorrect,
       }),
     );
   }
@@ -150,7 +150,7 @@ export class BiologyAuthFailed extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BiologyAuthFailed',
-        defaultKey: 'msg__verification_failure',
+        defaultKey: ETranslations.send_verification_failure,
       }),
     );
   }
@@ -161,7 +161,7 @@ export class PasswordAlreadySetFailed extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordAlreadySetFaield',
-        defaultKey: 'form__password_invalid',
+        defaultKey: ETranslations.auth_error_password_incorrect,
       }),
     );
   }
@@ -175,7 +175,7 @@ export class InvalidMnemonic extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InvalidMnemonic',
-        defaultKey: 'msg__engine__invalid_mnemonic',
+        defaultKey: ETranslations.feedback_invalid_phrases,
         defaultAutoToast: true,
       }),
     );
@@ -191,7 +191,7 @@ export class MinimumBalanceRequired extends OneKeyError<IMinimumBalanceRequiredI
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'MimimumBalanceRequired',
-        defaultKey: 'msg__str_minimum_balance_is_str',
+        defaultKey: ETranslations.send_str_minimum_balance_is_str,
       }),
     );
   }
@@ -202,7 +202,7 @@ export class InvalidAddress extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InvalidAddress',
-        defaultKey: 'msg__engine__incorrect_address',
+        defaultKey: ETranslations.send_engine_incorrect_address,
       }),
     );
   }
@@ -213,7 +213,7 @@ export class InvalidAccount extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InvalidAccount',
-        defaultKey: 'msg__engine__account_not_activated',
+        defaultKey: ETranslations.send_engine_account_not_activated,
       }),
     );
   }
@@ -224,7 +224,7 @@ export class InvalidTokenAddress extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InvalidTokenAddress',
-        defaultKey: 'msg__engine__incorrect_token_address',
+        defaultKey: ETranslations.send_engine_incorrect_token_address,
       }),
     );
   }
@@ -239,7 +239,7 @@ export class InvalidTransferValue extends OneKeyError<IInvalidTransferValueInfo>
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InvalidTransferValue',
-        defaultKey: 'msg__engine__incorrect_transfer_value',
+        defaultKey: ETranslations.send_engine_incorrect_transfer_value,
       }),
     );
   }
@@ -250,7 +250,7 @@ export class TransferValueTooSmall extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'TransferValueTooSmall',
-        defaultKey: 'msg__amount_too_small',
+        defaultKey: ETranslations.send_amount_too_small,
       }),
     );
   }
@@ -266,7 +266,7 @@ export class InsufficientBalance extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InsufficientBalance',
-        defaultKey: 'form__amount_invalid',
+        defaultKey: ETranslations.send_amount_invalid,
       }),
     );
   }
@@ -283,7 +283,7 @@ export class StringLengthRequirement<
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'StringLengthRequirement',
-        defaultKey: 'generic_string_length_requirement' as any,
+        defaultKey: ETranslations.wallet_generic_string_length_requirement,
       }),
     );
   }
@@ -293,7 +293,7 @@ export class WalletNameLengthError extends StringLengthRequirement {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'WalletNameLengthError',
-        defaultKey: 'msg__engine__wallet_name_length_error',
+        defaultKey: ETranslations.wallet_engine_wallet_name_length_error,
       }),
     );
   }
@@ -309,7 +309,7 @@ export class AccountNameLengthError extends OneKeyError<IAccountNameLengthErrorI
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'AccountNameLengthError',
-        defaultKey: 'msg__engine__account_name_length_error',
+        defaultKey: ETranslations.wallet_engine_account_name_length_error,
       }),
     );
   }
@@ -320,7 +320,7 @@ export class WatchedAccountTradeError extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'WatchedAccountTradeError',
-        defaultKey: 'form__error_trade_with_watched_acocunt',
+        defaultKey: ETranslations.wallet_error_trade_with_watched_acocunt,
       }),
     );
   }
@@ -331,7 +331,7 @@ export class AccountAlreadyExists extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'AccountAlreadyExists',
-        defaultKey: 'msg__engine__account_already_exists',
+        defaultKey: ETranslations.wallet_engine_account_already_exists,
       }),
     );
   }
@@ -347,11 +347,11 @@ export class NumberLimit<T = INumberLimitInfo> extends OneKeyError<T> {
     defaultMessage,
   }: {
     limit: number;
-    key?: ILocaleIds;
+    key?: ETranslations;
     defaultMessage?: string;
   }) {
     const info: INumberLimitInfo = { limit: limit.toString() };
-    const keyWithDefault: ILocaleIds =
+    const keyWithDefault: ETranslations =
       key || ('generic_number_limitation' as any);
     super(
       normalizeErrorProps(
@@ -370,7 +370,7 @@ export class NumberLimit<T = INumberLimitInfo> extends OneKeyError<T> {
 export class TooManyWatchingAccounts extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine_too_many_watching_accounts',
+    key: ETranslations = ETranslations.wallet_engine_too_many_watching_accounts,
   ) {
     super({ limit, key, defaultMessage: 'TooManyWatchingAccounts' });
   }
@@ -379,7 +379,7 @@ export class TooManyWatchingAccounts extends NumberLimit {
 export class TooManyExternalAccounts extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine_too_many_external_accounts',
+    key: ETranslations = ETranslations.wallet_engine_ttoo_many_external_accounts,
   ) {
     super({ limit, key, defaultMessage: 'TooManyExternalAccounts' });
   }
@@ -388,7 +388,7 @@ export class TooManyExternalAccounts extends NumberLimit {
 export class TooManyImportedAccounts extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine__too_many_imported_accounts',
+    key: ETranslations = ETranslations.wallet_engine_too_many_imported_accounts,
   ) {
     super({ limit, key, defaultMessage: 'TooManyImportedAccounts' });
   }
@@ -397,7 +397,7 @@ export class TooManyImportedAccounts extends NumberLimit {
 export class TooManyHDWallets extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine__too_many_hd_wallets',
+    key: ETranslations = ETranslations.wallet_engine_too_many_hd_wallets,
   ) {
     super({ limit, key, defaultMessage: 'TooManyHDWallets' });
   }
@@ -406,7 +406,7 @@ export class TooManyHDWallets extends NumberLimit {
 export class TooManyHWWallets extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine__too_many_hw_wallets',
+    key: ETranslations = ETranslations.wallet_engine_too_many_hw_wallets,
   ) {
     super({ limit, key, defaultMessage: 'TooManyHWWallets' });
   }
@@ -415,7 +415,7 @@ export class TooManyHWWallets extends NumberLimit {
 export class TooManyHWPassphraseWallets extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine__too_many_hw_passphrase_wallets' as any,
+    key: ETranslations = ETranslations.wallet_engine_too_many_hw_passphrase_wallets,
   ) {
     super({ limit, key, defaultMessage: 'TooManyHWPassphraseWallets' });
   }
@@ -424,7 +424,7 @@ export class TooManyHWPassphraseWallets extends NumberLimit {
 export class PendingQueueTooLong extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine__pending_queue_too_long',
+    key: ETranslations = ETranslations.send_engine_pending_queue_too_long,
   ) {
     super({ limit, key, defaultMessage: 'PendingQueueTooLong' });
   }
@@ -440,7 +440,7 @@ export class TooManyDerivedAccounts extends OneKeyError<ITooManyDerivedAccountsI
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'TooManyDerivedAccounts',
-        defaultKey: 'msg__engine__too_many_derived_accounts',
+        defaultKey: ETranslations.send_engine_too_many_derived_accounts,
       }),
     );
   }
@@ -451,7 +451,7 @@ export class OneKeyWalletConnectModalCloseError extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyWalletConnectModalCloseError',
-        defaultKey: 'msg__engine__internal_error',
+        defaultKey: ETranslations.send_engine_internal_error,
       }),
     );
   }
@@ -462,7 +462,7 @@ export class FailedToEstimatedGasError extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FailedToEstimatedGasError',
-        defaultKey: 'msg__estimated_gas_failure',
+        defaultKey: ETranslations.send_estimated_gas_failure,
       }),
     );
   }
@@ -473,7 +473,7 @@ export class InvalidLightningPaymentRequest extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InvalidLightningPaymentRequest',
-        defaultKey: 'msg__invalid_lightning_payment_request',
+        defaultKey: ETranslations.send_invalid_lightning_payment_request,
       }),
     );
   }
@@ -484,7 +484,7 @@ export class InvoiceAlreadyPaid extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InvoiceAlreadPaid',
-        defaultKey: 'msg__invoice_is_already_paid',
+        defaultKey: ETranslations.send_invoice_is_already_paid,
       }),
     );
   }
@@ -495,7 +495,7 @@ export class NoRouteFoundError extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NoRouteFoundError',
-        defaultKey: 'msg__no_route_found',
+        defaultKey: ETranslations.send_no_route_found,
       }),
     );
   }
@@ -506,7 +506,8 @@ export class ChannelInsufficientLiquidityError extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'ChannelInsufficientLiquidityError',
-        defaultKey: 'msg__insufficient_liquidity_of_lightning_node_channels',
+        defaultKey:
+          ETranslations.send_insufficient_liquidity_of_lightning_node_channels,
       }),
     );
   }
@@ -517,7 +518,7 @@ export class BadAuthError extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BadAuthError',
-        defaultKey: 'msg__authentication_failed_verify_again',
+        defaultKey: ETranslations.send_authentication_failed_verify_again,
       }),
     );
   }
@@ -528,7 +529,7 @@ export class InvoiceExpiredError extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InvoiceExpiredError',
-        defaultKey: 'msg__the_invoice_has_expired',
+        defaultKey: ETranslations.send_the_invoice_has_expired,
       }),
     );
   }
@@ -540,7 +541,7 @@ export class TaprootAddressError extends OneKeyError {
       normalizeErrorProps(props, {
         defaultMessage: 'TaprootAddressError',
         defaultKey:
-          'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address',
+          ETranslations.send_invalid_address_ordinal_can_only_be_sent_to_taproot_address,
       }),
     );
   }
@@ -551,7 +552,7 @@ export class UtxoNotFoundError extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UtxoNotFoundError',
-        defaultKey: 'msg__nft_does_not_exist',
+        defaultKey: ETranslations.send_nft_does_not_exist,
       }),
     );
   }
@@ -562,7 +563,8 @@ export class AllNetworksMinAccountsError extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'AllNetworksMinAccountsError',
-        defaultKey: 'msg__you_need_str_accounts_on_any_network_to_create',
+        defaultKey:
+          ETranslations.wallet_you_need_str_accounts_on_any_network_to_create,
       }),
     );
   }
@@ -573,7 +575,8 @@ export class AllNetworksUpToThreeLimitsError extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'AllNetworksUpto3LimitsError',
-        defaultKey: 'msg__currently_supports_up_to_str_all_networks_accounts',
+        defaultKey:
+          ETranslations.wallet_currently_supports_up_to_str_all_networks_accounts,
       }),
     );
   }
@@ -588,7 +591,7 @@ export class InsufficientGasFee extends OneKeyError<IInsufficientGasFeeInfo> {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InsufficientGasFee',
-        defaultKey: 'msg__suggest_reserving_str_as_gas_fee',
+        defaultKey: ETranslations.send_suggest_reserving_str_as_gas_fee,
       }),
     );
   }
@@ -604,7 +607,7 @@ export class MinimumTransferBalanceRequiredError extends OneKeyError<IMinimumTra
       normalizeErrorProps(props, {
         defaultMessage: 'MinimumTransferBalanceRequiredError',
         defaultKey:
-          'msg__the_minimum_value_for_transffering_to_a_new_account_is_str_str',
+          ETranslations.send_the_minimum_value_for_transffering_to_a_new_account_is_str_str,
       }),
     );
   }
@@ -633,7 +636,7 @@ export class MinimumTransferBalanceRequiredForSendingAssetError extends OneKeyEr
         {
           defaultMessage: 'MinimumTransferBalanceRequiredForSendingAssetError',
           defaultKey:
-            'msg__sending_str_requires_an_account_balance_of_at_least_str_str',
+            ETranslations.send_sending_str_requires_an_account_balance_of_at_least_str_str,
         },
       ),
     );
@@ -656,7 +659,7 @@ export class MinimumTransferAmountError extends OneKeyError<IMinimumTransferAmou
         },
         {
           defaultMessage: 'MinimumTransferAmountError',
-          defaultKey: 'form__str_minimum_transfer',
+          defaultKey: ETranslations.send_str_minimum_transfer,
         },
       ),
     );

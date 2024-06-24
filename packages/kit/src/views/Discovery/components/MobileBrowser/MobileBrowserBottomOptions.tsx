@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IMobileBottomOptionsProps } from '../../types';
 
@@ -27,14 +28,16 @@ function MobileBrowserBottomOptions({
     () =>
       [
         {
-          label: intl.formatMessage({ id: 'action__refresh' }),
+          label: intl.formatMessage({ id: ETranslations.explore_reload }),
           icon: 'RotateClockwiseOutline',
           onPress: () => onRefresh(),
           testID: 'action-list-item-reload',
         },
         {
           label: intl.formatMessage({
-            id: isBookmark ? 'actionn__remove_bookmark' : 'actionn__bookmark',
+            id: isBookmark
+              ? ETranslations.explore_remove_bookmark
+              : ETranslations.explore_add_bookmark,
           }),
           icon: isBookmark ? 'StarSolid' : 'StarOutline',
           onPress: () => onBookmarkPress(!isBookmark),
@@ -44,33 +47,39 @@ function MobileBrowserBottomOptions({
         },
         {
           label: intl.formatMessage({
-            id: isPinned ? 'action__unpin' : 'action__pin',
+            id: isPinned
+              ? ETranslations.explore_unpin
+              : ETranslations.explore_pin,
           }),
           icon: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
           onPress: () => onPinnedPress(!isPinned),
           testID: `action-list-item-${!isPinned ? 'pin' : 'un-pin'}`,
         },
         {
-          label: intl.formatMessage({ id: 'action__share' }),
+          label: intl.formatMessage({ id: ETranslations.explore_share }),
           icon: 'ShareOutline',
           onPress: () => onShare(),
           testID: 'action-list-item-share',
         },
         {
-          label: intl.formatMessage({ id: 'action__open_in_browser' }),
+          label: intl.formatMessage({
+            id: ETranslations.explore_open_in_browser,
+          }),
           icon: 'CompassCircleOutline',
           onPress: () => onBrowserOpen(),
           testID: 'action-list-item-open-in-browser',
         },
         displayDisconnectOption && {
-          label: intl.formatMessage({ id: 'action__disconnect' }),
+          label: intl.formatMessage({ id: ETranslations.explore_disconnect }),
           icon: 'BrokenLinkOutline',
           onPress: () => onDisconnect(),
           testID: 'action-list-item-disconnect-in-browser',
         },
         {
           label: intl.formatMessage({
-            id: isPinned ? 'action__close_pin_tab' : 'form__close_tab',
+            id: isPinned
+              ? ETranslations.explore_close_pin_tab
+              : ETranslations.explore_close_tab,
           }),
           icon: 'CrossedLargeOutline',
           onPress: () => onCloseTab(),
@@ -93,7 +102,7 @@ function MobileBrowserBottomOptions({
   );
   return (
     <ActionList
-      title={intl.formatMessage({ id: 'select__options' })}
+      title={intl.formatMessage({ id: ETranslations.explore_options })}
       renderTrigger={children}
       disabled={disabled}
       sections={[
@@ -103,7 +112,9 @@ function MobileBrowserBottomOptions({
         {
           items: [
             {
-              label: intl.formatMessage({ id: 'action__back_to_home_page' }),
+              label: intl.formatMessage({
+                id: ETranslations.explore_back_to_home,
+              }),
               icon: 'HomeOpenOutline',
               onPress: () => onGoBackHomePage(),
               testID: 'action-list-item-back-to-home',

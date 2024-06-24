@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
-import type { UnspentOutputInfo } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import type { IKaspaUnspentOutputInfo } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import {
   CONFIRMATION_COUNT,
   DUST_AMOUNT,
@@ -22,6 +22,8 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -42,7 +44,6 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -60,9 +61,9 @@ import type {
 } from '../../types';
 
 export default class Vault extends VaultBase {
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -213,9 +214,6 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: null,
-      payload: {
-        type: EOnChainHistoryTxType.Send,
-      },
       encodedTx,
       totalFeeInNative: new BigNumber(encodedTx.feeInfo?.limit ?? '0')
         .multipliedBy(feeInfo?.price ?? '0.00000001')
@@ -341,7 +339,7 @@ export default class Vault extends VaultBase {
   }
 
   _collectUTXOsInfoByApi = memoizee(
-    async (params: { address: string }): Promise<UnspentOutputInfo[]> => {
+    async (params: { address: string }): Promise<IKaspaUnspentOutputInfo[]> => {
       const { address } = params;
       try {
         const { utxoList: utxos } =
@@ -351,7 +349,11 @@ export default class Vault extends VaultBase {
             withUTXOList: true,
           });
         if (!utxos || isEmpty(utxos)) {
-          throw new OneKeyInternalError('Failed to get UTXO list.');
+          throw new OneKeyInternalError(
+            appLocale.intl.formatMessage({
+              id: ETranslations.feedback_failed_to_get_utxos,
+            }),
+          );
         }
 
         const [networkInfo] =
@@ -367,7 +369,7 @@ export default class Vault extends VaultBase {
                 route: 'rpc',
                 params: {
                   method: 'GET',
-                  // @ts-expect-error
+                  params: [],
                   url: '/info/network',
                 },
               },
@@ -388,7 +390,11 @@ export default class Vault extends VaultBase {
           blockDaaScore: new BigNumber(utxo.confirmations).toNumber(),
         }));
       } catch (e) {
-        throw new OneKeyInternalError('Failed to get UTXO list.');
+        throw new OneKeyInternalError(
+          appLocale.intl.formatMessage({
+            id: ETranslations.feedback_failed_to_get_utxos,
+          }),
+        );
       }
     },
     {
@@ -403,7 +409,7 @@ export default class Vault extends VaultBase {
     amountValue,
     priority,
   }: {
-    confirmUtxos: UnspentOutputInfo[];
+    confirmUtxos: IKaspaUnspentOutputInfo[];
     amountValue: string;
     priority?: { satoshis: boolean };
   }) {
@@ -451,7 +457,7 @@ export default class Vault extends VaultBase {
     transferInfo,
     priority,
   }: {
-    confirmUtxos: UnspentOutputInfo[];
+    confirmUtxos: IKaspaUnspentOutputInfo[];
     transferInfo: ITransferInfo;
     priority?: { satoshis: boolean };
   }) {

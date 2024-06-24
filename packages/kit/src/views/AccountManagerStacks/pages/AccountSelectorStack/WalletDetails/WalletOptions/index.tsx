@@ -16,6 +16,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalKeyTagRoutes,
@@ -27,7 +28,6 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { Advance } from './Advance';
 import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
-import { HomeScreen } from './HomeScreen';
 import { Verification } from './Verification';
 import { WalletOptionItem } from './WalletOptionItem';
 import { WalletProfile } from './WalletProfile';
@@ -86,13 +86,14 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
   const walletSpecifiedOptions = useMemo(() => {
     if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
       if (accountUtils.isHwHiddenWallet({ wallet })) {
-        return <HiddenWalletRememberSwitch wallet={wallet} />;
+        return <HiddenWalletRememberSwitch wallet={wallet} key={wallet?.id} />;
       }
 
       return (
         <>
           <Verification device={device} />
-          <HomeScreen />
+          {/* Homescreen unsupprted yet */}
+          {/* <HomeScreen /> */}
           <Advance wallet={wallet} />
           <HiddenWalletAddButton wallet={wallet} />
         </>
@@ -104,11 +105,11 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
         <ActionList
           offset={{ mainAxis: 0, crossAxis: 18 }}
           placement="bottom-start"
-          title="Backup"
+          title={intl.formatMessage({ id: ETranslations.global_backup })}
           items={[
             {
               label: intl.formatMessage({
-                id: 'backup__manual_backup',
+                id: ETranslations.manual_backup,
               }),
               icon: 'PenOutline',
               onPress: () => void handleBackupPhrase(),
@@ -117,21 +118,26 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
               ? [
                   {
                     label: intl.formatMessage({
-                      id: 'app__hardware_name_onekey_lite',
+                      id: ETranslations.global_onekey_lite,
                     }),
-                    icon: 'GiroCardOutline' as IKeyOfIcons,
+                    icon: 'OnekeyLiteOutline' as IKeyOfIcons,
                     onPress: handleBackupLiteCard,
                   },
                 ]
               : []),
             {
-              label: 'OneKey KeyTag',
+              label: intl.formatMessage({
+                id: ETranslations.global_onekey_keytag,
+              }),
               icon: 'OnekeyKeytagOutline',
               onPress: () => void handleBackupKeyTag(),
             },
           ]}
           renderTrigger={
-            <WalletOptionItem icon="Shield2CheckOutline" label="Backup" />
+            <WalletOptionItem
+              icon="Shield2CheckOutline"
+              label={intl.formatMessage({ id: ETranslations.global_backup })}
+            />
           }
         />
       );

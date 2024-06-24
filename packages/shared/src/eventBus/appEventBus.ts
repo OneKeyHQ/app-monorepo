@@ -8,6 +8,7 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import platformEnv from '../platformEnv';
 
 import type { EAccountSelectorSceneName } from '../../types';
+import type { IFeeSelectorItem } from '../../types/fee';
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -34,11 +35,17 @@ export enum EAppEventBusNames {
   ShowToast = 'ShowToast',
   ShowQrcode = 'ShowQrcode',
   RealmInit = 'RealmInit',
+  V4RealmInit = 'V4RealmInit',
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
+  BeginFirmwareUpdate = 'BeginFirmwareUpdate', // notification begin hardware update, stop hardware progressing
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
+  HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
+  SwitchMarketHomeTab = 'SwitchMarketHomeTab',
+  ClearLocalHistoryPendingTxs = 'ClearLocalHistoryPendingTxs',
+  TxFeeInfoChanged = 'TxFeeInfoChanged',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -95,15 +102,26 @@ export interface IAppEventBusPayload {
     valueUr?: IAirGapUrJson;
   };
   [EAppEventBusNames.RealmInit]: undefined;
+  [EAppEventBusNames.V4RealmInit]: undefined;
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
   [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
     connectId: string | undefined;
+    existsFirmware?: boolean;
   };
   [EAppEventBusNames.ShowFirmwareUpdateForce]: {
     connectId: string | undefined;
   };
+  [EAppEventBusNames.BeginFirmwareUpdate]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
+  [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
+  [EAppEventBusNames.SwitchMarketHomeTab]: {
+    tabIndex: number;
+  };
+  [EAppEventBusNames.ClearLocalHistoryPendingTxs]: undefined;
+  [EAppEventBusNames.TxFeeInfoChanged]: {
+    feeSelectorItems: IFeeSelectorItem[];
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

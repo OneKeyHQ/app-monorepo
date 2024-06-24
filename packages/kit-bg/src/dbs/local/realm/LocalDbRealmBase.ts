@@ -4,8 +4,6 @@ import Realm from 'realm';
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
-  REALM_DB_NAME,
-  REALM_DB_VERSION,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
@@ -16,6 +14,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
+import { REALM_DB_NAME, REALM_DB_VERSION } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 
@@ -43,6 +42,17 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
         const newVersion = newRealm.schemaVersion;
         console.log(oldVersion, newVersion);
         // do nothing here, add migration logic on service layer
+
+        // update network rpcURL
+        if (oldRealm.schemaVersion < 13) {
+          //   const networks = newRealm.objects<NetworkSchema>('Network');
+          //   for (const network of networks) {
+          //     const toClear = DEFAULT_RPC_ENDPOINT_TO_CLEAR[network.id];
+          //     if (typeof toClear !== 'undefined' && network.rpcURL === toClear) {
+          //       network.rpcURL = '';
+          //     }
+          //   }
+        }
       },
     });
     if (process.env.NODE_ENV !== 'production') {

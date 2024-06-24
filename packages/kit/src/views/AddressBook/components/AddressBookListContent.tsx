@@ -1,4 +1,4 @@
-import { type FC, useMemo } from 'react';
+import { type FC, useEffect, useMemo } from 'react';
 import { useCallback, useState } from 'react';
 
 import { groupBy } from 'lodash';
@@ -8,6 +8,7 @@ import {
   ActionList,
   Empty,
   IconButton,
+  SearchBar,
   SectionList,
   SizableText,
   Stack,
@@ -15,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
@@ -98,10 +100,12 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
     >
       {showActions ? (
         <ActionList
-          title={intl.formatMessage({ id: 'title__menu' })}
+          title={intl.formatMessage({
+            id: ETranslations.address_book_menu_title,
+          })}
           items={[
             {
-              label: intl.formatMessage({ id: 'action__copy' }),
+              label: intl.formatMessage({ id: ETranslations.global_copy }),
               icon: 'Copy1Outline',
               onPress: async () => {
                 copyText(item.address);
@@ -109,7 +113,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
               testID: `address-menu-copy-${item.address ?? ''}`,
             },
             {
-              label: intl.formatMessage({ id: 'action__edit' }),
+              label: intl.formatMessage({ id: ETranslations.global_edit }),
               icon: 'PencilOutline',
               onPress: () => {
                 if (item.id) {
@@ -148,13 +152,19 @@ const RenderEmptyAddressBook: FC<IRenderEmptyAddressBookProps> = ({
   return (
     <Empty
       icon="SearchOutline"
-      title={intl.formatMessage({ id: 'content__no_results' })}
-      description="You haven't added any address yet"
+      title={intl.formatMessage({
+        id: ETranslations.address_book_no_results_title,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.address_book_empty_description,
+      })}
       buttonProps={
         hideAddItemButton
           ? undefined
           : {
-              children: intl.formatMessage({ id: 'action__add' }),
+              children: intl.formatMessage({
+                id: ETranslations.address_book_add_address_title,
+              }),
               onPress: () => {
                 navigation.push(EModalAddressBookRoutes.AddItemModal);
               },
@@ -170,8 +180,12 @@ const RenderNoSearchResult = () => {
   return (
     <Empty
       icon="SearchOutline"
-      title={intl.formatMessage({ id: 'content__no_results' })}
-      description="No match found for your search. Try to add this contact."
+      title={intl.formatMessage({
+        id: ETranslations.address_book_no_results_title,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.address_book_no_results_description,
+      })}
       testID="address-book-search-empty"
     />
   );
@@ -182,7 +196,6 @@ type IAddressBookListContentProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   showActions?: boolean;
   onPressItem?: (item: IAddressItem) => void;
-  searchKey: string;
   hideEmptyAddButton?: boolean;
 };
 
@@ -191,9 +204,10 @@ export const AddressBookListContent = ({
   onContentSizeChange,
   showActions,
   onPressItem,
-  searchKey,
   hideEmptyAddButton,
 }: IAddressBookListContentProps) => {
+  const intl = useIntl();
+  const [searchKey, setSearchKey] = useState('');
   const [foldItems, setFoldItems] = useState<string[]>([]);
   const onToggle = useCallback(
     (o: string) =>
@@ -206,6 +220,10 @@ export const AddressBookListContent = ({
     [],
   );
 
+  useEffect(() => {
+    setFoldItems([]);
+  }, [searchKey]);
+
   const renderSectionHeader = useCallback(
     ({
       section,
@@ -216,12 +234,12 @@ export const AddressBookListContent = ({
         index: number;
         isFold?: boolean;
       };
-    }) => (
-      <SectionList.SectionHeader
-        title={section.title.toUpperCase()}
-        justifyContent="space-between"
-      >
-        {!searchKey ? (
+    }) =>
+      !searchKey ? (
+        <SectionList.SectionHeader
+          title={section.title.toUpperCase()}
+          justifyContent="space-between"
+        >
           <IconButton
             size="small"
             variant="tertiary"
@@ -235,9 +253,8 @@ export const AddressBookListContent = ({
             }
             onPress={() => onToggle(section.title)}
           />
-        ) : null}
-      </SectionList.SectionHeader>
-    ),
+        </SectionList.SectionHeader>
+      ) : null,
     [onToggle, searchKey],
   );
 
@@ -254,12 +271,33 @@ export const AddressBookListContent = ({
   const memoSections = useMemo(() => {
     let sections: ISectionItem[] = [];
     if (searchKey) {
-      const fuse = buildFuse(items, { keys: ['address', 'name'] });
-      const itemSearched = fuse.search(searchKey).map((o) => ({
+      const exactMatch = (match: IFuseResultMatch) => {
+        const result =
+          match.indices.length === 1 &&
+          match.value &&
+          match.indices[0][1] - match.indices[0][0] === match.value.length - 1;
+        return result;
+      };
+      const fuse = buildFuse(items, {
+        keys: ['address', 'name'],
+      });
+      let itemSearched = fuse.search(searchKey).map((o) => ({
         ...o.item,
-        addressMatch: o.matches?.find((i) => i.key === 'address'),
         nameMatch: o.matches?.find((i) => i.key === 'name'),
+        addressMatch: o.matches?.find(
+          (i) => i.key === 'address' && exactMatch(i),
+        ),
       }));
+      // Require an exact match for address search.
+      itemSearched = itemSearched.filter((o) => {
+        if (!o.nameMatch && !o.addressMatch) {
+          return false;
+        }
+        if (!o.nameMatch && o.addressMatch) {
+          return exactMatch(o.addressMatch);
+        }
+        return true;
+      });
       sections = buildSections(itemSearched);
     } else {
       sections = buildSections(items);
@@ -276,21 +314,31 @@ export const AddressBookListContent = ({
   }, [foldItems, items, searchKey]);
 
   return (
-    <SectionList
-      onContentSizeChange={onContentSizeChange}
-      estimatedItemSize="$6"
-      sections={memoSections}
-      renderSectionHeader={renderSectionHeader}
-      renderItem={renderItem}
-      SectionSeparatorComponent={null}
-      ListEmptyComponent={
-        items.length ? (
-          RenderNoSearchResult
-        ) : (
-          <RenderEmptyAddressBook hideAddItemButton={hideEmptyAddButton} />
-        )
-      }
-      keyExtractor={(item: unknown) => (item as IAddressItem).address}
-    />
+    <Stack flex={1}>
+      <Stack px="$5">
+        <SearchBar
+          placeholder={intl.formatMessage({ id: ETranslations.global_search })}
+          value={searchKey}
+          onChangeText={(text) => setSearchKey(text)}
+        />
+      </Stack>
+      <SectionList
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={onContentSizeChange}
+        estimatedItemSize="$6"
+        sections={memoSections}
+        renderSectionHeader={renderSectionHeader}
+        renderItem={renderItem}
+        SectionSeparatorComponent={null}
+        ListEmptyComponent={
+          items.length ? (
+            RenderNoSearchResult
+          ) : (
+            <RenderEmptyAddressBook hideAddItemButton={hideEmptyAddButton} />
+          )
+        }
+        keyExtractor={(item: unknown) => (item as IAddressItem).address}
+      />
+    </Stack>
   );
 };

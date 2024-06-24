@@ -6,6 +6,7 @@ import {
   utils,
 } from '@starcoin/starcoin';
 
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -18,6 +19,7 @@ import type {
   ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
+  ICoreApiGetExportedSecretKey,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
   ICoreApiSignTxPayload,
@@ -25,7 +27,6 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '../../types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'ed25519';
 
@@ -55,8 +56,8 @@ const buildUnsignedRawTx = (
   const fromAddr = unsignedTx?.transfersInfo?.[0]?.from || '';
   const { scriptFn, data } = unsignedTx.payload || {};
 
-  const gasLimit = unsignedTx.feeLimit;
-  const gasPrice = unsignedTx.feePricePerUnit;
+  const gasLimit = unsignedTx.feeInfo?.gas?.gasLimit;
+  const gasPrice = unsignedTx.feeInfo?.gas?.gasPrice;
   const { nonce } = unsignedTx;
   const { expirationTime } = unsignedTx.payload || {};
 
@@ -80,8 +81,8 @@ const buildUnsignedRawTx = (
   const rawTxn = utils.tx.generateRawUserTransaction(
     fromAddr,
     txPayload,
-    gasLimit.toNumber(),
-    gasPrice.toNumber(),
+    Number(gasLimit),
+    Number(gasPrice),
     nonce,
     expirationTime,
     Number(chainId),
@@ -128,6 +129,13 @@ const buildSignedTx = (
 };
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override getExportedSecretKey(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    throw new NotImplemented('Method not implemented.');
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
@@ -168,7 +176,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(): Promise<string> {
-    throw new NotImplemented();;
+    throw new NotImplemented();
   }
 
   override async getAddressFromPrivate(

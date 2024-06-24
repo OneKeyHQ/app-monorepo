@@ -1,8 +1,10 @@
 import type {
+  Dispatch,
   MutableRefObject,
   PropsWithChildren,
   ReactElement,
   ReactNode,
+  SetStateAction,
 } from 'react';
 
 import type { EPortalContainerConstantName, IPortalManager } from '../../hocs';
@@ -34,6 +36,7 @@ export interface IDialogFooterProps extends PropsWithChildren {
   tone?: 'default' | 'destructive' | 'warning' | 'success';
   showFooter?: boolean;
   footerProps?: Omit<IStackProps, 'children'>;
+  showExitButton?: boolean;
   showConfirmButton?: boolean;
   showCancelButton?: boolean;
   onConfirmText?: string;
@@ -42,6 +45,19 @@ export interface IDialogFooterProps extends PropsWithChildren {
   cancelButtonProps?: IDialogButtonProps;
   onConfirm?: IOnDialogConfirm;
   onCancel?: () => void;
+}
+
+export type IDialogHeaderProps = PropsWithChildren<{
+  icon?: IKeyOfIcons;
+  title?: string;
+  description?: string;
+  showExitButton?: boolean;
+  tone?: 'default' | 'destructive' | 'warning' | 'success';
+}>;
+
+export interface IDialogHeaderContextType {
+  headerProps: IDialogHeaderProps;
+  setHeaderProps: Dispatch<SetStateAction<IDialogHeaderProps>>;
 }
 
 interface IBasicDialogProps extends TMDialogProps {

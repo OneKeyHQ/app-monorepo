@@ -1,4 +1,5 @@
 import { isNumber } from 'lodash';
+import WebViewCleaner from 'react-native-webview-cleaner';
 
 import type {
   IBrowserBookmark,
@@ -9,15 +10,17 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type {
-  ICategory,
-  IDApp,
-  IDiscoveryHomePageData,
-  IDiscoveryListParams,
-  IHostSecurity,
+import {
+  EHostSecurityLevel,
+  type ICategory,
+  type IDApp,
+  type IDiscoveryHomePageData,
+  type IDiscoveryListParams,
+  type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -123,11 +126,11 @@ class ServiceDiscovery extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkUrlSecurity(url: string, whiteListEnabled = false) {
-    if (whiteListEnabled && (await this._isUrlExistInRiskWhiteList(url))) {
+  async checkUrlSecurity(url: string) {
+    if (await this._isUrlExistInRiskWhiteList(url)) {
       return {
         host: url,
-        level: 'security',
+        level: EHostSecurityLevel.Unknown,
         attackTypes: [],
         phishingSite: false,
         alert: '',
@@ -252,6 +255,29 @@ class ServiceDiscovery extends ServiceBase {
       simpleDb.browserRiskWhiteList.clearRawData(),
       this._isUrlExistInRiskWhiteList.clear(),
     ]);
+  }
+
+  @backgroundMethod()
+  async clearCache() {
+    if (platformEnv.isNative) {
+      WebViewCleaner.clearAll();
+    } else if (platformEnv.isDesktop) {
+      window.desktopApi.clearWebViewCache();
+    }
+  }
+
+  @backgroundMethod()
+  async setBrowserBookmarks(bookmarks: IBrowserBookmark[]) {
+    await this.backgroundApi.simpleDb.browserBookmarks.setRawData({
+      data: bookmarks,
+    });
+  }
+
+  @backgroundMethod()
+  async getBrowserBookmarks() {
+    const data =
+      await this.backgroundApi.simpleDb.browserBookmarks.getRawData();
+    return data?.data ?? [];
   }
 }
 

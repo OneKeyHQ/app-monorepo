@@ -1,14 +1,17 @@
 import type { ComponentProps, FC } from 'react';
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   IconButton,
   Page,
-  ScrollView,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import {
   DISCORD_URL,
@@ -16,6 +19,7 @@ import {
   ONEKEY_URL,
   TWITTER_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -31,51 +35,101 @@ import { SecuritySection } from './SecuritySection';
 type ISocialButtonProps = {
   icon: ComponentProps<typeof IconButton>['icon'];
   url: string;
+  text: string;
 };
 
-const SocialButton: FC<ISocialButtonProps> = ({ icon, url }) => {
+const SocialButton: FC<ISocialButtonProps> = ({ icon, url, text }) => {
   const onPress = useCallback(() => {
     openUrlExternal(url);
   }, [url]);
   return (
-    <IconButton
-      bg="$bgSubdued"
-      width="$14"
-      height="$14"
-      icon={icon}
-      borderRadius="$full"
-      onPress={onPress}
+    <Tooltip
+      renderTrigger={
+        <IconButton
+          bg="$bgSubdued"
+          width="$14"
+          height="$14"
+          icon={icon}
+          borderRadius="$full"
+          onPress={onPress}
+        />
+      }
+      renderContent={text}
+      placement="top"
     />
   );
 };
 
-const SocialButtonGroup = () => (
-  <YStack>
-    <XStack justifyContent="center">
-      <XStack space="$3" paddingVertical="$3" my="$3">
-        <SocialButton icon="OnekeyBrand" url={ONEKEY_URL} />
-        <SocialButton icon="DiscordBrand" url={DISCORD_URL} />
-        <SocialButton icon="Xbrand" url={TWITTER_URL} />
-        <SocialButton icon="GithubBrand" url={GITHUB_URL} />
+const SocialButtonGroup = () => {
+  const intl = useIntl();
+  const { copyText } = useClipboard();
+  const versionString = intl.formatMessage(
+    {
+      id: ETranslations.settings_version_versionnum,
+    },
+    {
+      'versionNum': `${platformEnv.version ?? ''} ${
+        platformEnv.buildNumber ?? ''
+      }`,
+    },
+  );
+  const handlePress = useCallback(() => {
+    handleOpenDevMode(() =>
+      copyText(`${versionString}-${platformEnv.githubSHA || ''}`),
+    );
+  }, [copyText, versionString]);
+  return (
+    <YStack>
+      <XStack justifyContent="center">
+        <XStack space="$3" paddingVertical="$3" my="$3">
+          <SocialButton
+            icon="OnekeyBrand"
+            url={ONEKEY_URL}
+            text={intl.formatMessage({
+              id: ETranslations.global_official_website,
+            })}
+          />
+          <SocialButton
+            icon="DiscordBrand"
+            url={DISCORD_URL}
+            text={intl.formatMessage({ id: ETranslations.global_discord })}
+          />
+          <SocialButton
+            icon="Xbrand"
+            url={TWITTER_URL}
+            text={intl.formatMessage({ id: ETranslations.global_x })}
+          />
+          <SocialButton
+            icon="GithubBrand"
+            url={GITHUB_URL}
+            text={intl.formatMessage({ id: ETranslations.global_github })}
+          />
+        </XStack>
       </XStack>
-    </XStack>
-    <XStack justifyContent="center" py="$4">
-      <SizableText
-        selectable={false}
-        color="$textSubdued"
-        onPress={handleOpenDevMode}
-        testID="setting-version"
-      >
-        Version: {platformEnv.version ?? 'Unknown'} - {platformEnv.buildNumber}
-      </SizableText>
-    </XStack>
-  </YStack>
-);
+      <XStack justifyContent="center" py="$4">
+        <SizableText
+          selectable={false}
+          color="$textSubdued"
+          onPress={handlePress}
+          testID="setting-version"
+        >
+          {versionString}
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+};
 
 export default function SettingListModal() {
+  const intl = useIntl();
   return (
-    <Page>
-      <ScrollView>
+    <Page scrollEnabled>
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.settings_settings,
+        })}
+      />
+      <Page.Body>
         <Stack pb="$2">
           <DefaultSection />
           <PreferenceSection />
@@ -85,7 +139,7 @@ export default function SettingListModal() {
           <DevSettingsSection />
           <SocialButtonGroup />
         </Stack>
-      </ScrollView>
+      </Page.Body>
     </Page>
   );
 }

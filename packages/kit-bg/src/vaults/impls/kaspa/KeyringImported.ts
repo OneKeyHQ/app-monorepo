@@ -1,10 +1,14 @@
+import { privateKeyFromBuffer } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { decrypt } from '@onekeyhq/core/src/secret';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
@@ -19,6 +23,12 @@ export class KeyringImported extends KeyringImportedBase {
     params: IGetPrivateKeysParams,
   ): Promise<IGetPrivateKeysResult> {
     return this.baseGetPrivateKeys(params);
+  }
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async prepareAccounts(

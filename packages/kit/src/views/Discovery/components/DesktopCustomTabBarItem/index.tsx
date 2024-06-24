@@ -7,6 +7,7 @@ import type {
   IPropsWithTestId,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 
@@ -39,8 +40,8 @@ function DesktopCustomTabBarItem({
         {
           label: intl.formatMessage({
             id: tab?.isBookmark
-              ? 'actionn__remove_bookmark'
-              : 'actionn__bookmark',
+              ? ETranslations.explore_remove_bookmark
+              : ETranslations.explore_add_bookmark,
           }),
           icon: tab?.isBookmark ? 'StarSolid' : 'StarOutline',
           onPress: () => {
@@ -52,7 +53,9 @@ function DesktopCustomTabBarItem({
         },
         {
           label: intl.formatMessage({
-            id: tab?.isPinned ? 'action__unpin' : 'action__pin',
+            id: tab?.isPinned
+              ? ETranslations.explore_unpin
+              : ETranslations.explore_pin,
           }),
           icon: tab?.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
           onPress: () => {
@@ -61,7 +64,7 @@ function DesktopCustomTabBarItem({
           testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
         },
         displayDisconnectOption && {
-          label: intl.formatMessage({ id: 'action__disconnect' }),
+          label: intl.formatMessage({ id: ETranslations.explore_disconnect }),
           icon: 'BrokenLinkOutline',
           onPress: () => {
             void onDisconnect(tab?.url);
@@ -100,7 +103,9 @@ function DesktopCustomTabBarItem({
           items: [
             {
               label: intl.formatMessage({
-                id: tab?.isPinned ? 'action__close_pin_tab' : 'form__close_tab',
+                id: tab?.isPinned
+                  ? ETranslations.explore_close_pin_tab
+                  : ETranslations.explore_close_tab,
               }),
               icon: 'CrossedLargeOutline',
               onPress: () => {

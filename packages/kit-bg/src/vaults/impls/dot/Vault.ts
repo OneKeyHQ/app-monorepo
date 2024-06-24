@@ -9,12 +9,16 @@ import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
+  InvalidTransferValue,
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -23,6 +27,12 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import {
+  EOnChainHistoryTransferType,
+  type IOnChainHistoryTx,
+  type IOnChainHistoryTxToken,
+} from '@onekeyhq/shared/types/history';
+import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -40,7 +50,6 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { getTransactionTypeFromTxInfo } from './utils';
 
@@ -62,9 +71,9 @@ import type { Args, TypeRegistry } from '@substrate/txwrapper-polkadot';
 export default class VaultDot extends VaultBase {
   override coreApi = coreChainApi.dot.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -228,7 +237,7 @@ export default class VaultDot extends VaultBase {
     if (tokenInfo && tokenInfo?.address && !tokenInfo.isNative) {
       amountValue = new BigNumber(amount)
         .shiftedBy(tokenInfo.decimals)
-        .toFixed();
+        .toFixed(0);
       if (keepAlive) {
         unsigned = methods.assets.transferKeepAlive(
           {
@@ -251,7 +260,9 @@ export default class VaultDot extends VaultBase {
         );
       }
     } else {
-      amountValue = new BigNumber(amount).shiftedBy(network.decimals).toFixed();
+      amountValue = new BigNumber(amount)
+        .shiftedBy(network.decimals)
+        .toFixed(0);
       if (keepAlive) {
         unsigned = methods.balances.transferKeepAlive(
           {
@@ -437,17 +448,14 @@ export default class VaultDot extends VaultBase {
         symbol: tokenInfo.symbol,
         tokenIdOnNetwork: tokenInfo.address,
         isNFT: false,
+        isNative: tokenInfo.symbol === networkInfo.nativeTokenAddress,
       };
 
-      action = {
-        type: actionType,
-        assetTransfer: {
-          from,
-          to,
-          sends: [transferAction],
-          receives: [],
-        },
-      };
+      action = await this.buildTxTransferAssetAction({
+        from,
+        to,
+        transfers: [transferAction],
+      });
     } else {
       action = {
         type: EDecodedTxActionType.UNKNOWN,
@@ -495,13 +503,69 @@ export default class VaultDot extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx } = params;
-    const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
+    const { unsignedTx, nativeAmountInfo } = params;
+    let encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
     if (params.nonceInfo) {
       encodedTx.nonce = hexUtils.hexlify(params.nonceInfo.nonce, {
         hexPad: 'left',
       }) as `0x${string}`;
     }
+
+    // send max amount
+    if (nativeAmountInfo) {
+      const decodeUnsignedTx = await this._decodeUnsignedTx(encodedTx);
+      const type = getTransactionTypeFromTxInfo(decodeUnsignedTx);
+      if (type === EDecodedTxActionType.ASSET_TRANSFER) {
+        const txBaseInfo = await this._getTxBaseInfo();
+        const from = await this.getAccountAddress();
+
+        const info = {
+          ...txBaseInfo,
+          address: from,
+          eraPeriod: 64,
+          nonce: decodeUnsignedTx.nonce ?? 0,
+          tip: 0,
+        };
+
+        const option = {
+          metadataRpc: txBaseInfo.metadataRpc,
+          registry: txBaseInfo.registry,
+        };
+
+        const network = await this.getNetwork();
+        const amountValue = new BigNumber(nativeAmountInfo.maxSendAmount ?? '0')
+          .shiftedBy(network.decimals)
+          .toFixed(0);
+        const dest = decodeUnsignedTx.method.args.dest as { id: string };
+
+        let tx;
+        if (decodeUnsignedTx.method?.name?.indexOf('KeepAlive') !== -1) {
+          tx = methods.balances.transferKeepAlive(
+            {
+              value: amountValue,
+              dest,
+            },
+            info,
+            option,
+          );
+        } else {
+          tx = methods.balances.transferAll(
+            {
+              dest,
+              keepAlive: false,
+            },
+            info,
+            option,
+          );
+        }
+        encodedTx = {
+          ...tx,
+          specName: txBaseInfo.specName,
+          chainName: network.name,
+        };
+      }
+    }
+
     return {
       encodedTx,
       feeInfo: params.feeInfo,
@@ -509,21 +573,27 @@ export default class VaultDot extends VaultBase {
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
-    const networkInfo = await this.backgroundApi.serviceNetwork.getNetwork({
-      networkId: this.networkId,
-    });
-    const options = networkInfo.extensions?.providerOptions as {
-      addressRegex: string;
-    };
+    const networkInfo = await this.getNetworkInfo();
+    let isValid = true;
+    try {
+      encodeAddress(
+        decodeAddress(address, false, +networkInfo.addressPrefix),
+        +networkInfo.addressPrefix,
+      );
+    } catch (error) {
+      isValid = false;
+    }
     return {
-      isValid: new RegExp(options.addressRegex).test(address),
+      isValid,
       normalizedAddress: address,
       displayAddress: address,
     };
   }
 
-  override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new NotImplemented();
+  override async validateXpub(xpub: string): Promise<IXpubValidation> {
+    return {
+      isValid: false,
+    };
   }
 
   override getPrivateKeyFromImported(
@@ -554,16 +624,204 @@ export default class VaultDot extends VaultBase {
   override async buildEstimateFeeParams({
     encodedTx,
   }: {
-    encodedTx: IEncodedTx | undefined;
-  }): Promise<IEncodedTx | undefined> {
+    encodedTx: IEncodedTxDot | undefined;
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+
     const fakeSignature = Buffer.concat([
       Buffer.from([0x01]),
       Buffer.alloc(64).fill(0x42),
     ]);
     const tx = await serializeSignedTransaction(
-      encodedTx as IEncodedTxDot,
+      encodedTx,
       fakeSignature.toString('hex'),
     );
-    return bufferUtils.toBuffer(tx).toString('base64') as unknown as IEncodedTx;
+    return {
+      encodedTx: bufferUtils
+        .toBuffer(tx)
+        .toString('base64') as unknown as IEncodedTx,
+    };
+  }
+
+  private _getMinAmount = memoizee(
+    async ({ accountAddress }: { accountAddress: string }) => {
+      const [minAmountStr] =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<string>(
+          {
+            networkId: this.networkId,
+            body: [
+              {
+                route: 'consts',
+                params: {
+                  method: 'balances.existentialDeposit',
+                  params: [],
+                },
+              },
+            ],
+          },
+        );
+      const minAmount = new BigNumber(minAmountStr);
+      const account =
+        await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+          networkId: this.networkId,
+          accountAddress,
+          withNonce: false,
+          withNetWorth: true,
+        });
+      const balance = new BigNumber(account.balance ?? 0);
+      return {
+        minAmount,
+        balance,
+      };
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
+  override async validateSendAmount({
+    to,
+    amount,
+  }: {
+    to: string;
+    amount: string;
+  }): Promise<boolean> {
+    if (isNil(amount) || isEmpty(amount) || isEmpty(to)) {
+      return true;
+    }
+    const network = await this.getNetwork();
+
+    const sendAmount = new BigNumber(amount).shiftedBy(network.decimals);
+    const { minAmount, balance } = await this._getMinAmount({
+      accountAddress: to,
+    });
+
+    if (balance.plus(sendAmount).lt(minAmount)) {
+      throw new InvalidTransferValue({
+        key: ETranslations.form_amount_recipient_activate,
+        info: {
+          amount: minAmount.shiftedBy(-network.decimals).toFixed(),
+          unit: network.symbol,
+        },
+      });
+    }
+    return true;
+  }
+
+  override async precheckUnsignedTx(params: {
+    unsignedTx: IUnsignedTxPro;
+  }): Promise<boolean> {
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
+    const decodedUnsignedTx = await this._decodeUnsignedTx(encodedTx);
+    const actionType = getTransactionTypeFromTxInfo(decodedUnsignedTx);
+
+    if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
+      const args = decodedUnsignedTx.method.args as {
+        dest: string;
+        value: string;
+      };
+      const toAddress = await this._getAddressByTxArgs(args);
+      if (toAddress === encodedTx.address) {
+        return true;
+      }
+
+      const { minAmount, balance } = await this._getMinAmount({
+        accountAddress: encodedTx.address,
+      });
+      const tokenAmount = new BigNumber(args.value);
+      const gasLimit = new BigNumber(encodedTx.feeInfo?.gas?.gasLimit ?? '0');
+      const gasPrice = new BigNumber(encodedTx.feeInfo?.gas?.gasPrice ?? '0');
+      const fee = gasLimit.times(gasPrice);
+
+      if (balance.minus(tokenAmount).minus(fee).lt(minAmount)) {
+        const network = await this.getNetwork();
+        throw new InvalidTransferValue({
+          key: ETranslations.dapp_connect_amount_should_be_at_least,
+          info: {
+            // @ts-expect-error
+            0: `${minAmount.shiftedBy(-network.decimals).toFixed()}${
+              network.symbol
+            }`,
+          },
+        });
+      }
+    }
+
+    return true;
+  }
+
+  override async buildHistoryTransferAction({
+    tx,
+    tokens,
+    nfts,
+  }: {
+    tx: IOnChainHistoryTx;
+    tokens: Record<string, IOnChainHistoryTxToken>;
+    nfts: Record<string, IAccountNFT>;
+  }): Promise<IDecodedTxAction> {
+    let to = tx.to;
+    let sends = tx.sends;
+    let receives = tx.receives;
+    if (!tx.to) {
+      const confirmedTxs =
+        await this.backgroundApi.serviceHistory.getAccountLocalHistoryConfirmedTxs(
+          {
+            networkId: this.networkId,
+            accountAddress: tx.from,
+          },
+        );
+      let localTx = confirmedTxs.find((item) => item.decodedTx.txid === tx.tx);
+      if (!localTx) {
+        const pendingTxs =
+          await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs(
+            {
+              networkId: this.networkId,
+              accountAddress: tx.from,
+            },
+          );
+        localTx = pendingTxs.find((item) => item.decodedTx.txid === tx.tx);
+      }
+      if (localTx && localTx.decodedTx.actions[0].assetTransfer) {
+        const assetTransfer = localTx.decodedTx.actions[0].assetTransfer;
+        to = assetTransfer.to;
+        sends = assetTransfer.sends.map((send) => ({
+          ...send,
+          label: send.label || '',
+          token: send.tokenIdOnNetwork,
+          type: EOnChainHistoryTransferType.Transfer,
+        }));
+        receives = assetTransfer.receives.map((receive) => ({
+          ...receive,
+          label: receive.label || '',
+          token: receive.tokenIdOnNetwork,
+          type: EOnChainHistoryTransferType.Transfer,
+        }));
+      }
+    }
+    return {
+      type: EDecodedTxActionType.ASSET_TRANSFER,
+      assetTransfer: {
+        from: tx.from,
+        to,
+        label: tx.label,
+        sends: sends.map((send) =>
+          this.buildHistoryTransfer({
+            transfer: send,
+            tokens,
+            nfts,
+          }),
+        ),
+        receives: receives.map((receive) =>
+          this.buildHistoryTransfer({
+            transfer: receive,
+            tokens,
+            nfts,
+          }),
+        ),
+      },
+    };
   }
 }

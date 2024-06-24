@@ -2,8 +2,8 @@ import type { IAdaSdk, IEnsureSDKReady, IGetCardanoApi } from './types';
 
 const ensureSDKReady: IEnsureSDKReady = async () => Promise.resolve(true);
 
-
-const composeTxPlan = async (...args: any[]) => global.$offscreenApiProxy.adaSdk.composeTxPlan(...args);
+const composeTxPlan = async (...args: any[]) =>
+  global.$offscreenApiProxy.adaSdk.composeTxPlan(...args);
 
 const signTransaction = async (...args: any[]) =>
   global.$offscreenApiProxy.adaSdk.signTransaction(...args);

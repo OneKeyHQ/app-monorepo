@@ -117,7 +117,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--11155111',
     'impl': 'evm',
     'isTestnet': true,
-    'logoURI': 'https://uni.onekey-asset.com/static/chain/teth.png',
+    'logoURI':
+      'https://uni.onekey-asset.com/static/chain/ethereum-sepolia-testnet.png',
     'name': 'Ethereum Sepolia Testnet',
     'shortcode': 'sepolia',
     'shortname': 'Sepolia',
@@ -195,7 +196,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'tbtc--0',
     'impl': 'tbtc',
     'isTestnet': true,
-    'logoURI': 'https://uni.onekey-asset.com/static/chain/tbtc.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/bitcoin-testnet.png',
     'name': 'Bitcoin Testnet',
     'shortcode': 'tbtc',
     'shortname': 'TBTC',
@@ -1217,7 +1218,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--66',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://uni.onekey-asset.com/static/chain/okt.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/okx-chain.png',
     'name': 'OKX Chain',
     'shortcode': 'okt',
     'shortname': 'OKC',
@@ -1528,7 +1529,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--1030',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://uni.onekey-asset.com/static/chain/cfx.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/conflux-espace.png',
     'name': 'Conflux eSpace',
     'shortcode': 'cfxespace',
     'shortname': 'CFXESPACE',
@@ -1809,7 +1810,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--73927',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://uni.onekey-asset.com/static/chain/mvm.png',
+    'logoURI':
+      'https://uni.onekey-asset.com/static/chain/mixin-virtual-machine.png',
     'name': 'Mixin Virtual Machine',
     'shortcode': 'mvm',
     'shortname': 'MVM',
@@ -1848,7 +1850,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--314',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://uni.onekey-asset.com/static/chain/fil.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/filecoin-fevm.png',
     'name': 'Filecoin FEVM',
     'shortcode': 'fevm',
     'shortname': 'FEVM',
@@ -1920,7 +1922,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'tlightning--0',
     'impl': 'tlightning',
     'isTestnet': true,
-    'logoURI': 'https://uni.onekey-asset.com/static/chain/lnd.png',
+    'logoURI':
+      'https://uni.onekey-asset.com/static/chain/lightning-network-testnet.png',
     'name': 'Lightning Network Testnet',
     'shortcode': 'tlightning',
     'shortname': 'LightningTestnet',
@@ -1978,10 +1981,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     ],
     'explorers': [
       {
-        'address': 'https://algoexplorer.io/address/{address}',
-        'block': 'https://algoexplorer.io/block/{block}',
-        'name': 'https://algoexplorer.io/',
-        'transaction': 'https://algoexplorer.io/tx/{transaction}',
+        'address': 'https://allo.info/account/{address}',
+        'block': 'https://allo.info/block/{block}',
+        'name': 'https://allo.info',
+        'transaction': 'https://allo.info/tx/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,
@@ -2102,7 +2105,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'tron--0x2b6653dc',
     'impl': 'tron',
     'isTestnet': false,
-    'logoURI': 'https://uni.onekey-asset.com/static/chain/trx.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/tron.png',
     'name': 'Tron',
     'shortcode': 'trx',
     'shortname': 'TRX',
@@ -2374,7 +2377,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'dot--manta',
     'impl': 'dot',
     'isTestnet': false,
-    'logoURI': 'https://uni.onekey-asset.com/static/chain/manta.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/manta-atlantic.png',
     'name': 'Manta Atlantic',
     'shortcode': 'manta',
     'shortname': 'MANTA',
@@ -2530,7 +2533,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--324',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://uni.onekey-asset.com/static/chain/zksyncera.png',
+    'logoURI':
+      'https://uni.onekey-asset.com/static/chain/zksync-era-mainnet.png',
     'name': 'zkSync Era Mainnet',
     'shortcode': 'zksyncera',
     'shortname': 'ZKSYNCERA',
@@ -2669,7 +2673,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'impl': 'evm',
     'isTestnet': false,
     'logoURI':
-      'https://uni.onekey-asset.com/static/logo/mantaPacificMainnet.webp',
+      'https://uni.onekey-asset.com/static/chain/manta-pacific-mainnet.png',
     'name': 'Manta Pacific Mainnet',
     'shortcode': 'mantapacific',
     'shortname': 'mantapacific',
@@ -2743,8 +2747,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'chainId': '0',
     'code': 'dnx',
     'decimals': 9,
-    'id': 'dnx--0',
-    'impl': 'dnx',
+    'id': 'dynex--0',
+    'impl': 'dynex',
     'isTestnet': false,
     'logoURI': 'https://uni.onekey-asset.com/static/chain/dynex.png',
     'name': 'Dynex',
@@ -2844,11 +2848,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     ],
     'explorers': [
       {
-        'address': 'https://filscan.io/address/general?address={address}',
-        'block': 'https://filscan.io/tipset/chain?hash={block}',
+        'address': 'https://filscan.io/address/{address}',
+        'block': 'https://filscan.io/height/{block}',
         'name': 'https://filscan.io/',
-        'transaction':
-          'https://filscan.io/tipset/message-detail?cid={transaction}',
+        'transaction': 'https://filscan.io/message/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,
@@ -2972,10 +2975,48 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2024-05-24T00:29:24.951Z',
   };
 
+  const polygonZkevm = {
+    'balance2FeeDecimals': 9,
+    'chainId': '1101',
+    'code': 'polygonzkevm',
+    'decimals': 18,
+    'id': 'evm--1101',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/polygon-zkevm.png',
+    'name': 'Polygon Zkevm',
+    'shortcode': 'polygonzkevm',
+    'shortname': 'polygonzkevm',
+    'symbol': 'ETH',
+    'feeMeta': {
+      'code': 'polygonzkevm',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ethereum',
+        'platform': 'arbitrum-one',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://zkevm.polygonscan.com/address/{address}',
+        'block': 'https://zkevm.polygonscan.com/block/{block}',
+        'name': 'https://zkevm.polygonscan.com/',
+        'transaction': 'https://zkevm.polygonscan.com/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-06-07T00:29:24.951Z',
+    'updatedAt': '2024-06-07T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     tatom, // Cosmos Testnet
     nexaTestnet,
-    tlightning,
   ];
 
   return [
@@ -3017,6 +3058,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     mantapacific,
     blast,
     octa,
+    polygonZkevm,
     // cosmos
     celestia,
     secret,
@@ -3035,6 +3077,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 
     aptos,
     lightning,
+    tlightning,
     cardano,
     ripple,
     nostr,
