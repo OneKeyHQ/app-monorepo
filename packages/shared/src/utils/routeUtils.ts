@@ -58,7 +58,11 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       const screen = screenConfig[screenName];
       if (platformEnv.isDev) {
         if (!screen) {
-          throw new Error(`screen ${screenName} not found`);
+          try {
+            throw new Error(`screen ${screenName} not found`);
+          } catch (error) {
+            console.error(error);
+          }
         }
       }
       if (!screen) {
