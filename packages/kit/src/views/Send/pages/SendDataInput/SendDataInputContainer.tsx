@@ -1,20 +1,27 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { memo, useCallback, useMemo, useState } from 'react';
+import type { RefObject } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { Keyboard, type LayoutChangeEvent } from 'react-native';
 
+import type { IScrollViewRef } from '@onekeyhq/components';
 import {
   Form,
   Input,
+  KEYBOARD_SHOW_EVENT_NAME,
   Page,
+  ScrollView,
   SizableText,
   TextArea,
   XStack,
   useForm,
+  useKeyboardEvent,
   useMedia,
+  usePage,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -715,6 +722,28 @@ function SendDataInputContainer() {
     );
   }, [displayMemoForm, intl, memoMaxLength, numericOnlyMemo]);
 
+  const scrollViewRef = useRef<IScrollViewRef | null>(null);
+
+  const handlePaymentFocus = useCallback(() => {
+    const callback = (resolve: (params?: any) => void) => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+      resolve();
+    };
+    void Promise.all([
+      new Promise((resolve) => {
+        const subscription = Keyboard.addListener(
+          KEYBOARD_SHOW_EVENT_NAME,
+          () => {
+            callback(resolve);
+            subscription.remove();
+          },
+        );
+      }),
+      new Promise((resolve) => {
+        setTimeout(() => callback(resolve), 1200);
+      }),
+    ]);
+  }, []);
   const renderPaymentIdForm = useCallback(() => {
     if (!displayPaymentIdForm) return null;
     return (
@@ -745,6 +774,7 @@ function SendDataInputContainer() {
           }}
         >
           <TextArea
+            onFocus={handlePaymentFocus}
             numberOfLines={2}
             size={media.gtMd ? 'medium' : 'large'}
             placeholder="Payment ID"
@@ -752,7 +782,7 @@ function SendDataInputContainer() {
         </Form.Field>
       </>
     );
-  }, [displayPaymentIdForm, intl, media.gtMd]);
+  }, [displayPaymentIdForm, handlePaymentFocus, intl, media.gtMd]);
 
   const renderDataInput = useCallback(() => {
     if (isNFT) {
@@ -778,7 +808,7 @@ function SendDataInputContainer() {
   ]);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.send_title })}
       />
@@ -793,71 +823,75 @@ function SendDataInputContainer() {
             0: { networkIds: [networkId], defaultNetworkId: networkId },
           }}
         >
-          <Form form={form}>
-            {isNFT ? (
-              <Form.Field
-                label={intl.formatMessage({ id: ETranslations.global_nft })}
-                name="nft"
-              >
-                <ListItem
-                  mx="$0"
-                  borderWidth={1}
-                  borderColor="$border"
-                  borderRadius="$2"
+          <ScrollView scrollEventThrottle={30} ref={scrollViewRef}>
+            <Form form={form}>
+              {isNFT ? (
+                <Form.Field
+                  label={intl.formatMessage({ id: ETranslations.global_nft })}
+                  name="nft"
                 >
-                  <XStack alignItems="center" space="$1" flex={1}>
-                    <Token
-                      isNFT
-                      size="lg"
-                      tokenImageUri={nft?.metadata?.image}
-                      networkImageUri={network?.logoURI}
-                    />
-                    <ListItem.Text
-                      flex={1}
-                      primary={nft?.metadata?.name}
-                      secondary={
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {tokenInfo?.name}
-                        </SizableText>
-                      }
-                    />
-                  </XStack>
-                </ListItem>
+                  <ListItem
+                    mx="$0"
+                    borderWidth={1}
+                    borderColor="$border"
+                    borderRadius="$2"
+                  >
+                    <XStack alignItems="center" space="$1" flex={1}>
+                      <Token
+                        isNFT
+                        size="lg"
+                        tokenImageUri={nft?.metadata?.image}
+                        networkImageUri={network?.logoURI}
+                      />
+                      <ListItem.Text
+                        flex={1}
+                        primary={nft?.metadata?.name}
+                        secondary={
+                          <SizableText size="$bodyMd" color="$textSubdued">
+                            {tokenInfo?.name}
+                          </SizableText>
+                        }
+                      />
+                    </XStack>
+                  </ListItem>
+                </Form.Field>
+              ) : null}
+              <Form.Field
+                label={intl.formatMessage({
+                  id: ETranslations.global_recipient,
+                })}
+                name="to"
+                rules={{
+                  required: true,
+                  validate: (value: IAddressInputValue) => {
+                    if (value.pending) {
+                      return;
+                    }
+                    if (!value.resolved) {
+                      return (
+                        value.validateError?.message ??
+                        intl.formatMessage({
+                          id: ETranslations.send_address_invalid,
+                        })
+                      );
+                    }
+                  },
+                }}
+              >
+                <AddressInput
+                  accountId={accountId}
+                  networkId={networkId}
+                  enableAddressBook
+                  enableWalletName
+                  enableVerifySendFundToSelf
+                  enableAddressInteractionStatus
+                  contacts
+                  accountSelector={{ num: 0 }}
+                />
               </Form.Field>
-            ) : null}
-            <Form.Field
-              label={intl.formatMessage({ id: ETranslations.global_recipient })}
-              name="to"
-              rules={{
-                required: true,
-                validate: (value: IAddressInputValue) => {
-                  if (value.pending) {
-                    return;
-                  }
-                  if (!value.resolved) {
-                    return (
-                      value.validateError?.message ??
-                      intl.formatMessage({
-                        id: ETranslations.send_address_invalid,
-                      })
-                    );
-                  }
-                },
-              }}
-            >
-              <AddressInput
-                accountId={accountId}
-                networkId={networkId}
-                enableAddressBook
-                enableWalletName
-                enableVerifySendFundToSelf
-                enableAddressInteractionStatus
-                contacts
-                accountSelector={{ num: 0 }}
-              />
-            </Form.Field>
-            {renderDataInput()}
-          </Form>
+              {renderDataInput()}
+            </Form>
+          </ScrollView>
         </AccountSelectorProviderMirror>
       </Page.Body>
       <Page.Footer
