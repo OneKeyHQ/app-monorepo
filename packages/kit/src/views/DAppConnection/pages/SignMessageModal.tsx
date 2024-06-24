@@ -5,6 +5,12 @@ import { useIntl } from 'react-intl';
 import { Page } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  validateSignMessageData,
+  validateTypedSignMessageDataV1,
+  validateTypedSignMessageDataV3V4,
+} from '@onekeyhq/shared/src/utils/messageUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
@@ -74,6 +80,33 @@ function SignMessageModal() {
   const handleSignMessage = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
       setIsLoading(true);
+
+      try {
+        if (
+          unsignedMessage.type === EMessageTypesEth.ETH_SIGN ||
+          unsignedMessage.type === EMessageTypesEth.PERSONAL_SIGN
+        ) {
+          validateSignMessageData(unsignedMessage);
+        }
+        if (unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V1) {
+          validateTypedSignMessageDataV1(unsignedMessage);
+        }
+        if (
+          unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
+          unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4
+        ) {
+          validateTypedSignMessageDataV3V4(
+            unsignedMessage,
+            networkUtils.getNetworkChainId({ networkId }),
+          );
+        }
+      } catch (e: any) {
+        setIsLoading(false);
+        dappApprove?.reject({ error: e });
+        close?.({ flag: EDAppModalPageStatus.Confirmed });
+        return;
+      }
+
       try {
         const result = await backgroundApiProxy.serviceSend.signMessage({
           unsignedMessage,
