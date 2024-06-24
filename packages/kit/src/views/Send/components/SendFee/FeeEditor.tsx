@@ -326,7 +326,12 @@ function FeeEditor(props: IProps) {
     (value: string) => {
       const maxBaseFee = new BigNumber(value || 0);
       if (maxBaseFee.isNaN() || maxBaseFee.isLessThanOrEqualTo(0)) {
-        return 'Max base fee must higher than 0';
+        return intl.formatMessage(
+          { id: ETranslations.form_must_greater_then_value },
+          {
+            value: 0,
+          },
+        );
       }
 
       const recommendMaxFee = feeSelectorItems
@@ -338,7 +343,9 @@ function FeeEditor(props: IProps) {
 
       if (maxBaseFee.isLessThan(customFee.gasEIP1559?.baseFeePerGas ?? 0)) {
         setFeeAlert(
-          'The max base fee is lower than the required base fee. It takes a long time from the transaction to go through.',
+          intl.formatMessage({
+            id: ETranslations.max_base_fee_lower_then_base_fee_alert_message,
+          }),
         );
       } else if (maxBaseFee.isGreaterThan(recommendMaxFeeMax)) {
         setFeeAlert('The max base fee may be higher than necessary');
@@ -347,7 +354,7 @@ function FeeEditor(props: IProps) {
       }
       return true;
     },
-    [customFee.gasEIP1559?.baseFeePerGas, feeSelectorItems],
+    [customFee.gasEIP1559?.baseFeePerGas, intl, feeSelectorItems],
   );
 
   const handleValidatePriorityFee = useCallback((value: string) => {
