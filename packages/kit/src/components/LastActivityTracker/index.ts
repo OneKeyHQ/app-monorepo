@@ -30,8 +30,7 @@ const LastActivityTracker = () => {
   }, []);
 
   const refresh = useCallback(() => {
-    const { currentState } = AppState;
-    if (currentState === 'active') {
+    if (AppState.currentState === 'active') {
       backgroundApiProxy.serviceSetting
         .refreshLastActivity()
         .catch(console.error);
