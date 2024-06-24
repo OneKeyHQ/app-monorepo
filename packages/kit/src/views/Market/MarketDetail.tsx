@@ -18,7 +18,10 @@ import {
   useShare,
 } from '@onekeyhq/components';
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -51,6 +54,8 @@ function TokenDetailHeader({
   token: IMarketTokenDetail;
 }) {
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
   const [token, setToken] = useState(responseToken);
   const {
     name,
@@ -85,7 +90,7 @@ function TokenDetailHeader({
         <XStack ai="center" jc="space-between" pt="$2">
           <NumberSizeableText
             size="$heading3xl"
-            formatterOptions={{ currency: '$' }}
+            formatterOptions={{ currency }}
             formatter="price"
           >
             {currentPrice || 0}

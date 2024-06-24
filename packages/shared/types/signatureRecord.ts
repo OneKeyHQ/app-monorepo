@@ -1,4 +1,5 @@
 import type { IServerNetwork } from '.';
+import type { ELidoLabels } from './staking';
 
 export type IBaseToken = {
   name: string;
@@ -23,32 +24,45 @@ export type IBaseSignedMessage = {
 
 export type ICreateSignedMessageParams = IBaseSignedMessage;
 
-export type ITransactionType = 'send' | 'approve' | 'swap' | 'stake';
+export enum ETransactionType {
+  SEND = 'send',
+  APPROVE = 'approve',
+  SWAP = 'swap',
+  EARN = 'earn',
+}
+
 interface IBaseTransactionData {
-  type: ITransactionType;
+  type: ETransactionType;
 }
 
 export interface ISendTransactionData extends IBaseTransactionData {
-  type: 'send';
+  type: ETransactionType.SEND;
   amount: string;
   token: IBaseToken;
 }
 
 export interface IApproveTransactionData extends IBaseTransactionData {
-  type: 'approve';
+  type: ETransactionType.APPROVE;
   amount: string;
   token: IBaseToken;
   isUnlimited?: boolean;
 }
 
 export interface ISwapTransactionData extends IBaseTransactionData {
-  type: 'swap';
+  type: ETransactionType.SWAP;
   fromNetworkId: string;
   fromAmount: string;
   fromToken: IBaseToken;
   toAmount: string;
   toNetworkId: string;
   toToken: IBaseToken;
+}
+
+export interface IEarnTransactionData extends IBaseTransactionData {
+  type: ETransactionType.EARN;
+  label: ELidoLabels;
+  send?: { amount: string; token: IBaseToken };
+  receive?: { amount: string; token: IBaseToken };
 }
 
 export type IBaseSignedTransaction = {
@@ -59,7 +73,11 @@ export type IBaseSignedTransaction = {
 };
 
 export type IBaseSignedTransactionData = {
-  data: ISendTransactionData | IApproveTransactionData | ISwapTransactionData;
+  data:
+    | ISendTransactionData
+    | IApproveTransactionData
+    | ISwapTransactionData
+    | IEarnTransactionData;
 };
 
 export type IBaseSignedTransactionDataStringify = {

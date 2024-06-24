@@ -43,8 +43,10 @@ type ITransferBlock = {
   transfersInfo: IDecodedTxTransferInfo[];
 };
 
-function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
-  const { action, decodedTx, isUTXO } = props;
+function getTxActionTransferInfo(
+  props: ITxActionProps & { isUTXO?: boolean; intl: IntlShape },
+) {
+  const { action, decodedTx, isUTXO, intl } = props;
 
   const { from, to, sends, receives, label } =
     action.assetTransfer as IDecodedTxActionAssetTransfer;
@@ -79,7 +81,10 @@ function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
       const filteredReceives = receives.filter((receive) => !receive.isOwn);
       transferTarget =
         filteredReceives.length > 1
-          ? `${filteredReceives.length} addresses`
+          ? intl.formatMessage(
+              { id: ETranslations.global_count_addresses },
+              { 'count': filteredReceives.length },
+            )
           : filteredReceives[0]
           ? filteredReceives[0].to
           : receives[0].to;
@@ -87,7 +92,10 @@ function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
       const filteredSends = sends.filter((send) => !send.isOwn);
       transferTarget =
         filteredSends.length > 1
-          ? `${filteredSends.length} addresses`
+          ? intl.formatMessage(
+              { id: ETranslations.global_count_addresses },
+              { 'count': filteredSends.length },
+            )
           : filteredSends[0]
           ? filteredSends[0].from
           : sends[0].from;
@@ -232,6 +240,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     receiveTokenIcon,
   } = getTxActionTransferInfo({
     ...props,
+    intl,
     isUTXO,
   });
   const description = {
@@ -365,7 +374,9 @@ function TxActionTransferListView(props: ITxActionProps) {
     </SizableText>
   );
 
-  title = isPending ? title : label;
+  if (!isPending && label) {
+    title = label;
+  }
 
   return (
     <TxActionCommonListView
@@ -418,7 +429,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
   const { decodedTx, nativeTokenTransferAmountToUpdate, isSendNativeToken } =
     props;
 
-  const { sends, receives, from } = getTxActionTransferInfo(props);
+  const { sends, receives, from } = getTxActionTransferInfo({
+    ...props,
+    intl,
+  });
 
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
   const receivesBlock = buildTransfersBlock(groupBy(receives, 'from'));

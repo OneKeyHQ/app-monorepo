@@ -23,9 +23,9 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'WALLETCONNECT_PROJECT_ID',
   ];
 
-  if (platform === developmentConsts.platforms.app) {
-    transformInlineEnvironmentVariables.push('JPUSH_KEY');
-  }
+  // if (platform === developmentConsts.platforms.app) {
+  //   transformInlineEnvironmentVariables.push('JPUSH_KEY');
+  // }
 
   return transformInlineEnvironmentVariables;
 }

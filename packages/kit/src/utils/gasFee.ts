@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 import type {
@@ -9,11 +10,11 @@ import type {
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
 
-const PRESET_FEE_ICON = ['🚀', '🚗', '🐢'];
+const PRESET_FEE_ICON = ['🐢', '🚗', '🚀'];
 const PRESET_FEE_LABEL = [
-  ETranslations.content__fast,
-  ETranslations.content__normal,
   ETranslations.content__slow,
+  ETranslations.content__normal,
+  ETranslations.content__fast,
 ];
 
 function nilError(message: string): number {
@@ -234,12 +235,18 @@ export function calculateFeeForSend({
 export function getFeeLabel({
   feeType,
   presetIndex,
+  isSinglePreset,
 }: {
   feeType: EFeeType;
   presetIndex?: number;
+  isSinglePreset?: boolean;
 }) {
   if (feeType === EFeeType.Custom) {
-    return ETranslations.global_advanced;
+    return ETranslations.content__custom;
+  }
+
+  if (isSinglePreset) {
+    return PRESET_FEE_LABEL[1];
   }
 
   return PRESET_FEE_LABEL[presetIndex ?? 1] ?? PRESET_FEE_LABEL[0];
@@ -247,13 +254,17 @@ export function getFeeLabel({
 export function getFeeIcon({
   feeType,
   presetIndex,
+  isSinglePreset,
 }: {
   feeType: EFeeType;
   presetIndex?: number;
+  isSinglePreset?: boolean;
 }) {
   if (feeType === EFeeType.Custom) {
     return '🔧';
   }
+
+  if (isSinglePreset) return PRESET_FEE_ICON[1];
 
   return PRESET_FEE_ICON[presetIndex ?? 1];
 }
@@ -291,5 +302,20 @@ export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
 
   if (feeInfo.feeSol) {
     return feeInfo.common.baseFee;
+  }
+}
+
+export function getMaxSendFeeUpwardAdjustmentFactor({
+  networkId,
+}: {
+  networkId: string;
+}) {
+  const networkIdMap = getNetworkIdsMap();
+  switch (networkId) {
+    case networkIdMap.mantle:
+    case networkIdMap.mantapacific:
+      return 1.2;
+    default:
+      return 1;
   }
 }

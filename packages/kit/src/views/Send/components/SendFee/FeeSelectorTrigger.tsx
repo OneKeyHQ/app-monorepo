@@ -3,7 +3,10 @@ import type { ComponentProps } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button } from '@onekeyhq/components';
-import { useSendSelectedFeeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import {
+  useIsSinglePresetAtom,
+  useSendSelectedFeeAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { getFeeLabel } from '@onekeyhq/kit/src/utils/gasFee';
 
 type IProps = ComponentProps<typeof Button> & {
@@ -16,6 +19,7 @@ function FeeSelectorTrigger(props: IProps) {
   const { disabled, onPress, ...rest } = props;
 
   const [sendSelectedFee] = useSendSelectedFeeAtom();
+  const [isSinglePreset] = useIsSinglePresetAtom();
 
   return (
     <Button
@@ -30,6 +34,7 @@ function FeeSelectorTrigger(props: IProps) {
         id: getFeeLabel({
           feeType: sendSelectedFee.feeType,
           presetIndex: sendSelectedFee.presetIndex,
+          isSinglePreset,
         }),
       })}
     </Button>

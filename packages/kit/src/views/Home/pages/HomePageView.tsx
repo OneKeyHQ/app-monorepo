@@ -139,8 +139,13 @@ export function HomePageView({
           <HomeSelector createAddressDisabled padding="$5" />
           <Stack flex={1} justifyContent="center">
             <Empty
-              icon="LinkSolid"
-              title="Selected network supports only 「Classic」"
+              icon="GlobusOutline"
+              title={intl.formatMessage(
+                { id: ETranslations.selected_network_only_supports_device },
+                {
+                  deviceType: 'OneKey Classic',
+                },
+              )}
             />
           </Stack>
         </YStack>

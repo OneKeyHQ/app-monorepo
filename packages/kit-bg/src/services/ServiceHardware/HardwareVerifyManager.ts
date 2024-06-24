@@ -34,7 +34,7 @@ export type IFirmwareAuthenticateParams = {
   skipDeviceCancel?: boolean;
 };
 
-const deviceCheckingCodes = [0, 10101, 10102, 10103, 10104];
+const deviceCheckingCodes = [0, 10104, 10105, 10106, 10107];
 
 export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
@@ -126,8 +126,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
         const client = await this.serviceHardware.getClient(
           EServiceEndpointEnum.Wallet,
         );
-        const shouldUseProxy =
-          platformEnv.isDev && process.env.ONEKEY_PROXY && platformEnv.isWeb;
+
         const payload = {
           deviceType,
           data,
@@ -140,16 +139,8 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
           code?: number;
         }>(
           '/wallet/v1/hardware/verify',
-          // shouldUseProxy ? CERTIFICATE_URL_PATH : CERTIFICATE_URL,
 
           payload,
-          {
-            headers: shouldUseProxy
-              ? {
-                  // 'X-OneKey-Dev-Proxy': CERTIFICATE_URL_LOCAL_DEV_PROXY,
-                }
-              : {},
-          },
         );
         const result = resp.data;
         console.log('firmwareAuthenticate result: ', result, connectId);

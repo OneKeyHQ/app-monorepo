@@ -143,7 +143,7 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
-        title="Clear App Data"
+        title="Clear App Data (E2E release only)"
         testID="clear-data-menu"
         onPress={() => {
           Dialog.show({
@@ -155,7 +155,7 @@ export const DevSettingsSection = () => {
             },
             onConfirm: () => {
               const dialog = Dialog.cancel({
-                title: 'Clear App Data',
+                title: 'Clear App Data (E2E release only)',
                 renderContent: (
                   <YStack>
                     <SectionPressItem

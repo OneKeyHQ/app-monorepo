@@ -1,3 +1,4 @@
+import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   COINTYPE_SOL,
   IMPL_SOL,
@@ -32,7 +33,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapSol = {
     coinType: COINTYPE_SOL,
     label: 'Ledger Live',
     desc: 'Ledger Live, Solflare, m/44’/501’/*’',
-    disableWalletTypes: ['hw'],
+    disableWalletTypes: [WALLET_TYPE_HW],
   },
 };
 

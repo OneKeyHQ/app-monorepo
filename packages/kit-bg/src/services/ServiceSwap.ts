@@ -399,7 +399,9 @@ export default class ServiceSwap extends ServiceBase {
   async syncSwapHistoryPendingList() {
     const histories = await this.fetchSwapHistoryListFromSimple();
     const pendingHistories = histories.filter(
-      (history) => history.status === ESwapTxHistoryStatus.PENDING,
+      (history) =>
+        history.status === ESwapTxHistoryStatus.PENDING ||
+        history.status === ESwapTxHistoryStatus.DISCARD,
     );
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
@@ -431,6 +433,12 @@ export default class ServiceSwap extends ServiceBase {
     const index = swapHistoryPendingList.findIndex(
       (i) => i.txInfo.txId === item.txInfo.txId,
     );
+    if (
+      item.status === ESwapTxHistoryStatus.DISCARD &&
+      swapHistoryPendingList[index]?.status === ESwapTxHistoryStatus.DISCARD
+    ) {
+      return;
+    }
     if (index !== -1) {
       const updated = Date.now();
       item.date = { ...item.date, updated };
@@ -443,17 +451,19 @@ export default class ServiceSwap extends ServiceBase {
           swapHistoryPendingList: [...newPendingList],
         };
       });
-      void this.backgroundApi.serviceApp.showToast({
-        method:
-          item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
-        title: appLocale.intl.formatMessage({
-          id:
-            item.status === ESwapTxHistoryStatus.SUCCESS
-              ? ETranslations.swap_page_toast_swap_successful
-              : ETranslations.swap_page_toast_swap_failed,
-        }),
-        message: `${item.baseInfo.fromAmount} ${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toAmount} ${item.baseInfo.toToken.symbol}`,
-      });
+      if (item.status !== ESwapTxHistoryStatus.DISCARD) {
+        void this.backgroundApi.serviceApp.showToast({
+          method:
+            item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
+          title: appLocale.intl.formatMessage({
+            id:
+              item.status === ESwapTxHistoryStatus.SUCCESS
+                ? ETranslations.swap_page_toast_swap_successful
+                : ETranslations.swap_page_toast_swap_failed,
+          }),
+          message: `${item.baseInfo.fromAmount} ${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toAmount} ${item.baseInfo.toToken.symbol}`,
+        });
+      }
     }
   }
 
@@ -513,6 +523,9 @@ export default class ServiceSwap extends ServiceBase {
           },
         });
         await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
+        if (txStatusRes?.state === ESwapTxHistoryStatus.DISCARD) {
+          enableInterval = true;
+        }
       }
     } catch (e) {
       const error = e as { message?: string };
@@ -533,7 +546,9 @@ export default class ServiceSwap extends ServiceBase {
   async swapHistoryStatusFetchLoop() {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const statusPendingList = swapHistoryPendingList.filter(
-      (item) => item.status === ESwapTxHistoryStatus.PENDING,
+      (item) =>
+        item.status === ESwapTxHistoryStatus.PENDING ||
+        item.status === ESwapTxHistoryStatus.DISCARD,
     );
     await this.cleanHistoryStateIntervals();
     if (!statusPendingList.length) return;

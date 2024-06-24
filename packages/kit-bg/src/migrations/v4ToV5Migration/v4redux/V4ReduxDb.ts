@@ -29,6 +29,7 @@ export class V4ReduxDb {
       try {
         const data = await appStorage.getItem('persist:ONEKEY_WALLET');
         if (!data) {
+          resolve(undefined);
           return;
         }
         if (isPlainObject(data)) {
@@ -45,6 +46,7 @@ export class V4ReduxDb {
       } finally {
         resolve(undefined);
       }
+      resolve(undefined);
     });
   }
 

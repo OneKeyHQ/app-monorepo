@@ -14,7 +14,10 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ETranslations,
+  ETranslationsMock,
+} from '@onekeyhq/shared/src/locale';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
@@ -68,7 +71,7 @@ export type IAccountDeriveInfoItems = {
   item: IAccountDeriveInfo;
   description: string | undefined;
   descI18n?: {
-    id: ETranslations;
+    id: ETranslations | ETranslationsMock | undefined;
     data: Record<string | number, string>;
   };
 };
@@ -344,6 +347,7 @@ export type IApproveInfo = {
 
 export type ITransferPayload = {
   amountToSend: string;
+  isMaxSend: boolean;
 };
 
 export enum EWrappedType {

@@ -20,6 +20,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useCustomFeeAtom,
+  useIsSinglePresetAtom,
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
   useSendConfirmActions,
@@ -35,6 +36,10 @@ import {
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
@@ -67,6 +72,7 @@ function TxFeeContainer(props: IProps) {
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
+  const [isSinglePreset] = useIsSinglePresetAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
   const {
@@ -75,6 +81,7 @@ function TxFeeContainer(props: IProps) {
     updateSendTxStatus,
     updateCustomFee,
     updateSendSelectedFee,
+    updateIsSinglePreset,
   } = useSendConfirmActions().current;
 
   const { result: [vaultSettings, network] = [] } =
@@ -183,9 +190,17 @@ function TxFeeContainer(props: IProps) {
 
         items.push({
           label: intl.formatMessage({
-            id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: i }),
+            id: getFeeLabel({
+              feeType: EFeeType.Standard,
+              presetIndex: i,
+              isSinglePreset,
+            }),
           }),
-          icon: getFeeIcon({ feeType: EFeeType.Standard, presetIndex: i }),
+          icon: getFeeIcon({
+            feeType: EFeeType.Standard,
+            presetIndex: i,
+            isSinglePreset,
+          }),
           value: i,
           feeInfo,
           type: EFeeType.Standard,
@@ -206,6 +221,8 @@ function TxFeeContainer(props: IProps) {
           type: EFeeType.Standard,
         });
       }
+
+      updateIsSinglePreset(items.length === 1);
 
       if (vaultSettings?.editFeeEnabled) {
         const customFeeInfo: IFeeInfoUnit = {
@@ -321,8 +338,10 @@ function TxFeeContainer(props: IProps) {
     return [];
   }, [
     txFee,
+    updateIsSinglePreset,
     vaultSettings?.editFeeEnabled,
     intl,
+    isSinglePreset,
     useFeeInTx,
     network,
     sendSelectedFee.presetIndex,
@@ -452,6 +471,12 @@ function TxFeeContainer(props: IProps) {
     updateSendTxStatus,
   ]);
 
+  useEffect(() => {
+    appEventBus.emit(EAppEventBusNames.TxFeeInfoChanged, {
+      feeSelectorItems,
+    });
+  }, [feeSelectorItems]);
+
   const handlePress = useCallback(() => {
     Dialog.show({
       title: intl.formatMessage({
@@ -499,6 +524,7 @@ function TxFeeContainer(props: IProps) {
             id: getFeeLabel({
               feeType: sendSelectedFee.feeType,
               presetIndex: sendSelectedFee.presetIndex,
+              isSinglePreset,
             }),
           })}
         </SizableText>
@@ -535,6 +561,7 @@ function TxFeeContainer(props: IProps) {
     feeSelectorItems.length,
     handlePress,
     intl,
+    isSinglePreset,
     openFeeEditorEnabled,
     sendFeeStatus.status,
     sendSelectedFee.feeType,
@@ -546,6 +573,7 @@ function TxFeeContainer(props: IProps) {
       <Divider mx="$5" />
       <InfoItemGroup
         animation="repeat"
+        animateOnly={['opacity']}
         opacity={isLoading && txFeeInit.current ? 0.5 : 1}
       >
         <InfoItem

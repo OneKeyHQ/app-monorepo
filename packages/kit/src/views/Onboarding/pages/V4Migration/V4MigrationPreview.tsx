@@ -10,6 +10,7 @@ import {
   Button,
   Dialog,
   Icon,
+  Image,
   Page,
   SectionList,
   SizableText,
@@ -27,12 +28,17 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IV4MigrationBackupItem } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/types';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type { IV4DBAvatarParsed } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/v4local/v4localDBTypes';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import v4MigrationUtils from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/v4MigrationUtils';
 import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
-import { V4MigrationLogCopyHeaderRight } from './components/V4MigrationLogCopy';
+import {
+  V4MigrationLogCopy,
+  V4MigrationLogCopyHeaderRight,
+} from './components/V4MigrationLogCopy';
 import { V4MigrationModalPage } from './components/V4MigrationModalPage';
 
 function BackupDialogContent({
@@ -127,7 +133,7 @@ function BackupDialogContent({
                     accountId: item.importedAccount.id,
                   },
                 );
-              setSecretText(r.exportedPrivateKey);
+              setSecretText(r.exportedPrivateKey || r.privateKey);
             }
             setIsMasked(false);
           }}
@@ -195,10 +201,29 @@ function BackupDialogContent({
   );
 }
 
+function BackupedMarkLabel({ backupId }: { backupId: string | undefined }) {
+  const [migrationData] = useV4migrationAtom();
+  const intl = useIntl();
+
+  if (backupId && migrationData?.backedUpMark?.[backupId]) {
+    return (
+      <ListItem.Text
+        align="right"
+        secondary={intl.formatMessage({
+          id: ETranslations.global_backed_up,
+        })}
+        secondaryTextProps={{
+          size: '$bodyLg',
+        }}
+      />
+    );
+  }
+  return null;
+}
+
 function AccountsSectionList() {
   const intl = useIntl();
   const { serviceV4Migration } = backgroundApiProxy;
-  const [migrationData, setMigrationData] = useV4migrationAtom();
   const { result: walletsForBackup = [] } = usePromiseResult(
     () => serviceV4Migration.buildV4WalletsForBackupSectionData(),
     [serviceV4Migration],
@@ -246,7 +271,13 @@ function AccountsSectionList() {
       )}
       estimatedItemSize="$10"
       stickySectionHeadersEnabled
-      renderItem={({ item }: { item: IV4MigrationBackupItem }) => {
+      renderItem={({
+        item,
+        index,
+      }: {
+        item: IV4MigrationBackupItem;
+        index: number;
+      }) => {
         let avatar: ReactNode | undefined;
         if (item.hdWallet && item?.hdWallet?.avatar) {
           let emoji = (
@@ -272,10 +303,18 @@ function AccountsSectionList() {
         } else if (item?.network?.id) {
           avatar = <NetworkAvatar size="$8" networkId={item.network.id} />;
         }
-
+        if (!avatar && item.networkId) {
+          const networkInfo = v4MigrationUtils.getNotSupportNetworkInfo({
+            networkId: item.networkId,
+          });
+          avatar = <Image size="$8" src={networkInfo?.logo || ''} />;
+        }
+        const key = `${item.backupId || ''}-${item.title || ''}-${
+          item.networkId || ''
+        }-${index}`;
         return (
           <ListItem
-            key={item.backupId}
+            key={key}
             title={item.title}
             subtitle={item.subTitle}
             subtitleProps={{
@@ -288,17 +327,7 @@ function AccountsSectionList() {
             drillIn
             renderAvatar={avatar}
           >
-            {migrationData?.backedUpMark?.[item?.backupId] ? (
-              <ListItem.Text
-                align="right"
-                secondary={intl.formatMessage({
-                  id: ETranslations.global_backed_up,
-                })}
-                secondaryTextProps={{
-                  size: '$bodyLg',
-                }}
-              />
-            ) : null}
+            <BackupedMarkLabel key={key} backupId={item?.backupId} />
           </ListItem>
         );
       }}
@@ -396,17 +425,19 @@ export function V4MigrationPreview({
         headerRight={V4MigrationLogCopyHeaderRight}
       />
       <Page.Body>
-        <Alert
-          m="$5"
-          mt="$2.5"
-          type="warning"
-          title={intl.formatMessage({
-            id: ETranslations.v4_migration_backup_alert_title,
-          })}
-          description={intl.formatMessage({
-            id: ETranslations.v4_migration_backup_alert_desc,
-          })}
-        />
+        <V4MigrationLogCopy>
+          <Alert
+            m="$5"
+            mt="$2.5"
+            type="warning"
+            title={intl.formatMessage({
+              id: ETranslations.v4_migration_backup_alert_title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.v4_migration_backup_alert_desc,
+            })}
+          />
+        </V4MigrationLogCopy>
         <AccountsSectionList />
       </Page.Body>
       <Page.Footer

@@ -8,6 +8,7 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import platformEnv from '../platformEnv';
 
 import type { EAccountSelectorSceneName } from '../../types';
+import type { IFeeSelectorItem } from '../../types/fee';
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -44,6 +45,7 @@ export enum EAppEventBusNames {
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   ClearLocalHistoryPendingTxs = 'ClearLocalHistoryPendingTxs',
+  TxFeeInfoChanged = 'TxFeeInfoChanged',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -117,6 +119,9 @@ export interface IAppEventBusPayload {
     tabIndex: number;
   };
   [EAppEventBusNames.ClearLocalHistoryPendingTxs]: undefined;
+  [EAppEventBusNames.TxFeeInfoChanged]: {
+    feeSelectorItems: IFeeSelectorItem[];
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
