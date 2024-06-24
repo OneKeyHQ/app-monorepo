@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,6 +13,7 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -20,7 +21,6 @@ import {
   useAccountSelectorActions,
   useAccountSelectorStorageReadyAtom,
   useActiveAccount,
-  useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 
 type IDeriveTypeSelectorTriggerPropsBase = {
@@ -168,12 +168,13 @@ export function DeriveTypeSelectorTrigger({
   num: number;
 }) {
   const intl = useIntl();
-  const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
-  const [isReady] = useAccountSelectorStorageReadyAtom();
-  const {
-    activeAccount: { deriveInfoItems, deriveInfo, wallet },
-  } = useActiveAccount({ num });
+  const [isStorageReady] = useAccountSelectorStorageReadyAtom();
+  const { activeAccount } = useActiveAccount({ num });
+  const { deriveInfoItems, deriveInfo, deriveType, wallet, network } =
+    activeAccount;
+  const walletId = wallet?.id;
+  const networkId = network?.id;
 
   const options = useMemo(
     () =>
@@ -197,15 +198,7 @@ export function DeriveTypeSelectorTrigger({
     [deriveInfoItems, intl, wallet?.type],
   );
 
-  if (!selectedAccount.walletId) {
-    return null;
-  }
-
-  if (accountUtils.isOthersWallet({ walletId: selectedAccount.walletId })) {
-    return null;
-  }
-
-  if (!isReady) {
+  if (!isStorageReady) {
     return null;
   }
 
@@ -213,22 +206,72 @@ export function DeriveTypeSelectorTrigger({
     return null;
   }
 
+  if (!walletId) {
+    return null;
+  }
+
+  if (walletId && accountUtils.isOthersWallet({ walletId })) {
+    return null;
+  }
+
   return (
     <DeriveTypeSelectorTriggerView
-      key={`${selectedAccount.deriveType || ''}-${
-        selectedAccount.networkId || ''
-      }-${deriveInfo?.template || ''}`}
+      key={`${deriveType || ''}-${networkId || ''}-${
+        deriveInfo?.template || ''
+      }`}
       testID={`derive-type-selector-trigger-${accountUtils.beautifyPathTemplate(
         { template: deriveInfo?.template || '' },
       )}`}
-      value={selectedAccount.deriveType}
+      value={deriveType}
       items={options}
-      onChange={(type) =>
-        actions.current.updateSelectedAccountDeriveType({
+      onChange={async (type) => {
+        await actions.current.updateSelectedAccountDeriveType({
           num,
-          deriveType: type as any,
-        })
-      }
+          deriveType: type,
+        });
+      }}
+      miniMode={miniMode}
+      renderTrigger={renderTrigger}
+      placement={placement}
+    />
+  );
+}
+
+export function DeriveTypeSelectorTriggerStandAlone({
+  networkId,
+  miniMode,
+  renderTrigger,
+  placement,
+}: {
+  networkId: string;
+} & IDeriveTypeSelectorTriggerPropsBase) {
+  const [deriveTypeChangedTs, setDeriveTypeChangedTs] = useState(0);
+  const { result: options = [] } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
+        networkId,
+      }),
+    [networkId],
+  );
+  const { result: deriveType = undefined } = usePromiseResult(async () => {
+    noopObject(deriveTypeChangedTs);
+    const globalDeriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId,
+      });
+    return globalDeriveType;
+  }, [networkId, deriveTypeChangedTs]);
+  return (
+    <DeriveTypeSelectorTriggerView
+      value={deriveType}
+      items={options}
+      onChange={async (type) => {
+        await backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork({
+          networkId: networkId || '',
+          deriveType: type,
+        });
+        setDeriveTypeChangedTs(Date.now());
+      }}
       miniMode={miniMode}
       renderTrigger={renderTrigger}
       placement={placement}
