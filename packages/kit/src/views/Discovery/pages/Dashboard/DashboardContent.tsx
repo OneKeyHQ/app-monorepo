@@ -113,7 +113,7 @@ function DashboardContent({
           }}
           isLoading={isLoading}
         />
-        {!platformEnv.isExtension ? (
+        {platformEnv.isExtension || platformEnv.isWeb ? null : (
           <BookmarksAndHistoriesSection
             key="BookmarksAndHistoriesSection"
             bookmarksData={bookmarksData}
@@ -127,7 +127,7 @@ function DashboardContent({
               })
             }
           />
-        ) : null}
+        )}
         <ReviewControl>
           <SuggestedAndExploreSection
             key="SuggestedAndExploreSection"

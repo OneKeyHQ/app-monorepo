@@ -1,7 +1,10 @@
 import { flatten, groupBy } from 'lodash';
 import semver from 'semver';
 
-import { isTaprootPath } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import {
+  isTaprootAddress,
+  isTaprootPath,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
@@ -327,7 +330,7 @@ class ServiceSetting extends ServiceBase {
       networkId,
       accountId,
     });
-    return isTaprootPath(account.path);
+    return isTaprootPath(account.path) || isTaprootAddress(account.address);
   }
 }
 

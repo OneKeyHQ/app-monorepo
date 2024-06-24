@@ -24,6 +24,11 @@ type IGetTabRouterParams = {
   freezeOnBlur?: boolean;
 };
 
+const isShowMDDiscover =
+  !platformEnv.isDesktop && !platformEnv.isExtensionUiPopup;
+
+const isShowDesktopDiscover = platformEnv.isDesktop;
+
 const getDiscoverRouterConfig = (params?: IGetTabRouterParams) => {
   const discoverRouterConfig: ITabNavigatorConfig<ETabRoutes> = {
     name: ETabRoutes.Discovery,
@@ -75,7 +80,7 @@ export const getTabRouter = (params?: IGetTabRouterParams) => {
       exact: true,
       children: swapRouters,
     },
-    !platformEnv.isDesktop ? getDiscoverRouterConfig(params) : undefined,
+    isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
     platformEnv.isDev
       ? {
           name: ETabRoutes.Me,
@@ -100,7 +105,7 @@ export const getTabRouter = (params?: IGetTabRouterParams) => {
           children: developerRouters,
         }
       : undefined,
-    platformEnv.isDesktop ? getDiscoverRouterConfig(params) : undefined,
+    isShowDesktopDiscover ? getDiscoverRouterConfig(params) : undefined,
   ].filter<ITabNavigatorConfig<ETabRoutes>>(
     (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,
   );
