@@ -114,19 +114,15 @@ const UnsafeAlert = () => {
   );
 };
 
-const ErrOccurred = ({ onPress }: { onPress?: () => void }) => {
+const ErrOccurred = () => {
   const intl = useIntl();
   return (
     <Empty
       icon="ErrorOutline"
       title={intl.formatMessage({ id: ETranslations.global_an_error_occurred })}
       description={intl.formatMessage({
-        id: ETranslations.global_an_error_occurred_desc,
+        id: ETranslations.global_an_error_occurred,
       })}
-      buttonProps={{
-        onPress,
-        children: intl.formatMessage({ id: ETranslations.global_refresh }),
-      }}
     />
   );
 };
@@ -143,13 +139,12 @@ export const ContentContainer = ({
   loading,
   error,
   unsafe,
-  onRefresh,
 }: PropsWithChildren<IContentContainerProps>) => {
   if (loading) {
     return <ContentSpinner />;
   }
   if (error) {
-    return <ErrOccurred onPress={onRefresh} />;
+    return <ErrOccurred />;
   }
   if (unsafe) {
     return <UnsafeAlert />;
