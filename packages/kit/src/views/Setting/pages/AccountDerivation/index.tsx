@@ -24,7 +24,6 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
 }) => (
   <DeriveTypeSelectorTriggerStandAlone
     networkId={networkId}
-    miniMode
     placement="bottom-end"
     renderTrigger={({ label }) => (
       <ListItem title={title} avatarProps={{ src: icon }}>
