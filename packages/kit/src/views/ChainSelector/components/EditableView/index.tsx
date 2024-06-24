@@ -88,7 +88,7 @@ const EditableViewListItem = ({
           }}
         />
       ) : null}
-      {sectionIndex === 0 && networkId === item.id && !isEditMode ? (
+      {networkId === item.id && !isEditMode ? (
         <ListItem.CheckMark
           key="checkmark"
           enterStyle={{
