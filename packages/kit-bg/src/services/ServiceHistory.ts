@@ -115,7 +115,9 @@ class ServiceHistory extends ServiceBase {
     for (const localHistoryPendingTx of localHistoryPendingTxs) {
       const confirmedTx = onChainHistoryTxsDetails.find(
         (txDetails) =>
-          localHistoryPendingTx.decodedTx.txid === txDetails?.data.tx,
+          localHistoryPendingTx.decodedTx.txid === txDetails?.data.tx &&
+          (txDetails.data.status === EOnChainHistoryTxStatus.Success ||
+            txDetails.data.status === EOnChainHistoryTxStatus.Failed),
       );
 
       if (confirmedTx) {

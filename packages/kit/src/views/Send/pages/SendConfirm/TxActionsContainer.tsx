@@ -77,15 +77,28 @@ function TxActionsContainer(props: IProps) {
       !vaultSettings?.ignoreUpdateNativeAmount &&
       !nativeTokenInfo.isLoading
     ) {
-      setIsSendNativeToken(true);
-      nativeTokenTransferBN = new BigNumber(
-        transferPayload?.amountToSend ?? nativeTokenTransferBN,
-      );
-      const nativeTokenBalanceBN = new BigNumber(nativeTokenInfo.balance);
-      const feeBN = new BigNumber(sendSelectedFeeInfo?.totalNative ?? 0);
+      let isSendNativeTokenOnly = false;
 
       if (
+        decodedTxs.length === 1 &&
+        decodedTxs[0].actions.length === 1 &&
+        isSendNativeTokenAction(decodedTxs[0].actions[0])
+      ) {
+        setIsSendNativeToken(true);
+        isSendNativeTokenOnly = true;
+      }
+
+      if (isSendNativeTokenOnly && !vaultSettings?.isUtxo) {
+        nativeTokenTransferBN = new BigNumber(
+          transferPayload?.amountToSend ?? nativeTokenTransferBN,
+        );
+      }
+
+      const nativeTokenBalanceBN = new BigNumber(nativeTokenInfo.balance);
+      const feeBN = new BigNumber(sendSelectedFeeInfo?.totalNative ?? 0);
+      if (
         transferPayload?.isMaxSend &&
+        isSendNativeTokenOnly &&
         nativeTokenTransferBN.plus(feeBN).gte(nativeTokenBalanceBN)
       ) {
         const transferAmountBN = BigNumber.min(
@@ -103,18 +116,13 @@ function TxActionsContainer(props: IProps) {
         } else {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: false,
-            amountToUpdate: vaultSettings?.isUtxo
-              ? nativeTokenTransferBN.toFixed()
-              : transferPayload?.amountToSend ??
-                nativeTokenTransferBN.toFixed(),
+            amountToUpdate: nativeTokenTransferBN.toFixed(),
           });
         }
       } else {
         updateNativeTokenTransferAmountToUpdate({
           isMaxSend: false,
-          amountToUpdate: vaultSettings?.isUtxo
-            ? nativeTokenTransferBN.toFixed()
-            : transferPayload?.amountToSend ?? nativeTokenTransferBN.toFixed(),
+          amountToUpdate: nativeTokenTransferBN.toFixed(),
         });
       }
     }

@@ -18,6 +18,7 @@ export enum EOnChainHistoryTransferType {
 export enum EOnChainHistoryTxStatus {
   Failed = '0',
   Success = '1',
+  Pending = '2',
 }
 
 export enum EOnChainHistoryTxType {
