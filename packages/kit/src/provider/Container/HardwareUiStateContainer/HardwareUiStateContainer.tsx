@@ -8,10 +8,9 @@ import {
   useRef,
 } from 'react';
 
-import { Semaphore } from 'async-mutex';
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance, IToastShowResult } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Dialog,
   DialogContainer,
@@ -25,7 +24,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -41,6 +39,8 @@ import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
 } from '../../../components/Hardware/HardwareDialog';
+
+import ActionsQueueManager from './ActionsQueueManager';
 
 function HardwareSingletonDialogCmp(
   props: any,
@@ -168,86 +168,142 @@ function HardwareSingletonDialogCmp(
   );
 }
 
-const HardwareSingletonDialog = forwardRef(HardwareSingletonDialogCmp);
+const hasConfirmAction = (localState: IHardwareUiState | undefined) => {
+  if (localState?.action === EHardwareUiStateAction.REQUEST_BUTTON) {
+    return true;
+  }
+  if (
+    localState?.action === EHardwareUiStateAction.FIRMWARE_TIP &&
+    (localState?.payload?.firmwareTipData?.message ===
+      EFirmwareUpdateTipMessages.ConfirmOnDevice ||
+      localState?.payload?.firmwareTipData?.message ===
+        EFirmwareUpdateTipMessages.InstallingFirmware)
+  ) {
+    return true;
+  }
 
-let dialogInstances: IDialogInstance[] = [];
-let toastInstances: IToastShowResult[] = [];
+  return false;
+};
+
+const HardwareSingletonDialog = forwardRef(HardwareSingletonDialogCmp);
 
 function HardwareUiStateContainerCmp() {
   const [state] = useHardwareUiStateAtom();
   const { serviceHardwareUI } = backgroundApiProxy;
 
+  const toastQueueManagerRef = useRef(new ActionsQueueManager('toast'));
+  const dialogQueueManagerRef = useRef(new ActionsQueueManager('dialog'));
+
   const action = state?.action;
-  const connectId = state?.connectId; // connectId maybe undefined usb-sdk
-  const deviceType = state?.payload?.deviceType || 'unknown';
 
-  const stateRef = useRef(state);
-  stateRef.current = state;
+  const autoClosedFlag = 'autoClosed';
 
-  // const dialogRef = useRef<IDialogInstance | undefined>();
-  // const toastRef = useRef<IToastShowResult | undefined>();
+  const log = (...args: any[]) => {
+    const ts = Date.now();
+    console.log(`${ts}## HardwareUiStateContainerUiLog`, ...args);
+  };
 
-  const shouldShowAction = Boolean(state);
+  const getDeviceType = useCallback(
+    (currentState: IHardwareUiState | undefined) =>
+      currentState?.payload?.deviceType || 'unknown',
+    [],
+  );
 
-  const isToastAction = useMemo(() => {
-    if (!action) {
-      return false;
-    }
-    if ([EHardwareUiStateAction.REQUEST_BUTTON].includes(action)) {
-      return true;
-    }
-    if (action === EHardwareUiStateAction.FIRMWARE_TIP) {
+  const hasToastAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (!currentState?.action) return false;
+
       if (
-        state?.payload?.firmwareTipData?.message ===
-          EFirmwareUpdateTipMessages.ConfirmOnDevice ||
-        state?.payload?.firmwareTipData?.message ===
-          EFirmwareUpdateTipMessages.InstallingFirmware
+        [EHardwareUiStateAction.REQUEST_BUTTON].includes(currentState?.action)
       ) {
         return true;
       }
-    }
-    return false;
-  }, [action, state?.payload?.firmwareTipData?.message]);
 
-  const isToastActionRef = useRef(isToastAction);
-  isToastActionRef.current = isToastAction;
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_TIP) {
+        if (
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.ConfirmOnDevice ||
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.InstallingFirmware
+        ) {
+          return true;
+        }
+      }
 
-  const isDialogAction = useMemo(() => {
-    if (!action) {
       return false;
-    }
-    if (isToastAction) {
-      return false;
-    }
-    if (
-      [
-        EHardwareUiStateAction.FIRMWARE_TIP,
-        EHardwareUiStateAction.FIRMWARE_PROGRESS,
-        EHardwareUiStateAction.CLOSE_UI_WINDOW,
-        EHardwareUiStateAction.PREVIOUS_ADDRESS,
-      ].includes(action)
-    ) {
-      return false;
-    }
-    return true;
-  }, [action, isToastAction]);
+    },
+    [],
+  );
 
-  // Required operation dialog
-  const isOperationAction = useMemo(() => {
-    if (!action) return false;
-    if (!isDialogAction) return false;
-    if (
-      [
-        EHardwareUiStateAction.BLUETOOTH_PERMISSION,
-        EHardwareUiStateAction.LOCATION_PERMISSION,
-        EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION,
-      ].includes(action)
-    ) {
+  const hasToastCloseAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (!currentState?.action) return false;
+
+      if (currentState?.action === EHardwareUiStateAction.CLOSE_UI_WINDOW) {
+        return true;
+      }
+
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_TIP) {
+        if (
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.GoToBootloaderSuccess ||
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.FirmwareEraseSuccess
+        ) {
+          return true;
+        }
+      }
+
+      return false;
+    },
+    [],
+  );
+
+  // const isToastActionRef = useRef(isToastAction);
+  // isToastActionRef.current = isToastAction;
+
+  const hasDialogAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (!currentState?.action) return false;
+
+      if (hasToastAction(currentState)) return false;
+
+      if (
+        [
+          EHardwareUiStateAction.FIRMWARE_TIP,
+          EHardwareUiStateAction.FIRMWARE_PROGRESS,
+          EHardwareUiStateAction.CLOSE_UI_WINDOW,
+          EHardwareUiStateAction.PREVIOUS_ADDRESS,
+        ].includes(currentState?.action)
+      ) {
+        return false;
+      }
+
       return true;
-    }
+    },
+    [hasToastAction],
+  );
 
-    return false;
-  }, [action, isDialogAction]);
+  const hasOperationAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (!currentState?.action) return false;
+      if (!hasToastAction(currentState)) return false;
+
+      if (
+        currentState &&
+        [
+          EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+          EHardwareUiStateAction.LOCATION_PERMISSION,
+          EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION,
+        ].includes(currentState.action)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [hasToastAction],
+  );
 
   const shouldSkipCancel = useMemo(() => {
     // TODO atom firmware is updating
@@ -260,130 +316,162 @@ function HardwareUiStateContainerCmp() {
     ) {
       return true;
     }
+
     return false;
   }, [action]);
 
   const shouldSkipCancelRef = useRef(shouldSkipCancel);
   shouldSkipCancelRef.current = shouldSkipCancel;
 
-  const HardwareSingletonDialogRender = useCallback(
-    ({ ref }: { ref: any }) => (
-      <HardwareSingletonDialog
-        hello="world-338"
-        ref={ref}
-        state={stateRef.current}
-      />
-    ),
-    [],
-  );
-
-  console.log(
-    'HardwareUiStateContainer action ========',
-    state,
-    action,
-    shouldShowAction,
-    [HardwareSingletonDialogRender, connectId, isToastAction, shouldShowAction],
-  );
-
-  const autoClosedFlag = 'autoClosed';
-
-  const showOrHideMutex = useRef(new Semaphore(1));
-
-  // TODO support multiple connectId dialog show
-  useEffect(() => {
-    void showOrHideMutex.current.runExclusive(async () => {
-      const ts = Date.now();
-      const log = (...args: any[]) =>
-        console.log(`${ts}## HardwareUiStateContainerUiLog`, ...args);
-      const stateData = stateRef.current;
-      log(`start ui  ========= `, stateData);
-      // TODO do not cancel device here
-      const closePrevToastActions = async () => {
-        for (const toast of toastInstances) {
-          await toast?.close?.({ flag: autoClosedFlag });
-        }
-        toastInstances = [];
-        log(`close prev toast`);
-      };
-
-      const closePrevDialogActions = async () => {
-        for (const dialog of dialogInstances) {
-          await dialog?.close?.({ flag: autoClosedFlag });
-        }
-        dialogInstances = [];
-        log(`close prev dialog`);
-      };
-
-      if (!isToastAction) {
-        await closePrevToastActions();
-      }
-      if (!isDialogAction) {
-        await closePrevDialogActions();
-      }
-
-      // for DEBUG test
-      if (stateData?.action === 'ui-request_passphrase') {
-        // log(`skip action: 'ui-request_passphrase'`);
-        // return;
-      }
-
-      if (shouldShowAction) {
-        if (isToastAction) {
-          // hardware ui state toast
-          const instance = Toast.show({
-            children: <ConfirmOnDeviceToastContent deviceType={deviceType} />,
+  const showActionsToast = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      const currentDeviceType = getDeviceType(currentState);
+      toastQueueManagerRef?.current?.addQueue(() => ({
+        state: currentState,
+        action: () =>
+          Toast.show({
+            children: (
+              <ConfirmOnDeviceToastContent deviceType={currentDeviceType} />
+            ),
             dismissOnOverlayPress: false,
             disableSwipeGesture: false,
             onClose: async (params) => {
               log('close toast');
               if (params?.flag !== autoClosedFlag) {
                 await serviceHardwareUI.closeHardwareUiStateDialog({
-                  connectId,
+                  connectId: currentState?.connectId,
                   skipDeviceCancel: shouldSkipCancelRef.current,
                 });
               }
             },
-          });
-          toastInstances.push(instance);
-        } else if (isDialogAction) {
-          // hardware ui action dialog
-          const instance = Dialog.show({
+          }),
+      }));
+    },
+    [getDeviceType, serviceHardwareUI],
+  );
+
+  const showActionsDialog = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      // Required operation dialog
+      const isOperationAction = hasOperationAction(currentState);
+      dialogQueueManagerRef?.current?.addQueue(() => ({
+        state: currentState,
+        action: () =>
+          Dialog.show({
             dismissOnOverlayPress: !!isOperationAction,
             showFooter: !!isOperationAction,
-            dialogContainer: HardwareSingletonDialogRender,
+            // eslint-disable-next-line react/no-unstable-nested-components
+            dialogContainer: ({ ref }: { ref: any }) => (
+              <HardwareSingletonDialog ref={ref} state={currentState} />
+            ),
             async onClose(params) {
               log('close dialog');
               if (params?.flag !== autoClosedFlag) {
                 await serviceHardwareUI.closeHardwareUiStateDialog({
-                  connectId,
+                  connectId: currentState?.connectId,
                   reason: 'HardwareUiStateContainer onClose',
                   skipDeviceCancel: shouldSkipCancelRef.current,
                 });
               }
             },
-          });
-          dialogInstances.push(instance);
-        }
-      } else {
-        await closePrevToastActions();
-        await closePrevDialogActions();
+          }),
+      }));
+    },
+    [hasOperationAction, serviceHardwareUI],
+  );
+
+  const hasSameDialogAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      const dialogCurrentState =
+        dialogQueueManagerRef?.current?.currentActionState;
+
+      if (dialogCurrentState?.action === undefined) {
+        return false;
       }
 
-      // If the interval between toast open and close (prev opened toast) is less than 300ms, the toast cannot be closed, so a delay must be added here.
-      await timerUtils.wait(300);
-      log(`end ui ^^^^^^^^^^^^^^^^^^^^^^^^^^^`);
-    });
+      if (currentState?.action === dialogCurrentState?.action) {
+        return true;
+      }
 
-    return () => {};
+      return false;
+    },
+    [],
+  );
+
+  const hasSameToastAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      const toastCurrentState =
+        toastQueueManagerRef?.current?.currentActionState;
+
+      if (toastCurrentState?.action === undefined) {
+        return false;
+      }
+
+      if (currentState?.action === toastCurrentState?.action) {
+        return true;
+      }
+
+      if (
+        currentState?.payload?.deviceType ===
+          toastCurrentState?.payload?.deviceType &&
+        hasConfirmAction(currentState) &&
+        hasConfirmAction(toastCurrentState)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const handleStateChange = async () => {
+      const isToastAction = hasToastAction(state);
+      const isDialogAction = hasDialogAction(state);
+      const isToastCloseAction = hasToastCloseAction(state);
+
+      console.log('HardwareUiStateContainer action change === ', {
+        isToastAction,
+        isDialogAction,
+        state: state?.action,
+        hasSameDialogAction: hasSameDialogAction(state),
+        hasSameToastAction: hasSameToastAction(state),
+        dialogCurrentState:
+          dialogQueueManagerRef?.current?.currentActionState?.action,
+        toastCurrentState:
+          toastQueueManagerRef?.current?.currentActionState?.action,
+        statePayload: state?.payload,
+      });
+
+      if (state) {
+        if (isToastAction && !hasSameToastAction(state)) {
+          await dialogQueueManagerRef.current?.closeAll();
+          showActionsToast(state);
+        } else if (isDialogAction && !hasSameDialogAction(state)) {
+          await toastQueueManagerRef.current?.closeAll();
+          showActionsDialog(state);
+        }
+
+        if (isToastCloseAction) {
+          await toastQueueManagerRef.current?.closeAll();
+        }
+      } else {
+        await toastQueueManagerRef.current?.closeAll();
+        await dialogQueueManagerRef.current?.closeAll();
+      }
+    };
+
+    void handleStateChange();
   }, [
-    HardwareSingletonDialogRender,
-    connectId,
-    deviceType,
-    isDialogAction,
-    isToastAction,
-    isOperationAction,
-    serviceHardwareUI,
-    shouldShowAction,
+    hasDialogAction,
+    hasSameDialogAction,
+    hasSameToastAction,
+    hasToastAction,
+    hasToastCloseAction,
+    showActionsDialog,
+    showActionsToast,
+    state,
   ]);
 
   return null;

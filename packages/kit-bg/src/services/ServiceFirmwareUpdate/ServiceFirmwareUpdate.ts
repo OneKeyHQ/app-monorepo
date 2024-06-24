@@ -872,6 +872,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
             {},
           ),
         );
+        // await hardware boot install and reboot
+        await timerUtils.wait(20 * 1000);
         return result;
       }
     });

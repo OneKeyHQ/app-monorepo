@@ -114,7 +114,7 @@ export function FirmwareUpdateDevSettings() {
         title="Force update bootloader"
       >
         <Switch size={ESwitchSize.small} />
-      </FirmwareUpdateSectionFieldItem>{' '}
+      </FirmwareUpdateSectionFieldItem>
       <FirmwareUpdateSectionFieldItem
         name="showAutoCheckHardwareUpdatesToast"
         title="Show Auto Check Hardware Updates Toast"

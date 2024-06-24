@@ -17,6 +17,7 @@ import {
   hardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IHardwareUiPayload } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
 
 import { Layout } from './utils/Layout';
@@ -104,22 +105,22 @@ const HardwareActionTest = () => {
 
       <Stack gap="$2">
         <SizableText textAlign="left" size="$bodySmMedium" color="$text">
-          事件：Pin =》Passphrase =》Pin On Device =》Passphrase On Device =》
-          Pin =》Passphrase
-        </SizableText>
-        <SizableText textAlign="left" size="$bodySmMedium" color="$text">
-          实际：Passphrase
+          事件：Pin =》Pin On Device
         </SizableText>
         <Button
           onPress={async () => {
             await generateAction(EHardwareUiStateAction.REQUEST_PIN);
-            await generateAction(EHardwareUiStateAction.REQUEST_PASSPHRASE);
             await generateAction(EHardwareUiStateAction.EnterPinOnDevice);
-            await generateAction(
-              EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE,
-            );
-            await generateAction(EHardwareUiStateAction.REQUEST_PIN);
-            await generateAction(EHardwareUiStateAction.REQUEST_PASSPHRASE);
+            await generateAction(EHardwareUiStateAction.REQUEST_BUTTON);
+
+            // await generateAction(EHardwareUiStateAction.REQUEST_PIN);
+            // await generateAction(EHardwareUiStateAction.REQUEST_PASSPHRASE);
+            // await generateAction(EHardwareUiStateAction.EnterPinOnDevice);
+            // await generateAction(
+            //   EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE,
+            // );
+            // await generateAction(EHardwareUiStateAction.REQUEST_PIN);
+            // await generateAction(EHardwareUiStateAction.REQUEST_PASSPHRASE);
           }}
         >
           Test Hardware Action Dialog (Test 2)
@@ -173,24 +174,17 @@ const HardwareActionTest = () => {
               payload: {
                 message: 'ConfirmOnDevice',
               },
-              deviceType: 'classic',
+              deviceType: 'pro',
             });
             await generateAction(EHardwareUiStateAction.FIRMWARE_TIP, {
               payload: {
                 message: '"InstallingFirmware"',
               },
-              deviceType: 'classic',
+              deviceType: 'pro',
             });
-            // // 可以关闭弹窗
-            // await generateAction(EHardwareUiStateAction.FIRMWARE_TIP, {
-            //   payload: {
-            //     message: '"GoToBootloaderSuccess"',
-            //   },
-            //   deviceType: 'classic',
-            // });
           }}
         >
-          Test Hardware Action Toast (Count 4)
+          Install Firmware Event (Test 1)
         </Button>
       </Stack>
     </Stack>
