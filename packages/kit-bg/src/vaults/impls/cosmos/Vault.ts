@@ -198,6 +198,7 @@ export default class VaultCosmos extends VaultBase {
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId: network.id,
         accountAddress: transfersInfo[0].from,
+        withNonce: true,
       });
     if (!accountInfo) {
       throw new Error('Invalid account');
