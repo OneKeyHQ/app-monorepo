@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "패스프레이즈를 다시 입력하세요",
   "form.enter_private_key_placeholder": "개인 키를 입력하세요",
   "form.gas_limit_error_range": "가스 한도는 {min}과 {max} 사이여야 합니다.",
+  "form.global_error_something_higher_then_necessary": "{somgthing}이 필요 이상으로 높습니다",
   "form.keep_hidden_wallet_label": "접근 가능하게 유지하세요",
   "form.keep_hidden_wallet_label_desc": "앱 종료 시 숨겨진 지갑이 초기화됩니다. 유지하려면 토글하세요.",
   "form.lighting_invoice_amount_error_max": "금액은 {amount} sats를 초과하지 않아야 합니다.",

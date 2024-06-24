@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "パスフレーズを再入力してください",
   "form.enter_private_key_placeholder": "あなたのプライベートキーを入力してください",
   "form.gas_limit_error_range": "ガスリミットは{min}と{max}の間でなければなりません",
+  "form.global_error_something_higher_then_necessary": "{somgthing}は必要以上に高いです",
   "form.keep_hidden_wallet_label": "アクセス可能に保つ",
   "form.keep_hidden_wallet_label_desc": "アプリを閉じると隠しウォレットがクリアされます。保存するには切り替えてください。",
   "form.lighting_invoice_amount_error_max": "金額は{amount} satsを超えてはなりません。",

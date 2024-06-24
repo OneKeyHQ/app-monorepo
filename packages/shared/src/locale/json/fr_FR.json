@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "Ressaisissez votre passphrase",
   "form.enter_private_key_placeholder": "Entrez votre clé privée",
   "form.gas_limit_error_range": "La limite de gaz doit être comprise entre {min} et {max}",
+  "form.global_error_something_higher_then_necessary": "{somgthing} est plus élevé que nécessaire",
   "form.keep_hidden_wallet_label": "Garder accessible",
   "form.keep_hidden_wallet_label_desc": "Les portefeuilles cachés se vident à la fermeture de l'application. Activez pour conserver.",
   "form.lighting_invoice_amount_error_max": "Le montant ne doit pas dépasser {amount} sats.",

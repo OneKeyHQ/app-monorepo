@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "Nhập lại passphrase của bạn",
   "form.enter_private_key_placeholder": "Nhập khóa riêng của bạn",
   "form.gas_limit_error_range": "Giới hạn khí phải nằm giữa {min} và {max}",
+  "form.global_error_something_higher_then_necessary": "{somgthing} cao hơn so với cần thiết",
   "form.keep_hidden_wallet_label": "Giữ cho dễ truy cập",
   "form.keep_hidden_wallet_label_desc": "Ví ẩn sẽ được xóa khi đóng ứng dụng. Chuyển đổi để giữ lại.",
   "form.lighting_invoice_amount_error_max": "Số tiền không được vượt quá {amount} sats.",

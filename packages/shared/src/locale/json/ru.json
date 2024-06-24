@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "Введите заново ваш Passphrase",
   "form.enter_private_key_placeholder": "Введите свой приватный ключ",
   "form.gas_limit_error_range": "Лимит газа должен быть между {min} и {max}",
+  "form.global_error_something_higher_then_necessary": "{somgthing} выше, чем необходимо",
   "form.keep_hidden_wallet_label": "Сохранить доступным",
   "form.keep_hidden_wallet_label_desc": "Скрытые кошельки очищаются при закрытии приложения. Включите, чтобы сохранить.",
   "form.lighting_invoice_amount_error_max": "Сумма не должна превышать {amount} сатоши.",

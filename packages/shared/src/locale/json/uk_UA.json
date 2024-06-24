@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "Повторно введіть свій passphrase",
   "form.enter_private_key_placeholder": "Введіть свій приватний ключ",
   "form.gas_limit_error_range": "Ліміт газу повинен бути між {min} та {max}",
+  "form.global_error_something_higher_then_necessary": "{somgthing} вище, ніж необхідно",
   "form.keep_hidden_wallet_label": "Зберігайте доступним",
   "form.keep_hidden_wallet_label_desc": "Приховані гаманці очищуються при закритті додатку. Перемкніть, щоб зберегти.",
   "form.lighting_invoice_amount_error_max": "Сума не повинна перевищувати {amount} sats.",

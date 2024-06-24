@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "अपना पासफ़्रेज़ फिर से दर्ज करें",
   "form.enter_private_key_placeholder": "अपनी प्राइवेट की दर्ज करें",
   "form.gas_limit_error_range": "गैस सीमा {min} और {max} के बीच होनी चाहिए",
+  "form.global_error_something_higher_then_necessary": "{somgthing} आवश्यक से अधिक है",
   "form.keep_hidden_wallet_label": "सुलभ रखें",
   "form.keep_hidden_wallet_label_desc": "छिपे हुए वॉलेट ऐप के बंद होने पर साफ हो जाते हैं। इसे बचाने के लिए टॉगल करें।",
   "form.lighting_invoice_amount_error_max": "राशि {amount} sats से अधिक नहीं होनी चाहिए।",

@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "Inserisci nuovamente la tua passphrase",
   "form.enter_private_key_placeholder": "Inserisci la tua chiave privata",
   "form.gas_limit_error_range": "Il limite di gas deve essere tra {min} e {max}",
+  "form.global_error_something_higher_then_necessary": "{somgthing} è superiore al necessario",
   "form.keep_hidden_wallet_label": "Mantenere accessibile",
   "form.keep_hidden_wallet_label_desc": "I portafogli nascosti vengono cancellati alla chiusura dell'app. Attiva per preservarli.",
   "form.lighting_invoice_amount_error_max": "L'importo non deve superare {amount} sats.",

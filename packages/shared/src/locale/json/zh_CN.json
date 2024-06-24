@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "再次输入 passphrase",
   "form.enter_private_key_placeholder": "输入您的私钥",
   "form.gas_limit_error_range": "燃料限制必须在 {min} 和 {max} 之间",
+  "form.global_error_something_higher_then_necessary": "{somgthing} 高于必要水平",
   "form.keep_hidden_wallet_label": "保持可访问",
   "form.keep_hidden_wallet_label_desc": "隐藏钱包在应用关闭时清除。打开开关以保留。",
   "form.lighting_invoice_amount_error_max": "金额不得超过 {amount} sats",

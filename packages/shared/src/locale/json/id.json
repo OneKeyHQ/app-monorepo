@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "Masukkan kembali passphrase Anda",
   "form.enter_private_key_placeholder": "Masukkan kunci pribadi Anda",
   "form.gas_limit_error_range": "Batas gas harus antara {min} dan {max}",
+  "form.global_error_something_higher_then_necessary": "{somgthing} lebih tinggi dari yang diperlukan",
   "form.keep_hidden_wallet_label": "Jaga agar tetap dapat diakses",
   "form.keep_hidden_wallet_label_desc": "Dompet tersembunyi akan terhapus saat aplikasi ditutup. Aktifkan untuk mempertahankannya.",
   "form.lighting_invoice_amount_error_max": "Jumlah tidak boleh melebihi {amount} sats.",

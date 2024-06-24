@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "กรอก passphrase ของคุณอีกครั้ง",
   "form.enter_private_key_placeholder": "ใส่คีย์ส่วนตัวของคุณ",
   "form.gas_limit_error_range": "จำกัดแก๊สต้องอยู่ระหว่าง {min} และ {max}",
+  "form.global_error_something_higher_then_necessary": "{somgthing} สูงกว่าที่จำเป็น",
   "form.keep_hidden_wallet_label": "เก็บให้สามารถเข้าถึงได้",
   "form.keep_hidden_wallet_label_desc": "กระเป๋าเงินที่ซ่อนอยู่จะถูกล้างเมื่อปิดแอป สลับเพื่อรักษา",
   "form.lighting_invoice_amount_error_max": "จำนวนต้องไม่เกิน {amount} sats.",

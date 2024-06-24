@@ -463,6 +463,7 @@ export enum ETranslations {
   form_confirm_passphrase_placeholder = 'form.confirm_passphrase_placeholder',
   form_enter_private_key_placeholder = 'form.enter_private_key_placeholder',
   form_gas_limit_error_range = 'form.gas_limit_error_range',
+  form_global_error_something_higher_then_necessary = 'form.global_error_something_higher_then_necessary',
   form_keep_hidden_wallet_label = 'form.keep_hidden_wallet_label',
   form_keep_hidden_wallet_label_desc = 'form.keep_hidden_wallet_label_desc',
   form_lighting_invoice_amount_error_max = 'form.lighting_invoice_amount_error_max',

@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "আপনার পাসফ্রেজটি পুনরায় প্রবেশ করুন",
   "form.enter_private_key_placeholder": "আপনার ব্যক্তিগত কী প্রবেশ করুন",
   "form.gas_limit_error_range": "গ্যাস সীমা {min} এবং {max} এর মধ্যে হতে হবে",
+  "form.global_error_something_higher_then_necessary": "{somgthing} অত্যাবশ্যক চেয়ে বেশি",
   "form.keep_hidden_wallet_label": "প্রবেশযোগ্য রাখুন",
   "form.keep_hidden_wallet_label_desc": "অ্যাপ বন্ধ হলে লুকানো ওয়ালেট পরিষ্কার হয়। সংরক্ষণ করতে টগল করুন।",
   "form.lighting_invoice_amount_error_max": "পরিমাণ {amount} sats এর বেশি হওয়া উচিত নয়।",

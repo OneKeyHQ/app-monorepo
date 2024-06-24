@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "Insira novamente sua passphrase",
   "form.enter_private_key_placeholder": "Insira sua chave privada",
   "form.gas_limit_error_range": "O limite de gás deve estar entre {min} e {max}",
+  "form.global_error_something_higher_then_necessary": "{somgthing} está mais alto do que o necessário",
   "form.keep_hidden_wallet_label": "Mantenha acessível",
   "form.keep_hidden_wallet_label_desc": "Carteiras ocultas são limpas ao fechar o aplicativo. Alterne para preservar.",
   "form.lighting_invoice_amount_error_max": "O valor não deve exceder {amount} sats.",

@@ -348,7 +348,18 @@ function FeeEditor(props: IProps) {
           }),
         );
       } else if (maxBaseFee.isGreaterThan(recommendMaxFeeMax)) {
-        setFeeAlert('The max base fee may be higher than necessary');
+        setFeeAlert(
+          intl.formatMessage(
+            {
+              id: ETranslations.form_global_error_something_higher_then_necessary,
+            },
+            {
+              something: intl.formatMessage({
+                id: ETranslations.transaction_max_base_fee,
+              }),
+            },
+          ),
+        );
       } else {
         setFeeAlert('');
       }
@@ -357,13 +368,21 @@ function FeeEditor(props: IProps) {
     [customFee.gasEIP1559?.baseFeePerGas, intl, feeSelectorItems],
   );
 
-  const handleValidatePriorityFee = useCallback((value: string) => {
-    const priorityFee = new BigNumber(value || 0);
-    if (priorityFee.isNaN() || priorityFee.isLessThanOrEqualTo(0)) {
-      return 'The Priority Fee must higher than 0';
-    }
-    return true;
-  }, []);
+  const handleValidatePriorityFee = useCallback(
+    (value: string) => {
+      const priorityFee = new BigNumber(value || 0);
+      if (priorityFee.isNaN() || priorityFee.isLessThanOrEqualTo(0)) {
+        return intl.formatMessage(
+          { id: ETranslations.form_must_greater_then_value },
+          {
+            value: 0,
+          },
+        );
+      }
+      return true;
+    },
+    [intl],
+  );
 
   const handleValidateGasLimit = useCallback(
     (value: string) => {
@@ -398,18 +417,34 @@ function FeeEditor(props: IProps) {
 
       const gasPrice = new BigNumber(value || 0);
       if (gasPrice.isNaN() || gasPrice.isLessThan(recommendGasPriceMin)) {
-        return `The Gas Price must higher than ${recommendGasPriceMin.toFixed()}`;
+        return intl.formatMessage(
+          { id: ETranslations.form_must_greater_then_value },
+          {
+            value: recommendGasPriceMin.toFixed(),
+          },
+        );
       }
 
       if (gasPrice.isGreaterThan(recommendGasPriceMax)) {
-        setFeeAlert('The Gas Price may be higher than necessary');
+        setFeeAlert(
+          intl.formatMessage(
+            {
+              id: ETranslations.form_global_error_something_higher_then_necessary,
+            },
+            {
+              something: intl.formatMessage({
+                id: ETranslations.global_gas_price,
+              }),
+            },
+          ),
+        );
       } else {
         setFeeAlert('');
       }
 
       return true;
     },
-    [feeSelectorItems],
+    [feeSelectorItems, intl],
   );
 
   const handleValidateFeeRate = useCallback(
@@ -1088,13 +1123,7 @@ function FeeEditor(props: IProps) {
     return (
       <>
         {feeInfoItems.map((feeInfo, index) => (
-          <FeeInfoItem
-            feeInfo={feeInfo}
-            key={index}
-            {...(index !== 0 && {
-              pt: '$2',
-            })}
-          />
+          <FeeInfoItem feeInfo={feeInfo} key={index} pb="$2" />
         ))}
       </>
     );

@@ -462,6 +462,7 @@
   "form.confirm_passphrase_placeholder": "Re-enter your passphrase",
   "form.enter_private_key_placeholder": "Enter your private key",
   "form.gas_limit_error_range": "Gas limit must between {min} and {max}",
+  "form.global_error_something_higher_then_necessary": "{somgthing} is higher than necessary",
   "form.keep_hidden_wallet_label": "Keep accessible",
   "form.keep_hidden_wallet_label_desc": "Hidden wallets clear on app close. Toggle to preserve.",
   "form.lighting_invoice_amount_error_max": "Amount must not exceed {amount} sats",
