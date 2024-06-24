@@ -12,6 +12,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -26,12 +27,11 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
-import {
-  EAccountSelectorSceneName,
-  type IDappSourceInfo,
-} from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type {
   IConnectedAccountInfo,
   IConnectionAccountInfo,
@@ -564,9 +564,12 @@ class ServiceDApp extends ServiceBase {
     }
     return Promise.all(
       result.map(async (accountInfo) => {
+        const impls = networkUtils.isBTCNetwork(accountInfo.networkId)
+          ? [IMPL_BTC, IMPL_TBTC]
+          : [accountInfo.networkImpl];
         const { networkIds } =
           await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
-            impls: [accountInfo.networkImpl],
+            impls,
           });
         return { ...accountInfo, availableNetworkIds: networkIds };
       }),

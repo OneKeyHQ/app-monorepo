@@ -35,6 +35,7 @@ export type INetworkShortCode =
   | 'ckb'
   | 'btc'
   | 'tbtc'
+  | 'sbtc'
   | 'juno'
   | 'osmosis'
   | 'secretnetwork'
