@@ -562,6 +562,11 @@ function SendDataInputContainer() {
           }}
           inputProps={{
             placeholder: '0',
+            leftAddOnProps: {
+              label: isUseFiat ? `${currencySymbol}` : '',
+              pr: '$0',
+              justifyContent: 'center',
+            },
           }}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: isNFT
