@@ -8,17 +8,20 @@ import {
   EModalAddressBookRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import type { IAddressItem } from '../type';
 
 export const useAddressBookItems = (networkId?: string) => {
   const [{ updateTimestamp }] = useAddressBookPersistAtom();
   return usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceAddressBook.getSafeItems({
+    async () => {
+      noopObject(updateTimestamp);
+      noopObject(networkId);
+      return backgroundApiProxy.serviceAddressBook.getSafeItems({
         networkId,
-      }),
-    // eslint-disable-next-line
+      });
+    },
     [updateTimestamp, networkId],
     { watchLoading: true },
   );

@@ -201,7 +201,7 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   coinType: string;
   impl: string; // single chain account belongs to network impl
   // single chain account belongs to certain networks, check keyring options: onlyAvailableOnCertainNetworks
-  networks?: string[];
+  networks?: string[]; // onlyAvailableOnCertainNetworks
   // single chain account auto change to createAtNetwork when network not compatible and networks not defined
   createAtNetwork?: string;
   template?: string;
