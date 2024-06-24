@@ -319,12 +319,13 @@ class ServiceAccountProfile extends ServiceBase {
       request,
     );
     const data = resp.data.data.data;
-    if (data.some((item) => !item.success)) {
+    const failedRequest = data.find((item) => !item.success);
+    if (failedRequest) {
       if (returnRawData) {
         // @ts-expect-error
         return data;
       }
-      throw new Error('Failed to send proxy request');
+      throw new Error(failedRequest.error ?? 'Failed to send proxy request');
     }
     return data.map((item) => item.data);
   }
