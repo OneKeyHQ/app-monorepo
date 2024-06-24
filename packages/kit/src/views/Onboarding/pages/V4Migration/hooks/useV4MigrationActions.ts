@@ -1,11 +1,11 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
 import { useClipboard } from '@onekeyhq/components';
+import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -72,16 +72,22 @@ export function useV4MigrationActions() {
     console.log('getV4MigrationLogs', logs);
     copyText(JSON.stringify(logs));
   }, [copyText]);
-  return useMemo(
-    () => ({
-      navigateToV4MigrationPage,
-      openV4MigrationOfExtension,
-      copyV4MigrationLogs,
-    }),
-    [
-      copyV4MigrationLogs,
-      navigateToV4MigrationPage,
-      openV4MigrationOfExtension,
-    ],
-  );
+  // return useMemo(
+  //   () => ({
+  //     navigateToV4MigrationPage,
+  //     openV4MigrationOfExtension,
+  //     copyV4MigrationLogs,
+  //   }),
+  //   [
+  //     copyV4MigrationLogs,
+  //     navigateToV4MigrationPage,
+  //     openV4MigrationOfExtension,
+  //   ],
+  // );
+
+  return useRef({
+    navigateToV4MigrationPage,
+    openV4MigrationOfExtension,
+    copyV4MigrationLogs,
+  }).current;
 }
