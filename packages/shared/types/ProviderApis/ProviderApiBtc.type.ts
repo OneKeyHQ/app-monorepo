@@ -3,9 +3,10 @@ import type { EMessageTypesBtc } from '../message';
 export enum EBtcDappNetworkTypeEnum {
   MAINNET,
   TESTNET,
+  SIGNET,
 }
 
-export type IBtcDappNetworkName = 'livenet' | 'testnet';
+export type IBtcDappNetworkName = 'livenet' | 'testnet' | 'signet';
 
 export const BtcDappNetworkTypes: {
   value: EBtcDappNetworkTypeEnum;
@@ -24,6 +25,12 @@ export const BtcDappNetworkTypes: {
     label: 'TESTNET',
     name: 'testnet',
     validNames: ['testnet'],
+  },
+  {
+    value: EBtcDappNetworkTypeEnum.SIGNET,
+    label: 'SIGNET',
+    name: 'signet',
+    validNames: ['signet'],
   },
 ];
 

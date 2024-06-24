@@ -173,6 +173,8 @@ class ProviderApiBtc extends ProviderApiBase {
       networkId = getNetworkIdsMap().btc;
     } else if (networkName === 'testnet') {
       networkId = getNetworkIdsMap().tbtc;
+    } else if (networkName === 'signet') {
+      networkId = getNetworkIdsMap().sbtc;
     }
     if (!networkId) {
       throw web3Errors.provider.custom({
