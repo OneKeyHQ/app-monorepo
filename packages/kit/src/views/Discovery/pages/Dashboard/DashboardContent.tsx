@@ -62,6 +62,7 @@ function DashboardContent({
     [],
     {
       watchLoading: true,
+      checkIsFocused: false,
     },
   );
 

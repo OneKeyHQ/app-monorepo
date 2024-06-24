@@ -1,5 +1,6 @@
 import { RichSizeableText, SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { Layout } from './utils/Layout';
 
@@ -88,8 +89,31 @@ const TypographyGallery = () => (
         title: 'Rich Text',
         element: (
           <YStack space="$2">
-            <RichSizeableText linkList={[{ url: 'https://app.onekey.so' }]}>
+            <RichSizeableText
+              linkList={{ a: { url: 'https://app.onekey.so' } }}
+            >
               {'Hello<a> OneKey </a>World'}
+            </RichSizeableText>
+            <RichSizeableText
+              linkList={{
+                url0: { url: 'https://app.onekey.so', color: 'orange' },
+                url1: {
+                  url: 'https://google.com',
+                  color: 'pink',
+                },
+                url2: {
+                  color: 'green',
+                  size: '$heading4xl',
+                  onPress: () => {
+                    alert('Open ChatGPT?');
+                    openUrlExternal('https://chatgpt.com');
+                  },
+                },
+              }}
+            >
+              {
+                'Hello<url0> OneKey </url0><url1> Google </url1><url2> ChatGPT </url2>World'
+              }
             </RichSizeableText>
             <RichSizeableText
               i18NValues={{

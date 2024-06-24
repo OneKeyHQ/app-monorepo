@@ -75,7 +75,7 @@ function ShouldUpdateBridge({
         message={intl.formatMessage({
           id: ETranslations.update_hardware_update_requires_bridge,
         })}
-        linkList={[{ url: FIRMWARE_UPDATE_BRIDGE_GUIDE }]}
+        linkList={{ url: { url: FIRMWARE_UPDATE_BRIDGE_GUIDE } }}
       />
       <FirmwareUpdatePageFooter
         onConfirm={() => {
@@ -101,7 +101,7 @@ function ShouldUpdateByWeb() {
         message={intl.formatMessage({
           id: ETranslations.update_update_in_official_web_tool_desc,
         })}
-        linkList={[{ url: FIRMWARE_UPDATE_WEB_TOOLS_URL }]}
+        linkList={{ url: { url: FIRMWARE_UPDATE_WEB_TOOLS_URL } }}
       />
       <FirmwareUpdatePageFooter
         onConfirm={() => {
@@ -127,7 +127,7 @@ function HowToUpdateFullResource() {
         message={intl.formatMessage({
           id: ETranslations.update_outdated_version_detected_desc,
         })}
-        linkList={[{ url: FIRMWARE_UPDATE_FULL_RES_GUIDE }]}
+        linkList={{ url: { url: FIRMWARE_UPDATE_FULL_RES_GUIDE } }}
       />
       <FirmwareUpdatePageFooter
         onConfirm={() => {
@@ -168,7 +168,7 @@ export function EnterBootModeGuide({
     <Stack mb="$6">
       <RichSizeableText
         mt="$2"
-        linkList={[{ url: FIRMWARE_UPDATE_FULL_RES_GUIDE }]}
+        linkList={{ url: { url: FIRMWARE_UPDATE_FULL_RES_GUIDE } }}
       >
         {ETranslations.update_follow_online_tutorial_to_proceed_manually}
       </RichSizeableText>
