@@ -650,6 +650,7 @@ class ServiceAccount extends ServiceBase {
       password,
       name: name || '',
       importedCredential: credentialEncrypt,
+      networks: [networkId],
       createAtNetwork: networkId,
     };
     if (deriveType) {
@@ -1469,6 +1470,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async verifyHWAccountAddresses(params: {
     walletId: string;
     networkId: string;
