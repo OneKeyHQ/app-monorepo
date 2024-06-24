@@ -19,6 +19,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 type IProps = {
@@ -69,6 +70,12 @@ function SendConfirmActionsContainer(props: IProps) {
         networkId,
         accountId,
         unsignedTxs,
+        nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
+          ? {
+              maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
+            }
+          : undefined,
+        precheckTiming: ESendPreCheckTimingEnum.Confirm,
       });
     } catch (e: any) {
       setIsSubmitting(false);
