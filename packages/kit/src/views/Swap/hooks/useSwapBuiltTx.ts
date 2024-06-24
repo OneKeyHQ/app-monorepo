@@ -23,7 +23,6 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSlippagePercentageAtom,
@@ -43,7 +42,6 @@ export function useSwapBuildTx() {
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const [, setQuoteListAtom] = useSwapQuoteListAtom();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
   const { navigationToSendConfirm } = useSendConfirm({
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
@@ -158,12 +156,7 @@ export function useSwapBuildTx() {
   ]);
 
   const approveTx = useCallback(
-    async (
-      amount: string,
-      isMax?: boolean,
-      onApproveSuccess?: () => void,
-      isResetApprove?: boolean,
-    ) => {
+    async (amount: string, isMax?: boolean, resetApproveValue?: string) => {
       const allowanceInfo = selectQuote?.allowanceResult;
       if (
         allowanceInfo &&
@@ -179,7 +172,7 @@ export function useSwapBuildTx() {
             owner: swapFromAddressInfo.address,
             spender: allowanceInfo.allowanceTarget,
             amount,
-            isMax,
+            isMax: resetApproveValue ? false : isMax,
             tokenInfo: {
               ...fromToken,
               isNative: !!fromToken.isNative,
@@ -195,43 +188,12 @@ export function useSwapBuildTx() {
             useAddress: swapFromAddressInfo.address,
             spenderAddress: allowanceInfo.allowanceTarget,
             status: ESwapApproveTransactionStatus.PENDING,
-            isResetApprove,
+            resetApproveValue,
+            resetApproveIsMax: isMax,
           });
           await navigationToSendConfirm({
             approveInfo,
-            onSuccess: (data) => {
-              // update quote result allowance info
-              if (isResetApprove && new BigNumber(amount).isZero()) {
-                setQuoteListAtom((prev) =>
-                  prev.map((item) => {
-                    if (
-                      item.allowanceResult?.shouldResetApprove &&
-                      item.allowanceResult?.allowanceTarget ===
-                        allowanceInfo.allowanceTarget &&
-                      item.fromTokenInfo.contractAddress ===
-                        fromToken.contractAddress &&
-                      item.info.provider === selectQuote.info.provider
-                    ) {
-                      return {
-                        ...item,
-                        allowanceResult: {
-                          ...item.allowanceResult,
-                          shouldResetApprove: false,
-                        },
-                      };
-                    }
-                    return item;
-                  }),
-                );
-              }
-              if (onApproveSuccess) {
-                setTimeout(() => {
-                  onApproveSuccess();
-                }, 500);
-              } else {
-                void handleApproveTxSuccess(data);
-              }
-            },
+            onSuccess: handleApproveTxSuccess,
             onFail: cancelApproveTx,
             onCancel: cancelApproveTx,
           });
@@ -253,7 +215,6 @@ export function useSwapBuildTx() {
       navigationToSendConfirm,
       cancelApproveTx,
       handleApproveTxSuccess,
-      setQuoteListAtom,
     ],
   );
 

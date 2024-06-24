@@ -137,7 +137,8 @@ export interface ISwapApproveTransaction {
   spenderAddress: string;
   amount: string;
   status: ESwapApproveTransactionStatus;
-  isResetApprove?: boolean;
+  resetApproveValue?: string;
+  resetApproveIsMax?: boolean;
   txId?: string;
   blockNumber?: number;
 }

@@ -15,7 +15,7 @@ import {
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
-import { useSwapApproving } from '../../hooks/useSwapAproving';
+import { useSwapApproving } from '../../hooks/useSwapApproving';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
 import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 import { validateAmountInput } from '../../utils/utils';

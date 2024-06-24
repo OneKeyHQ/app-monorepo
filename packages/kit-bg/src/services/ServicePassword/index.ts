@@ -228,6 +228,14 @@ export default class ServicePassword extends ServiceBase {
       if (!authRes.success) {
         throw new OneKeyError.BiologyAuthFailed();
       }
+      const catchPassword = await this.getCachedPassword();
+      if (catchPassword) {
+        await this.saveBiologyAuthPassword(catchPassword);
+      } else {
+        throw new Error(
+          'no catch password please unlock the application again or modify the password.',
+        );
+      }
     }
     await settingsPersistAtom.set((v) => ({
       ...v,
