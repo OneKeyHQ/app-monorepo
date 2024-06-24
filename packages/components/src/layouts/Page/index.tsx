@@ -42,7 +42,7 @@ function PageProvider({
     y: 0,
   });
   const footerRef = useRef<IPageFooterRef>({});
-  const confirmedRef = useRef<boolean>(false);
+  const closeExtraRef = useRef<{ flag?: string }>({});
   const value = useMemo(
     () => ({
       scrollEnabled,
@@ -51,7 +51,7 @@ function PageProvider({
       pageRef,
       pageOffsetRef,
       footerRef,
-      confirmedRef,
+      closeExtraRef,
     }),
     [safeAreaEnabled, scrollEnabled, scrollProps],
   );
@@ -72,7 +72,7 @@ function PageProvider({
           onCancel={onCancel}
           onClose={onClose}
           onConfirm={onConfirm}
-          confirmedRef={confirmedRef}
+          closeExtraRef={closeExtraRef}
         />
       ) : null}
       <PageEvery />

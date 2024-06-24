@@ -6,7 +6,10 @@ import { useIntl } from 'react-intl';
 import { Page, Toast } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
+import {
+  EDAppModalPageStatus,
+  type IConnectionAccountInfo,
+} from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -90,7 +93,7 @@ function ConnectionModal() {
   }, [selectedAccount, continueOperate]);
 
   const onApproval = useCallback(
-    async (close: () => void) => {
+    async (close?: (extra?: { flag?: string }) => void) => {
       if (!$sourceInfo?.scope) {
         Toast.error({ title: 'no injected scope' });
         return;
@@ -137,7 +140,9 @@ function ConnectionModal() {
         });
       }
       await dappApprove.resolve({
-        close,
+        close: () => {
+          close?.({ flag: EDAppModalPageStatus.Confirmed });
+        },
         result: accountInfo,
       });
       Toast.success({
