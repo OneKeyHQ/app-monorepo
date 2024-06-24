@@ -136,6 +136,13 @@ export const loadOPReturn = (
 export const isTaprootPath = (pathPrefix: string) =>
   pathPrefix.startsWith(`m/86'/`);
 
+// eslint-disable-next-line spellcheck/spell-checker
+// Taproot addresses start with 'bc1p' on mainnet
+// eslint-disable-next-line spellcheck/spell-checker
+// Taproot addresses start with 'tb1p' on testnet
+export const isTaprootAddress = (address: string): boolean =>
+  address.startsWith('bc1p') || address.startsWith('tb1p');
+
 export function scriptPkToAddress(
   scriptPk: string | Buffer,
   psbtNetwork: networks.Network,
