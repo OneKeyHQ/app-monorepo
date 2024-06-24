@@ -14,7 +14,10 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ETranslations,
+  ETranslationsMock,
+} from '@onekeyhq/shared/src/locale';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
@@ -33,6 +36,15 @@ import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import type { SignClientTypes } from '@walletconnect/types';
+import type { MessageDescriptor } from 'react-intl';
+import type { IBackgroundApi } from '../apis/IBackgroundApi';
+import type { EDBAccountType } from '../dbs/local/consts';
+import type {
+  IDBAccount,
+  IDBWalletId,
+  IDBWalletType,
+} from '../dbs/local/types';
 import type {
   IAccountDeriveInfoMapBtc,
   IAccountDeriveTypesBtc,
@@ -42,15 +54,6 @@ import type {
   IAccountDeriveInfoMapEvm,
   IAccountDeriveTypesEvm,
 } from './impls/evm/settings';
-import type { IBackgroundApi } from '../apis/IBackgroundApi';
-import type { EDBAccountType } from '../dbs/local/consts';
-import type {
-  IDBAccount,
-  IDBWalletId,
-  IDBWalletType,
-} from '../dbs/local/types';
-import type { SignClientTypes } from '@walletconnect/types';
-import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
@@ -68,7 +71,7 @@ export type IAccountDeriveInfoItems = {
   item: IAccountDeriveInfo;
   description: string | undefined;
   descI18n?: {
-    id: ETranslations;
+    id: ETranslations | ETranslationsMock | undefined;
     data: Record<string | number, string>;
   };
 };

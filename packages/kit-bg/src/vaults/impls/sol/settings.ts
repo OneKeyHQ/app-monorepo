@@ -7,6 +7,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
+import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoMapBase,
@@ -32,7 +33,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapSol = {
     coinType: COINTYPE_SOL,
     label: 'Ledger Live',
     desc: 'Ledger Live, Solflare, m/44’/501’/*’',
-    disableWalletTypes: ['hw'],
+    disableWalletTypes: [WALLET_TYPE_HW],
   },
 };
 

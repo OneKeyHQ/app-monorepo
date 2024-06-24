@@ -283,7 +283,7 @@ class ServiceNetwork extends ServiceBase {
           );
         }
 
-        return {
+        const d: IAccountDeriveInfoItems = {
           item: v,
           description,
           descI18n,
@@ -293,6 +293,7 @@ class ServiceNetwork extends ServiceBase {
               ? appLocale.intl.formatMessage({ id: v.labelKey })
               : v.label) || k,
         };
+        return d;
       })
       .filter(Boolean);
   }
@@ -332,6 +333,38 @@ class ServiceNetwork extends ServiceBase {
     return resp.networks.sort(
       (a, b) => networkIdsIndex[a.id] - networkIdsIndex[b.id],
     );
+  }
+
+  @backgroundMethod()
+  async getGlobalDeriveTypeOfNetwork({ networkId }: { networkId: string }) {
+    const currentGlobalDeriveType =
+      await this.backgroundApi.simpleDb.accountSelector.getGlobalDeriveType({
+        networkId,
+      });
+
+    return currentGlobalDeriveType;
+  }
+
+  @backgroundMethod()
+  async saveGlobalDeriveTypeForNetwork({
+    networkId,
+    deriveType,
+    eventEmitDisabled,
+  }: {
+    deriveType: IAccountDeriveTypes;
+    networkId: string;
+    eventEmitDisabled?: boolean | undefined;
+  }) {
+    const deriveInfoItems = await this.getDeriveInfoItemsOfNetwork({
+      networkId,
+    });
+    if (deriveInfoItems.find((item) => item.value === deriveType)) {
+      await this.backgroundApi.simpleDb.accountSelector.saveGlobalDeriveType({
+        eventEmitDisabled,
+        networkId,
+        deriveType,
+      });
+    }
   }
 
   async getAccountImportingDeriveTypes({

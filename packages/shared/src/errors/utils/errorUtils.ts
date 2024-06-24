@@ -5,11 +5,11 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
 
+import type { MessageDescriptor } from 'react-intl';
 import type {
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
 } from '../types/errorTypes';
-import type { MessageDescriptor } from 'react-intl';
 
 // TODO also update JsBridgeBase.toPlainError
 /**

@@ -42,7 +42,6 @@ export type IAccountDerivationConfigItem = {
   num: number;
   title: string;
   icon?: string;
-  networkIds: string[];
   defaultNetworkId: string;
 };
 
@@ -227,7 +226,6 @@ class ServiceSetting extends ServiceBase {
         num: i,
         title: network.impl === IMPL_EVM ? 'EVM' : network.name,
         icon: network?.logoURI,
-        networkIds,
         defaultNetworkId: network.id,
       }),
     );
@@ -243,7 +241,6 @@ class ServiceSetting extends ServiceBase {
         num: 10000,
         title: 'Test Bitcoin',
         icon: tbtc?.logoURI,
-        networkIds,
         defaultNetworkId: getNetworkIdsMap().tbtc,
       });
     }
@@ -251,7 +248,6 @@ class ServiceSetting extends ServiceBase {
       enabledNum: config.map((o) => o.num),
       availableNetworksMap: config.reduce((result, item) => {
         result[item.num] = {
-          networkIds: item.networkIds,
           defaultNetworkId: item.defaultNetworkId,
         };
         return result;
