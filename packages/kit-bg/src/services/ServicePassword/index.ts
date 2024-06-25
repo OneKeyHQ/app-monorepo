@@ -13,6 +13,7 @@ import {
   getBgSensitiveTextEncodeKey,
   revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   backgroundClass,
   backgroundMethod,
@@ -237,10 +238,7 @@ export default class ServicePassword extends ServiceBase {
         );
       }
     }
-    await settingsPersistAtom.set((v) => ({
-      ...v,
-      isBiologyAuthSwitchOn: enable,
-    }));
+    await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(enable);
   }
 
   // validatePassword --------------------------------

@@ -215,6 +215,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       loadingDelayEnable?: boolean,
       blockNumber?: number,
     ) => {
+      set(swapApprovingTransactionAtom(), (pre) => {
+        if (pre) return undefined;
+      });
       let enableInterval = true;
       try {
         if (!loadingDelayEnable) {
@@ -262,9 +265,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       this.cleanQuoteInterval();
       this.quoteIntervalCount = 0;
       set(swapBuildTxFetchingAtom(), false);
-      set(swapApprovingTransactionAtom(), (pre) => {
-        if (pre) return undefined;
-      });
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());

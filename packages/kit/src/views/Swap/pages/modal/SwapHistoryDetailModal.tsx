@@ -163,7 +163,7 @@ const SwapHistoryDetailModal = () => {
         <SizableText
           w="95%"
           wordWrap="break-word"
-          size={14}
+          size="$bodyMd"
           color="$textSubdued"
         >
           {text}
@@ -185,13 +185,18 @@ const SwapHistoryDetailModal = () => {
     const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? 0);
     const gasFeeDisplay = gasFeeInNativeBN.toFixed();
     return (
-      <SizableText size={14} color="$textSubdued">
-        <NumberSizeableText color="$textSubdued" formatter="balance">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="balance"
+        >
           {gasFeeDisplay}
         </NumberSizeableText>
         {txHistory.baseInfo.fromNetwork?.symbol ?? ''}(
         <NumberSizeableText
           color="$textSubdued"
+          size="$bodyMd"
           formatter="value"
           formatterOptions={{
             currency:

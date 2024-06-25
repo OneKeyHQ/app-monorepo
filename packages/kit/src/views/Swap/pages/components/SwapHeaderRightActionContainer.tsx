@@ -60,11 +60,6 @@ const SwapHeaderRightActionContainer = ({
           size="medium"
         />
       )}
-      <HeaderIconButton
-        icon="QuestionmarkOutline"
-        iconProps={{ size: 24 }}
-        size="medium"
-      />
     </HeaderButtonGroup>
   );
 };
