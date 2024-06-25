@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react';
 import {
   memo,
   useCallback,
@@ -8,9 +9,16 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useKeyboardEvent, useSafeAreaInsets } from '../../hooks';
 import { Button, XStack } from '../../primitives';
 
 import { DialogContext } from './context';
@@ -88,6 +96,32 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
   };
 };
 
+const useSafeKeyboardAnimationStyle = () => {
+  const { bottom } = useSafeAreaInsets();
+  const keyboardHeightValue = useSharedValue(0);
+  const animatedStyles = useAnimatedStyle(() => ({
+    paddingBottom: keyboardHeightValue.value + bottom,
+  }));
+
+  useKeyboardEvent({
+    keyboardWillShow: (e) => {
+      const keyboardHeight = e.endCoordinates.height;
+      keyboardHeightValue.value = withTiming(keyboardHeight - bottom);
+    },
+    keyboardWillHide: () => {
+      keyboardHeightValue.value = withTiming(0);
+    },
+  });
+  return platformEnv.isNative ? animatedStyles : undefined;
+};
+
+const DialogFooterContainer = ({ children }: PropsWithChildren) => {
+  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
+  return (
+    <Animated.View style={safeKeyboardAnimationStyle}>{children}</Animated.View>
+  );
+};
+
 export function Footer(props: IDialogFooterProps) {
   const intl = useIntl();
   const { props: restProps, onConfirm } = useDialogFooterProps(props);
@@ -109,46 +143,47 @@ export function Footer(props: IDialogFooterProps) {
     disabled,
     disabledOn,
   });
-  if (!showFooter) {
-    return null;
-  }
   return (
-    <XStack p="$5" pt="$0" space="$2.5" {...footerProps}>
-      {showCancelButton ? (
-        <Button
-          flexGrow={1}
-          flexBasis={0}
-          $md={
-            {
-              size: 'large',
-            } as IButtonProps
-          }
-          {...cancelButtonProps}
-          onPress={onCancel}
-        >
-          {onCancelText ||
-            intl.formatMessage({ id: ETranslations.global_cancel })}
-        </Button>
+    <DialogFooterContainer>
+      {showFooter ? (
+        <XStack p="$5" pt="$0" space="$2.5" {...footerProps}>
+          {showCancelButton ? (
+            <Button
+              flexGrow={1}
+              flexBasis={0}
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              {...cancelButtonProps}
+              onPress={onCancel}
+            >
+              {onCancelText ||
+                intl.formatMessage({ id: ETranslations.global_cancel })}
+            </Button>
+          ) : null}
+          {showConfirmButton ? (
+            <Button
+              variant={tone === 'destructive' ? 'destructive' : 'primary'}
+              flexGrow={1}
+              flexBasis={0}
+              disabled={confirmButtonDisabled}
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              {...restConfirmButtonProps}
+              onPress={onConfirm}
+            >
+              {onConfirmText ||
+                intl.formatMessage({ id: ETranslations.global_confirm })}
+            </Button>
+          ) : null}
+        </XStack>
       ) : null}
-      {showConfirmButton ? (
-        <Button
-          variant={tone === 'destructive' ? 'destructive' : 'primary'}
-          flexGrow={1}
-          flexBasis={0}
-          disabled={confirmButtonDisabled}
-          $md={
-            {
-              size: 'large',
-            } as IButtonProps
-          }
-          {...restConfirmButtonProps}
-          onPress={onConfirm}
-        >
-          {onConfirmText ||
-            intl.formatMessage({ id: ETranslations.global_confirm })}
-        </Button>
-      ) : null}
-    </XStack>
+    </DialogFooterContainer>
   );
 }
 

@@ -13,7 +13,6 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -22,7 +21,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
-import { useBackHandler, useKeyboardHeight } from '../../hooks';
+import { useBackHandler } from '../../hooks';
 import { Stack } from '../../primitives';
 
 import { Content } from './Content';
@@ -120,8 +119,6 @@ function DialogFrame({
 
   useBackHandler(handleBackPress);
 
-  const { bottom } = useSafeAreaInsets();
-
   const handleCancelButtonPress = useCallback(async () => {
     const cancel = onCancel || footerRef.props?.onCancel;
     cancel?.(() => onClose());
@@ -131,13 +128,8 @@ function DialogFrame({
   }, [footerRef.props?.onCancel, onCancel, onClose]);
 
   const media = useMedia();
-  const keyboardHeight = useKeyboardHeight();
   const renderDialogContent = (
-    <Stack
-      {...(bottom &&
-        // remove safe area padding when keyboard is shown
-        !keyboardHeight && { pb: bottom })}
-    >
+    <Stack>
       <DialogHeader onClose={handleCancelButtonPress} />
       {/* extra children */}
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
@@ -199,7 +191,6 @@ function DialogFrame({
           borderTopLeftRadius="$6"
           borderTopRightRadius="$6"
           bg="$bg"
-          paddingBottom={keyboardHeight}
           borderCurve="continuous"
           disableHideBottomOverflow
         >
