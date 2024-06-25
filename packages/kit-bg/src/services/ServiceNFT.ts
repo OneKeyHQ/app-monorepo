@@ -1,6 +1,6 @@
 import qs from 'querystring';
 
-import { isNil, omitBy } from 'lodash';
+import { isNil, isObject, omitBy } from 'lodash';
 
 import {
   backgroundClass,
@@ -9,11 +9,12 @@ import {
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type {
-  IFetchAccountNFTsParams,
-  IFetchAccountNFTsResp,
-  IFetchNFTDetailsParams,
-  IFetchNFTDetailsResp,
+import {
+  ETraitsDisplayType,
+  type IFetchAccountNFTsParams,
+  type IFetchAccountNFTsResp,
+  type IFetchNFTDetailsParams,
+  type IFetchNFTDetailsResp,
 } from '@onekeyhq/shared/types/nft';
 
 import ServiceBase from './ServiceBase';
@@ -52,13 +53,28 @@ class ServiceNFT extends ServiceBase {
 
     return result.map((nft) => {
       if (nft.metadata?.attributes) {
-        nft.metadata.attributes = nft.metadata.attributes
-          .filter((attr) => !!attr)
-          .map((attr) => ({
-            ...attr,
-            traitType: attr.trait_type,
-            displayType: attr.display_type,
-          }));
+        if (nft.metadata?.attributes instanceof Array) {
+          nft.metadata.attributes = nft.metadata.attributes
+            .filter((attr) => !!attr)
+            .map((attr) => ({
+              ...attr,
+              traitType: attr.trait_type,
+              displayType: attr.display_type,
+            }));
+        } else if (isObject(nft.metadata?.attributes)) {
+          nft.metadata.attributes = Object.keys(nft.metadata.attributes).map(
+            (key) => ({
+              traitType: key,
+              trait_type: key,
+              value:
+                (nft.metadata?.attributes?.[
+                  key as unknown as number
+                ] as unknown as string) || '',
+              displayType: ETraitsDisplayType.String,
+              display_type: ETraitsDisplayType.String,
+            }),
+          );
+        }
       }
       return nft;
     });
