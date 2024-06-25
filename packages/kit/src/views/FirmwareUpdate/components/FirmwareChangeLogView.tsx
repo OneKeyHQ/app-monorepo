@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,21 +11,48 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IBleFirmwareUpdateInfo,
   IBootloaderUpdateInfo,
+  IFirmwareChangeLog,
   IFirmwareUpdateInfo,
 } from '@onekeyhq/shared/types/device';
 
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 import { FirmwareUpdateWalletProfile } from './FirmwareUpdateWalletProfile';
 import { FirmwareVersionProgressBar } from './FirmwareVersionProgressBar';
+
+function ChangeLogMarkdown({
+  changelog,
+}: {
+  changelog: IFirmwareChangeLog | undefined;
+}) {
+  const [{ locale }] = useSettingsPersistAtom();
+  const [language, setLanguage] = useState(locale);
+
+  useEffect(() => {
+    void (async () => {
+      if (locale === 'system') {
+        setLanguage(await backgroundApiProxy.serviceSetting.getCurrentLocale());
+      }
+    })();
+  }, [locale]);
+
+  return (
+    <Markdown>
+      {changelog?.[language === 'zh-CN' ? 'zh-CN' : 'en-US'] ||
+        'No change log found.'}
+    </Markdown>
+  );
+}
 
 function ChangeLogSection({
   title,
@@ -43,6 +70,7 @@ function ChangeLogSection({
     | undefined;
 }) {
   const intl = useIntl();
+
   const [collapse, setCollapse] = useState(isDone);
   const onDropDownPressed = useCallback(() => {
     setCollapse(!collapse);
@@ -88,12 +116,7 @@ function ChangeLogSection({
             fromVersion={updateInfo?.fromVersion}
             toVersion={updateInfo?.toVersion}
           />
-          <Markdown>
-            {
-              // TODO type of IBootloaderUpdateInfo
-              updateInfo?.changelog?.['en-US'] || 'No change log found.'
-            }
-          </Markdown>
+          <ChangeLogMarkdown changelog={updateInfo?.changelog} />
         </Stack>
       )}
     </Stack>
