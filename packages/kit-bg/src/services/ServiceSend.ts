@@ -312,7 +312,7 @@ class ServiceSend extends ServiceBase {
     const { nonce: onChainNextNonce } =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId,
-        accountAddress,
+        accountId,
         withNonce: true,
       });
     if (isNil(onChainNextNonce)) {

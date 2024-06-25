@@ -97,7 +97,7 @@ export const StakingTransactionIndicator = ({
   useEffect(() => {
     if (!isPending) return;
     const timer = setInterval(async () => {
-      await backgroundApiProxy.serviceHistory.refreshAccountHistory({
+      await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId,
         networkId,
       });
