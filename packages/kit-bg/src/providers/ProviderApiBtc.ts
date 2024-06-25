@@ -49,14 +49,13 @@ class ProviderApiBtc extends ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
     const data = async ({ origin }: { origin: string }) => {
+      const params = await this.getAccounts({
+        origin,
+        scope: this.providerName,
+      });
       const result = {
-        method: 'wallet_events_accountChanged',
-        params: {
-          accounts: await this.getAccounts({
-            origin,
-            scope: this.providerName,
-          }),
-        },
+        method: 'wallet_events_accountsChanged',
+        params,
       };
       return result;
     };
