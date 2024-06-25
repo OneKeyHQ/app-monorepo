@@ -324,6 +324,29 @@ function createMainWindow() {
     event.returnValue = !!result;
   });
 
+  ipcMain.on('app/getEnvPath', (event) => {
+    const home: string = app.getPath('home');
+    const appData: string = app.getPath('appData');
+    const userData: string = app.getPath('userData');
+    // const sessionData: string = app.getPath('sessionData');
+    const exe: string = app.getPath('exe');
+    const temp: string = app.getPath('temp');
+    const module: string = app.getPath('module');
+    const desktop: string = app.getPath('desktop');
+    const appPath: string = app.getAppPath();
+    event.returnValue = {
+      userData,
+      appPath,
+      home,
+      appData,
+      // sessionData,
+      exe,
+      temp,
+      module,
+      desktop,
+    };
+  });
+
   ipcMain.on('app/promptTouchID', async (event, msg: string) => {
     try {
       await systemPreferences.promptTouchID(msg);

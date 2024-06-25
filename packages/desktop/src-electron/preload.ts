@@ -28,6 +28,7 @@ export type DesktopAPI = {
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   canPromptTouchID: () => boolean;
+  getEnvPath: () => { [key: string]: string };
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
   secureGetItemAsync: (key: string) => Promise<string | null>;
@@ -168,6 +169,10 @@ const desktopApi = {
   toggleMaximizeWindow: () => ipcRenderer.send('app/toggleMaximizeWindow'),
   canPromptTouchID: () =>
     ipcRenderer.sendSync('app/canPromptTouchID') as boolean,
+  getEnvPath: () =>
+    ipcRenderer.sendSync('app/getEnvPath') as {
+      [key: string]: string;
+    },
   promptTouchID: async (
     msg: string,
   ): Promise<{ success: boolean; error?: string }> =>
