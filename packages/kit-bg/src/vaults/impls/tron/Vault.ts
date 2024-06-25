@@ -191,7 +191,11 @@ export default class Vault extends VaultBase {
         return transaction;
       } catch (e) {
         if (typeof e === 'string' && e.endsWith('balance is not sufficient.')) {
-          throw new InsufficientBalance();
+          throw new InsufficientBalance({
+            info: {
+              symbol: tokenInfo.symbol,
+            },
+          });
         } else if (typeof e === 'string') {
           throw new Error(e);
         } else {
@@ -264,8 +268,8 @@ export default class Vault extends VaultBase {
 
     const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
-      accountAddress,
       tokenIdOnNetwork: '',
     });
 
@@ -318,9 +322,9 @@ export default class Vault extends VaultBase {
       const tokenAddress = TronWeb.address.fromHex(contractAddressHex);
 
       const token = await this.backgroundApi.serviceToken.getToken({
+        accountId: this.accountId,
         networkId: this.networkId,
         tokenIdOnNetwork: tokenAddress,
-        accountAddress,
       });
 
       if (!token) return;

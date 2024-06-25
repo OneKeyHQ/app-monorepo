@@ -198,19 +198,11 @@ class ProviderApiBtc extends ProviderApiBase {
     const { accountInfo: { networkId, accountId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: networkId ?? '',
-        accountId: accountId ?? '',
-      });
+
     const { balance } =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId: networkId ?? '',
-        xpub: await this.backgroundApi.serviceAccount.getAccountXpub({
-          accountId: accountId ?? '',
-          networkId: networkId ?? '',
-        }),
-        accountAddress,
+        accountId: accountId ?? '',
       });
     return {
       confirmed: balance,
@@ -621,20 +613,11 @@ class ProviderApiBtc extends ProviderApiBase {
         message: `Can not get account`,
       });
     }
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
-    const xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
-      accountId,
-      networkId,
-    });
+
     const { utxoList } =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId,
-        accountAddress,
-        xpub,
+        accountId,
         withUTXOList: true,
       });
     if (!utxoList || isEmpty(utxoList)) {

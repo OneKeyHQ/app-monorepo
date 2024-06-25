@@ -11,7 +11,7 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -186,7 +186,7 @@ export default class Vault extends VaultBase {
     const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
       networkId: this.networkId,
-      accountAddress,
+      accountId: this.accountId,
     });
     const actions: IDecodedTxAction[] = [];
     const notes: string[] = [];
@@ -238,10 +238,9 @@ export default class Vault extends VaultBase {
   }
 
   async _decodeAlgoTx(encodedTx: IEncodedTxAlgo) {
-    const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
       networkId: this.networkId,
-      accountAddress,
+      accountId: this.accountId,
     });
     let action: IDecodedTxAction = { type: EDecodedTxActionType.UNKNOWN };
     const nativeTx = sdkAlgo.decodeObj(
@@ -277,7 +276,7 @@ export default class Vault extends VaultBase {
       const token = await this.backgroundApi.serviceToken.getToken({
         networkId: this.networkId,
         tokenIdOnNetwork: nativeTx.xaid!.toString(),
-        accountAddress,
+        accountId: this.accountId,
       });
       let amount = new BigNumber(nativeTx.aamt?.toString() ?? 0).toFixed();
       if (token) {
@@ -303,7 +302,7 @@ export default class Vault extends VaultBase {
             const tokenDetails = (
               await this.backgroundApi.serviceToken.fetchTokensDetails({
                 networkId: this.networkId,
-                accountAddress,
+                accountId: this.accountId,
                 contractList: [token.address],
               })
             )[0];

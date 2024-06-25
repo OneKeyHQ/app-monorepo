@@ -77,6 +77,7 @@ const settings: IVaultSettings = {
   editFeeEnabled: true,
   replaceTxEnabled: true,
   withL1BaseFee: true,
+  transferZeroNativeTokenEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {

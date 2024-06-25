@@ -8,6 +8,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import {
+  getDefaultLocale,
+  getLocaleMessages,
+} from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
@@ -176,10 +180,10 @@ class ServiceContextMenu extends ServiceBase {
     origin: string | null,
     isDefaultWallet?: boolean,
   ) {
+    const locale = getDefaultLocale();
+    const messages = await getLocaleMessages(locale);
     if (!origin) {
-      return appLocale.intl.formatMessage({
-        id: ETranslations.explore_cancel_default,
-      });
+      return messages[ETranslations.explore_cancel_default];
     }
     let defaultWallet: boolean;
     if (typeof isDefaultWallet === 'boolean') {
@@ -187,11 +191,9 @@ class ServiceContextMenu extends ServiceBase {
     } else {
       defaultWallet = await this.getIsDefaultWalletByOrigin(origin);
     }
-    return appLocale.intl.formatMessage({
-      id: defaultWallet
-        ? ETranslations.explore_cancel_default
-        : ETranslations.explore_set_default,
-    });
+    return defaultWallet
+      ? messages[ETranslations.explore_cancel_default]
+      : messages[ETranslations.explore_set_default];
   }
 
   @backgroundMethod()
