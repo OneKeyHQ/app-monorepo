@@ -53,6 +53,15 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.success({
+                  title: `Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, 444444444444444444444444`,
+                });
+              }}
+            >
+              Long Title
+            </Button>
+            <Button
+              onPress={() => {
+                Toast.success({
                   duration: 999999,
                   title: `Lorem ipsum dolor sit amet, 
                     consectetur adipiscing elit. 

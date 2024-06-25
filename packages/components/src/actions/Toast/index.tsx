@@ -46,11 +46,13 @@ const RenderLines = ({
   size,
   children: text,
   hasMessage = false,
+  maxWidth,
 }: {
   children?: string;
   size: ISizableTextProps['size'];
   icon?: JSX.Element;
   hasMessage?: boolean;
+  maxWidth?: number;
 }) => {
   if (!text) {
     return null;
@@ -69,7 +71,18 @@ const RenderLines = ({
             space="$1.5"
           >
             {icon}
-            <SizableText selectable={false} size={size} wordWrap="break-word">
+            <SizableText
+              $platform-native={{
+                ...(maxWidth
+                  ? {
+                      maxWidth: maxWidth - (icon !== undefined ? 40 : 0),
+                    }
+                  : {}),
+              }}
+              selectable={false}
+              size={size}
+              wordWrap="break-word"
+            >
               {v}
             </SizableText>
           </XStack>
@@ -121,10 +134,17 @@ function Title({
       }}
     >
       <YStack>
-        <RenderLines size="$headingSm" icon={icon} hasMessage={!!message}>
+        <RenderLines
+          maxWidth={maxWidth}
+          size="$headingSm"
+          icon={icon}
+          hasMessage={!!message}
+        >
           {title}
         </RenderLines>
-        <RenderLines size="$bodySm">{message}</RenderLines>
+        <RenderLines maxWidth={maxWidth} size="$bodySm">
+          {message}
+        </RenderLines>
         {actionsProps ? <Button {...actionsProps} /> : null}
       </YStack>
     </YStack>
