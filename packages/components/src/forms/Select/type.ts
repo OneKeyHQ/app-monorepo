@@ -5,7 +5,7 @@ import type { ListItemProps, SheetProps } from 'tamagui';
 
 export interface ISelectRenderTriggerProps {
   value?: string;
-  label?: string;
+  label?: string | ReactElement;
   placeholder?: string;
   disabled?: boolean;
 }
