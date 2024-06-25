@@ -77,6 +77,19 @@ export class OneKeyErrorAirGapInvalidQrCode extends OneKeyError {
   }
 }
 
+export class OneKeyErrorScanQrCodeCancel extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyErrorScanQrCodeCancel',
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel;
+}
+
 export class OneKeyInternalError extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(

@@ -102,7 +102,7 @@ function HomeOverviewContainer() {
   return (
     <XStack alignItems="center" space="$2">
       <NumberSizeableText
-        flex={1}
+        flexShrink={1}
         minWidth={0}
         {...numberFormatter}
         size={
