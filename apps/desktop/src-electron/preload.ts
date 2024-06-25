@@ -25,6 +25,7 @@ export type IDesktopAPI = {
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   canPromptTouchID: () => boolean;
+  getEnvPath: () => { [key: string]: string };
   openDevTools: () => void;
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
@@ -173,6 +174,10 @@ const desktopApi = {
   openDevTools: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_DEV_TOOLS),
   canPromptTouchID: () =>
     ipcRenderer.sendSync(ipcMessageKeys.TOUCH_ID_CAN_PROMPT) as boolean,
+  getEnvPath: () =>
+    ipcRenderer.sendSync(ipcMessageKeys.APP_GET_ENV_PATH) as {
+      [key: string]: string;
+    },
   promptTouchID: async (
     msg: string,
   ): Promise<{ success: boolean; error?: string }> =>
