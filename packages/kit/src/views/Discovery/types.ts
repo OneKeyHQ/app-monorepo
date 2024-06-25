@@ -83,6 +83,7 @@ export interface IWebTab {
   canGoForward?: boolean;
   refReady?: boolean;
   timestamp?: number;
+  shouldReload?: boolean;
 }
 
 export interface IWebTabsAtom {

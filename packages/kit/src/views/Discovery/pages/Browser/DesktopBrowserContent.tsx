@@ -4,6 +4,7 @@ import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts
 
 import WebContent from '../../components/WebContent/WebContent';
 import { useWebTabDataById } from '../../hooks/useWebTabs';
+import { webviewRefs } from '../../utils/explorerUtils';
 
 function DesktopBrowserContent({
   id,
@@ -14,6 +15,10 @@ function DesktopBrowserContent({
 }) {
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
+  if (isActive && tab.shouldReload) {
+    webviewRefs[id]?.reload();
+    tab.shouldReload = false;
+  }
   const { addBrowserHistory } = useBrowserHistoryAction().current;
   return (
     <Freeze key={id} freeze={!isActive}>

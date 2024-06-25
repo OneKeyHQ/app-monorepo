@@ -12,6 +12,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { getWebviewWrapperRef } from '../utils/explorerUtils';
 
+import { useWebTabs } from './useWebTabs';
+
 import type { IHandleAccountChangedParams } from '../../DAppConnection/hooks/useHandleAccountChanged';
 
 export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
@@ -35,6 +37,8 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
 }
 
 export function useShouldUpdateConnectedAccount() {
+  const { tabs } = useWebTabs();
+
   const shouldUpdateConnectedAccount = useCallback(
     (
       prevAccountInfo: IConnectionAccountInfo,
@@ -124,8 +128,15 @@ export function useShouldUpdateConnectedAccount() {
       if (prevAccountInfo.networkId !== willUpdateAccountInfo.networkId) {
         void serviceDApp.notifyDAppChainChanged(origin);
       }
+
+      tabs.forEach((tab) => {
+        const url = new URL(tab.url);
+        if (url.origin === origin && !tab.isActive) {
+          tab.shouldReload = true;
+        }
+      });
     },
-    [getAccountInfoByActiveAccount, shouldUpdateConnectedAccount],
+    [getAccountInfoByActiveAccount, shouldUpdateConnectedAccount, tabs],
   );
 
   return {
