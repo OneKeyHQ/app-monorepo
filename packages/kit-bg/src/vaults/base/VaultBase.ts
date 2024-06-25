@@ -511,6 +511,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         from: tx.from,
         to: tx.to,
         icon: network.logoURI,
+        label: tx.label,
       },
     };
   }
