@@ -1,5 +1,5 @@
 type IBleManager = {
-  checkState(): Promise<void>;
+  checkState(): Promise<'on' | 'off'>;
 };
 class BleManagerInstance {
   async getBleManager(): Promise<IBleManager | undefined> {
