@@ -69,6 +69,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -228,9 +229,10 @@ export default class Vault extends VaultBase {
       .filter((output) => !output.isChange)
       .map((output) => ({
         address: output.address,
-        balance: new BigNumber(output.amount)
-          .shiftedBy(-network.decimals)
-          .toFixed(),
+        balance: chainValueUtils.convertChainValueToAmount({
+          value: output.amount,
+          network,
+        }),
         balanceValue: output.amount,
         symbol: network.symbol,
         isMine: output.address === account.address,
