@@ -40,6 +40,8 @@ import type {
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+
 export class BackgroundApiProxyBase
   extends BackgroundServiceProxyBase
   implements IBackgroundApiBridge
@@ -64,6 +66,11 @@ export class BackgroundApiProxyBase
       },
     );
     globalErrorHandler.addListener((error) => {
+      if (
+        error.className === EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel
+      ) {
+        return;
+      }
       // TODO log error to file if developer mode on
       if (error && error?.autoToast) {
         appEventBus.emit(EAppEventBusNames.ShowToast, {

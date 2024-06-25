@@ -277,6 +277,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
       'actions': (item) => (
         <XStack>
           <MarketStar
+            key={item.coingeckoId}
             coingeckoId={item.coingeckoId}
             width={44}
             mx={0}

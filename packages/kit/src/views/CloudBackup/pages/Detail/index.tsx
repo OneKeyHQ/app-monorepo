@@ -366,7 +366,9 @@ export default function Detail() {
                   space="$1"
                   onPress={() => {
                     ActionList.show({
-                      title: 'Encrypted Backup Contents',
+                      title: intl.formatMessage({
+                        id: ETranslations.backup_encrypted_backup_contents,
+                      }),
                       items: item.infoList.map((infoString) => ({
                         label: `  •\t${infoString}`,
                       })),

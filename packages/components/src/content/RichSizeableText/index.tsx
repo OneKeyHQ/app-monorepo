@@ -54,7 +54,6 @@ export function RichSizeableText({
                         </SizableText>
                       );
                     };
-                    values.url = values.a;
                     return values;
                   }, {} as Record<string, string | ((value: any) => React.JSX.Element)>)
                 : {}),

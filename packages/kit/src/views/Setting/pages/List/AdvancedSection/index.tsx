@@ -80,7 +80,7 @@ export const AdvancedSection = () => {
     <Section title={intl.formatMessage({ id: ETranslations.global_advanced })}>
       <ListItem
         onPress={onAccountDerivation}
-        icon="OrganisationOutline"
+        icon="BranchesOutline"
         title={intl.formatMessage({
           id: ETranslations.settings_account_derivation_path,
         })}
