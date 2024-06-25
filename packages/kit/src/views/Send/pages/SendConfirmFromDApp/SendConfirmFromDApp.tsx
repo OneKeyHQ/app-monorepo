@@ -36,7 +36,7 @@ function SendConfirmFromDApp() {
     _$t: number | undefined;
   }>();
 
-  useDappApproveAction({
+  const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
@@ -107,7 +107,12 @@ function SendConfirmFromDApp() {
   ]);
 
   return (
-    <Page>
+    <Page
+      onClose={() => {
+        console.log('=======>>>>onClose: ', 1);
+        dappApprove.reject();
+      }}
+    >
       <Page.Body>
         <Stack h="100%" justifyContent="center" alignContent="center">
           <Spinner size="large" />
