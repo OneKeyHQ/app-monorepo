@@ -7,7 +7,6 @@ import {
   Skeleton,
   Stack,
   Switch,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -40,11 +39,6 @@ function BalanceDetailsContent({
   } = usePromiseResult(
     async () => {
       if (!accountId || !networkId) return;
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
       const n = await backgroundApiProxy.serviceNetwork.getNetwork({
         networkId,
       });
@@ -60,11 +54,7 @@ function BalanceDetailsContent({
       const r =
         await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
           networkId,
-          accountAddress,
-          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId,
-            networkId,
-          }),
+          accountId,
           withNonce: false,
           withFrozenBalance: true,
           withCheckInscription,

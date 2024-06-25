@@ -298,7 +298,7 @@ function WalletItem({
       const r = await backgroundApiProxy.serviceAccount.addExternalAccount({
         connectResult,
       });
-      const account = r.accounts[0];
+      const account = r?.accounts?.[0];
       const usedNetworkId = accountUtils.getAccountCompatibleNetwork({
         account,
         networkId: account.createAtNetwork || selectedAccount.networkId,

@@ -74,22 +74,9 @@ function TxHistoryListContainer(props: ITabPageProps) {
   const { run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
-      const [xpub, vaultSettings] = await Promise.all([
-        backgroundApiProxy.serviceAccount.getAccountXpub({
-          accountId: account.id,
-          networkId: network.id,
-        }),
-        backgroundApiProxy.serviceNetwork.getVaultSettings({
-          networkId: network.id,
-        }),
-      ]);
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
         networkId: network.id,
-        accountAddress: account.address,
-        xpub,
-        onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
-        saveConfirmedTxsEnabled: vaultSettings.saveConfirmedTxsEnabled,
       });
       setHistoryState({
         initialized: true,

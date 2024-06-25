@@ -1214,7 +1214,7 @@
   "slippage_tolerance.popover": "ความคลาดเคลื่อนของราคาเป็นการตั้งค่าสำหรับปริมาณของราคาที่คุณยินยอมให้เกิดการคลาดเคลื่อนในการซื้อขาย",
   "slippage_tolerance.switch_auto": "อัตโนมัติ",
   "slippage_tolerance.switch_custom": "ที่กำหนดเอง",
-  "slippage_tolerance.title": "ความคลาดเคลื่อนที่ยอมรับได้",
+  "slippage_tolerance.title": "การลื่นไถล",
   "slippage_tolerance.warning_message_1": "การทนต่อการลื่นไถลที่สูงอาจทำให้คุณสูญเสียสินทรัพย์",
   "slippage_tolerance.warning_message_2": "การสไลป์ที่ต่ำกว่า {number}% อาจทำให้การซื้อขายล้มเหลว",
   "swap_account.from_address": "{addrss}",

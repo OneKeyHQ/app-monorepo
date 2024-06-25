@@ -1214,7 +1214,7 @@
   "slippage_tolerance.popover": "슬리피지 허용치는 거래에 대해 수용할 수 있는 가격 슬리피지의 양을 설정하는 것입니다.",
   "slippage_tolerance.switch_auto": "자동",
   "slippage_tolerance.switch_custom": "사용자 정의",
-  "slippage_tolerance.title": "슬리피지 허용치",
+  "slippage_tolerance.title": "미끄러짐",
   "slippage_tolerance.warning_message_1": "높은 슬리피지 허용치는 자산 손실을 초래할 수 있습니다.",
   "slippage_tolerance.warning_message_2": "{number}% 미만의 슬리피지는 거래 실패를 초래할 수 있습니다.",
   "swap_account.from_address": "{addrss}",

@@ -1116,7 +1116,9 @@ function FeeEditor(props: IProps) {
         feeInfoItems.push({
           label: intl.formatMessage({ id: ETranslations.bandwidth_consumed }),
           customValue: String(fee.feeTron.requiredBandwidth),
-          customSymbol: 'Bandwidth',
+          customSymbol: intl.formatMessage({
+            id: ETranslations.bandwidth_energy_bandwidth,
+          }),
         });
       }
 
@@ -1124,7 +1126,9 @@ function FeeEditor(props: IProps) {
         feeInfoItems.push({
           label: intl.formatMessage({ id: ETranslations.energy_consumed }),
           customValue: String(fee.feeTron.requiredEnergy),
-          customSymbol: 'Energy',
+          customSymbol: intl.formatMessage({
+            id: ETranslations.bandwidth_energy_energy,
+          }),
         });
       }
     }

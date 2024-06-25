@@ -126,7 +126,7 @@ function BasicTokenDetailTabs({
         ? [
             pools.length && token
               ? {
-                  title: intl.formatMessage({ id: ETranslations.global_all }),
+                  title: intl.formatMessage({ id: ETranslations.global_pools }),
                   // eslint-disable-next-line react/no-unstable-nested-components
                   page: (props: ITabPageProps) => (
                     <MarketDetailPools {...props} pools={pools} />
