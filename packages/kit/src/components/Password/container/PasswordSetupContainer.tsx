@@ -69,7 +69,11 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
   const onSetupPassword = useCallback(
     async (data: IPasswordSetupForm) => {
       if (data.confirmPassword !== data.password) {
-        Toast.error({ title: 'password not match' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.auth_error_password_not_match,
+          }),
+        });
       } else {
         setLoading(true);
         try {
@@ -93,7 +97,11 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
         } catch (e) {
           console.log('e.stack', (e as Error)?.stack);
           console.error(e);
-          Toast.error({ title: 'password set failed' });
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_password_set_failed,
+            }),
+          });
         } finally {
           setLoading(false);
         }

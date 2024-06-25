@@ -78,7 +78,7 @@ function TxActionCommonDescription({
   description,
 }: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'>) {
   return (
-    <XStack alignItems="center">
+    <XStack alignItems="center" flex={1}>
       {description?.prefix ? (
         <SizableText size="$bodyMd" color="$textSubdued" pr="$1.5">
           {description?.prefix}
@@ -92,7 +92,7 @@ function TxActionCommonDescription({
           name={description.icon}
         />
       ) : null}
-      <SizableText size="$bodyMd" color="$textSubdued">
+      <SizableText size="$bodyMd" color="$textSubdued" minWidth={0}>
         {description?.children}
       </SizableText>
     </XStack>
@@ -194,6 +194,7 @@ function TxActionCommonListView(
 
   return (
     <ListItem
+      testID="tx-action-common-list-view"
       space="$2"
       flexDirection="column"
       alignItems="flex-start"
@@ -202,7 +203,9 @@ function TxActionCommonListView(
     >
       {/* Content */}
       <XStack space="$3" alignSelf="stretch">
+        {/* token, title and subtitle */}
         <XStack
+          flex={1}
           space="$3"
           {...(tableLayout && {
             flexGrow: 1,
@@ -212,9 +215,9 @@ function TxActionCommonListView(
           {showIcon ? (
             <TxActionCommonAvatar avatar={avatar} tableLayout={tableLayout} />
           ) : null}
-          <Stack>
+          <Stack flex={1}>
             <TxActionCommonTitle title={title} tableLayout={tableLayout} />
-            <XStack>
+            <XStack alignSelf="stretch">
               {tableLayout && timestamp ? (
                 <>
                   <SizableText size="$bodyMd" color="$textSubdued">
@@ -236,12 +239,13 @@ function TxActionCommonListView(
             </XStack>
           </Stack>
         </XStack>
+        {/* changes */}
         <Stack
-          flexGrow={1}
-          flexBasis={0}
           alignItems="flex-end"
           {...(tableLayout && {
             alignItems: 'unset',
+            flexGrow: 1,
+            flexBasis: 0,
           })}
         >
           {typeof change === 'string' ? (
@@ -257,6 +261,7 @@ function TxActionCommonListView(
             changeDescription
           )}
         </Stack>
+        {/* fees */}
         {tableLayout && !hideFeeInfo ? (
           <TxActionCommonFee
             fee={fee}
