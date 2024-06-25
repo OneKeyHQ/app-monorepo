@@ -121,12 +121,6 @@ function ModalNavigator({
       'state',
       () => {
         const newIndex = rootNavigation?.getState?.().index ?? 0;
-        console.log(
-          '😛',
-          newIndex,
-          rootNavigation?.getState?.(),
-          navigation?.getParent?.()?.getState?.(),
-        );
         if (media.gtMd && MODAL_ANIMATED_BACKDROP_VIEW_REF) {
           // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
