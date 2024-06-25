@@ -37,16 +37,6 @@ import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
 
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-
-import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { range } from 'lodash';
-import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
-
 function ReceiveToken() {
   useDebugComponentRemountLog({
     name: 'ReceiveToken9971',

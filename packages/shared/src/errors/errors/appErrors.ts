@@ -82,6 +82,7 @@ export class OneKeyErrorScanQrCodeCancel extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyErrorScanQrCodeCancel',
+        defaultAutoToast: false,
       }),
     );
   }

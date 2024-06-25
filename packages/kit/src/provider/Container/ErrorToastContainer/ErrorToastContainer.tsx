@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import { Toast, useClipboard } from '@onekeyhq/components';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -17,9 +16,6 @@ export function ErrorToastContainer() {
   const { copyText } = useClipboard();
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
-      if (p?.title === EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel) {
-        return;
-      }
       const message = p?.message ? `RequestId: ${p.message}` : undefined;
       const actionsProps: IButtonProps | undefined = message
         ? {
