@@ -13,7 +13,10 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 export class FirmwareUpdateDetectMap {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     this.backgroundApi = backgroundApi;
+    this.firstDetectAt = Date.now();
   }
+
+  firstDetectAt: number;
 
   backgroundApi: IBackgroundApi;
 
@@ -21,16 +24,38 @@ export class FirmwareUpdateDetectMap {
 
   detectTimeSpan = timerUtils.getTimeDurationMs({ minute: 5 });
 
+  firstDetectTimeSpan = timerUtils.getTimeDurationMs({ minute: 1 });
+
   shouldDetect({ connectId }: { connectId: string }) {
     const now = Date.now();
+
+    // Check is not allowed until one minute after the app is started
+    if (now - this.firstDetectAt < this.firstDetectTimeSpan) {
+      console.log(`skip detectFirmwareUpdates with first check: ${connectId}`);
+
+      void this.backgroundApi.serviceFirmwareUpdate.showAutoUpdateCheckDebugToast(
+        '刚启动 App，跳过检查更新',
+      );
+
+      return false;
+    }
+
     const lastDetectResult = this.detectMapCache[connectId];
     if (
       lastDetectResult?.lastDetectAt &&
       now - lastDetectResult.lastDetectAt < this.detectTimeSpan
     ) {
       console.log(`skip detectFirmwareUpdates: ${connectId}`);
+
+      void this.backgroundApi.serviceFirmwareUpdate.showAutoUpdateCheckDebugToast(
+        '刚刚检查过，跳过检查更新',
+      );
       return false;
     }
+
+    void this.backgroundApi.serviceFirmwareUpdate.showAutoUpdateCheckDebugToast(
+      '开始检查更新',
+    );
     return true;
   }
 

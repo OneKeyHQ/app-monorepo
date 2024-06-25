@@ -51,7 +51,6 @@ export type IHardwareUiPayload = {
   deviceMode: EOneKeyDeviceMode;
   isBootloaderMode?: boolean;
   passphraseState?: string; // use passphrase, REQUEST_PASSPHRASE_ON_DEVICE only
-  supportInputPinOnSoftware?: boolean;
   firmwareTipData?: {
     message: EFirmwareUpdateTipMessages | string;
   };

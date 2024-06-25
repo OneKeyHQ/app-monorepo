@@ -74,6 +74,17 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getCurrentLocale() {
+    const { locale } = await settingsPersistAtom.get();
+
+    if (locale === 'system') {
+      return getDefaultLocale();
+    }
+
+    return locale;
+  }
+
+  @backgroundMethod()
   public async setProtectCreateTransaction(value: boolean) {
     await this.backgroundApi.servicePassword.promptPasswordVerify({
       reason: EReasonForNeedPassword.Security,
