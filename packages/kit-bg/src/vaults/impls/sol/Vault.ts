@@ -713,8 +713,8 @@ export default class Vault extends VaultBase {
           if (instructionType === 'Transfer') {
             const nativeToken =
               await this.backgroundApi.serviceToken.getNativeToken({
+                accountId: this.accountId,
                 networkId: this.networkId,
-                accountAddress,
               });
             const { fromPubkey, toPubkey, lamports } =
               SystemInstruction.decodeTransfer(instruction);
@@ -803,9 +803,9 @@ export default class Vault extends VaultBase {
 
             tokenAddress = tokenAddress || mint;
             const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+              accountId: this.accountId,
               networkId: this.networkId,
               tokenIdOnNetwork: tokenAddress,
-              accountAddress,
             });
             if (tokenInfo) {
               const transfer: IDecodedTxTransferInfo = {
