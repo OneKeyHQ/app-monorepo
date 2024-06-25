@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -42,21 +45,33 @@ function OverviewPriceChange({
 }
 
 export function Overview24PriceChange({
+  currentPrice,
   low,
   high,
 }: {
+  currentPrice: number;
   low: number;
   high: number;
 }) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
+  const priceChange = useMemo(() => {
+    const lowBN = new BigNumber(low);
+    const highBN = new BigNumber(high);
+    const priceBN = new BigNumber(currentPrice);
+    return priceBN
+      .minus(lowBN)
+      .div(highBN.minus(lowBN))
+      .shiftedBy(2)
+      .toNumber();
+  }, [currentPrice, high, low]);
   return (
     <YStack space="$2.5">
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.market_24h_price_range })}
       </SizableText>
-      <Progress value={(low / high) * 100} height="$1" />
+      <Progress value={priceChange} height="$1" />
       <XStack jc="space-between">
         <XStack space="$1">
           <SizableText color="$textSubdued" size="$bodyMd">
@@ -232,6 +247,7 @@ export function MarketDetailOverview({
       maxSupply,
       totalSupply,
       circulatingSupply,
+      currentPrice,
       performance,
       volume24h,
       marketCap,
@@ -284,7 +300,11 @@ export function MarketDetailOverview({
           {performance.priceChangePercentage1y}
         </OverviewPriceChange>
       </XStack>
-      <Overview24PriceChange low={low24h} high={high24h} />
+      <Overview24PriceChange
+        currentPrice={currentPrice}
+        low={low24h}
+        high={high24h}
+      />
       <OverviewMarketVOL
         volume24h={volume24h}
         fdv={fdv}
