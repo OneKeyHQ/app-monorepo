@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { AppState } from 'react-native';
@@ -41,15 +41,30 @@ function SendConfirmFromDApp() {
     closeWindowAfterResolved: true,
   });
 
+  const isRunningCloseFunctionRef = useRef(true);
+
+  const dispatchAction = useCallback(() => {
+    if (pendingAction.current) {
+      isRunningCloseFunctionRef.current = false;
+      isRunningCloseFunctionRef.current = false;
+      navigation.dispatch(pendingAction.current);
+    }
+  }, [navigation]);
+
+  const handlePageClose = useCallback(() => {
+    if (isRunningCloseFunctionRef.current) {
+      console.log('=======>>>>onClose: ', 1);
+      dappApprove.reject();
+    }
+  }, [dappApprove]);
+
   useEffect(() => {
     // OK-16560: navigate when app in background would cause modal render in wrong size
     const appStateListener = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         setTimeout(() => {
-          if (pendingAction.current) {
-            navigation.dispatch(pendingAction.current);
-            pendingAction.current = undefined;
-          }
+          dispatchAction();
+          pendingAction.current = undefined;
         });
       }
     });
@@ -82,7 +97,7 @@ function SendConfirmFromDApp() {
 
       if (action) {
         if (AppState.currentState === 'active') {
-          setTimeout(() => navigation.dispatch(action));
+          setTimeout(() => dispatchAction());
         } else {
           pendingAction.current = action;
         }
@@ -104,15 +119,11 @@ function SendConfirmFromDApp() {
     _$t,
     transfersInfo,
     useFeeInTx,
+    dispatchAction,
   ]);
 
   return (
-    <Page
-      onClose={() => {
-        console.log('=======>>>>onClose: ', 1);
-        dappApprove.reject();
-      }}
-    >
+    <Page onClose={handlePageClose}>
       <Page.Body>
         <Stack h="100%" justifyContent="center" alignContent="center">
           <Spinner size="large" />
