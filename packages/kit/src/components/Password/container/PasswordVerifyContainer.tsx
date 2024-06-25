@@ -51,7 +51,12 @@ const PasswordVerifyContainer = ({
   useEffect(() => {
     if (isEnable) {
       void (async () => {
-        setHasSecurePassword(!!(await biologyAuthUtils.getPassword()));
+        try {
+          const securePassword = await biologyAuthUtils.getPassword();
+          setHasSecurePassword(!!securePassword);
+        } catch (e) {
+          setHasSecurePassword(false);
+        }
       })();
     }
   }, [isEnable]);
