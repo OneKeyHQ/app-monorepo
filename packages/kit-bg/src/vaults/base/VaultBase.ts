@@ -491,7 +491,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       functionCall: {
         from: tx.from,
         to: tx.to,
-        functionName: tx.type,
+        functionName: tx.label,
         functionHash: tx.functionCode,
         args: tx.params,
         icon: network.logoURI,
