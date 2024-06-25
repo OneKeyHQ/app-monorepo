@@ -43,12 +43,13 @@ function SendConfirmFromDApp() {
 
   const isNavigateNewPageRef = useRef(true);
 
-  const dispatchAction = useCallback(() => {
-    if (pendingAction.current) {
+  const dispatchAction = useCallback(
+    (action: any) => {
       isNavigateNewPageRef.current = false;
-      navigation.dispatch(pendingAction.current);
-    }
-  }, [navigation]);
+      navigation.dispatch(action);
+    },
+    [navigation],
+  );
 
   const handlePageClose = useCallback(() => {
     if (isNavigateNewPageRef.current) {
@@ -62,7 +63,9 @@ function SendConfirmFromDApp() {
     const appStateListener = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         setTimeout(() => {
-          dispatchAction();
+          if (pendingAction.current) {
+            dispatchAction(pendingAction.current);
+          }
           pendingAction.current = undefined;
         });
       }
@@ -96,7 +99,7 @@ function SendConfirmFromDApp() {
 
       if (action) {
         if (AppState.currentState === 'active') {
-          setTimeout(() => dispatchAction());
+          setTimeout(() => dispatchAction(action));
         } else {
           pendingAction.current = action;
         }
