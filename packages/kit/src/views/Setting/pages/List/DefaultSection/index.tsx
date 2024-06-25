@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupEntryStatus';
 import {
   useAddressBookPersistAtom,
   usePasswordPersistAtom,
@@ -145,6 +146,7 @@ export const DefaultSection = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const backupEntryStatus = useBackupEntryStatus();
   return (
     <YStack>
       <LockNowButton />
@@ -160,6 +162,7 @@ export const DefaultSection = () => {
           })}
           drillIn
           onPress={async () => {
+            await backupEntryStatus.check();
             navigation.pushModal(EModalRoutes.CloudBackupModal, {
               screen: ECloudBackupRoutes.CloudBackupHome,
             });
