@@ -107,6 +107,20 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setBiologyAuthSwitchOn(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      isBiologyAuthSwitchOn: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getBiologyAuthSwitchOn() {
+    const { isBiologyAuthSwitchOn } = await settingsPersistAtom.get();
+    return isBiologyAuthSwitchOn;
+  }
+
+  @backgroundMethod()
   public async setSpendDustUTXO(value: boolean) {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
