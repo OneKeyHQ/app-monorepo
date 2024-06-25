@@ -262,6 +262,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       this.cleanQuoteInterval();
       this.quoteIntervalCount = 0;
       set(swapBuildTxFetchingAtom(), false);
+      set(swapApprovingTransactionAtom(), (pre) => {
+        if (pre) return undefined;
+      });
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -332,6 +335,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             return {
               ...pre,
               status: ESwapApproveTransactionStatus.DISCARD,
+            };
+          });
+        } else {
+          set(swapApprovingTransactionAtom(), (pre) => {
+            if (!pre || pre.status === ESwapApproveTransactionStatus.PENDING) {
+              return pre;
+            }
+            return {
+              ...pre,
+              status: ESwapApproveTransactionStatus.PENDING,
             };
           });
         }

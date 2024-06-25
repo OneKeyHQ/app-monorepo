@@ -171,8 +171,8 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
       'name': (item) => (
         <XStack space="$3" ai="center">
           <MarketTokenIcon uri={item.image} size="$8" />
-          <YStack width="$20">
-            <SizableText size="$bodyLgMedium">
+          <YStack width="$24">
+            <SizableText size="$bodyLgMedium" numberOfLines={1}>
               {item.symbol.toUpperCase()}
             </SizableText>
             <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
