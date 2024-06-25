@@ -33,6 +33,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  transferZeroNativeTokenEnabled: true,
 
   defaultFeePresetIndex: 0,
 

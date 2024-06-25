@@ -20,9 +20,8 @@ export type IAddressValidation = {
 };
 
 export type IFetchAccountDetailsParams = {
+  accountId: string;
   networkId: string;
-  accountAddress: string;
-  xpub?: string;
   cardanoPubKey?: string;
   withUTXOList?: boolean;
   withNetWorth?: boolean;

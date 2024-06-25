@@ -198,8 +198,8 @@ function HistoryDetails() {
           txid: historyTx.decodedTx.txid,
         }),
         backgroundApiProxy.serviceToken.getNativeToken({
+          accountId,
           networkId,
-          accountAddress,
         }),
       ]),
     [accountAddress, historyTx.decodedTx.txid, networkId, accountId, xpub],

@@ -129,11 +129,7 @@ export type IHistoryListSectionGroup = {
 export type IFetchAccountHistoryParams = {
   accountId: string;
   networkId: string;
-  accountAddress: string;
-  xpub?: string;
   tokenIdOnNetwork?: string;
-  onChainHistoryDisabled?: boolean;
-  saveConfirmedTxsEnabled?: boolean;
 };
 
 export type IOnChainHistoryTxToken = {

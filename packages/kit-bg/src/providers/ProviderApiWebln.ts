@@ -307,16 +307,12 @@ class ProviderApiWebln extends ProviderApiBase {
     const { accountInfo: { accountId, networkId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId: accountId ?? '',
-        networkId: networkId ?? '',
-      });
-    if (accountAddress) {
+
+    if (accountId && networkId) {
       const accountInfo =
         await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-          networkId: networkId ?? '',
-          accountAddress,
+          accountId,
+          networkId,
         });
       return {
         balance: new BigNumber(accountInfo.balance ?? 0).toNumber(),

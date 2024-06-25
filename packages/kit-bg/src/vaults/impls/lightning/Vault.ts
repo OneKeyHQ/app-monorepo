@@ -202,9 +202,9 @@ export default class Vault extends VaultBase {
     const account = await this.getAccount();
 
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
       tokenIdOnNetwork: '',
-      accountAddress: account.address,
     });
 
     if (!nativeToken) {
@@ -532,7 +532,7 @@ export default class Vault extends VaultBase {
   }
 
   override async buildFetchHistoryListParams(
-    params: IFetchAccountHistoryParams,
+    params: IFetchAccountHistoryParams & { accountAddress: string },
   ) {
     const lightningSignature = await this._getAuthorization({
       accountId: params.accountId,

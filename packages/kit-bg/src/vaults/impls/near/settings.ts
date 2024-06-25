@@ -38,6 +38,7 @@ const settings: IVaultSettings = {
   editFeeEnabled: false,
   replaceTxEnabled: false,
   onChainHistoryDisabled: true,
+  transferZeroNativeTokenEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {

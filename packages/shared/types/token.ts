@@ -54,10 +54,9 @@ export type IFetchAccountTokensResp = {
 };
 
 export type IFetchTokenDetailParams = {
+  accountId: string;
   networkId: string;
-  xpub?: string;
   contractList: string[];
-  accountAddress?: string;
   withFrozenBalance?: boolean;
   withCheckInscription?: boolean;
 };

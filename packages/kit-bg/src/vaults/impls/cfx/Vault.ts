@@ -299,7 +299,7 @@ export default class Vault extends VaultBase {
     const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
       networkId: this.networkId,
-      accountAddress,
+      accountId: this.accountId,
       tokenIdOnNetwork: '',
     });
 
@@ -339,8 +339,8 @@ export default class Vault extends VaultBase {
       );
       const abiDecodeResult = crc20.abi.decodeData(encodedTx.data);
       const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+        accountId: this.accountId,
         networkId: this.networkId,
-        accountAddress,
         tokenIdOnNetwork: encodedTx.contract ?? encodedTx.to,
       });
       if (abiDecodeResult && tokenInfo) {

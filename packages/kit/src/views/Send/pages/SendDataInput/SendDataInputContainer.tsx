@@ -154,11 +154,7 @@ function SendDataInputContainer() {
           checkInscriptionProtectionEnabled && settings.inscriptionProtection;
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId,
-          accountAddress,
-          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId,
-            networkId,
-          }),
+          accountId,
           contractList: [tokenInfo.address],
           withFrozenBalance: true,
           withCheckInscription,
@@ -401,6 +397,7 @@ function SendDataInputContainer() {
   const handleValidateTokenAmount = useCallback(
     async (value: string) => {
       const amountBN = new BigNumber(value ?? 0);
+
       let isInsufficientBalance = false;
       let isLessThanMinTransferAmount = false;
       if (isUseFiat) {
@@ -464,17 +461,31 @@ function SendDataInputContainer() {
         return (e as Error).message;
       }
 
+      if (
+        !isNFT &&
+        tokenDetails?.info.isNative &&
+        amountBN.isZero() &&
+        !vaultSettings?.transferZeroNativeTokenEnabled
+      ) {
+        return intl.formatMessage({
+          id: ETranslations.send_cannot_send_amount_zero,
+        });
+      }
+
       return true;
     },
     [
+      isNFT,
+      tokenDetails?.info.isNative,
+      tokenDetails?.fiatValue,
+      tokenDetails?.price,
+      tokenDetails?.balanceParsed,
+      vaultSettings?.transferZeroNativeTokenEnabled,
+      vaultSettings?.minTransferAmount,
       isUseFiat,
       intl,
       tokenSymbol,
       tokenMinAmount,
-      vaultSettings?.minTransferAmount,
-      tokenDetails?.fiatValue,
-      tokenDetails?.price,
-      tokenDetails?.balanceParsed,
       form,
       accountId,
       networkId,

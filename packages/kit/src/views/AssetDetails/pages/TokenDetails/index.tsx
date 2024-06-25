@@ -95,29 +95,16 @@ export function TokenDetails() {
         });
 
       if (!a) return;
-      const [xpub, vaultSettings] = await Promise.all([
-        backgroundApiProxy.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        }),
-        backgroundApiProxy.serviceNetwork.getVaultSettings({
-          networkId,
-        }),
-      ]);
+
       const [history, details] = await Promise.all([
         backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId: a.id,
-          accountAddress,
-          xpub,
           networkId,
           tokenIdOnNetwork: tokenInfo.address,
-          onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
-          saveConfirmedTxsEnabled: vaultSettings.saveConfirmedTxsEnabled,
         }),
         backgroundApiProxy.serviceToken.fetchTokensDetails({
+          accountId: a.id,
           networkId,
-          xpub,
-          accountAddress,
           contractList: [tokenInfo.address],
         }),
       ]);

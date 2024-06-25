@@ -142,9 +142,9 @@ export default class Vault extends VaultBase {
     const account = await this.getAccount();
 
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
       tokenIdOnNetwork: '',
-      accountAddress: account.address,
     });
 
     if (!nativeToken) {
@@ -345,7 +345,7 @@ export default class Vault extends VaultBase {
         const { utxoList: utxos } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
-            accountAddress: address,
+            accountId: this.accountId,
             withUTXOList: true,
           });
         if (!utxos || isEmpty(utxos)) {

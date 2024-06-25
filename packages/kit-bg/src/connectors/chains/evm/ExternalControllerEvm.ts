@@ -468,10 +468,12 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     const provider = await connector.getProvider();
     // TODO check address or network matched
     const result = await provider.request({
+      // @ts-ignore
       method,
       params: callParams,
     });
 
+    // @ts-ignore
     return [result];
   }
 

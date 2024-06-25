@@ -47,6 +47,8 @@ const settings: IVaultSettings = {
 
   withoutBroadcastTxId: true,
 
+  hasFrozenBalance: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {

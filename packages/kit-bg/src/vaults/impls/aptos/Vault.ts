@@ -198,8 +198,8 @@ export default class VaultAptos extends VaultBase {
       const [to, amountValue] = encodedTx.arguments || [];
       const tokenInfo = await this.backgroundApi.serviceToken.getToken({
         networkId: network.id,
+        accountId: this.accountId,
         tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
-        accountAddress: account.address,
       });
       const amount = new BigNumber(amountValue)
         .shiftedBy(-tokenInfo.decimals)

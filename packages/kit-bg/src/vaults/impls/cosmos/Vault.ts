@@ -197,7 +197,7 @@ export default class VaultCosmos extends VaultBase {
     const accountInfo =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId: network.id,
-        accountAddress: transfersInfo[0].from,
+        accountId: this.accountId,
         withNonce: true,
       });
     if (!accountInfo) {
@@ -282,8 +282,8 @@ export default class VaultCosmos extends VaultBase {
         const amounts = amount as Array<{ denom: string; amount: string }>;
         const token = await this.backgroundApi.serviceToken.getToken({
           networkId: network.id,
+          accountId: this.accountId,
           tokenIdOnNetwork: amounts[0].denom,
-          accountAddress: account.address,
         });
         const amountNumber = new BigNumber(amounts[0].amount)
           .shiftedBy(-token.decimals)

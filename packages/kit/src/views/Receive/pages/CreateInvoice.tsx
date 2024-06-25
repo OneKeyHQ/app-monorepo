@@ -62,10 +62,9 @@ function CreateInvoice() {
         accountId,
       });
     const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+      accountId,
       networkId,
-      accountAddress,
       contractList: [''],
-      xpub: '',
       withFrozenBalance: false,
       withCheckInscription: false,
     });

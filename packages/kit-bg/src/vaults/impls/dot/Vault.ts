@@ -216,8 +216,8 @@ export default class VaultDot extends VaultBase {
 
     const account =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        accountId: this.accountId,
         networkId: this.networkId,
-        accountAddress: from,
         withNonce: true,
       });
 
@@ -430,9 +430,9 @@ export default class VaultDot extends VaultBase {
         }
       }
       const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+        accountId: this.accountId,
         networkId: this.networkId,
         tokenIdOnNetwork: assetId || (networkInfo.nativeTokenAddress ?? ''),
-        accountAddress: account.address,
       });
 
       const { value: tokenAmount } = decodeUnsignedTx.method.args;
@@ -667,7 +667,7 @@ export default class VaultDot extends VaultBase {
       const account =
         await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
           networkId: this.networkId,
-          accountAddress,
+          accountId: this.accountId,
           withNonce: false,
           withNetWorth: true,
         });
