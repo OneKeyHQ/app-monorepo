@@ -153,7 +153,7 @@ export function DeriveTypeSelectorTrigger({
           ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
           : description,
       })),
-    [deriveInfoItems, intl, wallet?.type],
+    [deriveInfoItems, intl],
   );
 
   if (!isStorageReady) {
