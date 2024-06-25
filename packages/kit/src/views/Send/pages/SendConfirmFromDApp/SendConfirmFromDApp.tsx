@@ -3,13 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { AppState } from 'react-native';
 
-import {
-  Dialog,
-  Page,
-  Spinner,
-  Stack,
-  usePreventRemove,
-} from '@onekeyhq/components';
+import { Page, Spinner, Stack } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
@@ -72,7 +66,6 @@ function SendConfirmFromDApp() {
 
   const handlePageClose = useCallback(() => {
     if (!isNavigateNewPageRef.current) {
-      console.log('=======>>>>onClose: ', 1);
       dappApprove.reject();
     }
   }, [dappApprove]);
