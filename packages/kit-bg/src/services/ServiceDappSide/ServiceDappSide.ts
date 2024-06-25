@@ -56,7 +56,7 @@ class ServiceDappSide extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
+  // @toastIfError() // use Dialog show loading or error
   async connectExternalWallet({
     connectionInfo,
   }: {

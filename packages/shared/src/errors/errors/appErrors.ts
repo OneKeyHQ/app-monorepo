@@ -77,6 +77,19 @@ export class OneKeyErrorAirGapInvalidQrCode extends OneKeyError {
   }
 }
 
+export class OneKeyErrorScanQrCodeCancel extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyErrorScanQrCodeCancel',
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel;
+}
+
 export class OneKeyInternalError extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -257,17 +270,30 @@ export class TransferValueTooSmall extends OneKeyError {
 }
 
 // **** only for Native Token  InsufficientBalance
-export class InsufficientBalance extends OneKeyError {
+
+export type IInsufficientBalanceInfo = {
+  symbol: string;
+};
+
+export class InsufficientBalance extends OneKeyError<IInsufficientBalanceInfo> {
   override className =
     EOneKeyErrorClassNames.OneKeyErrorInsufficientNativeBalance;
 
   // For situations that utxo selection failed.
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyError<IInsufficientBalanceInfo>) {
     super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'InsufficientBalance',
-        defaultKey: ETranslations.send_amount_invalid,
-      }),
+      normalizeErrorProps(
+        {
+          ...props,
+          info: {
+            '0': props?.info?.symbol,
+          },
+        },
+        {
+          defaultMessage: 'InsufficientBalance',
+          defaultKey: ETranslations.send_amount_invalid,
+        },
+      ),
     );
   }
 }

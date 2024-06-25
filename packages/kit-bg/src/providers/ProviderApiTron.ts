@@ -1,7 +1,8 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isNil } from 'lodash';
-import { type SignedTransaction, TronWeb } from 'tronweb';
+import { type SignedTransaction } from 'tronweb';
+import TronWeb from 'tronweb';
 
 import {
   backgroundClass,
@@ -107,8 +108,7 @@ class ProviderApiTron extends ProviderApiBase {
   @providerApiMethod()
   async tron_getNodeInfo(request: IJsBridgeMessagePayload) {
     const { fullHost } = await this.tron_nodes(request);
-
-    const tronWeb = new TronWeb({ fullNode: fullHost });
+    const tronWeb = new TronWeb({ fullHost });
     return tronWeb.trx.getNodeInfo();
   }
 

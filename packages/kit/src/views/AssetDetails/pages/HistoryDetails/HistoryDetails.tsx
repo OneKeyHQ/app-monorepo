@@ -164,8 +164,17 @@ export function AssetItem({
         tokenImageUri={asset.icon}
         networkImageUri={networkIcon}
       />
-      <ListItem.Text primary={asset.symbol} secondary={asset.name} flex={1} />
-      <ListItem.Text primary={primary} secondary={secondary} align="right" />
+      <ListItem.Text
+        primary={asset.symbol}
+        secondary={asset.name}
+        flexShrink={0}
+      />
+      <ListItem.Text
+        primary={primary}
+        secondary={secondary}
+        flex={1}
+        align="right"
+      />
     </ListItem>
   );
 }
@@ -198,8 +207,8 @@ function HistoryDetails() {
           txid: historyTx.decodedTx.txid,
         }),
         backgroundApiProxy.serviceToken.getNativeToken({
+          accountId,
           networkId,
-          accountAddress,
         }),
       ]),
     [accountAddress, historyTx.decodedTx.txid, networkId, accountId, xpub],

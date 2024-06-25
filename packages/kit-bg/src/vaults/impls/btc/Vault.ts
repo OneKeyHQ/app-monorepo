@@ -113,9 +113,9 @@ export default class VaultBtc extends VaultBase {
     const network = await this.getNetwork();
     const account = await this.getAccount();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
       tokenIdOnNetwork: '',
-      accountAddress: account.address,
     });
 
     if (!nativeToken) {
@@ -582,7 +582,11 @@ export default class VaultBtc extends VaultBase {
         .shiftedBy(-network.decimals);
 
       if (allUtxoAmount.lt(amount)) {
-        throw new InsufficientBalance();
+        throw new InsufficientBalance({
+          info: {
+            symbol: network.symbol,
+          },
+        });
       }
 
       const max = allUtxoAmount.lte(amount);
@@ -791,8 +795,7 @@ export default class VaultBtc extends VaultBase {
         const { utxoList, frozenUtxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
-            accountAddress: await this.getAccountAddress(),
-            xpub: await this.getAccountXpub(),
+            accountId: this.accountId,
             withUTXOList: true,
             withFrozenBalance: true,
             withCheckInscription,

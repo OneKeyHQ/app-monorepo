@@ -40,10 +40,25 @@ function parseSendTransactionParams({
 function parseSignMessageParams({ params }: { params: ISignMessageParams }) {
   const firstMessageInfo = params.messages[0];
 
-  let method: 'personal_sign' | undefined;
+  let method:
+    | 'personal_sign'
+    | 'eth_sign'
+    | 'eth_signTypedData'
+    | 'eth_signTypedData_v3'
+    | 'eth_signTypedData_v4'
+    | undefined;
   if (firstMessageInfo.type === EMessageTypesEth.PERSONAL_SIGN) {
     method = 'personal_sign';
+  } else if (firstMessageInfo.type === EMessageTypesEth.ETH_SIGN) {
+    method = 'eth_sign';
+  } else if (firstMessageInfo.type === EMessageTypesEth.TYPED_DATA_V1) {
+    method = 'eth_signTypedData';
+  } else if (firstMessageInfo.type === EMessageTypesEth.TYPED_DATA_V3) {
+    method = 'eth_signTypedData_v3';
+  } else if (firstMessageInfo.type === EMessageTypesEth.TYPED_DATA_V4) {
+    method = 'eth_signTypedData_v4';
   }
+
   const callParams = firstMessageInfo?.payload || [];
 
   if (!method) {

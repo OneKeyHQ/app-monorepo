@@ -68,7 +68,11 @@ export default function Home() {
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_backup })}
+        title={intl.formatMessage({
+          id: platformEnv.isNativeAndroid
+            ? ETranslations.settings_google_drive_backup
+            : ETranslations.settings_icloud_backup,
+        })}
       />
       <Page.Body>
         <BackupDeviceList

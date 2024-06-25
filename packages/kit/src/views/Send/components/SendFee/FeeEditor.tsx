@@ -817,7 +817,9 @@ function FeeEditor(props: IProps) {
         <Form form={form}>
           <YStack pt="$5">
             <Form.Field
-              label="Prioritization Fee"
+              label={intl.formatMessage({
+                id: ETranslations.form__priority_fee,
+              })}
               name="computeUnitPrice"
               rules={{
                 required: true,
@@ -830,7 +832,14 @@ function FeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} />
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: 'micro-lamports',
+                  },
+                ]}
+              />
             </Form.Field>
           </YStack>
         </Form>
@@ -1107,7 +1116,9 @@ function FeeEditor(props: IProps) {
         feeInfoItems.push({
           label: intl.formatMessage({ id: ETranslations.bandwidth_consumed }),
           customValue: String(fee.feeTron.requiredBandwidth),
-          customSymbol: 'Bandwidth',
+          customSymbol: intl.formatMessage({
+            id: ETranslations.bandwidth_energy_bandwidth,
+          }),
         });
       }
 
@@ -1115,7 +1126,9 @@ function FeeEditor(props: IProps) {
         feeInfoItems.push({
           label: intl.formatMessage({ id: ETranslations.energy_consumed }),
           customValue: String(fee.feeTron.requiredEnergy),
-          customSymbol: 'Energy',
+          customSymbol: intl.formatMessage({
+            id: ETranslations.bandwidth_energy_energy,
+          }),
         });
       }
     }

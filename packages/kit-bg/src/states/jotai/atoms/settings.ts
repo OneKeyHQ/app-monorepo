@@ -29,30 +29,31 @@ export type ISettingsPersistAtom = {
     id: string;
   };
 };
+export const settingsAtomInitialValue: ISettingsPersistAtom = {
+  theme: 'system',
+  lastLocale: 'system',
+  locale: 'system',
+  version: process.env.VERSION ?? '1.0.0',
+  buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
+  instanceId: generateUUID(),
+  sensitiveEncodeKey: generateUUID(),
+  isBiologyAuthSwitchOn: true,
+  protectCreateTransaction: false,
+  protectCreateOrRemoveWallet: false,
+  tokenRiskReminder: true,
+  spendDustUTXO: false,
+  inscriptionProtection: true,
+  hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
+  currencyInfo: {
+    id: 'usd',
+    symbol: '$',
+  },
+};
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
     persist: true,
     name: EAtomNames.settingsPersistAtom,
-    initialValue: {
-      theme: 'system',
-      lastLocale: 'system',
-      locale: 'system',
-      version: process.env.VERSION ?? '1.0.0',
-      buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
-      instanceId: generateUUID(),
-      sensitiveEncodeKey: generateUUID(),
-      isBiologyAuthSwitchOn: true,
-      protectCreateTransaction: false,
-      protectCreateOrRemoveWallet: false,
-      tokenRiskReminder: true,
-      spendDustUTXO: false,
-      inscriptionProtection: true,
-      hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
-      currencyInfo: {
-        id: 'usd',
-        symbol: '$',
-      },
-    },
+    initialValue: settingsAtomInitialValue,
   });
 
 type ISettingsLastActivityPersistAtom = {

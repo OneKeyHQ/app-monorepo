@@ -305,7 +305,7 @@ class ServiceNetwork extends ServiceBase {
   }: {
     networkId: string;
     deriveType: IAccountDeriveTypes;
-  }) {
+  }): Promise<IAccountDeriveInfo> {
     return getVaultSettingsAccountDeriveInfo({ networkId, deriveType });
   }
 
@@ -336,13 +336,16 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getGlobalDeriveTypeOfNetwork({ networkId }: { networkId: string }) {
+  async getGlobalDeriveTypeOfNetwork({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<IAccountDeriveTypes> {
     const currentGlobalDeriveType =
       await this.backgroundApi.simpleDb.accountSelector.getGlobalDeriveType({
         networkId,
       });
-
-    return currentGlobalDeriveType;
+    return currentGlobalDeriveType ?? 'default';
   }
 
   @backgroundMethod()

@@ -126,6 +126,7 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
       ) : null}
       {/* Primary wallets */}
       <ListView
+        showsVerticalScrollIndicator={false}
         p="$2"
         estimatedItemSize="$10"
         data={wallets}

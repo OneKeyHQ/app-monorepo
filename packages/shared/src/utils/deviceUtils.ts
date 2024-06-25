@@ -185,7 +185,7 @@ function getUpdatingConnectId({
   return platformEnv.isNative ? connectId : undefined;
 }
 
-function checkDeviceBonded(connectId: string) {
+async function checkDeviceBonded(connectId: string) {
   return bleManagerInstance.checkDeviceBonded(connectId);
 }
 

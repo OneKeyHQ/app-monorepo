@@ -190,6 +190,8 @@ export type IVaultSettings = {
   ignoreUpdateNativeAmount?: boolean;
 
   withoutBroadcastTxId?: boolean;
+
+  transferZeroNativeTokenEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {
