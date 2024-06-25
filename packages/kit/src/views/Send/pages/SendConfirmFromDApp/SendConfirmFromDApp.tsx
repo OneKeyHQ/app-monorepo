@@ -12,7 +12,10 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
-import type { StackActionType } from '@react-navigation/native';
+import type {
+  NavigationAction,
+  StackActionType,
+} from '@react-navigation/native';
 
 function SendConfirmFromDApp() {
   const navigation = useNavigation();
@@ -41,18 +44,18 @@ function SendConfirmFromDApp() {
     closeWindowAfterResolved: true,
   });
 
-  const isNavigateNewPageRef = useRef(true);
+  const isNavigateNewPageRef = useRef(false);
 
   const dispatchAction = useCallback(
-    (action: any) => {
-      isNavigateNewPageRef.current = false;
+    (action: NavigationAction | ((state: any) => NavigationAction)) => {
+      isNavigateNewPageRef.current = true;
       navigation.dispatch(action);
     },
     [navigation],
   );
 
   const handlePageClose = useCallback(() => {
-    if (isNavigateNewPageRef.current) {
+    if (!isNavigateNewPageRef.current) {
       console.log('=======>>>>onClose: ', 1);
       dappApprove.reject();
     }
