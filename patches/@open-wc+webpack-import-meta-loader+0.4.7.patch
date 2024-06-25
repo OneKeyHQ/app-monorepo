@@ -1,5 +1,5 @@
 diff --git a/node_modules/@open-wc/webpack-import-meta-loader/webpack-import-meta-loader.js b/node_modules/@open-wc/webpack-import-meta-loader/webpack-import-meta-loader.js
-index 3bf4695..564e2bb 100644
+index 3bf4695..8426250 100644
 --- a/node_modules/@open-wc/webpack-import-meta-loader/webpack-import-meta-loader.js
 +++ b/node_modules/@open-wc/webpack-import-meta-loader/webpack-import-meta-loader.js
 @@ -39,7 +39,7 @@ module.exports = function (source) {
@@ -7,7 +7,7 @@ index 3bf4695..564e2bb 100644
  
          if (!publicPath || publicPath.indexOf('://') < 0) {
 -          url += window.location.protocol + '//' + window.location.host;
-+          url += typeof window !=='undefined' ? window.location.protocol + '//' + window.location.host : 'https://app.onekey.so';
++          url += typeof window !=='undefined' ? window.location.protocol + '//' + window.location.host : 'https://1key.so';
          }
  
          if (publicPath) {

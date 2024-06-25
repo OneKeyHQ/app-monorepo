@@ -67,7 +67,7 @@ export const WALLET_CONNECT_CLIENT_META = {
   redirect: platformEnv.isNative
     ? {
         native: ONEKEY_APP_DEEP_LINK, // 'onekey-wallet://',
-        universal: WalletConnectUniversalLinkFull, // 'https://app.onekey.so/wc/connect',
+        universal: WalletConnectUniversalLinkFull, // 'https://1key.so/wc/connect',
       }
     : (undefined as any),
 };

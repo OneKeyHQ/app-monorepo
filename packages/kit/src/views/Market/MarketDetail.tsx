@@ -216,7 +216,7 @@ function MarketDetail({
   const renderHeaderRight = useCallback(
     () => (
       <XStack space="$6" ai="center">
-        {gtMd ? (
+        {!platformEnv.isExtensionUiPopup && !platformEnv.isNative ? (
           <OpenInAppButton
             buildDeepLinkUrl={buildDeepLinkUrl}
             buildFullUrl={buildFullUrl}
