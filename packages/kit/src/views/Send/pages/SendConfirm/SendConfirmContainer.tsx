@@ -14,6 +14,10 @@ import {
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
@@ -56,6 +60,11 @@ function SendConfirmContainer() {
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  useEffect(() => {
+    appEventBus.emit(EAppEventBusNames.SendConfirmContainerMounted, undefined);
+  }, []);
+
   const { network } =
     usePromiseResult(async () => {
       updateUnsignedTxs(unsignedTxs);
