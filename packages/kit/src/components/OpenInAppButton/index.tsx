@@ -62,17 +62,17 @@ export function OpenInAppButton({
       renderContent: (
         <Stack>
           <Stack alignItems="center" justifyContent="center" overflow="hidden">
-            {/* {deepLinkUrl && openByAppButtonLabel ? (
+            {deepLinkUrl && openByAppButtonLabel ? (
               <Button
                 mb="$4"
                 onPress={() => {
-                  console.log('URL Account openByApp deepLinkUrl', deepLinkUrl);
+                  console.log('deepLinkUrl', deepLinkUrl);
                   void openUrlUtils.linkingOpenURL(deepLinkUrl);
                 }}
               >
                 {openByAppButtonLabel}
               </Button>
-            ) : null} */}
+            ) : null}
             <Stack
               p="$4"
               borderRadius="$6"
@@ -109,7 +109,7 @@ export function OpenInAppButton({
       ),
       showFooter: false,
     });
-  }, [buildFullUrl, intl]);
+  }, [buildFullUrl, deepLinkUrl, intl, openByAppButtonLabel]);
 
   return (
     <Button size="small" onPress={handlePress}>
