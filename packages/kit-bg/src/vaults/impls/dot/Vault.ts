@@ -9,6 +9,7 @@ import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
+  BalanceLowerMinimum,
   InvalidTransferValue,
   NotImplemented,
   OneKeyInternalError,
@@ -62,11 +63,13 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  INativeAmountInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Type } from '@polkadot/types';
 import type { Args, TypeRegistry } from '@substrate/txwrapper-polkadot';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 export default class VaultDot extends VaultBase {
   override coreApi = coreChainApi.dot.hd;
@@ -646,7 +649,13 @@ export default class VaultDot extends VaultBase {
   }
 
   private _getMinAmount = memoizee(
-    async ({ accountAddress }: { accountAddress: string }) => {
+    async ({
+      accountAddress,
+      withBalance,
+    }: {
+      accountAddress: string;
+      withBalance?: boolean;
+    }) => {
       const [minAmountStr] =
         await this.backgroundApi.serviceAccountProfile.sendProxyRequest<string>(
           {
@@ -663,13 +672,16 @@ export default class VaultDot extends VaultBase {
           },
         );
       const minAmount = new BigNumber(minAmountStr);
-      const account =
-        await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-          networkId: this.networkId,
-          accountAddress,
-          withNonce: false,
-          withNetWorth: true,
-        });
+      const account = withBalance
+        ? await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+            networkId: this.networkId,
+            accountAddress,
+            withNonce: false,
+            withNetWorth: true,
+          })
+        : {
+            balance: '0',
+          };
       const balance = new BigNumber(account.balance ?? 0);
       return {
         minAmount,
@@ -696,6 +708,7 @@ export default class VaultDot extends VaultBase {
     const sendAmount = new BigNumber(amount).shiftedBy(network.decimals);
     const { minAmount, balance } = await this._getMinAmount({
       accountAddress: to,
+      withBalance: true,
     });
 
     if (balance.plus(sendAmount).lt(minAmount)) {
@@ -712,6 +725,7 @@ export default class VaultDot extends VaultBase {
 
   override async precheckUnsignedTx(params: {
     unsignedTx: IUnsignedTxPro;
+    nativeAmountInfo?: INativeAmountInfo;
   }): Promise<boolean> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
@@ -728,23 +742,25 @@ export default class VaultDot extends VaultBase {
         return true;
       }
 
-      const { minAmount, balance } = await this._getMinAmount({
+      let { minAmount, balance } = await this._getMinAmount({
         accountAddress: encodedTx.address,
+        withBalance: !params.nativeAmountInfo?.maxSendAmount,
       });
+      if (params.nativeAmountInfo?.maxSendAmount) {
+        balance = new BigNumber(params.nativeAmountInfo?.maxSendAmount ?? '0');
+      }
       const tokenAmount = new BigNumber(args.value);
       const gasLimit = new BigNumber(encodedTx.feeInfo?.gas?.gasLimit ?? '0');
       const gasPrice = new BigNumber(encodedTx.feeInfo?.gas?.gasPrice ?? '0');
       const fee = gasLimit.times(gasPrice);
+      const leftAmount = balance.minus(tokenAmount).minus(fee);
 
-      if (balance.minus(tokenAmount).minus(fee).lt(minAmount)) {
+      if (leftAmount.lt(minAmount) && leftAmount.gt(0)) {
         const network = await this.getNetwork();
-        throw new InvalidTransferValue({
-          key: ETranslations.dapp_connect_amount_should_be_at_least,
+        throw new BalanceLowerMinimum({
           info: {
-            // @ts-expect-error
-            0: `${minAmount.shiftedBy(-network.decimals).toFixed()}${
-              network.symbol
-            }`,
+            amount: minAmount.shiftedBy(-network.decimals).toFixed(),
+            symbol: network.symbol,
           },
         });
       }

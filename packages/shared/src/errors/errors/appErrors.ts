@@ -245,6 +245,21 @@ export class InvalidTransferValue extends OneKeyError<IInvalidTransferValueInfo>
   }
 }
 
+export type IBalanceLowerMinimumInfo = {
+  amount: string;
+  symbol: string;
+};
+export class BalanceLowerMinimum extends OneKeyError<IBalanceLowerMinimumInfo> {
+  constructor(props?: IOneKeyError<IBalanceLowerMinimumInfo> | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BalanceLowerMinimum',
+        defaultKey: ETranslations.feedback_transfer_cause_balance_lower_1_dot,
+      }),
+    );
+  }
+}
+
 export class TransferValueTooSmall extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
