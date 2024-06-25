@@ -58,11 +58,25 @@ export const DevSettingsSection = () => {
         onPress={handleDevModeOnChange}
       />
       {platformEnv.isDesktop ? (
-        <SectionPressItem
-          title="Open Chrome DevTools in Desktop"
-          subtitle="重启后会在导航栏的菜单栏中出现相关按钮"
-          onPress={handleOpenDevTools}
-        />
+        <>
+          <SectionPressItem
+            title="Open Chrome DevTools in Desktop"
+            subtitle="重启后会在导航栏的菜单栏中出现相关按钮"
+            onPress={handleOpenDevTools}
+          />
+          <SectionPressItem
+            title="Print Env Path in Desktop"
+            subtitle="getEnvPath()"
+            onPress={async () => {
+              const envPath = window?.desktopApi.getEnvPath();
+              console.log(envPath);
+              Dialog.show({
+                title: 'getEnvPath',
+                description: JSON.stringify(envPath),
+              });
+            }}
+          />
+        </>
       ) : null}
       {platformEnv.githubSHA ? (
         <SectionPressItem
