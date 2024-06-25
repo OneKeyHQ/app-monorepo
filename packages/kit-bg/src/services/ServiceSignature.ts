@@ -342,7 +342,17 @@ class ServiceSignature extends ServiceBase {
           },
         },
       });
+      return;
     }
+    await this.addSignedTransaction({
+      networkId,
+      address,
+      title,
+      hash: signedTx.txid,
+      data: {
+        type: ETransactionType.CONTRACT_INTERACTION,
+      },
+    });
   }
 
   @backgroundMethod()
