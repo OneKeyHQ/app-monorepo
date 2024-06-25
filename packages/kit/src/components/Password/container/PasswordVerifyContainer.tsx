@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
@@ -35,6 +36,7 @@ const PasswordVerifyContainer = ({
   const { verifiedPasswordWebAuth } = useWebAuthActions();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [hasCachedPassword, setHasCachedPassword] = useState(false);
+  const [hasSecurePassword, setHasSecurePassword] = useState(false);
 
   useEffect(() => {
     if (webAuthCredentialId) {
@@ -46,10 +48,25 @@ const PasswordVerifyContainer = ({
     }
   }, [webAuthCredentialId]);
 
+  useEffect(() => {
+    if (isEnable) {
+      void (async () => {
+        try {
+          const securePassword = await biologyAuthUtils.getPassword();
+          setHasSecurePassword(!!securePassword);
+        } catch (e) {
+          setHasSecurePassword(false);
+        }
+      })();
+    }
+  }, [isEnable]);
+
   const isBiologyAuthEnable = useMemo(
     // both webAuth or biologyAuth are enabled
-    () => isEnable || (!!webAuthCredentialId && !!hasCachedPassword),
-    [hasCachedPassword, isEnable, webAuthCredentialId],
+    () =>
+      (isEnable && hasSecurePassword) ||
+      (!!webAuthCredentialId && !!hasCachedPassword),
+    [hasCachedPassword, hasSecurePassword, isEnable, webAuthCredentialId],
   );
   const [status, setStatues] = useState<{
     value: EPasswordVerifyStatus;
