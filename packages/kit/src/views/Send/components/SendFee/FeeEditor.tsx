@@ -817,7 +817,9 @@ function FeeEditor(props: IProps) {
         <Form form={form}>
           <YStack pt="$5">
             <Form.Field
-              label="Prioritization Fee"
+              label={intl.formatMessage({
+                id: ETranslations.form__priority_fee,
+              })}
               name="computeUnitPrice"
               rules={{
                 required: true,
@@ -830,7 +832,14 @@ function FeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} />
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: 'micro-lamports',
+                  },
+                ]}
+              />
             </Form.Field>
           </YStack>
         </Form>
