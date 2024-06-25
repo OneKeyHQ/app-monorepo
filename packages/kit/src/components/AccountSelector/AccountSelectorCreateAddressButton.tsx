@@ -10,10 +10,10 @@ import { useAccountIsAutoCreatingAtom } from '@onekeyhq/kit-bg/src/states/jotai/
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { useAccountSelectorCreateAddress } from './hooks/useAccountSelectorCreateAddress';
 
 export function AccountSelectorCreateAddressButton({
