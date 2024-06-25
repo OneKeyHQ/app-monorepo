@@ -68,6 +68,7 @@ import type {
 } from '../../types';
 import type { Type } from '@polkadot/types';
 import type { Args, TypeRegistry } from '@substrate/txwrapper-polkadot';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 export default class VaultDot extends VaultBase {
   override coreApi = coreChainApi.dot.hd;
@@ -755,15 +756,15 @@ export default class VaultDot extends VaultBase {
 
       if (leftAmount.lt(minAmount) && leftAmount.gt(0)) {
         const network = await this.getNetwork();
-        throw new InvalidTransferValue({
-          key: ETranslations.feedback_transfer_cause_balance_lower_1_dot,
-          info: {
-            // @ts-expect-error
-            0: `${minAmount.shiftedBy(-network.decimals).toFixed()}${
-              network.symbol
-            }`,
+        throw new InvalidTransferValue(appLocale.intl.formatMessage(
+          {
+            id: ETranslations.feedback_transfer_cause_balance_lower_1_dot,
           },
-        });
+          {
+            amount: minAmount.shiftedBy(-network.decimals).toFixed(),
+            symbol: network.symbol,
+          },
+        ));
       }
     }
 
