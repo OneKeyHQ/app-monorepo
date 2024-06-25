@@ -15,7 +15,7 @@ export interface ISelectTriggerProps {
 }
 
 export interface ISelectItem {
-  label: string | ReactElement;
+  label: string;
   value: string;
   leading?: ListItemProps['icon'];
   description?: string;
