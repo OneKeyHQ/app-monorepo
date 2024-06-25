@@ -9,6 +9,7 @@ import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
+  BalanceLowerMinimum,
   InvalidTransferValue,
   NotImplemented,
   OneKeyInternalError,
@@ -756,15 +757,12 @@ export default class VaultDot extends VaultBase {
 
       if (leftAmount.lt(minAmount) && leftAmount.gt(0)) {
         const network = await this.getNetwork();
-        throw new InvalidTransferValue(appLocale.intl.formatMessage(
-          {
-            id: ETranslations.feedback_transfer_cause_balance_lower_1_dot,
-          },
-          {
+        throw new BalanceLowerMinimum({
+          info: {
             amount: minAmount.shiftedBy(-network.decimals).toFixed(),
             symbol: network.symbol,
           },
-        ));
+        });
       }
     }
 
