@@ -1,5 +1,15 @@
-import { type IUnsignedMessage } from '@onekeyhq/core/src/types';
+import BigNumber from 'bignumber.js';
+import { TYPED_MESSAGE_SCHEMA, typedSignatureHash } from 'eth-sig-util';
+import { addHexPrefix, isHexString, isValidAddress } from 'ethereumjs-util';
+import { validate } from 'jsonschema';
+
+import type {
+  IUnsignedMessage,
+  IUnsignedMessageEth,
+} from '@onekeyhq/core/src/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+
+import { OneKeyError } from '../errors';
 
 const solidityTypes = () => {
   const types = [
@@ -145,5 +155,130 @@ export function getValidUnsignedMessage(unsignedMessage: IUnsignedMessage) {
     return unsignedMessage;
   } catch {
     return unsignedMessage;
+  }
+}
+
+function isValidHexAddress(
+  possibleAddress: string,
+  { allowNonPrefixed = true } = {},
+) {
+  const addressToCheck = allowNonPrefixed
+    ? addHexPrefix(possibleAddress)
+    : possibleAddress;
+  if (!isHexString(addressToCheck)) {
+    return false;
+  }
+
+  return isValidAddress(addressToCheck);
+}
+
+function validateAddress(address: string | undefined, propertyName: string) {
+  if (!address || typeof address !== 'string' || !isValidHexAddress(address)) {
+    throw new Error(
+      `Invalid "${propertyName}" address: ${String(
+        address,
+      )} must be a valid string.`,
+    );
+  }
+}
+
+export function validateSignMessageData(unsignedMessage: IUnsignedMessageEth) {
+  const { payload = [] } = unsignedMessage;
+  let message;
+  let from;
+
+  if (unsignedMessage.type === EMessageTypesEth.PERSONAL_SIGN) {
+    [message, from] = payload as [string, string];
+  } else if (unsignedMessage.type === EMessageTypesEth.ETH_SIGN) {
+    [from, message] = payload as [string, string];
+  }
+  validateAddress(from, 'from');
+  if (!message || typeof message !== 'string') {
+    throw new OneKeyError(
+      `Invalid message: ${String(message)} must be a valid string.`,
+    );
+  }
+}
+
+export function validateTypedSignMessageDataV1(
+  unsignedMessage: IUnsignedMessageEth,
+) {
+  const { payload = [] } = unsignedMessage;
+  const [message, from] = payload as [
+    Array<{ name: string; type: string; value: string }>,
+    string,
+  ];
+  validateAddress(from, 'from');
+
+  if (!message || !Array.isArray(message)) {
+    throw new OneKeyError(
+      `Invalid message: ${String(message)} must be a valid array.`,
+    );
+  }
+
+  try {
+    // typedSignatureHash will throw if the data is invalid.
+    typedSignatureHash(message as any);
+  } catch (e) {
+    throw new Error(`Expected EIP712 typed data.`);
+  }
+}
+
+export function validateTypedSignMessageDataV3V4(
+  unsignedMessage: IUnsignedMessageEth,
+  currentChainId: string | undefined,
+) {
+  const { payload = [] } = unsignedMessage;
+  const [from, message] = payload as [string, string];
+  let messageObject: {
+    domain: { chainId: string };
+    types: { EIP712Domain: { name: string; type: string }[] };
+  };
+
+  validateAddress(from, 'from');
+
+  if (
+    !message ||
+    Array.isArray(message) ||
+    (typeof message !== 'object' && typeof message !== 'string')
+  ) {
+    throw new Error(`Invalid message: Must be a valid string or object.`);
+  }
+
+  if (typeof message === 'object') {
+    messageObject = message;
+  } else {
+    try {
+      messageObject = JSON.parse(message);
+    } catch (e) {
+      throw new Error('Message data must be passed as a valid JSON string.');
+    }
+  }
+
+  const validation = validate(messageObject, TYPED_MESSAGE_SCHEMA);
+  if (validation.errors.length > 0) {
+    throw new OneKeyError('Message Data must conform to EIP-712 schema.');
+  }
+
+  if (!currentChainId) {
+    throw new OneKeyError('Current chainId cannot be null or undefined.');
+  }
+
+  const { chainId } = messageObject.domain;
+  if (chainId) {
+    const activeChainIdBN = new BigNumber(currentChainId);
+    const chainIdBN = new BigNumber(chainId);
+
+    if (activeChainIdBN.isNaN()) {
+      throw new OneKeyError(
+        `Cannot sign messages for chainId "${chainIdBN.toFixed()}", because OneKey is switching networks.`,
+      );
+    }
+
+    if (!activeChainIdBN.isEqualTo(chainIdBN)) {
+      throw new OneKeyError(
+        `Provided chainId "${chainIdBN.toFixed()}" must match the active chainId "${activeChainIdBN.toFixed()}"`,
+      );
+    }
   }
 }
