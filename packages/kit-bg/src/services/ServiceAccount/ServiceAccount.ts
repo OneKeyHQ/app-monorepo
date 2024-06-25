@@ -1459,11 +1459,26 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async canAutoCreateAddressInSilentMode({ walletId }: { walletId: string }) {
+  async canAutoCreateAddressInSilentMode({
+    walletId,
+    networkId,
+    deriveType,
+  }: {
+    walletId: string;
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }) {
     if (accountUtils.isHdWallet({ walletId })) {
       const pwd = await this.backgroundApi.servicePassword.getCachedPassword();
       if (pwd) {
-        return true;
+        const map =
+          await this.backgroundApi.serviceNetwork.getDeriveInfoMapOfNetwork({
+            networkId,
+          });
+        const deriveInfo = map?.[deriveType as 'default'];
+        if (deriveInfo) {
+          return true;
+        }
       }
     }
     return false;
