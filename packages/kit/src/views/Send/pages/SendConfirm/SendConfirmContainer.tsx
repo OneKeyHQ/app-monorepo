@@ -19,6 +19,7 @@ import type {
   EModalSendRoutes,
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
@@ -176,15 +177,14 @@ function SendConfirmContainer() {
     ],
   );
 
+  const handleOnClose = (extra?: { flag?: string }) => {
+    if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
+      dappApprove.reject();
+    }
+  };
+
   return (
-    <Page
-      scrollEnabled
-      onClose={(confirmed) => {
-        if (!confirmed) {
-          dappApprove.reject();
-        }
-      }}
-    >
+    <Page scrollEnabled onClose={handleOnClose}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.transaction__transaction_confirm,
