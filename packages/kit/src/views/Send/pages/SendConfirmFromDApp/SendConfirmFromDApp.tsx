@@ -12,7 +12,10 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
-import type { StackActionType } from '@react-navigation/native';
+import type {
+  NavigationAction,
+  StackActionType,
+} from '@react-navigation/native';
 
 function SendConfirmFromDApp() {
   const navigation = useNavigation();
@@ -44,7 +47,7 @@ function SendConfirmFromDApp() {
   const isNavigateNewPageRef = useRef(true);
 
   const dispatchAction = useCallback(
-    (action: any) => {
+    (action: NavigationAction | ((state: any) => NavigationAction)) => {
       isNavigateNewPageRef.current = false;
       navigation.dispatch(action);
     },
