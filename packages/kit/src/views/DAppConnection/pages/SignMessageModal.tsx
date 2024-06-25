@@ -103,7 +103,7 @@ function SignMessageModal() {
       } catch (e: any) {
         setIsLoading(false);
         dappApprove?.reject({ error: e });
-        close?.({ flag: EDAppModalPageStatus.Confirmed });
+        close?.();
         return;
       }
 
