@@ -1,6 +1,6 @@
 import qs from 'querystring';
 
-import { isNil, isObject, omitBy } from 'lodash';
+import { isArray, isNil, isObject, omitBy } from 'lodash';
 
 import {
   backgroundClass,
@@ -53,7 +53,7 @@ class ServiceNFT extends ServiceBase {
 
     return result.map((nft) => {
       if (nft.metadata?.attributes) {
-        if (nft.metadata?.attributes instanceof Array) {
+        if (isArray(nft.metadata?.attributes)) {
           nft.metadata.attributes = nft.metadata.attributes
             .filter((attr) => !!attr)
             .map((attr) => ({
