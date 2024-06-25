@@ -146,6 +146,7 @@ export enum ETranslations {
   copy_anyway = 'copy_anyway',
   copy_recovery_phrases_warning_desc = 'copy_recovery_phrases_warning_desc',
   copy_recovery_phrases_warning_title = 'copy_recovery_phrases_warning_title',
+  count_assets = 'count_assets',
   count_hidden_assets = 'count_hidden_assets',
   count_words = 'count_words',
   dapp_connect_allow_this_site_to_access = 'dapp_connect.allow_this_site_to_access',

@@ -385,7 +385,7 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
     super(
       normalizeErrorProps(
         {
-          info: { '0': get(props, 'payload.params.require', '') },
+          info: { 'version': get(props, 'payload.params.require', '') },
         },
         {
           defaultMessage: 'FirmwareVersionTooLow',
@@ -618,7 +618,7 @@ export class NotSupportPassphraseError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(
         {
-          info: { '0': get(props, 'payload.params.require', '') },
+          info: { 'version': get(props, 'payload.params.require', '') },
         },
         {
           defaultMessage: 'NotSupportPassphraseError',

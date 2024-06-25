@@ -1,11 +1,10 @@
 import type { IDialogInstance, IToastShowResult } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-
 const OPEN_ACTION_MIN_DURATION = 300; // Minimum duration for Toast to be visible
-const CLOSE_ACTION_MIN_DURATION = 200; // Minimum duration for Toast to be visible
+const CLOSE_ACTION_MIN_DURATION = 300; // Minimum duration for Toast to be visible
 const autoClosedFlag = 'autoClosed';
 
 type IAction = {

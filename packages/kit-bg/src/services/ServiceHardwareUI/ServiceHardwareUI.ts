@@ -1,6 +1,5 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   backgroundClass,
   backgroundMethod,
@@ -72,7 +71,7 @@ class ServiceHardwareUI extends ServiceBase {
       payload: undefined,
     });
     // wait animation done
-    await timerUtils.wait(300);
+    await timerUtils.wait(150);
   }
 
   @backgroundMethod()
@@ -241,7 +240,7 @@ class ServiceHardwareUI extends ServiceBase {
           connectId,
           skipDeviceCancel, // auto cancel if device call interaction action
         });
-        void backgroundApiProxy.serviceFirmwareUpdate.delayShouldDetectTimeCheck(
+        void this.backgroundApi.serviceFirmwareUpdate.delayShouldDetectTimeCheck(
           { connectId },
         );
       }

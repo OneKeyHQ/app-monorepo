@@ -17,6 +17,7 @@ import {
   SizableText,
   Toast,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
@@ -26,7 +27,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   CommonDeviceLoading,
   ConfirmOnDeviceToastContent,
@@ -97,9 +97,6 @@ function HardwareSingletonDialogCmp(
         onConfirm={async (value) => {
           await serviceHardwareUI.sendPinToDevice({
             pin: value,
-          });
-          await serviceHardwareUI.showDeviceProcessLoadingDialog({
-            connectId,
           });
         }}
         switchOnDevice={async () => {
