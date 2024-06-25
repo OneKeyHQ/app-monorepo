@@ -52,17 +52,18 @@ export type IPasswordPersistAtom = {
   appLockDuration: number;
   enableSystemIdleLock: boolean;
 };
+export const passwordAtomInitialValue: IPasswordPersistAtom = {
+  isPasswordSet: false,
+  webAuthCredentialId: '',
+  manualLocking: false,
+  appLockDuration: 240,
+  enableSystemIdleLock: false,
+};
 export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
   globalAtom<IPasswordPersistAtom>({
     persist: true,
     name: EAtomNames.passwordPersistAtom,
-    initialValue: {
-      isPasswordSet: false,
-      webAuthCredentialId: '',
-      manualLocking: false,
-      appLockDuration: 240,
-      enableSystemIdleLock: false,
-    },
+    initialValue: passwordAtomInitialValue,
   });
 
 export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =

@@ -63,13 +63,6 @@ const TabMe = () => {
           >
             清空缓存密码
           </Button>
-          <Button
-            onPress={() => {
-              void backgroundApiProxy.serviceE2E.resetPasswordSetStatus();
-            }}
-          >
-            重置密码设置
-          </Button>
 
           <Button
             onPress={() => {

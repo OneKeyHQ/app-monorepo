@@ -19,6 +19,9 @@ export function useV4MigrationActions() {
   const { copyText } = useClipboard();
   const [migrationState] = useV4migrationAtom();
 
+  const migrationStateRef = useRef(migrationState);
+  migrationStateRef.current = migrationState;
+
   const openV4MigrationOfExtension = useThrottledCallback(
     async () =>
       backgroundApiProxy.serviceApp.openExtensionExpandTab({
@@ -44,7 +47,10 @@ export function useV4MigrationActions() {
         window.close();
         return;
       }
-      if (migrationState.isMigrationModalOpen || migrationState.isProcessing) {
+      if (
+        migrationStateRef.current.isMigrationModalOpen ||
+        migrationStateRef.current.isProcessing
+      ) {
         return;
       }
       // TODO navigation.pushFullModal
@@ -58,12 +64,7 @@ export function useV4MigrationActions() {
         },
       });
     },
-    [
-      migrationState.isMigrationModalOpen,
-      migrationState.isProcessing,
-      navigation,
-      openV4MigrationOfExtension,
-    ],
+    [navigation, openV4MigrationOfExtension],
   );
 
   const copyV4MigrationLogs = useCallback(async () => {
