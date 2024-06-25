@@ -114,6 +114,7 @@ export type IPlatformEnv = {
   isRuntimeFirefox?: boolean;
   isRuntimeChrome?: boolean;
   isRuntimeEdge?: boolean;
+  isRuntimeBrave?: boolean;
 
   supportAutoUpdate?: boolean;
 
@@ -227,6 +228,16 @@ const checkIsRuntimeEdge = (): boolean => {
   return false;
 };
 
+const checkIsRuntimeBrave = (): boolean => {
+  if (!isRuntimeBrowser) {
+    return false;
+  }
+  // @ts-ignore
+  const { brave } = navigator;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+  return (brave && brave?.isBrave?.name === 'isBrave') || false;
+};
+
 const checkIsRuntimeChrome = (): boolean => {
   if (!isRuntimeBrowser) {
     return false;
@@ -329,6 +340,7 @@ let isWebDappMode = false;
 
 const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
+const isRuntimeBrave = checkIsRuntimeBrave();
 
 // Ext manifest v2 background
 export const isExtensionBackgroundHtml: boolean =
@@ -448,6 +460,7 @@ const platformEnv: IPlatformEnv = {
   isRuntimeFirefox,
   isRuntimeChrome,
   isRuntimeEdge,
+  isRuntimeBrave,
 
   supportAutoUpdate,
   isAppleStoreEnv,

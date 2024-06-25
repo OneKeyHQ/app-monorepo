@@ -61,7 +61,7 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
             >
               {item.balanceParsed || item.fiatValue ? (
                 <ListItem.Text
-                  align="right"
+                  alignItems="flex-end"
                   primary={item.balanceParsed}
                   secondary={
                     item.fiatValue
