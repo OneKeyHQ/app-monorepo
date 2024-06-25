@@ -49,7 +49,7 @@ export function Overview24PriceChange({
   low,
   high,
 }: {
-  currentPrice: number;
+  currentPrice: string;
   low: number;
   high: number;
 }) {
