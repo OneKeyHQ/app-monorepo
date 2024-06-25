@@ -29,7 +29,6 @@ export function FirmwareUpdateWalletProfile({
       {/* <SizableText>{result?.deviceName || ''}</SizableText> */}
       <SizableText mt="$5" size="$heading2xl">
         {intl.formatMessage({ id: ETranslations.update_new_hardware_updates })}{' '}
-        🎉
       </SizableText>
     </Stack>
   );

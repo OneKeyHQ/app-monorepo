@@ -23,6 +23,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
   OneKeyErrorNotImplemented = 'OneKeyErrorNotImplemented',
   OneKeyErrorAirGapAccountNotFound = 'OneKeyErrorAirGapAccountNotFound',
+  OneKeyErrorScanQrCodeCancel = 'OneKeyErrorScanQrCodeCancel',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

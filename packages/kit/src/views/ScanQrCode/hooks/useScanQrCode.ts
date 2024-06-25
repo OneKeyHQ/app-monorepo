@@ -11,6 +11,7 @@ import type {
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
 import {
   EModalRoutes,
   EScanQrCodeModalPages,
@@ -62,7 +63,7 @@ export default function useScanQrCode() {
                 resolve(parseValue);
                 return {};
               }
-              reject();
+              reject(new OneKeyErrorScanQrCodeCancel());
               return {};
             },
           },

@@ -96,7 +96,9 @@ export function useBackupToggleDialog() {
         Dialog.show({
           icon: 'CloudSyncOutline',
           title: intl.formatMessage({
-            id: ETranslations.settings_icloud_backup,
+            id: platformEnv.isNativeAndroid
+              ? ETranslations.settings_google_drive_backup
+              : ETranslations.settings_icloud_backup,
           }),
           description: intl.formatMessage({
             id: platformEnv.isNativeAndroid
