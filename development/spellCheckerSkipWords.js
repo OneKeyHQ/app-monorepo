@@ -19,6 +19,7 @@ module.exports = [
   'impls',
   'txids',
   'ord',
+  'exe',
   'Merkle',
   'cond',
   'dont',
