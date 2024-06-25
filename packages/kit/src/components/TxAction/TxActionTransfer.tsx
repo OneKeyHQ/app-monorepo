@@ -139,8 +139,18 @@ function buildTransferChangeInfo({
     if (transfers.length > 1) {
       const tokens = uniq(map(transfers, 'tokenIdOnNetwork'));
       if (tokens.length > 1) {
-        change = `${tokens.length} assets`;
-        changeDescription = `${transfers[0].symbol} and more`;
+        change = intl.formatMessage(
+          { id: ETranslations.count_assets },
+          {
+            count: tokens.length,
+          },
+        );
+        changeDescription = intl.formatMessage(
+          { id: ETranslations.symbol_and_more },
+          {
+            symbol: transfers[0].symbol,
+          },
+        );
         return {
           change: `${changePrefix}${change}`,
           changeSymbol,
@@ -188,8 +198,18 @@ function buildTransferChangeInfo({
       const transfersWithNFT = transfers.filter((send) => send.isNFT);
       const transfersWithToken = transfers.filter((send) => !send.isNFT);
       if (transfersWithNFT.length === 0) {
-        change = `${tokens.length} assets`;
-        changeDescription = `${transfersWithToken[0].symbol} and more`;
+        change = intl.formatMessage(
+          { id: ETranslations.count_assets },
+          {
+            count: tokens.length,
+          },
+        );
+        changeDescription = intl.formatMessage(
+          { id: ETranslations.symbol_and_more },
+          {
+            symbol: transfersWithToken[0].symbol,
+          },
+        );
       } else if (transfersWithNFT.length === 1) {
         change = new BigNumber(transfersWithNFT[0].amount).abs().toFixed();
         changeSymbol = transfersWithNFT[0].symbol;
@@ -202,7 +222,12 @@ function buildTransferChangeInfo({
           .toFixed();
         change = totalNFTs;
         changeSymbol = 'NFTs';
-        changeDescription = `${transfersWithNFT[0].symbol} and more`;
+        changeDescription = intl.formatMessage(
+          { id: ETranslations.symbol_and_more },
+          {
+            symbol: transfersWithNFT[0].symbol,
+          },
+        );
       }
     }
   }
