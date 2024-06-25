@@ -8,6 +8,7 @@ import {
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   EEventBusBroadcastMethodNames,
@@ -39,8 +40,6 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
-
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 
 export class BackgroundApiProxyBase
   extends BackgroundServiceProxyBase
