@@ -1,3 +1,4 @@
+import type { FC } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -7,6 +8,7 @@ import {
   Box,
   Button,
   Container,
+  Dialog,
   HStack,
   Pressable,
   Select,
@@ -14,6 +16,7 @@ import {
   Text,
   ToastManager,
   Typography,
+  VStack,
   useTheme,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -47,13 +50,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { NetworkAccountSelectorTrigger } from '../../../components/NetworkAccountSelector';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
+import { showDialog } from '../../../utils/overlayUtils';
 import { MonitorRoutes } from '../../Monitor/types';
 
-import {
-  requestsInterceptTest,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  requestsInterceptTest2,
-} from './requestsInterceptTest';
+import { requestsInterceptTest } from './requestsInterceptTest';
 
 interface IOneKeyPerfCheckPayload {
   testID?: string;
@@ -89,6 +89,30 @@ function usePerfCheck({ enablePerfCheck }: { enablePerfCheck?: boolean }) {
   }, [enablePerfCheck]);
 }
 const emptyObj: any = Object.freeze({});
+
+const DialogGetEnvPath: FC<{
+  message: string;
+  onClose?: () => void;
+  onConfirm?: () => void;
+}> = ({ onConfirm, message, onClose }) => {
+  const intl = useIntl();
+  return (
+    <Dialog
+      visible
+      onClose={onClose}
+      contentProps={{
+        title: 'getEnvPath',
+        contentElement: (
+          <VStack>
+            <Typography.Body2 textAlign="center" wordBreak="break-all">
+              {message}
+            </Typography.Body2>
+          </VStack>
+        ),
+      }}
+    />
+  );
+};
 
 export const DevSettingSection = () => {
   const { themeVariant } = useTheme();
@@ -387,6 +411,25 @@ export const DevSettingSection = () => {
             }}
           />
         </Container.Item>
+
+        <Container.Item
+          title="Print Env Path in Desktop"
+          titleColor="text-critical"
+        >
+          <Button
+            size="xs"
+            onPress={() => {
+              const envPath = window?.desktopApi.getEnvPath();
+              console.log(envPath);
+              showDialog(
+                <DialogGetEnvPath message={JSON.stringify(envPath, null, 2)} />,
+              );
+            }}
+          >
+            getEnvPath
+          </Button>
+        </Container.Item>
+
         <Container.Item
           title="Request intercept check"
           titleColor="text-critical"
