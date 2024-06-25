@@ -17,6 +17,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ONEKEY_KEY_TAG_PURCHASE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalKeyTagRoutes,
   EModalRoutes,
@@ -85,36 +86,38 @@ const UserOptions = () => {
             </ImageBackground>
           </Stack>
         </Stack>
-        <YStack>
-          <ListItem
-            icon="FolderUploadOutline"
-            title={intl.formatMessage({ id: ETranslations.global_backup })}
-            subtitle={intl.formatMessage({
-              id: ETranslations.settings_backup_recovery_phrase_to_onekey_keytag,
-            })}
-            drillIn
-            onPress={onBackup}
-            renderIcon={
-              <Stack bg="$bgStrong" p="$2" borderRadius="$3">
-                <Icon name="FolderUploadOutline" size="$6" color="$icon" />
-              </Stack>
-            }
-          />
-          <ListItem
-            icon="FolderDownloadOutline"
-            title={intl.formatMessage({ id: ETranslations.global_import })}
-            subtitle={intl.formatMessage({
-              id: ETranslations.settings_import_recovery_phrase_from_onekey_keytag,
-            })}
-            drillIn
-            onPress={onImport}
-            renderIcon={
-              <Stack bg="$bgStrong" p="$2" borderRadius="$3">
-                <Icon name="FolderDownloadOutline" size="$6" color="$icon" />
-              </Stack>
-            }
-          />
-        </YStack>
+        {!platformEnv.isWeb ? (
+          <YStack>
+            <ListItem
+              icon="FolderUploadOutline"
+              title={intl.formatMessage({ id: ETranslations.global_backup })}
+              subtitle={intl.formatMessage({
+                id: ETranslations.settings_backup_recovery_phrase_to_onekey_keytag,
+              })}
+              drillIn
+              onPress={onBackup}
+              renderIcon={
+                <Stack bg="$bgStrong" p="$2" borderRadius="$3">
+                  <Icon name="FolderUploadOutline" size="$6" color="$icon" />
+                </Stack>
+              }
+            />
+            <ListItem
+              icon="FolderDownloadOutline"
+              title={intl.formatMessage({ id: ETranslations.global_import })}
+              subtitle={intl.formatMessage({
+                id: ETranslations.settings_import_recovery_phrase_from_onekey_keytag,
+              })}
+              drillIn
+              onPress={onImport}
+              renderIcon={
+                <Stack bg="$bgStrong" p="$2" borderRadius="$3">
+                  <Icon name="FolderDownloadOutline" size="$6" color="$icon" />
+                </Stack>
+              }
+            />
+          </YStack>
+        ) : null}
       </Page.Body>
     </Page>
   );
