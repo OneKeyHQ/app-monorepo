@@ -41,7 +41,7 @@ const SwapApproveAllowanceSelectContainer = ({
           >
             {allowanceResult.amount}
           </NumberSizeableText>
-        ),
+        ) as unknown as string,
         value: ESwapApproveAllowanceType.PRECISION,
       },
       {
