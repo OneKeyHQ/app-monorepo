@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { debounce } from 'lodash';
 
 import { EPageType, usePageType } from '@onekeyhq/components';
@@ -66,9 +67,8 @@ export function useSwapFromAccountNetworkSync() {
           networkId: fromTokenRef.current?.networkId,
         });
       }
-
       if (toTokenRef.current) {
-        await updateSelectedAccountNetwork({
+        void updateSelectedAccountNetwork({
           num: 1,
           networkId: toTokenRef.current?.networkId,
         });
@@ -90,6 +90,15 @@ export function useSwapFromAccountNetworkSync() {
           ...v,
           swapToAnotherAccountSwitchOn: false,
         }));
+        // should wait account async finish
+        setTimeout(() => {
+          if (toTokenRef.current) {
+            void updateSelectedAccountNetwork({
+              num: 1,
+              networkId: toTokenRef.current?.networkId,
+            });
+          }
+        }, 500);
       }
     }, 100),
     [setSettings, updateSelectedAccountNetwork],
@@ -118,6 +127,17 @@ export function useSwapFromAccountNetworkSync() {
     toToken,
     swapProviderSupportReceiveAddress,
   ]);
+
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (pageType === EPageType.modal) {
+      if (isFocused) {
+        void (async () => {
+          await checkTokenForAccountNetworkDebounce();
+        })();
+      }
+    }
+  }, [checkTokenForAccountNetworkDebounce, isFocused, pageType]);
 }
 
 export function useSwapAddressInfo(type: ESwapDirectionType) {
@@ -137,11 +157,14 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       address: undefined,
       accountInfo: undefined,
     };
+
     if (
       type === ESwapDirectionType.TO &&
       swapToAnotherAccountSwitchOn &&
       swapToAnotherAccountAddressAtom.address &&
-      swapToAnotherAccountAddressAtom.networkId
+      swapToAnotherAccountAddressAtom.networkId &&
+      activeAccount &&
+      activeAccount.network?.id === swapToAnotherAccountAddressAtom.networkId
     ) {
       return {
         ...res,
@@ -160,12 +183,10 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     }
     return res;
   }, [
-    activeAccount,
-    swapToAnotherAccountSwitchOn,
-    swapToAnotherAccountAddressAtom.accountInfo,
-    swapToAnotherAccountAddressAtom.address,
-    swapToAnotherAccountAddressAtom.networkId,
     type,
+    swapToAnotherAccountSwitchOn,
+    swapToAnotherAccountAddressAtom,
+    activeAccount,
   ]);
   return addressInfo;
 }

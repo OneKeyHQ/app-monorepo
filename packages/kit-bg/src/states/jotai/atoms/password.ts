@@ -1,8 +1,8 @@
-import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
 
+import { biologyAuthUtils } from '../../../services/ServicePassword/biologyAuthUtils';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
 
@@ -101,8 +101,8 @@ export const {
     isEnable: boolean;
   }>
 >(async (get) => {
-  const authType = await biologyAuth.getBiologyAuthType();
-  const isSupport = await biologyAuth.isSupportBiologyAuth();
+  const authType = await biologyAuthUtils.getBiologyAuthType();
+  const isSupport = await biologyAuthUtils.isSupportBiologyAuth();
   const isEnable =
     isSupport && get(settingsPersistAtom.atom()).isBiologyAuthSwitchOn;
   return { authType, isSupport, isEnable };
