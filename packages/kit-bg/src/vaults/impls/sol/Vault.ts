@@ -694,15 +694,15 @@ export default class Vault extends VaultBase {
     const actions: Array<IDecodedTxAction> = [];
 
     const createdAta: Record<string, IAssociatedTokenInfo> = {};
-
-    // @ts-ignore
-    if (!nativeTx.instructions) {
-      return [{ type: EDecodedTxActionType.UNKNOWN }];
-    }
+    const client = await this.getClient();
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client,
+    });
 
     const accountAddress = await this.getAccountAddress();
 
-    for (const instruction of (nativeTx as Transaction).instructions) {
+    for (const instruction of instructions) {
       // TODO: only support system transfer & token transfer now
       if (
         instruction.programId.toString() === SystemProgram.programId.toString()
