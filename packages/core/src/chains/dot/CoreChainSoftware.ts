@@ -48,7 +48,6 @@ const derivationHdLedger = (mnemonic: string, path: string) => {
     ) {
       throw new OneKeyInternalError({
         message,
-        key: 'msg__error_mnemonics_can_only_be_12_24',
       });
     }
     throw e;
