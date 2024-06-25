@@ -421,10 +421,6 @@ function createMainWindow() {
     event.reply(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, true);
   });
 
-  ipcMain.on(ipcMessageKeys.APP_CLEAR_WEBVIEW_DATA, () => {
-    void clearWebData();
-  });
-
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
     systemIdleHandler(setIdleTime, event);
   });
