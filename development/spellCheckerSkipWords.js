@@ -731,4 +731,5 @@ module.exports = [
   'sepolia',
   'watchlist',
   'usdt',
+  'babylon',
 ];

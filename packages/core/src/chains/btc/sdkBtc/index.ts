@@ -197,7 +197,10 @@ export function getInputsToSignFromPsbt({
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });
         // P2TR taproot
-        if (account.template?.startsWith(`m/86'/`) && !v.tapInternalKey) {
+        if (
+          (isTaprootAddress(account.address) || isTaprootPath(account.path)) &&
+          !v.tapInternalKey
+        ) {
           // slice pub length from 33 to 32
           v.tapInternalKey = toXOnly(
             Buffer.from(checkIsDefined(account.pub), 'hex'),
