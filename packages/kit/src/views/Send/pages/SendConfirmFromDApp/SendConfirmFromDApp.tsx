@@ -41,17 +41,17 @@ function SendConfirmFromDApp() {
     closeWindowAfterResolved: true,
   });
 
-  const isRunningCloseFunctionRef = useRef(true);
+  const isNavigateNewPageRef = useRef(true);
 
   const dispatchAction = useCallback(() => {
     if (pendingAction.current) {
-      isRunningCloseFunctionRef.current = false;
+      isNavigateNewPageRef.current = false;
       navigation.dispatch(pendingAction.current);
     }
   }, [navigation]);
 
   const handlePageClose = useCallback(() => {
-    if (isRunningCloseFunctionRef.current) {
+    if (isNavigateNewPageRef.current) {
       console.log('=======>>>>onClose: ', 1);
       dappApprove.reject();
     }
