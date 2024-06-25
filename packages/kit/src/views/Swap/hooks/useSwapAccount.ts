@@ -68,7 +68,7 @@ export function useSwapFromAccountNetworkSync() {
         });
       }
       if (toTokenRef.current) {
-        void updateSelectedAccountNetwork({
+        await updateSelectedAccountNetwork({
           num: 1,
           networkId: toTokenRef.current?.networkId,
         });
