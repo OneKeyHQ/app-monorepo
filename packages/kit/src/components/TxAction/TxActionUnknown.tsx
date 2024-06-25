@@ -46,7 +46,7 @@ function TxActionUnknownListView(props: ITxActionProps) {
     });
   const avatar: ITxActionCommonListViewProps['avatar'] = {
     src: unknownIcon,
-    fallbackIcon: 'QuestionmarkOutline',
+    fallbackIcon: 'Document2Outline',
   };
   const description = {
     children: accountUtils.shortenAddress({ address: unknownTo }),
@@ -82,6 +82,7 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
         }),
         avatar: {
           src: unknownIcon,
+          fallbackIcon: 'Document2Outline',
         },
       }}
       target={{
