@@ -3,7 +3,6 @@ import { AuthenticationType } from 'expo-local-authentication';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ETranslations } from '../locale';
-import { appLocale } from '../locale/appLocale';
 import {
   getDefaultLocale,
   getLocaleMessages,
