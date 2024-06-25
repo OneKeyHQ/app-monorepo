@@ -3,12 +3,22 @@ import { useCallback, useEffect, useRef } from 'react';
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { AppState } from 'react-native';
 
-import { Page, Spinner, Stack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Page,
+  Spinner,
+  Stack,
+  usePreventRemove,
+} from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
@@ -49,9 +59,15 @@ function SendConfirmFromDApp() {
   const dispatchAction = useCallback(
     (action: NavigationAction | ((state: any) => NavigationAction)) => {
       isNavigateNewPageRef.current = true;
+      const timerId = setTimeout(() => {
+        dappApprove.reject();
+      }, 1200);
+      appEventBus.once(EAppEventBusNames.SendConfirmContainerMounted, () => {
+        clearTimeout(timerId);
+      });
       navigation.dispatch(action);
     },
-    [navigation],
+    [dappApprove, navigation],
   );
 
   const handlePageClose = useCallback(() => {
