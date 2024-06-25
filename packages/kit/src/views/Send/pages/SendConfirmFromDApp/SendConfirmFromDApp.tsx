@@ -46,7 +46,6 @@ function SendConfirmFromDApp() {
   const dispatchAction = useCallback(() => {
     if (pendingAction.current) {
       isRunningCloseFunctionRef.current = false;
-      isRunningCloseFunctionRef.current = false;
       navigation.dispatch(pendingAction.current);
     }
   }, [navigation]);
