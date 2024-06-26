@@ -285,6 +285,9 @@ class ServiceV4Migration extends ServiceBase {
     const result = await this.verifyV4PasswordEqualToV5({
       v5password: v4password,
     });
+    if (result === 'not-set') {
+      return true;
+    }
     if (result === true) {
       if (this.migrationPayload) {
         this.migrationPayload.v4password = v4password;
