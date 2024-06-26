@@ -16,7 +16,12 @@ export function ErrorToastContainer() {
   const { copyText } = useClipboard();
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
-      const message = p?.message ? `RequestId: ${p.message}` : undefined;
+      let message: string | undefined;
+      if (p.hideRequestId && p.message) {
+        message = p.message;
+      } else if (p?.message) {
+        message = `RequestId: ${p.message}`;
+      }
       const actionsProps: IButtonProps | undefined = message
         ? {
             children: intl.formatMessage({ id: ETranslations.global_copy }),
