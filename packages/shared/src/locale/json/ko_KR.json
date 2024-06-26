@@ -1473,6 +1473,7 @@
   "update.updating_ui_resources": "UI 리소스 업데이트 중...",
   "update.verify_status_and_continue": "상태를 확인하고 계속하십시오",
   "update.whats_new_in_onekey_version": "OneKey {version}에서 새로운 기능 👋🏻",
+  "v4.select_account_name_label": "OneKey v4에서의 이름",
   "v4_migration.backed_up_warning": "모든 것을 백업하셨나요?",
   "v4_migration.backed_up_warning_desc": "데이터 마이그레이션 중 예기치 않은 문제로 인한 자산 손실을 방지하기 위해 모든 복구 구문과 개인 키를 백업했는지 확인하세요.",
   "v4_migration.backup_alert_desc": "진행하기 전에, 모든 복구 구문 또는 개인 키를 백업했는지 확인하세요.",

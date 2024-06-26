@@ -1473,6 +1473,7 @@
   "update.updating_ui_resources": "Đang cập nhật tài nguyên giao diện người dùng...",
   "update.verify_status_and_continue": "Xác minh trạng thái và tiếp tục",
   "update.whats_new_in_onekey_version": "Điểm mới\ntrong OneKey {version} 👋🏻",
+  "v4.select_account_name_label": "Tên từ OneKey v4",
   "v4_migration.backed_up_warning": "Bạn đã sao lưu tất cả chưa?",
   "v4_migration.backed_up_warning_desc": "Hãy đảm bảo bạn đã sao lưu tất cả các cụm từ khôi phục và khóa riêng tư của mình để tránh mất tài sản do các vấn đề không lường trước trong quá trình di chuyển dữ liệu.",
   "v4_migration.backup_alert_desc": "Trước khi tiếp tục, hãy đảm bảo bạn đã sao lưu tất cả các cụm từ khôi phục hoặc khóa riêng tư.",

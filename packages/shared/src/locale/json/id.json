@@ -1473,6 +1473,7 @@
   "update.updating_ui_resources": "Memperbarui sumber daya UI...",
   "update.verify_status_and_continue": "Verifikasi status dan lanjutkan",
   "update.whats_new_in_onekey_version": "Apa yang baru\ndi OneKey {version} 👋🏻",
+  "v4.select_account_name_label": "Nama dari OneKey v4",
   "v4_migration.backed_up_warning": "Apakah Anda sudah mencadangkan semua data?",
   "v4_migration.backed_up_warning_desc": "Pastikan Anda telah mencadangkan semua frase pemulihan dan kunci pribadi Anda untuk mencegah kehilangan aset apa pun karena masalah tak terduga selama migrasi data.",
   "v4_migration.backup_alert_desc": "Sebelum Anda melanjutkan, pastikan Anda telah mencadangkan semua frasa pemulihan atau kunci pribadi.",

@@ -1473,6 +1473,7 @@
   "update.updating_ui_resources": "正在更新 UI 資源...",
   "update.verify_status_and_continue": "驗證狀態並繼續",
   "update.whats_new_in_onekey_version": "OneKey {version} 的新功能 👋🏻",
+  "v4.select_account_name_label": "來自 OneKey v4 的名稱",
   "v4_migration.backed_up_warning": "已完成所有備份了嗎？",
   "v4_migration.backed_up_warning_desc": "確認您已備份所有助記詞和私鑰，確保在數據遷移過程中避免任何異常導致資產丟失。",
   "v4_migration.backup_alert_desc": "在您繼續操作之前，請確保您已備份所有助記詞或私鑰。",

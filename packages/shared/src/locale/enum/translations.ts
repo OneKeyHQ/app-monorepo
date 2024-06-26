@@ -1474,6 +1474,7 @@ export enum ETranslations {
   update_updating_ui_resources = 'update.updating_ui_resources',
   update_verify_status_and_continue = 'update.verify_status_and_continue',
   update_whats_new_in_onekey_version = 'update.whats_new_in_onekey_version',
+  v4_select_account_name_label = 'v4.select_account_name_label',
   v4_migration_backed_up_warning = 'v4_migration.backed_up_warning',
   v4_migration_backed_up_warning_desc = 'v4_migration.backed_up_warning_desc',
   v4_migration_backup_alert_desc = 'v4_migration.backup_alert_desc',

@@ -1473,6 +1473,7 @@
   "update.updating_ui_resources": "Atualizando recursos da interface do usuário...",
   "update.verify_status_and_continue": "Verifique o status e continue",
   "update.whats_new_in_onekey_version": "O que há de novo\nno OneKey {version} 👋🏻",
+  "v4.select_account_name_label": "Nome do OneKey v4",
   "v4_migration.backed_up_warning": "Você fez backup de tudo?",
   "v4_migration.backed_up_warning_desc": "Certifique-se de que fez o backup de todas as suas frases de recuperação e chaves privadas para evitar qualquer perda de ativos devido a problemas inesperados durante a migração de dados.",
   "v4_migration.backup_alert_desc": "Antes de prosseguir, certifique-se de que fez o backup de todas as frases de recuperação ou chaves privadas.",

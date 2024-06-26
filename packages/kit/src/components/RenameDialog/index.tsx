@@ -75,7 +75,7 @@ function V4AccountNameSelector({
             iconAfter="ChevronDownSmallOutline"
           >
             {intl.formatMessage({
-              id: ETranslationsMock.v4_account_rename_button_text,
+              id: ETranslations.v4_select_account_name_label,
             })}
           </Button>
         )}
@@ -83,7 +83,7 @@ function V4AccountNameSelector({
         value={val}
         onChange={onChange}
         title={intl.formatMessage({
-          id: ETranslationsMock.v4_account_rename_selector_title,
+          id: ETranslations.v4_select_account_name_label,
         })}
         onOpenChange={console.log}
       />
