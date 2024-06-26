@@ -1,4 +1,5 @@
 {
+  "Toast_web_auth": "Не вдалося зареєструвати веб-авторизацію",
   "account_model.watched": "Переглянуто",
   "action_save": "Зберегти",
   "address.verify_address_instruction": "Перевірте на пристрої, щоб запобігти атакам заміни адреси",
@@ -432,6 +433,7 @@
   "feedback.address_mismatch": "Невідповідність адреси",
   "feedback.address_mismatch_desc": "Адреса не збігається з апаратним гаманцем. Негайно припиніть використовувати цю адресу та зв'яжіться з нами.",
   "feedback.address_not_matched": "Адресу не знайдено",
+  "feedback.address_type_does_not_support_sign_method": "Непідтримуваний метод підпису для обраної адреси",
   "feedback.bluetooth_pairing_failed": "Помилка підключення Bluetooth",
   "feedback.bluetooth_unparied": "Bluetooth роз'єднано",
   "feedback.change_saved": "Зміни збережено",
@@ -1286,6 +1288,9 @@
   "swap_page.button_wrap": "Завернуто",
   "swap_page.from": "Від",
   "swap_page.limit": "Ліміт",
+  "swap_page.limit_dialog_button": "Підтвердити",
+  "swap_page.limit_dialog_content": "Лімітоване замовлення буде доступне незабаром. Якщо у вас є старі замовлення на OneKey V4, ви можете відвідати Matcha (https://matcha.xyz), щоб переглянути або керувати своїми замовленнями.",
+  "swap_page.limit_dialog_title": "Лімітоване замовлення",
   "swap_page.max": "Макс",
   "swap_page.percentage_change": "(+{number}%)",
   "swap_page.provider.approve": "Підтвердити",
