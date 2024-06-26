@@ -13,7 +13,7 @@ const SwapPageContainer = () => {
     <Page fullPage>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.swap}
-        showHeaderRight
+        showHeaderRight={false}
       />
       <Page.Body>
         <SwapMainLandWithPageType />
