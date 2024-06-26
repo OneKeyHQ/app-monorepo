@@ -129,7 +129,9 @@ export function RecoveryPhrase() {
   const handleConfirmPress = useCallback(async () => {
     if (route.params?.isBackup) {
       Toast.success({
-        title: 'Done! Your recovery phrase is backuped.',
+        title: intl.formatMessage({
+          id: ETranslations.backup_recovery_phrase_backed_up,
+        }),
       });
       navigation.popStack();
       return;
@@ -142,6 +144,7 @@ export function RecoveryPhrase() {
       verifyRecoveryPhrases,
     });
   }, [
+    intl,
     mnemonic,
     navigation,
     route.params?.isBackup,

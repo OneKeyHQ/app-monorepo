@@ -278,12 +278,10 @@ class ServiceSend extends ServiceBase {
 
       result.push(data);
 
-      if (!signOnly) {
-        await this.backgroundApi.serviceSignature.addItemFromSendProcess(
-          data,
-          sourceInfo,
-        );
-      }
+      await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+        data,
+        sourceInfo,
+      );
       if (signedTx && !signOnly) {
         await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
           networkId,

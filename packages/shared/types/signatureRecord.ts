@@ -29,6 +29,7 @@ export enum ETransactionType {
   APPROVE = 'approve',
   SWAP = 'swap',
   EARN = 'earn',
+  CONTRACT_INTERACTION = 'contractInteraction',
 }
 
 interface IBaseTransactionData {
@@ -65,6 +66,11 @@ export interface IEarnTransactionData extends IBaseTransactionData {
   receive?: { amount: string; token: IBaseToken };
 }
 
+export interface IContractInteractionTransactionData
+  extends IBaseTransactionData {
+  type: ETransactionType.CONTRACT_INTERACTION;
+}
+
 export type IBaseSignedTransaction = {
   networkId: string;
   title: string;
@@ -77,7 +83,8 @@ export type IBaseSignedTransactionData = {
     | ISendTransactionData
     | IApproveTransactionData
     | ISwapTransactionData
-    | IEarnTransactionData;
+    | IEarnTransactionData
+    | IContractInteractionTransactionData;
 };
 
 export type IBaseSignedTransactionDataStringify = {

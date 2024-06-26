@@ -351,7 +351,7 @@ export function AddressInput(props: IAddressInputProps) {
       clearErrors(name);
       onChange?.({
         raw: queryResult.input,
-        resolved: queryResult.resolveAddress ?? queryResult.input,
+        resolved: queryResult.resolveAddress ?? queryResult.input?.trim(),
         pending: false,
       });
     } else {

@@ -50,7 +50,7 @@ const BackupDotMap = () => {
       </Page.Body>
       <Page.Footer
         onConfirmText={intl.formatMessage({
-          id: ETranslations.global_i_saved_the_phrase,
+          id: ETranslations.global_i_got_it,
         })}
         confirmButtonProps={{
           variant: 'primary',

@@ -201,7 +201,7 @@ class ServiceAccountProfile extends ServiceBase {
   @backgroundMethod()
   public async queryAddress({
     networkId,
-    address,
+    address: rawAddress,
     accountId,
     enableNameResolve,
     enableAddressBook,
@@ -210,7 +210,8 @@ class ServiceAccountProfile extends ServiceBase {
     enableVerifySendFundToSelf,
     skipValidateAddress,
   }: IQueryCheckAddressArgs) {
-    const result: IAddressQueryResult = { input: address };
+    const address = rawAddress.trim();
+    const result: IAddressQueryResult = { input: rawAddress };
     if (!networkId) {
       return result;
     }
