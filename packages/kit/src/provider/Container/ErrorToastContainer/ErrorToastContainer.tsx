@@ -22,16 +22,17 @@ export function ErrorToastContainer() {
       } else if (p?.message) {
         message = `RequestId: ${p.message}`;
       }
-      const actionsProps: IButtonProps | undefined = message
-        ? {
-            children: intl.formatMessage({ id: ETranslations.global_copy }),
-            my: '$2',
-            size: 'small',
-            onPress: () => {
-              copyText(message);
-            },
-          }
-        : undefined;
+      let actionsProps: IButtonProps | undefined;
+      if (!p.hideRequestId && message) {
+        actionsProps = {
+          children: intl.formatMessage({ id: ETranslations.global_copy }),
+          my: '$2',
+          size: 'small',
+          onPress: () => {
+            copyText(message);
+          },
+        };
+      }
       Toast[p.method]({
         ...p,
         message,
