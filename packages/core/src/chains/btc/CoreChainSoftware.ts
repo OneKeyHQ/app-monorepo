@@ -58,6 +58,7 @@ import {
   getBtcForkNetwork,
   getBtcXpubFromXprvt,
   getInputsToSignFromPsbt,
+  getPublicKeyFromXpub,
   initBitcoinEcc,
   tweakSigner,
 } from './sdkBtc';
@@ -582,9 +583,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     } = query;
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
 
-    const { xpub, pubKey } = getBtcXpubFromXprvt({
+    const { xpub } = getBtcXpubFromXprvt({
       privateKeyRaw, // hex privateKey
       network,
+    });
+    const pubKey = getPublicKeyFromXpub({
+      xpub,
+      network,
+      relPath: '0/0',
     });
 
     const usedAddressEncoding = addressEncoding;
