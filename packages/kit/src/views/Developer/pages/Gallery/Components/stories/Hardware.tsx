@@ -17,6 +17,7 @@ import {
   hardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IHardwareUiPayload } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
 
 import { Layout } from './utils/Layout';
@@ -41,7 +42,6 @@ const HardwareActionTest = () => {
       deviceMode: EOneKeyDeviceMode.normal,
       isBootloaderMode: false,
       passphraseState: undefined,
-      supportInputPinOnSoftware: true,
       rawPayload: undefined,
     };
 
@@ -77,8 +77,11 @@ const HardwareActionTest = () => {
     <Stack gap="$6">
       <Stack gap="$2">
         <SizableText textAlign="left" size="$bodySmMedium" color="$text">
-          Confirm =》Confirm =》Pin =》Pin =》Confirm =》Confirm =》Pin
+          事件：Confirm =》Confirm =》Pin =》Pin =》Confirm =》Confirm =》Pin
           =》Confirm
+        </SizableText>
+        <SizableText textAlign="left" size="$bodySmMedium" color="$text">
+          实际：Confirm =》Pin =》Confirm =》Pin =》Confirm
         </SizableText>
         <Button
           onPress={async () => {
@@ -96,62 +99,92 @@ const HardwareActionTest = () => {
             await generateAction(EHardwareUiStateAction.REQUEST_BUTTON);
           }}
         >
-          Test Hardware Action Dialog & Toast (Count 8)
+          Test Hardware Action Dialog (Test 1)
         </Button>
       </Stack>
 
       <Stack gap="$2">
         <SizableText textAlign="left" size="$bodySmMedium" color="$text">
-          Pin =》Passphrase =》Pin On Device =》Passphrase On Device =》 Pin
-          =》Passphrase
+          事件：Pin =》Pin On Device
         </SizableText>
         <Button
           onPress={async () => {
             await generateAction(EHardwareUiStateAction.REQUEST_PIN);
-            await generateAction(EHardwareUiStateAction.REQUEST_PASSPHRASE);
             await generateAction(EHardwareUiStateAction.EnterPinOnDevice);
-            await generateAction(
-              EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE,
-            );
-            await generateAction(EHardwareUiStateAction.REQUEST_PIN);
-            await generateAction(EHardwareUiStateAction.REQUEST_PASSPHRASE);
+            await generateAction(EHardwareUiStateAction.REQUEST_BUTTON);
+
+            // await generateAction(EHardwareUiStateAction.REQUEST_PIN);
+            // await generateAction(EHardwareUiStateAction.REQUEST_PASSPHRASE);
+            // await generateAction(EHardwareUiStateAction.EnterPinOnDevice);
+            // await generateAction(
+            //   EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE,
+            // );
+            // await generateAction(EHardwareUiStateAction.REQUEST_PIN);
+            // await generateAction(EHardwareUiStateAction.REQUEST_PASSPHRASE);
           }}
         >
-          Test Hardware Action Dialog (Count 6)
+          Test Hardware Action Dialog (Test 2)
         </Button>
       </Stack>
 
       <Stack gap="$2">
         <SizableText textAlign="left" size="$bodySmMedium" color="$text">
-          Confirm =》Confirm Classic =》Confirm =》Confirm =》Confirm mini
-          =》Confirm touch
+          事件：Confirm =》Confirm Classic =》FIRMWARE_PROGRESS
+          =》FIRMWARE_PROGRESS
+        </SizableText>
+        <SizableText textAlign="left" size="$bodySmMedium" color="$text">
+          实际：Confirm =》Confirm Classic
         </SizableText>
         <Button
           onPress={async () => {
             await generateAction(EHardwareUiStateAction.REQUEST_BUTTON);
+
             await generateAction(EHardwareUiStateAction.FIRMWARE_TIP, {
               payload: {
                 message: 'ConfirmOnDevice',
               },
               deviceType: 'classic',
             });
+
+            await generateAction(EHardwareUiStateAction.FIRMWARE_PROGRESS);
+            await generateAction(EHardwareUiStateAction.FIRMWARE_PROGRESS);
+          }}
+        >
+          Test Hardware Action Toast (Count 3)
+        </Button>
+      </Stack>
+
+      <Stack gap="$2">
+        <SizableText textAlign="left" size="$bodySmMedium" color="$text">
+          事件：Confirm =》Confirm Classic =》FIRMWARE_PROGRESS
+          =》FIRMWARE_PROGRESS
+        </SizableText>
+        <SizableText textAlign="left" size="$bodySmMedium" color="$text">
+          实际：Confirm =》Confirm Classic
+        </SizableText>
+        <Button
+          onPress={async () => {
+            await generateAction(EHardwareUiStateAction.FIRMWARE_PROGRESS, {
+              payload: 100,
+            });
             await generateAction(EHardwareUiStateAction.REQUEST_BUTTON);
             await generateAction(EHardwareUiStateAction.REQUEST_BUTTON);
+
             await generateAction(EHardwareUiStateAction.FIRMWARE_TIP, {
               payload: {
                 message: 'ConfirmOnDevice',
               },
-              deviceType: 'mini',
+              deviceType: 'pro',
             });
             await generateAction(EHardwareUiStateAction.FIRMWARE_TIP, {
               payload: {
-                message: 'ConfirmOnDevice',
+                message: '"InstallingFirmware"',
               },
-              deviceType: 'touch',
+              deviceType: 'pro',
             });
           }}
         >
-          Test Hardware Action Toast (Count 6)
+          Install Firmware Event (Test 1)
         </Button>
       </Stack>
     </Stack>

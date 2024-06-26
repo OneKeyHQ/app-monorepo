@@ -162,9 +162,9 @@ function buildTransferChangeInfo({
     const amountBN = new BigNumber(nativeAmount ?? 0).abs();
     change = amountBN.toFixed();
     changeSymbol = transfers[0].symbol;
-    changeDescription = amountBN
-      .multipliedBy(transfers[0].price ?? 0)
-      .toFixed();
+    changeDescription = isNil(transfers[0].price)
+      ? ''
+      : amountBN.multipliedBy(transfers[0].price).toFixed();
     return {
       change: `${changePrefix}${change}`,
       changeSymbol,
@@ -176,9 +176,9 @@ function buildTransferChangeInfo({
     if (transfers[0].amount) {
       const amountBN = new BigNumber(transfers[0].amount).abs();
       change = amountBN.toFixed();
-      changeDescription = amountBN
-        .multipliedBy(transfers[0].price ?? 0)
-        .toFixed();
+      changeDescription = isNil(transfers[0].price)
+        ? ''
+        : amountBN.multipliedBy(transfers[0].price ?? 0).toFixed();
     }
     changeSymbol = transfers[0].symbol;
   } else {
@@ -191,9 +191,9 @@ function buildTransferChangeInfo({
       change = totalAmountBN.toFixed();
       changeSymbol = transfers[0].symbol;
 
-      changeDescription = totalAmountBN
-        .multipliedBy(transfers[0].price ?? 0)
-        .toFixed();
+      changeDescription = isNil(transfers[0].price)
+        ? ''
+        : totalAmountBN.multipliedBy(transfers[0].price ?? 0).toFixed();
     } else {
       const transfersWithNFT = transfers.filter((send) => send.isNFT);
       const transfersWithToken = transfers.filter((send) => !send.isNFT);

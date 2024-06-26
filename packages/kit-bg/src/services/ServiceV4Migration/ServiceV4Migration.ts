@@ -753,6 +753,15 @@ class ServiceV4Migration extends ServiceBase {
         progress: maxProgress.settings,
       }));
 
+      // **** migrate secure password for desktop
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => this.migrationSecurePassword.writeSecurePasswordToV5(),
+        {
+          name: 'migrate secure password for desktop',
+          errorResultFn: () => undefined,
+        },
+      );
+
       // ----------------------------------------------
       await timerUtils.wait(600);
       this.migrationPayload = undefined;

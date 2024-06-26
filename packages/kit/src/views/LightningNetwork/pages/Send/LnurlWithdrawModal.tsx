@@ -116,6 +116,9 @@ function LnurlWithdrawModal() {
           // show error message for 1.5s
           setTimeout(() => {
             void dappApprove.resolve({
+              close: () => {
+                close?.({ flag: EDAppModalPageStatus.Confirmed });
+              },
               result: {
                 status: 'ERROR',
                 reason: message,

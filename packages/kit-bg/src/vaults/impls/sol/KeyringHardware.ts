@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 
 import type {
@@ -11,8 +12,13 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  UnsupportedAddressTypeError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
@@ -48,7 +54,6 @@ export class KeyringHardware extends KeyringHardwareBase {
             showOnOnekeyFn,
           }) => {
             const sdk = await this.getHardwareSDKInstance();
-
             const response = await sdk.solGetAddress(connectId, deviceId, {
               ...params.deviceParams.deviceCommonParams,
               bundle: usedIndexes.map((index, arrIndex) => ({
@@ -61,6 +66,17 @@ export class KeyringHardware extends KeyringHardwareBase {
                 chainId: Number(chainId),
               })),
             });
+
+            if (
+              !response.success &&
+              response.payload.code === HardwareErrorCode.RuntimeError &&
+              response.payload.error.indexOf(
+                'Failure_DataError,Forbidden key path',
+              ) !== -1
+            ) {
+              throw new UnsupportedAddressTypeError();
+            }
+
             return response;
           },
         });
@@ -107,7 +123,11 @@ export class KeyringHardware extends KeyringHardwareBase {
     const transaction = await parseToNativeTx(encodedTx);
 
     if (!transaction) {
-      throw new Error('Failed to parse transaction');
+      throw new Error(
+        appLocale.intl.formatMessage({
+          id: ETranslations.feedback_failed_to_parse_transaction,
+        }),
+      );
     }
 
     const isVersionedTransaction = transaction instanceof VersionedTransaction;
@@ -137,10 +157,18 @@ export class KeyringHardware extends KeyringHardwareBase {
       };
     }
 
-    throw new Error('Failed to sign transaction');
+    throw new Error(
+      appLocale.intl.formatMessage({
+        id: ETranslations.feedback_failed_to_sign_transaction,
+      }),
+    );
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new NotImplemented('Signing Solana message is not supported yet.');
+    throw new NotImplemented(
+      appLocale.intl.formatMessage({
+        id: ETranslations.feedback_sol_sign_unupported_message,
+      }),
+    );
   }
 }

@@ -74,6 +74,17 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getCurrentLocale() {
+    const { locale } = await settingsPersistAtom.get();
+
+    if (locale === 'system') {
+      return getDefaultLocale();
+    }
+
+    return locale;
+  }
+
+  @backgroundMethod()
   public async setProtectCreateTransaction(value: boolean) {
     await this.backgroundApi.servicePassword.promptPasswordVerify({
       reason: EReasonForNeedPassword.Security,
@@ -93,6 +104,20 @@ class ServiceSetting extends ServiceBase {
       ...prev,
       protectCreateOrRemoveWallet: value,
     }));
+  }
+
+  @backgroundMethod()
+  public async setBiologyAuthSwitchOn(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      isBiologyAuthSwitchOn: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getBiologyAuthSwitchOn() {
+    const { isBiologyAuthSwitchOn } = await settingsPersistAtom.get();
+    return isBiologyAuthSwitchOn;
   }
 
   @backgroundMethod()

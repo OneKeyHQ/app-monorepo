@@ -90,7 +90,7 @@ export function AssetItem({
     icon: string;
     isNFT?: boolean;
     isNative?: boolean;
-    price: string;
+    price?: string;
   };
   index: number;
   direction?: EDecodedTxDirection;
@@ -144,7 +144,7 @@ export function AssetItem({
         {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amountAbs}`}
       </NumberSizeableText>
     );
-    secondary = (
+    secondary = !isNil(asset.price) ? (
       <NumberSizeableText
         textAlign="right"
         size="$bodyMd"
@@ -154,7 +154,7 @@ export function AssetItem({
       >
         {new BigNumber(amountAbs).times(asset.price ?? 0).toString()}
       </NumberSizeableText>
-    );
+    ) : null;
   }
 
   return (
@@ -316,7 +316,6 @@ function HistoryDetails() {
           name: approve.name,
           symbol: approve.symbol,
           icon: approve.icon ?? '',
-          price: '0',
         };
 
         return (
@@ -340,7 +339,7 @@ function HistoryDetails() {
           icon: transfer.icon,
           isNFT: transfer.isNFT,
           isNative: transfer.isNative,
-          price: transfer.price ?? '0',
+          price: transfer.price,
         };
 
         return (
