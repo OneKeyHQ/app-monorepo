@@ -9,7 +9,6 @@ import {
   ActionList,
   Alert,
   Divider,
-  Heading,
   NumberSizeableText,
   Page,
   Skeleton,
@@ -20,6 +19,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { IPageHeaderProps } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -350,7 +350,9 @@ export function TokenDetails() {
     <Page>
       <Page.Header
         headerTitle={tokenInfo.name ?? tokenDetails?.info.name}
-        headerTitleStyle={headerTitleStyle as any}
+        headerTitleStyle={
+          headerTitleStyle as IPageHeaderProps['headerTitleStyle']
+        }
         headerRight={headerRight}
       />
       <Page.Body>
