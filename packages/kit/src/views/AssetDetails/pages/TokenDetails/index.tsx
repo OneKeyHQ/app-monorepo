@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -9,16 +9,17 @@ import {
   ActionList,
   Alert,
   Divider,
-  Heading,
   NumberSizeableText,
   Page,
   Skeleton,
   Stack,
   XStack,
   YStack,
+  getFontToken,
   useClipboard,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { IPageHeaderProps } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -344,18 +345,16 @@ export function TokenDetails() {
   //   );
   // }, [media.gtMd, network?.logoURI, tokenInfo.address]);
 
-  const customHeaderTitle = useCallback(
-    () => (
-      <Heading size="$headingLg" numberOfLines={1}>
-        {tokenInfo.name ?? tokenDetails?.info.name}
-      </Heading>
-    ),
-    [tokenDetails?.info.name, tokenInfo.name],
-  );
-
+  const headerTitleStyle = useMemo(() => getFontToken('$headingLg'), []);
   return (
     <Page>
-      <Page.Header headerTitle={customHeaderTitle} headerRight={headerRight} />
+      <Page.Header
+        headerTitle={tokenInfo.name ?? tokenDetails?.info.name}
+        headerTitleStyle={
+          headerTitleStyle as IPageHeaderProps['headerTitleStyle']
+        }
+        headerRight={headerRight}
+      />
       <Page.Body>
         <ProviderJotaiContextHistoryList>
           <TxHistoryListView

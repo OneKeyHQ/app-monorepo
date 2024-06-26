@@ -1,3 +1,4 @@
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import errorUtils from '../errors/utils/errorUtils';

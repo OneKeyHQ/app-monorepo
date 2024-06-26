@@ -5765,6 +5765,7 @@ __metadata:
     babel-plugin-react-native-web: "npm:^0.19.9"
     babel-plugin-transform-define: "npm:^2.1.2"
     babel-plugin-transform-inline-environment-variables: "npm:^0.4.4"
+    babel-plugin-transform-remove-console: "npm:^6.9.4"
     bech32: "npm:^2.0.0"
     biginteger: "npm:^1.0.3"
     bignumber.js: "npm:9.1.2"
@@ -14130,6 +14131,13 @@ __metadata:
   version: 0.4.4
   resolution: "babel-plugin-transform-inline-environment-variables@npm:0.4.4"
   checksum: 10/fa361287411301237fd8ce332aff4f8e8ccb8db30e87a2ddc7224c8bf7cd792eda47aca24dc2e09e70bce4c027bc8cbe22f4999056be37a25d2472945df21ef5
+  languageName: node
+  linkType: hard
+
+"babel-plugin-transform-remove-console@npm:^6.9.4":
+  version: 6.9.4
+  resolution: "babel-plugin-transform-remove-console@npm:6.9.4"
+  checksum: 10/1123c3816c6f89c064752199c8796f30265d937f5d8e1e43d3837f1c0e87ed0e6bbd0afa6117ce021c8b93ec1de7154e158674bb22331c7ed6609d10121359df
   languageName: node
   linkType: hard
 

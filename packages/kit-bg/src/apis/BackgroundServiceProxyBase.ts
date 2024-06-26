@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 export abstract class BackgroundServiceProxyBase {
   abstract serviceNameSpace: string;
 
@@ -26,8 +28,12 @@ export abstract class BackgroundServiceProxyBase {
               : `${serviceName}.${serviceMethod}`;
             if (!this._proxyServiceCache[key]) {
               this._proxyServiceCache[key] = (...args: any) => {
-                if (!['serviceApp.addLogger'].includes(key)) {
-                  // debugLogger.backgroundApi.info('Proxy method call', key);
+                if (
+                  !['serviceApp.addLogger', 'serviceLogger.addMsg'].includes(
+                    key,
+                  )
+                ) {
+                  defaultLogger.app.background.logProxyMethodCall(key);
                 }
                 return this.callBackground(key, ...args);
               };
