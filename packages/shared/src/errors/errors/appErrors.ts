@@ -695,3 +695,15 @@ export class MinimumTransferAmountError extends OneKeyError<IMinimumTransferAmou
 export type IChangeLessThanMinInputCapacityError = {
   amount: string;
 };
+
+export class AddressNotSupportSignMethodError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'AddressNotSupportSignMethodError',
+        defaultKey:
+          ETranslations.feedback_address_type_does_not_support_sign_method,
+      }),
+    );
+  }
+}
