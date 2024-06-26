@@ -18,7 +18,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -75,6 +78,8 @@ export function UniversalSearch({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const universalSearchActions = useUniversalSearchActions();
@@ -138,7 +143,6 @@ export function UniversalSearch({
         });
       }
       setSections(searchResultSections);
-      console.log('---searchResultSections', searchResultSections);
       setSearchStatus(ESearchStatus.done);
     } else {
       setSearchStatus(ESearchStatus.init);
@@ -224,7 +228,7 @@ export function UniversalSearch({
                 <NumberSizeableText
                   size="$bodyLgMedium"
                   formatter="price"
-                  formatterOptions={{ currency: '$' }}
+                  formatterOptions={{ currency }}
                 >
                   {price}
                 </NumberSizeableText>
@@ -238,7 +242,7 @@ export function UniversalSearch({
         }
       }
     },
-    [universalSearchActions, navigation],
+    [navigation, currency, universalSearchActions],
   );
 
   const renderResult = useCallback(() => {
