@@ -6,6 +6,7 @@ import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
   Heading,
+  IconButton,
   Image,
   LinearGradient,
   Page,
@@ -20,6 +21,7 @@ import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { V4MigrationLogCopy } from './components/V4MigrationLogCopy';
 import { V4MigrationModalPage } from './components/V4MigrationModalPage';
+import { useIsV4MigrationAutoStartFirstTime } from './hooks/useV4MigrationExitPrevent';
 
 export function V4MigrationGetStarted({
   route,
@@ -49,6 +51,13 @@ export function V4MigrationGetStarted({
     }
   };
 
+  const isAutoStartInFirstTime = useIsV4MigrationAutoStartFirstTime();
+
+  let showCloseButton = true;
+  if (isAutoStartOnMount && isAutoStartInFirstTime) {
+    showCloseButton = false;
+  }
+
   return (
     <V4MigrationModalPage
       onMounted={() => {
@@ -57,58 +66,73 @@ export function V4MigrationGetStarted({
       isAutoStartOnMount={isAutoStartOnMount}
     >
       <Page.Header headerShown={false} />
-      <Page.Body flex={1} justifyContent="center" alignItems="center">
-        <V4MigrationLogCopy>
-          <Image
-            w={360}
-            h={360}
-            source={require('@onekeyhq/kit/assets/logo-press.png')}
-          />
-        </V4MigrationLogCopy>
-        <Stack p="$5" pb="$0" mt="$-16" maxWidth="$96">
-          <LinearGradient
-            position="absolute"
-            top="$0"
-            left="$0"
-            right="$0"
-            bottom="$0"
-            colors={['transparent', '$bgApp']}
-            $platform-native={{
-              display: 'none',
-            }}
-          />
-          <Stack zIndex={1}>
-            <Heading size="$heading4xl" textAlign="center">
-              {intl.formatMessage({
-                id: ETranslations.v4_migration_welcome_message,
-              })}
-            </Heading>
-            <SizableText
-              mt="$3"
-              size="$bodyLg"
-              textAlign="center"
-              color="$textSubdued"
-            >
-              {intl.formatMessage({
-                id: ETranslations.v4_migration_welcome_message_desc,
-              })}
-            </SizableText>
+      <Page.Body>
+        {showCloseButton ? (
+          <Page.Close>
+            <IconButton
+              icon="CrossedLargeOutline"
+              position="absolute"
+              variant="tertiary"
+              left="$5"
+              top="$5"
+              zIndex={1}
+            />
+          </Page.Close>
+        ) : null}
+
+        <Stack flex={1} justifyContent="center" alignItems="center">
+          <V4MigrationLogCopy>
+            <Image
+              w={360}
+              h={360}
+              source={require('@onekeyhq/kit/assets/logo-press.png')}
+            />
+          </V4MigrationLogCopy>
+          <Stack p="$5" pb="$0" mt="$-16" maxWidth="$96">
+            <LinearGradient
+              position="absolute"
+              top="$0"
+              left="$0"
+              right="$0"
+              bottom="$0"
+              colors={['transparent', '$bgApp']}
+              $platform-native={{
+                display: 'none',
+              }}
+            />
+            <Stack zIndex={1}>
+              <Heading size="$heading4xl" textAlign="center">
+                {intl.formatMessage({
+                  id: ETranslations.v4_migration_welcome_message,
+                })}
+              </Heading>
+              <SizableText
+                mt="$3"
+                size="$bodyLg"
+                textAlign="center"
+                color="$textSubdued"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.v4_migration_welcome_message_desc,
+                })}
+              </SizableText>
+            </Stack>
           </Stack>
+          <Button
+            mt="$8"
+            size="large"
+            $gtMd={
+              {
+                size: 'medium',
+              } as IButtonProps
+            }
+            variant="primary"
+            loading={isLoading}
+            onPress={handleNavigateToV4MigrationPreview}
+          >
+            {intl.formatMessage({ id: ETranslations.global_start_migration })}
+          </Button>
         </Stack>
-        <Button
-          mt="$8"
-          size="large"
-          $gtMd={
-            {
-              size: 'medium',
-            } as IButtonProps
-          }
-          variant="primary"
-          loading={isLoading}
-          onPress={handleNavigateToV4MigrationPreview}
-        >
-          {intl.formatMessage({ id: ETranslations.global_start_migration })}
-        </Button>
       </Page.Body>
     </V4MigrationModalPage>
   );

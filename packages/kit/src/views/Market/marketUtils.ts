@@ -1,3 +1,5 @@
+import { TabActions } from '@react-navigation/native';
+
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -27,20 +29,16 @@ export const marketNavigation = {
       coinGeckoId: string;
     },
   ) {
-    navigation.navigate(ERootRoutes.Main, {
-      screen: ETabRoutes.Market,
-      params: {
-        screen: ETabMarketRoutes.TabMarket,
-      },
-    });
-
+    // TODO：it's a trick to refresh the tab.
+    navigation.switchTab(ETabRoutes.Market);
+    await timerUtils.wait(100);
+    navigation.switchTab(ETabRoutes.Home);
+    await timerUtils.wait(100);
+    navigation.switchTab(ETabRoutes.Market);
     await timerUtils.wait(100);
 
-    navigation.navigate(ETabRoutes.Market, {
-      screen: ETabMarketRoutes.MarketDetail,
-      params: {
-        coinGeckoId,
-      },
+    navigation.push(ETabMarketRoutes.MarketDetail, {
+      coinGeckoId,
     });
   },
 };

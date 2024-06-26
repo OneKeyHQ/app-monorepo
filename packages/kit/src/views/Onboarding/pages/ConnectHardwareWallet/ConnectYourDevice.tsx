@@ -122,26 +122,6 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
   );
 }
 
-function ConnectByQrCodeComingSoon() {
-  const intl = useIntl();
-
-  return (
-    <Stack flex={1} alignItems="center" justifyContent="center">
-      <SizableText
-        textAlign="center"
-        color="$textSubdued"
-        maxWidth="$80"
-        pb="$5"
-      >
-        {intl.formatMessage({
-          id: ETranslations.coming_soon,
-        })}
-      </SizableText>
-    </Stack>
-  );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ConnectByQrCode() {
   const {
     start: startScan,
@@ -190,6 +170,28 @@ function ConnectByQrCode() {
       >
         {intl.formatMessage({ id: ETranslations.global_scan_to_connect })}
       </Button>
+    </Stack>
+  );
+}
+
+function ConnectByQrCodeComingSoon() {
+  const intl = useIntl();
+  if (process.env.NODE_ENV !== 'production') {
+    return <ConnectByQrCode />;
+  }
+
+  return (
+    <Stack flex={1} alignItems="center" justifyContent="center">
+      <SizableText
+        textAlign="center"
+        color="$textSubdued"
+        maxWidth="$80"
+        pb="$5"
+      >
+        {intl.formatMessage({
+          id: ETranslations.coming_soon,
+        })}
+      </SizableText>
     </Stack>
   );
 }

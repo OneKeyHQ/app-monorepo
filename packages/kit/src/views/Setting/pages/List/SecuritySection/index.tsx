@@ -17,6 +17,7 @@ import {
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDAppConnectionModal,
@@ -200,7 +201,7 @@ export const SecuritySection = () => {
       </Suspense>
       <AppAutoLockItem />
       <PasswordItem />
-      <ConnectedSitesItem />
+      {!platformEnv.isWebDappMode ? <ConnectedSitesItem /> : null}
       <SignatureRecordItem />
       <ProtectionItem />
       <CleanDataItem />
