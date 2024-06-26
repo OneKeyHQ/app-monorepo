@@ -95,7 +95,6 @@ function createBackgroundMethodDecorator({
       // );
     }
 
-    defaultLogger.app.runtime.logServiceFuncName(methodName);
     if (devOnly) {
       // @ts-ignore
       target[`${prefix}${methodName}`] = function (p1, ...others) {
