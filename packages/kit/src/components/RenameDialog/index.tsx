@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import type { ISelectItem } from '@onekeyhq/components';
 import {
+  Button,
   Dialog,
   Input,
   Select,
@@ -59,23 +60,34 @@ function V4AccountNameSelector({
   }, [indexedAccount.id]);
 
   return (
-    <Select
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      renderTrigger={({ value, label, placeholder }) => (
-        <SizableText>
-          {intl.formatMessage({
-            id: ETranslationsMock.v4_account_rename_button_text,
-          })}
-        </SizableText>
-      )}
-      items={items}
-      value={val}
-      onChange={onChange}
-      title={intl.formatMessage({
-        id: ETranslationsMock.v4_account_rename_selector_title,
-      })}
-      onOpenChange={console.log}
-    />
+    <Stack pt="$2">
+      <Select
+        sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
+        floatingPanelProps={{
+          maxHeight: 272,
+        }}
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        renderTrigger={({ value, label, placeholder }) => (
+          <Button
+            size="small"
+            alignSelf="flex-start"
+            variant="tertiary"
+            iconAfter="ChevronDownSmallOutline"
+          >
+            {intl.formatMessage({
+              id: ETranslationsMock.v4_account_rename_button_text,
+            })}
+          </Button>
+        )}
+        items={items}
+        value={val}
+        onChange={onChange}
+        title={intl.formatMessage({
+          id: ETranslationsMock.v4_account_rename_selector_title,
+        })}
+        onOpenChange={console.log}
+      />
+    </Stack>
   );
 }
 
