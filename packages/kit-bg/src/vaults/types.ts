@@ -54,6 +54,7 @@ import type {
 } from '../dbs/local/types';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
+import { IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
@@ -444,6 +445,7 @@ export interface IBatchSignTransactionParamsBase {
   nativeAmountInfo?: INativeAmountInfo;
   signOnly?: boolean;
   sourceInfo?: IDappSourceInfo;
+  replaceTxInfo?: IReplaceTxInfo;
 }
 
 export interface ISignMessageParams {

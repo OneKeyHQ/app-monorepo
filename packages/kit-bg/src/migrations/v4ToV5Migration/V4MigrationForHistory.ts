@@ -9,6 +9,7 @@ import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 
 import type { IV4DBAccount, IV4DBUtxoAccount } from './v4local/v4localDBTypes';
 import type { IV4EncodedTx, IV4EncodedTxBtc, IV4HistoryTx } from './v4types';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 export class V4MigrationForHistory extends V4MigrationManagerBase {
   async getV4Account({ accountId }: { accountId: string }) {
@@ -104,12 +105,19 @@ export class V4MigrationForHistory extends V4MigrationManagerBase {
               },
             });
 
+            let v4ReplaceType: EReplaceTxType | undefined;
+            if (v4pendingTx.replacedType === 'speedUp') {
+              v4ReplaceType = EReplaceTxType.SpeedUp;
+            } else if (v4pendingTx.replacedType === 'cancel') {
+              v4ReplaceType = EReplaceTxType.Cancel;
+            }
+
             const v5pendingTx: IAccountHistoryTx = {
               id: v4pendingTx.id,
               isLocalCreated: v4pendingTx.isLocalCreated,
               replacedNextId: v4pendingTx.replacedNextId,
               replacedPrevId: v4pendingTx.replacedPrevId,
-              replacedType: v4pendingTx.replacedType,
+              replacedType: v4ReplaceType,
 
               decodedTx: {
                 ...v5DecodedTx,

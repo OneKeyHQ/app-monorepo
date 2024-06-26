@@ -43,7 +43,6 @@ export type ITxActionCommonListViewProps = {
   change?: React.ReactNode;
   changeDescription?: React.ReactNode;
   timestamp?: number;
-  pending?: boolean;
   tableLayout?: boolean;
   showIcon?: boolean;
   hideFeeInfo?: boolean;

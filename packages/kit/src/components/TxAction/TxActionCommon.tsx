@@ -199,13 +199,11 @@ function TxActionCommonListView(
     feeFiatValue,
     feeSymbol,
     timestamp,
-    pending,
     tableLayout,
     showIcon,
     hideFeeInfo,
     ...rest
   } = props;
-  const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
 
@@ -288,18 +286,6 @@ function TxActionCommonListView(
           />
         ) : null}
       </XStack>
-
-      {/* Actions */}
-      {pending ? (
-        <XStack pl={52} space="$3">
-          <Button size="small" variant="primary">
-            {intl.formatMessage({ id: ETranslations.global_speed_up })}
-          </Button>
-          <Button size="small">
-            {intl.formatMessage({ id: ETranslations.global_cancel })}
-          </Button>
-        </XStack>
-      ) : null}
     </ListItem>
   );
 }

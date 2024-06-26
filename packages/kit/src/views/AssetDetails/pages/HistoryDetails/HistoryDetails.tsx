@@ -31,7 +31,6 @@ import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils'
 import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   EHistoryTxDetailsBlock,
-  EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
 } from '@onekeyhq/shared/types/history';
 import type {
@@ -41,6 +40,7 @@ import type {
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
+  EReplaceTxType,
 } from '@onekeyhq/shared/types/tx';
 
 import { getHistoryTxMeta } from '../../utils';
@@ -49,6 +49,7 @@ import { InfoItem, InfoItemGroup } from './components/TxDetailsInfoItem';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
+import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 
 function getTxStatusTextProps(status: EDecodedTxStatus): {
   key: ETranslations;
@@ -214,6 +215,8 @@ function HistoryDetails() {
     [accountAddress, historyTx.decodedTx.txid, networkId, accountId, xpub],
     { watchLoading: true },
   );
+
+  const { handleReplaceTx, canReplaceTx } = useReplaceTx({ historyTx });
 
   const [network, vaultSettings, txDetailsResp, nativeToken] =
     resp.result ?? [];
@@ -506,20 +509,31 @@ function HistoryDetails() {
         <SizableText size="$bodyMdMedium" color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {vaultSettings?.replaceTxEnabled &&
-        status === EDecodedTxStatus.Pending ? (
-          <XStack ml="$5">
-            <Button size="small" variant="primary">
-              Speed Up
+        {canReplaceTx ? (
+          <XStack ml="$5" space="$2">
+            <Button
+              size="small"
+              variant="primary"
+              onPress={() =>
+                handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_speed_up })}
             </Button>
-            <Button size="small" variant="secondary" ml="$2.5">
-              Cancel
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={() =>
+                handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_cancel })}
             </Button>
           </XStack>
         ) : null}
       </XStack>
     );
-  }, [historyTx.decodedTx.status, intl, vaultSettings?.replaceTxEnabled]);
+  }, [canReplaceTx, handleReplaceTx, historyTx.decodedTx.status, intl]);
 
   const renderTxFlow = useCallback(() => {
     if (vaultSettings?.isUtxo && !txAddresses.isSingleTransfer) return null;
