@@ -54,7 +54,7 @@ export function V4MigrationGetStarted({
   const isAutoStartInFirstTime = useIsV4MigrationAutoStartFirstTime();
 
   let showCloseButton = true;
-  if (isAutoStartOnMount && isAutoStartInFirstTime ) {
+  if (isAutoStartOnMount && isAutoStartInFirstTime) {
     showCloseButton = false;
   }
 

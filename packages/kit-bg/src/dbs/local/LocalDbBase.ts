@@ -61,6 +61,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBAccountDerivation,
@@ -91,7 +92,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -1879,6 +1879,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId: string;
     accounts: IDBAccount[];
     importedCredential?: ICoreImportedCredentialEncryptHex | undefined;
+    // accountNameBuilder for watching, imported, external account
     accountNameBuilder?: (data: { nextAccountId: number }) => string;
   }): Promise<void> {
     const db = await this.readyDb;
@@ -2050,6 +2051,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         )
         .map((account) => this.refillAccountInfo({ account })),
     };
+  }
+
+  async getAccountsInSameIndexedAccountId({
+    indexedAccountId,
+  }: {
+    indexedAccountId: string;
+  }) {
+    const db = await this.readyDb;
+    const { records: accounts } = await db.getAllRecords({
+      name: ELocalDBStoreNames.Account,
+    });
+    return accounts
+      .filter(
+        (account) =>
+          account.indexedAccountId === indexedAccountId && indexedAccountId,
+      )
+      .map((account) => this.refillAccountInfo({ account }));
   }
 
   async getAccount({ accountId }: { accountId: string }): Promise<IDBAccount> {

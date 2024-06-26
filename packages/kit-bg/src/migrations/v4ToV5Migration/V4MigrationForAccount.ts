@@ -1189,8 +1189,8 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             });
             if (prepareResult) {
               const { networkId, index, deriveType } = prepareResult;
-              // TODO add addressMap to DB
               const result = await serviceAccount.addHDOrHWAccounts({
+                names: [v4account.name],
                 walletId: v5wallet.id,
                 networkId,
                 indexes: [index],
