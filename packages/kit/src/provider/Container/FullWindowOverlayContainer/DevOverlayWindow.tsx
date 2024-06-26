@@ -2,6 +2,7 @@ import { memo, useCallback, useState } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, Dialog, Stack, YStack } from '@onekeyhq/components';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
@@ -9,6 +10,7 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 function DevOverlayWindow() {
@@ -23,6 +25,8 @@ function DevOverlayWindow() {
   });
 
   const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
+
+  const [passwordSetting] = usePasswordPersistAtom();
 
   const handlePress = useCallback(() => {
     const dialog = Dialog.cancel({
@@ -48,6 +52,19 @@ function DevOverlayWindow() {
             testID="open-home-page"
           >
             Open home page
+          </Button>
+          <Button
+            onPress={async () => {
+              if (passwordSetting.isPasswordSet) {
+                await backgroundApiProxy.servicePassword.lockApp();
+              } else {
+                await backgroundApiProxy.servicePassword.promptPasswordVerify();
+                await backgroundApiProxy.servicePassword.lockApp();
+              }
+              void dialog.close();
+            }}
+          >
+            Lock Now
           </Button>
           <Button
             onPress={() => {
