@@ -109,7 +109,7 @@ export function OpenInAppButton({
       ),
       showFooter: false,
     });
-  }, [buildFullUrl, deepLinkUrl, intl, openByAppButtonLabel]);
+  }, [buildFullUrl, intl]);
 
   return (
     <Button size="small" onPress={handlePress}>
