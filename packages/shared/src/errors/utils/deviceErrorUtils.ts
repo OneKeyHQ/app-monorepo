@@ -234,3 +234,18 @@ export function isHardwareErrorByCode({
     (isCodeMatch(error?.code) || isCodeMatch(error?.payload?.code))
   );
 }
+
+export function isHardwareInterruptErrorByCode({
+  error,
+}: {
+  error: IOneKeyError | undefined;
+}) {
+  return isHardwareErrorByCode({
+    error,
+    code: [
+      HardwareErrorCode.NewFirmwareForceUpdate,
+      HardwareErrorCode.BridgeNotInstalled,
+      HardwareErrorCode.BridgeTimeoutError,
+    ],
+  });
+}
