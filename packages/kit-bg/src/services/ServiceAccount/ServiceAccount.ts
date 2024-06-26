@@ -1,3 +1,4 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { isEmpty } from 'lodash';
 
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
@@ -28,9 +29,14 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import {
+  isHardwareErrorByCode,
+  isHardwareInterruptErrorByCode,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -299,8 +305,22 @@ class ServiceAccount extends ServiceBase {
             hideCheckingDeviceLoading,
           });
           addedAccounts.push({ networkId, deriveType });
-        } catch (error) {
-          //
+        } catch (error: any) {
+          // Some high priority errors need to interrupt the process
+          if (accountUtils.isHwWallet({ walletId })) {
+            if (isHardwareInterruptErrorByCode({ error })) {
+              throw error;
+            }
+            // Unplug device?
+            if (
+              isHardwareErrorByCode({
+                error,
+                code: HardwareErrorCode.DeviceNotFound,
+              })
+            ) {
+              throw error;
+            }
+          }
         }
       }
       return { addedAccounts };
@@ -626,6 +646,11 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
     accounts: IDBAccount[];
   }> {
+    if (platformEnv.isWebDappMode) {
+      throw new Error(
+        'addImportedAccountWithCredential ERROR: Not supported in Dapp mode',
+      );
+    }
     const walletId = WALLET_TYPE_IMPORTED;
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,
@@ -1285,8 +1310,10 @@ class ServiceAccount extends ServiceBase {
     avatarInfo?: IAvatarInfo;
     name?: string;
   }) {
+    if (platformEnv.isWebDappMode) {
+      throw new Error('createHDWallet ERROR: Not supported in Dapp mode');
+    }
     ensureSensitiveTextEncoded(password);
-
     const result = await localDb.createHDWallet({
       password,
       rs,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,6 +10,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -80,6 +81,7 @@ function HomeOverviewContainer() {
     }
   }, [account?.id, network?.id, wallet?.id]);
   const { md } = useMedia();
+  const balanceDialogInstance = useRef<IDialogInstance | null>(null);
 
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
@@ -124,13 +126,18 @@ function HomeOverviewContainer() {
           })}
           icon="InfoCircleOutline"
           variant="tertiary"
-          onPressDebounce={200}
-          onPress={() =>
-            showBalanceDetailsDialog({
+          onPress={() => {
+            if (balanceDialogInstance?.current) {
+              return;
+            }
+            balanceDialogInstance.current = showBalanceDetailsDialog({
               accountId: account?.id ?? '',
               networkId: network?.id ?? '',
-            })
-          }
+              onClose: () => {
+                balanceDialogInstance.current = null;
+              },
+            });
+          }}
         />
       ) : null}
     </XStack>

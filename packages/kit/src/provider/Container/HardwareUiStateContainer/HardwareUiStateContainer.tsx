@@ -251,6 +251,10 @@ function HardwareUiStateContainerCmp() {
         }
       }
 
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
+        return true;
+      }
+
       return false;
     },
     [],
@@ -452,6 +456,7 @@ function HardwareUiStateContainerCmp() {
 
         if (isToastCloseAction) {
           await toastQueueManagerRef.current?.closeAll();
+          await dialogQueueManagerRef.current?.closeAll();
         }
       } else {
         await toastQueueManagerRef.current?.closeAll();
