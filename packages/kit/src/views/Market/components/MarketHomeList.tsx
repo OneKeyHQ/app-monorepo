@@ -607,7 +607,7 @@ function TableMdSkeletonRow() {
   );
 }
 
-function ListEmptyComponent() {
+function ListEmptyComponent({ showMoreAction }: { showMoreAction: boolean }) {
   const { gtMd } = useMedia();
   if (platformEnv.isNativeAndroid) {
     return null;
@@ -618,7 +618,7 @@ function ListEmptyComponent() {
         <TableRow
           key={i}
           isLoading
-          showMoreAction
+          showMoreAction={showMoreAction}
           tableConfig={{}}
           minHeight={52}
         />
@@ -1100,7 +1100,9 @@ function BasicMarketHomeList({
           data={sortedListData as unknown as IMarketToken[]}
           renderItem={gtMd ? renderItem : renderMdItem}
           ListFooterComponent={gtMd ? <Stack height={60} /> : undefined}
-          ListEmptyComponent={<ListEmptyComponent />}
+          ListEmptyComponent={
+            <ListEmptyComponent showMoreAction={showMoreAction} />
+          }
           extraData={gtMd ? undefined : mdColumnKeys}
         />
         {isShowBackToTopButton ? (
