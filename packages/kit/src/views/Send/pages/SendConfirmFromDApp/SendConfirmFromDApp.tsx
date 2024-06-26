@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { AppState } from 'react-native';
@@ -9,10 +9,17 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
-import type { StackActionType } from '@react-navigation/native';
+import type {
+  NavigationAction,
+  StackActionType,
+} from '@react-navigation/native';
 
 function SendConfirmFromDApp() {
   const navigation = useNavigation();
@@ -36,10 +43,32 @@ function SendConfirmFromDApp() {
     _$t: number | undefined;
   }>();
 
-  useDappApproveAction({
+  const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const isNavigateNewPageRef = useRef(false);
+
+  const dispatchAction = useCallback(
+    (action: NavigationAction | ((state: any) => NavigationAction)) => {
+      isNavigateNewPageRef.current = true;
+      const timerId = setTimeout(() => {
+        dappApprove.reject();
+      }, 1200);
+      appEventBus.once(EAppEventBusNames.SendConfirmContainerMounted, () => {
+        clearTimeout(timerId);
+      });
+      navigation.dispatch(action);
+    },
+    [dappApprove, navigation],
+  );
+
+  const handlePageClose = useCallback(() => {
+    if (!isNavigateNewPageRef.current) {
+      dappApprove.reject();
+    }
+  }, [dappApprove]);
 
   useEffect(() => {
     // OK-16560: navigate when app in background would cause modal render in wrong size
@@ -47,9 +76,9 @@ function SendConfirmFromDApp() {
       if (state === 'active') {
         setTimeout(() => {
           if (pendingAction.current) {
-            navigation.dispatch(pendingAction.current);
-            pendingAction.current = undefined;
+            dispatchAction(pendingAction.current);
           }
+          pendingAction.current = undefined;
         });
       }
     });
@@ -82,7 +111,7 @@ function SendConfirmFromDApp() {
 
       if (action) {
         if (AppState.currentState === 'active') {
-          setTimeout(() => navigation.dispatch(action));
+          setTimeout(() => dispatchAction(action));
         } else {
           pendingAction.current = action;
         }
@@ -104,10 +133,11 @@ function SendConfirmFromDApp() {
     _$t,
     transfersInfo,
     useFeeInTx,
+    dispatchAction,
   ]);
 
   return (
-    <Page>
+    <Page onClose={handlePageClose}>
       <Page.Body>
         <Stack h="100%" justifyContent="center" alignContent="center">
           <Spinner size="large" />

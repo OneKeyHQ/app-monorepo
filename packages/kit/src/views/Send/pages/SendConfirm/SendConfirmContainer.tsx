@@ -14,11 +14,16 @@ import {
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
@@ -55,6 +60,11 @@ function SendConfirmContainer() {
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  useEffect(() => {
+    appEventBus.emit(EAppEventBusNames.SendConfirmContainerMounted, undefined);
+  }, []);
+
   const { network } =
     usePromiseResult(async () => {
       updateUnsignedTxs(unsignedTxs);
@@ -176,15 +186,14 @@ function SendConfirmContainer() {
     ],
   );
 
+  const handleOnClose = (extra?: { flag?: string }) => {
+    if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
+      dappApprove.reject();
+    }
+  };
+
   return (
-    <Page
-      scrollEnabled
-      onClose={(confirmed) => {
-        if (!confirmed) {
-          dappApprove.reject();
-        }
-      }}
-    >
+    <Page scrollEnabled onClose={handleOnClose}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.transaction__transaction_confirm,

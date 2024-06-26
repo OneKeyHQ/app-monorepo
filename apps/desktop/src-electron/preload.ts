@@ -75,7 +75,6 @@ export type IDesktopAPI = {
   ) => void;
   stopServer: () => void;
   quitApp: () => void;
-  clearWebViewData: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   setAllowedPhishingUrls: (urls: string[]) => void;
   clearWebViewCache: () => void;
@@ -266,9 +265,6 @@ const desktopApi = {
   },
   quitApp: () => {
     ipcRenderer.send(ipcMessageKeys.APP_QUIT);
-  },
-  clearWebViewData: () => {
-    ipcRenderer.send(ipcMessageKeys.APP_CLEAR_WEBVIEW_DATA);
   },
   setSystemIdleTime: (idleTime: number, cb?: () => void) => {
     ipcRenderer.on(ipcMessageKeys.APP_IDLE, () => {

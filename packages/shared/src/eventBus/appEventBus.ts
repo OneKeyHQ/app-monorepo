@@ -46,6 +46,7 @@ export enum EAppEventBusNames {
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   ClearLocalHistoryPendingTxs = 'ClearLocalHistoryPendingTxs',
   TxFeeInfoChanged = 'TxFeeInfoChanged',
+  SendConfirmContainerMounted = 'SendConfirmContainerMounted',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -122,6 +123,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.TxFeeInfoChanged]: {
     feeSelectorItems: IFeeSelectorItem[];
   };
+  [EAppEventBusNames.SendConfirmContainerMounted]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
