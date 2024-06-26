@@ -1,3 +1,4 @@
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import errorUtils from '../errors/utils/errorUtils';
@@ -94,7 +95,7 @@ function createBackgroundMethodDecorator({
       // );
     }
 
-    console.log('---methodName', methodName);
+    defaultLogger.app.runtime.logServiceFuncName(methodName);
     if (devOnly) {
       // @ts-ignore
       target[`${prefix}${methodName}`] = function (p1, ...others) {
