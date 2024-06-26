@@ -61,6 +61,7 @@ import {
   getPublicKeyFromXpub,
   initBitcoinEcc,
   tweakSigner,
+  validateBtcAddress,
 } from './sdkBtc';
 import { buildPsbt } from './sdkBtc/providerUtils';
 
@@ -459,6 +460,24 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     psbtNetwork: networks.Network;
   }) {
     initBitcoinEcc();
+
+    const addressInfo = validateBtcAddress({
+      address: account.address,
+      network: psbtNetwork,
+    });
+
+    if (!addressInfo.isValid) {
+      throw new Error('Invalid address');
+    }
+
+    const supportedTypes = [EAddressEncodings.P2WPKH, EAddressEncodings.P2TR];
+    if (
+      !addressInfo.encoding ||
+      (addressInfo.encoding && !supportedTypes.includes(addressInfo.encoding))
+    ) {
+      throw new Error('Not support address type to sign');
+    }
+
     const outputScript = BitcoinJsAddress.toOutputScript(
       account.address,
       psbtNetwork,
@@ -544,7 +563,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         signer,
         input: psbt.data.inputs[input.index],
       });
-      psbt.signInput(input.index, bitcoinSigner, input.sighashTypes);
+      await psbt.signInputAsync(input.index, bitcoinSigner, input.sighashTypes);
     }
     return {
       encodedTx,
