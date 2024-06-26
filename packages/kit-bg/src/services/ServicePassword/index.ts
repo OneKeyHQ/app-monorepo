@@ -377,7 +377,7 @@ export default class ServicePassword extends ServiceBase {
     const v4migrationData = await v4migrationAtom.get();
     if (v4migrationData?.isProcessing) {
       const v4migrationPassword =
-        await this.backgroundApi.serviceV4Migration.getMigrationPassword();
+        await this.backgroundApi.serviceV4Migration.getMigrationPasswordV5();
       if (v4migrationPassword) {
         return {
           password: v4migrationPassword,
