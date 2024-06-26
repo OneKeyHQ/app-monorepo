@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { swapHistoryStateFetchInterval } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -315,11 +316,11 @@ export default class ServiceSwap extends ServiceBase {
       );
       return data?.data;
     } catch (e) {
-      const error = e as { code: number; message: string };
+      const error = e as { code: number; message: string; requestId: string };
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
-        title: 'error',
-        message: error?.message,
+        title: error?.message,
+        message: error?.requestId,
       });
     }
   }
@@ -461,7 +462,15 @@ export default class ServiceSwap extends ServiceBase {
                 ? ETranslations.swap_page_toast_swap_successful
                 : ETranslations.swap_page_toast_swap_failed,
           }),
-          message: `${item.baseInfo.fromAmount} ${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toAmount} ${item.baseInfo.toToken.symbol}`,
+          message: `${
+            numberFormat(item.baseInfo.fromAmount, {
+              formatter: 'balance',
+            }) as string
+          } ${item.baseInfo.fromToken.symbol} → ${
+            numberFormat(item.baseInfo.toAmount, {
+              formatter: 'balance',
+            }) as string
+          } ${item.baseInfo.toToken.symbol}`,
         });
       }
     }
