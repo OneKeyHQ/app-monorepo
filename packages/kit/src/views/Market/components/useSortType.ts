@@ -45,8 +45,8 @@ export const useSortType = (
             const stringA = a[sortByType.columnName] as string;
             const stringB = b[sortByType.columnName] as string;
             return sortByType.order === 'desc'
-              ? stringA.charCodeAt(0) - stringB.charCodeAt(0)
-              : stringB.charCodeAt(0) - stringA.charCodeAt(0);
+              ? stringA.localeCompare(stringB, 'en', { sensitivity: 'base' })
+              : stringB.localeCompare(stringA, 'en', { sensitivity: 'base' });
           });
         }
         return listData;
