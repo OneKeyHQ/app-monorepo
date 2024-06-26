@@ -116,12 +116,16 @@ function SignMessageModal() {
         void dappApprove.resolve({
           result,
         });
-        await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
-          networkId,
-          accountId,
-          message: unsignedMessage.message,
-          sourceInfo: $sourceInfo,
-        });
+        try {
+          await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
+            networkId,
+            accountId,
+            message: unsignedMessage.message,
+            sourceInfo: $sourceInfo,
+          });
+        } catch {
+          // noop
+        }
         close?.({ flag: EDAppModalPageStatus.Confirmed });
       } finally {
         setIsLoading(false);

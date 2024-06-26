@@ -22,7 +22,7 @@ const SwapMainLandModalPage = () => {
   const { importFromToken, importNetworkId, importToToken } =
     route.params ?? {};
   return (
-    <Page skipLoading={platformEnv.isNativeIOS} scrollEnabled>
+    <Page skipLoading={platformEnv.isNativeIOS}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_swap })}
       />
