@@ -66,7 +66,7 @@ export class BackgroundApiProxyBase
     );
     globalErrorHandler.addListener((error) => {
       if (
-        error.className === EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel
+        error?.className === EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel
       ) {
         return;
       }

@@ -110,8 +110,11 @@ export default function useLiteCard() {
           ),
         });
       await backgroundApiProxy.serviceAccount.validateMnemonic(mnemonicEncoded);
+      // disableClose doesn't work on the first page of a Modal on iOS, so this is a workaround
       navigation.pushModal(EModalRoutes.OnboardingModal, {
-        screen: EOnboardingPages.FinalizeWalletSetup,
+        screen: EOnboardingPages.GetStarted,
+      });
+      navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         params: { mnemonic: mnemonicEncoded },
       });
     });
