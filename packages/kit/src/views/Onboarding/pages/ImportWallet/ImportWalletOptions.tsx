@@ -223,7 +223,7 @@ export function ImportWalletOptions() {
                 await timerUtils.wait(100);
                 await v4MigrationActions.navigateToV4MigrationPage();
               },
-              testID: 'connect-hardware-wallet',
+              testID: 'migrate-from-v4',
             }
           : null,
       ].filter(Boolean),

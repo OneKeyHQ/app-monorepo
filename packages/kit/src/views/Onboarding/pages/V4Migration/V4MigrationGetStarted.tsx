@@ -5,9 +5,11 @@ import { useIntl } from 'react-intl';
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
+  Dialog,
   Heading,
   IconButton,
   Image,
+  Input,
   LinearGradient,
   Page,
   SizableText,
@@ -15,7 +17,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -40,12 +42,62 @@ export function V4MigrationGetStarted({
       setIsLoading(true);
       const res =
         await backgroundApiProxy.serviceV4Migration.prepareMigration();
-      if (res.shouldBackup) {
-        navigation.push(EOnboardingPages.V4MigrationPreview);
-      } else {
-        // navigate to process page directly
-        navigation.push(EOnboardingPages.V4MigrationProcess);
+      console.log('prepareMigration result', res);
+      const goNext = () => {
+        if (res.shouldBackup) {
+          navigation.push(EOnboardingPages.V4MigrationPreview);
+        } else {
+          // navigate to process page directly
+          navigation.push(EOnboardingPages.V4MigrationProcess);
+        }
+        setIsLoading(false);
+      };
+
+      if (!res.isV4PasswordEqualToV5) {
+        setTimeout(() => {
+          setIsLoading(true);
+        }, 600);
+        let v4password = '';
+        Dialog.show({
+          showCancelButton: true,
+          onConfirm: async () => {
+            if (
+              await backgroundApiProxy.serviceV4Migration.setV4Password({
+                v4password:
+                  await backgroundApiProxy.servicePassword.encodeSensitiveText({
+                    text: v4password,
+                  }),
+              })
+            ) {
+              goNext();
+            } else {
+              setIsLoading(false);
+            }
+          },
+          title: intl.formatMessage({
+            id: ETranslationsMock.v4_migration_input_v4_password,
+          }),
+          renderContent: (
+            <Stack>
+              <SizableText>
+                {intl.formatMessage({
+                  id: ETranslationsMock.v4_migration_input_v4_password_desc,
+                })}
+              </SizableText>
+              <Stack mt="$4">
+                <Input
+                  secureTextEntry
+                  onChangeText={(v) => {
+                    v4password = v;
+                  }}
+                />
+              </Stack>
+            </Stack>
+          ),
+        });
+        return;
       }
+      goNext();
     } finally {
       setIsLoading(false);
     }

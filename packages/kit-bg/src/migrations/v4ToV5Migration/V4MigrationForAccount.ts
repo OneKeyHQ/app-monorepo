@@ -478,7 +478,8 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       });
     return this.decryptV4HdCredential({
       v4dbCredential,
-      encodedPassword: await this.getMigrationPassword(),
+      encodedPassword:
+        await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }
 
@@ -499,7 +500,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       v4dbCredential,
       encodedPassword: password
         ? encodeSensitiveText({ text: password })
-        : await this.getMigrationPassword(),
+        : await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }
 
