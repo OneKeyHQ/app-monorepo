@@ -51,6 +51,7 @@ export function V4MigrationGetStarted({
 
   return (
     <V4MigrationModalPage
+      scrollEnabled={false}
       onMounted={() => {
         void backgroundApiProxy.serviceV4Migration.clearV4MigrationLogs();
       }}
