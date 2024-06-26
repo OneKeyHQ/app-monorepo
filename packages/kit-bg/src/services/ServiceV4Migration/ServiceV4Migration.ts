@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports */
+import { decryptVerifyString } from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { IncorrectPassword } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -76,10 +78,21 @@ class ServiceV4Migration extends ServiceBase {
   // TODO clear migrationPayload when exit migration or focus home page
   migrationPayload: IV4MigrationPayload | undefined;
 
-  async getMigrationPassword() {
-    const pwd = this.migrationPayload?.password || '';
+  async getMigrationPasswordV5() {
+    const pwd = this.migrationPayload?.v5password || '';
     if (!pwd) {
-      throw new Error('Migration password not set');
+      throw new Error('Migration v5 password not set');
+    }
+    return pwd;
+  }
+
+  async getMigrationPasswordV4() {
+    const pwd =
+      this.migrationPayload?.v4password ||
+      this.migrationPayload?.v5password ||
+      '';
+    if (!pwd) {
+      throw new Error('Migration v4 password not set');
     }
     return pwd;
   }
@@ -243,6 +256,44 @@ class ServiceV4Migration extends ServiceBase {
     return false;
   }
 
+  async verifyV4PasswordEqualToV5({
+    v5password,
+  }: {
+    v5password: string;
+  }): Promise<true | false | 'not-set'> {
+    const v4DbContext = await this.migrationAccount.getV4LocalDbContext();
+    if (v4DbContext && v4DbContext.verifyString === DEFAULT_VERIFY_STRING) {
+      return 'not-set';
+    }
+    try {
+      if (v4DbContext?.verifyString) {
+        const result = decryptVerifyString({
+          password: v5password,
+          verifyString: v4DbContext?.verifyString,
+        });
+        return result === DEFAULT_VERIFY_STRING;
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setV4Password({ v4password }: { v4password: string }) {
+    const result = await this.verifyV4PasswordEqualToV5({
+      v5password: v4password,
+    });
+    if (result === true) {
+      if (this.migrationPayload) {
+        this.migrationPayload.v4password = v4password;
+      }
+      return true;
+    }
+    throw new IncorrectPassword();
+  }
+
   @backgroundMethod()
   @toastIfError()
   async prepareMigration(): Promise<IV4MigrationPayload> {
@@ -267,8 +318,8 @@ class ServiceV4Migration extends ServiceBase {
       },
     );
 
-    let password = '';
-    password = await v4dbHubs.logger.runAsyncWithCatch(
+    let v5password = '';
+    v5password = await v4dbHubs.logger.runAsyncWithCatch(
       async () => {
         const passwordRes =
           await this.backgroundApi.servicePassword.promptPasswordVerify({
@@ -285,6 +336,10 @@ class ServiceV4Migration extends ServiceBase {
         errorResultFn: 'throwError',
       },
     );
+
+    const isV4PasswordEqualToV5 = await this.verifyV4PasswordEqualToV5({
+      v5password,
+    });
 
     const wallets = await v4dbHubs.logger.runAsyncWithCatch(
       async () => this.migrationAccount.getV4Wallets(),
@@ -319,8 +374,9 @@ class ServiceV4Migration extends ServiceBase {
           }
         }
         const migrationPayload: IV4MigrationPayload = {
-          password,
-          v4password: '',
+          v5password: v5password,
+          v4password: isV4PasswordEqualToV5 === true ? v5password : '',
+          isV4PasswordEqualToV5,
           migrateV4PasswordOk,
           migrateV4SecurePasswordOk,
           shouldBackup: walletsForBackup.length > 0,
@@ -695,7 +751,7 @@ class ServiceV4Migration extends ServiceBase {
 
       // **** migrate address book
       await timerUtils.wait(600);
-      const v5password = await this.getMigrationPassword();
+      const v5password = await this.getMigrationPasswordV5();
       if (v5password) {
         await v4dbHubs.logger.runAsyncWithCatch(
           async () =>

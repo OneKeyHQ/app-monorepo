@@ -41,6 +41,13 @@ import v4MigrationUtils from './v4MigrationUtils';
 import { EV4DBAccountType } from './v4types';
 
 import type {
+  IDBAccount,
+  IDBDevice,
+  IDBDeviceSettings,
+  IDBUtxoAccount,
+  IDBWallet,
+} from '../../dbs/local/types';
+import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
   IV4MigrationWallet,
@@ -56,13 +63,6 @@ import type {
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
 } from './v4local/v4localDBTypes';
-import type {
-  IDBAccount,
-  IDBDevice,
-  IDBDeviceSettings,
-  IDBUtxoAccount,
-  IDBWallet,
-} from '../../dbs/local/types';
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({
@@ -478,7 +478,8 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       });
     return this.decryptV4HdCredential({
       v4dbCredential,
-      encodedPassword: await this.getMigrationPassword(),
+      encodedPassword:
+        await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }
 
@@ -499,7 +500,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       v4dbCredential,
       encodedPassword: password
         ? encodeSensitiveText({ text: password })
-        : await this.getMigrationPassword(),
+        : await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }
 
