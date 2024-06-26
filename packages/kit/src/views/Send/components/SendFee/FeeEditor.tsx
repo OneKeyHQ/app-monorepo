@@ -185,8 +185,13 @@ function FeeEditor(props: IProps) {
   );
   const customFee = (originalCustomFee ?? selectedFee?.feeInfo) as IFeeInfoUnit;
 
-  const { feeSymbol, feeDecimals, nativeSymbol, nativeTokenPrice } =
-    customFee?.common ?? {};
+  const {
+    feeSymbol,
+    feeDecimals,
+    nativeSymbol,
+    nativeDecimals,
+    nativeTokenPrice,
+  } = customFee?.common ?? {};
 
   const [vaultSettings, network] =
     usePromiseResult(
@@ -721,6 +726,18 @@ function FeeEditor(props: IProps) {
     }
 
     if (customFee.gas) {
+      let gasPriceDecimals = feeDecimals;
+      if (customFee.common.feeDecimals === 0) {
+        const isDecimal = feeSelectorItems.some((item) => {
+          const gasPriceDp = new BigNumber(
+            item.feeInfo.gas?.gasPrice ?? 0,
+          ).dp();
+          return gasPriceDp && gasPriceDp > 0;
+        });
+        if (isDecimal) {
+          gasPriceDecimals = nativeDecimals;
+        }
+      }
       return (
         <Form form={form}>
           <YStack space="$5" pt="$5">
@@ -742,7 +759,7 @@ function FeeEditor(props: IProps) {
                   handleFormValueOnChange({
                     name: e.target.name,
                     value: e.target.value,
-                    decimals: feeDecimals,
+                    decimals: gasPriceDecimals,
                   }),
               }}
             >
@@ -849,6 +866,7 @@ function FeeEditor(props: IProps) {
     currentFeeType,
     customFee,
     feeDecimals,
+    feeSelectorItems,
     feeSymbol,
     form,
     handleFormValueOnChange,
@@ -859,6 +877,7 @@ function FeeEditor(props: IProps) {
     handleValidateMaxBaseFee,
     handleValidatePriorityFee,
     intl,
+    nativeDecimals,
     recommendGasLimit.gasLimit,
     recommendPriorityFee.description,
     vaultSettings?.editFeeEnabled,
