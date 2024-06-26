@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { EPageType, YStack } from '@onekeyhq/components';
+import { EPageType, ScrollView, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapAlertsAtom,
@@ -107,51 +107,53 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }, [wrappedTx]);
 
   return (
-    <YStack
-      testID="swap-content-container"
-      flex={1}
-      marginHorizontal="auto"
-      width="100%"
-      maxWidth={pageType === EPageType.modal ? '100%' : 480}
-    >
+    <ScrollView>
       <YStack
-        pt="$2.5"
-        px="$5"
-        pb="$5"
-        space="$5"
+        testID="swap-content-container"
         flex={1}
-        $gtMd={{
-          flex: 'unset',
-          pt: '$5',
-        }}
+        marginHorizontal="auto"
+        width="100%"
+        maxWidth={pageType === EPageType.modal ? '100%' : 480}
       >
-        {pageType !== EPageType.modal ? (
-          <SwapHeaderContainer pageType={pageType} />
-        ) : null}
-        <SwapQuoteInput
-          onSelectToken={onSelectToken}
-          selectLoading={fetchLoading}
-          onToAnotherAddressModal={onToAnotherAddressModal}
-        />
-        {alerts.length > 0 &&
-        !quoteLoading &&
-        !selectTokenDetailLoading.from &&
-        !selectTokenDetailLoading.to ? (
-          <SwapAlertContainer alerts={alerts} />
-        ) : null}
-        {quoteResult ? (
-          <SwapQuoteResult
-            onOpenProviderList={onOpenProviderList}
-            quoteResult={quoteResult}
+        <YStack
+          pt="$2.5"
+          px="$5"
+          pb="$5"
+          space="$5"
+          flex={1}
+          $gtMd={{
+            flex: 'unset',
+            pt: '$5',
+          }}
+        >
+          {pageType !== EPageType.modal ? (
+            <SwapHeaderContainer pageType={pageType} />
+          ) : null}
+          <SwapQuoteInput
+            onSelectToken={onSelectToken}
+            selectLoading={fetchLoading}
+            onToAnotherAddressModal={onToAnotherAddressModal}
           />
-        ) : null}
+          {alerts.length > 0 &&
+          !quoteLoading &&
+          !selectTokenDetailLoading.from &&
+          !selectTokenDetailLoading.to ? (
+            <SwapAlertContainer alerts={alerts} />
+          ) : null}
+          {quoteResult ? (
+            <SwapQuoteResult
+              onOpenProviderList={onOpenProviderList}
+              quoteResult={quoteResult}
+            />
+          ) : null}
+        </YStack>
+        <SwapActionsState
+          onBuildTx={onBuildTx}
+          onApprove={onApprove}
+          onWrapped={onWrapped}
+        />
       </YStack>
-      <SwapActionsState
-        onBuildTx={onBuildTx}
-        onApprove={onApprove}
-        onWrapped={onWrapped}
-      />
-    </YStack>
+    </ScrollView>
   );
 };
 
