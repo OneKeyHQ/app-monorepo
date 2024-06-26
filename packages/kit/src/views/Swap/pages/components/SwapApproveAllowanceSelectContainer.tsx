@@ -2,12 +2,12 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { NumberSizeableText } from '@onekeyhq/components';
 import {
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IAllowanceResult } from '@onekeyhq/shared/types/swap/types';
 import { ESwapApproveAllowanceType } from '@onekeyhq/shared/types/swap/types';
 
@@ -34,11 +34,14 @@ const SwapApproveAllowanceSelectContainer = ({
   const approveAllowanceSelectItems = useMemo(
     () => [
       {
-        label: `${
-          numberFormat(allowanceResult.amount, {
-            formatter: 'balance',
-          }) as string
-        } ${fromTokenSymbol}`,
+        label: (
+          <NumberSizeableText
+            formatter="balance"
+            formatterOptions={{ tokenSymbol: fromTokenSymbol }}
+          >
+            {allowanceResult.amount}
+          </NumberSizeableText>
+        ) as unknown as string,
         value: ESwapApproveAllowanceType.PRECISION,
       },
       {
