@@ -690,6 +690,20 @@ export class DeviceDataOverload extends OneKeyHardwareError {
   override code = HardwareErrorCode.DataOverload;
 }
 
+export class UnsupportedAddressTypeError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'UnsupportedAddressTypeError',
+        defaultKey:
+          ETranslations.feedback_hardware_unsupported_current_address_type,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.RuntimeError;
+}
+
 // Communication exception 通信异常
 export class HardwareCommunicationError extends OneKeyHardwareError {
   override className: EOneKeyErrorClassNames =
