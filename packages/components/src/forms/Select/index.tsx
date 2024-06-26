@@ -107,9 +107,10 @@ function SelectItem({
         pressStyle={{ bg: '$bgActive' }}
         onPress={handleSelect}
         testID={testID}
+        alignItems="center"
       >
         {leading ? (
-          <Stack alignContent="center" justifyContent="center" pr="$4">
+          <Stack alignContent="center" justifyContent="center" pr="$3">
             {leading}
           </Stack>
         ) : null}
