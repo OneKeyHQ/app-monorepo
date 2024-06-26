@@ -291,7 +291,9 @@ function WalletItem({
         });
       if (!loadingRef.current) {
         Toast.error({
-          title: 'User canceled connect wallet',
+          title: intl.formatMessage({
+            id: ETranslations.feedback_connection_request_denied,
+          }),
         });
         return;
       }
@@ -318,6 +320,7 @@ function WalletItem({
     actions,
     connectionInfo,
     hideLoading,
+    intl,
     navigation,
     selectedAccount.networkId,
     showLoading,
