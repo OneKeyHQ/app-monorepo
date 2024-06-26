@@ -95,7 +95,16 @@ export function useSwapInit(params?: ISwapInitParams) {
   }, [setSwapNetworks, swapNetworks.length]);
 
   const syncDefaultSelectedToken = useCallback(async () => {
-    if (params?.importFromToken || params?.importToToken) {
+    if (
+      (params?.importFromToken &&
+        swapNetworksRef.current.find(
+          (net) => net.networkId === params?.importFromToken?.networkId,
+        )) ||
+      (params?.importToToken &&
+        swapNetworksRef.current.find(
+          (net) => net.networkId === params?.importFromToken?.networkId,
+        ))
+    ) {
       setFromToken(params.importFromToken);
       setToToken(params.importToToken);
       setDefaultTokenLoading(false);
@@ -196,8 +205,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     void (async () => {
       if (
         params?.importNetworkId &&
-        swapAddressInfo.networkId &&
-        params?.importNetworkId !== swapAddressInfo.networkId
+        swapAddressInfoRef.current?.networkId &&
+        params.importNetworkId !== swapAddressInfoRef.current.networkId
       ) {
         await updateSelectedAccountNetwork({
           num: 0,
@@ -216,7 +225,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   }, [
     swapAddressInfo.accountInfo?.ready,
     swapNetworks.length,
-    swapAddressInfo.networkId,
+    // swapAddressInfo.networkId,
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,
