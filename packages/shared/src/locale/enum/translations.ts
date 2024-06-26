@@ -1,5 +1,6 @@
 // This file is automatically created by `yarn fetch:locale`.
 export enum ETranslations {
+  Toast_web_auth = 'Toast_web_auth',
   account_model_watched = 'account_model.watched',
   action_save = 'action_save',
   address_verify_address_instruction = 'address.verify_address_instruction',
@@ -1288,6 +1289,9 @@ export enum ETranslations {
   swap_page_button_wrap = 'swap_page.button_wrap',
   swap_page_from = 'swap_page.from',
   swap_page_limit = 'swap_page.limit',
+  swap_page_limit_dialog_button = 'swap_page.limit_dialog_button',
+  swap_page_limit_dialog_content = 'swap_page.limit_dialog_content',
+  swap_page_limit_dialog_title = 'swap_page.limit_dialog_title',
   swap_page_max = 'swap_page.max',
   swap_page_percentage_change = 'swap_page.percentage_change',
   swap_page_provider_approve = 'swap_page.provider.approve',

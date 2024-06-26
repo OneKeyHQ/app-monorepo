@@ -478,12 +478,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       !addressInfo.encoding ||
       (addressInfo.encoding && !supportedTypes.includes(addressInfo.encoding))
     ) {
-      throw new AddressNotSupportSignMethodError({
-        info: {
-          addressType: addressInfo.encoding as string,
-          signMethod: 'Bip322',
-        },
-      });
+      throw new AddressNotSupportSignMethodError();
     }
 
     const outputScript = BitcoinJsAddress.toOutputScript(

@@ -696,12 +696,8 @@ export type IChangeLessThanMinInputCapacityError = {
   amount: string;
 };
 
-type IAddressNotSupportSignMethodInfo = {
-  addressType: string;
-  signMethod: string;
-};
-export class AddressNotSupportSignMethodError extends OneKeyError<IAddressNotSupportSignMethodInfo> {
-  constructor(props: IOneKeyError<IAddressNotSupportSignMethodInfo>) {
+export class AddressNotSupportSignMethodError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'AddressNotSupportSignMethodError',
