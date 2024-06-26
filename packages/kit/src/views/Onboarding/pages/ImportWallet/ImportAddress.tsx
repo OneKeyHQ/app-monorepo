@@ -151,6 +151,8 @@ function ImportAddress() {
   const isValidating = useRef<boolean>(false);
   const networkIdText = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'publicKeyValue' });
+  const addressValue = useFormWatch({ control, name: 'addressValue' });
+
   const inputTextDebounced = useDebounce(inputText.trim(), 600);
   const validateFn = useCallback(async () => {
     setValue('deriveType', undefined);
@@ -205,14 +207,13 @@ function ImportAddress() {
   }, [validateFn]);
 
   const { start } = useScanQrCode();
-  const addressValuePending = form.watch('addressValue.pending');
 
   const isEnable = useMemo(() => {
     if (method === EImportMethod.Address) {
-      return !addressValuePending && form.formState.isValid;
+      return !addressValue.pending && form.formState.isValid;
     }
     return validateResult?.isValid;
-  }, [method, addressValuePending, validateResult, form]);
+  }, [method, addressValue.pending, validateResult, form]);
 
   const isBtcFork = useMemo(
     () =>
