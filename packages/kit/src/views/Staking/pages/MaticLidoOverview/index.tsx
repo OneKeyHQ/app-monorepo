@@ -47,16 +47,31 @@ import {
   LIDO_OFFICIAL_URL,
 } from '../../utils/const';
 
-const ListItemStaked = ({ amount }: { amount: string }) => (
-  <NftListItemStatus
-    amount={amount}
-    symbol="MATIC"
-    status="staked"
-    tokenImageUri={LIDO_MATIC_LOGO_URI}
-  />
-);
+const ListItemStaked = ({
+  amount,
+  matic2StMatic,
+}: {
+  amount: string;
+  matic2StMatic: string;
+}) => {
+  const amountString = BigNumber(amount).div(matic2StMatic).toFixed();
+  return (
+    <NftListItemStatus
+      amount={amountString}
+      symbol="MATIC"
+      status="staked"
+      tokenImageUri={LIDO_MATIC_LOGO_URI}
+    />
+  );
+};
 
-const ListItemPending = ({ requests }: { requests: ILidoMaticRequest[] }) => {
+const ListItemPending = ({
+  requests,
+  matic2StMatic,
+}: {
+  requests: ILidoMaticRequest[];
+  matic2StMatic: string;
+}) => {
   const amount = useMemo(
     () => requests.reduce((a, b) => a + Number(b.amount), 0),
     [requests],
@@ -64,9 +79,10 @@ const ListItemPending = ({ requests }: { requests: ILidoMaticRequest[] }) => {
   if (requests.length === 0) {
     return null;
   }
+  const amountString = BigNumber(amount).div(matic2StMatic).toFixed();
   return (
     <NftListItemStatus
-      amount={String(amount)}
+      amount={amountString}
       symbol="MATIC"
       status="pending"
       tokenImageUri={LIDO_MATIC_LOGO_URI}
@@ -79,11 +95,13 @@ const ListItemClaim = ({
   accountId,
   networkId,
   token,
+  matic2StMatic,
 }: {
   requests: ILidoMaticRequest[];
   accountId: string;
   networkId: string;
   token: ILidoTokenItem;
+  matic2StMatic: string;
 }) => {
   const appNavigation = useAppNavigation();
   const lidoClaim = useLidoMaticClaim({ accountId, networkId });
@@ -91,6 +109,7 @@ const ListItemClaim = ({
     () => requests.reduce((a, b) => a + Number(b.amount), 0),
     [requests],
   );
+  const amountString = BigNumber(amount).div(matic2StMatic).toFixed();
   const onClaim = useCallback(async () => {
     if (requests.length === 1) {
       await lidoClaim({
@@ -117,7 +136,7 @@ const ListItemClaim = ({
   return (
     <NftListItemStatus
       onClaim={onClaim}
-      amount={String(amount)}
+      amount={String(amountString)}
       symbol="MATIC"
       status="claimable"
       tokenImageUri={LIDO_MATIC_LOGO_URI}
@@ -272,13 +291,20 @@ const MaticLidoOverviewContent = ({
           </SizableText>
         </XStack>
         <YStack space="$2" mt="$5">
-          <ListItemStaked amount={stMatic.balanceParsed} />
-          <ListItemPending requests={nfts.pending} />
+          <ListItemStaked
+            amount={stMatic.balanceParsed}
+            matic2StMatic={matic2StMatic}
+          />
+          <ListItemPending
+            requests={nfts.pending}
+            matic2StMatic={matic2StMatic}
+          />
           <ListItemClaim
             requests={nfts.finished}
             accountId={accountId}
             networkId={networkId}
             token={matic}
+            matic2StMatic={matic2StMatic}
           />
         </YStack>
         <ProtocolIntro
