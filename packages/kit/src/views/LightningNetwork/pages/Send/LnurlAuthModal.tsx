@@ -195,7 +195,9 @@ function LnurlAuthModal() {
           // show error message for 1.5s
           setTimeout(() => {
             void dappApprove.resolve({
-              close,
+              close: () => {
+                close?.({ flag: EDAppModalPageStatus.Confirmed });
+              },
               result: {
                 status: 'ERROR',
                 reason: message,
