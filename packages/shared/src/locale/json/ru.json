@@ -1,4 +1,5 @@
 {
+  "Toast_web_auth": "Не удалось зарегистрировать веб-аутентификацию",
   "account_model.watched": "Просмотрено",
   "action_save": "Сохранить",
   "address.verify_address_instruction": "Проверьте на устройстве, чтобы предотвратить атаки с заменой адреса",
@@ -432,6 +433,7 @@
   "feedback.address_mismatch": "Несоответствие адреса",
   "feedback.address_mismatch_desc": "Адрес не совпадает с аппаратным кошельком. Прекратите использовать этот адрес немедленно и свяжитесь с нами.",
   "feedback.address_not_matched": "Адрес не совпадает",
+  "feedback.address_type_does_not_support_sign_method": "Неподдерживаемый метод подписи для выбранного адреса",
   "feedback.bluetooth_pairing_failed": "Сопряжение Bluetooth не удалось",
   "feedback.bluetooth_unparied": "Bluetooth отключен",
   "feedback.change_saved": "Изменения сохранены",
@@ -1286,6 +1288,9 @@
   "swap_page.button_wrap": "Упаковано",
   "swap_page.from": "От",
   "swap_page.limit": "Лимит",
+  "swap_page.limit_dialog_button": "Подтвердить",
+  "swap_page.limit_dialog_content": "Скоро будет доступен лимитный ордер. Если у вас есть старые ордеры на OneKey V4, вы можете посетить Matcha (https://matcha.xyz), чтобы просмотреть или управлять своими ордерами.",
+  "swap_page.limit_dialog_title": "Лимитный ордер",
   "swap_page.max": "Макс",
   "swap_page.percentage_change": "(+{number}%)",
   "swap_page.provider.approve": "Утвердить",

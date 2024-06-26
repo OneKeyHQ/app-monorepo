@@ -1,4 +1,5 @@
 {
+  "Toast_web_auth": "Gagal mendaftar autentikasi web",
   "account_model.watched": "Ditonton",
   "action_save": "Simpan",
   "address.verify_address_instruction": "Verifikasi pada perangkat untuk mencegah serangan penggantian alamat",
@@ -432,6 +433,7 @@
   "feedback.address_mismatch": "Ketidakcocokan alamat",
   "feedback.address_mismatch_desc": "Alamat ini tidak cocok dengan dompet hardware. Berhenti menggunakan alamat ini segera dan hubungi kami.",
   "feedback.address_not_matched": "Alamat tidak cocok",
+  "feedback.address_type_does_not_support_sign_method": "Metode tanda tangan tidak didukung untuk alamat yang dipilih",
   "feedback.bluetooth_pairing_failed": "Pasangan Bluetooth gagal",
   "feedback.bluetooth_unparied": "Bluetooth tidak dipasangkan",
   "feedback.change_saved": "Perubahan disimpan",
@@ -1286,6 +1288,9 @@
   "swap_page.button_wrap": "Dibungkus",
   "swap_page.from": "Dari",
   "swap_page.limit": "Batas",
+  "swap_page.limit_dialog_button": "Konfirmasi",
+  "swap_page.limit_dialog_content": "Perintah batas akan tersedia segera. Jika Anda memiliki pesanan lama di OneKey V4, Anda dapat mengunjungi Matcha (https://matcha.xyz) untuk melihat atau mengelola pesanan Anda.",
+  "swap_page.limit_dialog_title": "Perintah batas",
   "swap_page.max": "Max",
   "swap_page.percentage_change": "(+{number}%)",
   "swap_page.provider.approve": "Setujui",

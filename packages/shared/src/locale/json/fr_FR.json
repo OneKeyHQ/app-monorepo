@@ -1,4 +1,5 @@
 {
+  "Toast_web_auth": "Échec de l'enregistrement de l'authentification web",
   "account_model.watched": "Regardé",
   "action_save": "Enregistrer",
   "address.verify_address_instruction": "Vérifiez sur l'appareil pour prévenir les attaques de remplacement d'adresse",
@@ -432,6 +433,7 @@
   "feedback.address_mismatch": "Incohérence d'adresse",
   "feedback.address_mismatch_desc": "L'adresse ne correspond pas au portefeuille matériel. Arrêtez d'utiliser cette adresse immédiatement et contactez-nous.",
   "feedback.address_not_matched": "Adresse non correspondante",
+  "feedback.address_type_does_not_support_sign_method": "Méthode de signature non prise en charge pour l'adresse sélectionnée",
   "feedback.bluetooth_pairing_failed": "Échec de l'appariement Bluetooth",
   "feedback.bluetooth_unparied": "Bluetooth désapparié",
   "feedback.change_saved": "Changement enregistré",
@@ -1286,6 +1288,9 @@
   "swap_page.button_wrap": "Emballé",
   "swap_page.from": "De",
   "swap_page.limit": "Limite",
+  "swap_page.limit_dialog_button": "Confirmer",
+  "swap_page.limit_dialog_content": "L'ordre limité sera bientôt disponible. Si vous avez d'anciens ordres sur OneKey V4, vous pouvez visiter Matcha (https://matcha.xyz) pour voir ou gérer vos ordres.",
+  "swap_page.limit_dialog_title": "Ordre limité",
   "swap_page.max": "Max",
   "swap_page.percentage_change": "(+{number} %)",
   "swap_page.provider.approve": "Approuver",

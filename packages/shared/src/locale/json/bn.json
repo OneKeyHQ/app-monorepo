@@ -1,4 +1,5 @@
 {
+  "Toast_web_auth": "ওয়েব অথরিটি নিবন্ধন ব্যর্থ হয়েছে",
   "account_model.watched": "দেখা হয়েছে",
   "action_save": "সংরক্ষণ করুন",
   "address.verify_address_instruction": "ঠিকানা প্রতিস্থাপন হামলা রোধ করতে ডিভাইসে যাচাই করুন",
@@ -432,6 +433,7 @@
   "feedback.address_mismatch": "ঠিকানা মিলছে না",
   "feedback.address_mismatch_desc": "ঠিকানা হার্ডওয়্যার ওয়ালেটের সাথে মিলছে না। এই ঠিকানা ব্যবহার করা বন্ধ করুন এবং আমাদের সাথে যোগাযোগ করুন।",
   "feedback.address_not_matched": "ঠিকানা মেলেনি",
+  "feedback.address_type_does_not_support_sign_method": "নির্বাচিত ঠিকানার জন্য অসমর্থিত স্বাক্ষর পদ্ধতি",
   "feedback.bluetooth_pairing_failed": "ব্লুটুথ পেয়ারিং ব্যর্থ হয়েছে",
   "feedback.bluetooth_unparied": "ব্লুটুথ আনপেয়ার হয়েছে",
   "feedback.change_saved": "পরিবর্তন সংরক্ষিত হয়েছে",
@@ -1286,6 +1288,9 @@
   "swap_page.button_wrap": "মোড়ানো",
   "swap_page.from": "থেকে",
   "swap_page.limit": "সীমা",
+  "swap_page.limit_dialog_button": "নিশ্চিত করুন",
+  "swap_page.limit_dialog_content": "সীমিত অর্ডার শীঘ্রই উপলব্ধ হবে। আপনার যদি OneKey V4 এ পুরানো অর্ডার থাকে, তবে আপনি আপনার অর্ডারগুলি দেখতে বা পরিচালনা করতে Matcha (https://matcha.xyz) ভিজিট করতে পারেন।",
+  "swap_page.limit_dialog_title": "সীমাবদ্ধ অর্ডার",
   "swap_page.max": "ম্যাক্স",
   "swap_page.percentage_change": "(+{number}%)",
   "swap_page.provider.approve": "অনুমোদন করুন",
