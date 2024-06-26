@@ -350,7 +350,7 @@ export function getBtcXpubFromXprvt({
   const xprv = bufferUtils.toBuffer(privateKeyRaw);
 
   let xpub = '';
-  let pubKey = '';
+  // let pubKey = ''; // use getPublicKeyFromXpub get certain relPath 0/0 publicKey
 
   const xprvVersionBytesNum = parseInt(xprv.slice(0, 4).toString('hex'), 16);
 
@@ -379,11 +379,11 @@ export function getBtcXpubFromXprvt({
           xprv.fill(pubVersionBytes, 0, 4).fill(publicKey, 45, 78),
         );
         // const publicKeyStr1 = keyPair.publicKey.toString('hex');
-        const publicKeyStr2 = publicKey.toString('hex');
+        // const publicKeyStr2 = publicKey.toString('hex');
         // TODO publicKey is different with HD account
         //  - hd "03171d7528ce1cc199f2b8ce29ad7976de0535742169a8ba8b5a6dd55df7e589d1"
         //  - imported "020da363502074fefdfbb07ec47abc974207951dcb1aa3c910f4a768e2c70f9c68"
-        pubKey = publicKeyStr2;
+        // pubKey = publicKeyStr2;
       } catch (e) {
         console.error(e);
       }
@@ -393,7 +393,7 @@ export function getBtcXpubFromXprvt({
   if (xpub === '') {
     throw new OneKeyInternalError('Invalid X Private Key.');
   }
-  return { xpub, pubKey };
+  return { xpub };
 }
 
 export function getBtcVersionBytesToEncodings({
