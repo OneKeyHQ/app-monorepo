@@ -31,7 +31,6 @@ export const ipcMessageKeys = {
   APP_FOCUS: 'app/focus',
   APP_QUIT: 'app/quit',
   APP_RESTORE_MAIN_WINDOW: 'app/restoreMainWindow',
-  APP_CLEAR_WEBVIEW_DATA: 'app/clearWebViewData',
   APP_OPEN_PREFERENCES: 'app/openPreferences',
   APP_TOGGLE_MAXIMIZE_WINDOW: 'app/toggleMaximizeWindow',
   APP_RELOAD_BRIDGE_PROCESS: 'app/reloadBridgeProcess',

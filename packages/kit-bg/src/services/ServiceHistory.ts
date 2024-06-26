@@ -165,7 +165,7 @@ class ServiceHistory extends ServiceBase {
     // Merge the locally pending transactions, confirmed transactions, and on-chain history to return
 
     return unionBy(
-      [...pendingTxs, ...mergedConfirmedTxs, ...onChainHistoryTxs],
+      [...pendingTxs, ...confirmedTxsToSave, ...onChainHistoryTxs],
       (tx) => tx.id,
     );
   }
