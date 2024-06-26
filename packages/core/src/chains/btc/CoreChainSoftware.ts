@@ -64,12 +64,12 @@ import {
 } from './sdkBtc';
 import { buildPsbt } from './sdkBtc/providerUtils';
 
-import type { PsbtInput } from 'bip174/src/lib/interfaces';
-import type { Signer, networks } from 'bitcoinjs-lib';
-import type { ISigner } from '../../base/ChainSigner';
-import type { IBip32ExtendedKey, IBip32KeyDeriver } from '../../secret';
 import type { IGetAddressFromXpubResult } from './sdkBtc';
 import type { IBtcForkNetwork, IEncodedTxBtc } from './types';
+import type { ISigner } from '../../base/ChainSigner';
+import type { IBip32ExtendedKey, IBip32KeyDeriver } from '../../secret';
+import type { PsbtInput } from 'bip174/src/lib/interfaces';
+import type { Signer, networks } from 'bitcoinjs-lib';
 
 const curveName: ICurveName = 'secp256k1';
 // const a  = tweakSigner()
