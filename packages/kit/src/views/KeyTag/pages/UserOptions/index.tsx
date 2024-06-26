@@ -86,7 +86,7 @@ const UserOptions = () => {
             </ImageBackground>
           </Stack>
         </Stack>
-        {!platformEnv.isWeb ? (
+        {!platformEnv.isWebDappMode ? (
           <YStack>
             <ListItem
               icon="FolderUploadOutline"
