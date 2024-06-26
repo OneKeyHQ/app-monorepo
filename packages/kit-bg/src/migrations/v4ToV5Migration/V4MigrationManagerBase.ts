@@ -29,10 +29,6 @@ export class V4MigrationManagerBase {
     return v4context;
   }
 
-  getMigrationPassword() {
-    return this.backgroundApi.serviceV4Migration.getMigrationPassword();
-  }
-
   getCoreApi({ networkId }: { networkId: string }): CoreChainScopeBase {
     const impl = networkUtils.getNetworkImpl({ networkId });
     const coreApi = getCoreChainApiScopeByImpl({ impl });
