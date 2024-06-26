@@ -231,11 +231,15 @@ export const EditableView: FC<IEditableViewProps> = ({
     }) => (
       <EditableViewListItem
         item={item}
-        sectionIndex={sections.findIndex((_section) => _section === section)}
+        sectionIndex={
+          searchText.length > 0
+            ? 1
+            : sections.findIndex((_section) => _section === section)
+        }
         drag={drag}
       />
     ),
-    [sections],
+    [sections, searchText],
   );
 
   const renderSectionHeader = useCallback(
