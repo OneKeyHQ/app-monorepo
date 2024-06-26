@@ -12,7 +12,10 @@ import bs58check from 'bs58check';
 import { encode as VaruintBitCoinEncode } from 'varuint-bitcoin';
 
 import { IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  AddressNotSupportSignMethodError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -475,7 +478,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       !addressInfo.encoding ||
       (addressInfo.encoding && !supportedTypes.includes(addressInfo.encoding))
     ) {
-      throw new Error('Not support address type to sign');
+      throw new AddressNotSupportSignMethodError({
+        info: {
+          addressType: addressInfo.encoding as string,
+          signMethod: 'Bip322',
+        },
+      });
     }
 
     const outputScript = BitcoinJsAddress.toOutputScript(
