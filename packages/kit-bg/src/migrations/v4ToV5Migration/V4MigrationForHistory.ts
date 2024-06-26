@@ -3,13 +3,13 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { buildLocalHistoryKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { EV4LocalDBStoreNames } from './v4local/v4localDBStoreNames';
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 
 import type { IV4DBAccount, IV4DBUtxoAccount } from './v4local/v4localDBTypes';
 import type { IV4EncodedTx, IV4EncodedTxBtc, IV4HistoryTx } from './v4types';
-import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 export class V4MigrationForHistory extends V4MigrationManagerBase {
   async getV4Account({ accountId }: { accountId: string }) {

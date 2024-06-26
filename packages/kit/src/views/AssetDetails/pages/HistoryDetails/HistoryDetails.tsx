@@ -22,6 +22,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -49,7 +50,6 @@ import { InfoItem, InfoItemGroup } from './components/TxDetailsInfoItem';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
-import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 
 function getTxStatusTextProps(status: EDecodedTxStatus): {
   key: ETranslations;

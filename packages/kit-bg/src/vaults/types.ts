@@ -35,6 +35,7 @@ import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
+import type { IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
 
 import type {
   IAccountDeriveInfoMapBtc,
@@ -54,7 +55,6 @@ import type {
 } from '../dbs/local/types';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
-import { IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',

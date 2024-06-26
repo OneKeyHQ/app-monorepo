@@ -1,14 +1,14 @@
 import { useCallback } from 'react';
 
+import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type { EReplaceTxType } from '@onekeyhq/shared/types/tx';
-import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-import { usePromiseResult } from './usePromiseResult';
 import useAppNavigation from './useAppNavigation';
+import { usePromiseResult } from './usePromiseResult';
 
 function useReplaceTx({ historyTx }: { historyTx: IAccountHistoryTx }) {
   const navigation = useAppNavigation();
