@@ -117,7 +117,7 @@ function DevOverlayWindow() {
         </YStack>
       ),
     });
-  }, [navigation]);
+  }, [navigation, passwordSetting.isPasswordSet]);
 
   return (
     <Stack position="absolute" {...position}>
