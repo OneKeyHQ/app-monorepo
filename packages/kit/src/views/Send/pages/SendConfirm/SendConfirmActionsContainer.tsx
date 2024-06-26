@@ -7,7 +7,6 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
@@ -176,7 +175,7 @@ function SendConfirmActionsContainer(props: IProps) {
       }}
       onConfirmText={
         signOnly
-          ? 'Sign'
+          ? intl.formatMessage({ id: ETranslations.global_sign })
           : intl.formatMessage({ id: ETranslations.global_confirm })
       }
       onConfirm={handleOnConfirm}
