@@ -94,6 +94,7 @@ function createBackgroundMethodDecorator({
       // );
     }
 
+    console.log('---methodName', methodName);
     if (devOnly) {
       // @ts-ignore
       target[`${prefix}${methodName}`] = function (p1, ...others) {
