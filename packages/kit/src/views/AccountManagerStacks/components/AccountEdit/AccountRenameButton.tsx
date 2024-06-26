@@ -30,6 +30,7 @@ export function AccountRenameButton({
       onClose={onClose}
       onPress={async () => {
         showRenameDialog(name, {
+          indexedAccount,
           onSubmit: async (newName) => {
             if (indexedAccount?.id && newName) {
               await serviceAccount.setAccountName({

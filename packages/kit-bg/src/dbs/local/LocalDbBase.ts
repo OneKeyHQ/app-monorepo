@@ -61,6 +61,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBAccountDerivation,
@@ -91,7 +92,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -1785,10 +1785,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }) {
     const accountId = account.id;
     const { indexedAccountId, address, addressDetail, type } = account;
-    let id = `${networkId}--${address}`;
+    let id = address ? `${networkId}--${address}` : '';
     if (type === EDBAccountType.SIMPLE) {
       const impl = networkUtils.getNetworkImpl({ networkId });
-      id = `${impl}--${addressDetail.normalizedAddress}`;
+      id = addressDetail?.normalizedAddress
+        ? `${impl}--${addressDetail?.normalizedAddress}`
+        : '';
+    }
+    if (!id) {
+      return;
     }
     const walletId = accountUtils.getWalletIdFromAccountId({
       accountId,
@@ -1864,14 +1869,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async addAccountsToWallet({
+    allAccountsBelongToNetworkId,
     walletId,
     accounts,
     importedCredential,
     accountNameBuilder,
   }: {
+    allAccountsBelongToNetworkId?: string; // pass this only if all accounts belong to the same network
     walletId: string;
     accounts: IDBAccount[];
     importedCredential?: ICoreImportedCredentialEncryptHex | undefined;
+    // accountNameBuilder for watching, imported, external account
     accountNameBuilder?: (data: { nextAccountId: number }) => string;
   }): Promise<void> {
     const db = await this.readyDb;
@@ -2007,6 +2015,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
       // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
     });
+
+    if (allAccountsBelongToNetworkId) {
+      for (const account of accounts) {
+        try {
+          await this.saveAccountAddresses({
+            networkId: allAccountsBelongToNetworkId,
+            account: account as any,
+          });
+        } catch (error) {
+          //
+        }
+      }
+    }
   }
 
   // ---------------------------------------------- account
@@ -2030,6 +2051,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         )
         .map((account) => this.refillAccountInfo({ account })),
     };
+  }
+
+  async getAccountsInSameIndexedAccountId({
+    indexedAccountId,
+  }: {
+    indexedAccountId: string;
+  }) {
+    const db = await this.readyDb;
+    const { records: accounts } = await db.getAllRecords({
+      name: ELocalDBStoreNames.Account,
+    });
+    return accounts
+      .filter(
+        (account) =>
+          account.indexedAccountId === indexedAccountId && indexedAccountId,
+      )
+      .map((account) => this.refillAccountInfo({ account }));
   }
 
   async getAccount({ accountId }: { accountId: string }): Promise<IDBAccount> {
