@@ -41,13 +41,6 @@ import v4MigrationUtils from './v4MigrationUtils';
 import { EV4DBAccountType } from './v4types';
 
 import type {
-  IDBAccount,
-  IDBDevice,
-  IDBDeviceSettings,
-  IDBUtxoAccount,
-  IDBWallet,
-} from '../../dbs/local/types';
-import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
   IV4MigrationWallet,
@@ -63,6 +56,13 @@ import type {
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
 } from './v4local/v4localDBTypes';
+import type {
+  IDBAccount,
+  IDBDevice,
+  IDBDeviceSettings,
+  IDBUtxoAccount,
+  IDBWallet,
+} from '../../dbs/local/types';
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({

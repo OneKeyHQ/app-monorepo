@@ -374,7 +374,7 @@ class ServiceV4Migration extends ServiceBase {
           }
         }
         const migrationPayload: IV4MigrationPayload = {
-          v5password: v5password,
+          v5password,
           v4password: isV4PasswordEqualToV5 === true ? v5password : '',
           isV4PasswordEqualToV5,
           migrateV4PasswordOk,
