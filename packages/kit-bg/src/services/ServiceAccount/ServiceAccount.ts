@@ -1,3 +1,4 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { isEmpty } from 'lodash';
 
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
@@ -27,6 +28,10 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import {
+  isHardwareErrorByCode,
+  isHardwareInterruptErrorByCode,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -299,8 +304,22 @@ class ServiceAccount extends ServiceBase {
             hideCheckingDeviceLoading,
           });
           addedAccounts.push({ networkId, deriveType });
-        } catch (error) {
-          //
+        } catch (error: any) {
+          // Some high priority errors need to interrupt the process
+          if (accountUtils.isHwWallet({ walletId })) {
+            if (isHardwareInterruptErrorByCode({ error })) {
+              throw error;
+            }
+            // Unplug device?
+            if (
+              isHardwareErrorByCode({
+                error,
+                code: HardwareErrorCode.DeviceNotFound,
+              })
+            ) {
+              throw error;
+            }
+          }
         }
       }
       return { addedAccounts };
