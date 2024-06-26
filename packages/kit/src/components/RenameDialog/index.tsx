@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
 import type { ISelectItem } from '@onekeyhq/components';
@@ -39,16 +40,22 @@ function V4AccountNameSelector({
         },
       );
     console.log(accounts);
-    return accounts.map((account) => {
-      const item: ISelectItem = {
-        label: account.name,
-        value: account.name,
-        leading: (
-          <NetworkAvatar networkId={v4CoinTypeToNetworkId[account.coinType]} />
-        ),
-      };
-      return item;
-    });
+    return accounts
+      .map((account) => {
+        const networkId = v4CoinTypeToNetworkId[account.coinType];
+        const item: ISelectItem & {
+          networkId?: string;
+        } = {
+          label: account.name,
+          value: account.name,
+          leading: <NetworkAvatar networkId={networkId} />,
+          networkId,
+        };
+        return item;
+      })
+      .sort((a, b) =>
+        natsort({ insensitive: true })(a.networkId || '', b.networkId || ''),
+      );
   }, [indexedAccount.id]);
 
   return (
