@@ -1,6 +1,9 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Input, View, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
@@ -8,6 +11,7 @@ import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import useAppNavigation from '../../hooks/useAppNavigation';
 
 export function UniversalSearchInput() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const toUniversalSearchPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
@@ -23,7 +27,9 @@ export function UniversalSearchInput() {
         containerProps={{ w: '100%' }}
         size="small"
         key="searchInput"
-        placeholder="Search address"
+        placeholder={intl.formatMessage({
+          id: ETranslations.global_search_address,
+        })}
       />
       <View
         position="absolute"

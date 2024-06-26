@@ -8,6 +8,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
@@ -502,11 +504,17 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     const peerAddresses = await this.requestAccounts({ connector });
 
     if (!peerAddresses.includes(account.address as any)) {
-      throw new Error(`Address not matched: ${networkId} ${account.address}`);
+      throw new Error(
+        `${appLocale.intl.formatMessage({
+          id: ETranslations.feedback_address_not_matched,
+        })}: ${networkId} ${account.address}`,
+      );
     }
     if (chainId !== peerChainIdNum.toString()) {
       throw new Error(
-        `NetworkId not matched: ${networkId} peerChainId=${peerChainIdNum}`,
+        `${appLocale.intl.formatMessage({
+          id: ETranslations.global_network_not_matched,
+        })}: ${networkId} peerChainId=${peerChainIdNum}`,
       );
     }
   }
