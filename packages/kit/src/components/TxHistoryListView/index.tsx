@@ -175,7 +175,7 @@ function TxHistoryListView(props: IProps) {
       onContentSizeChange={onContentSizeChange}
       data={filteredHistory}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
-      estimatedItemSize={48}
+      estimatedItemSize={116}
       renderItem={({
         item,
         index,

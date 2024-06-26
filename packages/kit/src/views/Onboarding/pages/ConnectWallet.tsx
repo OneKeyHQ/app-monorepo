@@ -291,14 +291,16 @@ function WalletItem({
         });
       if (!loadingRef.current) {
         Toast.error({
-          title: 'User canceled connect wallet',
+          title: intl.formatMessage({
+            id: ETranslations.feedback_connection_request_denied,
+          }),
         });
         return;
       }
       const r = await backgroundApiProxy.serviceAccount.addExternalAccount({
         connectResult,
       });
-      const account = r.accounts[0];
+      const account = r?.accounts?.[0];
       const usedNetworkId = accountUtils.getAccountCompatibleNetwork({
         account,
         networkId: account.createAtNetwork || selectedAccount.networkId,
@@ -318,6 +320,7 @@ function WalletItem({
     actions,
     connectionInfo,
     hideLoading,
+    intl,
     navigation,
     selectedAccount.networkId,
     showLoading,

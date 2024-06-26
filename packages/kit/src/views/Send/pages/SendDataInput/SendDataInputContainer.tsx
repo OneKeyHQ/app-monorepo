@@ -14,6 +14,7 @@ import {
   TextArea,
   XStack,
   useForm,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -59,6 +60,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 function SendDataInputContainer() {
   const intl = useIntl();
+  const media = useMedia();
 
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -152,11 +154,7 @@ function SendDataInputContainer() {
           checkInscriptionProtectionEnabled && settings.inscriptionProtection;
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId,
-          accountAddress,
-          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId,
-            networkId,
-          }),
+          accountId,
           contractList: [tokenInfo.address],
           withFrozenBalance: true,
           withCheckInscription,
@@ -399,6 +397,7 @@ function SendDataInputContainer() {
   const handleValidateTokenAmount = useCallback(
     async (value: string) => {
       const amountBN = new BigNumber(value ?? 0);
+
       let isInsufficientBalance = false;
       let isLessThanMinTransferAmount = false;
       if (isUseFiat) {
@@ -462,17 +461,31 @@ function SendDataInputContainer() {
         return (e as Error).message;
       }
 
+      if (
+        !isNFT &&
+        tokenDetails?.info.isNative &&
+        amountBN.isZero() &&
+        !vaultSettings?.transferZeroNativeTokenEnabled
+      ) {
+        return intl.formatMessage({
+          id: ETranslations.send_cannot_send_amount_zero,
+        });
+      }
+
       return true;
     },
     [
+      isNFT,
+      tokenDetails?.info.isNative,
+      tokenDetails?.fiatValue,
+      tokenDetails?.price,
+      tokenDetails?.balanceParsed,
+      vaultSettings?.transferZeroNativeTokenEnabled,
+      vaultSettings?.minTransferAmount,
       isUseFiat,
       intl,
       tokenSymbol,
       tokenMinAmount,
-      vaultSettings?.minTransferAmount,
-      tokenDetails?.fiatValue,
-      tokenDetails?.price,
-      tokenDetails?.balanceParsed,
       form,
       accountId,
       networkId,
@@ -562,6 +575,14 @@ function SendDataInputContainer() {
           }}
           inputProps={{
             placeholder: '0',
+            ...(isUseFiat && {
+              leftAddOnProps: {
+                label: currencySymbol,
+                pr: '$0',
+                pl: '$3.5',
+                mr: '$-2',
+              },
+            }),
           }}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: isNFT
@@ -710,7 +731,6 @@ function SendDataInputContainer() {
 
   const renderPaymentIdForm = useCallback(() => {
     if (!displayPaymentIdForm) return null;
-
     return (
       <>
         <XStack pt="$5" />
@@ -731,16 +751,22 @@ function SendDataInputContainer() {
                 !hexUtils.isHexString(hexUtils.addHexPrefix(value)) ||
                 hexUtils.stripHexPrefix(value).length !== 64
               ) {
-                return 'Payment ID must be a 64 char hex string';
+                return intl.formatMessage({
+                  id: ETranslations.form_payment_id_error_text,
+                });
               }
             },
           }}
         >
-          <TextArea numberOfLines={2} size="large" placeholder="Payment ID" />
+          <TextArea
+            numberOfLines={2}
+            size={media.gtMd ? 'medium' : 'large'}
+            placeholder="Payment ID"
+          />
         </Form.Field>
       </>
     );
-  }, [displayPaymentIdForm, intl]);
+  }, [displayPaymentIdForm, intl, media.gtMd]);
 
   const renderDataInput = useCallback(() => {
     if (isNFT) {

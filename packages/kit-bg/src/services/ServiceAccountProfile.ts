@@ -1,6 +1,6 @@
 import qs from 'querystring';
 
-import { isNil, omitBy } from 'lodash';
+import { isNil, omit, omitBy } from 'lodash';
 
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import {
@@ -11,7 +11,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IAddressInteractionStatus,
   IAddressValidateStatus,
@@ -48,12 +47,36 @@ class ServiceAccountProfile extends ServiceBase {
   public async fetchAccountDetails(
     params: IFetchAccountDetailsParams,
   ): Promise<IFetchAccountDetailsResp> {
+    const { accountId, networkId } = params;
+
+    const [accountAddress, xpub] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    const queryParams = {
+      ...omit(params, ['accountId']),
+      accountAddress,
+      xpub,
+    };
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.get<{
       data: IFetchAccountDetailsResp;
-    }>(`/wallet/v1/account/get-account?${qs.stringify(omitBy(params, isNil))}`);
+    }>(
+      `/wallet/v1/account/get-account?${qs.stringify(
+        omitBy(queryParams, isNil),
+      )}`,
+    );
 
-    return resp.data.data;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.fillAccountDetails({ accountDetails: resp.data.data });
   }
 
   @backgroundMethod()
@@ -178,7 +201,7 @@ class ServiceAccountProfile extends ServiceBase {
   @backgroundMethod()
   public async queryAddress({
     networkId,
-    address,
+    address: rawAddress,
     accountId,
     enableNameResolve,
     enableAddressBook,
@@ -187,7 +210,8 @@ class ServiceAccountProfile extends ServiceBase {
     enableVerifySendFundToSelf,
     skipValidateAddress,
   }: IQueryCheckAddressArgs) {
-    const result: IAddressQueryResult = { input: address };
+    const address = rawAddress.trim();
+    const result: IAddressQueryResult = { input: rawAddress };
     if (!networkId) {
       return result;
     }
@@ -319,12 +343,13 @@ class ServiceAccountProfile extends ServiceBase {
       request,
     );
     const data = resp.data.data.data;
-    if (data.some((item) => !item.success)) {
+    const failedRequest = data.find((item) => !item.success);
+    if (failedRequest) {
       if (returnRawData) {
         // @ts-expect-error
         return data;
       }
-      throw new Error('Failed to send proxy request');
+      throw new Error(failedRequest.error ?? 'Failed to send proxy request');
     }
     return data.map((item) => item.data);
   }

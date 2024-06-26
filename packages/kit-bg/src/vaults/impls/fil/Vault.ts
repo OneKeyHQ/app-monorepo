@@ -19,7 +19,7 @@ import {
   encodeSensitiveText,
   uncompressPublicKey,
 } from '@onekeyhq/core/src/secret';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -87,7 +87,7 @@ export default class Vault extends VaultBase {
     const networkInfo = await this.getNetworkInfo();
     const network = await this.getNetwork();
 
-    let address = account.addresses[networkId];
+    let address = account.address || account.addresses?.[networkId] || '';
 
     if (account.pub) {
       const pubUncompressed = uncompressPublicKey(
@@ -182,7 +182,7 @@ export default class Vault extends VaultBase {
     const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
       networkId: this.networkId,
-      accountAddress,
+      accountId: this.accountId,
     });
 
     const transfer: IDecodedTxTransferInfo = {

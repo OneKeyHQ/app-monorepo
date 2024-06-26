@@ -2,11 +2,22 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, ESwitchSize, Switch, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  ESwitchSize,
+  Input,
+  SizableText,
+  Stack,
+  Switch,
+  Toast,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
@@ -58,11 +69,25 @@ export const DevSettingsSection = () => {
         onPress={handleDevModeOnChange}
       />
       {platformEnv.isDesktop ? (
-        <SectionPressItem
-          title="Open Chrome DevTools in Desktop"
-          subtitle="重启后会在导航栏的菜单栏中出现相关按钮"
-          onPress={handleOpenDevTools}
-        />
+        <>
+          <SectionPressItem
+            title="Open Chrome DevTools in Desktop"
+            subtitle="重启后会在导航栏的菜单栏中出现相关按钮"
+            onPress={handleOpenDevTools}
+          />
+          <SectionPressItem
+            title="Print Env Path in Desktop"
+            subtitle="getEnvPath()"
+            onPress={async () => {
+              const envPath = window?.desktopApi.getEnvPath();
+              console.log(envPath);
+              Dialog.show({
+                title: 'getEnvPath',
+                description: JSON.stringify(envPath),
+              });
+            }}
+          />
+        </>
       ) : null}
       {platformEnv.githubSHA ? (
         <SectionPressItem
@@ -146,57 +171,123 @@ export const DevSettingsSection = () => {
         title="Clear App Data (E2E release only)"
         testID="clear-data-menu"
         onPress={() => {
+          let devOnlyPwd = '';
           Dialog.show({
             title: '!!!!  Danger Zone: Clear all your data',
-            description:
-              'This is a feature specific to development environments. Function used to erase all data in the app.',
             confirmButtonProps: {
               variant: 'destructive',
               testID: 'clear-double-confirm'
             },
+            renderContent: (
+              <Stack>
+                <SizableText>
+                  This is a feature specific to development environments.
+                  Function used to erase all data in the app.
+                </SizableText>
+                <Stack mt="$4">
+                  <Input
+                    placeholder="devOnlyPassword"
+                    onChangeText={(v) => {
+                      devOnlyPwd = v;
+                    }}
+                  />
+                </Stack>
+              </Stack>
+            ),
             onConfirm: () => {
+              if (!isCorrectDevOnlyPassword(devOnlyPwd)) {
+                return;
+              }
+              const params: IBackgroundMethodWithDevOnlyPassword = {
+                $$devOnlyPassword: devOnlyPwd,
+              };
               const dialog = Dialog.cancel({
                 title: 'Clear App Data (E2E release only)',
                 renderContent: (
                   <YStack>
                     <SectionPressItem
-                      title="Clear Dapp Data"
-                      testID="clear-dapp-data"
+                      title="Clear Discovery Data"
+                      testID="clear-discovery-data"
                       onPress={async () => {
-                        await backgroundApiProxy.serviceE2E.clearDiscoveryPageData();
-                        await dialog.close();
+                        await backgroundApiProxy.serviceE2E.clearDiscoveryPageData(
+                          params,
+                        );
+                        Toast.success({
+                          title: 'Success',
+                        });
                       }}
                     />
                     <SectionPressItem
-                      title="Clear Contacts Data"
-                      testID="clear-contacts-data"
+                      title="Clear Address Book Data"
+                      testID="clear-address-book-data"
                       onPress={async () => {
-                        await backgroundApiProxy.serviceE2E.dangerClearDataForE2E();
-                        await dialog.close();
+                        await backgroundApiProxy.serviceE2E.clearAddressBook(
+                          params,
+                        );
+                        Toast.success({
+                          title: 'Success',
+                        });
                       }}
                     />
                     <SectionPressItem
                       title="Clear Wallets & Accounts Data"
                       testID="clear-wallets-data"
                       onPress={async () => {
-                        await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts();
-                        await dialog.close();
+                        await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts(
+                          params,
+                        );
+                        Toast.success({
+                          title: 'Success',
+                        });
                       }}
                     />
                     <SectionPressItem
                       title="Clear Password"
                       testID="clear-password"
-                      onPress={() => {
-                        void backgroundApiProxy.serviceE2E.resetPasswordSetStatus();
-                        void dialog.close();
+                      onPress={async () => {
+                        await backgroundApiProxy.serviceE2E.clearPassword(
+                          params,
+                        );
+                        Toast.success({
+                          title: 'Success',
+                        });
                       }}
                     />
+
                     <SectionPressItem
-                      title="Wallet Connect Session"
+                      title="Clear History"
+                      testID="clear-history"
+                      onPress={async () => {
+                        await backgroundApiProxy.serviceE2E.clearHistoryData(
+                          params,
+                        );
+                        Toast.success({
+                          title: 'Success',
+                        });
+                      }}
+                    />
+
+                    <SectionPressItem
+                      title="Clear Settings"
+                      testID="clear-settings"
+                      onPress={async () => {
+                        await backgroundApiProxy.serviceE2E.clearSettings(
+                          params,
+                        );
+                        Toast.success({
+                          title: 'Success',
+                        });
+                      }}
+                    />
+
+                    <SectionPressItem
+                      title="Clear Wallet Connect Sessions"
                       testID="wallet-connect-session"
-                      onPress={() => {
-                        void backgroundApiProxy.serviceWalletConnect.disconnectAllSessions();
-                        void dialog.close();
+                      onPress={async () => {
+                        await backgroundApiProxy.serviceWalletConnect.disconnectAllSessions();
+                        Toast.success({
+                          title: 'Success',
+                        });
                       }}
                     />
                   </YStack>

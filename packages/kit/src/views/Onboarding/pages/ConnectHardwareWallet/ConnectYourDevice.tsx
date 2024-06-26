@@ -38,7 +38,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   BleLocationServiceError,
@@ -59,6 +58,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -122,26 +122,6 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
   );
 }
 
-function ConnectByQrCodeComingSoon() {
-  const intl = useIntl();
-
-  return (
-    <Stack flex={1} alignItems="center" justifyContent="center">
-      <SizableText
-        textAlign="center"
-        color="$textSubdued"
-        maxWidth="$80"
-        pb="$5"
-      >
-        {intl.formatMessage({
-          id: ETranslations.coming_soon,
-        })}
-      </SizableText>
-    </Stack>
-  );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ConnectByQrCode() {
   const {
     start: startScan,
@@ -190,6 +170,28 @@ function ConnectByQrCode() {
       >
         {intl.formatMessage({ id: ETranslations.global_scan_to_connect })}
       </Button>
+    </Stack>
+  );
+}
+
+function ConnectByQrCodeComingSoon() {
+  const intl = useIntl();
+  if (process.env.NODE_ENV !== 'production') {
+    return <ConnectByQrCode />;
+  }
+
+  return (
+    <Stack flex={1} alignItems="center" justifyContent="center">
+      <SizableText
+        textAlign="center"
+        color="$textSubdued"
+        maxWidth="$80"
+        pb="$5"
+      >
+        {intl.formatMessage({
+          id: ETranslations.coming_soon,
+        })}
+      </SizableText>
     </Stack>
   );
 }
@@ -702,9 +704,9 @@ function ConnectByUSBOrBLE({
 
   const checkBLEState = useCallback(async () => {
     // hack missing getBleManager.
-    await uiDeviceUtils.getBleManager();
+    await bleManagerInstance.getBleManager();
     await timerUtils.wait(100);
-    const bleManager = await uiDeviceUtils.getBleManager();
+    const bleManager = await bleManagerInstance.getBleManager();
     const checkState = await bleManager?.checkState();
     return checkState === 'on';
   }, []);

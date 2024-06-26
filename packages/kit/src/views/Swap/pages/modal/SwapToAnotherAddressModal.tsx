@@ -41,7 +41,6 @@ const SwapToAnotherAddressPage = () => {
   const { accountInfo, networkId, address } = useSwapAddressInfo(
     ESwapDirectionType.TO,
   );
-
   const [, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
   const intl = useIntl();

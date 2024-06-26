@@ -29,6 +29,7 @@ import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
+  IFetchAccountDetailsResp,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
   IPrivateKeyValidation,
@@ -48,6 +49,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
+import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -489,10 +491,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       functionCall: {
         from: tx.from,
         to: tx.to,
-        functionName: tx.type,
+        functionName: tx.label,
         functionHash: tx.functionCode,
         args: tx.params,
-        icon: network.logoURI,
       },
     };
   }
@@ -508,7 +509,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       unknownAction: {
         from: tx.from,
         to: tx.to,
-        icon: network.logoURI,
+        label: tx.label,
       },
     };
   }
@@ -770,5 +771,21 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async getAccountXpub(): Promise<string | undefined> {
     return ((await this.getAccount()) as IDBUtxoAccount).xpub;
+  }
+
+  async fillTokensDetails({
+    tokensDetails,
+  }: {
+    tokensDetails: IFetchTokenDetailItem[];
+  }) {
+    return Promise.resolve(tokensDetails);
+  }
+
+  async fillAccountDetails({
+    accountDetails,
+  }: {
+    accountDetails: IFetchAccountDetailsResp;
+  }) {
+    return Promise.resolve(accountDetails);
   }
 }

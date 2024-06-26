@@ -4,14 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ISelectItem, ISelectProps } from '@onekeyhq/components';
-import { IconButton, Select } from '@onekeyhq/components';
+import { Select } from '@onekeyhq/components';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
@@ -24,7 +23,6 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 
 type IDeriveTypeSelectorTriggerPropsBase = {
-  miniMode?: boolean;
   renderTrigger?: ISelectProps<ISelectItem>['renderTrigger'];
   placement?: ComponentProps<typeof Select>['placement'];
 };
@@ -34,33 +32,10 @@ type IDeriveTypeSelectorTriggerProps = IDeriveTypeSelectorTriggerPropsBase & {
   onChange?: (type: IAccountDeriveTypes) => void;
 };
 
-const renderMiniModeTrigger = () => (
-  <IconButton
-    title={appLocale.intl.formatMessage({
-      id: ETranslations.global_switch_address,
-    })}
-    icon="RepeatOutline"
-    size="small"
-    variant="tertiary"
-    iconProps={{
-      size: '$4.5',
-    }}
-    mx="$0"
-    $platform-native={{
-      hitSlop: {
-        right: 8,
-        top: 8,
-        bottom: 8,
-      },
-    }}
-  />
-);
-
 function DeriveTypeSelectorTriggerView({
   items,
   value: deriveType,
   onChange: onDeriveTypeChange,
-  miniMode,
   renderTrigger,
   placement,
   testID,
@@ -68,15 +43,6 @@ function DeriveTypeSelectorTriggerView({
   testID?: string;
 }) {
   const intl = useIntl();
-  const renderTriggerElement = useMemo(() => {
-    if (renderTrigger) {
-      return renderTrigger;
-    }
-    if (miniMode) {
-      return renderMiniModeTrigger;
-    }
-    return undefined;
-  }, [miniMode, renderTrigger]);
 
   return (
     <>
@@ -90,7 +56,7 @@ function DeriveTypeSelectorTriggerView({
         value={deriveType}
         onChange={onDeriveTypeChange}
         title={intl.formatMessage({ id: ETranslations.derivation_path })}
-        renderTrigger={renderTriggerElement}
+        renderTrigger={renderTrigger}
       />
     </>
   );
@@ -161,7 +127,6 @@ export function DeriveTypeSelectorTriggerStaticInput(
 
 export function DeriveTypeSelectorTrigger({
   num,
-  miniMode,
   renderTrigger,
   placement,
 }: IDeriveTypeSelectorTriggerPropsBase & {
@@ -178,24 +143,17 @@ export function DeriveTypeSelectorTrigger({
 
   const options = useMemo(
     () =>
-      deriveInfoItems
-        .map(({ value, label, item, description, descI18n }) => ({
-          value,
-          label: item.labelKey
-            ? intl.formatMessage({ id: item.labelKey })
-            : label,
-          item,
-          description: descI18n
-            ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
-            : description,
-        }))
-        .filter((info) => {
-          if (info.item.disableWalletTypes && wallet?.type) {
-            return !info.item.disableWalletTypes.includes(wallet?.type);
-          }
-          return true;
-        }),
-    [deriveInfoItems, intl, wallet?.type],
+      deriveInfoItems.map(({ value, label, item, description, descI18n }) => ({
+        value,
+        label: item.labelKey
+          ? intl.formatMessage({ id: item.labelKey })
+          : label,
+        item,
+        description: descI18n
+          ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
+          : description,
+      })),
+    [deriveInfoItems, intl],
   );
 
   if (!isStorageReady) {
@@ -230,7 +188,6 @@ export function DeriveTypeSelectorTrigger({
           deriveType: type,
         });
       }}
-      miniMode={miniMode}
       renderTrigger={renderTrigger}
       placement={placement}
     />
@@ -239,7 +196,6 @@ export function DeriveTypeSelectorTrigger({
 
 export function DeriveTypeSelectorTriggerStandAlone({
   networkId,
-  miniMode,
   renderTrigger,
   placement,
 }: {
@@ -272,7 +228,6 @@ export function DeriveTypeSelectorTriggerStandAlone({
         });
         setDeriveTypeChangedTs(Date.now());
       }}
-      miniMode={miniMode}
       renderTrigger={renderTrigger}
       placement={placement}
     />

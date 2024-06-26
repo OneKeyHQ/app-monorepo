@@ -66,7 +66,7 @@ export function OpenInAppButton({
               <Button
                 mb="$4"
                 onPress={() => {
-                  console.log('URL Account openByApp deepLinkUrl', deepLinkUrl);
+                  console.log('deepLinkUrl', deepLinkUrl);
                   void openUrlUtils.linkingOpenURL(deepLinkUrl);
                 }}
               >

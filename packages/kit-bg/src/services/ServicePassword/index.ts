@@ -13,6 +13,7 @@ import {
   getBgSensitiveTextEncodeKey,
   revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   backgroundClass,
   backgroundMethod,
@@ -228,11 +229,16 @@ export default class ServicePassword extends ServiceBase {
       if (!authRes.success) {
         throw new OneKeyError.BiologyAuthFailed();
       }
+      const catchPassword = await this.getCachedPassword();
+      if (catchPassword) {
+        await this.saveBiologyAuthPassword(catchPassword);
+      } else {
+        throw new Error(
+          'no catch password please unlock the application again or modify the password.',
+        );
+      }
     }
-    await settingsPersistAtom.set((v) => ({
-      ...v,
-      isBiologyAuthSwitchOn: enable,
-    }));
+    await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(enable);
   }
 
   // validatePassword --------------------------------

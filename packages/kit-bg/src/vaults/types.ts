@@ -98,8 +98,6 @@ export interface IAccountDeriveInfo {
   desc?: string;
   subDesc?: string;
 
-  disableWalletTypes?: IDBWalletType[];
-
   // recommended?: boolean;
   // notRecommended?: boolean;
   enableConditions?: {
@@ -190,6 +188,8 @@ export type IVaultSettings = {
   ignoreUpdateNativeAmount?: boolean;
 
   withoutBroadcastTxId?: boolean;
+
+  transferZeroNativeTokenEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -222,7 +222,7 @@ export type IPrepareExternalAccountsParams = {
 export type IPrepareWatchingAccountsParams = {
   // target: string; // address, xpub TODO remove
   address: string;
-  networks?: string[]; // watching account only available networkId
+  networks?: string[]; // onlyAvailableOnCertainNetworks
   createAtNetwork: string;
   pub?: string;
   xpub?: string;
@@ -235,6 +235,7 @@ export type IPrepareWatchingAccountsParams = {
 export type IPrepareImportedAccountsParams = {
   password: string;
   importedCredential: ICoreImportedCredentialEncryptHex;
+  networks?: string[]; // onlyAvailableOnCertainNetworks
   createAtNetwork: string;
   name: string;
   template?: string; // TODO use deriveInfo

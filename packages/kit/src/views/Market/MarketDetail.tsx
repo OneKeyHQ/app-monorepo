@@ -104,7 +104,13 @@ function TokenDetailHeader({
       {gtMd ? (
         <MarketDetailOverview token={token} onContentSizeChange={() => {}} />
       ) : (
-        <XStack pt="$3" flex={1} ai="center" space="$2" flexWrap="wrap">
+        <XStack
+          flex={1}
+          ai="center"
+          alignContent="stretch"
+          flexWrap="wrap"
+          space="$5"
+        >
           <TextCell
             title={intl.formatMessage({ id: ETranslations.market_24h_vol_usd })}
           >
@@ -210,12 +216,12 @@ function MarketDetail({
   const renderHeaderRight = useCallback(
     () => (
       <XStack space="$6" ai="center">
-        {platformEnv.isNative ? null : (
+        {!platformEnv.isExtensionUiPopup && !platformEnv.isNative ? (
           <OpenInAppButton
             buildDeepLinkUrl={buildDeepLinkUrl}
             buildFullUrl={buildFullUrl}
           />
-        )}
+        ) : null}
         <HeaderIconButton
           icon="ShareOutline"
           onPress={async () => {

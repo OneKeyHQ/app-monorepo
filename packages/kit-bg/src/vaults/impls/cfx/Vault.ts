@@ -27,14 +27,14 @@ import type {
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import {
-  EDecodedTxActionType,
-  EDecodedTxStatus,
-} from '@onekeyhq/shared/types/tx';
 import type {
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -56,7 +56,6 @@ import type {
 } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -126,7 +125,7 @@ export default class Vault extends VaultBase {
     const networkInfo = await this.getNetworkInfo();
     const chainId = await this.getNetworkChainId();
 
-    let cfxAddress = account.addresses[networkId];
+    let cfxAddress = account.address || account.addresses?.[networkId] || '';
 
     if (account.pub) {
       const compressedPublicKey = bufferUtils.toBuffer(account.pub);
@@ -300,7 +299,7 @@ export default class Vault extends VaultBase {
     const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
       networkId: this.networkId,
-      accountAddress,
+      accountId: this.accountId,
       tokenIdOnNetwork: '',
     });
 
@@ -340,8 +339,8 @@ export default class Vault extends VaultBase {
       );
       const abiDecodeResult = crc20.abi.decodeData(encodedTx.data);
       const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+        accountId: this.accountId,
         networkId: this.networkId,
-        accountAddress,
         tokenIdOnNetwork: encodedTx.contract ?? encodedTx.to,
       });
       if (abiDecodeResult && tokenInfo) {
