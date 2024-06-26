@@ -432,6 +432,7 @@
   "feedback.address_mismatch": "ঠিকানা মিলছে না",
   "feedback.address_mismatch_desc": "ঠিকানা হার্ডওয়্যার ওয়ালেটের সাথে মিলছে না। এই ঠিকানা ব্যবহার করা বন্ধ করুন এবং আমাদের সাথে যোগাযোগ করুন।",
   "feedback.address_not_matched": "ঠিকানা মেলেনি",
+  "feedback.address_type_does_not_support_sign_method": "{addressType} সাইন করার পদ্ধতি {signMethod} সমর্থন করে না",
   "feedback.bluetooth_pairing_failed": "ব্লুটুথ পেয়ারিং ব্যর্থ হয়েছে",
   "feedback.bluetooth_unparied": "ব্লুটুথ আনপেয়ার হয়েছে",
   "feedback.change_saved": "পরিবর্তন সংরক্ষিত হয়েছে",

@@ -432,6 +432,7 @@
   "feedback.address_mismatch": "पता असंगत",
   "feedback.address_mismatch_desc": "यह पता हार्डवेयर वॉलेट से मेल नहीं खाता। तुरंत इस पते का उपयोग करना बंद करें और हमसे संपर्क करें।",
   "feedback.address_not_matched": "पता मेल नहीं खाता",
+  "feedback.address_type_does_not_support_sign_method": "{addressType} साइनिंग मेथड {signMethod} का समर्थन नहीं करता है",
   "feedback.bluetooth_pairing_failed": "ब्लूटूथ पेयरिंग विफल रही",
   "feedback.bluetooth_unparied": "ब्लूटूथ अनपेयर्ड",
   "feedback.change_saved": "परिवर्तन सहेजा गया",

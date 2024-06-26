@@ -432,6 +432,7 @@
   "feedback.address_mismatch": "Несоответствие адреса",
   "feedback.address_mismatch_desc": "Адрес не совпадает с аппаратным кошельком. Прекратите использовать этот адрес немедленно и свяжитесь с нами.",
   "feedback.address_not_matched": "Адрес не совпадает",
+  "feedback.address_type_does_not_support_sign_method": "{addressType} не поддерживает метод подписи {signMethod}",
   "feedback.bluetooth_pairing_failed": "Сопряжение Bluetooth не удалось",
   "feedback.bluetooth_unparied": "Bluetooth отключен",
   "feedback.change_saved": "Изменения сохранены",

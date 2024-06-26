@@ -432,6 +432,7 @@
   "feedback.address_mismatch": "Ketidakcocokan alamat",
   "feedback.address_mismatch_desc": "Alamat ini tidak cocok dengan dompet hardware. Berhenti menggunakan alamat ini segera dan hubungi kami.",
   "feedback.address_not_matched": "Alamat tidak cocok",
+  "feedback.address_type_does_not_support_sign_method": "{addressType} tidak mendukung metode penandatanganan {signMethod}",
   "feedback.bluetooth_pairing_failed": "Pasangan Bluetooth gagal",
   "feedback.bluetooth_unparied": "Bluetooth tidak dipasangkan",
   "feedback.change_saved": "Perubahan disimpan",

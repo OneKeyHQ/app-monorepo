@@ -432,6 +432,7 @@
   "feedback.address_mismatch": "Невідповідність адреси",
   "feedback.address_mismatch_desc": "Адреса не збігається з апаратним гаманцем. Негайно припиніть використовувати цю адресу та зв'яжіться з нами.",
   "feedback.address_not_matched": "Адресу не знайдено",
+  "feedback.address_type_does_not_support_sign_method": "{addressType} не підтримує метод підпису {signMethod}",
   "feedback.bluetooth_pairing_failed": "Помилка підключення Bluetooth",
   "feedback.bluetooth_unparied": "Bluetooth роз'єднано",
   "feedback.change_saved": "Зміни збережено",

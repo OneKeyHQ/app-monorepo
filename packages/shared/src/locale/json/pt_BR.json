@@ -432,6 +432,7 @@
   "feedback.address_mismatch": "Incompatibilidade de endereço",
   "feedback.address_mismatch_desc": "O endereço não corresponde à carteira de hardware. Pare de usar este endereço imediatamente e entre em contato conosco.",
   "feedback.address_not_matched": "Endereço não correspondente",
+  "feedback.address_type_does_not_support_sign_method": "O {addressType} não suporta o método de assinatura {signMethod}",
   "feedback.bluetooth_pairing_failed": "Falha no pareamento Bluetooth",
   "feedback.bluetooth_unparied": "Bluetooth despareado",
   "feedback.change_saved": "Mudança salva",
