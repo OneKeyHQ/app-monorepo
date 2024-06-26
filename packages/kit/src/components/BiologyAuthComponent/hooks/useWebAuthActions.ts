@@ -1,12 +1,16 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Toast } from '@onekeyhq/components';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 export const useWebAuthActions = () => {
+  const intl = useIntl();
   const [{ webAuthCredentialId: credId }, setPasswordPersist] =
     usePasswordPersistAtom();
   const setWebAuthEnable = useCallback(
@@ -16,7 +20,9 @@ export const useWebAuthActions = () => {
         // web auth must be called in ui context for extension
         webAuthCredentialId = await registerWebAuth();
         if (!webAuthCredentialId) {
-          Toast.error({ title: 'Failed to register Touch Id' });
+          Toast.error({
+            title: intl.formatMessage({ id: ETranslations.Toast_web_auth }),
+          });
         }
       }
       setPasswordPersist((v) => ({
@@ -25,7 +31,7 @@ export const useWebAuthActions = () => {
       }));
       return webAuthCredentialId;
     },
-    [setPasswordPersist],
+    [intl, setPasswordPersist],
   );
 
   const verifiedPasswordWebAuth = useCallback(async () => {

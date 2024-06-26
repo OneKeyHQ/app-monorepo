@@ -1,5 +1,6 @@
 // This file is automatically created by `yarn fetch:locale`.
 export enum ETranslations {
+  Toast_web_auth = 'Toast_web_auth',
   account_model_watched = 'account_model.watched',
   action_save = 'action_save',
   address_verify_address_instruction = 'address.verify_address_instruction',
@@ -432,6 +433,8 @@ export enum ETranslations {
   fee_max_fee = 'fee.max_fee',
   feedback_address_mismatch = 'feedback.address_mismatch',
   feedback_address_mismatch_desc = 'feedback.address_mismatch_desc',
+  feedback_address_not_matched = 'feedback.address_not_matched',
+  feedback_address_type_does_not_support_sign_method = 'feedback.address_type_does_not_support_sign_method',
   feedback_bluetooth_pairing_failed = 'feedback.bluetooth_pairing_failed',
   feedback_bluetooth_unparied = 'feedback.bluetooth_unparied',
   feedback_change_saved = 'feedback.change_saved',
@@ -718,6 +721,7 @@ export enum ETranslations {
   global_set_password = 'global.set_password',
   global_setings_up = 'global.setings_up',
   global_show_recovery_phrase = 'global.show_recovery_phrase',
+  global_sign = 'global.sign',
   global_single_chain_account = 'global.single_chain_account',
   global_speed_up = 'global.speed_up',
   global_start_connection = 'global.start_connection',
@@ -1285,6 +1289,9 @@ export enum ETranslations {
   swap_page_button_wrap = 'swap_page.button_wrap',
   swap_page_from = 'swap_page.from',
   swap_page_limit = 'swap_page.limit',
+  swap_page_limit_dialog_button = 'swap_page.limit_dialog_button',
+  swap_page_limit_dialog_content = 'swap_page.limit_dialog_content',
+  swap_page_limit_dialog_title = 'swap_page.limit_dialog_title',
   swap_page_max = 'swap_page.max',
   swap_page_percentage_change = 'swap_page.percentage_change',
   swap_page_provider_approve = 'swap_page.provider.approve',

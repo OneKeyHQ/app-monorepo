@@ -172,5 +172,6 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.FinalizeWalletSetup,
     component: FinalizeWalletSetup,
+    allowDisableClose: true,
   },
 ];
