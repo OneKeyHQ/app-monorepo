@@ -449,6 +449,7 @@ class ServiceAccount extends ServiceBase {
         // addHDOrHWAccounts
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
         await localDb.addAccountsToWallet({
+          allAccountsBelongToNetworkId: networkId,
           walletId,
           accounts,
         });
@@ -704,6 +705,7 @@ class ServiceAccount extends ServiceBase {
     }
 
     await localDb.addAccountsToWallet({
+      allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts,
       importedCredential: credentialEncrypt,
@@ -900,6 +902,7 @@ class ServiceAccount extends ServiceBase {
     }
 
     await localDb.addAccountsToWallet({
+      allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts,
       accountNameBuilder: ({ nextAccountId }) =>

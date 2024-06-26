@@ -1069,6 +1069,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                       });
                       // TODO use service add hw account
                       await v5localDb.addAccountsToWallet({
+                        allAccountsBelongToNetworkId: networkId,
                         walletId: v5wallet?.id,
                         accounts: [v5account],
                       });
