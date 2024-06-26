@@ -2167,11 +2167,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     ],
     'explorers': [
       {
-        'address': 'https://explorer.mainnet.near.org/accounts/{address}',
-        'block': 'https://explorer.mainnet.near.org/blocks/{block}',
-        'name': 'https://explorer.mainnet.near.org/',
-        'transaction':
-          'https://explorer.mainnet.near.org/transactions/{transaction}',
+        'address': 'https://nearblocks.io/address/{address}',
+        'block': 'https://nearblocks.io/blocks/{block}',
+        'name': 'https://nearblocks.io',
+        'transaction': 'https://nearblocks.io/txns/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 
 import type {
@@ -11,7 +12,10 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  UnsupportedAddressTypeError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
@@ -48,7 +52,6 @@ export class KeyringHardware extends KeyringHardwareBase {
             showOnOnekeyFn,
           }) => {
             const sdk = await this.getHardwareSDKInstance();
-
             const response = await sdk.solGetAddress(connectId, deviceId, {
               ...params.deviceParams.deviceCommonParams,
               bundle: usedIndexes.map((index, arrIndex) => ({
@@ -61,6 +64,17 @@ export class KeyringHardware extends KeyringHardwareBase {
                 chainId: Number(chainId),
               })),
             });
+
+            if (
+              !response.success &&
+              response.payload.code === HardwareErrorCode.RuntimeError &&
+              response.payload.error.indexOf(
+                'Failure_DataError,Forbidden key path',
+              ) !== -1
+            ) {
+              throw new UnsupportedAddressTypeError();
+            }
+
             return response;
           },
         });

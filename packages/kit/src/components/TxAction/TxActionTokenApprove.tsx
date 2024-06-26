@@ -58,7 +58,6 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
   const title = intl.formatMessage({ id: ETranslations.global_approve });
   const avatar: ITxActionCommonListViewProps['avatar'] = {
     src: approveIcon,
-    fallbackIcon: 'ImageMountainSolid',
   };
   const description = {
     children: accountUtils.shortenAddress({

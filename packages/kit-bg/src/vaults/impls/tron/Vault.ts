@@ -473,7 +473,11 @@ export default class Vault extends VaultBase {
         address,
       });
     }
-    return Promise.reject(new InvalidAddress());
+    return Promise.resolve({
+      isValid: false,
+      normalizedAddress: '',
+      displayAddress: '',
+    });
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {

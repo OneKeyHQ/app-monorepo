@@ -31,7 +31,14 @@ function TxActionCommonAvatar({
   const containerSize = '$10';
 
   if (!avatar.src || typeof avatar.src === 'string') {
-    return <Token size="lg" isNFT={avatar.isNFT} tokenImageUri={avatar.src} />;
+    return (
+      <Token
+        size="lg"
+        isNFT={avatar.isNFT}
+        fallbackIcon={avatar.fallbackIcon}
+        tokenImageUri={avatar.src}
+      />
+    );
   }
 
   return (
@@ -42,7 +49,12 @@ function TxActionCommonAvatar({
       justifyContent="flex-end"
     >
       <Stack position="absolute" left="$0" top="$0">
-        <Token size="sm" isNFT={avatar.isNFT} tokenImageUri={avatar.src[0]} />
+        <Token
+          size="sm"
+          isNFT={avatar.isNFT}
+          fallbackIcon={avatar.fallbackIcon}
+          tokenImageUri={avatar.src[0]}
+        />
       </Stack>
       <Stack
         borderWidth={2}
@@ -50,7 +62,12 @@ function TxActionCommonAvatar({
         borderRadius="$full"
         zIndex={1}
       >
-        <Token size="sm" isNFT={avatar.isNFT} tokenImageUri={avatar.src[1]} />
+        <Token
+          size="sm"
+          isNFT={avatar.isNFT}
+          fallbackIcon={avatar.fallbackIcon}
+          tokenImageUri={avatar.src[1]}
+        />
       </Stack>
     </Stack>
   );
@@ -297,6 +314,7 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
         renderContent={
           <XStack alignItems="center" space="$3" minWidth={0}>
             <Token
+              fallbackIcon={overview.avatar?.fallbackIcon}
               isNFT={overview.avatar?.isNFT}
               tokenImageUri={overview.avatar?.src}
             />

@@ -132,7 +132,9 @@ export type IDecodedTxActionBase = {
   icon?: string;
 };
 
-export type IDecodedTxActionUnknown = IDecodedTxActionBase;
+export type IDecodedTxActionUnknown = IDecodedTxActionBase & {
+  label?: string;
+};
 
 export type IDecodedTxTransferInfo = {
   from: string;

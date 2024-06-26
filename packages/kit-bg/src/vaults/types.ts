@@ -98,8 +98,6 @@ export interface IAccountDeriveInfo {
   desc?: string;
   subDesc?: string;
 
-  disableWalletTypes?: IDBWalletType[];
-
   // recommended?: boolean;
   // notRecommended?: boolean;
   enableConditions?: {

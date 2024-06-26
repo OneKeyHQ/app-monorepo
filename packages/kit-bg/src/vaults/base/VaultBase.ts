@@ -491,10 +491,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       functionCall: {
         from: tx.from,
         to: tx.to,
-        functionName: tx.type,
+        functionName: tx.label,
         functionHash: tx.functionCode,
         args: tx.params,
-        icon: network.logoURI,
       },
     };
   }
@@ -510,7 +509,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       unknownAction: {
         from: tx.from,
         to: tx.to,
-        icon: network.logoURI,
+        label: tx.label,
       },
     };
   }

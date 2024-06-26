@@ -437,19 +437,27 @@ function TxFeeContainer(props: IProps) {
     }
   }, [selectedFee, updateSendSelectedFeeInfo]);
 
+  // useEffect(() => {
+  //   void backgroundApiProxy.serviceGas
+  //     .getFeePresetIndex({
+  //       networkId,
+  //     })
+  //     .then((presetIndex) => {
+  //       const index = presetIndex ?? vaultSettings?.defaultFeePresetIndex;
+  //       if (!isNil(index)) {
+  //         updateSendSelectedFee({
+  //           presetIndex: index,
+  //         });
+  //       }
+  //     });
+  // }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
+
   useEffect(() => {
-    void backgroundApiProxy.serviceGas
-      .getFeePresetIndex({
-        networkId,
-      })
-      .then((presetIndex) => {
-        const index = presetIndex ?? vaultSettings?.defaultFeePresetIndex;
-        if (!isNil(index)) {
-          updateSendSelectedFee({
-            presetIndex: index,
-          });
-        }
+    if (!isNil(vaultSettings?.defaultFeePresetIndex)) {
+      updateSendSelectedFee({
+        presetIndex: vaultSettings?.defaultFeePresetIndex,
       });
+    }
   }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
 
   useEffect(() => {

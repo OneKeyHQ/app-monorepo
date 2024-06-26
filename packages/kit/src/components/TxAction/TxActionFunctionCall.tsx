@@ -48,7 +48,7 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
   const title = functionName;
   const avatar: ITxActionCommonListViewProps['avatar'] = {
     src: functionIcon,
-    fallbackIcon: 'ImageMountainSolid',
+    fallbackIcon: 'Document2Outline',
   };
   const description = {
     children: accountUtils.shortenAddress({ address: functionTo }),
@@ -86,6 +86,7 @@ function TxActionFunctionCallDetailView(props: ITxActionProps) {
         content: functionName,
         avatar: {
           src: functionIcon,
+          fallbackIcon: 'Document2Outline',
         },
       }}
       target={{

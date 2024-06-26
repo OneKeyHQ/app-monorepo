@@ -143,24 +143,17 @@ export function DeriveTypeSelectorTrigger({
 
   const options = useMemo(
     () =>
-      deriveInfoItems
-        .map(({ value, label, item, description, descI18n }) => ({
-          value,
-          label: item.labelKey
-            ? intl.formatMessage({ id: item.labelKey })
-            : label,
-          item,
-          description: descI18n
-            ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
-            : description,
-        }))
-        .filter((info) => {
-          if (info.item.disableWalletTypes && wallet?.type) {
-            return !info.item.disableWalletTypes.includes(wallet?.type);
-          }
-          return true;
-        }),
-    [deriveInfoItems, intl, wallet?.type],
+      deriveInfoItems.map(({ value, label, item, description, descI18n }) => ({
+        value,
+        label: item.labelKey
+          ? intl.formatMessage({ id: item.labelKey })
+          : label,
+        item,
+        description: descI18n
+          ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
+          : description,
+      })),
+    [deriveInfoItems, intl],
   );
 
   if (!isStorageReady) {
