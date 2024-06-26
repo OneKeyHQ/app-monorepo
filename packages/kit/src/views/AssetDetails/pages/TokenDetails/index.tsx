@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -16,6 +16,7 @@ import {
   Stack,
   XStack,
   YStack,
+  getFontToken,
   useClipboard,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
@@ -344,18 +345,14 @@ export function TokenDetails() {
   //   );
   // }, [media.gtMd, network?.logoURI, tokenInfo.address]);
 
-  const customHeaderTitle = useCallback(
-    () => (
-      <Heading size="$headingLg" numberOfLines={1}>
-        {tokenInfo.name ?? tokenDetails?.info.name}
-      </Heading>
-    ),
-    [tokenDetails?.info.name, tokenInfo.name],
-  );
-
+  const headerTitleStyle = useMemo(() => getFontToken('$headingLg'), []);
   return (
     <Page>
-      <Page.Header headerTitle={customHeaderTitle} headerRight={headerRight} />
+      <Page.Header
+        headerTitle={tokenInfo.name ?? tokenDetails?.info.name}
+        headerTitleStyle={headerTitleStyle as any}
+        headerRight={headerRight}
+      />
       <Page.Body>
         <ProviderJotaiContextHistoryList>
           <TxHistoryListView
