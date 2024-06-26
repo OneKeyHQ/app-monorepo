@@ -22,4 +22,16 @@ export class V4MigrationForSecurePassword extends V4MigrationManagerBase {
     }
     return false;
   }
+
+  async writeSecurePasswordToV5() {
+    const isBiologyAuthSwitchOn =
+      await this.backgroundApi.serviceSetting.getBiologyAuthSwitchOn();
+    if (isBiologyAuthSwitchOn) {
+      const password =
+        await this.backgroundApi.servicePassword.getCachedPassword();
+      if (password) {
+        await biologyAuthUtils.savePassword(password);
+      }
+    }
+  }
 }
