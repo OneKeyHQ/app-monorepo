@@ -432,7 +432,6 @@
   "feedback.address_mismatch": "Indirizzo non corrispondente",
   "feedback.address_mismatch_desc": "L'indirizzo non corrisponde al portafoglio hardware. Smetti immediatamente di utilizzare questo indirizzo e contattaci.",
   "feedback.address_not_matched": "Indirizzo non corrispondente",
-  "feedback.address_type_does_not_support_sign_method": "Il {addressType} non supporta il metodo di firma {signMethod}",
   "feedback.bluetooth_pairing_failed": "Associazione Bluetooth non riuscita",
   "feedback.bluetooth_unparied": "Bluetooth non accoppiato",
   "feedback.change_saved": "Modifica salvata",

@@ -432,7 +432,6 @@
   "feedback.address_mismatch": "Adressenabweichung",
   "feedback.address_mismatch_desc": "Die Adresse stimmt nicht mit der Hardware-Wallet überein. Hören Sie sofort auf, diese Adresse zu verwenden und kontaktieren Sie uns.",
   "feedback.address_not_matched": "Adresse nicht zugeordnet",
-  "feedback.address_type_does_not_support_sign_method": "Die {addressType} unterstützt die {signMethod} Signaturmethode nicht",
   "feedback.bluetooth_pairing_failed": "Bluetooth-Kopplung fehlgeschlagen",
   "feedback.bluetooth_unparied": "Bluetooth entkoppelt",
   "feedback.change_saved": "Änderung gespeichert",

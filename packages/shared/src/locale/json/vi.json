@@ -432,7 +432,6 @@
   "feedback.address_mismatch": "Địa chỉ không khớp",
   "feedback.address_mismatch_desc": "Địa chỉ không khớp với ví cứng. Ngừng sử dụng địa chỉ này ngay lập tức và liên hệ với chúng tôi.",
   "feedback.address_not_matched": "Địa chỉ không khớp",
-  "feedback.address_type_does_not_support_sign_method": "{addressType} không hỗ trợ phương pháp ký kết {signMethod}",
   "feedback.bluetooth_pairing_failed": "Kết nối Bluetooth thất bại",
   "feedback.bluetooth_unparied": "Bluetooth đã hủy kết nối",
   "feedback.change_saved": "Thay đổi đã được lưu",

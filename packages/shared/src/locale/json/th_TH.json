@@ -432,7 +432,6 @@
   "feedback.address_mismatch": "ที่อยู่ไม่ตรงกัน",
   "feedback.address_mismatch_desc": "ที่อยู่ไม่ตรงกับกระเป๋าสตางค์ฮาร์ดแวร์ หยุดการใช้งานที่อยู่นี้ทันทีและติดต่อเรา",
   "feedback.address_not_matched": "ไม่พบที่อยู่",
-  "feedback.address_type_does_not_support_sign_method": "{addressType} ไม่สนับสนุนวิธีการลงชื่อ {signMethod}",
   "feedback.bluetooth_pairing_failed": "การจับคู่ Bluetooth ล้มเหลว",
   "feedback.bluetooth_unparied": "ยกเลิกการเชื่อมต่อ Bluetooth",
   "feedback.change_saved": "การเปลี่ยนแปลงถูกบันทึกแล้ว",

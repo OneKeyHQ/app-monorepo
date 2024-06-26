@@ -432,7 +432,6 @@
   "feedback.address_mismatch": "住所が一致しません",
   "feedback.address_mismatch_desc": "アドレスがハードウェアウォレットと一致しません。すぐにこのアドレスの使用を停止し、私たちに連絡してください。",
   "feedback.address_not_matched": "住所が一致しません",
-  "feedback.address_type_does_not_support_sign_method": "{addressType}は{signMethod}署名方法をサポートしていません",
   "feedback.bluetooth_pairing_failed": "Bluetoothのペアリングに失敗しました",
   "feedback.bluetooth_unparied": "Bluetoothのペアリング解除",
   "feedback.change_saved": "変更が保存されました",

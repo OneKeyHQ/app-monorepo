@@ -433,7 +433,6 @@ export enum ETranslations {
   feedback_address_mismatch = 'feedback.address_mismatch',
   feedback_address_mismatch_desc = 'feedback.address_mismatch_desc',
   feedback_address_not_matched = 'feedback.address_not_matched',
-  feedback_address_type_does_not_support_sign_method = 'feedback.address_type_does_not_support_sign_method',
   feedback_bluetooth_pairing_failed = 'feedback.bluetooth_pairing_failed',
   feedback_bluetooth_unparied = 'feedback.bluetooth_unparied',
   feedback_change_saved = 'feedback.change_saved',
