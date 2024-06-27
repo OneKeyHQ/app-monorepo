@@ -41,7 +41,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
-import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import { buildTokenDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import ActionBuy from './ActionBuy';
@@ -222,7 +222,7 @@ export function TokenDetails() {
         ],
       });
 
-      const tokenDetailsUrl = buildExplorerAddressUrl({
+      const tokenDetailsUrl = buildTokenDetailsUrl({
         network,
         address: tokenInfo.address,
       });
