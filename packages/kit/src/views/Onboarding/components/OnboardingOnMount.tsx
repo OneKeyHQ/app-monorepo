@@ -1,5 +1,9 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import type { ICheckedState } from '@onekeyhq/components';
+import { Checkbox, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import { useV4migrationPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -12,10 +16,62 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
+function DowngradeWarningDialogContent({
+  onConfirm,
+}: {
+  onConfirm: (value: ICheckedState) => void;
+}) {
+  const intl = useIntl();
+  const [checkState, setCheckState] = useState(false as ICheckedState);
+  const handleConfirm = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        setTimeout(() => {
+          onConfirm(checkState);
+          resolve();
+        }, 0);
+      }),
+    [checkState, onConfirm],
+  );
+
+  return (
+    <YStack>
+      <SizableText>
+        {intl.formatMessage({
+          id: 'downgrade_warning_description',
+        })}
+      </SizableText>
+      <Checkbox
+        value={checkState}
+        label={intl.formatMessage({
+          id: 'downgrade_warning_checkbox_label',
+        })}
+        onChange={setCheckState}
+      />
+      <Dialog.Footer
+        confirmButtonProps={{
+          disabled: !checkState,
+        }}
+        onConfirm={handleConfirm}
+        onConfirmText={intl.formatMessage({
+          id: 'global_continue',
+        })}
+        showCancelButton={false}
+      />
+    </YStack>
+  );
+}
+
 function OnboardingOnMountCmp() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const v4migrationActions = useV4MigrationActions();
-  const [, setV4MigrationPersistAtom] = useV4migrationPersistAtom();
+  const [v4migrationPersistData, setV4MigrationPersistAtom] =
+    useV4migrationPersistAtom();
+  const downgradeWarningConfirmed =
+    v4migrationPersistData?.downgradeWarningConfirmed;
+  const downgradeWarningConfirmedRef = useRef(downgradeWarningConfirmed);
+  downgradeWarningConfirmedRef.current = downgradeWarningConfirmed;
 
   const checkOnboardingState = useCallback(
     async ({ checkingV4Migration }: { checkingV4Migration?: boolean } = {}) => {
@@ -56,6 +112,34 @@ function OnboardingOnMountCmp() {
     [navigation, setV4MigrationPersistAtom, v4migrationActions],
   );
 
+  const checkStateOnMount = useCallback(async () => {
+    if (!downgradeWarningConfirmedRef.current) {
+      const dialog = Dialog.show({
+        tone: 'warning',
+        icon: 'ShieldCheckDone', // ShieldCheckDone
+        showExitButton: false,
+        // TODO disable gesture close
+        showCancelButton: false,
+        dismissOnOverlayPress: false,
+        title: intl.formatMessage({ id: 'downgrade_warning_title' }),
+        renderContent: (
+          <DowngradeWarningDialogContent
+            onConfirm={() => {
+              setV4MigrationPersistAtom((v) => ({
+                ...v,
+                downgradeWarningConfirmed: true,
+              }));
+              void checkOnboardingState({ checkingV4Migration: true });
+              void dialog.close();
+            }}
+          />
+        ),
+      });
+      return;
+    }
+    await checkOnboardingState({ checkingV4Migration: true });
+  }, [checkOnboardingState, intl, setV4MigrationPersistAtom]);
+
   useEffect(() => {
     console.log('OnboardingOnMountOnMount');
   }, []);
@@ -73,9 +157,9 @@ function OnboardingOnMountCmp() {
   }, [v4migrationActions]);
 
   useEffect(() => {
-    console.log('OnboardingOnMount: checkOnboardingState on mount');
-    void checkOnboardingState({ checkingV4Migration: true });
-  }, [checkOnboardingState]);
+    console.log('OnboardingOnMount: checkStateOnMount on mount');
+    void checkStateOnMount();
+  }, [checkStateOnMount]);
 
   useEffect(() => {
     console.log('OnboardingOnMount: checkOnboardingState on appEventBus');
