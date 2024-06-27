@@ -37,10 +37,8 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
-import { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
-  IFetchAccountHistoryParams,
   IOnChainHistoryTx,
   IOnChainHistoryTxApprove,
   IOnChainHistoryTxNFT,
@@ -49,6 +47,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
+import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import type {
   IDecodedTx,
@@ -80,6 +79,7 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  INativeAmountInfo,
   ISignTransactionParams,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
@@ -316,7 +316,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return null;
   }
 
-  async precheckUnsignedTx(params: { unsignedTx: IUnsignedTxPro }) {
+  async precheckUnsignedTx(params: {
+    unsignedTx: IUnsignedTxPro;
+    precheckTiming: ESendPreCheckTimingEnum;
+    nativeAmountInfo?: INativeAmountInfo;
+  }) {
     return Promise.resolve(true);
   }
 
