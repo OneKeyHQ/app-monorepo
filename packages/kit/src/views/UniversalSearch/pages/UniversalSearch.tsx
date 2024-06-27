@@ -41,6 +41,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { MarketStar } from '../../Market/components/MarketStar';
+import { MarketTokenIcon } from '../../Market/components/MarketTokenIcon';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
 
 import { RecentSearched } from './components/RecentSearched';
@@ -222,9 +223,6 @@ export function UniversalSearch({
           return (
             <ListItem
               jc="space-between"
-              mx={0}
-              pl="$5"
-              pr={0}
               onPress={async () => {
                 navigation.pop();
                 setTimeout(async () => {
@@ -242,10 +240,7 @@ export function UniversalSearch({
                   }, 10);
                 }, 80);
               }}
-              avatarProps={{
-                src: decodeURIComponent(image),
-                size: '$10',
-              }}
+              renderAvatar={<MarketTokenIcon uri={image} size="$10" />}
               title={symbol.toUpperCase()}
               subtitle={name}
             >
