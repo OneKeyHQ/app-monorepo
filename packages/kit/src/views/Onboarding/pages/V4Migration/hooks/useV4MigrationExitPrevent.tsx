@@ -209,6 +209,17 @@ export function useExtensionV4MigrationFromExpandTab() {
   }, [actions]);
 }
 
+export function useIsV4MigrationAutoStartFirstTime() {
+  const [v4migrationPersistData] = useV4migrationPersistAtom();
+
+  const isAutoStartInFirstTime =
+    !v4migrationPersistData.v4migrationAutoStartDisabled &&
+    (!v4migrationPersistData?.v4migrationAutoStartCount ||
+      v4migrationPersistData?.v4migrationAutoStartCount <= 1);
+
+  return isAutoStartInFirstTime;
+}
+
 export function useV4MigrationExitPrevent({
   exitPreventMode,
   isAutoStartOnMount,
@@ -225,15 +236,10 @@ export function useV4MigrationExitPrevent({
   });
   const onConfirmText = intl.formatMessage({ id: ETranslations.global_exit });
   const onCancelText = intl.formatMessage({ id: ETranslations.global_cancel });
-  const [v4migrationPersistData] = useV4migrationPersistAtom();
+  const isAutoStartInFirstTime = useIsV4MigrationAutoStartFirstTime();
 
   // Prevents screen locking
   useKeepAwake();
-
-  const isAutoStartInFirstTime =
-    !v4migrationPersistData.v4migrationAutoStartDisabled &&
-    (!v4migrationPersistData?.v4migrationAutoStartCount ||
-      v4migrationPersistData?.v4migrationAutoStartCount <= 1);
 
   // Prevent Modal exit/back
   const shouldAlwaysPreventExit =

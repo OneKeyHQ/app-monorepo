@@ -478,7 +478,8 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       });
     return this.decryptV4HdCredential({
       v4dbCredential,
-      encodedPassword: await this.getMigrationPassword(),
+      encodedPassword:
+        await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }
 
@@ -499,7 +500,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       v4dbCredential,
       encodedPassword: password
         ? encodeSensitiveText({ text: password })
-        : await this.getMigrationPassword(),
+        : await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }
 
@@ -1069,6 +1070,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                       });
                       // TODO use service add hw account
                       await v5localDb.addAccountsToWallet({
+                        allAccountsBelongToNetworkId: networkId,
                         walletId: v5wallet?.id,
                         accounts: [v5account],
                       });
@@ -1188,8 +1190,8 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             });
             if (prepareResult) {
               const { networkId, index, deriveType } = prepareResult;
-              // TODO add addressMap to DB
               const result = await serviceAccount.addHDOrHWAccounts({
+                names: [v4account.name],
                 walletId: v5wallet.id,
                 networkId,
                 indexes: [index],
