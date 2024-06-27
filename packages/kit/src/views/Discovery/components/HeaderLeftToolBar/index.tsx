@@ -102,11 +102,17 @@ function HeaderLeftToolBar({
             testID: `action-header-item-${
               !isBookmark ? 'bookmark' : 'remove-bookmark'
             }`,
+            ...(isBookmark && {
+              iconColor: '$icon',
+            }),
           },
           {
             iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => onPinnedPress?.(!isPinned),
             testID: `action-header-item-${!isPinned ? 'pin' : 'un-pin'}`,
+            ...(isPinned && {
+              iconColor: '$icon',
+            }),
           },
         ]}
       />

@@ -20,6 +20,7 @@ export default function PageV4MigrationDevSettings() {
             setV4migrationData((v) => ({
               v4migrationAutoStartDisabled: false,
               v4migrationAutoStartCount: 0,
+              downgradeWarningConfirmed: false,
             }));
             Toast.message({ title: 'Done, please restart app' });
           }}
