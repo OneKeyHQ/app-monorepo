@@ -15,6 +15,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -34,6 +35,7 @@ import {
   type IOnChainHistoryTxToken,
 } from '@onekeyhq/shared/types/history';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -69,7 +71,6 @@ import type {
 } from '../../types';
 import type { Type } from '@polkadot/types';
 import type { Args, TypeRegistry } from '@substrate/txwrapper-polkadot';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 export default class VaultDot extends VaultBase {
   override coreApi = coreChainApi.dot.hd;
@@ -726,7 +727,14 @@ export default class VaultDot extends VaultBase {
   override async precheckUnsignedTx(params: {
     unsignedTx: IUnsignedTxPro;
     nativeAmountInfo?: INativeAmountInfo;
+    precheckTiming: ESendPreCheckTimingEnum;
   }): Promise<boolean> {
+    if (params.precheckTiming !== ESendPreCheckTimingEnum.Confirm) {
+      return true;
+    }
+    if (params.nativeAmountInfo?.maxSendAmount) {
+      return true;
+    }
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
     const decodedUnsignedTx = await this._decodeUnsignedTx(encodedTx);
@@ -742,13 +750,10 @@ export default class VaultDot extends VaultBase {
         return true;
       }
 
-      let { minAmount, balance } = await this._getMinAmount({
+      const { minAmount, balance } = await this._getMinAmount({
         accountAddress: encodedTx.address,
         withBalance: !params.nativeAmountInfo?.maxSendAmount,
       });
-      if (params.nativeAmountInfo?.maxSendAmount) {
-        balance = new BigNumber(params.nativeAmountInfo?.maxSendAmount ?? '0');
-      }
       const tokenAmount = new BigNumber(args.value);
       const gasLimit = new BigNumber(encodedTx.feeInfo?.gas?.gasLimit ?? '0');
       const gasPrice = new BigNumber(encodedTx.feeInfo?.gas?.gasPrice ?? '0');

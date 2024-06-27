@@ -11,6 +11,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
+  usePreCheckTxStatusAtom,
   useSendFeeStatusAtom,
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
@@ -54,6 +55,7 @@ function SendConfirmActionsContainer(props: IProps) {
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
+  const [preCheckTxStatus] = usePreCheckTxStatusAtom();
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -158,12 +160,14 @@ function SendConfirmActionsContainer(props: IProps) {
       return true;
 
     if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
+    if (preCheckTxStatus.errorMessage) return true;
   }, [
     sendFeeStatus.errMessage,
     isSubmitting,
     nativeTokenInfo.isLoading,
     sendTxStatus.isInsufficientNativeBalance,
     sendSelectedFeeInfo,
+    preCheckTxStatus.errorMessage,
   ]);
 
   usePageUnMounted(() => {

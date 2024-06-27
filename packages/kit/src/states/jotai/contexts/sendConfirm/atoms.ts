@@ -84,5 +84,12 @@ export const { atom: sendTxStatusAtom, use: useSendTxStatusAtom } =
     isInsufficientNativeBalance: false,
   });
 
+export const { atom: preCheckTxStatusAtom, use: usePreCheckTxStatusAtom } =
+  contextAtom<{
+    errorMessage?: string;
+  }>({
+    errorMessage: '',
+  });
+
 export const { atom: isSinglePresetAtom, use: useIsSinglePresetAtom } =
   contextAtom<boolean>(true);
