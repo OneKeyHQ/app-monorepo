@@ -35,6 +35,8 @@ class ProviderApiCosmos extends ProviderApiBase {
 
   private _queue = new Semaphore(1);
 
+  private signMessageSemaphore = new Semaphore(1);
+
   private async _getAccount(
     request: IJsBridgeMessagePayload,
     networkId: string,
@@ -54,6 +56,23 @@ class ProviderApiCosmos extends ProviderApiBase {
     }
 
     return account;
+  }
+
+  private async _switchNetwork(
+    request: IJsBridgeMessagePayload,
+    networkId: string,
+  ) {
+    const accounts = await this.getAccountsInfo(request);
+    const isSameNetwork = accounts.find(
+      (item) => item.accountInfo?.networkId === networkId,
+    );
+    if (!isSameNetwork) {
+      await this.backgroundApi.serviceDApp.switchConnectedNetwork({
+        origin: request.origin ?? '',
+        scope: request.scope ?? this.providerName,
+        newNetworkId: networkId,
+      });
+    }
   }
 
   public override notifyDappAccountsChanged(
@@ -377,30 +396,36 @@ class ProviderApiCosmos extends ProviderApiBase {
       data: string;
     },
   ) {
-    const paramsData = {
-      data: params.data,
-      signer: params.signer,
-    };
+    return this.signMessageSemaphore.runExclusive(async () => {
+      const paramsData = {
+        data: params.data,
+        signer: params.signer,
+      };
 
-    const networkId = this.convertCosmosChainId(params.chainId);
-    if (!networkId) throw new Error('Invalid chainId');
+      const networkId = this.convertCosmosChainId(params.chainId);
+      if (!networkId) throw new Error('Invalid chainId');
 
-    const account = await this._getAccount(request, networkId);
+      const account = await this._getAccount(request, networkId);
 
-    const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
-      request,
-      unsignedMessage: {
-        type: EMessageTypesCommon.SIGN_MESSAGE,
-        message: JSON.stringify(paramsData),
-        secure: true,
-      },
-      networkId,
-      accountId: account?.account.id ?? '',
-    })) as string;
+      await this._switchNetwork(request, networkId);
 
-    return deserializeTx(
-      hexToBytes(Buffer.from(result, 'base64').toString('hex')),
-    );
+      const result = (await this.backgroundApi.serviceDApp.openSignMessageModal(
+        {
+          request,
+          unsignedMessage: {
+            type: EMessageTypesCommon.SIMPLE_SIGN,
+            message: JSON.stringify(paramsData),
+            secure: true,
+          },
+          networkId,
+          accountId: account?.account.id ?? '',
+        },
+      )) as string;
+
+      return deserializeTx(
+        hexToBytes(Buffer.from(result, 'base64').toString('hex')),
+      );
+    });
   }
 
   @permissionRequired()
