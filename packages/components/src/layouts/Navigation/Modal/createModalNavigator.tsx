@@ -9,6 +9,7 @@ import { StackView } from '@react-navigation/stack';
 import _ from 'lodash';
 import { useWindowDimensions } from 'react-native';
 import { useMedia } from 'tamagui';
+import { useThrottledCallback } from 'use-debounce';
 
 import { useBackHandler } from '../../../hooks';
 import { Stack, YStack } from '../../../primitives/Stack';
@@ -79,7 +80,7 @@ function ModalNavigator({
 
   useBackHandler(handleBackPress);
 
-  const handleBackdropClick = useCallback(() => {
+  const handleBackdropClick = useThrottledCallback(() => {
     if (!descriptor.options.disableClose) {
       if (descriptor.options.dismissOnOverlayPress === false) {
         return;
@@ -90,7 +91,7 @@ function ModalNavigator({
         navigation?.getParent?.()?.goBack();
       }
     }
-  }, [navigation, descriptor]);
+  }, 350);
 
   const rootNavigation = navigation.getParent()?.getParent?.();
   const currentRouteIndex = useMemo(
