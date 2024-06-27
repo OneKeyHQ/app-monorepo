@@ -42,6 +42,8 @@ export interface INavSearchBarProps {
    * A callback that gets called when search bar has lost focus
    */
   onBlur?: (e: NativeSyntheticEvent<TargetedEvent>) => void;
+
+  onSearchTextChange?: (text: string) => void;
   /**
    * A callback that gets called when the text changes. It receives the current text value of the search bar.
    */

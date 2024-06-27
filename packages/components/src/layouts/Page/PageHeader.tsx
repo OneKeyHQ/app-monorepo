@@ -72,6 +72,7 @@ const PageHeader = (props: IPageHeaderProps) => {
       autoFocus={headerSearchBarOptions?.autoFocus}
       placeholder={headerSearchBarOptions?.placeholder}
       onChangeText={headerSearchBarOptions?.onChangeText}
+      onSearchTextChange={headerSearchBarOptions?.onSearchTextChange}
       onBlur={headerSearchBarOptions?.onBlur}
       onFocus={headerSearchBarOptions?.onFocus}
       onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
