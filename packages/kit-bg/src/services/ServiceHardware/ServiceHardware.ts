@@ -131,6 +131,7 @@ class ServiceHardware extends ServiceBase {
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
         title: (error as Error)?.message || 'Hardware SDK init failed',
+        hideRequestId: true,
       });
       throw error;
     }

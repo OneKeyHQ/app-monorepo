@@ -132,6 +132,7 @@ class ProviderApiWalletConnect {
         method: 'error',
         title: `ChainId: ${notSupportedChains[0]}`,
         message: 'Unsupported yet',
+        hideRequestId: true,
       });
       return;
     }
@@ -197,6 +198,7 @@ class ProviderApiWalletConnect {
         method: 'error',
         title: `ChainId: ${request.params.chainId}`,
         message: 'Unsupported yet',
+        hideRequestId: true,
       });
       return;
     }
