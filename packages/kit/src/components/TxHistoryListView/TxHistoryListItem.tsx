@@ -30,6 +30,7 @@ function TxHistoryListItem(props: IProps) {
   return (
     <TxHistoryListItemErrorBoundary>
       <TxActionsListView
+        replaceType={historyTx.replacedType}
         decodedTx={historyTx.decodedTx}
         tableLayout={tableLayout}
         showIcon={showIcon}

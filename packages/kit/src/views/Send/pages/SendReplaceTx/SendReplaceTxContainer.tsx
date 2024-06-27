@@ -2,14 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { cloneDeep, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
   Alert,
   Dialog,
-  Divider,
   Icon,
   IconButton,
   NumberSizeableText,
@@ -23,7 +22,6 @@ import {
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Container } from '@onekeyhq/kit/src/components/Container';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -108,6 +106,18 @@ function SendReplaceTxContainer() {
   const [isLoadingFeeInfo, setIsLoadingFeeInfo] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEstimateFeeInit = useRef(false);
+
+  const [feeInfoUsedAsRestBase, setFeeInfoUsedAsRestBase] = useState<{
+    gasLimit: string | undefined;
+    maxFeePerGas: string | undefined;
+    maxPriorityFeePerGas: string | undefined;
+    gasPrice: string | undefined;
+  }>({
+    gasLimit: undefined,
+    maxFeePerGas: undefined,
+    maxPriorityFeePerGas: undefined,
+    gasPrice: undefined,
+  });
 
   const [replaceFeeInfo, setReplaceFeeInfo] = useState<{
     gasLimit: string | undefined;
@@ -194,6 +204,12 @@ function SendReplaceTxContainer() {
             maxFeePerGas: normalFee.maxFeePerGas,
             maxPriorityFeePerGas: normalFee.maxPriorityFeePerGas,
           }));
+
+          setFeeInfoUsedAsRestBase((prev) => ({
+            ...prev,
+            maxFeePerGas: normalFee.maxFeePerGas,
+            maxPriorityFeePerGas: normalFee.maxPriorityFeePerGas,
+          }));
         }
       } else if (f.gas && f.gas[1] && replaceFeeInfo.gasPrice) {
         const normalFee = f.gas[1];
@@ -203,6 +219,10 @@ function SendReplaceTxContainer() {
           )
         ) {
           setReplaceFeeInfo((prev) => ({
+            ...prev,
+            gasPrice: normalFee.gasPrice,
+          }));
+          setFeeInfoUsedAsRestBase((prev) => ({
             ...prev,
             gasPrice: normalFee.gasPrice,
           }));
@@ -301,6 +321,25 @@ function SendReplaceTxContainer() {
     newFeeInfo,
   ]);
 
+  const shouldShowResetButton = useMemo(
+    () =>
+      replaceFeeInfo.gasLimit !== feeInfoUsedAsRestBase.gasLimit ||
+      replaceFeeInfo.maxFeePerGas !== feeInfoUsedAsRestBase.maxFeePerGas ||
+      replaceFeeInfo.maxPriorityFeePerGas !==
+        feeInfoUsedAsRestBase.maxPriorityFeePerGas ||
+      replaceFeeInfo.gasPrice !== feeInfoUsedAsRestBase.gasPrice,
+    [
+      feeInfoUsedAsRestBase.gasLimit,
+      feeInfoUsedAsRestBase.gasPrice,
+      feeInfoUsedAsRestBase.maxFeePerGas,
+      feeInfoUsedAsRestBase.maxPriorityFeePerGas,
+      replaceFeeInfo.gasLimit,
+      replaceFeeInfo.gasPrice,
+      replaceFeeInfo.maxFeePerGas,
+      replaceFeeInfo.maxPriorityFeePerGas,
+    ],
+  );
+
   const renderOriginalFee = useCallback(
     () => (
       <XStack space="$2">
@@ -369,7 +408,8 @@ function SendReplaceTxContainer() {
     if (!network) return;
 
     // Increase replacement transaction fee by 10% by default
-    setReplaceFeeInfo({
+
+    const targetFeeInfo = {
       gasLimit,
       maxFeePerGas: !isNil(originalMaxFeePerGas)
         ? new BigNumber(originalMaxFeePerGas)
@@ -386,7 +426,10 @@ function SendReplaceTxContainer() {
             .times(REPLACE_TX_FEE_UP_RATIO)
             .toFixed()
         : undefined,
-    });
+    };
+
+    setReplaceFeeInfo(targetFeeInfo);
+    setFeeInfoUsedAsRestBase(targetFeeInfo);
     setIsInit(true);
   }, [
     gasLimit,
@@ -515,6 +558,10 @@ function SendReplaceTxContainer() {
     replaceFeeInfo.maxPriorityFeePerGas,
   ]);
 
+  const handleResetFeeInfo = useCallback(() => {
+    setReplaceFeeInfo(feeInfoUsedAsRestBase);
+  }, [feeInfoUsedAsRestBase]);
+
   const renderContent = useCallback(() => {
     if (isLoadingFeeInfo || isLoadingTokenDetails)
       return (
@@ -582,17 +629,21 @@ function SendReplaceTxContainer() {
               onPress={handleEditReplaceTxFeeInfo}
             />
             {/* Show only after customizing the fee */}
-            <IconButton
-              title={intl.formatMessage({ id: ETranslations.global_reset })}
-              ml="$2"
-              icon="UndoOutline"
-            />
+            {shouldShowResetButton ? (
+              <IconButton
+                title={intl.formatMessage({ id: ETranslations.global_reset })}
+                ml="$2"
+                icon="UndoOutline"
+                onPress={handleResetFeeInfo}
+              />
+            ) : null}
           </XStack>
         </Stack>
       </>
     );
   }, [
     handleEditReplaceTxFeeInfo,
+    handleResetFeeInfo,
     intl,
     isInsufficientNativeBalance,
     isLoadingFeeInfo,
@@ -600,6 +651,7 @@ function SendReplaceTxContainer() {
     network?.symbol,
     renderNewFee,
     renderOriginalFee,
+    shouldShowResetButton,
   ]);
 
   const handleOnConfirm = useCallback(async () => {
