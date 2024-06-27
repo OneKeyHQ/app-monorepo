@@ -3,6 +3,7 @@ import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 
+import { settingsPersistAtom } from '../../states/jotai/atoms';
 import type { IV4ReduxSettingsState } from './v4types/v4typesRedux';
 
 const validThemeValue = ['light', 'dark', 'system'];
@@ -21,6 +22,31 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
     if (!v4Settings) {
       return;
     }
+
+    // instanceId
+    await this.v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        if (v4Settings.instanceId) {
+          const v5settings = await settingsPersistAtom.get();
+          if (!v5settings.instanceIdBackup) {
+            v5settings.instanceIdBackup = {
+              v4MigratedInstanceId: v4Settings.instanceId,
+              v5InitializedInstanceId: v5settings.instanceId,
+            };
+            v5settings.instanceId = v4Settings.instanceId;
+            await settingsPersistAtom.set((v) => ({
+              ...v,
+              ...v5settings,
+              instanceId: v4Settings.instanceId,
+            }));
+          }
+        }
+      },
+      {
+        name: 'migrationInstanceId',
+        errorResultFn: () => undefined,
+      },
+    );
 
     // set valid theme value
     await this.v4dbHubs.logger.runAsyncWithCatch(

@@ -15,6 +15,10 @@ export type ISettingsPersistAtom = {
   buildNumber?: string;
   reviewControl?: boolean;
   instanceId: string;
+  instanceIdBackup?: {
+    v4MigratedInstanceId: string|undefined;
+    v5InitializedInstanceId?: string|undefined;
+  };
   sensitiveEncodeKey: string;
   isBiologyAuthSwitchOn: boolean;
   protectCreateTransaction: boolean;

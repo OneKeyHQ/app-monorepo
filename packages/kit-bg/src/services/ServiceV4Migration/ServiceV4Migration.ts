@@ -10,6 +10,7 @@ import { IncorrectPassword } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -260,6 +261,13 @@ class ServiceV4Migration extends ServiceBase {
   @toastIfError()
   async migrateBaseSettings() {
     try {
+      const storageKey = '$$$_OneKey_V4Migration_BaseSettings_Migrated_$$$';
+      // migrateBaseSettings may cause app reload, so we should check
+      const isBaseSettingsMigrated = await appStorage.getItem(storageKey);
+      if (isBaseSettingsMigrated) {
+        return;
+      }
+      await appStorage.setItem(storageKey, 'true');
       await this.migrationSettings.migrateBaseSettings();
     } catch (error) {
       //

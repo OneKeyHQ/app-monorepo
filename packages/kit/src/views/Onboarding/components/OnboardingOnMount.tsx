@@ -59,6 +59,7 @@ function DowngradeWarningDialogContent({
   );
 }
 let lastAutoStartV4MigrationTime = 0;
+let isBaseSettingsMigrated = false;
 
 function OnboardingOnMountCmp() {
   const intl = useIntl();
@@ -84,7 +85,10 @@ function OnboardingOnMountCmp() {
           const shouldMigrateFromV4: boolean =
             await backgroundApiProxy.serviceV4Migration.checkShouldMigrateV4OnMount();
           if (shouldMigrateFromV4) {
-            await backgroundApiProxy.serviceV4Migration.migrateBaseSettings();
+            if (!isBaseSettingsMigrated) {
+              isBaseSettingsMigrated = true;
+              await backgroundApiProxy.serviceV4Migration.migrateBaseSettings();
+            }
             await timerUtils.wait(600);
             await v4migrationActions.navigateToV4MigrationPage({
               isAutoStartOnMount: true,
