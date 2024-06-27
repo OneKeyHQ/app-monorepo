@@ -127,19 +127,19 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
           errorResultFn: () => undefined,
         },
       );
-
-      // bio auth enable
-      await this.v4dbHubs.logger.runAsyncWithCatch(
-        async () => {
-          await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(
-            !!v4Settings.enableLocalAuthentication,
-          );
-        },
-        {
-          name: 'migrationBioAuthEnable',
-          errorResultFn: () => undefined,
-        },
-      );
     }
+
+    // bio auth enable
+    await this.v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(
+          !!v4Settings.enableLocalAuthentication,
+        );
+      },
+      {
+        name: 'migrationBioAuthEnable',
+        errorResultFn: () => undefined,
+      },
+    );
   }
 }
