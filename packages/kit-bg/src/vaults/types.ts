@@ -190,6 +190,8 @@ export type IVaultSettings = {
   withoutBroadcastTxId?: boolean;
 
   transferZeroNativeTokenEnabled?: boolean;
+
+  gasLimitValidationEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {

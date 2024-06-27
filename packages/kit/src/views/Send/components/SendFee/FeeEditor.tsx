@@ -387,22 +387,33 @@ function FeeEditor(props: IProps) {
   const handleValidateGasLimit = useCallback(
     (value: string) => {
       const gasLimit = new BigNumber(value || 0);
-      if (
-        gasLimit.isNaN() ||
-        gasLimit.isLessThan(DEFAULT_GAS_LIMIT_MIN) ||
-        gasLimit.isGreaterThan(DEFAULT_GAS_LIMIT_MAX)
-      ) {
+
+      if (vaultSettings?.gasLimitValidationEnabled) {
+        if (
+          gasLimit.isNaN() ||
+          gasLimit.isLessThan(DEFAULT_GAS_LIMIT_MIN) ||
+          gasLimit.isGreaterThan(DEFAULT_GAS_LIMIT_MAX)
+        ) {
+          return intl.formatMessage(
+            { id: ETranslations.form_gas_limit_error_range },
+            {
+              min: DEFAULT_GAS_LIMIT_MIN,
+              max: DEFAULT_GAS_LIMIT_MAX,
+            },
+          );
+        }
+      } else if (gasLimit.isNaN() || gasLimit.isLessThanOrEqualTo(0)) {
         return intl.formatMessage(
-          { id: ETranslations.form_gas_limit_error_range },
+          { id: ETranslations.form_must_greater_then_value },
           {
-            min: DEFAULT_GAS_LIMIT_MIN,
-            max: DEFAULT_GAS_LIMIT_MAX,
+            value: 0,
           },
         );
       }
+
       return true;
     },
-    [intl],
+    [intl, vaultSettings?.gasLimitValidationEnabled],
   );
 
   const handleValidateGasPrice = useCallback(
