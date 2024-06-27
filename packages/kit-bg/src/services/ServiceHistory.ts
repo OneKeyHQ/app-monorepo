@@ -17,7 +17,7 @@ import {
   type IFetchHistoryTxDetailsResp,
   type IFetchTxDetailsParams,
 } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 import type {
   IReplaceTxInfo,
   ISendTxOnSuccessData,
@@ -430,6 +430,11 @@ class ServiceHistory extends ServiceBase {
         newHistoryTx.replacedType = replaceTxInfo.replaceType;
         newHistoryTx.decodedTx.interactInfo =
           newHistoryTx.decodedTx.interactInfo || prevTx.decodedTx.interactInfo;
+
+        if (replaceTxInfo.replaceType === EReplaceTxType.Cancel) {
+          newHistoryTx.decodedTx.actions =
+            prevTx.decodedTx.actions || newHistoryTx.decodedTx.actions;
+        }
       }
     }
 

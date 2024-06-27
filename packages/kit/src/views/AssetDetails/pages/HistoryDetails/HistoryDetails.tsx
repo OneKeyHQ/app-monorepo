@@ -512,7 +512,7 @@ function HistoryDetails() {
     const status = historyTx.decodedTx.status;
     const { key, color } = getTxStatusTextProps(status);
     return (
-      <XStack h="$5" alignItems="center">
+      <XStack minHeight="$5" alignItems="center">
         <SizableText size="$bodyMdMedium" color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
