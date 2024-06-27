@@ -216,7 +216,14 @@ function HistoryDetails() {
     { watchLoading: true },
   );
 
-  const { handleReplaceTx, canReplaceTx } = useReplaceTx({ historyTx });
+  const handleReplaceTxSuccess = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
+
+  const { handleReplaceTx, canReplaceTx } = useReplaceTx({
+    historyTx,
+    onSuccess: handleReplaceTxSuccess,
+  });
 
   const [network, vaultSettings, txDetailsResp, nativeToken] =
     resp.result ?? [];

@@ -10,7 +10,13 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import useAppNavigation from './useAppNavigation';
 import { usePromiseResult } from './usePromiseResult';
 
-function useReplaceTx({ historyTx }: { historyTx: IAccountHistoryTx }) {
+function useReplaceTx({
+  historyTx,
+  onSuccess,
+}: {
+  historyTx: IAccountHistoryTx;
+  onSuccess?: () => void;
+}) {
   const navigation = useAppNavigation();
 
   const canReplaceTx = usePromiseResult(async () => {
@@ -58,10 +64,11 @@ function useReplaceTx({ historyTx }: { historyTx: IAccountHistoryTx }) {
           replaceType,
           replaceEncodedTx,
           historyTx,
+          onSuccess,
         },
       });
     },
-    [historyTx, navigation],
+    [historyTx, navigation, onSuccess],
   );
 
   return { canReplaceTx, handleReplaceTx };
