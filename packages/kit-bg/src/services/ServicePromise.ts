@@ -43,7 +43,9 @@ class ServicePromise extends ServiceBase {
   // TODO increase timeout as hardware sign transaction may take a long time
   //    can set timeout for each callback
   protected callbacksExpireTimeout: number = timerUtils.getTimeDurationMs({
-    minute: 10,
+    // ble update touch、pro firmware need more time
+    // 10 minutes => 30 minutes
+    minute: 30,
   });
 
   public createCallback({
