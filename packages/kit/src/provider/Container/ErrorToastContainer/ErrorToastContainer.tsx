@@ -16,17 +16,25 @@ export function ErrorToastContainer() {
   const { copyText } = useClipboard();
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
-      const message = p?.message ? `RequestId: ${p.message}` : undefined;
-      const actionsProps: IButtonProps | undefined = message
-        ? {
-            children: intl.formatMessage({ id: ETranslations.global_copy }),
-            my: '$2',
-            size: 'small',
-            onPress: () => {
+      let message: string | undefined;
+      if (p.hideRequestId && p.message) {
+        message = p.message;
+      } else if (p?.message) {
+        message = `RequestId: ${p.message}`;
+      }
+      let actionsProps: IButtonProps | undefined;
+      if (!p.hideRequestId && message) {
+        actionsProps = {
+          children: intl.formatMessage({ id: ETranslations.global_copy }),
+          my: '$2',
+          size: 'small',
+          onPress: () => {
+            if (message) {
               copyText(message);
-            },
-          }
-        : undefined;
+            }
+          },
+        };
+      }
       Toast[p.method]({
         ...p,
         message,

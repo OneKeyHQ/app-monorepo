@@ -18,6 +18,7 @@ import {
   nativeTokenInfoAtom,
   nativeTokenTransferAmountAtom,
   nativeTokenTransferAmountToUpdateAtom,
+  preCheckTxStatusAtom,
   sendFeeStatusAtom,
   sendSelectedFeeAtom,
   sendSelectedFeeInfoAtom,
@@ -114,6 +115,10 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
       set(sendTxStatusAtom(), status);
     },
   );
+
+  updatePreCheckTxStatus = contextAtomMethod((_, set, errorMessage: string) => {
+    set(preCheckTxStatusAtom(), { errorMessage });
+  });
 }
 
 const createActions = memoFn(() => {
@@ -135,6 +140,7 @@ export function useSendConfirmActions() {
   const updateSendTxStatus = actions.updateSendTxStatus.use();
   const updateNativeTokenInfo = actions.updateNativeTokenInfo.use();
   const updateIsSinglePreset = actions.updateIsSinglePreset.use();
+  const updatePreCheckTxStatus = actions.updatePreCheckTxStatus.use();
 
   return useRef({
     updateUnsignedTxs,
@@ -147,5 +153,6 @@ export function useSendConfirmActions() {
     updateSendTxStatus,
     updateNativeTokenInfo,
     updateIsSinglePreset,
+    updatePreCheckTxStatus,
   });
 }

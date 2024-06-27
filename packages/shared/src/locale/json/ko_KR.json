@@ -1488,6 +1488,8 @@
   "v4_migration.backup_title": "데이터를 백업하세요",
   "v4_migration.completed_desc": "지금 바로 OneKey v5의 흥미진진한 새로운 기능들을 탐험해보세요!",
   "v4_migration.completed_title": "마이그레이션이 완료되었습니다",
+  "v4_migration.downgrade_dialog_description": "OneKey v5로 업그레이드 한 후에는 v4로 다운그레이드하지 마십시오. 그렇게 하면 데이터 손실이 발생합니다.",
+  "v4_migration.downgrade_dialog_title": "당신의 데이터를 보호하세요",
   "v4_migration.update_in_progress": "업데이트 진행 중",
   "v4_migration.update_in_progress_alert_description": "많은 지갑을 가진 사용자의 경우, 마이그레이션에 몇 분이 걸릴 수 있습니다.",
   "v4_migration.update_in_progress_alert_title": "업데이트 중에 앱을 닫지 마세요",

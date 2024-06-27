@@ -73,16 +73,14 @@ class ServiceSignature extends ServiceBase {
     if (isSearch) {
       items = items
         .filter((item) => {
-          if (networkId && item.networkId === networkId) {
-            return true;
+          let match = true;
+          if (networkId) {
+            match = item.networkId === networkId;
           }
-          if (
-            address &&
-            item.address.toLowerCase().includes(address.toLowerCase())
-          ) {
-            return true;
+          if (match && address) {
+            match = item.address.toLowerCase().includes(address.toLowerCase());
           }
-          return false;
+          return match;
         })
         .sort((a, b) => b.createdAt - a.createdAt);
     }
@@ -130,16 +128,14 @@ class ServiceSignature extends ServiceBase {
     if (isSearch) {
       items = items
         .filter((item) => {
-          if (networkId && item.networkId === networkId) {
-            return true;
+          let match = true;
+          if (networkId) {
+            match = item.networkId === networkId;
           }
-          if (
-            address &&
-            item.address.toLowerCase().includes(address.toLowerCase())
-          ) {
-            return true;
+          if (address && match) {
+            match = item.address.toLowerCase().includes(address.toLowerCase());
           }
-          return false;
+          return match;
         })
         .sort((a, b) => b.createdAt - a.createdAt);
     }
@@ -212,14 +208,21 @@ class ServiceSignature extends ServiceBase {
     if (isSearch) {
       return items
         .filter((item) => {
+          let match = true;
           if (networkId) {
-            return item.networkIds.includes(networkId);
+            match = item.networkIds.includes(networkId);
           }
-          if (address && item.addresses.length) {
-            const allAddresses = item.addresses.map((o) => o.toLowerCase());
-            return allAddresses.some((o) => o.includes(address.toLowerCase()));
+          if (match && address) {
+            if (item.addresses.length) {
+              const allAddresses = item.addresses.map((o) => o.toLowerCase());
+              match = allAddresses.some((o) =>
+                o.includes(address.toLowerCase()),
+              );
+            } else {
+              match = false;
+            }
           }
-          return false;
+          return match;
         })
         .sort((a, b) => b.createdAt - a.createdAt);
     }
