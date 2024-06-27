@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
 
@@ -31,13 +32,15 @@ function PoolDetailsItem({
   isNumeric?: boolean;
   formatter?: INumberSizeableTextProps['formatter'];
 }) {
+  const [settings] = useSettingsPersistAtom();
+  const currencySymbol = settings.currencyInfo.symbol;
   const renderChildren = useMemo(() => {
     if (isNumeric) {
       return (
         <NumberSizeableText
           size="$bodyMdMedium"
           formatter={formatter}
-          formatterOptions={currency ? { currency: '$' } : undefined}
+          formatterOptions={currency ? { currency: currencySymbol } : undefined}
         >
           {children as string}
         </NumberSizeableText>
@@ -48,7 +51,7 @@ function PoolDetailsItem({
     ) : (
       children
     );
-  }, [children, currency, formatter, isNumeric]);
+  }, [children, currency, currencySymbol, formatter, isNumeric]);
   return (
     <YStack
       pb="$3"
