@@ -698,7 +698,7 @@ export default class Vault extends VaultBase {
     isNFT,
   }: {
     nativeTx: INativeTxSol;
-    isNFT: boolean;
+    isNFT: boolean | undefined;
   }) {
     const actions: Array<IDecodedTxAction> = [];
 
@@ -708,8 +708,6 @@ export default class Vault extends VaultBase {
       nativeTx,
       client,
     });
-
-    const accountAddress = await this.getAccountAddress();
 
     for (const instruction of instructions) {
       // TODO: only support system transfer & token transfer now
