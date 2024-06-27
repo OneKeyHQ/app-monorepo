@@ -11,6 +11,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
+  usePreCheckTxStatusAtom,
   useSendFeeStatusAtom,
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
@@ -19,6 +20,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 type IProps = {
@@ -53,6 +55,7 @@ function SendConfirmActionsContainer(props: IProps) {
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
+  const [preCheckTxStatus] = usePreCheckTxStatusAtom();
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -69,6 +72,12 @@ function SendConfirmActionsContainer(props: IProps) {
         networkId,
         accountId,
         unsignedTxs,
+        nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
+          ? {
+              maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
+            }
+          : undefined,
+        precheckTiming: ESendPreCheckTimingEnum.Confirm,
       });
     } catch (e: any) {
       setIsSubmitting(false);
@@ -151,12 +160,14 @@ function SendConfirmActionsContainer(props: IProps) {
       return true;
 
     if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
+    if (preCheckTxStatus.errorMessage) return true;
   }, [
     sendFeeStatus.errMessage,
     isSubmitting,
     nativeTokenInfo.isLoading,
     sendTxStatus.isInsufficientNativeBalance,
     sendSelectedFeeInfo,
+    preCheckTxStatus.errorMessage,
   ]);
 
   usePageUnMounted(() => {
