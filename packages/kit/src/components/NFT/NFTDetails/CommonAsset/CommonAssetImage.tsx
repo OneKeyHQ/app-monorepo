@@ -7,6 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import { UnSupportedImageContainer } from './UnSupportedImageContainer';
+import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 
 type IProps = {
   nft: IAccountNFT;
@@ -75,7 +76,9 @@ function CommonAssetImage(props: IProps) {
           borderColor="$bgApp"
         >
           <SizableText color="$textInverse" size="$bodyLgMedium">
-            {`x${nft.amount}`}
+            {new BigNumber(nft.amount).gt(SHOW_NFT_AMOUNT_MAX)
+              ? `${SHOW_NFT_AMOUNT_MAX}+`
+              : nft.amount}
           </SizableText>
         </Stack>
       ) : null}
