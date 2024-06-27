@@ -91,11 +91,11 @@ export type IAddHDOrHWAccountsParams = {
   walletId: string | undefined;
   networkId: string | undefined;
   indexes?: Array<number>; // multiple add by indexes
+  names?: Array<string>;
   indexedAccountId: string | undefined; // single add by indexedAccountId
   deriveType: IAccountDeriveTypes;
   skipDeviceCancel?: boolean;
   hideCheckingDeviceLoading?: boolean;
-  // names?: Array<string>;
   // purpose?: number;
   // skipRepeat?: boolean;
   // callback?: (_account: Account) => Promise<boolean>;
@@ -331,6 +331,7 @@ class ServiceAccount extends ServiceBase {
     walletId,
     networkId,
     indexes,
+    names,
     indexedAccountId,
     deriveType,
     confirmOnDevice,
@@ -338,6 +339,7 @@ class ServiceAccount extends ServiceBase {
     walletId: string | undefined;
     networkId: string | undefined;
     indexes?: Array<number>;
+    names?: Array<string>; // custom names
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
@@ -398,6 +400,7 @@ class ServiceAccount extends ServiceBase {
         },
 
         indexes: usedIndexes,
+        names,
         deriveInfo,
       };
       prepareParams = hwParams;
@@ -407,6 +410,7 @@ class ServiceAccount extends ServiceBase {
         password,
 
         indexes: usedIndexes,
+        names,
         deriveInfo,
         // purpose: usedPurpose,
         // deriveInfo, // TODO pass deriveInfo to generate id and name
@@ -449,6 +453,7 @@ class ServiceAccount extends ServiceBase {
         // addHDOrHWAccounts
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
         await localDb.addAccountsToWallet({
+          allAccountsBelongToNetworkId: networkId,
           walletId,
           accounts,
         });
@@ -704,6 +709,7 @@ class ServiceAccount extends ServiceBase {
     }
 
     await localDb.addAccountsToWallet({
+      allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts,
       importedCredential: credentialEncrypt,
@@ -809,6 +815,7 @@ class ServiceAccount extends ServiceBase {
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
         title: `Not supported network: ${notSupportedNetworkIds.join(', ')}`,
+        hideRequestId: true,
       });
     }
     return {
@@ -900,6 +907,7 @@ class ServiceAccount extends ServiceBase {
     }
 
     await localDb.addAccountsToWallet({
+      allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts,
       accountNameBuilder: ({ nextAccountId }) =>
@@ -1088,6 +1096,15 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getAllAccounts() {
     return localDb.getAllAccounts();
+  }
+
+  @backgroundMethod()
+  async getAccountsInSameIndexedAccountId({
+    indexedAccountId,
+  }: {
+    indexedAccountId: string;
+  }) {
+    return localDb.getAccountsInSameIndexedAccountId({ indexedAccountId });
   }
 
   @backgroundMethod()

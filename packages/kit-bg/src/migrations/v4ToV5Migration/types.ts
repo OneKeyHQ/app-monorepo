@@ -34,8 +34,9 @@ export type IV4RunAccountMigrationParams = {
 };
 
 export type IV4MigrationPayload = {
-  password: string;
+  v5password: string;
   v4password: string;
+  isV4PasswordEqualToV5: boolean | 'not-set';
   migrateV4PasswordOk: boolean;
   migrateV4SecurePasswordOk: boolean;
   shouldBackup: boolean;

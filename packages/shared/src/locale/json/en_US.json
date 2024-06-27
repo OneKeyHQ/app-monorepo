@@ -1488,6 +1488,8 @@
   "v4_migration.backup_title": "Backup your data",
   "v4_migration.completed_desc": "Explore the exciting new features of OneKey v5 now!",
   "v4_migration.completed_title": "Migration completed",
+  "v4_migration.downgrade_dialog_description": "Please do not downgrade to OneKey v4 after upgrading to v5, as it will result in data loss.",
+  "v4_migration.downgrade_dialog_title": "Protect your data",
   "v4_migration.update_in_progress": "Update in progress",
   "v4_migration.update_in_progress_alert_description": "Migration for users with many wallets can take up to several minutes.",
   "v4_migration.update_in_progress_alert_title": "Don't close your app during update",

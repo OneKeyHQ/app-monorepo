@@ -27,6 +27,10 @@ export function useSwapApproving() {
     swapApprovingTxRef.current = swapApprovingTransactionAtom;
   }
   const { approveTx } = useSwapBuildTx();
+  const approveTxRef = useRef(approveTx);
+  if (approveTxRef.current !== approveTx) {
+    approveTxRef.current = approveTx;
+  }
   useEffect(() => {
     if (
       swapApprovingTransactionAtom?.txId &&
@@ -65,7 +69,7 @@ export function useSwapApproving() {
         swapApprovingTransactionAtom?.resetApproveValue &&
         Number(swapApprovingTransactionAtom?.resetApproveValue) > 0
       ) {
-        void approveTx(
+        void approveTxRef.current?.(
           swapApprovingTransactionAtom?.resetApproveValue,
           !!swapApprovingTransactionAtom?.resetApproveIsMax,
         );
@@ -81,7 +85,6 @@ export function useSwapApproving() {
       cleanApprovingInterval();
     };
   }, [
-    approveTx,
     approvingStateAction,
     cleanApprovingInterval,
     intl,

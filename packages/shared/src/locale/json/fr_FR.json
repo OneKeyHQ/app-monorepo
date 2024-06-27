@@ -1488,6 +1488,8 @@
   "v4_migration.backup_title": "Sauvegardez vos données",
   "v4_migration.completed_desc": "Découvrez les nouvelles fonctionnalités passionnantes de OneKey v5 dès maintenant !",
   "v4_migration.completed_title": "Migration terminée",
+  "v4_migration.downgrade_dialog_description": "Veuillez ne pas revenir à OneKey v4 après avoir effectué la mise à niveau vers v5, car cela entraînera une perte de données.",
+  "v4_migration.downgrade_dialog_title": "Protégez vos données",
   "v4_migration.update_in_progress": "Mise à jour en cours",
   "v4_migration.update_in_progress_alert_description": "La migration pour les utilisateurs avec de nombreux portefeuilles peut prendre plusieurs minutes.",
   "v4_migration.update_in_progress_alert_title": "N'arrêtez pas votre application pendant la mise à jour",

@@ -1488,6 +1488,8 @@
   "v4_migration.backup_title": "あなたのデータをバックアップしてください",
   "v4_migration.completed_desc": "今すぐOneKey v5のエキサイティングな新機能を探索しましょう！",
   "v4_migration.completed_title": "移行が完了しました",
+  "v4_migration.downgrade_dialog_description": "OneKey v5にアップグレードした後、v4にダウングレードしないでください。データの損失を招く可能性があります。",
+  "v4_migration.downgrade_dialog_title": "あなたのデータを保護する",
   "v4_migration.update_in_progress": "更新中",
   "v4_migration.update_in_progress_alert_description": "多くのウォレットを持つユーザーの移行には、数分かかることがあります。",
   "v4_migration.update_in_progress_alert_title": "アップデート中はアプリを閉じないでください",
