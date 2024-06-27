@@ -16,6 +16,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketResponsePool } from '@onekeyhq/shared/types/market';
@@ -223,6 +224,8 @@ export function MarketDetailPools({
   // eslint-disable-next-line react/prop-types
   onContentSizeChange,
 }: ITabPageProps & { pools: IMarketResponsePool[] }) {
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
   const { gtMd, gtXl } = useMedia();
   const oneKeyNetworkIds = useMemo(
@@ -320,7 +323,7 @@ export function MarketDetailPools({
                   <NumberSizeableText
                     size="$bodyMd"
                     formatter="price"
-                    formatterOptions={{ currency: '$' }}
+                    formatterOptions={{ currency }}
                     textAlign="right"
                   >
                     {price}

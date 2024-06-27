@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
+import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
@@ -75,7 +76,9 @@ function CommonAssetImage(props: IProps) {
           borderColor="$bgApp"
         >
           <SizableText color="$textInverse" size="$bodyLgMedium">
-            {`x${nft.amount}`}
+            {new BigNumber(nft.amount).gt(SHOW_NFT_AMOUNT_MAX)
+              ? `${SHOW_NFT_AMOUNT_MAX}+`
+              : nft.amount}
           </SizableText>
         </Stack>
       ) : null}
