@@ -85,6 +85,12 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getInstanceId() {
+    const { instanceId } = await settingsPersistAtom.get();
+    return instanceId;
+  }
+
+  @backgroundMethod()
   public async setProtectCreateTransaction(value: boolean) {
     await this.backgroundApi.servicePassword.promptPasswordVerify({
       reason: EReasonForNeedPassword.Security,

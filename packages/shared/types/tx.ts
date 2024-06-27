@@ -14,8 +14,6 @@ export enum EDecodedTxDirection {
   OTHER = 'OTHER',
 }
 
-export type IReplacedTxType = 'speedUp' | 'cancel';
-
 export enum EDecodedTxActionType {
   ASSET_TRANSFER = 'ASSET_TRANSFER',
 
@@ -46,6 +44,11 @@ export enum EDecodedTxStatus {
   Removed = 'Removed',
   // for btc list order psbt
   Offline = 'Offline',
+}
+
+export enum EReplaceTxType {
+  SpeedUp = 'SpeedUp',
+  Cancel = 'Cancel',
 }
 
 export type ISendTxBaseParams = {
@@ -199,4 +202,9 @@ export type IDecodedTxAction = {
 export type ISendTxOnSuccessData = {
   signedTx: ISignedTxPro;
   decodedTx: IDecodedTx;
+};
+
+export type IReplaceTxInfo = {
+  replaceType: EReplaceTxType;
+  replaceHistoryId: string;
 };

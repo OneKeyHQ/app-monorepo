@@ -240,7 +240,8 @@ function buildTransferChangeInfo({
 }
 
 function TxActionTransferListView(props: ITxActionProps) {
-  const { tableLayout, decodedTx, componentProps, showIcon } = props;
+  const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
+    props;
   const { networkId, payload, nativeAmount } = decodedTx;
   const { type } = payload ?? {};
   const intl = useIntl();
@@ -418,6 +419,8 @@ function TxActionTransferListView(props: ITxActionProps) {
       hideFeeInfo={hideFeeInfo}
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       showIcon={showIcon}
+      replaceType={replaceType}
+      status={decodedTx.status}
       {...componentProps}
     />
   );

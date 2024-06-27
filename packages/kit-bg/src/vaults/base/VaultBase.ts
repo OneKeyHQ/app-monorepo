@@ -53,6 +53,7 @@ import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import type {
+  EReplaceTxType,
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionAssetTransfer,
@@ -795,5 +796,23 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     accountDetails: IFetchAccountDetailsResp;
   }) {
     return Promise.resolve(accountDetails);
+  }
+
+  async isEarliestLocalPendingTx({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx;
+  }): Promise<boolean> {
+    return true;
+  }
+
+  async buildReplaceEncodedTx({
+    decodedTx,
+    replaceType,
+  }: {
+    decodedTx: IDecodedTx;
+    replaceType: EReplaceTxType;
+  }) {
+    return Promise.resolve(decodedTx.encodedTx);
   }
 }
