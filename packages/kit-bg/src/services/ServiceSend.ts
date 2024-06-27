@@ -49,10 +49,12 @@ class ServiceSend extends ServiceBase {
   async buildDecodedTx(
     params: ISendTxBaseParams & IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { networkId, accountId, unsignedTx, feeInfo } = params;
+    const { networkId, accountId, unsignedTx, feeInfo, transferPayload } =
+      params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const decodedTx = await vault.buildDecodedTx({
       unsignedTx,
+      transferPayload,
     });
 
     if (feeInfo) {
