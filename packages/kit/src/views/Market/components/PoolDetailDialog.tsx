@@ -51,7 +51,7 @@ function PoolDetailsItem({
     ) : (
       children
     );
-  }, [children, currency, formatter, isNumeric]);
+  }, [children, currency, currencySymbol, formatter, isNumeric]);
   return (
     <YStack
       pb="$3"
