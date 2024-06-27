@@ -29,6 +29,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import {
   EOnChainHistoryTransferType,
   type IOnChainHistoryTx,
@@ -515,6 +516,9 @@ export default class VaultDot extends VaultBase {
         hexPad: 'left',
       }) as `0x${string}`;
     }
+    if (params.feeInfo) {
+      encodedTx.feeInfo = params.feeInfo;
+    }
 
     // send max amount
     if (nativeAmountInfo) {
@@ -729,6 +733,7 @@ export default class VaultDot extends VaultBase {
     unsignedTx: IUnsignedTxPro;
     nativeAmountInfo?: INativeAmountInfo;
     precheckTiming: ESendPreCheckTimingEnum;
+    feeInfo?: IFeeInfoUnit;
   }): Promise<boolean> {
     if (params.precheckTiming !== ESendPreCheckTimingEnum.Confirm) {
       return true;
@@ -736,7 +741,7 @@ export default class VaultDot extends VaultBase {
     if (params.nativeAmountInfo?.maxSendAmount) {
       return true;
     }
-    const { unsignedTx } = params;
+    const { unsignedTx, feeInfo } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
     const decodedUnsignedTx = await this._decodeUnsignedTx(encodedTx);
     const actionType = getTransactionTypeFromTxInfo(decodedUnsignedTx);
@@ -756,9 +761,12 @@ export default class VaultDot extends VaultBase {
         withBalance: !params.nativeAmountInfo?.maxSendAmount,
       });
       const tokenAmount = new BigNumber(args.value);
-      const gasLimit = new BigNumber(encodedTx.feeInfo?.gas?.gasLimit ?? '0');
-      const gasPrice = new BigNumber(encodedTx.feeInfo?.gas?.gasPrice ?? '0');
-      const fee = gasLimit.times(gasPrice);
+      const gasLimit = new BigNumber(feeInfo?.gas?.gasLimit ?? '0');
+      const gasPrice = new BigNumber(feeInfo?.gas?.gasPrice ?? '0');
+      const fee = gasLimit
+        .times(gasPrice)
+        .plus(new BigNumber(feeInfo?.common.baseFee ?? '0'))
+        .shiftedBy(feeInfo?.common.feeDecimals ?? 0);
       const leftAmount = balance.minus(tokenAmount).minus(fee);
 
       if (leftAmount.lt(minAmount) && leftAmount.gt(0)) {
