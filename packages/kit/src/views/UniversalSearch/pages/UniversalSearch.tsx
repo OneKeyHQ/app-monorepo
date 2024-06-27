@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -70,6 +70,31 @@ const SkeletonItem = () => (
     </YStack>
   </XStack>
 );
+
+function ListEmptyComponent({
+  searchType,
+}: {
+  searchType?: EUniversalSearchType;
+}) {
+  const intl = useIntl();
+  switch (searchType) {
+    case EUniversalSearchType.MarketToken: {
+      return (
+        <YStack px="$5">
+          <SizableText numberOfLines={1} size="$headingSm">
+            {intl.formatMessage({ id: ETranslations.market_trending })}
+          </SizableText>
+          <SkeletonItem />
+          <SkeletonItem />
+          <SkeletonItem />
+        </YStack>
+      );
+    }
+    default: {
+      return null;
+    }
+  }
+}
 
 export function UniversalSearch({
   searchType,
@@ -256,14 +281,7 @@ export function UniversalSearch({
               sections={recommendSections}
               renderItem={renderItem}
               ListEmptyComponent={
-                <YStack px="$5">
-                  <SizableText numberOfLines={1} size="$headingSm">
-                    {intl.formatMessage({ id: ETranslations.market_trending })}
-                  </SizableText>
-                  <SkeletonItem />
-                  <SkeletonItem />
-                  <SkeletonItem />
-                </YStack>
+                <ListEmptyComponent searchType={searchType} />
               }
               estimatedItemSize="$16"
             />
