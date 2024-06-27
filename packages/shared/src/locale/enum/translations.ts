@@ -434,6 +434,7 @@ export enum ETranslations {
   fee_fee_rate_too_low = 'fee.fee_rate_too_low',
   fee_l1_base_fee = 'fee.l1_base_fee',
   fee_max_fee = 'fee.max_fee',
+  feedback_account_balance_not_equal_to_utxos = 'feedback.account_balance_not_equal_to_utxos',
   feedback_address_mismatch = 'feedback.address_mismatch',
   feedback_address_mismatch_desc = 'feedback.address_mismatch_desc',
   feedback_address_not_matched = 'feedback.address_not_matched',

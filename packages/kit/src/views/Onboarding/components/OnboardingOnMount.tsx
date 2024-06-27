@@ -9,10 +9,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
@@ -37,15 +38,10 @@ function DowngradeWarningDialogContent({
 
   return (
     <YStack>
-      <SizableText>
-        {intl.formatMessage({
-          id: 'downgrade_warning_description',
-        })}
-      </SizableText>
       <Checkbox
         value={checkState}
         label={intl.formatMessage({
-          id: 'downgrade_warning_checkbox_label',
+          id: ETranslations.downgrade_warning_checkbox_label,
         })}
         onChange={setCheckState}
       />
@@ -55,7 +51,7 @@ function DowngradeWarningDialogContent({
         }}
         onConfirm={handleConfirm}
         onConfirmText={intl.formatMessage({
-          id: 'global_continue',
+          id: ETranslations.global_continue,
         })}
         showCancelButton={false}
       />
@@ -117,12 +113,17 @@ function OnboardingOnMountCmp() {
     if (!downgradeWarningConfirmedRef.current && platformEnv.isDesktop) {
       const dialog = Dialog.show({
         tone: 'warning',
-        icon: 'ShieldCheckDone', // ShieldCheckDone
+        icon: 'ShieldCheckDoneOutline',
         showExitButton: false,
         // TODO disable gesture close
         showCancelButton: false,
         dismissOnOverlayPress: false,
-        title: intl.formatMessage({ id: 'downgrade_warning_title' }),
+        title: intl.formatMessage({
+          id: ETranslations.downgrade_warning_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.downgrade_warning_description,
+        }),
         renderContent: (
           <DowngradeWarningDialogContent
             onConfirm={() => {
