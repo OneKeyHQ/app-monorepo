@@ -815,6 +815,7 @@ class ServiceAccount extends ServiceBase {
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
         title: `Not supported network: ${notSupportedNetworkIds.join(', ')}`,
+        hideRequestId: true,
       });
     }
     return {
