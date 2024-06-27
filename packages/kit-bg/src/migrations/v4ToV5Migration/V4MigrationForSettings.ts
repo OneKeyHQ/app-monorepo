@@ -1,9 +1,10 @@
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 
+import { settingsPersistAtom } from '../../states/jotai/atoms';
+
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 
-import { settingsPersistAtom } from '../../states/jotai/atoms';
 import type { IV4ReduxSettingsState } from './v4types/v4typesRedux';
 
 const validThemeValue = ['light', 'dark', 'system'];

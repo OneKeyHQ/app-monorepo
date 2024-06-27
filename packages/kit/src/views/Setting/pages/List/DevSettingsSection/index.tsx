@@ -11,11 +11,12 @@ import {
   Switch,
   Toast,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -29,6 +30,7 @@ import {
   isWebInDappMode,
   switchWebDappMode,
 } from '@onekeyhq/shared/src/utils/devModeUtils';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { Section } from '../Section';
 
@@ -41,6 +43,7 @@ export const DevSettingsSection = () => {
   const [settings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { copyText } = useClipboard();
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
@@ -207,12 +210,11 @@ export const DevSettingsSection = () => {
                     <SectionPressItem
                       title="Export Accounts Data"
                       onPress={async () => {
-                        await backgroundApiProxy.serviceE2E.clearDiscoveryPageData(
-                          params,
-                        );
-                        Toast.success({
-                          title: 'Success',
-                        });
+                        const data =
+                          await backgroundApiProxy.serviceE2E.exportAllAccountsData(
+                            params,
+                          );
+                        copyText(stableStringify(data));
                       }}
                     />
 

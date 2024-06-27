@@ -18,6 +18,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
+let lastAutoStartV4MigrationTime = 0;
+let isBaseSettingsMigrated = false;
+
 function DowngradeWarningDialogContent({
   onConfirm,
 }: {
@@ -58,8 +61,6 @@ function DowngradeWarningDialogContent({
     </YStack>
   );
 }
-let lastAutoStartV4MigrationTime = 0;
-let isBaseSettingsMigrated = false;
 
 function OnboardingOnMountCmp() {
   const intl = useIntl();

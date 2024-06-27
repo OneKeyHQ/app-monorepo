@@ -165,11 +165,6 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllDevices() {
-    return localDb.getAllDevices();
-  }
-
-  @backgroundMethod()
   async getWallets(options?: IDBGetWalletsParams) {
     return localDb.getWallets(options);
   }
@@ -1092,9 +1087,16 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
-  @backgroundMethod()
   async getAllAccounts() {
     return localDb.getAllAccounts();
+  }
+
+  async getAllWallets() {
+    return localDb.getAllWallets();
+  }
+
+  async getAllDevices() {
+    return localDb.getAllDevices();
   }
 
   @backgroundMethod()

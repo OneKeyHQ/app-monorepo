@@ -454,14 +454,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   walletSortFn = (a: IDBWallet, b: IDBWallet) =>
     (a.walletOrder ?? 0) - (b.walletOrder ?? 0);
 
+  async getAllWallets(): Promise<{
+    wallets: IDBWallet[];
+  }> {
+    const db = await this.readyDb;
+    const { records } = await db.getAllRecords({
+      name: ELocalDBStoreNames.Wallet,
+    });
+    return {
+      wallets: records,
+    };
+  }
+
   // eslint-disable-next-line spellcheck/spell-checker
   /**
-   * Get all wallets
-
+   * Get wallets
    * @param includeAllPassphraseWallet Whether to load the hidden Passphrase wallet
    * @param displayPassphraseWalletIds Need to display Passphrase wallet
    */
-
   async getWallets(
     option?: IDBGetWalletsParams,
   ): Promise<{ wallets: IDBWallet[] }> {
@@ -471,13 +481,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const db = await this.readyDb;
 
     // get all wallets for account selector
-    let { records } = await db.getAllRecords({
-      name: ELocalDBStoreNames.Wallet,
-    });
+    let { wallets } = await this.getAllWallets();
     const hiddenWalletsMap: {
       [dbDeviceId: string]: IDBWallet[];
     } = {};
-    records = records.filter((wallet) => {
+    wallets = wallets.filter((wallet) => {
       if (this.isTempWalletRemoved({ wallet })) {
         return false;
       }
@@ -501,8 +509,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
       return true;
     });
-    records = await Promise.all(
-      records.map((w) =>
+    wallets = await Promise.all(
+      wallets.map((w) =>
         this.refillWalletInfo({
           wallet: w,
           hiddenWallets: w.associatedDevice
@@ -511,10 +519,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }),
       ),
     );
-    records = records.sort(this.walletSortFn);
+    wallets = wallets.sort(this.walletSortFn);
 
     return {
-      wallets: records,
+      wallets,
     };
   }
 
@@ -2257,17 +2265,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   // ---------------------------------------------- device
 
-  async getAllDevices(): Promise<IDBDevice[]> {
+  async getAllDevices(): Promise<{ devices: IDBDevice[] }> {
     // TODO performance
     const { records: devices } = await this.getAllRecords({
       name: ELocalDBStoreNames.Device,
     });
     devices.forEach((item) => this.refillDeviceInfo({ device: item }));
-    return devices;
+    return { devices };
   }
 
   async getSameDeviceByUUIDEvenIfReset(uuid: string) {
-    const devices = await this.getAllDevices();
+    const { devices } = await this.getAllDevices();
     return devices.find((item) => uuid && item.uuid === uuid);
   }
 
@@ -2283,7 +2291,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (!rawDeviceId) {
       return undefined;
     }
-    const devices = await this.getAllDevices();
+    const { devices } = await this.getAllDevices();
     return devices.find((item) => {
       let deviceIdMatched = rawDeviceId && item.deviceId === rawDeviceId;
       if (uuid && item.uuid) {
@@ -2317,7 +2325,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     features?: IOneKeyDeviceFeatures;
   }): Promise<IDBDevice | undefined> {
     const { getDeviceUUID } = await CoreSDKLoader();
-    const devices = await this.getAllDevices();
+    const { devices } = await this.getAllDevices();
     const device = devices.find((item) => {
       let predicate: boolean | undefined;
       const mergePredicate = (p: boolean) => {
