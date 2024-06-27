@@ -797,7 +797,7 @@ function HistoryDetails() {
     renderFeeInfo,
     vaultSettings?.nonceRequired,
     vaultSettings?.isUtxo,
-    vaultSettings.hideTxUtxoListWhenPending,
+    vaultSettings?.hideTxUtxoListWhenPending,
     historyTx.decodedTx.status,
     handleViewUTXOsOnPress,
     renderAssetsChange,
