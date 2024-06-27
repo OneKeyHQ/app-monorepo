@@ -26,6 +26,7 @@ import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { MarketPoolIcon } from './MarketPoolIcon';
 import { PoolDetailDialog } from './PoolDetailDialog';
 import { useSortType } from './useSortType';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 function HeaderColumn({
   name,
@@ -223,6 +224,8 @@ export function MarketDetailPools({
   // eslint-disable-next-line react/prop-types
   onContentSizeChange,
 }: ITabPageProps & { pools: IMarketResponsePool[] }) {
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
   const { gtMd, gtXl } = useMedia();
   const oneKeyNetworkIds = useMemo(
@@ -320,7 +323,7 @@ export function MarketDetailPools({
                   <NumberSizeableText
                     size="$bodyMd"
                     formatter="price"
-                    formatterOptions={{ currency: '$' }}
+                    formatterOptions={{ currency }}
                     textAlign="right"
                   >
                     {price}
