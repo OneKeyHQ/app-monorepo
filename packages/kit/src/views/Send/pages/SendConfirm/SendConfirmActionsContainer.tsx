@@ -7,7 +7,6 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
@@ -78,6 +77,7 @@ function SendConfirmActionsContainer(props: IProps) {
             }
           : undefined,
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
+        feeInfo: sendSelectedFeeInfo?.feeInfo,
       });
     } catch (e: any) {
       setIsSubmitting(false);
