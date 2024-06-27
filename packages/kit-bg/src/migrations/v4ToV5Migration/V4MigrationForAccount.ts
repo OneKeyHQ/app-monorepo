@@ -11,6 +11,7 @@ import {
   encryptImportedCredential,
   fixV4VerifyStringToV5,
   revealEntropyToMnemonic,
+  sha256,
 } from '@onekeyhq/core/src/secret';
 import {
   ECoreApiExportedSecretKeyType,
@@ -32,7 +33,6 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import v5localDb from '../../dbs/local/localDb';
-import localDb from '../../dbs/local/localDb';
 
 import { v4CoinTypeToNetworkId } from './v4CoinTypeToNetworkId';
 import v4dbHubs from './v4dbHubs';
@@ -935,8 +935,8 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                 passphraseState: v4wallet.passphraseState,
               };
               const { dbWalletId: v5dbWalletId } =
-                await localDb.buildHwWalletId(params);
-              const v5walletCurrent = await localDb.getWalletSafe({
+                await v5localDb.buildHwWalletId(params);
+              const v5walletCurrent = await v5localDb.getWalletSafe({
                 walletId: v5dbWalletId,
               });
               const isV5WalletExistAndRemembered =
@@ -1174,6 +1174,12 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           mnemonic: await servicePassword.encodeSensitiveText({
             text: mnemonic,
           }),
+          walletHashBuilder: () => {
+            const text = `${mnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375--${v4wallet.id}`;
+            const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
+            const walletHash = bufferUtils.bytesToHex(buff);
+            return walletHash;
+          },
         });
         await onWalletMigrated(v5walletSaved);
         return v5walletSaved;

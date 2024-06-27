@@ -614,6 +614,7 @@ class ServiceV4Migration extends ServiceBase {
   @toastIfError()
   async startV4MigrationFlow() {
     try {
+      const initProgress = 1;
       const maxProgress = {
         account: 90,
         addressBook: 92,
@@ -627,7 +628,7 @@ class ServiceV4Migration extends ServiceBase {
       await v4migrationAtom.set((v) => ({ ...v, isProcessing: true }));
       await v4migrationAtom.set((v) => ({
         ...v,
-        progress: 1,
+        progress: initProgress,
       }));
       await timerUtils.wait(10);
 
@@ -645,7 +646,10 @@ class ServiceV4Migration extends ServiceBase {
         );
         await v4migrationAtom.set((v) => ({
           ...v,
-          progress: Math.floor((progress * maxProgress.account) / 100),
+          progress: Math.max(
+            initProgress,
+            Math.floor((progress * maxProgress.account) / 100),
+          ),
         }));
         await timerUtils.wait(10);
       };

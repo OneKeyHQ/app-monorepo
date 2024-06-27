@@ -142,6 +142,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   passphraseState?: string;
   walletNo: number;
   walletOrder?: number;
+  hash?: string; // hd wallet only
   xfp?: string; // qr wallet only
   airGapAccountsInfoRaw?: string;
   airGapAccountsInfo?: IQrWalletAirGapAccountsInfo;
@@ -151,6 +152,7 @@ export type IDBCreateHDWalletParams = {
   rs: IBip39RevealableSeedEncryptHex;
   backuped: boolean;
   name?: string;
+  walletHash?: string;
   avatar?: IAvatarInfo;
 };
 export type IDBCreateHWWalletParamsBase = {

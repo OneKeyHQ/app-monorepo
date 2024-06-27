@@ -1290,9 +1290,11 @@ class ServiceAccount extends ServiceBase {
   async createHDWallet({
     name,
     mnemonic,
+    walletHashBuilder,
   }: {
     mnemonic: string;
     name?: string;
+    walletHashBuilder?: (options: { realMnemonic: string }) => string;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -1302,6 +1304,11 @@ class ServiceAccount extends ServiceBase {
     ensureSensitiveTextEncoded(mnemonic); // TODO also add check for imported account
 
     const realMnemonic = await this.validateMnemonic(mnemonic);
+
+    let walletHash: string | undefined;
+    if (walletHashBuilder) {
+      walletHash = walletHashBuilder({ realMnemonic });
+    }
 
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
@@ -1313,7 +1320,7 @@ class ServiceAccount extends ServiceBase {
       throw new InvalidMnemonic();
     }
 
-    return this.createHDWalletWithRs({ rs, password, name });
+    return this.createHDWalletWithRs({ rs, password, name, walletHash });
   }
 
   @backgroundMethod()
@@ -1322,22 +1329,37 @@ class ServiceAccount extends ServiceBase {
     password,
     avatarInfo,
     name,
+    walletHash,
   }: {
     rs: string;
     password: string;
     avatarInfo?: IAvatarInfo;
     name?: string;
+    walletHash?: string;
   }) {
     if (platformEnv.isWebDappMode) {
       throw new Error('createHDWallet ERROR: Not supported in Dapp mode');
     }
     ensureSensitiveTextEncoded(password);
+
+    if (walletHash) {
+      // TODO performance issue
+      const { wallets } = await this.getAllWallets();
+      const existsSameHashWallet = wallets.find(
+        (item) => walletHash && item.hash && item.hash === walletHash,
+      );
+      if (existsSameHashWallet) {
+        throw new Error('Wallet with the same mnemonic hash already exists');
+      }
+    }
+
     const result = await localDb.createHDWallet({
       password,
       rs,
       backuped: false,
       avatar: avatarInfo ?? randomAvatar(),
       name,
+      walletHash,
     });
 
     await timerUtils.wait(100);

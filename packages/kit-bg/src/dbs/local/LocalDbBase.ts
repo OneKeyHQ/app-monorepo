@@ -61,6 +61,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -88,7 +89,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -936,7 +936,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     params: IDBCreateHDWalletParams,
   ): Promise<{ wallet: IDBWallet; indexedAccount: IDBIndexedAccount }> {
     const db = await this.readyDb;
-    const { password, name, avatar, backuped, rs } = params;
+    const { password, name, avatar, backuped, rs, walletHash } = params;
     const context = await this.getContext({ verifyPassword: password });
     const walletId = accountUtils.buildHdWalletId({
       nextHD: context.nextHD,
@@ -956,6 +956,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           {
             id: walletId,
             name: walletName,
+            hash: walletHash || undefined,
             avatar: avatar && JSON.stringify(avatar), // TODO save object to realmDB?
             type: WALLET_TYPE_HD,
             backuped,
