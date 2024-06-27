@@ -49,6 +49,14 @@ export function DesktopTabItem(
         }}
         userSelect="none"
         style={tabBarStyle as ViewStyle}
+        {...(!selected && {
+          hoverStyle: {
+            bg: '$bgHover',
+          },
+          pressStyle: {
+            bg: '$bgActive',
+          },
+        })}
         {...rest}
         testID={
           selected
@@ -85,7 +93,7 @@ export function DesktopTabItem(
           <SizableText
             flex={1}
             numberOfLines={1}
-            ml="$2"
+            mx="$2"
             color="$text"
             size="$bodyMd"
           >
