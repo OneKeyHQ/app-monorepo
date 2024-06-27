@@ -862,6 +862,7 @@
   "hardware.transferring_data": "Передача даних...",
   "hardware.two_onekey_lite_not_same": "Два OneKey Lite, що використовуються для з'єднання, не є однаковими.",
   "hardware.unknown_message_error": "Поточне програмне забезпечення не підтримується, спробуйте оновити",
+  "hardware.unsupported_passphrase_characters": "Contains unsupported characters",
   "hardware.user_cancel_error": "Скасовано на пристрої",
   "hardware.verify_success": "Офіційна прошивка",
   "hardware.version_need_upgrade_error": "Будь ласка, оновіть прошивку до версії {version} або вище, щоб використовувати цю функцію",
