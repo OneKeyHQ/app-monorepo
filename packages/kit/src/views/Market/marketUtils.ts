@@ -1,10 +1,6 @@
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  ERootRoutes,
-  ETabMarketRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
@@ -27,20 +23,16 @@ export const marketNavigation = {
       coinGeckoId: string;
     },
   ) {
-    navigation.navigate(ERootRoutes.Main, {
-      screen: ETabRoutes.Market,
-      params: {
-        screen: ETabMarketRoutes.TabMarket,
-      },
-    });
-
+    // TODO：it's a trick to refresh the tab.
+    navigation.switchTab(ETabRoutes.Market);
+    await timerUtils.wait(100);
+    navigation.switchTab(ETabRoutes.Home);
+    await timerUtils.wait(100);
+    navigation.switchTab(ETabRoutes.Market);
     await timerUtils.wait(100);
 
-    navigation.navigate(ETabRoutes.Market, {
-      screen: ETabMarketRoutes.MarketDetail,
-      params: {
-        coinGeckoId,
-      },
+    navigation.push(ETabMarketRoutes.MarketDetail, {
+      coinGeckoId,
     });
   },
 };

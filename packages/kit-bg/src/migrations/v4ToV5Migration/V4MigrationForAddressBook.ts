@@ -1,4 +1,6 @@
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_EVM, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
@@ -24,6 +26,22 @@ export class V4MigrationForAddressBook extends V4MigrationManagerBase {
       return;
     }
     v4items = v4items.sort((a, b) => a.createAt - b.createAt);
+
+    const { networkIds: allNetworkIds } =
+      await this.backgroundApi.serviceNetwork.getAllNetworkIds();
+    // Normalize user-defined EVM network item that are not included in the preset network IDs
+    v4items = v4items.map((o) => {
+      if (
+        !allNetworkIds.includes(o.networkId) &&
+        o.networkId.startsWith(`${IMPL_EVM}${SEPERATOR}`)
+      ) {
+        return {
+          ...o,
+          networkId: getNetworkIdsMap().eth,
+        };
+      }
+      return o;
+    });
 
     const v5items: IAddressItem[] = [];
     for (const v4addressBookItem of v4items) {

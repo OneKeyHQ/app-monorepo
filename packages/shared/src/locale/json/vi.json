@@ -1491,6 +1491,8 @@
   "v4_migration.backup_title": "Sao lưu dữ liệu của bạn",
   "v4_migration.completed_desc": "Khám phá những tính năng mới thú vị của OneKey v5 ngay bây giờ!",
   "v4_migration.completed_title": "Đã hoàn tất việc di chuyển",
+  "v4_migration.downgrade_dialog_description": "Vui lòng không hạ cấp xuống OneKey v4 sau khi nâng cấp lên v5, vì điều này sẽ dẫn đến mất dữ liệu.",
+  "v4_migration.downgrade_dialog_title": "Bảo vệ dữ liệu của bạn",
   "v4_migration.update_in_progress": "Đang cập nhật",
   "v4_migration.update_in_progress_alert_description": "Việc di chuyển cho người dùng có nhiều ví có thể mất đến vài phút.",
   "v4_migration.update_in_progress_alert_title": "Đừng tắt ứng dụng của bạn trong quá trình cập nhật",

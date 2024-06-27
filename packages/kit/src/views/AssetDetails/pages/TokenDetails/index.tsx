@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -9,16 +9,17 @@ import {
   ActionList,
   Alert,
   Divider,
-  Heading,
   NumberSizeableText,
   Page,
   Skeleton,
   Stack,
   XStack,
   YStack,
+  getFontToken,
   useClipboard,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { IPageHeaderProps } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -40,7 +41,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
-import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import { buildTokenDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import ActionBuy from './ActionBuy';
@@ -212,20 +213,6 @@ export function TokenDetails() {
       sections.push({
         items: [
           {
-            label: isBlocked
-              ? intl.formatMessage({ id: ETranslations.global_unhide })
-              : intl.formatMessage({ id: ETranslations.global_hide }),
-            icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
-            onPress: handleToggleBlockedToken,
-          },
-        ],
-      });
-    }
-
-    if (tokenInfo.address !== '') {
-      sections.unshift({
-        items: [
-          {
             label: intl.formatMessage({
               id: ETranslations.global_copy_token_contract,
             }),
@@ -235,7 +222,7 @@ export function TokenDetails() {
         ],
       });
 
-      const tokenDetailsUrl = buildExplorerAddressUrl({
+      const tokenDetailsUrl = buildTokenDetailsUrl({
         network,
         address: tokenInfo.address,
       });
@@ -250,6 +237,21 @@ export function TokenDetails() {
         });
       }
     }
+
+    if (!tokenInfo.isNative) {
+      sections.push({
+        items: [
+          {
+            label: isBlocked
+              ? intl.formatMessage({ id: ETranslations.global_unhide })
+              : intl.formatMessage({ id: ETranslations.global_hide }),
+            icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
+            onPress: handleToggleBlockedToken,
+          },
+        ],
+      });
+    }
+
     return isEmpty(sections) ? null : (
       <ActionList
         title={intl.formatMessage({ id: ETranslations.global_more })}
@@ -344,18 +346,16 @@ export function TokenDetails() {
   //   );
   // }, [media.gtMd, network?.logoURI, tokenInfo.address]);
 
-  const customHeaderTitle = useCallback(
-    () => (
-      <Heading size="$headingLg" numberOfLines={1}>
-        {tokenInfo.name ?? tokenDetails?.info.name}
-      </Heading>
-    ),
-    [tokenDetails?.info.name, tokenInfo.name],
-  );
-
+  const headerTitleStyle = useMemo(() => getFontToken('$headingLg'), []);
   return (
     <Page>
-      <Page.Header headerTitle={customHeaderTitle} headerRight={headerRight} />
+      <Page.Header
+        headerTitle={tokenInfo.name ?? tokenDetails?.info.name}
+        headerTitleStyle={
+          headerTitleStyle as IPageHeaderProps['headerTitleStyle']
+        }
+        headerRight={headerRight}
+      />
       <Page.Body>
         <ProviderJotaiContextHistoryList>
           <TxHistoryListView

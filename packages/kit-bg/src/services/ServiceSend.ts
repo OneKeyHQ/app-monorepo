@@ -15,6 +15,7 @@ import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import { IToken } from '@onekeyhq/shared/types/token';
@@ -34,6 +35,7 @@ import type {
   IBroadcastTransactionParams,
   IBuildDecodedTxParams,
   IBuildUnsignedTxParams,
+  INativeAmountInfo,
   ISignTransactionParamsBase,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
@@ -48,10 +50,12 @@ class ServiceSend extends ServiceBase {
   async buildDecodedTx(
     params: ISendTxBaseParams & IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { networkId, accountId, unsignedTx, feeInfo } = params;
+    const { networkId, accountId, unsignedTx, feeInfo, transferPayload } =
+      params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const decodedTx = await vault.buildDecodedTx({
       unsignedTx,
+      transferPayload,
     });
 
     if (feeInfo) {
@@ -292,12 +296,10 @@ class ServiceSend extends ServiceBase {
 
       result.push(data);
 
-      if (!signOnly) {
-        await this.backgroundApi.serviceSignature.addItemFromSendProcess(
-          data,
-          sourceInfo,
-        );
-      }
+      await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+        data,
+        sourceInfo,
+      );
       if (signedTx && !signOnly) {
         await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
           networkId,
@@ -533,6 +535,8 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     accountId: string;
     unsignedTxs: IUnsignedTxPro[];
+    precheckTiming: ESendPreCheckTimingEnum;
+    nativeAmountInfo?: INativeAmountInfo;
   }) {
     const vault = await vaultFactory.getVault({
       networkId: params.networkId,
@@ -541,6 +545,8 @@ class ServiceSend extends ServiceBase {
     for (const unsignedTx of params.unsignedTxs) {
       await vault.precheckUnsignedTx({
         unsignedTx,
+        precheckTiming: params.precheckTiming,
+        nativeAmountInfo: params.nativeAmountInfo,
       });
     }
   }

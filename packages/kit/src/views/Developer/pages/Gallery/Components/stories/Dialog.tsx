@@ -10,6 +10,7 @@ import {
   Form,
   Input,
   ScrollView,
+  Select,
   SizableText,
   Stack,
   Toast,
@@ -467,9 +468,8 @@ const DialogGallery = () => (
       {
         title: 'Dialog Form',
         element: (
-          <YStack>
+          <YStack space="$4">
             <Button
-              mt="$4"
               onPress={() =>
                 Dialog.confirm({
                   title: 'Password',
@@ -503,6 +503,57 @@ const DialogGallery = () => (
               }
             >
               Open Dialog Form
+            </Button>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Password',
+                  description: 'input password',
+                  renderContent: (
+                    <Dialog.Form
+                      formProps={{
+                        defaultValues: { a: '1234567' },
+                      }}
+                    >
+                      <Dialog.FormField
+                        name="a"
+                        rules={{
+                          maxLength: { value: 6, message: 'maxLength is 6' },
+                        }}
+                      >
+                        <Select
+                          title="Demo Title"
+                          placeholder="select"
+                          items={[
+                            { label: 'Banana0', value: 'Banana' },
+                            {
+                              label: 'Apple1',
+                              value: 'Apple',
+                            },
+
+                            {
+                              label: 'Pear2',
+                              value: 'Pear',
+                            },
+
+                            {
+                              label: 'Blackberry3',
+                              value: 'Blackberry',
+                            },
+                          ]}
+                        />
+                      </Dialog.FormField>
+                    </Dialog.Form>
+                  ),
+                  onConfirm: (dialogInstance) => {
+                    alert(
+                      JSON.stringify(dialogInstance.getForm()?.getValues()),
+                    );
+                  },
+                })
+              }
+            >
+              Open Dialog Form with Select
             </Button>
           </YStack>
         ),

@@ -167,6 +167,7 @@ function normalizeConfig({ platform, config }) {
           namespaced: false,
         },
       ],
+    !isDev && !isJest && ['babel-plugin-transform-remove-console'],
     moduleResolver && ['module-resolver', moduleResolver],
   ].filter(Boolean);
   // console.log('babelToolsConfig > moduleResolver: ', moduleResolver);

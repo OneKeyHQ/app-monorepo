@@ -431,22 +431,33 @@ function FeeEditor(props: IProps) {
   const handleValidateGasLimit = useCallback(
     (value: string) => {
       const gasLimit = new BigNumber(value || 0);
-      if (
-        gasLimit.isNaN() ||
-        gasLimit.isLessThan(DEFAULT_GAS_LIMIT_MIN) ||
-        gasLimit.isGreaterThan(DEFAULT_GAS_LIMIT_MAX)
-      ) {
+
+      if (vaultSettings?.gasLimitValidationEnabled) {
+        if (
+          gasLimit.isNaN() ||
+          gasLimit.isLessThan(DEFAULT_GAS_LIMIT_MIN) ||
+          gasLimit.isGreaterThan(DEFAULT_GAS_LIMIT_MAX)
+        ) {
+          return intl.formatMessage(
+            { id: ETranslations.form_gas_limit_error_range },
+            {
+              min: DEFAULT_GAS_LIMIT_MIN,
+              max: DEFAULT_GAS_LIMIT_MAX,
+            },
+          );
+        }
+      } else if (gasLimit.isNaN() || gasLimit.isLessThanOrEqualTo(0)) {
         return intl.formatMessage(
-          { id: ETranslations.form_gas_limit_error_range },
+          { id: ETranslations.form_must_greater_then_value },
           {
-            min: DEFAULT_GAS_LIMIT_MIN,
-            max: DEFAULT_GAS_LIMIT_MAX,
+            value: 0,
           },
         );
       }
+
       return true;
     },
-    [intl],
+    [intl, vaultSettings?.gasLimitValidationEnabled],
   );
 
   const handleValidateGasPrice = useCallback(
@@ -477,15 +488,19 @@ function FeeEditor(props: IProps) {
         const recommendGasPriceMin = BigNumber.min(...recommendGasPrice);
 
         if (gasPrice.isNaN() || gasPrice.isLessThan(recommendGasPriceMin)) {
-          return intl.formatMessage(
-            { id: ETranslations.form_must_greater_then_value },
-            {
-              value: recommendGasPriceMin.toFixed(),
-            },
+          setFeeAlert(
+            intl.formatMessage(
+              {
+                id: ETranslations.fee_fee_rate_too_low,
+              },
+              {
+                'feeParam': intl.formatMessage({
+                  id: ETranslations.global_gas_price,
+                }),
+              },
+            ),
           );
-        }
-
-        if (gasPrice.isGreaterThan(recommendGasPriceMax)) {
+        } else if (gasPrice.isGreaterThan(recommendGasPriceMax)) {
           setFeeAlert(
             intl.formatMessage(
               {
@@ -532,17 +547,31 @@ function FeeEditor(props: IProps) {
 
       if (feeRate.isLessThan(recommendFeeRateMin)) {
         setFeeAlert(
-          intl.formatMessage({
-            id: ETranslations.fee_fee_rate_too_low,
-          }),
+          intl.formatMessage(
+            {
+              id: ETranslations.fee_fee_rate_too_low,
+            },
+            {
+              'feeParam': intl.formatMessage({
+                id: ETranslations.fee_fee_rate,
+              }),
+            },
+          ),
         );
       } else if (
         feeRate.isGreaterThan(new BigNumber(recommendFeeRateMax).times(100))
       ) {
         setFeeAlert(
-          intl.formatMessage({
-            id: ETranslations.fee_fee_rate_too_high,
-          }),
+          intl.formatMessage(
+            {
+              id: ETranslations.fee_fee_rate_too_high,
+            },
+            {
+              'something': intl.formatMessage({
+                id: ETranslations.fee_fee_rate,
+              }),
+            },
+          ),
         );
       } else {
         setFeeAlert('');
@@ -650,12 +679,10 @@ function FeeEditor(props: IProps) {
     ({
       name,
       value,
-      decimals,
       intRequired,
     }: {
       name: string;
       value: string;
-      decimals?: number;
       intRequired?: boolean;
     }) => {
       const filedName = name as keyof typeof watchAllFields;
@@ -667,13 +694,6 @@ function FeeEditor(props: IProps) {
           isNaN(formattedValue) ? '' : String(formattedValue),
         );
         return;
-      }
-      if (isNumber(decimals)) {
-        const dp = valueBN.decimalPlaces();
-        if (dp && dp > decimals) {
-          form.setValue(filedName, valueBN.toFixed(decimals));
-          return;
-        }
       }
 
       if (intRequired) {
@@ -713,7 +733,6 @@ function FeeEditor(props: IProps) {
                   handleFormValueOnChange({
                     name: e.target.name,
                     value: e.target.value,
-                    decimals: feeDecimals,
                   }),
               }}
             >
@@ -742,7 +761,6 @@ function FeeEditor(props: IProps) {
                   handleFormValueOnChange({
                     name: e.target.name,
                     value: e.target.value,
-                    decimals: feeDecimals,
                   }),
               }}
             >
@@ -812,7 +830,6 @@ function FeeEditor(props: IProps) {
                   handleFormValueOnChange({
                     name: e.target.name,
                     value: e.target.value,
-                    decimals: feeDecimals,
                   }),
               }}
             >
@@ -918,7 +935,6 @@ function FeeEditor(props: IProps) {
   }, [
     currentFeeType,
     customFee,
-    feeDecimals,
     feeSymbol,
     form,
     handleFormValueOnChange,

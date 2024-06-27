@@ -38,32 +38,32 @@ export const registerWebAuth = async () => {
   if (!(await isSupportWebAuth())) {
     throw new Error('Not support web auth');
   }
-  const challenge = global.crypto.getRandomValues(new Uint8Array(32));
-  const createCredentialOptions: CredentialCreationOptions = {
-    publicKey: {
-      rp: {
-        name: 'OneKey',
-      },
-      user: {
-        id: new Uint8Array(16),
-        name: 'OneKey',
-        displayName: 'OneKey Wallet',
-      },
-      pubKeyCredParams: [
-        {
-          'type': 'public-key',
-          'alg': -7,
-        },
-      ],
-      timeout: 60000,
-      attestation: 'direct',
-      challenge: challenge.buffer,
-      authenticatorSelection: {
-        authenticatorAttachment: 'platform',
-      },
-    },
-  };
   try {
+    const challenge = global.crypto.getRandomValues(new Uint8Array(32));
+    const createCredentialOptions: CredentialCreationOptions = {
+      publicKey: {
+        rp: {
+          name: 'OneKey',
+        },
+        user: {
+          id: new Uint8Array(16),
+          name: 'OneKey',
+          displayName: 'OneKey Wallet',
+        },
+        pubKeyCredParams: [
+          {
+            'type': 'public-key',
+            'alg': -7,
+          },
+        ],
+        timeout: 60000,
+        attestation: 'direct',
+        challenge: challenge.buffer,
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+        },
+      },
+    };
     const cred = await navigator.credentials.create(createCredentialOptions);
     if (cred) {
       return cred.id;

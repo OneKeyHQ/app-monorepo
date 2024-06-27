@@ -478,7 +478,8 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       });
     return this.decryptV4HdCredential({
       v4dbCredential,
-      encodedPassword: await this.getMigrationPassword(),
+      encodedPassword:
+        await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }
 
@@ -499,7 +500,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       v4dbCredential,
       encodedPassword: password
         ? encodeSensitiveText({ text: password })
-        : await this.getMigrationPassword(),
+        : await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }
 
@@ -829,6 +830,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     onAccountMigrated,
     onWalletMigrated,
   }: IV4RunWalletMigrationParams) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { serviceAccount, servicePassword, serviceNetwork } =
       this.backgroundApi;
     let v4device: IV4DBDevice | undefined;
@@ -1020,12 +1022,16 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                         return;
                       }
                       const {
+                        index,
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
                         networkId,
                         networkImpl,
-                        indexedAccountId,
-                        index,
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
                         deriveType,
                         deriveInfo,
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                        coinType,
+                        indexedAccountId,
                       } = prepareResult;
                       const accountId = accountUtils.buildHDAccountId({
                         walletId: v5wallet?.id,
@@ -1064,6 +1070,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                       });
                       // TODO use service add hw account
                       await v5localDb.addAccountsToWallet({
+                        allAccountsBelongToNetworkId: networkId,
                         walletId: v5wallet?.id,
                         accounts: [v5account],
                       });
@@ -1183,8 +1190,8 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             });
             if (prepareResult) {
               const { networkId, index, deriveType } = prepareResult;
-              // TODO add addressMap to DB
               const result = await serviceAccount.addHDOrHWAccounts({
+                names: [v4account.name],
                 walletId: v5wallet.id,
                 networkId,
                 indexes: [index],

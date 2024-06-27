@@ -8,25 +8,31 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  usePreCheckTxStatusAtom,
   useSendConfirmActions,
   useSendFeeStatusAtom,
   useSendTxStatusAtom,
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
 import TxFeeContainer from './TxFeeContainer';
 import TxSimulationContainer from './TxSimulationContainer';
 import { TxSourceInfoContainer } from './TxSourceInfoContainer';
-import { TxSwapInfoContainer } from './TxSwapInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -34,11 +40,16 @@ function SendConfirmContainer() {
   const intl = useIntl();
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
-  const { updateUnsignedTxs, updateNativeTokenInfo, updateSendFeeStatus } =
-    useSendConfirmActions().current;
+  const {
+    updateUnsignedTxs,
+    updateNativeTokenInfo,
+    updateSendFeeStatus,
+    updatePreCheckTxStatus,
+  } = useSendConfirmActions().current;
   const [settings] = useSettingsPersistAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendAlertStatus] = useSendTxStatusAtom();
+  const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const {
     accountId,
     networkId,
@@ -55,6 +66,11 @@ function SendConfirmContainer() {
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  useEffect(() => {
+    appEventBus.emit(EAppEventBusNames.SendConfirmContainerMounted, undefined);
+  }, []);
+
   const { network } =
     usePromiseResult(async () => {
       updateUnsignedTxs(unsignedTxs);
@@ -99,6 +115,19 @@ function SendConfirmContainer() {
       settings.inscriptionProtection,
     ]).result ?? {};
 
+  usePromiseResult(async () => {
+    try {
+      await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
+        networkId,
+        accountId,
+        unsignedTxs,
+        precheckTiming: ESendPreCheckTimingEnum.BeforeTransaction,
+      });
+    } catch (e: any) {
+      updatePreCheckTxStatus((e as Error).message);
+    }
+  }, [accountId, networkId, unsignedTxs, updatePreCheckTxStatus]);
+
   useEffect(
     () => () =>
       updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' }),
@@ -133,6 +162,14 @@ function SendConfirmContainer() {
                 )}
               />
             ) : null}
+            {preCheckTxStatus.errorMessage ? (
+              <Alert
+                fullBleed
+                icon="ErrorOutline"
+                type="critical"
+                title={preCheckTxStatus.errorMessage}
+              />
+            ) : null}
           </Stack>
           <TxSourceInfoContainer sourceInfo={sourceInfo} />
           <TxActionsContainer
@@ -162,6 +199,7 @@ function SendConfirmContainer() {
     [
       sendFeeStatus.errMessage,
       sendAlertStatus.isInsufficientNativeBalance,
+      preCheckTxStatus.errorMessage,
       intl,
       network?.symbol,
       sourceInfo,
@@ -176,15 +214,14 @@ function SendConfirmContainer() {
     ],
   );
 
+  const handleOnClose = (extra?: { flag?: string }) => {
+    if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
+      dappApprove.reject();
+    }
+  };
+
   return (
-    <Page
-      scrollEnabled
-      onClose={(confirmed) => {
-        if (!confirmed) {
-          dappApprove.reject();
-        }
-      }}
-    >
+    <Page scrollEnabled onClose={handleOnClose}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.transaction__transaction_confirm,

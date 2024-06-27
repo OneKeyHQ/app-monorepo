@@ -168,7 +168,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
           {item.serialNumber || '-'}
         </SizableText>
       ),
-      'name': (item) => (
+      'symbol': (item) => (
         <XStack space="$3" ai="center">
           <MarketTokenIcon uri={item.image} size="$8" />
           <YStack width="$24">
@@ -321,7 +321,7 @@ function TableRow({
 }) {
   const {
     serialNumber,
-    name,
+    symbol,
     price,
     priceChangePercentage1H,
     priceChangePercentage24H,
@@ -383,7 +383,7 @@ function TableRow({
         {isLoading ? <Skeleton w="$4" h="$3" /> : serialNumber?.(item)}
       </Column>
       <Column
-        name="name"
+        name="symbol"
         alignLeft
         width={140}
         sortType={sortType?.columnName}
@@ -400,7 +400,7 @@ function TableRow({
             </YStack>
           </XStack>
         ) : (
-          name?.(item)
+          symbol?.(item)
         )}
       </Column>
       <Column
@@ -607,7 +607,7 @@ function TableMdSkeletonRow() {
   );
 }
 
-function ListEmptyComponent() {
+function ListEmptyComponent({ showMoreAction }: { showMoreAction: boolean }) {
   const { gtMd } = useMedia();
   if (platformEnv.isNativeAndroid) {
     return null;
@@ -618,7 +618,7 @@ function ListEmptyComponent() {
         <TableRow
           key={i}
           isLoading
-          showMoreAction
+          showMoreAction={showMoreAction}
           tableConfig={{}}
           minHeight={52}
         />
@@ -705,7 +705,7 @@ function BasicMarketHomeList({
   const tableHeaderConfig = useMemo(
     () => ({
       'serialNumber': () => '#',
-      'name': () => intl.formatMessage({ id: ETranslations.global_name }),
+      'symbol': () => intl.formatMessage({ id: ETranslations.global_name }),
       'price': () => intl.formatMessage({ id: ETranslations.global_price }),
       'priceChangePercentage1H': () =>
         intl.formatMessage({ id: ETranslations.market_one_hour_percentage }),
@@ -1095,12 +1095,16 @@ function BasicMarketHomeList({
           ref={listViewRef}
           stickyHeaderHiddenOnScroll
           estimatedItemSize={60}
+          // @ts-ignore
+          estimatedListSize={{ width: 370, height: 525 }}
           onScroll={handleScroll}
           scrollEventThrottle={100}
           data={sortedListData as unknown as IMarketToken[]}
           renderItem={gtMd ? renderItem : renderMdItem}
           ListFooterComponent={gtMd ? <Stack height={60} /> : undefined}
-          ListEmptyComponent={<ListEmptyComponent />}
+          ListEmptyComponent={
+            <ListEmptyComponent showMoreAction={showMoreAction} />
+          }
           extraData={gtMd ? undefined : mdColumnKeys}
         />
         {isShowBackToTopButton ? (

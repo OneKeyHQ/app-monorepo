@@ -169,6 +169,7 @@ export function ChunkedItemsView({
                   },
                 })
               }
+              userSelect="none"
               testID={`dapp-${item.dappId}`}
             >
               <Image w="$14" h="$14" borderRadius="$3">

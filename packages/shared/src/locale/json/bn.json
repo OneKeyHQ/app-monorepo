@@ -1491,6 +1491,8 @@
   "v4_migration.backup_title": "আপনার ডাটা ব্যাকআপ করুন",
   "v4_migration.completed_desc": "এখনই OneKey v5 এর উত্তেজনাময় নতুন বৈশিষ্ট্যগুলি অন্বেষণ করুন!",
   "v4_migration.completed_title": "মাইগ্রেশন সম্পন্ন হয়েছে",
+  "v4_migration.downgrade_dialog_description": "দয়া করে OneKey v5 আপগ্রেড করার পর v4 এ ডাউনগ্রেড করবেন না, কারণ এটি ডাটা হারানোর ফলাফল হবে।",
+  "v4_migration.downgrade_dialog_title": "আপনার ডাটা সুরক্ষা করুন",
   "v4_migration.update_in_progress": "আপডেট চলছে",
   "v4_migration.update_in_progress_alert_description": "অনেক ওয়ালেট সহ ব্যবহারকারীদের জন্য মাইগ্রেশন কয়েক মিনিট পর্যন্ত সময় নিতে পারে।",
   "v4_migration.update_in_progress_alert_title": "আপডেটের সময় আপনার অ্যাপ বন্ধ করবেন না",

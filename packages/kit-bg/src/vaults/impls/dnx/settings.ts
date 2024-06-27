@@ -49,6 +49,8 @@ const settings: IVaultSettings = {
 
   hasFrozenBalance: true,
 
+  hideTxUtxoListWhenPending: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {

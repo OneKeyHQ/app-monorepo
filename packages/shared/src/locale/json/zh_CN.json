@@ -1491,6 +1491,8 @@
   "v4_migration.backup_title": "备份您的数据",
   "v4_migration.completed_desc": "马上探索 OneKey v5 带来的全新体验吧！",
   "v4_migration.completed_title": "迁移完成",
+  "v4_migration.downgrade_dialog_description": "请不要在升级到 OneKey v5 后降级到 v4，因为这将导致数据丢失。",
+  "v4_migration.downgrade_dialog_title": "保护您的数据",
   "v4_migration.update_in_progress": "正在更新中",
   "v4_migration.update_in_progress_alert_description": "对于拥有多个钱包的用户来说，迁移可能需要几分钟的时间。",
   "v4_migration.update_in_progress_alert_title": "在更新过程中，请不要关闭您的应用程序",

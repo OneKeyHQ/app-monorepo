@@ -1491,6 +1491,8 @@
   "v4_migration.backup_title": "Створіть резервну копію своїх даних",
   "v4_migration.completed_desc": "Досліджуйте захоплюючі нові функції OneKey v5 зараз!",
   "v4_migration.completed_title": "Міграцію завершено",
+  "v4_migration.downgrade_dialog_description": "Будь ласка, не знижуйте версію до OneKey v4 після оновлення до v5, оскільки це призведе до втрати даних.",
+  "v4_migration.downgrade_dialog_title": "Захистіть свої дані",
   "v4_migration.update_in_progress": "Оновлення в процесі",
   "v4_migration.update_in_progress_alert_description": "Міграція для користувачів з багатьма гаманцями може зайняти до кількох хвилин.",
   "v4_migration.update_in_progress_alert_title": "Не закривайте свою програму під час оновлення",

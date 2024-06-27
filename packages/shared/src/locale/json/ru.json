@@ -1491,6 +1491,8 @@
   "v4_migration.backup_title": "Сделайте резервную копию ваших данных",
   "v4_migration.completed_desc": "Изучите новые захватывающие функции OneKey v5 прямо сейчас!",
   "v4_migration.completed_title": "Миграция завершена",
+  "v4_migration.downgrade_dialog_description": "Пожалуйста, не откатывайтесь на OneKey v4 после обновления до v5, так как это приведет к потере данных.",
+  "v4_migration.downgrade_dialog_title": "Защитите свои данные",
   "v4_migration.update_in_progress": "Обновление в процессе",
   "v4_migration.update_in_progress_alert_description": "Миграция для пользователей с большим количеством кошельков может занять до нескольких минут.",
   "v4_migration.update_in_progress_alert_title": "Не закрывайте ваше приложение во время обновления",

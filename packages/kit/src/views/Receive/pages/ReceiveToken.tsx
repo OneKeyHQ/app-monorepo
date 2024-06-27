@@ -56,7 +56,7 @@ function ReceiveToken() {
       })
     : deriveInfo?.label ?? '';
 
-  const { account, network, wallet } = useAccountData({
+  const { account, network, wallet, vaultSettings } = useAccountData({
     accountId,
     networkId,
     walletId,
@@ -164,7 +164,9 @@ function ReceiveToken() {
         <Stack mb="$5">
           <XStack space="$2" alignItems="center" justifyContent="center">
             <Heading size="$headingMd">{network.name}</Heading>
-            {addressType ? <Badge>{addressType}</Badge> : null}
+            {vaultSettings?.showAddressType && addressType ? (
+              <Badge>{addressType}</Badge>
+            ) : null}
           </XStack>
           <SizableText
             mt="$1"
@@ -303,6 +305,7 @@ function ReceiveToken() {
     isShowAddress,
     isShowQRCode,
     network,
+    vaultSettings?.showAddressType,
     wallet,
   ]);
 

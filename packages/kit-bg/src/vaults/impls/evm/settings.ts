@@ -78,6 +78,7 @@ const settings: IVaultSettings = {
   replaceTxEnabled: true,
   withL1BaseFee: true,
   transferZeroNativeTokenEnabled: true,
+  gasLimitValidationEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {
