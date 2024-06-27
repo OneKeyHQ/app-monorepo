@@ -32,6 +32,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import v5localDb from '../../dbs/local/localDb';
+import localDb from '../../dbs/local/localDb';
 
 import { v4CoinTypeToNetworkId } from './v4CoinTypeToNetworkId';
 import v4dbHubs from './v4dbHubs';
@@ -40,15 +41,6 @@ import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 import v4MigrationUtils from './v4MigrationUtils';
 import { EV4DBAccountType } from './v4types';
 
-import localDb from '../../dbs/local/localDb';
-import type {
-  IDBAccount,
-  IDBCreateHWWalletParams,
-  IDBDevice,
-  IDBDeviceSettings,
-  IDBUtxoAccount,
-  IDBWallet,
-} from '../../dbs/local/types';
 import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
@@ -65,6 +57,14 @@ import type {
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
 } from './v4local/v4localDBTypes';
+import type {
+  IDBAccount,
+  IDBCreateHWWalletParams,
+  IDBDevice,
+  IDBDeviceSettings,
+  IDBUtxoAccount,
+  IDBWallet,
+} from '../../dbs/local/types';
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({
@@ -986,12 +986,17 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         } else {
           v5wallet = await v4dbHubs.logger.runAsyncWithCatch(
             async () => {
+              const v4reduxData = await v4dbHubs?.v4reduxDb?.reduxData;
+              const v4verificationMap =
+                v4reduxData?.settings?.hardware?.verification || {};
+              const isFirmwareVerified =
+                v4verificationMap?.[v5dbDevice?.connectId];
               const { wallet: v5walletSaved } =
                 await serviceAccount.createHWWalletBase({
                   name: v4wallet.name,
                   features: JSON.parse(v4device?.features || '{}') || {},
                   device: v5dbDevice,
-                  isFirmwareVerified: false, // TODO v4 isFirmwareVerified
+                  isFirmwareVerified,
                 });
               await onWalletMigrated(v5walletSaved);
               return v5walletSaved;
