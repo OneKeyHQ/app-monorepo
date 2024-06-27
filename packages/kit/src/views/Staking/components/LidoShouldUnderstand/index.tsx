@@ -227,7 +227,7 @@ export const MaticStakeShouldUnderstand = ({ apr }: { apr: number }) => {
                 { id: ETranslations.earn_receive_token },
                 {
                   'token': (
-                    <SizableText color="$textInteractive">stMatic</SizableText>
+                    <SizableText color="$textInteractive">stMATIC</SizableText>
                   ),
                 },
               )}

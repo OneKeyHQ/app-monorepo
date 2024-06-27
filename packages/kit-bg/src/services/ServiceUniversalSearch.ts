@@ -89,8 +89,8 @@ class ServiceUniversalSearch extends ServiceBase {
     networkId?: string;
   }): Promise<IUniversalSearchSingleResult> {
     let items: IUniversalSearchResultItem[] = [];
-    const { networks } =
-      await this.backgroundApi.serviceNetwork.getAllNetworks();
+    const { serviceNetwork } = this.backgroundApi;
+    const { networks } = await serviceNetwork.getAllNetworks();
     let isEvmAddressChecked = false;
     for (const network of networks) {
       if (

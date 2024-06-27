@@ -217,12 +217,10 @@ class ServiceLightning extends ServiceBase {
     }
 
     const { data } =
-      await this.backgroundApi.serviceAccountProfile.fetchValidateAddressResult(
-        {
-          networkId,
-          address: toVal,
-        },
-      );
+      await this.backgroundApi.serviceValidator.serverValidateAddress({
+        networkId,
+        address: toVal,
+      });
 
     if (!data.data.lnurlDetails) {
       throw new Error('Invalid lnurl');
