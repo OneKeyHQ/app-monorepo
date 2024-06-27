@@ -1357,13 +1357,16 @@ class ServiceAccount extends ServiceBase {
   async setWalletTempStatus({
     walletId,
     isTemp,
+    hideImmediately,
   }: {
     walletId: IDBWalletId;
     isTemp: boolean;
+    hideImmediately?: boolean;
   }) {
     const result = await localDb.setWalletTempStatus({
       walletId,
       isTemp,
+      hideImmediately,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;

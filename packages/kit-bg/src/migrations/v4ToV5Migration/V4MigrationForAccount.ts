@@ -40,6 +40,15 @@ import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 import v4MigrationUtils from './v4MigrationUtils';
 import { EV4DBAccountType } from './v4types';
 
+import localDb from '../../dbs/local/localDb';
+import type {
+  IDBAccount,
+  IDBCreateHWWalletParams,
+  IDBDevice,
+  IDBDeviceSettings,
+  IDBUtxoAccount,
+  IDBWallet,
+} from '../../dbs/local/types';
 import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
@@ -56,13 +65,6 @@ import type {
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
 } from './v4local/v4localDBTypes';
-import type {
-  IDBAccount,
-  IDBDevice,
-  IDBDeviceSettings,
-  IDBUtxoAccount,
-  IDBWallet,
-} from '../../dbs/local/types';
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({
@@ -926,13 +928,45 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         if (v4wallet?.passphraseState) {
           v5wallet = await v4dbHubs.logger.runAsyncWithCatch(
             async () => {
+              const params: IDBCreateHWWalletParams = {
+                name: v4wallet.name,
+                device: deviceUtils.dbDeviceToSearchDevice(v5dbDevice),
+                features: v5dbDevice.featuresInfo || ({} as any),
+                passphraseState: v4wallet.passphraseState,
+              };
+              const { dbWalletId: v5dbWalletId } =
+                await localDb.buildHwWalletId(params);
+              const v5walletCurrent = await localDb.getWalletSafe({
+                walletId: v5dbWalletId,
+              });
+              const isV5WalletExistAndRemembered =
+                v5walletCurrent && !v5walletCurrent.isTemp;
               const { wallet: v5walletSaved } =
-                await serviceAccount.createHWWalletBase({
-                  name: v4wallet.name,
-                  device: deviceUtils.dbDeviceToSearchDevice(v5dbDevice),
-                  features: v5dbDevice.featuresInfo || ({} as any),
-                  passphraseState: v4wallet.passphraseState,
+                await serviceAccount.createHWWalletBase(params);
+
+              void (async () => {
+                // only update wallet isTemp status when first time migration
+                if (isV5WalletExistAndRemembered) {
+                  return;
+                }
+                const v4reduxData = await v4dbHubs?.v4reduxDb?.reduxData;
+                const v4rememberPassphraseWallets =
+                  v4reduxData?.settings?.hardware?.rememberPassphraseWallets ||
+                  [];
+                let isTemp = false;
+                if (
+                  v4wallet?.id &&
+                  !v4rememberPassphraseWallets.includes(v4wallet?.id)
+                ) {
+                  isTemp = true;
+                }
+                await serviceAccount.setWalletTempStatus({
+                  walletId: v5walletSaved.id,
+                  isTemp,
+                  hideImmediately: true,
                 });
+              })();
+
               await onWalletMigrated(v5walletSaved);
               return v5walletSaved;
             },

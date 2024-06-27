@@ -61,6 +61,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBAccountDerivation,
@@ -91,7 +92,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -1270,6 +1270,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async buildHwWalletId(params: IDBCreateHWWalletParams) {
+    const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
+
+    const { name, device, features, passphraseState, isFirmwareVerified } =
+      params;
+    const deviceUUID = device.uuid || getDeviceUUID(features);
+    const rawDeviceId = device.deviceId || features.device_id || '';
+    const existingDevice = await this.getExistingDevice({
+      rawDeviceId,
+      uuid: deviceUUID,
+    });
+    const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
+    const dbWalletId = accountUtils.buildHwWalletId({
+      dbDeviceId,
+      passphraseState,
+    });
+
+    return {
+      dbDeviceId,
+      dbWalletId,
+      deviceUUID,
+      rawDeviceId,
+    };
+  }
+
   // TODO remove unused hidden wallet first
   async createHWWallet(params: IDBCreateHWWalletParams) {
     const db = await this.readyDb;
@@ -1285,21 +1310,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const context = await this.getContext();
     // const serialNo = features.onekey_serial ?? features.serial_no ?? '';
     const deviceType = device.deviceType || getDeviceType(features);
-    const deviceUUID = device.uuid || getDeviceUUID(features);
-    const rawDeviceId = device.deviceId || features.device_id || '';
-
     const avatar: IAvatarInfo = {
       img: deviceType,
     };
-    const existingDevice = await this.getExistingDevice({
-      rawDeviceId,
-      uuid: deviceUUID,
-    });
-    const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
-    const dbWalletId = accountUtils.buildHwWalletId({
-      dbDeviceId,
-      passphraseState,
-    });
+
+    const { dbDeviceId, dbWalletId, deviceUUID, rawDeviceId } =
+      await this.buildHwWalletId(params);
 
     let parentWalletId: string | undefined;
     const deviceName = await accountUtils.buildDeviceName({ device, features });
@@ -1562,9 +1578,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async setWalletTempStatus({
     walletId,
     isTemp,
+    hideImmediately,
   }: {
     walletId: IDBWalletId;
     isTemp: boolean;
+    hideImmediately?: boolean;
   }) {
     const db = await this.readyDb;
     await db.withTransaction(async (tx) => {
@@ -1576,7 +1594,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           return item;
         },
       });
-      this.tempWallets[walletId] = true;
+      if (hideImmediately) {
+        delete this.tempWallets[walletId];
+      } else {
+        this.tempWallets[walletId] = true;
+      }
     });
   }
 
