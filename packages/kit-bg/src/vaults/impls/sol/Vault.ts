@@ -630,7 +630,7 @@ export default class Vault extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { unsignedTx } = params;
+    const { unsignedTx, transferPayload } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
     const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
 
@@ -643,7 +643,10 @@ export default class Vault extends VaultBase {
         }),
       ];
     } else {
-      actions = await this._decodeNativeTxActions(nativeTx);
+      actions = await this._decodeNativeTxActions({
+        nativeTx,
+        isNFT: transferPayload?.isNFT,
+      });
     }
 
     const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
@@ -690,7 +693,13 @@ export default class Vault extends VaultBase {
     },
   );
 
-  async _decodeNativeTxActions(nativeTx: INativeTxSol) {
+  async _decodeNativeTxActions({
+    nativeTx,
+    isNFT,
+  }: {
+    nativeTx: INativeTxSol;
+    isNFT: boolean | undefined;
+  }) {
     const actions: Array<IDecodedTxAction> = [];
 
     const createdAta: Record<string, IAssociatedTokenInfo> = {};
@@ -699,8 +708,6 @@ export default class Vault extends VaultBase {
       nativeTx,
       client,
     });
-
-    const accountAddress = await this.getAccountAddress();
 
     for (const instruction of instructions) {
       // TODO: only support system transfer & token transfer now
@@ -816,7 +823,7 @@ export default class Vault extends VaultBase {
                 name: tokenInfo.name,
                 symbol: tokenInfo.symbol,
                 amount: tokenAmount.shiftedBy(-tokenInfo.decimals).toFixed(),
-                isNFT: false,
+                isNFT,
               };
 
               actions.push(
