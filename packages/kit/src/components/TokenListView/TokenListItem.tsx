@@ -51,6 +51,7 @@ function TokenListItem(props: ITokenListItemProps) {
         >
           <TokenNameView
             size="$bodyLgMedium"
+            minWidth={0}
             numberOfLines={1}
             name={token.name}
             isNative={token.isNative}
@@ -60,6 +61,7 @@ function TokenListItem(props: ITokenListItemProps) {
           />
         </XStack>
         <TokenBalanceView
+          numberOfLines={1}
           size="$bodyMd"
           color="$textSubdued"
           $key={token.$key ?? ''}

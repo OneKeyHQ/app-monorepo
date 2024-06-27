@@ -133,7 +133,8 @@ function UTXODetails() {
       >
         <Stack
           $gtMd={{
-            flex: 1,
+            flexGrow: 1,
+            flexBasis: 0,
           }}
         >
           <Heading
@@ -165,7 +166,8 @@ function UTXODetails() {
         />
         <Stack
           $gtMd={{
-            flex: 1,
+            flexGrow: 1,
+            flexBasis: 0,
           }}
         >
           <Heading
@@ -196,7 +198,9 @@ function UTXODetails() {
           id: ETranslations.global_outputs,
         })}`}
       />
-      <Page.Body>{renderUTXODetails()}</Page.Body>
+      <Page.Body testID="history-details-inputs-and-outputs">
+        {renderUTXODetails()}
+      </Page.Body>
     </Page>
   );
 }
