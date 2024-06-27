@@ -16,6 +16,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketResponsePool } from '@onekeyhq/shared/types/market';
@@ -26,7 +27,6 @@ import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { MarketPoolIcon } from './MarketPoolIcon';
 import { PoolDetailDialog } from './PoolDetailDialog';
 import { useSortType } from './useSortType';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 function HeaderColumn({
   name,
