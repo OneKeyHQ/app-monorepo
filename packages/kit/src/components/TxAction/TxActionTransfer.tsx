@@ -390,6 +390,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       size="$bodyMd"
       color="$textSubdued"
       numberOfLines={1}
+      maxWidth="$40"
     >
       {changeDescription as string}
     </NumberSizeableText>
