@@ -80,6 +80,15 @@ export function ScanQrCode({
     void requestCameraPermissionsAsync().then(({ status }) => {
       if (status !== PermissionStatus.GRANTED) {
         const { isExtensionUiPopup } = platformEnv;
+        const canViewTutorial =
+          platformEnv.isRuntimeBrowser &&
+          !platformEnv.isDesktop &&
+          (platformEnv.isRuntimeChrome ||
+            platformEnv.isRuntimeEdge ||
+            platformEnv.isRuntimeBrave);
+        const permissionConfirmText = canViewTutorial
+          ? ETranslations.global_view_tutorial
+          : ETranslations.global_go_settings;
         Dialog.show({
           tone: 'warning',
           icon: 'ErrorOutline',
@@ -94,7 +103,7 @@ export function ScanQrCode({
           onConfirmText: intl.formatMessage({
             id: isExtensionUiPopup
               ? ETranslations.global_expand_view
-              : ETranslations.global_view_tutorial,
+              : permissionConfirmText,
           }),
           showCancelButton: true,
           showConfirmButton: true,
@@ -104,23 +113,25 @@ export function ScanQrCode({
                 .openUrlInTab(EXT_HTML_FILES.uiExpandTab)
                 .catch(console.error);
             } else {
-              if (platformEnv.isExtChrome) {
-                openUrlExternal(
-                  'https://support.google.com/chrome/answer/2693767',
-                );
-                return;
-              }
-              if (platformEnv.isRuntimeEdge) {
-                openUrlExternal(
-                  'https://support.microsoft.com/zh-cn/windows/a83257bc-e990-d54a-d212-b5e41beba857',
-                );
-                return;
-              }
-              if (platformEnv.isRuntimeBrave) {
-                openUrlExternal(
-                  'https://support.brave.com/hc/en-us/articles/360018205431',
-                );
-                return;
+              if (platformEnv.isRuntimeBrowser && !platformEnv.isDesktop) {
+                if (platformEnv.isRuntimeChrome) {
+                  openUrlExternal(
+                    'https://support.google.com/chrome/answer/2693767',
+                  );
+                  return;
+                }
+                if (platformEnv.isRuntimeEdge) {
+                  openUrlExternal(
+                    'https://support.microsoft.com/zh-cn/windows/a83257bc-e990-d54a-d212-b5e41beba857',
+                  );
+                  return;
+                }
+                if (platformEnv.isRuntimeBrave) {
+                  openUrlExternal(
+                    'https://support.brave.com/hc/en-us/articles/360018205431',
+                  );
+                  return;
+                }
               }
               openSettings('camera');
             }
