@@ -1494,8 +1494,6 @@ export enum ETranslations {
   v4_migration_backup_title = 'v4_migration.backup_title',
   v4_migration_completed_desc = 'v4_migration.completed_desc',
   v4_migration_completed_title = 'v4_migration.completed_title',
-  v4_migration_downgrade_dialog_description = 'v4_migration.downgrade_dialog_description',
-  v4_migration_downgrade_dialog_title = 'v4_migration.downgrade_dialog_title',
   v4_migration_update_in_progress = 'v4_migration.update_in_progress',
   v4_migration_update_in_progress_alert_description = 'v4_migration.update_in_progress_alert_description',
   v4_migration_update_in_progress_alert_title = 'v4_migration.update_in_progress_alert_title',

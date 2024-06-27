@@ -1493,8 +1493,6 @@
   "v4_migration.backup_title": "สำรองข้อมูลของคุณ",
   "v4_migration.completed_desc": "สำรวจคุณสมบัติใหม่ๆ ที่น่าตื่นเต้นของ OneKey v5 ทันที!",
   "v4_migration.completed_title": "การย้ายข้อมูลเสร็จสิ้น",
-  "v4_migration.downgrade_dialog_description": "กรุณาอย่าดาวน์เกรดลงเป็น OneKey v4 หลังจากที่อัปเกรดเป็น v5 แล้ว เนื่องจากจะทำให้ข้อมูลสูญหาย",
-  "v4_migration.downgrade_dialog_title": "ปกป้องข้อมูลของคุณ",
   "v4_migration.update_in_progress": "กำลังอัปเดต",
   "v4_migration.update_in_progress_alert_description": "การย้ายข้อมูลสำหรับผู้ใช้ที่มีกระเป๋าเงินมากๆ อาจใช้เวลาสูงสุดถึงหลายนาที",
   "v4_migration.update_in_progress_alert_title": "อย่าปิดแอปของคุณระหว่างการอัปเดต",

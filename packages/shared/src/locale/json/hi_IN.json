@@ -1493,8 +1493,6 @@
   "v4_migration.backup_title": "अपना डाटा बैकअप करें",
   "v4_migration.completed_desc": "अब OneKey v5 के रोमांचक नए फीचर्स का अन्वेषण करें!",
   "v4_migration.completed_title": "माइग्रेशन पूरा हुआ",
-  "v4_migration.downgrade_dialog_description": "कृपया OneKey v5 को अपग्रेड करने के बाद OneKey v4 में डाउनग्रेड न करें, क्योंकि इससे डाटा की हानि हो सकती है।",
-  "v4_migration.downgrade_dialog_title": "अपने डाटा की सुरक्षा करें",
   "v4_migration.update_in_progress": "अपडेट प्रगति पर है",
   "v4_migration.update_in_progress_alert_description": "बहुत सारे वॉलेट वाले उपयोगकर्ताओं के लिए माइग्रेशन कई मिनटों तक ले सकता है।",
   "v4_migration.update_in_progress_alert_title": "अपडेट के दौरान अपने ऐप को बंद न करें",
