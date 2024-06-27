@@ -29,7 +29,9 @@ export function ErrorToastContainer() {
           my: '$2',
           size: 'small',
           onPress: () => {
-            copyText(message);
+            if (message) {
+              copyText(message);
+            }
           },
         };
       }
