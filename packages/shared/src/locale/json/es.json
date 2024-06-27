@@ -160,7 +160,7 @@
   "dapp_connect.allow_to_access_your_chain_public_key": "Permitir el acceso a tu clave pública de {chain}.",
   "dapp_connect.allow_to_access_your_chain_register": "Permita que este sitio acceda a su registro de {chain}.",
   "dapp_connect.amount": "Cantidad",
-  "dapp_connect.amount_should_be_at_least": "El saldo debe ser al menos 1 DOT.",
+  "dapp_connect.amount_should_be_at_least": "El monto debe ser al menos {0}.",
   "dapp_connect.amount_should_not_exceed": "La cantidad no debe exceder {0}.",
   "dapp_connect.attackers_disguise_sites_warning": "Los atacantes pueden disfrazar sitios maliciosos como sitios Web3 conocidos reemplazándolos con caracteres inusuales. Verifique nuevamente la URL antes de aprobar cualquier solicitud.",
   "dapp_connect.authorization_successful": "Autorización exitosa",

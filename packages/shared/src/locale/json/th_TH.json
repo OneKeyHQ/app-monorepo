@@ -160,7 +160,7 @@
   "dapp_connect.allow_to_access_your_chain_public_key": "อนุญาตให้เข้าถึง {chain} คีย์สาธารณะของคุณ.",
   "dapp_connect.allow_to_access_your_chain_register": "อนุญาตให้เว็บไซต์นี้เข้าถึง {chain} ของคุณ",
   "dapp_connect.amount": "จำนวน",
-  "dapp_connect.amount_should_be_at_least": "ยอดเงินควรมีอย่างน้อย 1 DOT",
+  "dapp_connect.amount_should_be_at_least": "จำนวนควรจะมากกว่า {0} อย่างน้อย",
   "dapp_connect.amount_should_not_exceed": "จำนวนไม่ควรเกิน {0}.",
   "dapp_connect.attackers_disguise_sites_warning": "ผู้โจมตีอาจจะปลอมแปลงเว็บไซต์ที่มีความร้ายแรงให้ดูเหมือนเว็บไซต์ Web3 ที่รู้จักกันดี โดยการแทนที่ด้วยอักขระที่ไม่ปกติ โปรดตรวจสอบ URL อีกครั้งก่อนอนุมัติคำขอใด ๆ",
   "dapp_connect.authorization_successful": "การอนุญาตสำเร็จ",

@@ -160,7 +160,7 @@
   "dapp_connect.allow_to_access_your_chain_public_key": "Cho phép truy cập vào khóa công khai {chain} của bạn.",
   "dapp_connect.allow_to_access_your_chain_register": "Cho phép trang web này truy cập vào sổ đăng ký {chain} của bạn.",
   "dapp_connect.amount": "Số lượng",
-  "dapp_connect.amount_should_be_at_least": "Số dư nên ít nhất là 1 DOT.",
+  "dapp_connect.amount_should_be_at_least": "Số tiền phải ít nhất là {0}.",
   "dapp_connect.amount_should_not_exceed": "Số tiền không nên vượt quá {0}.",
   "dapp_connect.attackers_disguise_sites_warning": "Kẻ tấn công có thể giả mạo các trang web độc hại thành các trang Web3 nổi tiếng bằng cách thay thế bằng các ký tự không phổ biến. Kiểm tra lại URL trước khi chấp thuận bất kỳ yêu cầu nào.",
   "dapp_connect.authorization_successful": "Ủy quyền thành công",

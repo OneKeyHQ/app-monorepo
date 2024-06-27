@@ -9,11 +9,13 @@ import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
+  BalanceLowerMinimum,
   InvalidTransferValue,
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -33,6 +35,7 @@ import {
   type IOnChainHistoryTxToken,
 } from '@onekeyhq/shared/types/history';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -62,6 +65,7 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  INativeAmountInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
@@ -647,7 +651,13 @@ export default class VaultDot extends VaultBase {
   }
 
   private _getMinAmount = memoizee(
-    async ({ accountAddress }: { accountAddress: string }) => {
+    async ({
+      accountAddress,
+      withBalance,
+    }: {
+      accountAddress: string;
+      withBalance?: boolean;
+    }) => {
       const [minAmountStr] =
         await this.backgroundApi.serviceAccountProfile.sendProxyRequest<string>(
           {
@@ -664,13 +674,16 @@ export default class VaultDot extends VaultBase {
           },
         );
       const minAmount = new BigNumber(minAmountStr);
-      const account =
-        await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-          networkId: this.networkId,
-          accountId: this.accountId,
-          withNonce: false,
-          withNetWorth: true,
-        });
+      const account = withBalance
+        ? await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+            networkId: this.networkId,
+            accountId: this.accountId,
+            withNonce: false,
+            withNetWorth: true,
+          })
+        : {
+            balance: '0',
+          };
       const balance = new BigNumber(account.balance ?? 0);
       return {
         minAmount,
@@ -697,6 +710,7 @@ export default class VaultDot extends VaultBase {
     const sendAmount = new BigNumber(amount).shiftedBy(network.decimals);
     const { minAmount, balance } = await this._getMinAmount({
       accountAddress: to,
+      withBalance: true,
     });
 
     if (balance.plus(sendAmount).lt(minAmount)) {
@@ -713,7 +727,15 @@ export default class VaultDot extends VaultBase {
 
   override async precheckUnsignedTx(params: {
     unsignedTx: IUnsignedTxPro;
+    nativeAmountInfo?: INativeAmountInfo;
+    precheckTiming: ESendPreCheckTimingEnum;
   }): Promise<boolean> {
+    if (params.precheckTiming !== ESendPreCheckTimingEnum.Confirm) {
+      return true;
+    }
+    if (params.nativeAmountInfo?.maxSendAmount) {
+      return true;
+    }
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
     const decodedUnsignedTx = await this._decodeUnsignedTx(encodedTx);
@@ -731,21 +753,20 @@ export default class VaultDot extends VaultBase {
 
       const { minAmount, balance } = await this._getMinAmount({
         accountAddress: encodedTx.address,
+        withBalance: !params.nativeAmountInfo?.maxSendAmount,
       });
       const tokenAmount = new BigNumber(args.value);
       const gasLimit = new BigNumber(encodedTx.feeInfo?.gas?.gasLimit ?? '0');
       const gasPrice = new BigNumber(encodedTx.feeInfo?.gas?.gasPrice ?? '0');
       const fee = gasLimit.times(gasPrice);
+      const leftAmount = balance.minus(tokenAmount).minus(fee);
 
-      if (balance.minus(tokenAmount).minus(fee).lt(minAmount)) {
+      if (leftAmount.lt(minAmount) && leftAmount.gt(0)) {
         const network = await this.getNetwork();
-        throw new InvalidTransferValue({
-          key: ETranslations.dapp_connect_amount_should_be_at_least,
+        throw new BalanceLowerMinimum({
           info: {
-            // @ts-expect-error
-            0: `${minAmount.shiftedBy(-network.decimals).toFixed()}${
-              network.symbol
-            }`,
+            amount: minAmount.shiftedBy(-network.decimals).toFixed(),
+            symbol: network.symbol,
           },
         });
       }

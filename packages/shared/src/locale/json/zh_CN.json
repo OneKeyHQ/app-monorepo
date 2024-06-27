@@ -160,7 +160,7 @@
   "dapp_connect.allow_to_access_your_chain_public_key": "允许访问您的 {chain} 公钥。",
   "dapp_connect.allow_to_access_your_chain_register": "允许此网站访问您的 {chain} 注册。",
   "dapp_connect.amount": "金额",
-  "dapp_connect.amount_should_be_at_least": "余额应至少为 1 DOT。",
+  "dapp_connect.amount_should_be_at_least": "金额应至少为 {0}。",
   "dapp_connect.amount_should_not_exceed": "金额不应超过 {0}。",
   "dapp_connect.attackers_disguise_sites_warning": "诈骗网站会通过替换字符来伪装成知名的 Web3 网站。在批准请求之前请先检查网址是否正确。",
   "dapp_connect.authorization_successful": "授权成功",

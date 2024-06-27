@@ -160,7 +160,7 @@
   "dapp_connect.allow_to_access_your_chain_public_key": "अपनी {chain} सार्वजनिक कुंजी तक पहुंचने की अनुमति दें।",
   "dapp_connect.allow_to_access_your_chain_register": "इस साइट को आपके {chain} रजिस्टर तक पहुंचने की अनुमति दें।",
   "dapp_connect.amount": "राशि",
-  "dapp_connect.amount_should_be_at_least": "संतुलन कम से कम 1 DOT होना चाहिए।",
+  "dapp_connect.amount_should_be_at_least": "राशि कम से कम {0} होनी चाहिए।",
   "dapp_connect.amount_should_not_exceed": "राशि {0} से अधिक नहीं होनी चाहिए।",
   "dapp_connect.attackers_disguise_sites_warning": "हमलावर अज्ञात वर्णों का उपयोग करके प्रसिद्ध Web3 साइटों के रूप में दुर्भावनापूर्ण साइटों को छिपा सकते हैं। किसी भी अनुरोध को मंजूरी देने से पहले URL को फिर से जांचें।",
   "dapp_connect.authorization_successful": "अधिकार प्राप्ति सफल",

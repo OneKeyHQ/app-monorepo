@@ -160,7 +160,7 @@
   "dapp_connect.allow_to_access_your_chain_public_key": "Разрешить доступ к вашему {chain} публичному ключу.",
   "dapp_connect.allow_to_access_your_chain_register": "Разрешить этому сайту доступ к вашему {chain} реестру.",
   "dapp_connect.amount": "Сумма",
-  "dapp_connect.amount_should_be_at_least": "Баланс должен быть не менее 1 DOT.",
+  "dapp_connect.amount_should_be_at_least": "Сумма должна быть не менее {0}.",
   "dapp_connect.amount_should_not_exceed": "Сумма не должна превышать {0}.",
   "dapp_connect.attackers_disguise_sites_warning": "Атакующие могут маскировать вредоносные сайты под известные Web3-сайты, заменяя их необычными символами. Проверьте URL еще раз перед тем, как утвердить любые запросы.",
   "dapp_connect.authorization_successful": "Авторизация успешна",

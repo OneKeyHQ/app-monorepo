@@ -160,7 +160,7 @@
   "dapp_connect.allow_to_access_your_chain_public_key": "আপনার {chain} পাবলিক কী অ্যাক্সেস করার অনুমতি দিন।",
   "dapp_connect.allow_to_access_your_chain_register": "এই সাইটটি আপনার {chain} রেজিস্টারে অ্যাক্সেস করতে দিন।",
   "dapp_connect.amount": "পরিমাণ",
-  "dapp_connect.amount_should_be_at_least": "ব্যালেন্সে কমপক্ষে 1 DOT থাকা উচিত।",
+  "dapp_connect.amount_should_be_at_least": "পরিমাণটি অন্তত {0} হতে হবে।",
   "dapp_connect.amount_should_not_exceed": "পরিমাণ {0} এর চেয়ে বেশি হওয়া উচিত নয়।",
   "dapp_connect.attackers_disguise_sites_warning": "আক্রমণকারীরা অস্বাভাবিক অক্ষর প্রতিস্থাপন করে প্রখ্যাত Web3 সাইটগুলির মতো ক্ষতিকর সাইটগুলি ছদ্মাবেশ করতে পারে। যেকোনো অনুরোধ অনুমোদন করার আগে URL টি আবার পরীক্ষা করুন।",
   "dapp_connect.authorization_successful": "অনুমোদন সফল",

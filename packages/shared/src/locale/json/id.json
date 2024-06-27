@@ -160,7 +160,7 @@
   "dapp_connect.allow_to_access_your_chain_public_key": "Izinkan untuk mengakses kunci publik {chain} Anda.",
   "dapp_connect.allow_to_access_your_chain_register": "Izinkan situs ini untuk mengakses {chain} register Anda.",
   "dapp_connect.amount": "Jumlah",
-  "dapp_connect.amount_should_be_at_least": "Saldo harus setidaknya 1 DOT.",
+  "dapp_connect.amount_should_be_at_least": "Jumlah harus setidaknya {0}.",
   "dapp_connect.amount_should_not_exceed": "Jumlah tidak boleh melebihi {0}.",
   "dapp_connect.attackers_disguise_sites_warning": "Penyerang mungkin menyamar situs berbahaya sebagai situs Web3 yang terkenal dengan mengganti dengan karakter yang tidak biasa. Periksa kembali URL sebelum menyetujui permintaan apa pun.",
   "dapp_connect.authorization_successful": "Otorisasi Berhasil",
