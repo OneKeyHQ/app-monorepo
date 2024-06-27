@@ -194,6 +194,8 @@ export type IVaultSettings = {
   gasLimitValidationEnabled?: boolean;
 
   showAddressType?: boolean;
+
+  hideTxUtxoListWhenPending?: boolean;
 };
 
 export type IVaultFactoryOptions = {
