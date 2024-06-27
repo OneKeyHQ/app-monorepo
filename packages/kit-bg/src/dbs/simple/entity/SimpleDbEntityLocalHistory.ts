@@ -20,6 +20,32 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
   override enableCache = false;
 
   @backgroundMethod()
+  public async getLocalHistoryTxById({
+    networkId,
+    accountAddress,
+    xpub,
+    historyId,
+  }: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
+    historyId: string;
+  }) {
+    if (!accountAddress && !xpub) {
+      throw new OneKeyInternalError('accountAddress or xpub is required');
+    }
+
+    const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+
+    const rawData = await this.getRawData();
+
+    const pendingTxs = rawData?.pendingTxs?.[key] || [];
+    const confirmedTxs = rawData?.confirmedTxs?.[key] || [];
+
+    return [...pendingTxs, ...confirmedTxs].find((tx) => tx.id === historyId);
+  }
+
+  @backgroundMethod()
   public async saveLocalHistoryPendingTxs({
     networkId,
     accountAddress,
@@ -292,6 +318,23 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     const nonceList = await this.getPendingNonceList(props);
     if (nonceList.length) {
       const nonce = Math.max(...nonceList);
+      if (Number.isNaN(nonce) || nonce === Infinity || nonce === -Infinity) {
+        return null;
+      }
+      return nonce;
+    }
+    return null;
+  }
+
+  @backgroundMethod()
+  async getMinPendingNonce(props: {
+    networkId: string;
+    accountAddress: string;
+    xpub?: string;
+  }): Promise<number | null> {
+    const nonceList = await this.getPendingNonceList(props);
+    if (nonceList.length) {
+      const nonce = Math.min(...nonceList);
       if (Number.isNaN(nonce) || nonce === Infinity || nonce === -Infinity) {
         return null;
       }

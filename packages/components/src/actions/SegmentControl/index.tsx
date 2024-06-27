@@ -5,9 +5,10 @@ import { SizableText, styled } from 'tamagui';
 
 import { XStack, YStack } from '../../primitives';
 
+import type { IXStackProps } from '../../primitives';
 import type { GetProps } from 'tamagui';
 
-export interface ISegmentControlProps {
+export interface ISegmentControlProps extends IXStackProps {
   fullWidth?: boolean;
   value: string | number;
   options: {
@@ -87,6 +88,7 @@ function SegmentControlFrame({
   options,
   onChange,
   fullWidth,
+  ...rest
 }: ISegmentControlProps) {
   const handleChange = useCallback(
     (v: string | number) => {
@@ -102,6 +104,7 @@ function SegmentControlFrame({
       borderRadius="$2.5"
       borderCurve="continuous"
       p="$0.5"
+      {...rest}
     >
       {options.map(({ label, value: v }, index) => (
         <SegmentControlItem

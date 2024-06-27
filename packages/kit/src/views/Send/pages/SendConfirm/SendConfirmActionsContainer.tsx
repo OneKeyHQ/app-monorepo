@@ -187,7 +187,7 @@ function SendConfirmActionsContainer(props: IProps) {
       }}
       onConfirmText={
         signOnly
-          ? 'Sign'
+          ? intl.formatMessage({ id: ETranslations.global_sign })
           : intl.formatMessage({ id: ETranslations.global_confirm })
       }
       onConfirm={handleOnConfirm}

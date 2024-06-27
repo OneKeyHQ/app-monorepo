@@ -109,6 +109,26 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
+  async encryptByInstanceId(input: string): Promise<string> {
+    const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
+    const output = encodeSensitiveText({
+      text: input,
+      key: instanceId,
+    });
+    return Promise.resolve(output);
+  }
+
+  @backgroundMethod()
+  async decryptByInstanceId(input: string): Promise<string> {
+    const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
+    const output = decodeSensitiveText({
+      encodedText: input,
+      key: instanceId,
+    });
+    return Promise.resolve(output);
+  }
+
+  @backgroundMethod()
   async decodeSensitiveText({
     encodedText,
   }: {

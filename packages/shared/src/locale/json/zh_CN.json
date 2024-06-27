@@ -537,7 +537,7 @@
   "global.cancel": "取消",
   "global.cancel_confirm_on_device_feedback": "未确认",
   "global.cancel_copy": "取消复制",
-  "global.cancelling": "取消",
+  "global.cancelling": "取消中",
   "global.chain": "所属链",
   "global.change_password": "更改密码",
   "global.checking_device": "检查设备",

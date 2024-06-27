@@ -1,7 +1,11 @@
+import { StyleSheet } from 'react-native';
+
 import {
   Button,
   Dialog,
   ESwitchSize,
+  Icon,
+  IconButton,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -71,47 +75,52 @@ function BalanceDetailsContent({
     },
   );
 
-  const helpLink = useHelpLink({
+  const whatIsFrozenBalanceUrl = useHelpLink({
     path: 'articles/9810415108111',
   });
 
+  const howToTransferOrdinalsAssetsUrl = useHelpLink({
+    path: 'articles/10072721909903',
+  });
+
   return (
-    <YStack>
-      <SizableText mt="$-4" size="$headingSm" color="$textSubdued">
-        {appLocale.intl.formatMessage({
-          id: ETranslations.balance_detail_spendable,
-        })}
-      </SizableText>
-      {isLoading ? (
-        <Stack pt="$2" pb="$3">
-          <Skeleton w="$40" h="$9" />
-        </Stack>
-      ) : (
-        <NumberSizeableText
-          pt="$2"
-          pb="$4"
-          size="$heading3xl"
-          formatter="balance"
-          formatterOptions={{
-            tokenSymbol: network.symbol,
-          }}
-        >
-          {overview?.balanceParsed ?? '-'}
-        </NumberSizeableText>
-      )}
+    <>
+      <Dialog.Header>
+        <Dialog.Icon icon="CryptoCoinOutline" />
+        <Dialog.Title>
+          {isLoading ? (
+            <Skeleton w="$40" h="$9" />
+          ) : (
+            <NumberSizeableText
+              size="$heading3xl"
+              formatter="balance"
+              formatterOptions={{
+                tokenSymbol: network.symbol,
+              }}
+            >
+              {overview?.balanceParsed ?? '-'}
+            </NumberSizeableText>
+          )}
+        </Dialog.Title>
+        <Dialog.Description>
+          {appLocale.intl.formatMessage({
+            id: ETranslations.balance_detail_spendable,
+          })}
+        </Dialog.Description>
+      </Dialog.Header>
       <YStack>
         <XStack py="$2" justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyLgMedium">
+          <SizableText size="$bodyLgMedium" color="$textSubdued">
             {appLocale.intl.formatMessage({
               id: ETranslations.balance_detail_total,
             })}
           </SizableText>
           {isLoading ? (
-            <Skeleton w="$40" h="$5" />
+            <Skeleton w="$24" h="$6" />
           ) : (
             <NumberSizeableText
               textAlign="right"
-              size="$bodyLgMedium"
+              size="$bodyLg"
               formatter="balance"
               formatterOptions={{
                 tokenSymbol: network.symbol,
@@ -121,18 +130,34 @@ function BalanceDetailsContent({
             </NumberSizeableText>
           )}
         </XStack>
-        <XStack py="$2" justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyLgMedium">
-            {appLocale.intl.formatMessage({
-              id: ETranslations.balance_detail_frozen,
-            })}
-          </SizableText>
+        <XStack
+          py="$2"
+          justifyContent="space-between"
+          alignItems="center"
+          borderTopWidth={StyleSheet.hairlineWidth}
+          borderTopColor="$borderSubdued"
+        >
+          <XStack>
+            <SizableText size="$bodyLgMedium" color="$textSubdued" pr="$2">
+              {appLocale.intl.formatMessage({
+                id: ETranslations.balance_detail_frozen,
+              })}
+            </SizableText>
+            <IconButton
+              variant="tertiary"
+              icon="QuestionmarkOutline"
+              onPress={() => {
+                openUrlExternal(whatIsFrozenBalanceUrl);
+              }}
+              color="$iconSubdued"
+            />
+          </XStack>
           {isLoading ? (
-            <Skeleton w="$40" h="$5" />
+            <Skeleton w="$24" h="$6" />
           ) : (
             <NumberSizeableText
               textAlign="right"
-              size="$bodyLgMedium"
+              size="$bodyLg"
               formatter="balance"
               formatterOptions={{
                 tokenSymbol: network.symbol,
@@ -144,14 +169,39 @@ function BalanceDetailsContent({
           )}
         </XStack>
         {inscriptionEnabled ? (
-          <XStack py="$2" justifyContent="space-between" alignItems="center">
-            <SizableText size="$bodyLgMedium">
-              {appLocale.intl.formatMessage({
-                id: ETranslations.balance_detail_frozen_by_inscription,
-              })}
-            </SizableText>
+          <XStack
+            py="$2"
+            justifyContent="space-between"
+            alignItems="center"
+            borderTopWidth={StyleSheet.hairlineWidth}
+            borderTopColor="$borderSubdued"
+          >
+            <Stack>
+              <SizableText size="$bodyLgMedium" color="$textSubdued">
+                {appLocale.intl.formatMessage({
+                  id: ETranslations.balance_detail_frozen_by_inscription,
+                })}
+              </SizableText>
+              <XStack
+                alignItems="center"
+                userSelect="none"
+                onPress={() => {
+                  openUrlExternal(howToTransferOrdinalsAssetsUrl);
+                }}
+                hoverStyle={{
+                  opacity: 0.75,
+                }}
+              >
+                <SizableText size="$bodyMd" color="$textSubdued" mr="$1.5">
+                  {appLocale.intl.formatMessage({
+                    id: ETranslations.open_ordinals_transfer_tutorial_url_message,
+                  })}
+                </SizableText>
+                <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
+              </XStack>
+            </Stack>
             <Switch
-              size={ESwitchSize.large}
+              size={ESwitchSize.small}
               value={settings.inscriptionProtection}
               onChange={(value) => {
                 setSettings((v) => ({
@@ -163,22 +213,8 @@ function BalanceDetailsContent({
             />
           </XStack>
         ) : null}
-        <XStack py="$2" justifyContent="flex-start">
-          <Button
-            icon="QuestionmarkOutline"
-            variant="tertiary"
-            size="small"
-            onPress={() => {
-              openUrlExternal(helpLink);
-            }}
-          >
-            {appLocale.intl.formatMessage({
-              id: ETranslations.balance_detail_what_is_frozen_balance,
-            })}
-          </Button>
-        </XStack>
       </YStack>
-    </YStack>
+    </>
   );
 }
 

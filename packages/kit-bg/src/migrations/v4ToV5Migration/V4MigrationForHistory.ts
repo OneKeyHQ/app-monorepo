@@ -3,6 +3,7 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { buildLocalHistoryKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { EV4LocalDBStoreNames } from './v4local/v4localDBStoreNames';
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
@@ -104,12 +105,19 @@ export class V4MigrationForHistory extends V4MigrationManagerBase {
               },
             });
 
+            let v4ReplaceType: EReplaceTxType | undefined;
+            if (v4pendingTx.replacedType === 'speedUp') {
+              v4ReplaceType = EReplaceTxType.SpeedUp;
+            } else if (v4pendingTx.replacedType === 'cancel') {
+              v4ReplaceType = EReplaceTxType.Cancel;
+            }
+
             const v5pendingTx: IAccountHistoryTx = {
               id: v4pendingTx.id,
               isLocalCreated: v4pendingTx.isLocalCreated,
               replacedNextId: v4pendingTx.replacedNextId,
               replacedPrevId: v4pendingTx.replacedPrevId,
-              replacedType: v4pendingTx.replacedType,
+              replacedType: v4ReplaceType,
 
               decodedTx: {
                 ...v5DecodedTx,

@@ -36,7 +36,8 @@ function getTxActionFunctionCallInfo(props: ITxActionProps) {
 }
 
 function TxActionFunctionCallListView(props: ITxActionProps) {
-  const { tableLayout, decodedTx, componentProps, showIcon } = props;
+  const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
+    props;
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
     useFeeInfoInDecodedTx({
       decodedTx,
@@ -66,6 +67,8 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
       feeFiatValue={txFeeFiatValue}
       feeSymbol={txFeeSymbol}
       hideFeeInfo={hideFeeInfo}
+      replaceType={replaceType}
+      status={decodedTx.status}
       {...componentProps}
     />
   );

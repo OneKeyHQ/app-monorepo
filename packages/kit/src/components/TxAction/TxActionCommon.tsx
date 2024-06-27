@@ -1,7 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
+  Badge,
   Icon,
   NumberSizeableText,
   SizableText,
@@ -13,6 +13,7 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import {
   InfoItem,
@@ -76,18 +77,42 @@ function TxActionCommonAvatar({
 function TxActionCommonTitle({
   title,
   tableLayout,
-}: Pick<ITxActionCommonListViewProps, 'title' | 'tableLayout'>) {
+  replaceType,
+  status,
+}: Pick<
+  ITxActionCommonListViewProps,
+  'title' | 'tableLayout' | 'replaceType' | 'status'
+>) {
+  const intl = useIntl();
+
   return (
-    <SizableText
-      numberOfLines={1}
-      size="$bodyLgMedium"
-      textTransform="capitalize"
-      {...(tableLayout && {
-        size: '$bodyMdMedium',
-      })}
-    >
-      {title}
-    </SizableText>
+    <XStack alignItems="center">
+      <SizableText
+        numberOfLines={1}
+        size="$bodyLgMedium"
+        textTransform="capitalize"
+        {...(tableLayout && {
+          size: '$bodyMdMedium',
+        })}
+      >
+        {title}
+      </SizableText>
+      {replaceType && status === EDecodedTxStatus.Pending ? (
+        <Badge badgeSize="sm" badgeType="info" ml="$2">
+          {intl.formatMessage({
+            id:
+              replaceType === EReplaceTxType.SpeedUp
+                ? ETranslations.global_sped_up
+                : ETranslations.global_cancelling,
+          })}
+        </Badge>
+      ) : null}
+      {status === EDecodedTxStatus.Failed ? (
+        <Badge badgeSize="sm" badgeType="critical" ml="$2">
+          {intl.formatMessage({ id: ETranslations.global_failed })}
+        </Badge>
+      ) : null}
+    </XStack>
   );
 }
 
@@ -192,6 +217,7 @@ function TxActionCommonListView(
   const {
     avatar,
     title,
+    status,
     description,
     change,
     changeDescription,
@@ -199,13 +225,12 @@ function TxActionCommonListView(
     feeFiatValue,
     feeSymbol,
     timestamp,
-    pending,
     tableLayout,
     showIcon,
     hideFeeInfo,
+    replaceType,
     ...rest
   } = props;
-  const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
 
@@ -233,7 +258,12 @@ function TxActionCommonListView(
             <TxActionCommonAvatar avatar={avatar} tableLayout={tableLayout} />
           ) : null}
           <Stack flex={1}>
-            <TxActionCommonTitle title={title} tableLayout={tableLayout} />
+            <TxActionCommonTitle
+              title={title}
+              status={status}
+              tableLayout={tableLayout}
+              replaceType={replaceType}
+            />
             <XStack alignSelf="stretch">
               {tableLayout && timestamp ? (
                 <>
@@ -288,18 +318,6 @@ function TxActionCommonListView(
           />
         ) : null}
       </XStack>
-
-      {/* Actions */}
-      {pending ? (
-        <XStack pl={52} space="$3">
-          <Button size="small" variant="primary">
-            {intl.formatMessage({ id: ETranslations.global_speed_up })}
-          </Button>
-          <Button size="small">
-            {intl.formatMessage({ id: ETranslations.global_cancel })}
-          </Button>
-        </XStack>
-      ) : null}
     </ListItem>
   );
 }
