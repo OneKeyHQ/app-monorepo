@@ -493,7 +493,9 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                     direction === EDecodedTxDirection.OUT
                       ? nativeTokenTransferAmountToUpdate
                       : transfer.amount
-                  } ${transfer.symbol}`}</SizableText>
+                  } ${
+                    transfer.isNFT ? transfer.name : transfer.symbol
+                  }`}</SizableText>
                   {/* <SizableText size="$bodyMd" color="$textSubdued">
                     TODO: Fiat value
                   </SizableText> */}

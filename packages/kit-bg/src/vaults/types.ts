@@ -355,6 +355,7 @@ export type IApproveInfo = {
 export type ITransferPayload = {
   amountToSend: string;
   isMaxSend: boolean;
+  isNFT: boolean;
 };
 
 export enum EWrappedType {
@@ -407,6 +408,7 @@ export interface IBuildEncodedTxParams {
 export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: ISendSelectedFeeInfo;
+  transferPayload?: ITransferPayload;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;

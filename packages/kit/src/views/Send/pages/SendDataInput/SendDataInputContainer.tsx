@@ -360,6 +360,7 @@ function SendDataInputContainer() {
         transferPayload: {
           amountToSend: realAmount,
           isMaxSend,
+          isNFT,
         },
       });
       setIsSubmitting(false);
