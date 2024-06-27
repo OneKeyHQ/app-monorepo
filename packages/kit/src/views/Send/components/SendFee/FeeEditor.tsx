@@ -417,15 +417,19 @@ function FeeEditor(props: IProps) {
 
       const gasPrice = new BigNumber(value || 0);
       if (gasPrice.isNaN() || gasPrice.isLessThan(recommendGasPriceMin)) {
-        return intl.formatMessage(
-          { id: ETranslations.form_must_greater_then_value },
-          {
-            value: recommendGasPriceMin.toFixed(),
-          },
+        setFeeAlert(
+          intl.formatMessage(
+            {
+              id: ETranslations.fee_fee_rate_too_low,
+            },
+            {
+              'feeParam': intl.formatMessage({
+                id: ETranslations.global_gas_price,
+              }),
+            },
+          ),
         );
-      }
-
-      if (gasPrice.isGreaterThan(recommendGasPriceMax)) {
+      } else if (gasPrice.isGreaterThan(recommendGasPriceMax)) {
         setFeeAlert(
           intl.formatMessage(
             {
@@ -471,17 +475,31 @@ function FeeEditor(props: IProps) {
 
       if (feeRate.isLessThan(recommendFeeRateMin)) {
         setFeeAlert(
-          intl.formatMessage({
-            id: ETranslations.fee_fee_rate_too_low,
-          }),
+          intl.formatMessage(
+            {
+              id: ETranslations.fee_fee_rate_too_low,
+            },
+            {
+              'feeParam': intl.formatMessage({
+                id: ETranslations.fee_fee_rate,
+              }),
+            },
+          ),
         );
       } else if (
         feeRate.isGreaterThan(new BigNumber(recommendFeeRateMax).times(100))
       ) {
         setFeeAlert(
-          intl.formatMessage({
-            id: ETranslations.fee_fee_rate_too_high,
-          }),
+          intl.formatMessage(
+            {
+              id: ETranslations.fee_fee_rate_too_high,
+            },
+            {
+              'something': intl.formatMessage({
+                id: ETranslations.fee_fee_rate,
+              }),
+            },
+          ),
         );
       } else {
         setFeeAlert('');
@@ -586,12 +604,10 @@ function FeeEditor(props: IProps) {
     ({
       name,
       value,
-      decimals,
       intRequired,
     }: {
       name: string;
       value: string;
-      decimals?: number;
       intRequired?: boolean;
     }) => {
       const filedName = name as keyof typeof watchAllFields;
@@ -603,13 +619,6 @@ function FeeEditor(props: IProps) {
           isNaN(formattedValue) ? '' : String(formattedValue),
         );
         return;
-      }
-      if (isNumber(decimals)) {
-        const dp = valueBN.decimalPlaces();
-        if (dp && dp > decimals) {
-          form.setValue(filedName, valueBN.toFixed(decimals));
-          return;
-        }
       }
 
       if (intRequired) {
@@ -645,7 +654,6 @@ function FeeEditor(props: IProps) {
                   handleFormValueOnChange({
                     name: e.target.name,
                     value: e.target.value,
-                    decimals: feeDecimals,
                   }),
               }}
             >
@@ -672,7 +680,6 @@ function FeeEditor(props: IProps) {
                   handleFormValueOnChange({
                     name: e.target.name,
                     value: e.target.value,
-                    decimals: feeDecimals,
                   }),
               }}
             >
@@ -742,7 +749,6 @@ function FeeEditor(props: IProps) {
                   handleFormValueOnChange({
                     name: e.target.name,
                     value: e.target.value,
-                    decimals: feeDecimals,
                   }),
               }}
             >
@@ -848,7 +854,6 @@ function FeeEditor(props: IProps) {
   }, [
     currentFeeType,
     customFee,
-    feeDecimals,
     feeSymbol,
     form,
     handleFormValueOnChange,

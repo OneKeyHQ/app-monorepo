@@ -213,20 +213,6 @@ export function TokenDetails() {
       sections.push({
         items: [
           {
-            label: isBlocked
-              ? intl.formatMessage({ id: ETranslations.global_unhide })
-              : intl.formatMessage({ id: ETranslations.global_hide }),
-            icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
-            onPress: handleToggleBlockedToken,
-          },
-        ],
-      });
-    }
-
-    if (tokenInfo.address !== '') {
-      sections.unshift({
-        items: [
-          {
             label: intl.formatMessage({
               id: ETranslations.global_copy_token_contract,
             }),
@@ -251,6 +237,21 @@ export function TokenDetails() {
         });
       }
     }
+
+    if (!tokenInfo.isNative) {
+      sections.push({
+        items: [
+          {
+            label: isBlocked
+              ? intl.formatMessage({ id: ETranslations.global_unhide })
+              : intl.formatMessage({ id: ETranslations.global_hide }),
+            icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
+            onPress: handleToggleBlockedToken,
+          },
+        ],
+      });
+    }
+
     return isEmpty(sections) ? null : (
       <ActionList
         title={intl.formatMessage({ id: ETranslations.global_more })}
