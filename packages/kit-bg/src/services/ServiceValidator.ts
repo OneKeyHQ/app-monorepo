@@ -2,8 +2,15 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
-import type { IAddressValidation } from '@onekeyhq/shared/types/address';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type {
+  IAddressValidateStatus,
+  IAddressValidation,
+} from '@onekeyhq/shared/types/address';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -16,7 +23,61 @@ class ServiceValidator extends ServiceBase {
   }
 
   @backgroundMethod()
-  async validateAddress({
+  public async validateAddress(params: {
+    networkId: string;
+    address: string;
+  }): Promise<IAddressValidateStatus> {
+    // Both server and local validation are required. If server-level validation fails due to a network issue, we will fall back to local validation."
+    const { networkId, address } = params;
+    try {
+      const resp = await this.serverValidateAddress(params);
+      const serverValid = resp.data.data.isValid;
+      if (!serverValid) {
+        return 'invalid';
+      }
+      const localValidation = await this.localValidateAddress({
+        networkId,
+        address,
+      });
+      return localValidation.isValid ? 'valid' : 'invalid';
+    } catch (serverError) {
+      try {
+        const localValidation = await this.localValidateAddress({
+          networkId,
+          address,
+        });
+        return localValidation.isValid ? 'valid' : 'invalid';
+      } catch (localError) {
+        console.error('failed to validateAddress', serverError, localError);
+        defaultLogger.addressInput.validation.failWithUnknownError({
+          networkId,
+          address,
+          serverError: (serverError as Error).message,
+          localError: (localError as Error).message,
+        });
+        return 'unknown';
+      }
+    }
+  }
+
+  public serverValidateAddress = memoizee(
+    async (params: { networkId: string; address: string }) => {
+      const { networkId, address } = params;
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<{
+        data: IAddressValidation;
+      }>('/wallet/v1/account/validate-address', {
+        params: { networkId, accountAddress: address },
+      });
+      return resp;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+    },
+  );
+
+  @backgroundMethod()
+  async localValidateAddress({
     networkId,
     address,
   }: {
