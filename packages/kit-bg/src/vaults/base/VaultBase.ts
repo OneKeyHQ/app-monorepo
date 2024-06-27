@@ -36,7 +36,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
+import type {
+  IEstimateFeeParams,
+  IFeeInfoUnit,
+} from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
@@ -321,6 +324,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     unsignedTx: IUnsignedTxPro;
     precheckTiming: ESendPreCheckTimingEnum;
     nativeAmountInfo?: INativeAmountInfo;
+    feeInfo?: IFeeInfoUnit;
   }) {
     return Promise.resolve(true);
   }

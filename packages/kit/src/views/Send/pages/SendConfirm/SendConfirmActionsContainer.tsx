@@ -77,6 +77,7 @@ function SendConfirmActionsContainer(props: IProps) {
             }
           : undefined,
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
+        feeInfo: sendSelectedFeeInfo?.feeInfo,
       });
     } catch (e: any) {
       setIsSubmitting(false);

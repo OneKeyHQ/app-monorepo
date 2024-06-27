@@ -15,10 +15,10 @@ import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
-import { IToken } from '@onekeyhq/shared/types/token';
 import type {
   EReplaceTxType,
   IDecodedTx,
@@ -537,6 +537,7 @@ class ServiceSend extends ServiceBase {
     unsignedTxs: IUnsignedTxPro[];
     precheckTiming: ESendPreCheckTimingEnum;
     nativeAmountInfo?: INativeAmountInfo;
+    feeInfo?: IFeeInfoUnit;
   }) {
     const vault = await vaultFactory.getVault({
       networkId: params.networkId,
@@ -547,6 +548,7 @@ class ServiceSend extends ServiceBase {
         unsignedTx,
         precheckTiming: params.precheckTiming,
         nativeAmountInfo: params.nativeAmountInfo,
+        feeInfo: params.feeInfo,
       });
     }
   }
