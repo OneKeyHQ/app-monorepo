@@ -43,7 +43,12 @@ function TxHistoryListItem(props: IProps) {
         }}
       />
       {canReplaceTx ? (
-        <XStack pl={52} space="$3">
+        <XStack
+          pl={72}
+          space="$3"
+          testID="history-list-item-speed-up-and-cancel-buttons"
+          pb="$3"
+        >
           <Button
             size="small"
             variant="primary"

@@ -4,14 +4,17 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Alert,
   Dialog,
   Divider,
+  Icon,
   IconButton,
   NumberSizeableText,
   Page,
+  SizableText,
   Spinner,
   Stack,
   Toast,
@@ -39,6 +42,7 @@ import type {
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { FeeEditor } from '../../components/SendFee';
 
@@ -299,13 +303,13 @@ function SendReplaceTxContainer() {
 
   const renderOriginalFee = useCallback(
     () => (
-      <XStack space="$1">
+      <XStack space="$2">
         <NumberSizeableText
           formatter="balance"
           formatterOptions={{
             tokenSymbol: network?.symbol,
           }}
-          size="$bodyMd"
+          size="$bodyLg"
         >
           {historyTx.decodedTx.totalFeeInNative}
         </NumberSizeableText>
@@ -314,7 +318,7 @@ function SendReplaceTxContainer() {
           formatterOptions={{
             currency: settings.currencyInfo.symbol,
           }}
-          size="$bodyMd"
+          size="$bodyLg"
           color="$textSubdued"
         >
           {historyTx.decodedTx.totalFeeFiatValue}
@@ -331,13 +335,13 @@ function SendReplaceTxContainer() {
 
   const renderNewFee = useCallback(
     () => (
-      <XStack space="$1">
+      <XStack space="$2">
         <NumberSizeableText
           formatter="balance"
           formatterOptions={{
             tokenSymbol: network?.symbol,
           }}
-          size="$bodyMd"
+          size="$bodyLg"
         >
           {newFeeInfo?.totalNative}
         </NumberSizeableText>
@@ -346,7 +350,7 @@ function SendReplaceTxContainer() {
           formatterOptions={{
             currency: settings.currencyInfo.symbol,
           }}
-          size="$bodyMd"
+          size="$bodyLg"
           color="$textSubdued"
         >
           {newFeeInfo?.totalFiat}
@@ -514,7 +518,7 @@ function SendReplaceTxContainer() {
   const renderContent = useCallback(() => {
     if (isLoadingFeeInfo || isLoadingTokenDetails)
       return (
-        <Stack h="100%" justifyContent="center" alignContent="center">
+        <Stack flex={1} justifyContent="center" alignContent="center">
           <Spinner size="large" />
         </Stack>
       );
@@ -536,23 +540,59 @@ function SendReplaceTxContainer() {
             )}
           />
         ) : null}
-        <Container.Box>
-          <Container.Item title="Original Fee" content={renderOriginalFee()} />
-        </Container.Box>
-        <Divider my="$4" />
-        <Container.Box>
-          <Container.Item
-            title="New Fee"
-            content={renderNewFee()}
-            contentAdd={
-              <IconButton
-                icon="ChevronGrabberVerOutline"
-                variant="tertiary"
-                onPress={handleEditReplaceTxFeeInfo}
-              />
-            }
+        <Stack px="$5">
+          <Stack
+            p="$5"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
+            borderRadius="$3"
+            borderCurve="continuous"
+          >
+            <SizableText size="$headingMd" mb="$2">
+              Original Fee
+            </SizableText>
+            {renderOriginalFee()}
+          </Stack>
+          <Icon
+            my="$2"
+            alignSelf="center"
+            name="ChevronDoubleDownOutline"
+            color="$iconSubdued"
           />
-        </Container.Box>
+          <XStack
+            bg="$bgSubdued"
+            userSelect="none"
+            alignItems="center"
+            p="$5"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderStrong"
+            borderRadius="$3"
+            borderCurve="continuous"
+            onPress={handleEditReplaceTxFeeInfo}
+            elevation={10}
+            hoverStyle={{
+              bg: '$bgHover',
+            }}
+            pressStyle={{
+              bg: '$bgActive',
+            }}
+            focusable
+            focusStyle={{
+              outlineColor: '$focusRing',
+              outlineOffset: 2,
+              outlineStyle: 'solid',
+              outlineWidth: 2,
+            }}
+          >
+            <Stack flex={1}>
+              <SizableText size="$headingMd" mb="$2">
+                New Fee
+              </SizableText>
+              {renderNewFee()}
+            </Stack>
+            <Icon flexShrink={0} name="PencilSolid" color="$iconSubdued" />
+          </XStack>
+        </Stack>
       </>
     );
   }, [
@@ -633,10 +673,14 @@ function SendReplaceTxContainer() {
 
   return (
     <Page>
-      <Page.Header title="Update Transaction" />
-      <Page.Body px="$5" testID="replace-tx-modal">
-        {renderContent()}
-      </Page.Body>
+      <Page.Header
+        title={
+          replaceType === EReplaceTxType.SpeedUp
+            ? intl.formatMessage({ id: ETranslations.global_speed_up })
+            : intl.formatMessage({ id: ETranslations.global_cancel })
+        }
+      />
+      <Page.Body testID="replace-tx-modal">{renderContent()}</Page.Body>
       <Page.Footer
         confirmButtonProps={{
           disabled:

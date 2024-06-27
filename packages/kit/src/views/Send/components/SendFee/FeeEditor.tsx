@@ -592,6 +592,7 @@ function FeeEditor(props: IProps) {
           {feeTitle}
         </SizableText> */}
         <SegmentControl
+          mb="$5"
           fullWidth
           value={currentFeeIndex}
           onChange={(v) => {
@@ -691,7 +692,7 @@ function FeeEditor(props: IProps) {
     if (customFee.gasEIP1559) {
       return (
         <Form form={form}>
-          <YStack space="$5" pt="$5">
+          <YStack space="$5">
             <Form.Field
               label={intl.formatMessage({
                 id: ETranslations.transaction_max_base_fee,
