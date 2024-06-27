@@ -213,7 +213,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
         void this.backgroundApi.serviceApp.showToast({
           method: 'message',
           title: message,
-          hideRequestId: true,
         });
       })
       .catch(() => {

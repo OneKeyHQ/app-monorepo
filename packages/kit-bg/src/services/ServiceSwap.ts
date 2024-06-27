@@ -161,7 +161,6 @@ export default class ServiceSwap extends ServiceBase {
           method: 'error',
           title: 'error',
           message: error?.message,
-          hideRequestId: true,
         });
         return [];
       }
@@ -322,7 +321,6 @@ export default class ServiceSwap extends ServiceBase {
         method: 'error',
         title: error?.message,
         message: error?.requestId,
-        hideRequestId: true,
       });
     }
   }
@@ -473,7 +471,6 @@ export default class ServiceSwap extends ServiceBase {
               formatter: 'balance',
             }) as string
           } ${item.baseInfo.toToken.symbol}`,
-          hideRequestId: true,
         });
       }
     }

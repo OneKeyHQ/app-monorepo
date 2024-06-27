@@ -94,7 +94,6 @@ export interface IAppEventBusPayload {
     title: string;
     message?: string;
     duration?: number;
-    hideRequestId?: boolean;
   };
   [EAppEventBusNames.ShowQrcode]: {
     title?: string;

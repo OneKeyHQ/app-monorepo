@@ -26,3 +26,7 @@ export function parseRPCResponse<T>(
 
   return Promise.resolve(response.result as T);
 }
+
+export function isRequestIdMessage(message?: string) {
+  return message?.startsWith('RequestId:') ?? false;
+}
