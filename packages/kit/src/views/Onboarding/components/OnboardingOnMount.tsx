@@ -12,6 +12,7 @@ import {
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
@@ -113,7 +114,7 @@ function OnboardingOnMountCmp() {
   );
 
   const checkStateOnMount = useCallback(async () => {
-    if (!downgradeWarningConfirmedRef.current) {
+    if (!downgradeWarningConfirmedRef.current && platformEnv.isDesktop) {
       const dialog = Dialog.show({
         tone: 'warning',
         icon: 'ShieldCheckDone', // ShieldCheckDone
