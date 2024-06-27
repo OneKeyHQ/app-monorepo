@@ -529,7 +529,7 @@ function SendReplaceTxContainer() {
             fullBleed
             icon="ErrorOutline"
             type="critical"
-            mb="$4"
+            mb="$5"
             title={intl.formatMessage(
               {
                 id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
@@ -549,7 +549,7 @@ function SendReplaceTxContainer() {
             borderCurve="continuous"
           >
             <SizableText size="$headingMd" mb="$2">
-              Original Fee
+              {intl.formatMessage({ id: ETranslations.fee_original_fee })}
             </SizableText>
             {renderOriginalFee()}
           </Stack>
@@ -568,29 +568,25 @@ function SendReplaceTxContainer() {
             borderColor="$borderStrong"
             borderRadius="$3"
             borderCurve="continuous"
-            onPress={handleEditReplaceTxFeeInfo}
             elevation={10}
-            hoverStyle={{
-              bg: '$bgHover',
-            }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-            focusable
-            focusStyle={{
-              outlineColor: '$focusRing',
-              outlineOffset: 2,
-              outlineStyle: 'solid',
-              outlineWidth: 2,
-            }}
           >
             <Stack flex={1}>
               <SizableText size="$headingMd" mb="$2">
-                New Fee
+                {intl.formatMessage({ id: ETranslations.fee_new_fee })}
               </SizableText>
               {renderNewFee()}
             </Stack>
-            <Icon flexShrink={0} name="PencilSolid" color="$iconSubdued" />
+            <IconButton
+              title={intl.formatMessage({ id: ETranslations.global_edit })}
+              icon="PencilOutline"
+              onPress={handleEditReplaceTxFeeInfo}
+            />
+            {/* Show only after customizing the fee */}
+            <IconButton
+              title={intl.formatMessage({ id: ETranslations.global_reset })}
+              ml="$2"
+              icon="UndoOutline"
+            />
           </XStack>
         </Stack>
       </>

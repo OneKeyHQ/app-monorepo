@@ -1,7 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
+  Badge,
   Icon,
   NumberSizeableText,
   SizableText,
@@ -77,17 +77,27 @@ function TxActionCommonTitle({
   title,
   tableLayout,
 }: Pick<ITxActionCommonListViewProps, 'title' | 'tableLayout'>) {
+  const intl = useIntl();
+
   return (
-    <SizableText
-      numberOfLines={1}
-      size="$bodyLgMedium"
-      textTransform="capitalize"
-      {...(tableLayout && {
-        size: '$bodyMdMedium',
-      })}
-    >
-      {title}
-    </SizableText>
+    <XStack alignItems="center">
+      <SizableText
+        numberOfLines={1}
+        size="$bodyLgMedium"
+        textTransform="capitalize"
+        {...(tableLayout && {
+          size: '$bodyMdMedium',
+        })}
+      >
+        {title}
+      </SizableText>
+      <Badge badgeSize="sm" badgeType="info" ml="$2">
+        {intl.formatMessage({ id: ETranslations.global_sped_up })}
+      </Badge>
+      <Badge badgeSize="sm" badgeType="critical" ml="$2">
+        {intl.formatMessage({ id: ETranslations.global_failed })}
+      </Badge>
+    </XStack>
   );
 }
 
