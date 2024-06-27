@@ -66,6 +66,19 @@ export const useSuggestion = (
 
   const updateByPressLock = useRef(false);
 
+  const checkAllWords = useCallback(() => {
+    const values = form.getValues() as Record<string, string>;
+    const errors: Record<string, boolean> = {};
+    for (let i = 0; i < phraseLength; i += 1) {
+      const key = `phrase${i + 1}`;
+      const value = values[key];
+      if (!isValidWord(value)) {
+        errors[i] = true;
+      }
+    }
+    setIsShowErrors(errors);
+  }, [form, phraseLength]);
+
   const checkIsValidWord = useCallback(
     (index: number, text?: string, isBlur = false) => {
       setTimeout(() => {
@@ -240,12 +253,15 @@ export const useSuggestion = (
             }, {} as Record<`phrase${number}`, string>),
           );
           resetSuggestions();
+          setTimeout(() => {
+            checkAllWords();
+          }, 10);
         }, 10);
         return true;
       }
       return false;
     },
-    [clearText, form, intl, phraseLength, resetSuggestions],
+    [checkAllWords, clearText, form, intl, phraseLength, resetSuggestions],
   );
 
   const closePopover = useCallback(() => {
