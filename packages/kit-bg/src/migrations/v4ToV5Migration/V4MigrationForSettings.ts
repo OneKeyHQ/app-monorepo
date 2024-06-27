@@ -8,6 +8,7 @@ import {
 
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 
+import type { ICloudBackupPersistAtom } from '../../states/jotai/atoms';
 import type { IV4ReduxSettingsState } from './v4types/v4typesRedux';
 
 const validThemeValue = ['light', 'dark', 'system'];
@@ -111,10 +112,14 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
       async () => {
         const reduxData = await this?.v4dbHubs?.v4reduxDb?.reduxData;
         if (reduxData?.cloudBackup) {
-          await cloudBackupPersistAtom.set((v) => ({
-            ...v,
-            isEnabled: Boolean(reduxData?.cloudBackup?.enabled),
-          }));
+          await cloudBackupPersistAtom.set((v) => {
+            const isEnabled = Boolean(reduxData?.cloudBackup?.enabled);
+            const newValue: ICloudBackupPersistAtom = {
+              ...v,
+              isEnabled,
+            };
+            return newValue;
+          });
         }
       },
       {

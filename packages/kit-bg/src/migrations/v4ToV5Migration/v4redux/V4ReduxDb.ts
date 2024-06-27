@@ -73,6 +73,7 @@ export class V4ReduxDb {
       settings: this.parseReduxField(data.settings),
       contacts: this.parseReduxField(data.contacts),
       discover: this.parseReduxField(data.discover),
+      cloudBackup: this.parseReduxField(data.cloudBackup),
     };
   }
 }

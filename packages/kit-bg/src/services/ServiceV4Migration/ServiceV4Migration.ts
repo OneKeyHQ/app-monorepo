@@ -863,7 +863,6 @@ class ServiceV4Migration extends ServiceBase {
       await timerUtils.wait(600);
       this.migrationPayload = undefined;
 
-
       await v4migrationAtom.set((v) => ({
         ...v,
         progress: 100,

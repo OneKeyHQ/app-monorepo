@@ -13,7 +13,8 @@ import type {
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+
 import { V4MigrationLogCopy } from './components/V4MigrationLogCopy';
 import { V4MigrationModalPage } from './components/V4MigrationModalPage';
 import { EModalExitPreventMode } from './hooks/useV4MigrationExitPrevent';
