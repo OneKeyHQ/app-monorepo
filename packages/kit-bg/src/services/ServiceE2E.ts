@@ -108,6 +108,12 @@ class ServiceE2E extends ServiceBase {
       name: ELocalDBStoreNames.ConnectedSite,
     });
   }
+
+  @backgroundMethodForDev()
+  async exportAllAccountsData(params: IBackgroundMethodWithDevOnlyPassword) {
+    checkDevOnlyPassword(params);
+    localDb.getAccounts()
+  }
 }
 
 export default ServiceE2E;

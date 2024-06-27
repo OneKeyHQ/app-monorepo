@@ -16,7 +16,7 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
     return reduxData?.settings;
   }
 
-  async convertV4SettingsToV5() {
+  async migrateBaseSettings() {
     const v4Settings = await this.getV4Settings();
     if (!v4Settings) {
       return;
@@ -54,7 +54,7 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
     );
 
     // Currency
-    if (v4Settings.selectedFiatMoneySymbol) {
+    if (v4Settings?.selectedFiatMoneySymbol) {
       await this.v4dbHubs.logger.runAsyncWithCatch(
         async () => {
           const currencyList =
@@ -75,6 +75,15 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
         },
       );
     }
+  }
+
+  async migrateSettings() {
+    const v4Settings = await this.getV4Settings();
+    if (!v4Settings) {
+      return;
+    }
+
+    await this.migrateBaseSettings();
 
     // Auto Lock
     if (v4Settings.enableAppLock && v4Settings.appLockDuration) {
@@ -91,6 +100,7 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
       );
     }
 
+    // Protection
     if (v4Settings.validationSetting) {
       // Protection - Create Transaction
       await this.v4dbHubs.logger.runAsyncWithCatch(

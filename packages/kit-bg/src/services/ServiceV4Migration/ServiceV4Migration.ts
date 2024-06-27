@@ -256,6 +256,16 @@ class ServiceV4Migration extends ServiceBase {
     return false;
   }
 
+  @backgroundMethod()
+  @toastIfError()
+  async migrateBaseSettings() {
+    try {
+      await this.migrationSettings.migrateBaseSettings();
+    } catch (error) {
+      //
+    }
+  }
+
   async verifyV4PasswordEqualToV5({
     v5password,
   }: {
@@ -599,15 +609,17 @@ class ServiceV4Migration extends ServiceBase {
       const maxProgress = {
         account: 90,
         addressBook: 92,
-        discover: 95,
-        history: 97,
+        discover: 94,
+        history: 96,
         settings: 98,
       };
+      const isFirstTimeMigration = !(await v4migrationPersistAtom.get())
+        ?.v4migrationAutoStartDisabled;
 
       await v4migrationAtom.set((v) => ({ ...v, isProcessing: true }));
       await v4migrationAtom.set((v) => ({
         ...v,
-        progress: 3,
+        progress: 1,
       }));
       await timerUtils.wait(10);
 
@@ -798,28 +810,30 @@ class ServiceV4Migration extends ServiceBase {
         progress: maxProgress.history,
       }));
 
-      // **** migrate settings
-      await timerUtils.wait(600);
-      await v4dbHubs.logger.runAsyncWithCatch(
-        async () => this.migrationSettings.convertV4SettingsToV5(),
-        {
-          name: 'migrate v4 settings',
-          errorResultFn: () => undefined,
-        },
-      );
-      await v4migrationAtom.set((v) => ({
-        ...v,
-        progress: maxProgress.settings,
-      }));
+      if (isFirstTimeMigration) {
+        // **** migrate settings
+        await timerUtils.wait(600);
+        await v4dbHubs.logger.runAsyncWithCatch(
+          async () => this.migrationSettings.migrateSettings(),
+          {
+            name: 'migrate v4 settings',
+            errorResultFn: () => undefined,
+          },
+        );
+        await v4migrationAtom.set((v) => ({
+          ...v,
+          progress: maxProgress.settings,
+        }));
 
-      // **** migrate secure password for desktop
-      await v4dbHubs.logger.runAsyncWithCatch(
-        async () => this.migrationSecurePassword.writeSecurePasswordToV5(),
-        {
-          name: 'migrate secure password for desktop',
-          errorResultFn: () => undefined,
-        },
-      );
+        // **** migrate secure password for desktop
+        await v4dbHubs.logger.runAsyncWithCatch(
+          async () => this.migrationSecurePassword.writeSecurePasswordToV5(),
+          {
+            name: 'migrate secure password for desktop',
+            errorResultFn: () => undefined,
+          },
+        );
+      }
 
       // ----------------------------------------------
       await timerUtils.wait(600);

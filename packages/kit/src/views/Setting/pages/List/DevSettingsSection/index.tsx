@@ -12,10 +12,10 @@ import {
   Toast,
   YStack,
 } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -204,6 +204,18 @@ export const DevSettingsSection = () => {
                 title: 'Clear App Data (E2E release only)',
                 renderContent: (
                   <YStack>
+                    <SectionPressItem
+                      title="Export Accounts Data"
+                      onPress={async () => {
+                        await backgroundApiProxy.serviceE2E.clearDiscoveryPageData(
+                          params,
+                        );
+                        Toast.success({
+                          title: 'Success',
+                        });
+                      }}
+                    />
+
                     <SectionPressItem
                       title="Clear Discovery Data"
                       testID="clear-discovery-data"

@@ -61,11 +61,8 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
-import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
-  IDBAccountDerivation,
-  IDBAddAccountDerivationParams,
   IDBApiGetContextOptions,
   IDBContext,
   IDBCreateHDWalletParams,
@@ -79,7 +76,6 @@ import type {
   IDBIndexedAccount,
   IDBRemoveWalletParams,
   IDBSetAccountNameParams,
-  IDBSetAccountTemplateParams,
   IDBSetWalletNameAndAvatarParams,
   IDBUpdateDeviceSettingsParams,
   IDBUpdateFirmwareVerifiedParams,
@@ -92,6 +88,7 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -2125,17 +2122,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return { accounts };
   }
 
-  getAccounts(accountIds: string[]): Promise<IDBAccount[]> {
-    throw new NotImplemented();
-  }
-
-  getAccountByAddress(params: {
-    address: string;
-    coinType?: string | undefined;
-  }): Promise<IDBAccount> {
-    throw new NotImplemented();
-  }
-
   async removeAccount({
     accountId,
     walletId,
@@ -2267,92 +2253,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       }
     });
-  }
-
-  setAccountTemplate({
-    accountId,
-    template,
-  }: IDBSetAccountTemplateParams): Promise<IDBAccount> {
-    throw new NotImplemented();
-  }
-
-  updateAccountAddresses(
-    accountId: string,
-    networkId: string,
-    address: string,
-  ): Promise<IDBAccount> {
-    throw new NotImplemented();
-  }
-
-  updateUTXOAccountAddresses({
-    accountId,
-    addresses,
-    isCustomPath,
-  }: {
-    accountId: string;
-    addresses: Record<string, string>;
-    isCustomPath: boolean;
-  }): Promise<IDBAccount> {
-    throw new NotImplemented();
-  }
-
-  removeUTXOAccountAddresses({
-    accountId,
-    addresses,
-    isCustomPath,
-  }: {
-    accountId: string;
-    addresses: Record<string, string>;
-    isCustomPath: boolean;
-  }): Promise<IDBAccount> {
-    throw new NotImplemented();
-  }
-
-  addAccountDerivation({
-    walletId,
-    accountId,
-    impl,
-    template,
-  }: IDBAddAccountDerivationParams): Promise<void> {
-    throw new NotImplemented();
-  }
-
-  removeAccountDerivation({
-    walletId,
-    impl,
-    template,
-  }: {
-    walletId: string;
-    impl: string;
-    template: string;
-  }): Promise<void> {
-    throw new NotImplemented();
-  }
-
-  removeAccountDerivationByWalletId({
-    walletId,
-  }: {
-    walletId: string;
-  }): Promise<void> {
-    throw new NotImplemented();
-  }
-
-  removeAccountDerivationByAccountId({
-    walletId,
-    accountId,
-  }: {
-    walletId: string;
-    accountId: string;
-  }): Promise<void> {
-    throw new NotImplemented();
-  }
-
-  getAccountDerivationByWalletId({
-    walletId,
-  }: {
-    walletId: string;
-  }): Promise<Record<string, IDBAccountDerivation>> {
-    throw new NotImplemented();
   }
 
   // ---------------------------------------------- device

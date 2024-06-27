@@ -58,6 +58,7 @@ function DowngradeWarningDialogContent({
     </YStack>
   );
 }
+let lastAutoStartV4MigrationTime = 0;
 
 function OnboardingOnMountCmp() {
   const intl = useIntl();
@@ -83,14 +84,20 @@ function OnboardingOnMountCmp() {
           const shouldMigrateFromV4: boolean =
             await backgroundApiProxy.serviceV4Migration.checkShouldMigrateV4OnMount();
           if (shouldMigrateFromV4) {
+            await backgroundApiProxy.serviceV4Migration.migrateBaseSettings();
             await timerUtils.wait(600);
             await v4migrationActions.navigateToV4MigrationPage({
               isAutoStartOnMount: true,
             });
-            setV4MigrationPersistAtom((v) => ({
-              ...v,
-              v4migrationAutoStartCount: (v.v4migrationAutoStartCount || 0) + 1,
-            }));
+            const now = Date.now();
+            if (now - lastAutoStartV4MigrationTime > 3000) {
+              lastAutoStartV4MigrationTime = now;
+              setV4MigrationPersistAtom((v) => ({
+                ...v,
+                v4migrationAutoStartCount:
+                  (v.v4migrationAutoStartCount || 0) + 1,
+              }));
+            }
             return;
           }
         }
