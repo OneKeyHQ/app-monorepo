@@ -1,7 +1,10 @@
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 
-import { settingsPersistAtom } from '../../states/jotai/atoms';
+import {
+  cloudBackupPersistAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms';
 
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 
@@ -102,6 +105,23 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
         },
       );
     }
+
+    // cloud backup
+    await this.v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        const reduxData = await this?.v4dbHubs?.v4reduxDb?.reduxData;
+        if (reduxData?.cloudBackup) {
+          await cloudBackupPersistAtom.set((v) => ({
+            ...v,
+            isEnabled: Boolean(reduxData?.cloudBackup?.enabled),
+          }));
+        }
+      },
+      {
+        name: 'migrationCloudBackupSettings',
+        errorResultFn: () => undefined,
+      },
+    );
   }
 
   async migrateSettings() {

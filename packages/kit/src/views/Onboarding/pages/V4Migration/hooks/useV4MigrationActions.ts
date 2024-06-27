@@ -3,9 +3,9 @@ import { useCallback, useRef } from 'react';
 import { useThrottledCallback } from 'use-debounce';
 
 import { useClipboard, useShare } from '@onekeyhq/components';
+import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -50,10 +50,7 @@ export function useV4MigrationActions() {
         window.close();
         return;
       }
-      if (
-        migrationStateRef.current.isMigrationModalOpen ||
-        migrationStateRef.current.isProcessing
-      ) {
+      if (await backgroundApiProxy.serviceV4Migration.isAtMigrationPage()) {
         return;
       }
       // TODO navigation.pushFullModal

@@ -433,6 +433,18 @@ class ServiceV4Migration extends ServiceBase {
   }
 
   @backgroundMethod()
+  async isAtMigrationPage() {
+    const v4migrationData = await v4migrationAtom.get();
+    if (
+      v4migrationData?.isProcessing ||
+      v4migrationData?.isMigrationModalOpen
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async buildV4WalletsForBackupSectionData() {
     const walletsForBackup = await v4dbHubs.logger.runAsyncWithCatch(
@@ -850,8 +862,7 @@ class ServiceV4Migration extends ServiceBase {
       // ----------------------------------------------
       await timerUtils.wait(600);
       this.migrationPayload = undefined;
-      // TODO skip backup within flow
-      void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
+
 
       await v4migrationAtom.set((v) => ({
         ...v,

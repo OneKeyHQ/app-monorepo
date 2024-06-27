@@ -3,6 +3,7 @@ import { isPlainObject, isString } from 'lodash';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import type {
+  IV4ReduxCloudBackupState,
   IV4ReduxContactsState,
   IV4ReduxDiscoverState,
   IV4ReduxSettingsState,
@@ -12,12 +13,14 @@ type IV4SimpleDbRawData = {
   settings: string;
   contacts: string;
   discover: string;
+  cloudBackup: string;
 };
 
 export type IV4SimpleDbData = {
   settings: IV4ReduxSettingsState | undefined;
   contacts: IV4ReduxContactsState | undefined;
   discover: IV4ReduxDiscoverState | undefined;
+  cloudBackup: IV4ReduxCloudBackupState | undefined;
 };
 
 export class V4ReduxDb {
