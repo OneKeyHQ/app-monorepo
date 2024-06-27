@@ -24,6 +24,7 @@ export function UniversalSearchInput() {
   return (
     <XStack w={280}>
       <Input
+        leftIconName="SearchOutline"
         containerProps={{ w: '100%' }}
         size="small"
         key="searchInput"
