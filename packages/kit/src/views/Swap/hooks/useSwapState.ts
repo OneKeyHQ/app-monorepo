@@ -103,16 +103,19 @@ export function useSwapActionState() {
   );
   const quoteResultNoMatch = useMemo(
     () =>
-      quoteCurrentSelect &&
-      (quoteCurrentSelect.fromTokenInfo.networkId !== fromToken?.networkId ||
-        quoteCurrentSelect.toTokenInfo.networkId !== toToken?.networkId ||
-        quoteCurrentSelect.fromTokenInfo.contractAddress !==
-          fromToken?.contractAddress ||
-        quoteCurrentSelect.toTokenInfo.contractAddress !==
-          toToken?.contractAddress),
+      (quoteCurrentSelect &&
+        (quoteCurrentSelect.fromTokenInfo.networkId !== fromToken?.networkId ||
+          quoteCurrentSelect.toTokenInfo.networkId !== toToken?.networkId ||
+          quoteCurrentSelect.fromTokenInfo.contractAddress !==
+            fromToken?.contractAddress ||
+          quoteCurrentSelect.toTokenInfo.contractAddress !==
+            toToken?.contractAddress)) ||
+      (quoteCurrentSelect?.allowanceResult &&
+        quoteCurrentSelect.allowanceResult.amount !== fromTokenAmount),
     [
       fromToken?.contractAddress,
       fromToken?.networkId,
+      fromTokenAmount,
       quoteCurrentSelect,
       toToken?.contractAddress,
       toToken?.networkId,
