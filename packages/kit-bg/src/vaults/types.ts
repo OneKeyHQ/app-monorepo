@@ -192,6 +192,8 @@ export type IVaultSettings = {
   transferZeroNativeTokenEnabled?: boolean;
 
   gasLimitValidationEnabled?: boolean;
+
+  showAddressType?: boolean;
 };
 
 export type IVaultFactoryOptions = {
