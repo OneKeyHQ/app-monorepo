@@ -19,6 +19,7 @@ import type {
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
+import { EServerInteractedStatus } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
@@ -137,7 +138,7 @@ class ServiceAccountProfile extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{
         data: {
-          interacted: boolean;
+          status: EServerInteractedStatus;
         };
       }>('/wallet/v1/account/interacted', {
         params: {
@@ -146,7 +147,15 @@ class ServiceAccountProfile extends ServiceBase {
           toAccountAddress: toAddress,
         },
       });
-      return resp.data.data.interacted ? 'interacted' : 'not-interacted';
+      const statusMap: Record<
+        EServerInteractedStatus,
+        IAddressInteractionStatus
+      > = {
+        [EServerInteractedStatus.FALSE]: 'not-interacted',
+        [EServerInteractedStatus.TRUE]: 'interacted',
+        [EServerInteractedStatus.UNKNOWN]: 'unknown',
+      };
+      return statusMap[resp.data.data.status] ?? 'unknown';
     } catch {
       return 'unknown';
     }
