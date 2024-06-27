@@ -55,10 +55,11 @@ function TxActionsContainer(props: IProps) {
             accountId,
             networkId,
             unsignedTx,
+            transferPayload,
           }),
         ),
       ),
-    [accountId, networkId, unsignedTxs],
+    [accountId, networkId, transferPayload, unsignedTxs],
   );
 
   useEffect(() => {

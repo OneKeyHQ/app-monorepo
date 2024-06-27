@@ -41,7 +41,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
-import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import { buildTokenDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import ActionBuy from './ActionBuy';
@@ -213,20 +213,6 @@ export function TokenDetails() {
       sections.push({
         items: [
           {
-            label: isBlocked
-              ? intl.formatMessage({ id: ETranslations.global_unhide })
-              : intl.formatMessage({ id: ETranslations.global_hide }),
-            icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
-            onPress: handleToggleBlockedToken,
-          },
-        ],
-      });
-    }
-
-    if (tokenInfo.address !== '') {
-      sections.unshift({
-        items: [
-          {
             label: intl.formatMessage({
               id: ETranslations.global_copy_token_contract,
             }),
@@ -236,7 +222,7 @@ export function TokenDetails() {
         ],
       });
 
-      const tokenDetailsUrl = buildExplorerAddressUrl({
+      const tokenDetailsUrl = buildTokenDetailsUrl({
         network,
         address: tokenInfo.address,
       });
@@ -251,6 +237,21 @@ export function TokenDetails() {
         });
       }
     }
+
+    if (!tokenInfo.isNative) {
+      sections.push({
+        items: [
+          {
+            label: isBlocked
+              ? intl.formatMessage({ id: ETranslations.global_unhide })
+              : intl.formatMessage({ id: ETranslations.global_hide }),
+            icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
+            onPress: handleToggleBlockedToken,
+          },
+        ],
+      });
+    }
+
     return isEmpty(sections) ? null : (
       <ActionList
         title={intl.formatMessage({ id: ETranslations.global_more })}

@@ -105,6 +105,7 @@ const settings: IVaultSettings = {
     },
   },
   hasFrozenBalance: true,
+  showAddressType: true,
 };
 
 export default Object.freeze(settings);

@@ -30,6 +30,7 @@ const settings: IVaultSettings = {
   minTransferAmount: '0.01',
   utxoDustAmount: '0.0099999',
   hasFrozenBalance: false,
+  showAddressType: false,
 };
 
 export default Object.freeze(settings);

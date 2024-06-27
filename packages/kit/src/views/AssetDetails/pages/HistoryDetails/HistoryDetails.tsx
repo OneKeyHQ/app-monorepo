@@ -716,7 +716,9 @@ function HistoryDetails() {
                 compact
               />
             ) : null}
-            {vaultSettings?.isUtxo ? (
+            {vaultSettings?.isUtxo &&
+            (historyTx.decodedTx.status !== EDecodedTxStatus.Pending ||
+              !vaultSettings.hideTxUtxoListWhenPending) ? (
               <InfoItem
                 renderContent={
                   <Button
@@ -786,16 +788,18 @@ function HistoryDetails() {
     renderTxStatus,
     txInfo.date,
     txInfo.txid,
-    txInfo.nonce,
     txInfo.blockHeight,
+    txInfo.nonce,
     txInfo.confirmations,
     txInfo.swapInfo,
     renderTxMetaInfo,
-    vaultSettings?.isUtxo,
-    vaultSettings?.nonceRequired,
-    handleViewUTXOsOnPress,
     network,
     renderFeeInfo,
+    vaultSettings?.nonceRequired,
+    vaultSettings?.isUtxo,
+    vaultSettings?.hideTxUtxoListWhenPending,
+    historyTx.decodedTx.status,
+    handleViewUTXOsOnPress,
     renderAssetsChange,
   ]);
 
