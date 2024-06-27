@@ -1,8 +1,8 @@
-import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
 
+import { biologyAuthUtils } from '../../../services/ServicePassword/biologyAuthUtils';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
 
@@ -52,17 +52,18 @@ export type IPasswordPersistAtom = {
   appLockDuration: number;
   enableSystemIdleLock: boolean;
 };
+export const passwordAtomInitialValue: IPasswordPersistAtom = {
+  isPasswordSet: false,
+  webAuthCredentialId: '',
+  manualLocking: false,
+  appLockDuration: 240,
+  enableSystemIdleLock: false,
+};
 export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
   globalAtom<IPasswordPersistAtom>({
     persist: true,
     name: EAtomNames.passwordPersistAtom,
-    initialValue: {
-      isPasswordSet: false,
-      webAuthCredentialId: '',
-      manualLocking: false,
-      appLockDuration: 240,
-      enableSystemIdleLock: false,
-    },
+    initialValue: passwordAtomInitialValue,
   });
 
 export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
@@ -101,8 +102,8 @@ export const {
     isEnable: boolean;
   }>
 >(async (get) => {
-  const authType = await biologyAuth.getBiologyAuthType();
-  const isSupport = await biologyAuth.isSupportBiologyAuth();
+  const authType = await biologyAuthUtils.getBiologyAuthType();
+  const isSupport = await biologyAuthUtils.isSupportBiologyAuth();
   const isEnable =
     isSupport && get(settingsPersistAtom.atom()).isBiologyAuthSwitchOn;
   return { authType, isSupport, isEnable };

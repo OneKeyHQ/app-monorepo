@@ -359,7 +359,7 @@ export default class Vault extends VaultBase {
 
     const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
       networkId: this.networkId,
-      accountAddress,
+      accountId: this.accountId,
     });
 
     if (nativeToken) {
@@ -464,8 +464,8 @@ export default class Vault extends VaultBase {
 
     const token = await this.backgroundApi.serviceToken.getToken({
       networkId: this.networkId,
+      accountId: this.accountId,
       tokenIdOnNetwork: tokenAddress,
-      accountAddress,
     });
 
     if (!token) return [];

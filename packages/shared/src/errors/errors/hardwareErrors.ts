@@ -1,5 +1,6 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { get } from 'lodash';
 
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { ETranslations } from '../../locale';
@@ -382,10 +383,15 @@ export class OpenBlindSign extends OneKeyHardwareError {
 export class FirmwareVersionTooLow extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'FirmwareVersionTooLow',
-        defaultKey: ETranslations.hardware_version_need_upgrade_error,
-      }),
+      normalizeErrorProps(
+        {
+          info: { 'version': get(props, 'payload.params.require', '') },
+        },
+        {
+          defaultMessage: 'FirmwareVersionTooLow',
+          defaultKey: ETranslations.hardware_version_need_upgrade_error,
+        },
+      ),
     );
   }
 
@@ -610,10 +616,16 @@ export class NetworkError extends OneKeyHardwareError {
 export class NotSupportPassphraseError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'NotSupportPassphraseError',
-        defaultKey: ETranslations.hardware_not_support_passphrase_need_upgrade,
-      }),
+      normalizeErrorProps(
+        {
+          info: { 'version': get(props, 'payload.params.require', '') },
+        },
+        {
+          defaultMessage: 'NotSupportPassphraseError',
+          defaultKey:
+            ETranslations.hardware_not_support_passphrase_need_upgrade,
+        },
+      ),
     );
   }
 
@@ -676,6 +688,20 @@ export class DeviceDataOverload extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.DataOverload;
+}
+
+export class UnsupportedAddressTypeError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'UnsupportedAddressTypeError',
+        defaultKey:
+          ETranslations.feedback_hardware_unsupported_current_address_type,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.RuntimeError;
 }
 
 // Communication exception 通信异常

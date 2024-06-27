@@ -15,11 +15,16 @@ import {
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
@@ -61,6 +66,11 @@ function SendConfirmContainer() {
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  useEffect(() => {
+    appEventBus.emit(EAppEventBusNames.SendConfirmContainerMounted, undefined);
+  }, []);
+
   const { network } =
     usePromiseResult(async () => {
       updateUnsignedTxs(unsignedTxs);
@@ -69,16 +79,8 @@ function SendConfirmContainer() {
         balance: '0',
         logoURI: '',
       });
-      const [n, accountAddress, xpub, nativeTokenAddress] = await Promise.all([
+      const [n, nativeTokenAddress] = await Promise.all([
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-        backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          networkId,
-          accountId,
-        }),
-        backgroundApiProxy.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        }),
         backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
       ]);
       const checkInscriptionProtectionEnabled =
@@ -92,9 +94,8 @@ function SendConfirmContainer() {
         checkInscriptionProtectionEnabled && settings.inscriptionProtection;
       const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
         networkId,
-        accountAddress,
+        accountId,
         contractList: [nativeTokenAddress],
-        xpub,
         withFrozenBalance: true,
         withCheckInscription,
       });
@@ -213,15 +214,14 @@ function SendConfirmContainer() {
     ],
   );
 
+  const handleOnClose = (extra?: { flag?: string }) => {
+    if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
+      dappApprove.reject();
+    }
+  };
+
   return (
-    <Page
-      scrollEnabled
-      onClose={(confirmed) => {
-        if (!confirmed) {
-          dappApprove.reject();
-        }
-      }}
-    >
+    <Page scrollEnabled onClose={handleOnClose}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.transaction__transaction_confirm,

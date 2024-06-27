@@ -9,11 +9,7 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -320,7 +316,7 @@ export default class Vault extends VaultBase {
     const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
       networkId: this.networkId,
-      accountAddress,
+      accountId: this.accountId,
     });
 
     const actions = await Promise.all(
@@ -356,8 +352,8 @@ export default class Vault extends VaultBase {
           if (nativeAction?.functionCall?.methodName === 'ft_transfer') {
             const tokenInfo = await this.backgroundApi.serviceToken.getToken({
               networkId: this.networkId,
+              accountId: this.accountId,
               tokenIdOnNetwork: nativeTx.receiverId,
-              accountAddress,
             });
             if (tokenInfo) {
               const transferData = parseJsonFromRawResponse(

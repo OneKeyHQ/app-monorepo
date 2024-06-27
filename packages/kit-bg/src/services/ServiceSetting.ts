@@ -1,7 +1,10 @@
 import { flatten, groupBy } from 'lodash';
 import semver from 'semver';
 
-import { isTaprootPath } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import {
+  isTaprootAddress,
+  isTaprootPath,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
@@ -71,6 +74,17 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getCurrentLocale() {
+    const { locale } = await settingsPersistAtom.get();
+
+    if (locale === 'system') {
+      return getDefaultLocale();
+    }
+
+    return locale;
+  }
+
+  @backgroundMethod()
   public async setProtectCreateTransaction(value: boolean) {
     await this.backgroundApi.servicePassword.promptPasswordVerify({
       reason: EReasonForNeedPassword.Security,
@@ -90,6 +104,20 @@ class ServiceSetting extends ServiceBase {
       ...prev,
       protectCreateOrRemoveWallet: value,
     }));
+  }
+
+  @backgroundMethod()
+  public async setBiologyAuthSwitchOn(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      isBiologyAuthSwitchOn: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getBiologyAuthSwitchOn() {
+    const { isBiologyAuthSwitchOn } = await settingsPersistAtom.get();
+    return isBiologyAuthSwitchOn;
   }
 
   @backgroundMethod()
@@ -327,7 +355,7 @@ class ServiceSetting extends ServiceBase {
       networkId,
       accountId,
     });
-    return isTaprootPath(account.path);
+    return isTaprootPath(account.path) || isTaprootAddress(account.address);
   }
 }
 

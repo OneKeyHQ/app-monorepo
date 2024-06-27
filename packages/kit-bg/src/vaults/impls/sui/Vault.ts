@@ -581,9 +581,9 @@ export default class Vault extends VaultBase {
     const isNative = coinType === SUI_TYPE_ARG;
     const { address: sender } = await this.getAccount();
     const token = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
       tokenIdOnNetwork: coinType,
-      accountAddress: sender,
     });
 
     const transfer = {

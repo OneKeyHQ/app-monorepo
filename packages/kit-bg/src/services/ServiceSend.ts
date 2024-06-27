@@ -280,12 +280,10 @@ class ServiceSend extends ServiceBase {
 
       result.push(data);
 
-      if (!signOnly) {
-        await this.backgroundApi.serviceSignature.addItemFromSendProcess(
-          data,
-          sourceInfo,
-        );
-      }
+      await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+        data,
+        sourceInfo,
+      );
       if (signedTx && !signOnly) {
         await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
           networkId,
@@ -314,7 +312,7 @@ class ServiceSend extends ServiceBase {
     const { nonce: onChainNextNonce } =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId,
-        accountAddress,
+        accountId,
         withNonce: true,
       });
     if (isNil(onChainNextNonce)) {

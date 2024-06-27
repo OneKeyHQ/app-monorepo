@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { isNil, isString, uniqBy } from 'lodash';
 
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
@@ -7,6 +8,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
@@ -32,6 +35,7 @@ import { ExternalConnectorEvmInjected } from './ExternalConnectorEvmInjected';
 
 import type { IDBAccountAddressesMap } from '../../../dbs/local/types';
 import type {
+  IExternalCheckNetworkOrAddressMatchedPayload,
   IExternalHandleWalletConnectEventsParams,
   IExternalSendTransactionByWalletConnectPayload,
   IExternalSendTransactionPayload,
@@ -466,10 +470,52 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     const provider = await connector.getProvider();
     // TODO check address or network matched
     const result = await provider.request({
+      // @ts-ignore
       method,
       params: callParams,
     });
 
+    // @ts-ignore
     return [result];
+  }
+
+  async requestChainId({ connector }: { connector: IExternalConnectorEvm }) {
+    const provider = await connector.getProvider();
+    const chainIdNumOrHexString = await provider.request({
+      method: 'eth_chainId',
+    });
+    return new BigNumber(chainIdNumOrHexString).toNumber();
+  }
+
+  async requestAccounts({ connector }: { connector: IExternalConnectorEvm }) {
+    const provider = await connector.getProvider();
+    return provider.request({
+      method: 'eth_accounts',
+    });
+  }
+
+  override async checkNetworkOrAddressMatched(
+    payload: IExternalCheckNetworkOrAddressMatchedPayload,
+  ): Promise<void> {
+    const { account, networkId } = payload;
+    const chainId = networkUtils.getNetworkChainId({ networkId });
+    const connector = payload.connector as IExternalConnectorEvm;
+    const peerChainIdNum = await this.requestChainId({ connector });
+    const peerAddresses = await this.requestAccounts({ connector });
+
+    if (!peerAddresses.includes(account.address as any)) {
+      throw new Error(
+        `${appLocale.intl.formatMessage({
+          id: ETranslations.feedback_address_not_matched,
+        })}: ${networkId} ${account.address}`,
+      );
+    }
+    if (chainId !== peerChainIdNum.toString()) {
+      throw new Error(
+        `${appLocale.intl.formatMessage({
+          id: ETranslations.global_network_not_matched,
+        })}: ${networkId} peerChainId=${peerChainIdNum}`,
+      );
+    }
   }
 }

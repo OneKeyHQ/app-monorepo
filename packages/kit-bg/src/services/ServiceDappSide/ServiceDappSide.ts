@@ -56,7 +56,7 @@ class ServiceDappSide extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
+  // @toastIfError() // use Dialog show loading or error
   async connectExternalWallet({
     connectionInfo,
   }: {
@@ -278,6 +278,11 @@ class ServiceDappSide extends ServiceBase {
       connectionInfo,
       // newConnection // TODO open newConnection if wallet is disconnected
     });
+    await ctrl.checkNetworkOrAddressMatched({
+      networkId,
+      account,
+      connector,
+    });
     // TODO check address or network matched
     const result = await ctrl.sendTransaction({
       account,
@@ -306,6 +311,11 @@ class ServiceDappSide extends ServiceBase {
     });
     const { connector } = await this.getConnectorCached({
       connectionInfo,
+    });
+    await ctrl.checkNetworkOrAddressMatched({
+      networkId,
+      account,
+      connector,
     });
     // TODO check address or network matched
     const result = await ctrl.signMessage({

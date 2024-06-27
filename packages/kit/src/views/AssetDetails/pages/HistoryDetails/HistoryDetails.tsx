@@ -90,7 +90,7 @@ export function AssetItem({
     icon: string;
     isNFT?: boolean;
     isNative?: boolean;
-    price: string;
+    price?: string;
   };
   index: number;
   direction?: EDecodedTxDirection;
@@ -144,7 +144,7 @@ export function AssetItem({
         {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amountAbs}`}
       </NumberSizeableText>
     );
-    secondary = (
+    secondary = !isNil(asset.price) ? (
       <NumberSizeableText
         textAlign="right"
         size="$bodyMd"
@@ -154,7 +154,7 @@ export function AssetItem({
       >
         {new BigNumber(amountAbs).times(asset.price ?? 0).toString()}
       </NumberSizeableText>
-    );
+    ) : null;
   }
 
   return (
@@ -164,8 +164,17 @@ export function AssetItem({
         tokenImageUri={asset.icon}
         networkImageUri={networkIcon}
       />
-      <ListItem.Text primary={asset.symbol} secondary={asset.name} flex={1} />
-      <ListItem.Text primary={primary} secondary={secondary} align="right" />
+      <ListItem.Text
+        primary={asset.symbol}
+        secondary={asset.name}
+        flexShrink={0}
+      />
+      <ListItem.Text
+        primary={primary}
+        secondary={secondary}
+        flex={1}
+        align="right"
+      />
     </ListItem>
   );
 }
@@ -198,8 +207,8 @@ function HistoryDetails() {
           txid: historyTx.decodedTx.txid,
         }),
         backgroundApiProxy.serviceToken.getNativeToken({
+          accountId,
           networkId,
-          accountAddress,
         }),
       ]),
     [accountAddress, historyTx.decodedTx.txid, networkId, accountId, xpub],
@@ -307,7 +316,6 @@ function HistoryDetails() {
           name: approve.name,
           symbol: approve.symbol,
           icon: approve.icon ?? '',
-          price: '0',
         };
 
         return (
@@ -331,7 +339,7 @@ function HistoryDetails() {
           icon: transfer.icon,
           isNFT: transfer.isNFT,
           isNative: transfer.isNative,
-          price: transfer.price ?? '0',
+          price: transfer.price,
         };
 
         return (

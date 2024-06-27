@@ -49,14 +49,13 @@ class ProviderApiBtc extends ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
     const data = async ({ origin }: { origin: string }) => {
+      const params = await this.getAccounts({
+        origin,
+        scope: this.providerName,
+      });
       const result = {
-        method: 'wallet_events_accountChanged',
-        params: {
-          accounts: await this.getAccounts({
-            origin,
-            scope: this.providerName,
-          }),
-        },
+        method: 'wallet_events_accountsChanged',
+        params,
       };
       return result;
     };
@@ -173,6 +172,8 @@ class ProviderApiBtc extends ProviderApiBase {
       networkId = getNetworkIdsMap().btc;
     } else if (networkName === 'testnet') {
       networkId = getNetworkIdsMap().tbtc;
+    } else if (networkName === 'signet') {
+      networkId = getNetworkIdsMap().sbtc;
     }
     if (!networkId) {
       throw web3Errors.provider.custom({
@@ -196,19 +197,11 @@ class ProviderApiBtc extends ProviderApiBase {
     const { accountInfo: { networkId, accountId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId: networkId ?? '',
-        accountId: accountId ?? '',
-      });
+
     const { balance } =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId: networkId ?? '',
-        xpub: await this.backgroundApi.serviceAccount.getAccountXpub({
-          accountId: accountId ?? '',
-          networkId: networkId ?? '',
-        }),
-        accountAddress,
+        accountId: accountId ?? '',
       });
     return {
       confirmed: balance,
@@ -619,20 +612,11 @@ class ProviderApiBtc extends ProviderApiBase {
         message: `Can not get account`,
       });
     }
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
-    const xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
-      accountId,
-      networkId,
-    });
+
     const { utxoList } =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId,
-        accountAddress,
-        xpub,
+        accountId,
         withUTXOList: true,
       });
     if (!utxoList || isEmpty(utxoList)) {

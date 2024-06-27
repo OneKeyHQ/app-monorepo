@@ -171,8 +171,8 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
       'name': (item) => (
         <XStack space="$3" ai="center">
           <MarketTokenIcon uri={item.image} size="$8" />
-          <YStack width="$20">
-            <SizableText size="$bodyLgMedium">
+          <YStack width="$24">
+            <SizableText size="$bodyLgMedium" numberOfLines={1}>
               {item.symbol.toUpperCase()}
             </SizableText>
             <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
@@ -277,6 +277,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
       'actions': (item) => (
         <XStack>
           <MarketStar
+            key={item.coingeckoId}
             coingeckoId={item.coingeckoId}
             width={44}
             mx={0}
@@ -1094,6 +1095,8 @@ function BasicMarketHomeList({
           ref={listViewRef}
           stickyHeaderHiddenOnScroll
           estimatedItemSize={60}
+          // @ts-ignore
+          estimatedListSize={{ width: 370, height: 525 }}
           onScroll={handleScroll}
           scrollEventThrottle={100}
           data={sortedListData as unknown as IMarketToken[]}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
@@ -9,6 +10,7 @@ import { useAccountIsAutoCreatingAtom } from '@onekeyhq/kit-bg/src/states/jotai/
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
@@ -38,6 +40,7 @@ export function AccountSelectorCreateAddressButton({
   const { serviceAccount } = backgroundApiProxy;
   const [accountIsAutoCreating, setAccountIsAutoCreating] =
     useAccountIsAutoCreatingAtom();
+  const isFocused = useIsFocused();
 
   const networkId = account?.networkId;
   const deriveType = account?.deriveType;
@@ -82,6 +85,7 @@ export function AccountSelectorCreateAddressButton({
     if (isLoadingRef.current) {
       return;
     }
+    isLoadingRef.current = true;
     setIsLoading(true);
     setAccountIsAutoCreating(accountRef.current);
     try {
@@ -92,6 +96,7 @@ export function AccountSelectorCreateAddressButton({
         console.log({ wallet });
       }
       await createAddress({ num, selectAfterCreate, account });
+      await timerUtils.wait(300);
     } finally {
       setIsLoading(false);
       setAccountIsAutoCreating(undefined);
@@ -107,11 +112,19 @@ export function AccountSelectorCreateAddressButton({
 
   useEffect(() => {
     void (async () => {
-      if (walletId && networkId && deriveType && autoCreateAddress) {
+      if (
+        isFocused &&
+        walletId &&
+        networkId &&
+        deriveType &&
+        autoCreateAddress
+      ) {
         const canAutoCreate =
           await backgroundApiProxy.serviceAccount.canAutoCreateAddressInSilentMode(
             {
               walletId,
+              networkId,
+              deriveType,
             },
           );
         if (canAutoCreate) {
@@ -127,7 +140,7 @@ export function AccountSelectorCreateAddressButton({
         }
       }
     })();
-  }, [autoCreateAddress, deriveType, doCreate, networkId, walletId]);
+  }, [isFocused, autoCreateAddress, deriveType, doCreate, networkId, walletId]);
 
   return buttonRender({
     loading: isLoading,

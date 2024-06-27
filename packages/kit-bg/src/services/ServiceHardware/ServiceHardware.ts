@@ -1,7 +1,6 @@
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 
-import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import {
   backgroundClass,
   backgroundMethod,
@@ -137,6 +136,57 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  private async specialProcessingEvent({
+    originEvent,
+    usedPayload,
+  }: {
+    originEvent: UiEvent;
+    usedPayload: IHardwareUiPayload;
+  }): Promise<{
+    uiRequestType: EHardwareUiStateAction;
+    payload: IHardwareUiPayload;
+  }> {
+    const { supportInputPinOnSoftware: supportInputPinOnSoftwareSdk } =
+      await CoreSDKLoader();
+
+    let newUiRequestType = originEvent.type as EHardwareUiStateAction;
+    const newPayload = usedPayload;
+
+    // Handler Request Pin
+    // If the user set is to enter pin on the device, change the event to enter pin on the hardware
+    if (originEvent.type === EHardwareUiStateAction.REQUEST_PIN) {
+      const dbDevice = await localDb.getDeviceByQuery({
+        connectId: newPayload.connectId,
+      });
+
+      const { device } = originEvent.payload || {};
+      const { features } = device || {};
+
+      const inputPinOnSoftware = supportInputPinOnSoftwareSdk(features);
+      const supportInputPinOnSoftware =
+        dbDevice?.settings?.inputPinOnSoftware !== false &&
+        inputPinOnSoftware.support;
+
+      if (!supportInputPinOnSoftware) {
+        await this.backgroundApi.serviceHardwareUI.showEnterPinOnDevice();
+        newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
+      }
+    }
+
+    if (originEvent.type === EHardwareUiStateAction.FIRMWARE_TIP) {
+      newPayload.firmwareTipData = originEvent.payload.data;
+    }
+
+    if (originEvent.type === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
+      newPayload.firmwareProgress = originEvent.payload.progress;
+    }
+
+    return {
+      uiRequestType: newUiRequestType,
+      payload: newPayload,
+    };
+  }
+
   async registerSdkEvents(instance: CoreApi) {
     if (!this.registeredEvents) {
       this.registeredEvents = true;
@@ -147,7 +197,6 @@ class ServiceHardware extends ServiceBase {
         FIRMWARE,
         FIRMWARE_EVENT,
         // UI_REQUEST,
-        supportInputPinOnSoftware,
       } = await CoreSDKLoader();
       instance.on(UI_EVENT, async (e) => {
         const originEvent = e as UiEvent;
@@ -160,9 +209,6 @@ class ServiceHardware extends ServiceBase {
           features: features || {},
         });
         const isBootloaderMode = deviceMode === EOneKeyDeviceMode.bootloader;
-        const inputPinOnSoftware = supportInputPinOnSoftware(features);
-
-        const dbDevice = await localDb.getDeviceByQuery({ connectId });
 
         const usedPayload: IHardwareUiPayload = {
           uiRequestType,
@@ -173,18 +219,14 @@ class ServiceHardware extends ServiceBase {
           deviceMode,
           isBootloaderMode: Boolean(isBootloaderMode),
           passphraseState,
-          supportInputPinOnSoftware:
-            dbDevice?.settings?.inputPinOnSoftware !== false &&
-            inputPinOnSoftware.support,
           rawPayload: payload,
         };
 
-        if (originEvent.type === EHardwareUiStateAction.FIRMWARE_TIP) {
-          usedPayload.firmwareTipData = originEvent.payload.data;
-        }
-        if (originEvent.type === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
-          usedPayload.firmwareProgress = originEvent.payload.progress;
-        }
+        const { uiRequestType: newUiRequestType, payload: newPayload } =
+          await this.specialProcessingEvent({
+            originEvent,
+            usedPayload,
+          });
 
         // >>> mock hardware forceInputOnDevice
         // if (usedPayload) {
@@ -198,19 +240,19 @@ class ServiceHardware extends ServiceBase {
             // skip events
             EHardwareUiStateAction.CLOSE_UI_WINDOW,
             EHardwareUiStateAction.PREVIOUS_ADDRESS,
-          ].includes(uiRequestType)
+          ].includes(newUiRequestType)
         ) {
           // show hardware ui dialog
           await hardwareUiStateAtom.set({
-            action: uiRequestType,
+            action: newUiRequestType,
             connectId,
-            payload: usedPayload,
+            payload: newPayload,
           });
         }
         await hardwareUiStateCompletedAtom.set({
-          action: uiRequestType,
+          action: newUiRequestType,
           connectId,
-          payload: usedPayload,
+          payload: newPayload,
         });
       });
 
@@ -304,7 +346,7 @@ class ServiceHardware extends ServiceBase {
       options?.awaitBonded &&
       connectId
     ) {
-      const checkBonded = await uiDeviceUtils.checkDeviceBonded(connectId);
+      const checkBonded = await deviceUtils.checkDeviceBonded(connectId);
       if (checkBonded) {
         console.log('Android device was bonded, will connect');
         try {
@@ -393,7 +435,12 @@ class ServiceHardware extends ServiceBase {
       // force hardware drop process
       if (forceDeviceResetToHome) {
         console.log('sdk call cancel device getFeatures: ', connectId);
-        await this.getFeaturesWithoutCache({ connectId }); // TODO move to sdk.cancel()
+        await this.getFeaturesWithoutCache({
+          connectId,
+          params: {
+            retryCount: 2,
+          },
+        }); // TODO move to sdk.cancel()
       }
     } catch (e) {
       //

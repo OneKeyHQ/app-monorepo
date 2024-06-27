@@ -12,7 +12,10 @@ import bs58check from 'bs58check';
 import { encode as VaruintBitCoinEncode } from 'varuint-bitcoin';
 
 import { IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  AddressNotSupportSignMethodError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -58,8 +61,10 @@ import {
   getBtcForkNetwork,
   getBtcXpubFromXprvt,
   getInputsToSignFromPsbt,
+  getPublicKeyFromXpub,
   initBitcoinEcc,
   tweakSigner,
+  validateBtcAddress,
 } from './sdkBtc';
 import { buildPsbt } from './sdkBtc/providerUtils';
 
@@ -458,6 +463,24 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     psbtNetwork: networks.Network;
   }) {
     initBitcoinEcc();
+
+    const addressInfo = validateBtcAddress({
+      address: account.address,
+      network: psbtNetwork,
+    });
+
+    if (!addressInfo.isValid) {
+      throw new Error('Invalid address');
+    }
+
+    const supportedTypes = [EAddressEncodings.P2WPKH, EAddressEncodings.P2TR];
+    if (
+      !addressInfo.encoding ||
+      (addressInfo.encoding && !supportedTypes.includes(addressInfo.encoding))
+    ) {
+      throw new AddressNotSupportSignMethodError();
+    }
+
     const outputScript = BitcoinJsAddress.toOutputScript(
       account.address,
       psbtNetwork,
@@ -543,7 +566,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         signer,
         input: psbt.data.inputs[input.index],
       });
-      psbt.signInput(input.index, bitcoinSigner, input.sighashTypes);
+      await psbt.signInputAsync(input.index, bitcoinSigner, input.sighashTypes);
     }
     return {
       encodedTx,
@@ -582,9 +605,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     } = query;
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
 
-    const { xpub, pubKey } = getBtcXpubFromXprvt({
+    const { xpub } = getBtcXpubFromXprvt({
       privateKeyRaw, // hex privateKey
       network,
+    });
+    const pubKey = getPublicKeyFromXpub({
+      xpub,
+      network,
+      relPath: '0/0',
     });
 
     const usedAddressEncoding = addressEncoding;

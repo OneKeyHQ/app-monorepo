@@ -215,6 +215,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       loadingDelayEnable?: boolean,
       blockNumber?: number,
     ) => {
+      set(swapApprovingTransactionAtom(), (pre) => {
+        if (pre) return undefined;
+      });
       let enableInterval = true;
       try {
         if (!loadingDelayEnable) {
@@ -332,6 +335,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             return {
               ...pre,
               status: ESwapApproveTransactionStatus.DISCARD,
+            };
+          });
+        } else {
+          set(swapApprovingTransactionAtom(), (pre) => {
+            if (!pre || pre.status === ESwapApproveTransactionStatus.PENDING) {
+              return pre;
+            }
+            return {
+              ...pre,
+              status: ESwapApproveTransactionStatus.PENDING,
             };
           });
         }

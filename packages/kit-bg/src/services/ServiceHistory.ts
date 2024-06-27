@@ -32,21 +32,13 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
-  async refreshAccountHistory({
-    accountId,
-    networkId,
-    tokenIdOnNetwork,
-  }: {
-    accountId: string;
-    networkId: string;
-    tokenIdOnNetwork?: string;
-  }) {
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+  public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
+    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const [accountAddress, xpub, vaultSettings] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
         networkId,
-      });
-    const [xpub, vaultSettings] = await Promise.all([
+      }),
       this.backgroundApi.serviceAccount.getAccountXpub({
         accountId,
         networkId,
@@ -55,31 +47,6 @@ class ServiceHistory extends ServiceBase {
         networkId,
       }),
     ]);
-    return this.fetchAccountHistory({
-      accountId,
-      accountAddress,
-      xpub,
-      networkId,
-      tokenIdOnNetwork,
-      onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
-      saveConfirmedTxsEnabled: vaultSettings.saveConfirmedTxsEnabled,
-    });
-  }
-
-  @backgroundMethod()
-  public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
-    const {
-      accountId,
-      networkId,
-      tokenIdOnNetwork,
-      saveConfirmedTxsEnabled,
-      xpub,
-    } = params;
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      });
 
     let onChainHistoryTxs: IAccountHistoryTx[] = [];
     let localHistoryConfirmedTxs: IAccountHistoryTx[] = [];
@@ -149,6 +116,7 @@ class ServiceHistory extends ServiceBase {
     onChainHistoryTxs = await this.fetchAccountOnChainHistory({
       ...params,
       accountAddress,
+      xpub,
     });
 
     // 5. Merge the just-confirmed transactions, locally confirmed transactions, and on-chain history
@@ -163,7 +131,7 @@ class ServiceHistory extends ServiceBase {
 
     // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
     let confirmedTxsToSave: IAccountHistoryTx[] = [];
-    if (!saveConfirmedTxsEnabled) {
+    if (!vaultSettings.saveConfirmedTxsEnabled) {
       confirmedTxsToSave = mergedConfirmedTxs.filter(
         (tx) =>
           !onChainHistoryTxs.find(
@@ -197,7 +165,7 @@ class ServiceHistory extends ServiceBase {
     // Merge the locally pending transactions, confirmed transactions, and on-chain history to return
 
     return unionBy(
-      [...pendingTxs, ...mergedConfirmedTxs, ...onChainHistoryTxs],
+      [...pendingTxs, ...confirmedTxsToSave, ...onChainHistoryTxs],
       (tx) => tx.id,
     );
   }
@@ -214,7 +182,12 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchAccountOnChainHistory(params: IFetchAccountHistoryParams) {
+  public async fetchAccountOnChainHistory(
+    params: IFetchAccountHistoryParams & {
+      accountAddress: string;
+      xpub?: string;
+    },
+  ) {
     const { accountId, networkId, xpub, tokenIdOnNetwork, accountAddress } =
       params;
     const extraParams = await this.buildFetchHistoryListParams(params);
