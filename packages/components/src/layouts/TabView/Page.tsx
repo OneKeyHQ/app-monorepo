@@ -6,8 +6,11 @@ import {
   PageContentView,
   PageManager,
 } from '@onekeyfe/react-native-tab-page-view';
+import { Animated } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { Stack } from '../../primitives';
 
 import { Header } from './Header';
 
@@ -23,6 +26,8 @@ export interface IPageContainerProps
   ListHeaderComponent?: ReactElement;
   ListFooterComponent?: ReactElement;
   headerProps?: Omit<IHeaderProps, 'data'>;
+  contentItemWidth?: Animated.Value;
+  contentWidth?: number;
   onSelectedPageIndex?: (pageIndex: number) => void;
   shouldSelectedPageIndex?: (pageIndex: number) => boolean;
 }
@@ -34,6 +39,8 @@ const PageComponent = (
     ListHeaderComponent,
     ListFooterComponent,
     headerProps,
+    contentItemWidth,
+    contentWidth,
     onSelectedPageIndex,
     shouldSelectedPageIndex,
     ...props
@@ -62,8 +69,17 @@ const PageComponent = (
       item: {
         page: IContentType;
       };
-    }) => <item.page />,
-    [],
+    }) => (
+      <Animated.View
+        style={{
+          width: contentItemWidth,
+          height: '100%',
+        }}
+      >
+        <item.page />
+      </Animated.View>
+    ),
+    [contentItemWidth],
   );
   return (
     <>
@@ -77,13 +93,15 @@ const PageComponent = (
           pageManager?.contentView?.current?.scrollPageIndex(pageIndex);
         }}
       />
-      <Content
-        windowSize={5}
-        scrollEnabled={platformEnv.isNative}
-        shouldSelectedPageAnimation={platformEnv.isNative}
-        renderItem={renderContentItem}
-        {...props}
-      />
+      <Stack w={contentWidth} flex={1}>
+        <Content
+          windowSize={5}
+          scrollEnabled={platformEnv.isNative}
+          shouldSelectedPageAnimation={platformEnv.isNative}
+          renderItem={renderContentItem}
+          {...props}
+        />
+      </Stack>
       {ListFooterComponent}
     </>
   );

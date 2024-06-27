@@ -1095,6 +1095,8 @@ function BasicMarketHomeList({
           ref={listViewRef}
           stickyHeaderHiddenOnScroll
           estimatedItemSize={60}
+          // @ts-ignore
+          estimatedListSize={{ width: 370, height: 525 }}
           onScroll={handleScroll}
           scrollEventThrottle={100}
           data={sortedListData as unknown as IMarketToken[]}
