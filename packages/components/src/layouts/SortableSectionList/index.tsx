@@ -1,5 +1,5 @@
 import type { ForwardedRef, ReactNode } from 'react';
-import { forwardRef, useMemo } from 'react';
+import { forwardRef, useMemo, useState } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import {
@@ -138,6 +138,8 @@ function BaseSortableSectionList(
     renderSectionFooter,
   ]);
 
+  const [isDragging, setIsDragging] = useState(false);
+
   const scrollChildList = useMemo(() => {
     const childList: [ReactNode] = [
       <Stack key={0} style={listHeaderStyle}>
@@ -160,10 +162,20 @@ function BaseSortableSectionList(
         <NestableDraggableFlatList
           keyExtractor={keyExtractor}
           data={section.data}
-          activationDistance={enabled ? 1 : 100000}
+          activationDistance={
+            enabled && (platformEnv.isNative ? isDragging : true) ? 1 : 100000
+          }
+          onDragBegin={() => {
+            if (platformEnv.isNative) {
+              setIsDragging(true);
+            }
+          }}
           onDragEnd={(result) => {
             sections[index].data = result.data;
             onDragEnd({ sections: [...sections] });
+            if (platformEnv.isNative) {
+              setIsDragging(false);
+            }
           }}
           getItemLayout={getItemLayout}
           renderItem={({ item, getIndex, drag, isActive }) =>
@@ -194,6 +206,7 @@ function BaseSortableSectionList(
     );
     return childList;
   }, [
+    isDragging,
     enabled,
     ListHeaderComponent,
     ListFooterComponent,
