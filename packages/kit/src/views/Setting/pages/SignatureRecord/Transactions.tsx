@@ -227,7 +227,7 @@ const ContractInteractionTransactionItem = () => {
             <Icon size={40} name="GlobusOutline" color="$iconSubdued" />
           </Image.Fallback>
         </Image>
-        <SizableText ml="$3" size="$bodyLgMedium">
+        <SizableText size="$bodyLgMedium">
           {intl.formatMessage({
             id: ETranslations.transaction__contract_interaction,
           })}
