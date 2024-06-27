@@ -830,8 +830,19 @@ function SendDataInputContainer() {
                       flex={1}
                       primary={nft?.metadata?.name}
                       secondary={
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {tokenInfo?.name}
+                        <SizableText
+                          size="$bodyMd"
+                          color="$textSubdued"
+                          style={{ wordBreak: 'break-all' }}
+                        >
+                          {!isNil(nft?.itemId)
+                            ? `${intl.formatMessage({
+                                id: ETranslations.nft_token_id,
+                              })}: ${accountUtils.shortenAddress({
+                                address: nft.itemId,
+                                leadingLength: 6,
+                              })}`
+                            : ''}
                         </SizableText>
                       }
                     />
