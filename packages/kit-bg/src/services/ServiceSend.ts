@@ -15,7 +15,10 @@ import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IFeeInfoUnit,
+  ISendSelectedFeeInfo,
+} from '@onekeyhq/shared/types/fee';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
@@ -36,6 +39,7 @@ import type {
   IBuildDecodedTxParams,
   IBuildUnsignedTxParams,
   INativeAmountInfo,
+  IPreCheckFeeInfoParams,
   ISignTransactionParamsBase,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
@@ -135,6 +139,20 @@ class ServiceSend extends ServiceBase {
     });
 
     return resp.data.data.result;
+  }
+
+  @backgroundMethod()
+  public async preCheckIsFeeInfoOverflow(params: IPreCheckFeeInfoParams) {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.post<{
+        data: { success: boolean };
+      }>('/wallet/v1/account/pre-send-transaction', params);
+
+      return !resp.data.data.success;
+    } catch {
+      return false;
+    }
   }
 
   @backgroundMethod()
@@ -238,20 +256,17 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  public async batchSignAndSendTransaction(
-    params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
-  ) {
-    const {
-      networkId,
-      accountId,
-      unsignedTxs,
-      feeInfo: sendSelectedFeeInfo,
-      nativeAmountInfo,
-      signOnly,
-      sourceInfo,
-      replaceTxInfo,
-    } = params;
-
+  public async updateUnSignedTxBeforeSend({
+    accountId,
+    networkId,
+    feeInfo: sendSelectedFeeInfo,
+    nativeAmountInfo,
+    unsignedTxs,
+  }: ISendTxBaseParams & {
+    unsignedTxs: IUnsignedTxPro[];
+    feeInfo?: ISendSelectedFeeInfo;
+    nativeAmountInfo?: INativeAmountInfo;
+  }) {
     const newUnsignedTxs = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const unsignedTx = unsignedTxs[i];
@@ -265,10 +280,27 @@ class ServiceSend extends ServiceBase {
 
       newUnsignedTxs.push(newUnsignedTx);
     }
+    return newUnsignedTxs;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  public async batchSignAndSendTransaction(
+    params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
+  ) {
+    const {
+      networkId,
+      accountId,
+      unsignedTxs,
+      signOnly,
+      sourceInfo,
+      feeInfo: sendSelectedFeeInfo,
+      replaceTxInfo,
+    } = params;
 
     const result: ISendTxOnSuccessData[] = [];
-    for (let i = 0, len = newUnsignedTxs.length; i < len; i += 1) {
-      const unsignedTx = newUnsignedTxs[i];
+    for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
+      const unsignedTx = unsignedTxs[i];
       const signedTx = signOnly
         ? await this.signTransaction({
             unsignedTx,
