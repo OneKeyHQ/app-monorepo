@@ -25,7 +25,7 @@ export function TooltipText({
   onDisplayChange,
 }: ISizableTextProps & {
   scrollViewRef?: RefObject<ScrollView>;
-  onDisplayChange: (isShow: boolean) => void;
+  onDisplayChange?: (isShow: boolean) => void;
 }) {
   // Since the browser does not trigger mouse events when the page scrolls,
   //  it is necessary to manually close the tooltip when page elements scroll
@@ -36,7 +36,7 @@ export function TooltipText({
         if (scrolling) {
           return;
         }
-        onDisplayChange(false);
+        onDisplayChange?.(false);
         scrolling = true;
       };
       const onScrollEnd = () => {
