@@ -621,6 +621,9 @@ class ServiceCloudBackup extends ServiceBase {
 
   @backgroundMethod()
   async requestAutoBackup() {
+    if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
+      return;
+    }
     try {
       const metaData = await this.getMetaDataFromCloud();
       const autoBackupList = metaData.filter(

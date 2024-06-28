@@ -1,7 +1,7 @@
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
 const LOCAL_DB_NAME = 'OneKeyV5';
-const LOCAL_DB_VERSION = 1;
+const LOCAL_DB_VERSION = 2;
 
 // ----------------------------------------------
 

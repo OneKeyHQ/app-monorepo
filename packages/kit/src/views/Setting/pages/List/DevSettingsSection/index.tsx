@@ -11,6 +11,7 @@ import {
   Switch,
   Toast,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -29,6 +30,7 @@ import {
   isWebInDappMode,
   switchWebDappMode,
 } from '@onekeyhq/shared/src/utils/devModeUtils';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { Section } from '../Section';
 
@@ -41,6 +43,7 @@ export const DevSettingsSection = () => {
   const [settings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { copyText } = useClipboard();
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
@@ -204,6 +207,17 @@ export const DevSettingsSection = () => {
                 title: 'Clear App Data (E2E release only)',
                 renderContent: (
                   <YStack>
+                    <SectionPressItem
+                      title="Export Accounts Data"
+                      onPress={async () => {
+                        const data =
+                          await backgroundApiProxy.serviceE2E.exportAllAccountsData(
+                            params,
+                          );
+                        copyText(stableStringify(data));
+                      }}
+                    />
+
                     <SectionPressItem
                       title="Clear Discovery Data"
                       testID="clear-discovery-data"

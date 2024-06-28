@@ -3,14 +3,8 @@ import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
-import {
-  Button,
-  Icon,
-  Page,
-  SizableText,
-  Stack,
-  usePreventRemove,
-} from '@onekeyhq/components';
+import { Button, Icon, Page, SizableText } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -90,6 +84,10 @@ export function V4MigrationDone({
             navigation.navigate(ERootRoutes.Main, {
               screen: ETabRoutes.Home,
             });
+
+            setTimeout(() => {
+              void backgroundApiProxy.serviceCloudBackup.requestAutoBackup();
+            }, 3000);
           }}
         >
           {intl.formatMessage({ id: ETranslations.global_explore_now })}

@@ -33,7 +33,7 @@ export abstract class BackgroundServiceProxyBase {
                     key,
                   )
                 ) {
-                  defaultLogger.app.background.logProxyMethodCall(key);
+                  defaultLogger.app.background.call(key);
                 }
                 return this.callBackground(key, ...args);
               };

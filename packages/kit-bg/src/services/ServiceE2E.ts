@@ -1,3 +1,5 @@
+import natsort from 'natsort';
+
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   backgroundClass,
@@ -22,6 +24,8 @@ import {
 } from '../states/jotai/atoms/password';
 
 import ServiceBase from './ServiceBase';
+
+import type { IDBBaseObject } from '../dbs/local/types';
 
 @backgroundClass()
 class ServiceE2E extends ServiceBase {
@@ -107,6 +111,22 @@ class ServiceE2E extends ServiceBase {
     await localDb.clearRecords({
       name: ELocalDBStoreNames.ConnectedSite,
     });
+  }
+
+  @backgroundMethodForDev()
+  async exportAllAccountsData(params: IBackgroundMethodWithDevOnlyPassword) {
+    checkDevOnlyPassword(params);
+    const { serviceAccount } = this.backgroundApi;
+    const { accounts } = await serviceAccount.getAllAccounts();
+    const { wallets } = await serviceAccount.getAllWallets();
+    const { devices } = await serviceAccount.getAllDevices();
+    const sortFn = (a: IDBBaseObject, b: IDBBaseObject) =>
+      natsort({ insensitive: true })(a.id, b.id);
+    return {
+      accounts: accounts.sort(sortFn),
+      wallets: wallets.sort(sortFn),
+      devices: devices.sort(sortFn),
+    };
   }
 }
 

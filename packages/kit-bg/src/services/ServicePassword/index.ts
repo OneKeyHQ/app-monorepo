@@ -542,16 +542,12 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async lockApp() {
-    const isRunning = await firmwareUpdateWorkflowRunningAtom.get();
-    if (isRunning) {
+    const isFirmwareUpdateRunning =
+      await firmwareUpdateWorkflowRunningAtom.get();
+    if (isFirmwareUpdateRunning) {
       return;
     }
-
-    const v4migrationData = await v4migrationAtom.get();
-    if (
-      v4migrationData?.isProcessing ||
-      v4migrationData?.isMigrationModalOpen
-    ) {
+    if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
       return;
     }
 

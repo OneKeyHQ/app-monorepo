@@ -1,6 +1,6 @@
 import { isPromiseObject } from '../utils/promiseUtils';
 
-import { Metadata } from './types';
+import { Metadata, NO_LOG_OUTPUT } from './types';
 
 import type { IMethodDecoratorMetadata } from './types';
 
@@ -21,6 +21,12 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
       }
       if (!Array.isArray(result)) {
         result = [result];
+      }
+      if (Array.isArray(result)) {
+        result = result.filter((item) => item !== NO_LOG_OUTPUT);
+        if ((result as any[])?.length === 0) {
+          return null;
+        }
       }
       return new Metadata(result, decoratorArgs);
     };

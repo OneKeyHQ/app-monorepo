@@ -1,9 +1,10 @@
 import { isPromiseObject } from '../../utils/promiseUtils';
 import { getLoggerExtension } from '../extensions';
 import { stringifyFunc } from '../stringifyFunc';
-import { type EScopeName, type IScope, Metadata } from '../types';
+import { Metadata } from '../types';
 
 import type { BaseScene } from './baseScene';
+import type { EScopeName, IScope } from '../types';
 
 export abstract class BaseScope implements IScope {
   protected abstract scopeName: EScopeName;
@@ -33,14 +34,13 @@ export abstract class BaseScope implements IScope {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           const result = instance[prop].call(instance, ...args);
           const obj = isPromiseObject(result) ? await result : result;
-          if (obj instanceof Metadata) {
+          if (obj && obj instanceof Metadata) {
+            const rawMsg = stringifyFunc(...obj.args);
             const level = obj.metadata.level;
             if (obj.metadata.type === 'local') {
               const extensionName = `${this.scopeName}`;
               const logger = getLoggerExtension(extensionName);
-              const msg = `${
-                this.scopeName
-              } -> ${sceneName} -> ${prop}: ${stringifyFunc(...obj.args)}`;
+              const msg = `${this.scopeName} -> ${sceneName} -> ${prop}: ${rawMsg}`;
               logger[level](msg);
               if (level === 'error') {
                 console.error(msg);
