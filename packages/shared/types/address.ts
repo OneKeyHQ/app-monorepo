@@ -91,6 +91,12 @@ export type INetworkAccountAddressDetail = {
   allowEmptyAddress: boolean; // allow empty address, like lightning network
 };
 
+export enum EServerInteractedStatus {
+  FALSE = '0',
+  TRUE = '1',
+  UNKNOWN = '2',
+}
+
 export type IAddressInteractionStatus =
   | 'interacted'
   | 'not-interacted'
