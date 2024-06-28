@@ -19,10 +19,15 @@ import {
 } from '@onekeyhq/core/src/types';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
+  COINTYPE_ADA,
   COINTYPE_BTC,
+  COINTYPE_DNX,
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
+  COINTYPE_NEXA,
+  COINTYPE_SOL,
   COINTYPE_STC,
+  COINTYPE_SUI,
   COINTYPE_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -42,6 +47,14 @@ import v4MigrationUtils from './v4MigrationUtils';
 import { EV4DBAccountType } from './v4types';
 
 import type {
+  IDBAccount,
+  IDBCreateHWWalletParams,
+  IDBDevice,
+  IDBDeviceSettings,
+  IDBUtxoAccount,
+  IDBWallet,
+} from '../../dbs/local/types';
+import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
   IV4MigrationWallet,
@@ -57,14 +70,6 @@ import type {
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
 } from './v4local/v4localDBTypes';
-import type {
-  IDBAccount,
-  IDBCreateHWWalletParams,
-  IDBDevice,
-  IDBDeviceSettings,
-  IDBUtxoAccount,
-  IDBWallet,
-} from '../../dbs/local/types';
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({
@@ -274,6 +279,8 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       v4account,
     });
 
+    const v4accountUtxo = v4account as IV4DBUtxoAccount;
+
     const logErrorFn = (error: Error | undefined) =>
       `${error?.message || 'error'}  ${JSON.stringify({
         id: v4account?.id,
@@ -305,6 +312,46 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       async () => this.fixV4AccountLightningType({ v4account }),
       {
         name: 'fixV4AccountLightningType',
+        errorResultFn: () => undefined,
+        logErrorFn,
+        logErrorOnly: true,
+      },
+    );
+
+    await v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        if (accountUtils.isHwAccount({ accountId: v4account.id })) {
+          if (v4account.coinType === COINTYPE_SOL) {
+            if (v4account?.pub && v4account?.pub === v4account?.address) {
+              v4account.pub = '';
+            }
+          }
+          if ([COINTYPE_NEXA, COINTYPE_ADA].includes(v4account.coinType)) {
+            if (v4account.id && v4account.id.endsWith("'/0'/0/0")) {
+              if (v4account.id) {
+                v4account.id = v4account.id.replace(/\/0\/0$/, '');
+              }
+              if (v4account.path) {
+                v4account.path = v4account.path.replace(/\/0\/0$/, '');
+              }
+            }
+          }
+          if (v4account.coinType === COINTYPE_NEXA) {
+            // TODO how to get hw nexa pub
+            v4account.pub = v4account.pub || '';
+          }
+          if (v4account.coinType === COINTYPE_DNX) {
+            if (v4accountUtxo && !v4accountUtxo.xpub) {
+              (v4accountUtxo as { xpub?: string }).xpub = undefined;
+            }
+          }
+          if (v4account.coinType === COINTYPE_SUI) {
+            // TODO
+          }
+        }
+      },
+      {
+        name: 'fixV4AccountHwFields',
         errorResultFn: () => undefined,
         logErrorFn,
         logErrorOnly: true,
@@ -1072,16 +1119,19 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                         coinType,
                         indexedAccountId,
                       } = prepareResult;
+                      const v4accountUtxo = v4account as IV4DBUtxoAccount;
                       const accountId = accountUtils.buildHDAccountId({
                         walletId: v5wallet?.id,
                         path: v4account.path,
                         idSuffix: deriveInfo?.idSuffix,
                       });
                       const addressRelPath =
-                        accountUtils.buildUtxoAddressRelPath();
+                        v4account.type === EV4DBAccountType.UTXO
+                          ? accountUtils.buildUtxoAddressRelPath()
+                          : undefined;
                       const v5account: IDBAccount = {
                         address: v4account.address,
-                        addresses: {},
+                        addresses: v4accountUtxo?.addresses,
                         coinType: v4account.coinType,
                         id: accountId,
                         impl: networkImpl,
@@ -1100,7 +1150,6 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                         v5account.address = '';
                       }
                       const v5accountUtxo = v5account as IDBUtxoAccount;
-                      const v4accountUtxo = v4account as IV4DBUtxoAccount;
                       v5accountUtxo.xpub = v4accountUtxo.xpub;
                       v5accountUtxo.xpubSegwit = v4accountUtxo.xpubSegwit;
                       v4dbHubs.logger.saveAccountDetailsV5({

@@ -11,7 +11,7 @@ import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
-    namePrefix: 'EVM',
+    namePrefix: 'TODO',
     labelKey: ETranslations.bip44__standard,
     template: `m/44'/${COINTYPE_ETH}'/0'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_ETH,

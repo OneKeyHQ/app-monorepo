@@ -11,7 +11,7 @@ import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
-    namePrefix: 'Ripple',
+    namePrefix: 'RIPPLE',
     labelKey: ETranslations.bip44__standard,
     template: `m/44'/${COINTYPE_XRP}'/${INDEX_PLACEHOLDER}'/0/0`,
     coinType: COINTYPE_XRP,
