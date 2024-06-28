@@ -48,7 +48,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
   // },
   ledgerLive: {
     // category: `44'/${COINTYPE_ETH}'`,
-    namePrefix: 'Ledger Live',
+    namePrefix: 'EVM Ledger Live',
     label: 'Ledger Live',
     idSuffix: 'LedgerLive', // hd-1--m/44'/60'/0'/0/0--LedgerLive
     template: `m/44'/${COINTYPE_ETH}'/${INDEX_PLACEHOLDER}'/0/0`,

@@ -28,7 +28,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapSol = {
     desc: 'OneKey, Phantom, Sollet, m/44’/501’/*’/0’',
   },
   ledgerLive: {
-    namePrefix: 'Ledger Live',
+    namePrefix: 'SOL Ledger Live',
     template: `m/44'/${COINTYPE_SOL}'/${INDEX_PLACEHOLDER}'`,
     coinType: COINTYPE_SOL,
     label: 'Ledger Live',
