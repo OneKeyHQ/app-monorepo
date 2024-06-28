@@ -1,7 +1,6 @@
 import { isNumber } from 'lodash';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
 import { storeNameSupportCreatedAt } from '../consts';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
@@ -205,7 +204,6 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   ): Promise<void> {
     const { tx, updater } = params;
     checkIsDefined(tx);
-    resetUtils.checkNotInResetting();
 
     const pairs = await this.buildRecordPairsFromIds(params);
 
@@ -239,7 +237,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     const { name, records, skipIfExists } = params;
     checkIsDefined(params.tx);
     checkIsDefined(params.name);
-    resetUtils.checkNotInResetting();
+
     this.checkSchemaPropertiesDefined({
       name,
       record: records?.[0] || {},
@@ -273,7 +271,6 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     params: ILocalDBTxRemoveRecordsParams<T>,
   ): Promise<void> {
     checkIsDefined(params.tx);
-    resetUtils.checkNotInResetting();
     const pairs = await this.buildRecordPairsFromIds(params);
 
     this.realm.delete(pairs.map((pair) => pair[1]));

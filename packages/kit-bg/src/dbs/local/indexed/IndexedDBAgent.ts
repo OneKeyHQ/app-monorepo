@@ -2,7 +2,6 @@ import { isNil, isNumber } from 'lodash';
 
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
-import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
 import { ALL_LOCAL_DB_STORE_NAMES } from '../consts';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
@@ -354,7 +353,6 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async txUpdateRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxUpdateRecordsParams<T>,
   ): Promise<void> {
-    resetUtils.checkNotInResetting();
     const { name, tx, updater } = params;
     const pairs = await this.buildRecordPairsFromIds(params);
     await Promise.all(
@@ -372,7 +370,6 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async txAddRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxAddRecordsParams<T>,
   ): Promise<ILocalDBTxAddRecordsResult> {
-    resetUtils.checkNotInResetting();
     const { name, tx, records, skipIfExists } = params;
     const store = this._getObjectStoreFromTx(tx, name);
     const result: ILocalDBTxAddRecordsResult = {
@@ -402,7 +399,6 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async txRemoveRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxRemoveRecordsParams<T>,
   ): Promise<void> {
-    resetUtils.checkNotInResetting();
     const { name, tx } = params;
     const store = this._getObjectStoreFromTx(tx, name);
     const pairs = await this.buildRecordPairsFromIds(params);

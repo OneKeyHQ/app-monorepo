@@ -4,10 +4,6 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  isAvailable,
-  logoutFromGoogleDrive,
-} from '@onekeyhq/shared/src/cloudfs';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -17,8 +13,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import localDb from '../dbs/local/localDb';
 
@@ -47,39 +41,11 @@ class ServiceApp extends ServiceBase {
     }
   }
 
-  private async resetData() {
-    // clean app storage
-    await appStorage.clear();
-
-    // clean local db
-    await localDb.reset();
-    await timerUtils.wait(1500);
-
-    if (platformEnv.isRuntimeBrowser) {
-      try {
-        global.localStorage.clear();
-      } catch {
-        console.error('window.localStorage.clear() error');
-      }
-    }
-
-    // logout from Google Drive
-    if (platformEnv.isNativeAndroid && (await isAvailable())) {
-      await logoutFromGoogleDrive(true);
-      await timerUtils.wait(1000);
-    }
-  }
-
   @backgroundMethod()
   async resetApp() {
-    resetUtils.startResetting();
-    try {
-      await this.resetData();
-    } catch (e) {
-      console.error('resetData error', e);
-    } finally {
-      resetUtils.endResetting();
-    }
+    await localDb.reset();
+    await appStorage.clear();
+    await this.backgroundApi.serviceDiscovery.clearDiscoveryPageData();
     this.restartApp();
   }
 

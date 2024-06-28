@@ -26,7 +26,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -145,9 +144,6 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async refreshLastActivity() {
-    if (resetUtils.getIsResetting()) {
-      return;
-    }
     await settingsLastActivityAtom.set((prev) => ({
       ...prev,
       time: Date.now(),

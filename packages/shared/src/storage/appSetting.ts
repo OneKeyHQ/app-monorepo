@@ -1,7 +1,5 @@
 import { MMKV } from 'react-native-mmkv';
 
-import resetUtils from '../utils/resetUtils';
-
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 export const appSetting = new MMKV({
@@ -27,22 +25,6 @@ export const buildAppStorageFactory = (
   appStorage: AsyncStorageStatic,
 ): IAppStorage => {
   const storage = appStorage as IAppStorage;
-
-  const originalSetItem = storage.setItem;
-
-  const setItem: IAppStorage['setItem'] = (key, value, callback) => {
-    resetUtils.checkNotInResetting();
-    return originalSetItem(key, value, callback);
-  };
-
-  const removeItem: IAppStorage['removeItem'] = (key, callback) => {
-    resetUtils.checkNotInResetting();
-    return storage.removeItem(key, callback);
-  };
-
-  storage.setItem = setItem;
-  storage.removeItem = removeItem;
-
   storage.setSetting = appSetting.set.bind(appSetting);
   storage.getSettingString = appSetting.getString.bind(appSetting);
   storage.getSettingNumber = appSetting.getNumber.bind(appSetting);
