@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
+  NavBackButton,
   Page,
   SizableText,
   Spinner,
@@ -175,23 +176,26 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
     routeParams?.networkId,
   ]);
 
+  const backToHomePage = useCallback(() => {
+    urlAccountNavigation.replaceHomePage(navigation);
+  }, [navigation]);
+
+  const renderHeaderLeft = useCallback(
+    () => <NavBackButton onPress={backToHomePage} />,
+    [backToHomePage],
+  );
+
   if (urlAccountStatus === 'invalid') {
     return (
       <Page>
-        <Stack p="$6">
-          <SizableText my="$6">
+        <Page.Header headerLeft={renderHeaderLeft} />
+        <Stack flex={1} ai="center" jc="center">
+          <SizableText size="$headingXl">
             {intl.formatMessage({ id: ETranslations.global_404_message })}
           </SizableText>
           {process.env.NODE_ENV !== 'production' ? (
             <SizableText my="$6">{JSON.stringify(routeParams)}</SizableText>
           ) : null}
-          <Button
-            onPress={() => {
-              urlAccountNavigation.replaceHomePage(navigation);
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.explore_back_to_home })}
-          </Button>
         </Stack>
       </Page>
     );

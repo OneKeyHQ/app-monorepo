@@ -56,7 +56,7 @@ function ReceiveToken() {
       })
     : deriveInfo?.label ?? '';
 
-  const { account, network, wallet } = useAccountData({
+  const { account, network, wallet, vaultSettings } = useAccountData({
     accountId,
     networkId,
     walletId,
@@ -78,6 +78,7 @@ function ReceiveToken() {
 
   const isShowAddress =
     !isDeviceWallet ||
+    addressState === EAddressState.Verifying ||
     addressState === EAddressState.ForceShow ||
     addressState === EAddressState.Verified;
 
@@ -164,7 +165,9 @@ function ReceiveToken() {
         <Stack mb="$5">
           <XStack space="$2" alignItems="center" justifyContent="center">
             <Heading size="$headingMd">{network.name}</Heading>
-            {addressType ? <Badge>{addressType}</Badge> : null}
+            {vaultSettings?.showAddressType && addressType ? (
+              <Badge>{addressType}</Badge>
+            ) : null}
           </XStack>
           <SizableText
             mt="$1"
@@ -271,9 +274,7 @@ function ReceiveToken() {
             </SizableText>
           </XStack>
         ) : null}
-        {isDeviceWallet &&
-        (addressState === EAddressState.Unverified ||
-          addressState === EAddressState.Verifying) ? (
+        {isDeviceWallet && addressState === EAddressState.Unverified ? (
           <Button mt="$5" variant="primary" onPress={handleVerifyOnDevicePress}>
             {intl.formatMessage({
               id: ETranslations.global_verify_on_device,
@@ -303,6 +304,7 @@ function ReceiveToken() {
     isShowAddress,
     isShowQRCode,
     network,
+    vaultSettings?.showAddressType,
     wallet,
   ]);
 

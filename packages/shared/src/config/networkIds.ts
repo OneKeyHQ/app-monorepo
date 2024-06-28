@@ -54,6 +54,7 @@ export type INetworkShortCode =
   | 'sepolia'
   | 'mantle'
   | 'mantapacific'
+  | 'blast'
   | 'fevm';
 
 const checkErrors: string[] = [];

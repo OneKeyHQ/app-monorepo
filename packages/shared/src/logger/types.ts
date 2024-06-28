@@ -40,3 +40,4 @@ export class Metadata {
 export interface IScene {
   getName: () => string;
 }
+export const NO_LOG_OUTPUT = '$$_NO_LOG_OUTPUT_8888888';

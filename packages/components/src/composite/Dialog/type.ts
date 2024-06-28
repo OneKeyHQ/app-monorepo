@@ -29,7 +29,7 @@ export interface IDialogContentProps extends PropsWithChildren {
   testID?: string;
 }
 
-type IDialogButtonProps = Omit<IButtonProps, 'children'> & {
+export type IDialogButtonProps = Omit<IButtonProps, 'children'> & {
   disabledOn?: (params: Pick<IDialogInstance, 'getForm'>) => boolean;
 };
 export interface IDialogFooterProps extends PropsWithChildren {

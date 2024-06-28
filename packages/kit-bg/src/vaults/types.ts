@@ -35,6 +35,7 @@ import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
+import type { IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
 
 import type {
   IAccountDeriveInfoMapBtc,
@@ -190,6 +191,12 @@ export type IVaultSettings = {
   withoutBroadcastTxId?: boolean;
 
   transferZeroNativeTokenEnabled?: boolean;
+
+  gasLimitValidationEnabled?: boolean;
+
+  showAddressType?: boolean;
+
+  hideTxUtxoListWhenPending?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -349,6 +356,7 @@ export type IApproveInfo = {
 export type ITransferPayload = {
   amountToSend: string;
   isMaxSend: boolean;
+  isNFT: boolean;
 };
 
 export enum EWrappedType {
@@ -401,6 +409,7 @@ export interface IBuildEncodedTxParams {
 export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: ISendSelectedFeeInfo;
+  transferPayload?: ITransferPayload;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
@@ -426,6 +435,14 @@ export interface IBroadcastTransactionParams {
   signature?: string;
 }
 
+export interface IPreCheckFeeInfoParams {
+  encodedTx: IEncodedTx;
+  feeTokenSymbol: string;
+  feeAmount: string;
+  networkId: string;
+  accountAddress: string;
+}
+
 export interface ISignTransactionParamsBase {
   unsignedTx: IUnsignedTxPro;
   // TODO rename externalSignOnly
@@ -444,6 +461,7 @@ export interface IBatchSignTransactionParamsBase {
   nativeAmountInfo?: INativeAmountInfo;
   signOnly?: boolean;
   sourceInfo?: IDappSourceInfo;
+  replaceTxInfo?: IReplaceTxInfo;
 }
 
 export interface ISignMessageParams {

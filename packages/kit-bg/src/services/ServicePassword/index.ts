@@ -109,6 +109,26 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
+  async encryptByInstanceId(input: string): Promise<string> {
+    const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
+    const output = encodeSensitiveText({
+      text: input,
+      key: instanceId,
+    });
+    return Promise.resolve(output);
+  }
+
+  @backgroundMethod()
+  async decryptByInstanceId(input: string): Promise<string> {
+    const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
+    const output = decodeSensitiveText({
+      encodedText: input,
+      key: instanceId,
+    });
+    return Promise.resolve(output);
+  }
+
+  @backgroundMethod()
   async decodeSensitiveText({
     encodedText,
   }: {
@@ -522,16 +542,12 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async lockApp() {
-    const isRunning = await firmwareUpdateWorkflowRunningAtom.get();
-    if (isRunning) {
+    const isFirmwareUpdateRunning =
+      await firmwareUpdateWorkflowRunningAtom.get();
+    if (isFirmwareUpdateRunning) {
       return;
     }
-
-    const v4migrationData = await v4migrationAtom.get();
-    if (
-      v4migrationData?.isProcessing ||
-      v4migrationData?.isMigrationModalOpen
-    ) {
+    if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
       return;
     }
 

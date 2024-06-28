@@ -11,6 +11,7 @@ import {
   Switch,
   Toast,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -29,6 +30,7 @@ import {
   isWebInDappMode,
   switchWebDappMode,
 } from '@onekeyhq/shared/src/utils/devModeUtils';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { Section } from '../Section';
 
@@ -37,10 +39,60 @@ import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
 
+import { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
+
+let correctDevOnlyPwd = '';
+function showDevOnlyPasswordDialog({
+  title,
+  desc,
+  onConfirm,
+  confirmButtonProps,
+}: {
+  title: string;
+  desc: string;
+  onConfirm: (params: IBackgroundMethodWithDevOnlyPassword) => Promise<void>;
+  confirmButtonProps?: IDialogButtonProps;
+}) {
+  let devOnlyPwd = correctDevOnlyPwd;
+  Dialog.show({
+    title,
+    confirmButtonProps: {
+      variant: 'destructive',
+      ...confirmButtonProps,
+    },
+    renderContent: (
+      <Stack>
+        <SizableText>{desc}</SizableText>
+        <Stack mt="$4">
+          <Input
+            testID="dev-only-password"
+            placeholder="devOnlyPassword"
+            defaultValue={correctDevOnlyPwd}
+            onChangeText={(v) => {
+              devOnlyPwd = v;
+            }}
+          />
+        </Stack>
+      </Stack>
+    ),
+    onConfirm: async () => {
+      if (!isCorrectDevOnlyPassword(devOnlyPwd)) {
+        return;
+      }
+      correctDevOnlyPwd = devOnlyPwd;
+      const params: IBackgroundMethodWithDevOnlyPassword = {
+        $$devOnlyPassword: devOnlyPwd,
+      };
+      await onConfirm(params);
+    },
+  });
+}
+
 export const DevSettingsSection = () => {
   const [settings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { copyText } = useClipboard();
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
@@ -139,6 +191,36 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+
+      <SectionPressItem
+        title="Export Accounts Data"
+        onPress={() => {
+          showDevOnlyPasswordDialog({
+            title: 'Danger Zone',
+            desc: `Export Accounts Data`,
+            onConfirm: async (params) => {
+              Dialog.cancel({
+                title: 'Export Accounts Data',
+                renderContent: (
+                  <YStack>
+                    <SectionPressItem
+                      title="Export Accounts Data"
+                      onPress={async () => {
+                        const data =
+                          await backgroundApiProxy.serviceE2E.exportAllAccountsData(
+                            params,
+                          );
+                        copyText(stableStringify(data));
+                      }}
+                    />
+                  </YStack>
+                ),
+              });
+            },
+          });
+        }}
+      />
+
       <SectionPressItem
         title="FirmwareUpdateDevSettings"
         testID="firmware-update-dev-settings-menu"
@@ -171,38 +253,16 @@ export const DevSettingsSection = () => {
         title="Clear App Data (E2E release only)"
         testID="clear-data-menu"
         onPress={() => {
-          let devOnlyPwd = '';
-          Dialog.show({
-            title: '!!!!  Danger Zone: Clear all your data',
+          showDevOnlyPasswordDialog({
+            title: 'Danger Zone: Clear all your data',
             confirmButtonProps: {
               variant: 'destructive',
               testID: 'clear-double-confirm',
             },
-            renderContent: (
-              <Stack>
-                <SizableText>
-                  This is a feature specific to development environments.
-                  Function used to erase all data in the app.
-                </SizableText>
-                <Stack mt="$4">
-                  <Input
-                    placeholder="devOnlyPassword"
-                    onChangeText={(v) => {
-                      devOnlyPwd = v;
-                    }}
-                    testID="dev-only-password"
-                  />
-                </Stack>
-              </Stack>
-            ),
-            onConfirm: () => {
-              if (!isCorrectDevOnlyPassword(devOnlyPwd)) {
-                return;
-              }
-              const params: IBackgroundMethodWithDevOnlyPassword = {
-                $$devOnlyPassword: devOnlyPwd,
-              };
-              const dialog = Dialog.cancel({
+            desc: `This is a feature specific to development environments.
+                  Function used to erase all data in the app.`,
+            onConfirm: async (params) => {
+              Dialog.cancel({
                 title: 'Clear App Data (E2E release only)',
                 renderContent: (
                   <YStack>
