@@ -46,13 +46,11 @@ const RenderLines = ({
   size,
   children: text,
   hasMessage = false,
-  maxWidth,
 }: {
   children?: string;
   size: ISizableTextProps['size'];
   icon?: JSX.Element;
   hasMessage?: boolean;
-  maxWidth?: number;
 }) => {
   if (!text) {
     return null;
@@ -128,17 +126,10 @@ function Title({
       }}
     >
       <YStack>
-        <RenderLines
-          maxWidth={maxWidth}
-          size="$headingSm"
-          icon={icon}
-          hasMessage={!!message}
-        >
+        <RenderLines size="$headingSm" icon={icon} hasMessage={!!message}>
           {title}
         </RenderLines>
-        <RenderLines maxWidth={maxWidth} size="$bodySm">
-          {message}
-        </RenderLines>
+        <RenderLines size="$bodySm">{message}</RenderLines>
         {actionsProps ? <Button {...actionsProps} /> : null}
       </YStack>
     </YStack>
