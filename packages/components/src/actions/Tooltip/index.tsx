@@ -86,7 +86,7 @@ export function Tooltip({
 }: ITooltipProps) {
   const transformOrigin = transformOriginMap[placement] || 'bottom center';
 
-  const [isShow, setIsShow] = useState(true);
+  const [isShow, setIsShow] = useState(false);
 
   const handleDisplayChange = useCallback((isShowValue: boolean) => {
     setIsShow(isShowValue);
@@ -114,6 +114,8 @@ export function Tooltip({
       unstyled
       delay={0}
       offset={6}
+      open={isShow}
+      onOpenChange={setIsShow}
       allowFlip
       placement={placement}
       {...props}
@@ -132,7 +134,7 @@ export function Tooltip({
         elevation={10}
         style={{
           transformOrigin,
-          display: isShow ? undefined : 'none',
+          // display: isShow ? undefined : 'none',
         }}
         enterStyle={{
           scale: 0.95,
