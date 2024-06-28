@@ -18,6 +18,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
+let lastAutoStartV4MigrationTime = 0;
+let isBaseSettingsMigrated = false;
+
 function DowngradeWarningDialogContent({
   onConfirm,
 }: {
@@ -83,14 +86,23 @@ function OnboardingOnMountCmp() {
           const shouldMigrateFromV4: boolean =
             await backgroundApiProxy.serviceV4Migration.checkShouldMigrateV4OnMount();
           if (shouldMigrateFromV4) {
+            if (!isBaseSettingsMigrated) {
+              isBaseSettingsMigrated = true;
+              await backgroundApiProxy.serviceV4Migration.migrateBaseSettings();
+            }
             await timerUtils.wait(600);
             await v4migrationActions.navigateToV4MigrationPage({
               isAutoStartOnMount: true,
             });
-            setV4MigrationPersistAtom((v) => ({
-              ...v,
-              v4migrationAutoStartCount: (v.v4migrationAutoStartCount || 0) + 1,
-            }));
+            const now = Date.now();
+            if (now - lastAutoStartV4MigrationTime > 3000) {
+              lastAutoStartV4MigrationTime = now;
+              setV4MigrationPersistAtom((v) => ({
+                ...v,
+                v4migrationAutoStartCount:
+                  (v.v4migrationAutoStartCount || 0) + 1,
+              }));
+            }
             return;
           }
         }

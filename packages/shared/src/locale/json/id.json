@@ -862,6 +862,7 @@
   "hardware.transferring_data": "Memindahkan data...",
   "hardware.two_onekey_lite_not_same": "Dua OneKey Lite yang digunakan untuk koneksi tidak sama.",
   "hardware.unknown_message_error": "Firmware saat ini tidak didukung, silakan coba untuk melakukan upgrade",
+  "hardware.unsupported_passphrase_characters": "Contains unsupported characters",
   "hardware.user_cancel_error": "Dibatalkan di perangkat",
   "hardware.verify_success": "Firmware resmi",
   "hardware.version_need_upgrade_error": "Silakan perbarui firmware ke versi {version} atau lebih tinggi untuk menggunakan fitur ini",

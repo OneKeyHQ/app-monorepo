@@ -60,6 +60,9 @@ export function V4MigrationGetStarted({
         let v4password = '';
         Dialog.show({
           showCancelButton: true,
+          onClose: () => {
+            setIsLoading(false);
+          },
           onConfirm: async () => {
             if (
               await backgroundApiProxy.serviceV4Migration.setV4Password({
