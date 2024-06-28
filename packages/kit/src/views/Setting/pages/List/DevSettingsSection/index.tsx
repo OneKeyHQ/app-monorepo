@@ -176,7 +176,7 @@ export const DevSettingsSection = () => {
             title: '!!!!  Danger Zone: Clear all your data',
             confirmButtonProps: {
               variant: 'destructive',
-              testID: 'clear-double-confirm'
+              testID: 'clear-double-confirm',
             },
             renderContent: (
               <Stack>
@@ -190,6 +190,7 @@ export const DevSettingsSection = () => {
                     onChangeText={(v) => {
                       devOnlyPwd = v;
                     }}
+                    testID="dev-only-password"
                   />
                 </Stack>
               </Stack>
