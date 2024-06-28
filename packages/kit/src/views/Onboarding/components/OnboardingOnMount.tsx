@@ -54,7 +54,7 @@ function DowngradeWarningDialogContent({
         }}
         onConfirm={handleConfirm}
         onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
+          id: ETranslations.global_i_understand,
         })}
         showCancelButton={false}
       />
