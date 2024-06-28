@@ -19,7 +19,6 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import type { IPageHeaderProps } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -346,14 +345,22 @@ export function TokenDetails() {
   //   );
   // }, [media.gtMd, network?.logoURI, tokenInfo.address]);
 
-  const headerTitleStyle = useMemo(() => getFontToken('$headingLg'), []);
+  const headerTitleStyle = useMemo(
+    () => ({
+      ...(getFontToken('$headingLg') as {
+        fontSize: number;
+        lineHeight: number;
+        letterSpacing: number;
+      }),
+      color: '$text',
+    }),
+    [],
+  );
   return (
     <Page>
       <Page.Header
         headerTitle={tokenInfo.name ?? tokenDetails?.info.name}
-        headerTitleStyle={
-          headerTitleStyle as IPageHeaderProps['headerTitleStyle']
-        }
+        headerTitleStyle={headerTitleStyle}
         headerRight={headerRight}
       />
       <Page.Body>
