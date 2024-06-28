@@ -113,7 +113,13 @@ const SwapActionsState = ({
   const approveStepComponent = useMemo(
     () =>
       swapActionState.isApprove && !quoteLoading ? (
-        <XStack pb="$5" space="$1">
+        <XStack
+          pb="$5"
+          space="$1"
+          {...(pageType === EPageType.modal && !md
+            ? { justifyContent: 'flex-end' }
+            : {})}
+        >
           <Popover
             title="Approve"
             placement="top-start"
@@ -159,7 +165,14 @@ const SwapActionsState = ({
           </SizableText>
         </XStack>
       ) : null,
-    [fromToken?.symbol, intl, quoteLoading, swapActionState.isApprove],
+    [
+      fromToken?.symbol,
+      intl,
+      md,
+      pageType,
+      quoteLoading,
+      swapActionState.isApprove,
+    ],
   );
 
   const actionComponent = useMemo(
