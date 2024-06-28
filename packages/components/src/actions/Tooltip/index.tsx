@@ -27,7 +27,8 @@ export function TooltipText({
   scrollViewRef?: RefObject<ScrollView>;
   onDisplayChange: (isShow: boolean) => void;
 }) {
-  // Browser don't fire mouse events when the page scrolls.
+  // Since the browser does not trigger mouse events when the page scrolls,
+  //  it is necessary to manually close the tooltip when page elements scroll
   useEffect(() => {
     if (!platformEnv.isNative) {
       let scrolling = false;
