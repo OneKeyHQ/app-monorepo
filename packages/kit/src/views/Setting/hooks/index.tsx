@@ -5,7 +5,9 @@ import { useIntl } from 'react-intl';
 import { Dialog, Input, Portal } from '@onekeyhq/components';
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -77,8 +79,21 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
         },
         testID: 'erase-data-confirm',
       },
-      onConfirm() {
-        void backgroundApiProxy.serviceApp.resetApp();
+      onConfirm: async () => {
+        try {
+          // disable setInterval on ext popup
+          if (platformEnv.isExtensionUiPopup) {
+            resetUtils.startResetting();
+          }
+          await backgroundApiProxy.serviceApp.resetApp();
+        } catch (e) {
+          console.error('failed to reset app with error', e);
+        } finally {
+          // able setInterval on ext popup
+          if (platformEnv.isExtensionUiPopup) {
+            resetUtils.endResetting();
+          }
+        }
       },
     });
   }, [inAppStateLock, intl]);
