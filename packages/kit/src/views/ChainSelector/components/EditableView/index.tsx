@@ -88,7 +88,7 @@ const EditableViewListItem = ({
           }}
         />
       ) : null}
-      {sectionIndex === 0 && networkId === item.id && !isEditMode ? (
+      {networkId === item.id && !isEditMode ? (
         <ListItem.CheckMark
           key="checkmark"
           enterStyle={{
@@ -231,11 +231,15 @@ export const EditableView: FC<IEditableViewProps> = ({
     }) => (
       <EditableViewListItem
         item={item}
-        sectionIndex={sections.findIndex((_section) => _section === section)}
+        sectionIndex={
+          searchText.length > 0
+            ? 1
+            : sections.findIndex((_section) => _section === section)
+        }
         drag={drag}
       />
     ),
-    [sections],
+    [searchText.length, sections],
   );
 
   const renderSectionHeader = useCallback(
