@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
 import { Button, Icon, Page, SizableText } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -12,8 +13,6 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { V4MigrationLogCopy } from './components/V4MigrationLogCopy';
 import { V4MigrationModalPage } from './components/V4MigrationModalPage';
