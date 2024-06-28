@@ -20,12 +20,19 @@ import { useWebTabDataById } from './useWebTabs';
 
 import type { IHandleAccountChangedParams } from '../../DAppConnection/hooks/useHandleAccountChanged';
 
-const notifyChanges = throttle((url: string, fromScene?: string) => {
-  console.log('webview notify changed events: ', url, fromScene);
-  const targetOrigin = new URL(url).origin;
-  void backgroundApiProxy.serviceDApp.notifyDAppAccountsChanged(targetOrigin);
-  void backgroundApiProxy.serviceDApp.notifyDAppChainChanged(targetOrigin);
-}, 800);
+const notifyChanges = throttle(
+  (url: string, fromScene?: string) => {
+    console.log('webview notify changed events: ', url, fromScene);
+    const targetOrigin = new URL(url).origin;
+    void backgroundApiProxy.serviceDApp.notifyDAppAccountsChanged(targetOrigin);
+    void backgroundApiProxy.serviceDApp.notifyDAppChainChanged(targetOrigin);
+  },
+  800,
+  {
+    leading: true,
+    trailing: false,
+  },
+);
 
 export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
   const isMountedRef = useIsMounted();
