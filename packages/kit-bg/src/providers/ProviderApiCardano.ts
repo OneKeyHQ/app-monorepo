@@ -211,8 +211,8 @@ class ProviderApiCardano extends ProviderApiBase {
       {
         request,
         unsignedMessage: {
-          type: EMessageTypesCommon.SIMPLE_SIGN,
-          message: Buffer.from(params.payload, 'hex').toString('utf8'),
+          type: EMessageTypesCommon.HEX_MESSAGE,
+          message: params.payload,
           payload: params,
         },
         networkId: networkId ?? '',

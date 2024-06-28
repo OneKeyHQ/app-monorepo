@@ -619,7 +619,6 @@ export default class Vault extends VaultBase {
         paymentRequest,
       });
     } catch (e: any) {
-      console.log('===>E: ', e);
       throw new Error((e as Error)?.message ?? e);
     }
 

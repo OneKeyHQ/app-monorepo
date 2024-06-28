@@ -8,6 +8,7 @@ import type { IEncodedTxAda } from '@onekeyhq/core/src/chains/ada/types';
 import { EAdaNetworkId } from '@onekeyhq/core/src/chains/ada/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -204,33 +205,34 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    const HardwareSDK = await this.getHardwareSDKInstance();
-    const deviceParams = checkIsDefined(params.deviceParams);
-    const { connectId, deviceId } = deviceParams.dbDevice;
-    const { derivationType, networkId } = await getCardanoConstant();
-    const dbAccount = (await this.vault.getAccount()) as IDBUtxoAccount;
-    const result = await Promise.all(
-      params.messages.map(
-        // @ts-expect-error
-        async ({ payload }: { payload: { addr: string; payload: string } }) => {
-          const response = await HardwareSDK.cardanoSignMessage(
-            connectId,
-            deviceId,
-            {
-              ...params.deviceParams?.deviceCommonParams,
-              path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
-              networkId,
-              derivationType,
-              message: payload.payload,
-            },
-          );
-          if (!response.success) {
-            throw convertDeviceError(response.payload);
-          }
-          return response.payload;
-        },
-      ),
-    );
-    return result.map((ret) => JSON.stringify(ret));
+    // const HardwareSDK = await this.getHardwareSDKInstance();
+    // const deviceParams = checkIsDefined(params.deviceParams);
+    // const { connectId, deviceId } = deviceParams.dbDevice;
+    // const { derivationType, networkId } = await getCardanoConstant();
+    // const dbAccount = (await this.vault.getAccount()) as IDBUtxoAccount;
+    // const result = await Promise.all(
+    //   params.messages.map(
+    //     // @ts-expect-error
+    //     async ({ payload }: { payload: { addr: string; payload: string } }) => {
+    //       const response = await HardwareSDK.cardanoSignMessage(
+    //         connectId,
+    //         deviceId,
+    //         {
+    //           ...params.deviceParams?.deviceCommonParams,
+    //           path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
+    //           networkId,
+    //           derivationType,
+    //           message: payload.payload,
+    //         },
+    //       );
+    //       if (!response.success) {
+    //         throw convertDeviceError(response.payload);
+    //       }
+    //       return response.payload;
+    //     },
+    //   ),
+    // );
+    // return result.map((ret) => JSON.stringify(ret));
+    throw new NotImplemented();
   }
 }

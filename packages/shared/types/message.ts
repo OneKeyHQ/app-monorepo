@@ -13,6 +13,7 @@ export enum EMessageTypesAptos {
 export enum EMessageTypesCommon {
   SIGN_MESSAGE = 'commonSignMessage',
   SIMPLE_SIGN = 'commonSimpleSign',
+  HEX_MESSAGE = 'commonHexMessage',
 }
 
 export enum EMessageTypesAda {
