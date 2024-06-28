@@ -70,7 +70,7 @@ const RenderLines = ({
             key={index}
             space="$1.5"
           >
-            {icon}
+            <XStack flexShrink={0}>{icon}</XStack>
             <SizableText
               $platform-native={{
                 ...(maxWidth
