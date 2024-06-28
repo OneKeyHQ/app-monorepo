@@ -14,6 +14,9 @@ export function ChunkedItemsSkeletonView({
   return (
     <ItemsContainer
       mx="$-5"
+      $gtMd={{
+        mx: '$-3',
+      }}
       horizontal={!isExploreView}
       contentContainerStyle={{
         px: '$2',
