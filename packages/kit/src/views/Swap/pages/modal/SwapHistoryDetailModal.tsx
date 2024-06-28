@@ -7,13 +7,10 @@ import { useIntl } from 'react-intl';
 
 import {
   Divider,
-  IconButton,
   NumberSizeableText,
   Page,
   SizableText,
   Stack,
-  XStack,
-  useClipboard,
   useMedia,
 } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
@@ -55,13 +52,6 @@ const SwapHistoryDetailModal = () => {
   //   navigation.popStack();
   // }, [navigation, swapAgainUseHistoryItem, txHistory]);
 
-  const { copyText } = useClipboard();
-  const onCopy = useCallback(
-    async (text: string) => {
-      copyText(text, ETranslations.global_copied);
-    },
-    [copyText],
-  );
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
   }, []);
@@ -157,29 +147,6 @@ const SwapHistoryDetailModal = () => {
     );
   }, [formatDate, txHistory.date]);
 
-  const renderCanCopyText = useCallback(
-    (text: string) => (
-      <XStack flex={1}>
-        <SizableText
-          w="95%"
-          wordWrap="break-word"
-          size="$bodyMd"
-          color="$textSubdued"
-        >
-          {text}
-        </SizableText>
-        <IconButton
-          w="$6"
-          h="$6"
-          size="small"
-          icon="Copy1Outline"
-          onPress={() => onCopy(text)}
-        />
-      </XStack>
-    ),
-    [onCopy],
-  );
-
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory.txInfo;
     const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? 0);
@@ -260,21 +227,24 @@ const SwapHistoryDetailModal = () => {
           <InfoItemGroup>
             <InfoItem
               label={intl.formatMessage({
-                id: ETranslations.swap_history_detail_from,
+                id: ETranslations.swap_history_detail_pay_address,
               })}
-              renderContent={renderCanCopyText(txHistory.txInfo.sender)}
+              renderContent={txHistory.txInfo.sender}
+              showCopy
             />
             <InfoItem
               label={intl.formatMessage({
-                id: ETranslations.swap_history_detail_to,
+                id: ETranslations.swap_history_detail_received_address,
               })}
-              renderContent={renderCanCopyText(txHistory.txInfo.receiver)}
+              renderContent={txHistory.txInfo.receiver}
+              showCopy
             />
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.swap_history_detail_transaction_hash,
               })}
-              renderContent={renderCanCopyText(txHistory.txInfo.txId)}
+              renderContent={txHistory.txInfo.txId}
+              showCopy
             />
             <InfoItem
               label={intl.formatMessage({
@@ -289,7 +259,8 @@ const SwapHistoryDetailModal = () => {
               <InfoItem
                 disabledCopy
                 label="Order ID"
-                renderContent={renderCanCopyText(txHistory.txInfo.orderId)}
+                renderContent={txHistory.txInfo.orderId}
+                showCopy
               />
             ) : null}
             <InfoItem
@@ -356,7 +327,6 @@ const SwapHistoryDetailModal = () => {
   }, [
     durationTime,
     intl,
-    renderCanCopyText,
     renderNetworkFee,
     renderRate,
     renderSwapAssetsChange,

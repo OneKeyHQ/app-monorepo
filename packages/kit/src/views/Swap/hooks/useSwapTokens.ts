@@ -37,6 +37,10 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [defaultTokenLoading, setDefaultTokenLoading] = useState<boolean>(true);
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
   const swapAddressInfoRef = useRef<ReturnType<typeof useSwapAddressInfo>>();
+  const defaultTokenLoadingRef = useRef<boolean>(defaultTokenLoading);
+  if (defaultTokenLoadingRef.current !== defaultTokenLoading) {
+    defaultTokenLoadingRef.current = defaultTokenLoading;
+  }
   if (swapAddressInfoRef.current !== swapAddressInfo) {
     swapAddressInfoRef.current = swapAddressInfo;
   }
@@ -185,11 +189,21 @@ export function useSwapInit(params?: ISwapInitParams) {
     setFromToken,
     setToToken,
   ]);
+
   useEffect(() => {
     void (async () => {
       await fetchSwapNetworks();
     })();
   }, [fetchSwapNetworks, swapNetworks.length]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (defaultTokenLoadingRef.current) {
+        setDefaultTokenLoading(false);
+      }
+    }, 12000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     void (async () => {

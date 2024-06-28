@@ -50,6 +50,7 @@ const SwapSlippageTriggerContainer = ({
     () => (
       <SizableText
         size="$bodyMdMedium"
+        onPress={onPress}
         color={
           slippageItem.value > swapSlippageWillAheadMinValue
             ? '$textCritical'
@@ -59,7 +60,7 @@ const SwapSlippageTriggerContainer = ({
         {slippageDisplayValue}
       </SizableText>
     ),
-    [slippageDisplayValue, slippageItem.value],
+    [onPress, slippageDisplayValue, slippageItem.value],
   );
   return (
     <SwapCommonInfoItem

@@ -57,7 +57,7 @@ const SwapApproveAllowanceSelect = ({
   }, [currentSelectAllowanceValue?.label, isLoading]);
   return (
     <XStack justifyContent="space-between">
-      <SizableText size="$bodyMd" color="$textSubdued">
+      <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
         {intl.formatMessage({
           id: ETranslations.swap_page_provider_approve_amount,
         })}
