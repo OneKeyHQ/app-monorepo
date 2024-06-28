@@ -121,7 +121,6 @@ function WalletActionSwap({ networkId }: { networkId?: string }) {
     return settings;
   }, [networkId]).result;
   const handleOnSwap = useCallback(() => {
-    console.log('swap__networkId---------', networkId);
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: { importNetworkId: networkId },
