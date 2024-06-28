@@ -7,8 +7,8 @@ import {
   checkDevOnlyPassword,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  EAppEventBusNames,
   appEventBus,
+  EAppEventBusNames,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import localDb from '../dbs/local/localDb';
@@ -116,13 +116,15 @@ class ServiceE2E extends ServiceBase {
   @backgroundMethodForDev()
   async exportAllAccountsData(params: IBackgroundMethodWithDevOnlyPassword) {
     checkDevOnlyPassword(params);
-    const { serviceAccount } = this.backgroundApi;
+    const { serviceAccount, serviceV4Migration } = this.backgroundApi;
     const { accounts } = await serviceAccount.getAllAccounts();
     const { wallets } = await serviceAccount.getAllWallets();
     const { devices } = await serviceAccount.getAllDevices();
     const sortFn = (a: IDBBaseObject, b: IDBBaseObject) =>
       natsort({ insensitive: true })(a.id, b.id);
+    const v4dbExists = await serviceV4Migration.checkIfV4DbExist();
     return {
+      v4dbExists,
       accounts: accounts.sort(sortFn),
       wallets: wallets.sort(sortFn),
       devices: devices.sort(sortFn),
