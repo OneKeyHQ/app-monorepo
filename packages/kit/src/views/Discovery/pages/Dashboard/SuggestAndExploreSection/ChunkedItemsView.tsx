@@ -25,6 +25,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../../../types';
+import { opacity } from 'react-native-reanimated/lib/typescript/reanimated2/Colors';
 
 export const chunkArray = (array: ICategory['dapps'], chunkSize: number) => {
   const chunks = [];
@@ -143,6 +144,7 @@ export function ChunkedItemsView({
         >
           {chunk.map((item) => (
             <XStack
+              group="card"
               key={item.dappId}
               p="$3"
               alignItems="center"
@@ -172,7 +174,14 @@ export function ChunkedItemsView({
               userSelect="none"
               testID={`dapp-${item.dappId}`}
             >
-              <Image w="$14" h="$14" borderRadius="$3">
+              <Image
+                w="$14"
+                h="$14"
+                borderRadius="$3"
+                $group-card-hover={{
+                  opacity: 0.75,
+                }}
+              >
                 <Image.Source
                   source={{
                     uri: item.logo,
