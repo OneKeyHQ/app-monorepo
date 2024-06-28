@@ -130,3 +130,11 @@ export type IV4ReduxBookmark = {
 export type IV4ReduxDiscoverState = {
   bookmarks?: IV4ReduxBookmark[];
 };
+
+export type IV4ReduxCloudBackupState = {
+  isAvailable: boolean;
+  inProgress: boolean;
+  enabled: boolean;
+  backupRequests: number;
+  lastBackup?: number;
+};
