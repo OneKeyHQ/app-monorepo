@@ -43,6 +43,7 @@ import { EFeeType } from '@onekeyhq/shared/types/fee';
 import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { FeeEditor } from '../../components/SendFee';
+import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -339,6 +340,12 @@ function SendReplaceTxContainer() {
       replaceFeeInfo.maxPriorityFeePerGas,
     ],
   );
+
+  const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
+    usePreCheckFeeInfo({
+      accountId,
+      networkId,
+    });
 
   const renderOriginalFee = useCallback(
     () => (
@@ -683,11 +690,36 @@ function SendReplaceTxContainer() {
         encodedTx: replaceEncodedTx,
       });
 
+      const newUnsignedTxs =
+        await backgroundApiProxy.serviceSend.updateUnSignedTxBeforeSend({
+          accountId,
+          networkId,
+          unsignedTxs: [unsignedTx],
+          feeInfo: sendSelectedFeeInfo,
+        });
+
+      // fee info pre-check
+      if (sendSelectedFeeInfo) {
+        const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
+          feeAmount: sendSelectedFeeInfo.totalNative,
+          feeSymbol: sendSelectedFeeInfo.feeInfo.common.nativeSymbol,
+          encodedTx: newUnsignedTxs[0].encodedTx,
+        });
+
+        if (isFeeInfoOverflow) {
+          const isConfirmed = await showFeeInfoOverflowConfirm();
+          if (!isConfirmed) {
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
       await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
         accountId,
         networkId,
         feeInfo: sendSelectedFeeInfo,
-        unsignedTxs: [unsignedTx],
+        unsignedTxs: newUnsignedTxs,
         replaceTxInfo: {
           replaceHistoryId: historyTx.id,
           replaceType,
@@ -706,6 +738,7 @@ function SendReplaceTxContainer() {
     }
   }, [
     accountId,
+    checkFeeInfoIsOverflow,
     historyTx.id,
     intl,
     navigation,
@@ -713,6 +746,7 @@ function SendReplaceTxContainer() {
     newFeeInfo,
     replaceEncodedTx,
     replaceType,
+    showFeeInfoOverflowConfirm,
   ]);
 
   const handleOnCancel = useCallback((close: () => void) => {

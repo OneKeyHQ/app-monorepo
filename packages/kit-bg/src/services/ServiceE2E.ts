@@ -7,8 +7,8 @@ import {
   checkDevOnlyPassword,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  appEventBus,
   EAppEventBusNames,
+  appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import localDb from '../dbs/local/localDb';

@@ -8,8 +8,8 @@ import {
 
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 
-import type { ICloudBackupPersistAtom } from '../../states/jotai/atoms';
 import type { IV4ReduxSettingsState } from './v4types/v4typesRedux';
+import type { ICloudBackupPersistAtom } from '../../states/jotai/atoms';
 
 const validThemeValue = ['light', 'dark', 'system'];
 
