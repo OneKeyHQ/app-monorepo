@@ -65,22 +65,25 @@ axios.interceptors.response.use(
     return response;
   },
   async (error) => {
-    const { config, status } = error.response;
-
-    const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
-    if (isOneKeyDomain && Number(status) === 403) {
-      const title = appLocale.intl.formatMessage({
-        id: ETranslations.title_403,
+    const { response } = error;
+    if (response?.status && response?.config) {
+      const isOneKeyDomain = await checkRequestIsOneKeyDomain({
+        config: response.config,
       });
-      const description = appLocale.intl.formatMessage({
-        id: ETranslations.description_403,
-      });
-      throw new OneKeyServerApiError({
-        autoToast: true,
-        message: title,
-        code: 403,
-        requestId: description,
-      });
+      if (isOneKeyDomain && Number(response.status) === 403) {
+        const title = appLocale.intl.formatMessage({
+          id: ETranslations.title_403,
+        });
+        const description = appLocale.intl.formatMessage({
+          id: ETranslations.description_403,
+        });
+        throw new OneKeyServerApiError({
+          autoToast: true,
+          message: title,
+          code: 403,
+          requestId: description,
+        });
+      }
     }
     throw error;
   },
