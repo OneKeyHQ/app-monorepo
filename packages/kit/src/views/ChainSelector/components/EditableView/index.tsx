@@ -239,7 +239,7 @@ export const EditableView: FC<IEditableViewProps> = ({
         drag={drag}
       />
     ),
-    [searchText.length, sections],
+    [sections, searchText],
   );
 
   const renderSectionHeader = useCallback(
