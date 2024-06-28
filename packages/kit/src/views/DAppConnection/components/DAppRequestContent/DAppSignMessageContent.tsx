@@ -49,6 +49,10 @@ function DAppSignMessageContent({
         }
       }
 
+      case EMessageTypesCommon.HEX_MESSAGE: {
+        return Buffer.from(message, 'hex').toString('utf8');
+      }
+
       case EMessageTypesAptos.SIGN_MESSAGE: {
         return payload?.message ?? message;
       }
