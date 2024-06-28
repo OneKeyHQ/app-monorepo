@@ -862,6 +862,7 @@
   "hardware.transferring_data": "Transferring data...",
   "hardware.two_onekey_lite_not_same": "The two OneKey Lite used for connection are not the same.",
   "hardware.unknown_message_error": "Current firmware not supported, please try upgrading",
+  "hardware.unsupported_passphrase_characters": "Contains unsupported characters",
   "hardware.user_cancel_error": "Canceled on the device",
   "hardware.verify_success": "Official firmware",
   "hardware.version_need_upgrade_error": "Please upgrade the firmware to version {version} or higher to use this feature",

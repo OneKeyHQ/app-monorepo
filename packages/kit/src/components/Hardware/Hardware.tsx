@@ -21,6 +21,8 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { isPassphraseValid } from '../../utils/passphraseUtils';
+
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export interface IConfirmOnDeviceToastContentProps {
@@ -331,6 +333,15 @@ export function EnterPhase({
                   0: 50,
                 },
               ),
+            },
+            validate: (text) => {
+              const valid = isPassphraseValid(text);
+              if (valid) {
+                return undefined;
+              }
+              return intl.formatMessage({
+                id: ETranslations.hardware_unsupported_passphrase_characters,
+              });
             },
             onChange: () => {
               form.clearErrors();

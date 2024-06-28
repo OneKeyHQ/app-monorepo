@@ -98,6 +98,10 @@ function HardwareSingletonDialogCmp(
           await serviceHardwareUI.sendPinToDevice({
             pin: value,
           });
+          await serviceHardwareUI.closeHardwareUiStateDialog({
+            skipDeviceCancel: true,
+            connectId: state?.connectId,
+          });
         }}
         switchOnDevice={async () => {
           await serviceHardwareUI.sendEnterPinOnDeviceEvent({

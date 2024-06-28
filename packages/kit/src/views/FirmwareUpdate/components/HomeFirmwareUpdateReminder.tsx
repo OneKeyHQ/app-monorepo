@@ -65,6 +65,7 @@ function HomeFirmwareUpdateReminderCmp() {
   const navigation = useAppNavigation();
   const { result } = usePromiseResult(async () => {
     if (!connectId) return undefined;
+
     const detectResult = detectStatus?.[connectId];
     const shouldUpdate =
       detectResult?.connectId === connectId && detectResult?.hasUpgrade;

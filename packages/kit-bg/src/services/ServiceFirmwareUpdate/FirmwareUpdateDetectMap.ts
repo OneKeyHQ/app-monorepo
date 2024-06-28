@@ -83,20 +83,32 @@ export class FirmwareUpdateDetectMap {
             detectCache?.updateInfo?.firmware?.hasUpgrade ||
               detectCache?.updateInfo?.ble?.hasUpgrade,
           );
+
+          let toVersionFirmware;
+          if (detectCache?.updateInfo?.firmware?.hasUpgrade) {
+            toVersionFirmware =
+              detectCache?.updateInfo?.firmware?.toVersion ??
+              value?.[connectId]?.toVersion;
+          }
+
+          let toVersionBle;
+          if (detectCache?.updateInfo?.ble?.hasUpgrade) {
+            toVersionBle =
+              detectCache?.updateInfo?.ble?.toVersion ??
+              value?.[connectId]?.toVersionBle;
+          }
+
           const newValue: IFirmwareUpdatesDetectStatus = {
             ...value,
             [connectId]: {
               ...value?.[connectId],
               hasUpgrade,
               connectId,
-              toVersion:
-                detectCache?.updateInfo?.firmware?.toVersion ??
-                value?.[connectId]?.toVersion,
-              toVersionBle:
-                detectCache?.updateInfo?.ble?.toVersion ??
-                value?.[connectId]?.toVersionBle,
+              toVersion: toVersionFirmware,
+              toVersionBle,
             },
           };
+
           return newValue;
         }
         if (value && !hasUpdateInfo) {

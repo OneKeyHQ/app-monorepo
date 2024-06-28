@@ -863,6 +863,7 @@ export enum ETranslations {
   hardware_transferring_data = 'hardware.transferring_data',
   hardware_two_onekey_lite_not_same = 'hardware.two_onekey_lite_not_same',
   hardware_unknown_message_error = 'hardware.unknown_message_error',
+  hardware_unsupported_passphrase_characters = 'hardware.unsupported_passphrase_characters',
   hardware_user_cancel_error = 'hardware.user_cancel_error',
   hardware_verify_success = 'hardware.verify_success',
   hardware_version_need_upgrade_error = 'hardware.version_need_upgrade_error',
