@@ -3,7 +3,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 
@@ -15,7 +14,10 @@ import { SizableText } from '../../primitives';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { ScrollView } from 'react-native';
-import type { TooltipProps as TMTooltipProps } from 'tamagui';
+import type {
+  PopoverContentProps,
+  TooltipProps as TMTooltipProps,
+} from 'tamagui';
 
 export function TooltipText({
   children,
@@ -25,6 +27,7 @@ export function TooltipText({
   scrollViewRef?: RefObject<ScrollView>;
   onDisplayChange: (isShow: boolean) => void;
 }) {
+  // Browser don't fire mouse events when the page scrolls.
   useEffect(() => {
     if (!platformEnv.isNative) {
       let scrolling = false;
@@ -86,28 +89,27 @@ export function Tooltip({
 }: ITooltipProps) {
   const transformOrigin = transformOriginMap[placement] || 'bottom center';
 
+  const contentStyle = useMemo(
+    () =>
+      ({
+        transformOrigin,
+      } as PopoverContentProps['style']),
+    [transformOrigin],
+  );
+
   const [isShow, setIsShow] = useState(false);
-
-  const handleDisplayChange = useCallback((isShowValue: boolean) => {
-    setIsShow(isShowValue);
-  }, []);
-
-  // Browser don't fire mouse events when the page scrolls.
 
   const renderTooltipContent = useMemo(() => {
     if (typeof renderContent === 'string') {
       return (
-        <TooltipText
-          scrollViewRef={scrollViewRef}
-          onDisplayChange={handleDisplayChange}
-        >
+        <TooltipText scrollViewRef={scrollViewRef} onDisplayChange={setIsShow}>
           {renderContent}
         </TooltipText>
       );
     }
 
     return renderContent;
-  }, [handleDisplayChange, renderContent, scrollViewRef]);
+  }, [renderContent, scrollViewRef]);
 
   return (
     <TMTooltip
@@ -132,10 +134,7 @@ export function Tooltip({
         outlineStyle="solid"
         outlineColor="$neutral3"
         elevation={10}
-        style={{
-          transformOrigin,
-          // display: isShow ? undefined : 'none',
-        }}
+        style={contentStyle}
         enterStyle={{
           scale: 0.95,
           opacity: 0,
