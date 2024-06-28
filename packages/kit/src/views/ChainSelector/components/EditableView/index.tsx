@@ -1,5 +1,13 @@
-import { type FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { createContext, useContext, useRef } from 'react';
+import type { FC, RefObject } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,6 +27,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { networkFuseSearch } from '../../utils';
 
 import type { IServerNetworkMatch } from '../../types';
+import type { ScrollView } from 'react-native';
 
 type IEditableViewContext = {
   isEditMode?: boolean;
@@ -41,10 +50,12 @@ const EditableViewListItem = ({
   item,
   sectionIndex,
   drag,
+  scrollViewRef,
 }: {
   item: IServerNetworkMatch;
   sectionIndex: number;
   drag: () => void;
+  scrollViewRef: RefObject<ScrollView>;
 }) => {
   const {
     isEditMode,
@@ -85,6 +96,9 @@ const EditableViewListItem = ({
           }
           iconProps={{
             color: topNetworkIds.has(item.id) ? '$iconActive' : '$iconSubdued',
+          }}
+          tooltipProps={{
+            scrollViewRef,
           }}
         />
       ) : null}
@@ -230,6 +244,7 @@ export const EditableView: FC<IEditableViewProps> = ({
       drag: () => void;
     }) => (
       <EditableViewListItem
+        scrollViewRef={scrollView}
         item={item}
         sectionIndex={
           searchText.length > 0

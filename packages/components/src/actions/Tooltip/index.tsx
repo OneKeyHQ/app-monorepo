@@ -1,8 +1,19 @@
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+
 import { Tooltip as TMTooltip } from 'tamagui';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SizableText } from '../../primitives';
 
 import type { ISizableTextProps } from '../../primitives';
+import type { ScrollView } from 'react-native';
 import type { TooltipProps as TMTooltipProps } from 'tamagui';
 
 export function TooltipText({ children }: ISizableTextProps) {
@@ -12,6 +23,7 @@ export function TooltipText({ children }: ISizableTextProps) {
 export interface ITooltipProps extends TMTooltipProps {
   renderTrigger: React.ReactNode;
   renderContent: React.ReactNode;
+  scrollViewRef?: RefObject<ScrollView>;
 }
 
 const transformOriginMap: Record<
@@ -35,10 +47,40 @@ const transformOriginMap: Record<
 export function Tooltip({
   renderTrigger,
   renderContent,
+  scrollViewRef,
   placement = 'bottom',
   ...props
 }: ITooltipProps) {
   const transformOrigin = transformOriginMap[placement] || 'bottom center';
+
+  const [isShow, setIsShow] = useState(true);
+
+  // Browser don't fire mouse events when the page scrolls.
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      let scrolling = false;
+      const onScroll = () => {
+        if (scrolling) {
+          return;
+        }
+        setIsShow(false);
+        scrolling = true;
+      };
+      const onScrollEnd = () => {
+        scrolling = false;
+        setIsShow(true);
+      };
+      const scrollView = scrollViewRef?.current as unknown as HTMLElement;
+      if (scrollView) {
+        scrollView?.addEventListener('scroll', onScroll);
+        scrollView?.addEventListener('scrollend', onScrollEnd);
+      }
+      return () => {
+        scrollView?.removeEventListener('scroll', onScroll);
+        scrollView?.removeEventListener('scrollend', onScrollEnd);
+      };
+    }
+  }, [scrollViewRef]);
 
   const renderTooltipContent = () => {
     if (typeof renderContent === 'string') {
@@ -71,6 +113,7 @@ export function Tooltip({
         elevation={10}
         style={{
           transformOrigin,
+          display: isShow ? undefined : 'none',
         }}
         enterStyle={{
           scale: 0.95,
