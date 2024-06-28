@@ -12,6 +12,7 @@ import type { IRichSizeableTextProps } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ColorTokens } from 'tamagui';
 
@@ -54,22 +55,41 @@ const getColors = (
 function UpdateErrorTroubleshooting() {
   const intl = useIntl();
 
+  const message = intl.formatMessage({
+    id: platformEnv.isNative
+      ? ETranslations.update_troubleshoot_connection_issues_mobile
+      : ETranslations.update_troubleshoot_connection_issues,
+    defaultMessage:
+      'If you have any questions, please refer to the troubleshooting guide.',
+  });
+
+  const textLines = message.split('\n');
+
   return (
-    <>
-      <RichSizeableText
-        size="$bodyMd"
-        color="$textSubdued"
-        linkList={{
-          url: FIRMWARE_CONTACT_US_URL,
-        }}
-      >
-        {intl.formatMessage({
-          id: ETranslations.update_troubleshoot_connection_issues,
-          defaultMessage:
-            'If you have any questions, please refer to the troubleshooting guide.',
-        })}
-      </RichSizeableText>
-    </>
+    <Stack>
+      {textLines.map((text, index) => {
+        if (text.includes('<url>')) {
+          return (
+            <RichSizeableText
+              key={index}
+              size="$bodyMd"
+              color="$textSubdued"
+              linkList={{
+                url: FIRMWARE_CONTACT_US_URL,
+              }}
+            >
+              {text}
+            </RichSizeableText>
+          );
+        }
+
+        return (
+          <SizableText key={index} size="$bodyMd" color="$textSubdued">
+            {text}
+          </SizableText>
+        );
+      })}
+    </Stack>
   );
 }
 
