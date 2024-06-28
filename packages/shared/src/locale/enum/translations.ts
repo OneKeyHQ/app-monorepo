@@ -1476,6 +1476,7 @@ export enum ETranslations {
   update_server_not_responding_try_later = 'update.server_not_responding_try_later',
   update_transferring_data = 'update.transferring_data',
   update_troubleshoot_connection_issues = 'update.troubleshoot_connection_issues',
+  update_troubleshoot_connection_issues_mobile = 'update.troubleshoot_connection_issues_mobile',
   update_unable_to_connect_to_bridge = 'update.unable_to_connect_to_bridge',
   update_update_app_available = 'update.update_app_available',
   update_update_completed = 'update.update_completed',

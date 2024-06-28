@@ -44,10 +44,12 @@ function CommonError({
   message,
   title,
   icon,
+  displayTroubleshooting,
 }: {
   message?: string | undefined;
   title?: string | undefined;
   icon?: IKeyOfIcons | undefined;
+  displayTroubleshooting?: boolean;
 }) {
   const intl = useIntl();
   return (
@@ -59,6 +61,7 @@ function CommonError({
         intl.formatMessage({ id: ETranslations.global_an_error_occurred })
       }
       message={message}
+      displayTroubleshooting={displayTroubleshooting}
     />
   );
 }
@@ -423,7 +426,11 @@ export function useFirmwareUpdateErrors({
     if (error) {
       return {
         content: (
-          <CommonError icon="CrossedLargeOutline" message={error?.message} />
+          <CommonError
+            icon="CrossedLargeOutline"
+            message={error?.message}
+            displayTroubleshooting
+          />
         ),
         onRetryHandler: onRetry,
         retryText: defaultRetryText,

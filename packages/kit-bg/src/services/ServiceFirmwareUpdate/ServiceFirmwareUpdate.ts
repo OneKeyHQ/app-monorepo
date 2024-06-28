@@ -353,6 +353,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         bridge.shouldUpdate = true;
       }
 
+      // TODO only check bootloader upgrade？
       if (!bridge?.shouldUpdate) {
         bootloader = await this.checkBootloaderRelease({
           connectId: updatingConnectId,
@@ -523,13 +524,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     let changelog: IFirmwareChangeLog | undefined;
     // boot releaseInfo?.release may be string of resource download url
     const versionFromReleaseInfo =
-      usedReleasePayload?.release?.bootloaderVersion;
+      usedReleasePayload?.release?.displayBootloaderVersion;
     if (versionFromReleaseInfo && isArray(versionFromReleaseInfo)) {
       toVersion = this.arrayVersionToString(versionFromReleaseInfo as any);
     }
     if (!toVersion) {
       toVersion = this.arrayVersionToString(
-        firmwareUpdateInfo.releasePayload.release?.bootloaderVersion,
+        firmwareUpdateInfo.releasePayload.release?.displayBootloaderVersion,
       );
     }
     changelog = usedReleasePayload.release?.bootloaderChangelog;
@@ -611,17 +612,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hasUpgrade = true;
     }
 
-    if (!releasePayload?.bootloaderMode && fromVersion && toVersion) {
+    if (
+      firmwareType !== 'bootloader' &&
+      !releasePayload?.bootloaderMode &&
+      fromVersion &&
+      toVersion
+    ) {
       if (semver.gte(fromVersion, toVersion)) {
-        hasUpgrade = false;
-        hasUpgradeForce = false;
-      }
-    }
-    if (firmwareType === 'bootloader') {
-      if (
-        fromVersion === toVersion ||
-        (fromVersion && toVersion && semver.gte(fromVersion, toVersion))
-      ) {
         hasUpgrade = false;
         hasUpgradeForce = false;
       }

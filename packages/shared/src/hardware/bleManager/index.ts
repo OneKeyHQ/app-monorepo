@@ -14,6 +14,7 @@ class BleManagerInstance {
     return [];
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async checkDeviceBonded(connectId: string) {
     return Promise.resolve(false);
   }
