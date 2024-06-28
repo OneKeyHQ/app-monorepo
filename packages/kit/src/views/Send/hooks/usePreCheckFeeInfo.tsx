@@ -11,22 +11,13 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 
 function ExtremelyHighFeeDialogContent({
   onConfirm,
+  onCancel,
 }: {
-  onConfirm: (value: ICheckedState) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
 }) {
   const intl = useIntl();
   const [checkState, setCheckState] = useState(false as ICheckedState);
-
-  const handleConfirm = useCallback(
-    () =>
-      new Promise<void>((resolve) => {
-        setTimeout(() => {
-          onConfirm(checkState);
-          resolve();
-        }, 0);
-      }),
-    [checkState, onConfirm],
-  );
 
   return (
     <>
@@ -44,7 +35,8 @@ function ExtremelyHighFeeDialogContent({
         confirmButtonProps={{
           disabled: !checkState,
         }}
-        onConfirm={handleConfirm}
+        onCancel={onCancel}
+        onConfirm={onConfirm}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_continue,
         })}
@@ -101,16 +93,16 @@ function usePreCheckFeeInfo({
           description: intl.formatMessage({
             id: ETranslations.fee_alert_dialog_description,
           }),
+          onClose: () => resolve(false),
           renderContent: (
             <ExtremelyHighFeeDialogContent
-              onConfirm={() => {
-                resolve(true);
-              }}
+              onConfirm={() => resolve(true)}
+              onCancel={() => resolve(false)}
             />
           ),
         });
       }),
-    [],
+    [intl],
   );
 
   return { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm };
