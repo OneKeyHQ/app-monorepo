@@ -2,6 +2,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -16,7 +17,39 @@ import type { ISizableTextProps } from '../../primitives';
 import type { ScrollView } from 'react-native';
 import type { TooltipProps as TMTooltipProps } from 'tamagui';
 
-export function TooltipText({ children }: ISizableTextProps) {
+export function TooltipText({
+  children,
+  scrollViewRef,
+  onDisplayChange,
+}: ISizableTextProps & {
+  scrollViewRef?: RefObject<ScrollView>;
+  onDisplayChange: (isShow: boolean) => void;
+}) {
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      let scrolling = false;
+      const onScroll = () => {
+        if (scrolling) {
+          return;
+        }
+        onDisplayChange(false);
+        scrolling = true;
+      };
+      const onScrollEnd = () => {
+        scrolling = false;
+        onDisplayChange(true);
+      };
+      const scrollView = scrollViewRef?.current as unknown as HTMLElement;
+      if (scrollView) {
+        scrollView?.addEventListener('scroll', onScroll);
+        scrollView?.addEventListener('scrollend', onScrollEnd);
+      }
+      return () => {
+        scrollView?.removeEventListener('scroll', onScroll);
+        scrollView?.removeEventListener('scrollend', onScrollEnd);
+      };
+    }
+  }, [onDisplayChange, scrollViewRef]);
   return <SizableText size="$bodySm">{children}</SizableText>;
 }
 
@@ -55,40 +88,26 @@ export function Tooltip({
 
   const [isShow, setIsShow] = useState(true);
 
-  // Browser don't fire mouse events when the page scrolls.
-  useEffect(() => {
-    if (!platformEnv.isNative) {
-      let scrolling = false;
-      const onScroll = () => {
-        if (scrolling) {
-          return;
-        }
-        setIsShow(false);
-        scrolling = true;
-      };
-      const onScrollEnd = () => {
-        scrolling = false;
-        setIsShow(true);
-      };
-      const scrollView = scrollViewRef?.current as unknown as HTMLElement;
-      if (scrollView) {
-        scrollView?.addEventListener('scroll', onScroll);
-        scrollView?.addEventListener('scrollend', onScrollEnd);
-      }
-      return () => {
-        scrollView?.removeEventListener('scroll', onScroll);
-        scrollView?.removeEventListener('scrollend', onScrollEnd);
-      };
-    }
-  }, [scrollViewRef]);
+  const handleDisplayChange = useCallback((isShowValue: boolean) => {
+    setIsShow(isShowValue);
+  }, []);
 
-  const renderTooltipContent = () => {
+  // Browser don't fire mouse events when the page scrolls.
+
+  const renderTooltipContent = useMemo(() => {
     if (typeof renderContent === 'string') {
-      return <TooltipText>{renderContent}</TooltipText>;
+      return (
+        <TooltipText
+          scrollViewRef={scrollViewRef}
+          onDisplayChange={handleDisplayChange}
+        >
+          {renderContent}
+        </TooltipText>
+      );
     }
 
     return renderContent;
-  };
+  }, [handleDisplayChange, renderContent, scrollViewRef]);
 
   return (
     <TMTooltip
@@ -122,7 +141,7 @@ export function Tooltip({
         exitStyle={{ scale: 0.95, opacity: 0 }}
         animation="quick"
       >
-        {renderTooltipContent()}
+        {renderTooltipContent}
       </TMTooltip.Content>
     </TMTooltip>
   );
