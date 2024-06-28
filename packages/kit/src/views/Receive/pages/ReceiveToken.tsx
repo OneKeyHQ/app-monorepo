@@ -78,6 +78,7 @@ function ReceiveToken() {
 
   const isShowAddress =
     !isDeviceWallet ||
+    addressState === EAddressState.Verifying ||
     addressState === EAddressState.ForceShow ||
     addressState === EAddressState.Verified;
 
@@ -273,9 +274,7 @@ function ReceiveToken() {
             </SizableText>
           </XStack>
         ) : null}
-        {isDeviceWallet &&
-        (addressState === EAddressState.Unverified ||
-          addressState === EAddressState.Verifying) ? (
+        {isDeviceWallet && addressState === EAddressState.Unverified ? (
           <Button mt="$5" variant="primary" onPress={handleVerifyOnDevicePress}>
             {intl.formatMessage({
               id: ETranslations.global_verify_on_device,

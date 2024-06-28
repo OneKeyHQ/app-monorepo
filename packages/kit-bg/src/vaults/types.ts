@@ -435,6 +435,14 @@ export interface IBroadcastTransactionParams {
   signature?: string;
 }
 
+export interface IPreCheckFeeInfoParams {
+  encodedTx: IEncodedTx;
+  feeTokenSymbol: string;
+  feeAmount: string;
+  networkId: string;
+  accountAddress: string;
+}
+
 export interface ISignTransactionParamsBase {
   unsignedTx: IUnsignedTxPro;
   // TODO rename externalSignOnly
