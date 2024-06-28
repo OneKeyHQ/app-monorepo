@@ -57,6 +57,7 @@ const EditableViewListItem = ({
   drag: () => void;
   scrollViewRef: RefObject<ScrollView>;
 }) => {
+  const intl = useIntl();
   const {
     isEditMode,
     networkId,
@@ -65,6 +66,14 @@ const EditableViewListItem = ({
     onPressItem,
     setTopNetworks,
   } = useContext(EditableViewContext);
+  const pinText = useMemo(
+    () => intl.formatMessage({ id: ETranslations.global_pin_to_top }),
+    [intl],
+  );
+  const unpinText = useMemo(
+    () => intl.formatMessage({ id: ETranslations.global_unpin_from_top }),
+    [intl],
+  );
   return (
     <ListItem
       title={item.name}
@@ -84,7 +93,7 @@ const EditableViewListItem = ({
               setTopNetworks?.([...topNetworks, item]);
             }
           }}
-          title={topNetworkIds.has(item.id) ? 'Unpin' : 'Pin'}
+          title={topNetworkIds.has(item.id) ? unpinText : pinText}
           key="moveToTop"
           animation="quick"
           enterStyle={{
