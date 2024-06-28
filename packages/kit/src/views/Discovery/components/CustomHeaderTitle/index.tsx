@@ -1,13 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import type { IStackProps } from '@onekeyhq/components';
-import {
-  Icon,
-  Shortcut,
-  SizableText,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Icon, Shortcut, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -32,7 +26,6 @@ const mdHeaderStyle = platformEnv.isNative
 
 function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
   const intl = useIntl();
-  const media = useMedia();
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
   const displayUrl = activeTabId && tab?.url;
@@ -75,7 +68,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
               id: ETranslations.explore_search_placeholder,
             })}
       </SizableText>
-      {media.gtMd ? (
+      {platformEnv.isDesktop ? (
         <Shortcut>
           <Shortcut.Key>⌘</Shortcut.Key>
           <Shortcut.Key>T</Shortcut.Key>
