@@ -72,13 +72,7 @@ const RenderLines = ({
           >
             <XStack flexShrink={0}>{icon}</XStack>
             <SizableText
-              $platform-native={{
-                ...(maxWidth
-                  ? {
-                      maxWidth: maxWidth - (icon !== undefined ? 40 : 0),
-                    }
-                  : {}),
-              }}
+              flexShrink={1}
               selectable={false}
               size={size}
               wordWrap="break-word"
