@@ -39,6 +39,49 @@ import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
 
+let correctDevOnlyPwd = '';
+function showDevOnlyPasswordDialog({
+  title,
+  desc,
+  onConfirm,
+}: {
+  title: string;
+  desc: string;
+  onConfirm: (params: IBackgroundMethodWithDevOnlyPassword) => Promise<void>;
+}) {
+  let devOnlyPwd = correctDevOnlyPwd;
+  Dialog.show({
+    title,
+    confirmButtonProps: {
+      variant: 'destructive',
+    },
+    renderContent: (
+      <Stack>
+        <SizableText>{desc}</SizableText>
+        <Stack mt="$4">
+          <Input
+            placeholder="devOnlyPassword"
+            defaultValue={correctDevOnlyPwd}
+            onChangeText={(v) => {
+              devOnlyPwd = v;
+            }}
+          />
+        </Stack>
+      </Stack>
+    ),
+    onConfirm: async () => {
+      if (!isCorrectDevOnlyPassword(devOnlyPwd)) {
+        return;
+      }
+      correctDevOnlyPwd = devOnlyPwd;
+      const params: IBackgroundMethodWithDevOnlyPassword = {
+        $$devOnlyPassword: devOnlyPwd,
+      };
+      await onConfirm(params);
+    },
+  });
+}
+
 export const DevSettingsSection = () => {
   const [settings] = useDevSettingsPersistAtom();
   const intl = useIntl();
@@ -142,6 +185,36 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+
+      <SectionPressItem
+        title="Export Accounts Data"
+        onPress={() => {
+          showDevOnlyPasswordDialog({
+            title: 'Danger Zone',
+            desc: `Export Accounts Data`,
+            onConfirm: async (params) => {
+              Dialog.cancel({
+                title: 'Export Accounts Data',
+                renderContent: (
+                  <YStack>
+                    <SectionPressItem
+                      title="Export Accounts Data"
+                      onPress={async () => {
+                        const data =
+                          await backgroundApiProxy.serviceE2E.exportAllAccountsData(
+                            params,
+                          );
+                        copyText(stableStringify(data));
+                      }}
+                    />
+                  </YStack>
+                ),
+              });
+            },
+          });
+        }}
+      />
+
       <SectionPressItem
         title="FirmwareUpdateDevSettings"
         testID="firmware-update-dev-settings-menu"
@@ -174,50 +247,15 @@ export const DevSettingsSection = () => {
         title="Clear App Data (E2E release only)"
         testID="clear-data-menu"
         onPress={() => {
-          let devOnlyPwd = '';
-          Dialog.show({
-            title: '!!!!  Danger Zone: Clear all your data',
-            confirmButtonProps: {
-              variant: 'destructive',
-            },
-            renderContent: (
-              <Stack>
-                <SizableText>
-                  This is a feature specific to development environments.
-                  Function used to erase all data in the app.
-                </SizableText>
-                <Stack mt="$4">
-                  <Input
-                    placeholder="devOnlyPassword"
-                    onChangeText={(v) => {
-                      devOnlyPwd = v;
-                    }}
-                  />
-                </Stack>
-              </Stack>
-            ),
-            onConfirm: () => {
-              if (!isCorrectDevOnlyPassword(devOnlyPwd)) {
-                return;
-              }
-              const params: IBackgroundMethodWithDevOnlyPassword = {
-                $$devOnlyPassword: devOnlyPwd,
-              };
-              const dialog = Dialog.cancel({
+          showDevOnlyPasswordDialog({
+            title: 'Danger Zone: Clear all your data',
+            desc: `This is a feature specific to development environments.
+                  Function used to erase all data in the app.`,
+            onConfirm: async (params) => {
+              Dialog.cancel({
                 title: 'Clear App Data (E2E release only)',
                 renderContent: (
                   <YStack>
-                    <SectionPressItem
-                      title="Export Accounts Data"
-                      onPress={async () => {
-                        const data =
-                          await backgroundApiProxy.serviceE2E.exportAllAccountsData(
-                            params,
-                          );
-                        copyText(stableStringify(data));
-                      }}
-                    />
-
                     <SectionPressItem
                       title="Clear Discovery Data"
                       testID="clear-discovery-data"
