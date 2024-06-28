@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
-import { Checkbox, Dialog, SizableText, YStack } from '@onekeyhq/components';
+import { Checkbox, Dialog, YStack } from '@onekeyhq/components';
 import { useV4migrationPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -122,35 +122,40 @@ function OnboardingOnMountCmp() {
   );
 
   const checkStateOnMount = useCallback(async () => {
-    if (!downgradeWarningConfirmedRef.current && platformEnv.isDesktop) {
-      const dialog = Dialog.show({
-        tone: 'warning',
-        icon: 'ShieldCheckDoneOutline',
-        showExitButton: false,
-        // TODO disable gesture close
-        showCancelButton: false,
-        dismissOnOverlayPress: false,
-        title: intl.formatMessage({
-          id: ETranslations.downgrade_warning_title,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.downgrade_warning_description,
-        }),
-        renderContent: (
-          <DowngradeWarningDialogContent
-            onConfirm={() => {
-              setV4MigrationPersistAtom((v) => ({
-                ...v,
-                downgradeWarningConfirmed: true,
-              }));
-              void checkOnboardingState({ checkingV4Migration: true });
-              void dialog.close();
-            }}
-          />
-        ),
-      });
-      return;
+    if (platformEnv.isDesktop && !downgradeWarningConfirmedRef.current) {
+      const isV4DbExist =
+        await backgroundApiProxy.serviceV4Migration.checkIfV4DbExist();
+      if (isV4DbExist) {
+        const dialog = Dialog.show({
+          tone: 'warning',
+          icon: 'ShieldCheckDoneOutline',
+          showExitButton: false,
+          // TODO disable gesture close
+          showCancelButton: false,
+          dismissOnOverlayPress: false,
+          title: intl.formatMessage({
+            id: ETranslations.downgrade_warning_title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.downgrade_warning_description,
+          }),
+          renderContent: (
+            <DowngradeWarningDialogContent
+              onConfirm={() => {
+                setV4MigrationPersistAtom((v) => ({
+                  ...v,
+                  downgradeWarningConfirmed: true,
+                }));
+                void checkOnboardingState({ checkingV4Migration: true });
+                void dialog.close();
+              }}
+            />
+          ),
+        });
+        return;
+      }
     }
+
     await checkOnboardingState({ checkingV4Migration: true });
   }, [checkOnboardingState, intl, setV4MigrationPersistAtom]);
 
