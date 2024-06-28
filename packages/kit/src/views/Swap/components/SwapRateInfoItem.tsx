@@ -55,6 +55,7 @@ const SwapRateInfoItem = ({
       </SizableText>
       <IconButton
         size="small"
+        variant="tertiary"
         onPress={handleExchangeRate}
         icon="SwitchHorOutline"
       />

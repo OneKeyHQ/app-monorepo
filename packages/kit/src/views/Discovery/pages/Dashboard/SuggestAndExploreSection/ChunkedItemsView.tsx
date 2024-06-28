@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import memoizee from 'memoizee';
 import { useWindowDimensions } from 'react-native';
+import { opacity } from 'react-native-reanimated/lib/typescript/reanimated2/Colors';
 
 import {
   Badge,
@@ -25,7 +26,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../../../types';
-import { opacity } from 'react-native-reanimated/lib/typescript/reanimated2/Colors';
 
 export const chunkArray = (array: ICategory['dapps'], chunkSize: number) => {
   const chunks = [];
