@@ -1475,6 +1475,7 @@
   "update.server_not_responding_try_later": "Server not responding, please try again later.",
   "update.transferring_data": "Transferring data...",
   "update.troubleshoot_connection_issues": "To troubleshoot connection issues:\n\n1. Ensure OneKey Bridge is installed and running.\n2. Refresh your browser or try a different one.\n3. Use a different cable and port.\n\nIf this doesn’t help, contact <url>OneKey support</url>.",
+  "update.troubleshoot_connection_issues_mobile": "To troubleshoot connection issues:\n\n1. Ensure Bluetooth is enabled.\n2. Restart the app and your device.\n3. Try reconnecting your device.\n\nIf this doesn’t help, contact <url>OneKey support</url>.",
   "update.unable_to_connect_to_bridge": "Unable to connect to the bridge. Please check your internet connection and try again.",
   "update.update_app_available": "Update App to {version} is available",
   "update.update_completed": "Update Completed",

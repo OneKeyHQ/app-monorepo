@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   RichSizeableText,
@@ -8,6 +10,8 @@ import {
 } from '@onekeyhq/components';
 import type { IRichSizeableTextProps } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
+import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { ColorTokens } from 'tamagui';
 
@@ -47,18 +51,42 @@ const getColors = (
   }
 };
 
+function UpdateErrorTroubleshooting() {
+  const intl = useIntl();
+
+  return (
+    <>
+      <RichSizeableText
+        size="$bodyMd"
+        color="$textSubdued"
+        linkList={{
+          url: FIRMWARE_CONTACT_US_URL,
+        }}
+      >
+        {intl.formatMessage({
+          id: ETranslations.update_troubleshoot_connection_issues,
+          defaultMessage:
+            'If you have any questions, please refer to the troubleshooting guide.',
+        })}
+      </RichSizeableText>
+    </>
+  );
+}
+
 export function FirmwareUpdateBaseMessageView({
   icon,
   title,
   tone,
   message,
   linkList,
+  displayTroubleshooting,
 }: {
   icon?: IKeyOfIcons;
   title?: string;
   tone?: IToneType;
   message?: IRichSizeableTextProps['children'];
   linkList?: IRichSizeableTextProps['linkList'];
+  displayTroubleshooting?: boolean;
 }) {
   const renderIcon = useCallback(
     () =>
@@ -77,22 +105,26 @@ export function FirmwareUpdateBaseMessageView({
     [icon, tone],
   );
   return (
-    <Stack py="$6">
-      {icon ? renderIcon() : null}
-      {title ? (
-        <SizableText my="$4" size="$heading2xl">
-          {title}
-        </SizableText>
-      ) : null}
-      {message ? (
-        <RichSizeableText
-          size="$bodyLg"
-          color="$textSubdued"
-          linkList={linkList}
-        >
-          {message}
-        </RichSizeableText>
-      ) : null}
+    <Stack py="$6" gap="$5">
+      <Stack>
+        {icon ? renderIcon() : null}
+        {title ? (
+          <SizableText my="$4" size="$heading2xl">
+            {title}
+          </SizableText>
+        ) : null}
+        {message ? (
+          <RichSizeableText
+            size="$bodyLg"
+            color="$textSubdued"
+            linkList={linkList}
+          >
+            {message}
+          </RichSizeableText>
+        ) : null}
+      </Stack>
+
+      {displayTroubleshooting ? <UpdateErrorTroubleshooting /> : null}
     </Stack>
   );
 }
