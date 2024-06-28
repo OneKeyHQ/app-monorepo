@@ -164,7 +164,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
   return useMemo(() => {
     const tableRowConfig: ITableColumnConfig = {
       'serialNumber': (item) => (
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText size="$bodyMd" color="$textSubdued" selectable={false}>
           {item.serialNumber || '-'}
         </SizableText>
       ),
@@ -172,10 +172,19 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
         <XStack space="$3" ai="center">
           <MarketTokenIcon uri={item.image} size="$8" />
           <YStack width="$24">
-            <SizableText size="$bodyLgMedium" numberOfLines={1}>
+            <SizableText
+              size="$bodyLgMedium"
+              numberOfLines={1}
+              selectable={false}
+            >
               {item.symbol.toUpperCase()}
             </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              selectable={false}
+            >
               {item.name}
             </SizableText>
           </YStack>
@@ -213,6 +222,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
       ),
       'price': (item) => (
         <NumberSizeableText
+          selectable={false}
           size="$bodyMd"
           formatter="price"
           formatterOptions={{ currency }}
@@ -237,6 +247,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
       ),
       'totalVolume': (item) => (
         <NumberSizeableText
+          selectable={false}
           size="$bodyMd"
           formatter="marketCap"
           formatterOptions={{ currency }}
@@ -246,6 +257,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
       ),
       'marketCap': (item) => (
         <NumberSizeableText
+          selectable={false}
           size="$bodyMd"
           formatter="marketCap"
           formatterOptions={{ currency }}
@@ -864,12 +876,17 @@ function BasicMarketHomeList({
             <XStack space="$3" ai="center">
               <MarketTokenIcon uri={item.image} size="$10" />
               <YStack>
-                <SizableText size="$bodyLgMedium">
+                <SizableText size="$bodyLgMedium" selectable={false}>
                   {item.symbol.toUpperCase()}
                 </SizableText>
-                <SizableText size="$bodySm" color="$textSubdued">
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  selectable={false}
+                >
                   {`VOL `}
                   <NumberSizeableText
+                    selectable={false}
                     size="$bodySm"
                     formatter="marketCap"
                     color="$textSubdued"
@@ -882,6 +899,7 @@ function BasicMarketHomeList({
             </XStack>
             <XStack ai="center" space="$5" flexShrink={1}>
               <NumberSizeableText
+                selectable={false}
                 flexShrink={1}
                 numberOfLines={1}
                 size="$bodyLgMedium"
@@ -904,6 +922,7 @@ function BasicMarketHomeList({
                   borderRadius="$2"
                 >
                   <NumberSizeableText
+                    selectable={false}
                     size="$bodyMdMedium"
                     color="white"
                     formatter="priceChange"

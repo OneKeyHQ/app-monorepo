@@ -304,10 +304,15 @@ export function MarketDetailPools({
                 <XStack space="$2.5" ai="center">
                   <MarketPoolIcon uri={dexLogoUrl} />
                   <YStack flexShrink={1}>
-                    <SizableText size="$bodyMdMedium" numberOfLines={1}>
+                    <SizableText
+                      size="$bodyMdMedium"
+                      numberOfLines={1}
+                      selectable={false}
+                    >
                       {attributes.name}
                     </SizableText>
                     <SizableText
+                      selectable={false}
                       size="$bodySm"
                       color="$textSubdued"
                       numberOfLines={1}
@@ -321,6 +326,7 @@ export function MarketDetailPools({
               {gtMd ? (
                 <ItemColumn>
                   <NumberSizeableText
+                    selectable={false}
                     size="$bodyMd"
                     formatter="price"
                     formatterOptions={{ currency }}
@@ -333,6 +339,7 @@ export function MarketDetailPools({
               {gtXl ? (
                 <ItemColumn>
                   <NumberSizeableText
+                    selectable={false}
                     size="$bodyMd"
                     formatter="marketCap"
                     textAlign="right"
@@ -343,6 +350,7 @@ export function MarketDetailPools({
               ) : null}
               <ItemColumn>
                 <NumberSizeableText
+                  selectable={false}
                   size="$bodyMd"
                   formatter="marketCap"
                   textAlign="right"
@@ -352,6 +360,7 @@ export function MarketDetailPools({
               </ItemColumn>
               <ItemColumn>
                 <NumberSizeableText
+                  selectable={false}
                   size="$bodyMd"
                   formatter="marketCap"
                   textAlign="right"
