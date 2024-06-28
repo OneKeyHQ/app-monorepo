@@ -29,15 +29,15 @@ export const buildAppStorageFactory = (
   const storage = appStorage as IAppStorage;
 
   const originalSetItem = storage.setItem;
+  const originalRemoveItem = storage.removeItem;
 
   const setItem: IAppStorage['setItem'] = (key, value, callback) => {
     resetUtils.checkNotInResetting();
-    return originalSetItem(key, value, callback);
+    return originalSetItem.call(storage, key, value, callback);
   };
-
   const removeItem: IAppStorage['removeItem'] = (key, callback) => {
     resetUtils.checkNotInResetting();
-    return storage.removeItem(key, callback);
+    return originalRemoveItem.call(storage, key, callback);
   };
 
   storage.setItem = setItem;
