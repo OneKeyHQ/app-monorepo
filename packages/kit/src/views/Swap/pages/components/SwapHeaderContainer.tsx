@@ -51,12 +51,12 @@ const SwapHeaderContainer = ({ pageType }: ISwapHeaderContainerProps) => {
   return (
     <XStack justifyContent="space-between">
       <XStack space="$5">
-        <SizableText size="$headingLg">
+        <SizableText size="$headingLg" userSelect="none">
           {intl.formatMessage({ id: ETranslations.swap_page_swap })}
         </SizableText>
 
         <XStack opacity={0.5} space="$1" onPress={onSwapLimit}>
-          <SizableText size="$headingLg">
+          <SizableText size="$headingLg" userSelect="none">
             {intl.formatMessage({ id: ETranslations.swap_page_limit })}
           </SizableText>
           <Badge badgeSize="sm" badgeType="default">
