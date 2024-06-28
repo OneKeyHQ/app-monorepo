@@ -156,11 +156,11 @@ export default class ServiceSwap extends ServiceBase {
           cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
         });
       } else {
-        const error = e as { message: string };
+        const error = e as { code: number; message: string; requestId: string };
         void this.backgroundApi.serviceApp.showToast({
           method: 'error',
-          title: 'error',
-          message: error?.message,
+          title: error?.message,
+          message: error?.requestId,
         });
         return [];
       }
