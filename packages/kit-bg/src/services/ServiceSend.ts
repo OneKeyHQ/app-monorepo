@@ -151,7 +151,8 @@ class ServiceSend extends ServiceBase {
 
       return !resp.data.data.success;
     } catch {
-      return false;
+      // pre-check failed, return true to show fee info alert by default
+      return true;
     }
   }
 
