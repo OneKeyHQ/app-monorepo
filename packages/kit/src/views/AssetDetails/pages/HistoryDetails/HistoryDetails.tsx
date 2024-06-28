@@ -22,6 +22,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,7 +32,6 @@ import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils'
 import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   EHistoryTxDetailsBlock,
-  EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
 } from '@onekeyhq/shared/types/history';
 import type {
@@ -41,6 +41,7 @@ import type {
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
+  EReplaceTxType,
 } from '@onekeyhq/shared/types/tx';
 
 import { getHistoryTxMeta } from '../../utils';
@@ -214,6 +215,15 @@ function HistoryDetails() {
     [accountAddress, historyTx.decodedTx.txid, networkId, accountId, xpub],
     { watchLoading: true },
   );
+
+  const handleReplaceTxSuccess = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
+
+  const { handleReplaceTx, canReplaceTx } = useReplaceTx({
+    historyTx,
+    onSuccess: handleReplaceTxSuccess,
+  });
 
   const [network, vaultSettings, txDetailsResp, nativeToken] =
     resp.result ?? [];
@@ -502,24 +512,35 @@ function HistoryDetails() {
     const status = historyTx.decodedTx.status;
     const { key, color } = getTxStatusTextProps(status);
     return (
-      <XStack h="$5" alignItems="center">
+      <XStack minHeight="$5" alignItems="center">
         <SizableText size="$bodyMdMedium" color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {vaultSettings?.replaceTxEnabled &&
-        status === EDecodedTxStatus.Pending ? (
-          <XStack ml="$5">
-            <Button size="small" variant="primary">
-              Speed Up
+        {canReplaceTx ? (
+          <XStack ml="$5" space="$2">
+            <Button
+              size="small"
+              variant="primary"
+              onPress={() =>
+                handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_speed_up })}
             </Button>
-            <Button size="small" variant="secondary" ml="$2.5">
-              Cancel
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={() =>
+                handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_cancel })}
             </Button>
           </XStack>
         ) : null}
       </XStack>
     );
-  }, [historyTx.decodedTx.status, intl, vaultSettings?.replaceTxEnabled]);
+  }, [canReplaceTx, handleReplaceTx, historyTx.decodedTx.status, intl]);
 
   const renderTxFlow = useCallback(() => {
     if (vaultSettings?.isUtxo && !txAddresses.isSingleTransfer) return null;

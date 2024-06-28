@@ -31,7 +31,8 @@ function getTxActionUnknownInfo(props: ITxActionProps) {
 
 function TxActionUnknownListView(props: ITxActionProps) {
   const intl = useIntl();
-  const { tableLayout, decodedTx, componentProps, showIcon } = props;
+  const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
+    props;
   const { unknownTo, unknownIcon, unknownLabel } =
     getTxActionUnknownInfo(props);
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
@@ -64,6 +65,8 @@ function TxActionUnknownListView(props: ITxActionProps) {
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       showIcon={showIcon}
       hideFeeInfo={hideFeeInfo}
+      replaceType={replaceType}
+      status={decodedTx.status}
       {...componentProps}
     />
   );

@@ -406,6 +406,7 @@ export function TokenDetails() {
                       ) : (
                         <>
                           <NumberSizeableText
+                            numberOfLines={2}
                             size="$heading3xl"
                             formatter="balance"
                             formatterOptions={{ tokenSymbol: tokenInfo.symbol }}

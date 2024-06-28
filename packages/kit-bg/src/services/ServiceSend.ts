@@ -20,6 +20,7 @@ import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import type {
+  EReplaceTxType,
   IDecodedTx,
   ISendTxBaseParams,
   ISendTxOnSuccessData,
@@ -106,6 +107,18 @@ class ServiceSend extends ServiceBase {
     const { networkId, accountId, unsignedTx, ...rest } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.updateUnsignedTx({ unsignedTx, ...rest });
+  }
+
+  @backgroundMethod()
+  public async buildReplaceEncodedTx(params: {
+    accountId: string;
+    networkId: string;
+    decodedTx: IDecodedTx;
+    replaceType: EReplaceTxType;
+  }) {
+    const { networkId, accountId, ...rest } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.buildReplaceEncodedTx({ ...rest });
   }
 
   @backgroundMethod()
@@ -236,6 +249,7 @@ class ServiceSend extends ServiceBase {
       nativeAmountInfo,
       signOnly,
       sourceInfo,
+      replaceTxInfo,
     } = params;
 
     const newUnsignedTxs = [];
@@ -294,6 +308,7 @@ class ServiceSend extends ServiceBase {
             signedTx,
             decodedTx,
           },
+          replaceTxInfo,
         });
       }
     }
