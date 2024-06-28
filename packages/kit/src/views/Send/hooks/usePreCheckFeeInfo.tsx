@@ -1,9 +1,57 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
-import { Dialog } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import type { ICheckedState } from '@onekeyhq/components';
+import { Checkbox, Dialog, Stack } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
+function ExtremelyHighFeeDialogContent({
+  onConfirm,
+}: {
+  onConfirm: (value: ICheckedState) => void;
+}) {
+  const intl = useIntl();
+  const [checkState, setCheckState] = useState(false as ICheckedState);
+
+  const handleConfirm = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        setTimeout(() => {
+          onConfirm(checkState);
+          resolve();
+        }, 0);
+      }),
+    [checkState, onConfirm],
+  );
+
+  return (
+    <>
+      <Stack>
+        <Checkbox
+          value={checkState}
+          label={intl.formatMessage({
+            id: ETranslations.fee_alert_dialog_checkbox_label,
+          })}
+          onChange={setCheckState}
+        />
+      </Stack>
+      <Dialog.Footer
+        tone="destructive"
+        confirmButtonProps={{
+          disabled: !checkState,
+        }}
+        onConfirm={handleConfirm}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_continue,
+        })}
+      />
+    </>
+  );
+}
 
 function usePreCheckFeeInfo({
   accountId,
@@ -12,6 +60,7 @@ function usePreCheckFeeInfo({
   accountId: string;
   networkId: string;
 }) {
+  const intl = useIntl();
   const checkFeeInfoIsOverflow = useCallback(
     async ({
       feeAmount,
@@ -44,13 +93,21 @@ function usePreCheckFeeInfo({
     () =>
       new Promise((resolve) => {
         Dialog.show({
-          title: 'Fee is too high',
-          icon: 'PlaceholderOutline',
-          description:
-            'Fee is too high, please try to lower the fee or try again later.',
-          tone: 'default',
-          onConfirm: () => resolve(true),
-          onCancel: () => resolve(false),
+          tone: 'destructive',
+          icon: 'ErrorOutline',
+          title: intl.formatMessage({
+            id: ETranslations.fee_alert_dialog_title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.fee_alert_dialog_description,
+          }),
+          renderContent: (
+            <ExtremelyHighFeeDialogContent
+              onConfirm={() => {
+                resolve(true);
+              }}
+            />
+          ),
         });
       }),
     [],
