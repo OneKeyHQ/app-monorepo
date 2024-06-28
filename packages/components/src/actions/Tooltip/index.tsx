@@ -41,7 +41,6 @@ export function TooltipText({
       };
       const onScrollEnd = () => {
         scrolling = false;
-        onDisplayChange(true);
       };
       const scrollView = scrollViewRef?.current as unknown as HTMLElement;
       if (scrollView) {
