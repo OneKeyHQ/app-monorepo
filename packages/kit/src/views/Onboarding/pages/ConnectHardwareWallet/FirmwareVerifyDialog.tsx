@@ -17,6 +17,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
 import type {
   OneKeyError,
   OneKeyServerApiError,
@@ -366,9 +367,7 @@ export function EnumBasicDialogContentContainer({
                 } as IButtonProps
               }
               variant="primary"
-              onPress={() =>
-                Linking.openURL('https://help.onekey.so/hc/requests/new')
-              }
+              onPress={() => Linking.openURL(FIRMWARE_CONTACT_US_URL)}
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
