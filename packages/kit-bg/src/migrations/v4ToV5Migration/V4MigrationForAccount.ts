@@ -11,6 +11,7 @@ import {
   encryptImportedCredential,
   fixV4VerifyStringToV5,
   revealEntropyToMnemonic,
+  sha256,
 } from '@onekeyhq/core/src/secret';
 import {
   ECoreApiExportedSecretKeyType,
@@ -58,6 +59,7 @@ import type {
 } from './v4local/v4localDBTypes';
 import type {
   IDBAccount,
+  IDBCreateHWWalletParams,
   IDBDevice,
   IDBDeviceSettings,
   IDBUtxoAccount,
@@ -926,13 +928,45 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         if (v4wallet?.passphraseState) {
           v5wallet = await v4dbHubs.logger.runAsyncWithCatch(
             async () => {
+              const params: IDBCreateHWWalletParams = {
+                name: v4wallet.name,
+                device: deviceUtils.dbDeviceToSearchDevice(v5dbDevice),
+                features: v5dbDevice.featuresInfo || ({} as any),
+                passphraseState: v4wallet.passphraseState,
+              };
+              const { dbWalletId: v5dbWalletId } =
+                await v5localDb.buildHwWalletId(params);
+              const v5walletCurrent = await v5localDb.getWalletSafe({
+                walletId: v5dbWalletId,
+              });
+              const isV5WalletExistAndRemembered =
+                v5walletCurrent && !v5walletCurrent.isTemp;
               const { wallet: v5walletSaved } =
-                await serviceAccount.createHWWalletBase({
-                  name: v4wallet.name,
-                  device: deviceUtils.dbDeviceToSearchDevice(v5dbDevice),
-                  features: v5dbDevice.featuresInfo || ({} as any),
-                  passphraseState: v4wallet.passphraseState,
+                await serviceAccount.createHWWalletBase(params);
+
+              void (async () => {
+                // only update wallet isTemp status when first time migration
+                if (isV5WalletExistAndRemembered) {
+                  return;
+                }
+                const v4reduxData = await v4dbHubs?.v4reduxDb?.reduxData;
+                const v4rememberPassphraseWallets =
+                  v4reduxData?.settings?.hardware?.rememberPassphraseWallets ||
+                  [];
+                let isTemp = false;
+                if (
+                  v4wallet?.id &&
+                  !v4rememberPassphraseWallets.includes(v4wallet?.id)
+                ) {
+                  isTemp = true;
+                }
+                await serviceAccount.setWalletTempStatus({
+                  walletId: v5walletSaved.id,
+                  isTemp,
+                  hideImmediately: true,
                 });
+              })();
+
               await onWalletMigrated(v5walletSaved);
               return v5walletSaved;
             },
@@ -952,12 +986,17 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         } else {
           v5wallet = await v4dbHubs.logger.runAsyncWithCatch(
             async () => {
+              const v4reduxData = await v4dbHubs?.v4reduxDb?.reduxData;
+              const v4verificationMap =
+                v4reduxData?.settings?.hardware?.verification || {};
+              const isFirmwareVerified =
+                v4verificationMap?.[v5dbDevice?.connectId];
               const { wallet: v5walletSaved } =
                 await serviceAccount.createHWWalletBase({
                   name: v4wallet.name,
                   features: JSON.parse(v4device?.features || '{}') || {},
                   device: v5dbDevice,
-                  isFirmwareVerified: false, // TODO v4 isFirmwareVerified
+                  isFirmwareVerified,
                 });
               await onWalletMigrated(v5walletSaved);
               return v5walletSaved;
@@ -1135,6 +1174,12 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           mnemonic: await servicePassword.encodeSensitiveText({
             text: mnemonic,
           }),
+          walletHashBuilder: () => {
+            const text = `${mnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375--${v4wallet.id}`;
+            const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
+            const walletHash = bufferUtils.bytesToHex(buff);
+            return walletHash;
+          },
         });
         await onWalletMigrated(v5walletSaved);
         return v5walletSaved;
