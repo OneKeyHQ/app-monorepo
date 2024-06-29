@@ -30,10 +30,10 @@ export function WalletActionMore() {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const navigation = useAppNavigation();
-  const { result: isSupported } = useSupportNetworkId({
-    networkId: network?.id ?? '',
-    type: 'sell',
-  });
+  const { result: isSupported } = useSupportNetworkId(
+    network?.id ?? '',
+    'sell',
+  );
   const sellCrypto = useCallback(() => {
     navigation.pushModal(EModalRoutes.FiatCryptoModal, {
       screen: EModalFiatCryptoRoutes.SellModal,

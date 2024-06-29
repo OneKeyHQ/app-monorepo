@@ -1,24 +1,39 @@
-import type { IGetTokensListParams } from '@onekeyhq/shared/types/fiatCrypto';
+import type {
+  IFiatCryptoType,
+  IGetTokensListParams,
+} from '@onekeyhq/shared/types/fiatCrypto';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
-export const useSupportNetworkId = (params: IGetTokensListParams) =>
+export const useSupportNetworkId = (networkId: string, type: IFiatCryptoType) =>
   usePromiseResult(
-    async () => backgroundApiProxy.serviceFiatCrypto.isNetworkSupported(params),
-    [params],
+    async () =>
+      backgroundApiProxy.serviceFiatCrypto.isNetworkSupported({
+        networkId,
+        type,
+      }),
+    [networkId, type],
     {
       initResult: false,
+      debounced: 100,
     },
   );
 
 export const useSupportToken = (
-  params: IGetTokensListParams & { tokenAddress: string },
+  networkId: string,
+  tokenAddress: string,
+  type: IFiatCryptoType,
 ) =>
   usePromiseResult(
-    async () => backgroundApiProxy.serviceFiatCrypto.isTokenSupported(params),
-    [params],
-    { initResult: false },
+    async () =>
+      backgroundApiProxy.serviceFiatCrypto.isTokenSupported({
+        networkId,
+        tokenAddress,
+        type,
+      }),
+    [networkId, tokenAddress, type],
+    { initResult: false, debounced: 100 },
   );
 
 export const useGetTokensList = (params: IGetTokensListParams) =>

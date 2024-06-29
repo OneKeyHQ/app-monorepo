@@ -18,11 +18,7 @@ export const ActionBase = ({
   accountId,
 }: IActionBaseProps) => {
   const [loading, setLoading] = useState(false);
-  const { result: isSupport } = useSupportToken({
-    networkId,
-    tokenAddress,
-    type,
-  });
+  const { result: isSupport } = useSupportToken(networkId, tokenAddress, type);
   const handlePress = useCallback(async () => {
     setLoading(true);
     try {
