@@ -5,6 +5,7 @@ import {
   getBtcForkNetwork,
   getPublicKeyFromXpub,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { verifyNexaAddressPrefix } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
 import {
   decrypt,
   encodeSensitiveText,
@@ -21,6 +22,7 @@ import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   COINTYPE_ADA,
   COINTYPE_BTC,
+  COINTYPE_COSMOS,
   COINTYPE_DNX,
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
@@ -38,6 +40,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import v5localDb from '../../dbs/local/localDb';
+import { vaultFactory } from '../../vaults/factory';
 
 import { v4CoinTypeToNetworkId } from './v4CoinTypeToNetworkId';
 import v4dbHubs from './v4dbHubs';
@@ -54,6 +57,8 @@ import type {
   IDBUtxoAccount,
   IDBWallet,
 } from '../../dbs/local/types';
+import type VaultCosmos from '../../vaults/impls/cosmos/Vault';
+import type VaultNexa from '../../vaults/impls/nexa/Vault';
 import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
@@ -280,6 +285,9 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     });
 
     const v4accountUtxo = v4account as IV4DBUtxoAccount;
+    const networkId: string | undefined = v4account.coinType
+      ? v4CoinTypeToNetworkId[v4account.coinType]
+      : undefined;
 
     const logErrorFn = (error: Error | undefined) =>
       `${error?.message || 'error'}  ${JSON.stringify({
@@ -320,43 +328,150 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
 
     await v4dbHubs.logger.runAsyncWithCatch(
       async () => {
-        if (accountUtils.isHwAccount({ accountId: v4account.id })) {
-          if (v4account.coinType === COINTYPE_SOL) {
-            if (v4account?.pub && v4account?.pub === v4account?.address) {
-              v4account.pub = '';
-            }
-          }
-          if ([COINTYPE_NEXA, COINTYPE_ADA].includes(v4account.coinType)) {
-            if (v4account.id && v4account.id.endsWith("'/0'/0/0")) {
-              if (v4account.id) {
-                v4account.id = v4account.id.replace(/\/0\/0$/, '');
-              }
-              if (v4account.path) {
-                v4account.path = v4account.path.replace(/\/0\/0$/, '');
-              }
-            }
-          }
-          if (v4account.coinType === COINTYPE_NEXA) {
-            // TODO how to get hw nexa pub
-            v4account.pub = v4account.pub || '';
-          }
-          if (v4account.coinType === COINTYPE_DNX) {
-            if (v4accountUtxo && !v4accountUtxo.xpub) {
-              (v4accountUtxo as { xpub?: string }).xpub = undefined;
-            }
-          }
-          if (v4account.coinType === COINTYPE_SUI) {
-            // TODO
-          }
-        }
+        //
       },
       {
-        name: 'fixV4AccountHwFields',
+        name: 'fixV4AccountMissingFields TODO',
         errorResultFn: () => undefined,
         logErrorFn,
         logErrorOnly: true,
       },
     );
+
+    if (accountUtils.isHwAccount({ accountId: v4account.id })) {
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          //
+          if (v4account.coinType === COINTYPE_SOL) {
+            if (v4account?.pub && v4account?.pub === v4account?.address) {
+              v4account.pub = '';
+            }
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields SOL',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          if ([COINTYPE_NEXA, COINTYPE_ADA].includes(v4account.coinType)) {
+            if (v4account.id && v4account.id.endsWith("'/0'/0/0")) {
+              if (v4account.id) {
+                v4account.id = v4account.id.replace(/\/0\/0$/, '');
+              }
+            }
+            if (v4account.path && v4account.path.endsWith("'/0'/0/0")) {
+              if (v4account.path) {
+                v4account.path = v4account.path.replace(/\/0\/0$/, '');
+              }
+            }
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields Nexa,ADA path',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          if (v4account.coinType === COINTYPE_DNX) {
+            if (v4accountUtxo && !v4accountUtxo.xpub) {
+              (v4accountUtxo as { xpub?: string }).xpub = undefined;
+            }
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields DNX',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          if (v4account.coinType === COINTYPE_SUI) {
+            // TODO
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields SUI',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          if (v4account.coinType === COINTYPE_COSMOS) {
+            if (networkId) {
+              const vault = (await vaultFactory?.getChainOnlyVault({
+                networkId,
+              })) as VaultCosmos;
+              const addressDetail = await vault?.buildAccountAddressDetail({
+                account: v4account as any,
+                networkId,
+                networkInfo: await vault.getNetworkInfo(),
+              });
+              if (addressDetail?.address) {
+                v4accountUtxo.addresses = v4accountUtxo.addresses || {};
+                v4accountUtxo.addresses[networkId] = addressDetail.address;
+              }
+            }
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields COSMOS',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          if (v4account.coinType === COINTYPE_NEXA) {
+            // address may be pub
+            if (
+              v4account.address &&
+              !verifyNexaAddressPrefix(v4account.address)
+            ) {
+              v4account.pub = v4account.address || '';
+            }
+            if (networkId) {
+              const vault = (await vaultFactory?.getChainOnlyVault({
+                networkId,
+              })) as VaultNexa;
+              const addressDetail = await vault?.buildAccountAddressDetail({
+                account: v4account as any,
+                networkId,
+                networkInfo: await vault.getNetworkInfo(),
+              });
+              if (addressDetail?.address) {
+                v4accountUtxo.addresses = v4accountUtxo.addresses || {};
+                v4accountUtxo.addresses[networkId] = addressDetail.address;
+                // The address of nexa must be pub, not the actual address, because the mainnet and testnet addresses of nexa are different
+                // v4account.address = addressDetail.address;
+              }
+            }
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields NEXA',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+    }
 
     if (!isEqual(old, v4account)) {
       v4dbHubs.logger.saveAccountDetailsV4({
@@ -945,6 +1060,14 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               ? JSON.stringify(v5deviceSettings)
               : '',
           };
+
+          const v5deviceAsV4 = v5device as unknown as {
+            mac?: string;
+            payloadJson?: string;
+          };
+          delete v5deviceAsV4.mac;
+          delete v5deviceAsV4.payloadJson;
+
           await v5localDb.addDbDevice({
             device: v5device,
             skipIfExists: true,
