@@ -28,6 +28,7 @@ function AddressButton({
   empty?: boolean;
   edited?: boolean;
 } & IXStackProps) {
+  const intl = useIntl();
   return (
     <XStack
       alignItems="center"
@@ -62,11 +63,15 @@ function AddressButton({
           size="$bodyMd"
           color={empty ? '$textCaution' : '$textSubdued'}
         >
-          {empty ? 'No Addreses' : address}
+          {empty
+            ? intl.formatMessage({ id: ETranslations.wallet_no_address })
+            : address}
         </SizableText>
         {edited ? (
           <SizableText size="$bodyMd" color="$textSubdued">
-            (Edited)
+            {intl.formatMessage({
+              id: ETranslations.swap_account_to_address_edit,
+            })}
           </SizableText>
         ) : null}
       </XStack>
