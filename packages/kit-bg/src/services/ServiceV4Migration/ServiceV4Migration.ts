@@ -76,7 +76,6 @@ class ServiceV4Migration extends ServiceBase {
     backgroundApi: this.backgroundApi,
   });
 
-  // TODO clear migrationPayload when exit migration or focus home page
   migrationPayload: IV4MigrationPayload | undefined;
 
   async getMigrationPasswordV5() {
@@ -881,6 +880,7 @@ class ServiceV4Migration extends ServiceBase {
       // ----------------------------------------------
       await timerUtils.wait(600);
       this.migrationPayload = undefined;
+      await this.clearV4MigrationPayload();
 
       await v4migrationAtom.set((v) => ({
         ...v,
@@ -898,6 +898,11 @@ class ServiceV4Migration extends ServiceBase {
     } finally {
       await v4migrationAtom.set((v) => ({ ...v, isProcessing: false }));
     }
+  }
+
+  @backgroundMethod()
+  async clearV4MigrationPayload() {
+    this.migrationPayload = undefined;
   }
 
   @backgroundMethod()

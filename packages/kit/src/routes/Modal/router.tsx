@@ -1,6 +1,6 @@
 import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
-import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
 import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -26,6 +26,7 @@ import { TestModalRouter } from '../../views/TestModal/router';
 import { UniversalSearchRouter } from '../../views/UniversalSearch/router';
 import { ModalWebViewStack } from '../../views/WebView/router';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { ModalMainStack } from './Main';
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
@@ -54,8 +55,13 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
       console.log('OnboardingModal onMounted');
     },
     onUnmounted: async () => {
-      await v4migrationAtom.set((v) => ({ ...v, isMigrationModalOpen: false }));
+      await v4migrationAtom.set((v) => ({
+        ...v,
+        isProcessing: false,
+        isMigrationModalOpen: false,
+      }));
       console.log('OnboardingModal onUnmounted');
+      await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
     },
     name: EModalRoutes.OnboardingModal,
     children: OnboardingRouter,
