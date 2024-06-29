@@ -1,9 +1,10 @@
 import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
-import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
+import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
@@ -26,7 +27,6 @@ import { TestModalRouter } from '../../views/TestModal/router';
 import { UniversalSearchRouter } from '../../views/UniversalSearch/router';
 import { ModalWebViewStack } from '../../views/WebView/router';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { ModalMainStack } from './Main';
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
