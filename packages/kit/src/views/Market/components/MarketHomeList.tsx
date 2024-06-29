@@ -287,16 +287,18 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
         </View>
       ),
       'actions': (item) => (
-        <XStack>
-          <MarketStar
-            key={item.coingeckoId}
-            coingeckoId={item.coingeckoId}
-            width={44}
-            mx={0}
-            tabIndex={tabIndex}
-          />
+        <XStack flex={1}>
+          <Stack flex={1} ai="center">
+            <MarketStar
+              key={item.coingeckoId}
+              coingeckoId={item.coingeckoId}
+              tabIndex={tabIndex}
+            />
+          </Stack>
           {showMoreAction ? (
-            <MarketMore coingeckoId={item.coingeckoId} width={44} />
+            <Stack flex={1} ai="center">
+              <MarketMore coingeckoId={item.coingeckoId} />
+            </Stack>
           ) : null}
         </XStack>
       ),
