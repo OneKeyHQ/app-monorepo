@@ -26,6 +26,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   isWebInDappMode,
   switchWebDappMode,
@@ -40,6 +41,11 @@ import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
 
 let correctDevOnlyPwd = '';
+
+if (process.env.NODE_ENV !== 'production') {
+  correctDevOnlyPwd = `${formatDateFns(new Date(), 'yyyyMMdd')}-onekey-debug`;
+}
+
 function showDevOnlyPasswordDialog({
   title,
   desc,
