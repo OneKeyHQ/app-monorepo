@@ -71,6 +71,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           const { address, path, pub } = addressInfo;
           const formattedPath = accountUtils.formatUtxoPath(path);
           ret.push({
+            // The address of nexa must be pub, not the actual address, because the mainnet and testnet addresses of nexa are different
             address: pub,
             publicKey: pub,
             path: formattedPath,

@@ -64,7 +64,7 @@ import type {
   IVaultSettings,
 } from '../../types';
 
-export default class Vault extends VaultBase {
+export default class VaultNexa extends VaultBase {
   override coreApi = coreChainApi.nexa.hd;
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {

@@ -214,7 +214,8 @@ const ToastGallery = () => (
               onPress={() => {
                 Toast.error({
                   duration: 999999,
-                  title: 'Lorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit amet',
+                  title:
+                    'Lorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit amet',
                   message: `Lorem ipsum dolor sit amet, 
                     consectetur adipiscing elit. 
                     Quisque nec elementum eros. 

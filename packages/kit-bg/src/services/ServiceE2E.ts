@@ -7,8 +7,8 @@ import {
   checkDevOnlyPassword,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  appEventBus,
   EAppEventBusNames,
+  appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import localDb from '../dbs/local/localDb';
@@ -135,11 +135,17 @@ class ServiceE2E extends ServiceBase {
       });
     }
 
+    wallets.forEach((wallet) => {
+      wallet.accounts = (wallet.accounts || []).sort((a, b) =>
+        natsort({ insensitive: true })(a, b),
+      );
+    });
+
     return {
       v4dbExists,
-      accounts: accounts.sort(sortFn),
-      wallets: wallets.sort(sortFn),
-      devices: devices.sort(sortFn),
+      accounts: (accounts || []).sort(sortFn),
+      wallets: (wallets || []).sort(sortFn),
+      devices: (devices || []).sort(sortFn),
     };
   }
 }
