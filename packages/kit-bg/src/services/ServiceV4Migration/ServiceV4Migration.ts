@@ -337,6 +337,8 @@ class ServiceV4Migration extends ServiceBase {
   @toastIfError()
   async prepareMigration(): Promise<IV4MigrationPayload> {
     this.migrationPayload = undefined;
+    await this.clearV4MigrationPayload();
+
     let migrateV4PasswordOk = false;
     let migrateV4SecurePasswordOk = false;
 
