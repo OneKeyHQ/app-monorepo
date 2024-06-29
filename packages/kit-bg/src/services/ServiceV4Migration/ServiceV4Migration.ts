@@ -177,6 +177,25 @@ class ServiceV4Migration extends ServiceBase {
     }
   }
 
+  async updateV4Password({
+    oldPassword,
+    newPassword,
+  }: {
+    oldPassword: string;
+    newPassword: string;
+  }) {
+    try {
+      const isV4DbExists = await this.checkIfV4DbExist();
+      if (!isV4DbExists) {
+        return;
+      }
+      await v4dbHubs.v4localDb.updateV4Password({ oldPassword, newPassword });
+    } catch (error) {
+      //
+      console.error('updateV4Password error', error);
+    }
+  }
+
   @backgroundMethod()
   @toastIfError()
   async checkShouldMigrateV4OnMount() {
