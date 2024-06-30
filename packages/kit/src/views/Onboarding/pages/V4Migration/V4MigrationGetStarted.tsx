@@ -118,6 +118,7 @@ export function V4MigrationGetStarted({
       scrollEnabled={false}
       onMounted={() => {
         void backgroundApiProxy.serviceV4Migration.clearV4MigrationLogs();
+        void backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
       }}
       isAutoStartOnMount={isAutoStartOnMount}
     >

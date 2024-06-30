@@ -76,7 +76,6 @@ class ServiceV4Migration extends ServiceBase {
     backgroundApi: this.backgroundApi,
   });
 
-  // TODO clear migrationPayload when exit migration or focus home page
   migrationPayload: IV4MigrationPayload | undefined;
 
   async getMigrationPasswordV5() {
@@ -174,6 +173,25 @@ class ServiceV4Migration extends ServiceBase {
       return await v4localDbExists();
     } catch (error) {
       return false;
+    }
+  }
+
+  async updateV4Password({
+    oldPassword,
+    newPassword,
+  }: {
+    oldPassword: string;
+    newPassword: string;
+  }) {
+    try {
+      const isV4DbExists = await this.checkIfV4DbExist();
+      if (!isV4DbExists) {
+        return;
+      }
+      await v4dbHubs.v4localDb.updateV4Password({ oldPassword, newPassword });
+    } catch (error) {
+      //
+      console.error('updateV4Password error', error);
     }
   }
 
@@ -319,6 +337,8 @@ class ServiceV4Migration extends ServiceBase {
   @toastIfError()
   async prepareMigration(): Promise<IV4MigrationPayload> {
     this.migrationPayload = undefined;
+    await this.clearV4MigrationPayload();
+
     let migrateV4PasswordOk = false;
     let migrateV4SecurePasswordOk = false;
 
@@ -862,6 +882,7 @@ class ServiceV4Migration extends ServiceBase {
       // ----------------------------------------------
       await timerUtils.wait(600);
       this.migrationPayload = undefined;
+      await this.clearV4MigrationPayload();
 
       await v4migrationAtom.set((v) => ({
         ...v,
@@ -879,6 +900,11 @@ class ServiceV4Migration extends ServiceBase {
     } finally {
       await v4migrationAtom.set((v) => ({ ...v, isProcessing: false }));
     }
+  }
+
+  @backgroundMethod()
+  async clearV4MigrationPayload() {
+    this.migrationPayload = undefined;
   }
 
   @backgroundMethod()

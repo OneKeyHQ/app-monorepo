@@ -4,6 +4,7 @@ import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
@@ -54,8 +55,13 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
       console.log('OnboardingModal onMounted');
     },
     onUnmounted: async () => {
-      await v4migrationAtom.set((v) => ({ ...v, isMigrationModalOpen: false }));
+      await v4migrationAtom.set((v) => ({
+        ...v,
+        isProcessing: false,
+        isMigrationModalOpen: false,
+      }));
       console.log('OnboardingModal onUnmounted');
+      await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
     },
     name: EModalRoutes.OnboardingModal,
     children: OnboardingRouter,
