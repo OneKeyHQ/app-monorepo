@@ -33,15 +33,16 @@ export function V4MigrationGetStarted({
 >) {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  const isAutoStartOnMount = route?.params?.isAutoStartOnMount;
+  const isAutoStartOnMount = Boolean(route?.params?.isAutoStartOnMount);
 
   const [isLoading, setIsLoading] = useState(false);
 
   const handleNavigateToV4MigrationPreview = async () => {
     try {
       setIsLoading(true);
-      const res =
-        await backgroundApiProxy.serviceV4Migration.prepareMigration();
+      const res = await backgroundApiProxy.serviceV4Migration.prepareMigration({
+        isAutoStartOnMount,
+      });
       console.log('prepareMigration result', res);
       const goNext = () => {
         if (res.shouldBackup) {

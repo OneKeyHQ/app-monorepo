@@ -81,6 +81,13 @@ const TabMe = () => {
           >
             V4 迁移
           </Button>
+          <Button
+            onPress={() => {
+              void navigateToV4MigrationPage({ isAutoStartOnMount: true });
+            }}
+          >
+            V4 迁移（断点恢复模式）
+          </Button>
         </YStack>
       </Page.Body>
     </Page>
