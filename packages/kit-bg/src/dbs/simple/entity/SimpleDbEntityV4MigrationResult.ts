@@ -29,6 +29,13 @@ export class SimpleDbEntityV4MigrationResult extends SimpleDbEntityBase<IV4Migra
     });
   }
 
+  async getV5AccountIdByV4AccountId({ v4accountId }: { v4accountId: string }) {
+    return this.getRawData().then((rawData) => {
+      const v4: IV4MigrationResultDetail = rawData?.migrated?.v4 ?? {};
+      return v4?.accounts?.[v4accountId];
+    });
+  }
+
   saveMigratedWalletId({
     v4walletId,
     v5walletId,

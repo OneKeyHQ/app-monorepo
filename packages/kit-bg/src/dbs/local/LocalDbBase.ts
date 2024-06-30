@@ -61,6 +61,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -88,7 +89,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -2112,6 +2112,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       account.name = indexedAccount.name;
     }
     return this.refillAccountInfo({ account });
+  }
+
+  async getAccountSafe({
+    accountId,
+  }: {
+    accountId: string;
+  }): Promise<IDBAccount | undefined> {
+    try {
+      return await this.getAccount({ accountId });
+    } catch (error) {
+      return undefined;
+    }
   }
 
   refillAccountInfo({ account }: { account: IDBAccount }) {
