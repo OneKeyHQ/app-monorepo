@@ -17,6 +17,7 @@ import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
 import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
+import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 
 export class SimpleDb {
   browserTabs = new SimpleDbEntityBrowserTabs();
@@ -56,4 +57,6 @@ export class SimpleDb {
   marketWatchList = new SimpleDbEntityMarketWatchList();
 
   universalSearch = new SimpleDbEntityUniversalSearch();
+
+  v4MigrationResult = new SimpleDbEntityV4MigrationResult();
 }

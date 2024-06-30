@@ -15,6 +15,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import simpleDb from '../../dbs/simple/simpleDb';
 import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
 import v4dbHubs from '../../migrations/v4ToV5Migration/v4dbHubs';
 import {
@@ -35,14 +36,13 @@ import {
 } from '../../states/jotai/atoms/v4migration';
 import ServiceBase from '../ServiceBase';
 
-import type { IDBAccount, IDBWallet } from '../../dbs/local/types';
 import type {
   IV4MigrationBackupSectionData,
   IV4MigrationBackupSectionDataItem,
   IV4MigrationPayload,
   IV4OnAccountMigrated,
+  IV4OnWalletMigrated,
 } from '../../migrations/v4ToV5Migration/types';
-import type { IV4DBAccount } from '../../migrations/v4ToV5Migration/v4local/v4localDBTypesSchema';
 import type { V4LocalDbRealm } from '../../migrations/v4ToV5Migration/v4local/v4realm/V4LocalDbRealm';
 import type { IV4MigrationAtom } from '../../states/jotai/atoms/v4migration';
 
@@ -335,7 +335,11 @@ class ServiceV4Migration extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async prepareMigration(): Promise<IV4MigrationPayload> {
+  async prepareMigration({
+    isAutoStartOnMount,
+  }: {
+    isAutoStartOnMount: boolean;
+  }): Promise<IV4MigrationPayload> {
     this.migrationPayload = undefined;
     await this.clearV4MigrationPayload();
 
@@ -424,6 +428,7 @@ class ServiceV4Migration extends ServiceBase {
           wallets,
           walletsForBackup,
           totalWalletsAndAccounts,
+          isAutoStartOnMount,
         };
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         await v4migrationAtom.set((v: IV4MigrationAtom) => ({
@@ -654,8 +659,10 @@ class ServiceV4Migration extends ServiceBase {
         history: 96,
         settings: 98,
       };
-      const isFirstTimeMigration = !(await v4migrationPersistAtom.get())
-        ?.v4migrationAutoStartDisabled;
+      const v4migrationPersistData = await v4migrationPersistAtom.get();
+      const isFirstTimeMigration =
+        !v4migrationPersistData?.v4migrationAutoStartDisabled;
+      const isResumeMode = Boolean(this.migrationPayload?.isAutoStartOnMount);
 
       await v4migrationAtom.set((v) => ({ ...v, isProcessing: true }));
       await v4migrationAtom.set((v) => ({
@@ -694,20 +701,24 @@ class ServiceV4Migration extends ServiceBase {
               v4walletId: v4walletInfo?.wallet?.id,
               v4wallet: v4walletInfo?.wallet,
             });
-            const onWalletMigrated = async (v5wallet?: IDBWallet) => {
+            const onWalletMigrated: IV4OnWalletMigrated = async (v5wallet) => {
               try {
                 v4dbHubs.logger.saveWalletDetailsV5({
                   v4walletId: v4walletInfo?.wallet?.id,
                   v5wallet,
                 });
                 await increaseProgressOfAccount();
+                await simpleDb.v4MigrationResult.saveMigratedWalletId({
+                  v4walletId: v4walletInfo?.wallet?.id,
+                  v5walletId: v5wallet?.id || '',
+                });
               } catch (error) {
                 //
               }
             };
             const onAccountMigrated: IV4OnAccountMigrated = async (
-              v5account: IDBAccount,
-              v4account: IV4DBAccount,
+              v5account,
+              v4account,
             ) => {
               try {
                 v4dbHubs.logger.saveAccountDetailsV5({
@@ -715,6 +726,10 @@ class ServiceV4Migration extends ServiceBase {
                   v5account,
                 });
                 await increaseProgressOfAccount();
+                await simpleDb.v4MigrationResult.saveMigratedAccountId({
+                  v4accountId: v4account?.id,
+                  v5accountId: v5account?.id || '',
+                });
               } catch (error) {
                 //
               }
@@ -727,6 +742,7 @@ class ServiceV4Migration extends ServiceBase {
                     v4wallet: v4walletInfo.wallet,
                     onWalletMigrated,
                     onAccountMigrated,
+                    isResumeMode,
                   });
                   await timerUtils.wait(300);
                 },
@@ -744,6 +760,7 @@ class ServiceV4Migration extends ServiceBase {
                     v4wallet: v4walletInfo.wallet,
                     onWalletMigrated,
                     onAccountMigrated,
+                    isResumeMode,
                   });
                   await timerUtils.wait(300);
                 },
@@ -761,6 +778,7 @@ class ServiceV4Migration extends ServiceBase {
                     v4wallet: v4walletInfo.wallet,
                     onWalletMigrated,
                     onAccountMigrated,
+                    isResumeMode,
                   });
                   await timerUtils.wait(300);
                 },
@@ -778,6 +796,7 @@ class ServiceV4Migration extends ServiceBase {
                     v4wallet: v4walletInfo.wallet,
                     onWalletMigrated,
                     onAccountMigrated,
+                    isResumeMode,
                   });
                   await timerUtils.wait(300);
                 },

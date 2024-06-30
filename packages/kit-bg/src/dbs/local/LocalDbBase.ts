@@ -2114,6 +2114,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return this.refillAccountInfo({ account });
   }
 
+  async getAccountSafe({
+    accountId,
+  }: {
+    accountId: string;
+  }): Promise<IDBAccount | undefined> {
+    try {
+      return await this.getAccount({ accountId });
+    } catch (error) {
+      return undefined;
+    }
+  }
+
   refillAccountInfo({ account }: { account: IDBAccount }) {
     const externalAccount = account as IDBExternalAccount;
     if (externalAccount && externalAccount.connectionInfoRaw) {
