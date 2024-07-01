@@ -1,4 +1,4 @@
-import { unionBy } from 'lodash';
+import { isNil, unionBy } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
@@ -99,6 +99,12 @@ class ServiceHistory extends ServiceBase {
               confirmedTx?.data.status === EOnChainHistoryTxStatus.Success
                 ? EDecodedTxStatus.Confirmed
                 : EDecodedTxStatus.Failed,
+            totalFeeInNative: isNil(confirmedTx.data.gasFee)
+              ? localHistoryPendingTx.decodedTx.totalFeeInNative
+              : confirmedTx.data.gasFee,
+            totalFeeFiatValue: isNil(confirmedTx.data.gasFeeFiatValue)
+              ? localHistoryPendingTx.decodedTx.totalFeeFiatValue
+              : confirmedTx.data.gasFeeFiatValue,
             isFinal: true,
           },
         });
