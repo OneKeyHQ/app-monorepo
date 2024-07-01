@@ -2733,7 +2733,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
         'address': 'https://blastscan.io/address/{address}',
         'block': 'https://blastscan.io/block/{block}',
         'name': 'https://blastscan.io/',
-        'transaction': 'https://blastscan.io/transaction/{transaction}',
+        'transaction': 'https://blastscan.io/tx/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,

@@ -74,7 +74,7 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
         );
         if (v4Settings.locale && existingLocale) {
           await this.backgroundApi.serviceSetting.setLocale(
-            existingLocale.value as ILocaleSymbol,
+            existingLocale.value,
           );
         }
       },

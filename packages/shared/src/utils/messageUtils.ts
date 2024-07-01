@@ -3,12 +3,14 @@ import { TYPED_MESSAGE_SCHEMA, typedSignatureHash } from 'eth-sig-util';
 import { addHexPrefix, isHexString, isValidAddress } from 'ethereumjs-util';
 import { validate } from 'jsonschema';
 
+import { conflux } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import type {
   IUnsignedMessage,
   IUnsignedMessageEth,
 } from '@onekeyhq/core/src/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
+import { IMPL_CFX } from '../engine/engineConsts';
 import { OneKeyError } from '../errors';
 
 const solidityTypes = () => {
@@ -172,8 +174,26 @@ function isValidHexAddress(
   return isValidAddress(addressToCheck);
 }
 
-function validateAddress(address: string | undefined, propertyName: string) {
-  if (!address || typeof address !== 'string' || !isValidHexAddress(address)) {
+function validateAddress({
+  address,
+  propertyName,
+  impl,
+}: {
+  address: string | undefined;
+  propertyName: string;
+  impl?: string;
+}) {
+  let isValid = false;
+
+  if (address && typeof address === 'string') {
+    if (impl === IMPL_CFX) {
+      isValid = conflux.address.isValidCfxAddress(address);
+    } else {
+      isValid = isValidHexAddress(address);
+    }
+  }
+
+  if (!isValid) {
     throw new Error(
       `Invalid "${propertyName}" address: ${String(
         address,
@@ -182,7 +202,10 @@ function validateAddress(address: string | undefined, propertyName: string) {
   }
 }
 
-export function validateSignMessageData(unsignedMessage: IUnsignedMessageEth) {
+export function validateSignMessageData(
+  unsignedMessage: IUnsignedMessageEth,
+  impl?: string,
+) {
   const { payload = [] } = unsignedMessage;
   let message;
   let from;
@@ -192,7 +215,11 @@ export function validateSignMessageData(unsignedMessage: IUnsignedMessageEth) {
   } else if (unsignedMessage.type === EMessageTypesEth.ETH_SIGN) {
     [from, message] = payload as [string, string];
   }
-  validateAddress(from, 'from');
+  validateAddress({
+    address: from,
+    propertyName: 'from',
+    impl,
+  });
   if (!message || typeof message !== 'string') {
     throw new OneKeyError(
       `Invalid message: ${String(message)} must be a valid string.`,
@@ -202,13 +229,18 @@ export function validateSignMessageData(unsignedMessage: IUnsignedMessageEth) {
 
 export function validateTypedSignMessageDataV1(
   unsignedMessage: IUnsignedMessageEth,
+  impl?: string,
 ) {
   const { payload = [] } = unsignedMessage;
   const [message, from] = payload as [
     Array<{ name: string; type: string; value: string }>,
     string,
   ];
-  validateAddress(from, 'from');
+  validateAddress({
+    address: from,
+    propertyName: 'from',
+    impl,
+  });
 
   if (!message || !Array.isArray(message)) {
     throw new OneKeyError(
@@ -227,6 +259,7 @@ export function validateTypedSignMessageDataV1(
 export function validateTypedSignMessageDataV3V4(
   unsignedMessage: IUnsignedMessageEth,
   currentChainId: string | undefined,
+  impl?: string,
 ) {
   const { payload = [] } = unsignedMessage;
   const [from, message] = payload as [string, string];
@@ -235,7 +268,11 @@ export function validateTypedSignMessageDataV3V4(
     types: { EIP712Domain: { name: string; type: string }[] };
   };
 
-  validateAddress(from, 'from');
+  validateAddress({
+    address: from,
+    propertyName: 'from',
+    impl,
+  });
 
   if (
     !message ||
