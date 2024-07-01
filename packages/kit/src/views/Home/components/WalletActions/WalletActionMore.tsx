@@ -9,6 +9,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { useSupportNetworkId } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
@@ -25,11 +26,18 @@ import { RawActions } from './RawActions';
 export function WalletActionMore() {
   const [devSettings] = useDevSettingsPersistAtom();
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const { copyText } = useClipboard();
   const navigation = useAppNavigation();
+  const { handleOnReceive } = useReceiveToken({
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+    walletId: wallet?.id ?? '',
+    deriveInfo,
+    deriveType,
+  });
   const { result: isSupported } = useSupportNetworkId(
     network?.id ?? '',
     'sell',
@@ -55,7 +63,7 @@ export function WalletActionMore() {
         {
           label: intl.formatMessage({ id: ETranslations.global_copy_address }),
           icon: 'Copy1Outline',
-          onPress: () => copyText(account?.address || ''),
+          onPress: handleOnReceive,
         },
       ],
     },
