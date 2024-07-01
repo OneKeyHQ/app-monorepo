@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,7 +14,9 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { useSupportNetworkId } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalFiatCryptoRoutes,
   EModalRoutes,
@@ -42,6 +44,19 @@ export function WalletActionMore() {
     network?.id ?? '',
     'sell',
   );
+
+  const isSellDisabled = useMemo(() => {
+    if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
+      return true;
+    }
+
+    if (!isSupported) {
+      return true;
+    }
+
+    return false;
+  }, [isSupported, wallet?.type]);
+
   const sellCrypto = useCallback(() => {
     navigation.pushModal(EModalRoutes.FiatCryptoModal, {
       screen: EModalFiatCryptoRoutes.SellModal,
@@ -95,7 +110,7 @@ export function WalletActionMore() {
         {
           label: intl.formatMessage({ id: ETranslations.global_sell }),
           icon: 'MinusLargeOutline',
-          disabled: !isSupported,
+          disabled: isSellDisabled,
           onPress: sellCrypto,
         },
       ],
