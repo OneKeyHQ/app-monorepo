@@ -27,9 +27,12 @@ export const useShortcuts = () => {
   useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
     isAtDiscoveryTab.current = isFocus;
   });
-  useListenTabFocusState(ETabRoutes.MultiTabBrowser, (isFocus) => {
-    isAtBrowserTab.current = isFocus;
-  });
+  useListenTabFocusState(
+    ETabRoutes.MultiTabBrowser,
+    (isFocus, isHideByModal) => {
+      isAtBrowserTab.current = !isHideByModal && isFocus;
+    },
+  );
 
   const { activeTabId } = useActiveTabId();
   const { closeWebTab } = useBrowserTabActions().current;
