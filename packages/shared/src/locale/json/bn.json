@@ -715,6 +715,7 @@
   "global.reset": "রিসেট",
   "global.retry": "পুনরায় চেষ্টা করুন",
   "global.review_again": "পুনর্বিবেচনা করুন",
+  "global.revoke_approve": "{symbol} অনুমোদন প্রত্যাহার করুন",
   "global.sats": "স্যাটস",
   "global.saved_the_phrases": "আমি বাক্যাংশগুলি সংরক্ষণ করেছি",
   "global.saved_the_private_key": "আমি ব্যক্তিগত কী সংরক্ষণ করেছি",

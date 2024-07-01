@@ -715,6 +715,7 @@
   "global.reset": "重置",
   "global.retry": "重試",
   "global.review_again": "再次審查",
+  "global.revoke_approve": "撤銷 {symbol} 的額度",
   "global.sats": "聰",
   "global.saved_the_phrases": "我已保存助記詞",
   "global.saved_the_private_key": "我已經儲存了私鑰",

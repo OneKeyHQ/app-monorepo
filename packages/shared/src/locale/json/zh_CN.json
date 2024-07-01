@@ -715,6 +715,7 @@
   "global.reset": "重置",
   "global.retry": "重试",
   "global.review_again": "再次审查",
+  "global.revoke_approve": "撤销 {symbol} 授权额度",
   "global.sats": "聪",
   "global.saved_the_phrases": "我已保存助记词",
   "global.saved_the_private_key": "我已保存私钥",

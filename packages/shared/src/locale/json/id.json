@@ -715,6 +715,7 @@
   "global.reset": "Mengatur ulang",
   "global.retry": "Coba Lagi",
   "global.review_again": "Tinjau lagi",
+  "global.revoke_approve": "Mencabut izin {symbol}",
   "global.sats": "sats",
   "global.saved_the_phrases": "Saya telah menyimpan frasa-frasa tersebut",
   "global.saved_the_private_key": "Saya telah menyimpan kunci privat",

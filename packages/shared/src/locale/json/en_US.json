@@ -715,6 +715,7 @@
   "global.reset": "Reset",
   "global.retry": "Retry",
   "global.review_again": "Review again",
+  "global.revoke_approve": "Revoke {symbol} allowance",
   "global.sats": "sats",
   "global.saved_the_phrases": "I've saved the phrases",
   "global.saved_the_private_key": "I've saved the private key",

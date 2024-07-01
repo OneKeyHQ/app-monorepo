@@ -715,6 +715,7 @@
   "global.reset": "Resettare",
   "global.retry": "Riprova",
   "global.review_again": "Rivedi di nuovo",
+  "global.revoke_approve": "Revoca l'autorizzazione di {symbol}",
   "global.sats": "sats",
   "global.saved_the_phrases": "Ho salvato le frasi",
   "global.saved_the_private_key": "Ho salvato la chiave privata",
