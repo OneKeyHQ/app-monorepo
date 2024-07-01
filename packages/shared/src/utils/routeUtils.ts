@@ -141,9 +141,6 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
 
   if (platformEnv.isDev) {
     Object.values(EGalleryRoutes).forEach((pageName) => {
-      console.log(
-        pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${pageName}`,
-      );
       rules[pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${pageName}`] = {
         showUrl: true,
         showParams: true,
