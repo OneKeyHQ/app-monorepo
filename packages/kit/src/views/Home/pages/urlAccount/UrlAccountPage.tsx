@@ -142,7 +142,14 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         } catch (error) {
           console.error('UrlAccountAutoCreate error: ', error);
           Toast.error({
-            title: `Unsupported address or network: ${routeAddress}`,
+            title: intl.formatMessage(
+              {
+                id: ETranslations.feedback_unsupported_address_or_network,
+              },
+              {
+                routeAddress,
+              },
+            ),
           });
           hasError = true;
         }
