@@ -11,7 +11,6 @@ export function registerShortcuts(
     Object.entries(shortcutsMap).forEach(([event, { keys }]) => {
       if (keys) {
         globalShortcut.register(keys, () => {
-          console.log('shortcut', event);
           callback(event as EBrowserShortcutEvents);
         });
       }
