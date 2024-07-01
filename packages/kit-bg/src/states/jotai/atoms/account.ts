@@ -12,10 +12,21 @@ export type IAccountIsAutoCreatingAtom =
       deriveType: IAccountDeriveTypes;
     }
   | undefined;
+export type IAccountManualCreatingAtom = {
+  isLoading: boolean;
+};
 export const {
   target: accountIsAutoCreatingAtom,
   use: useAccountIsAutoCreatingAtom,
 } = globalAtom<IAccountIsAutoCreatingAtom>({
   name: EAtomNames.accountIsAutoCreatingAtom,
   initialValue: undefined,
+});
+
+export const {
+  target: accountManualCreatingAtom,
+  use: useAccountManualCreatingAtom,
+} = globalAtom<IAccountManualCreatingAtom>({
+  name: EAtomNames.accountManualCreatingAtom,
+  initialValue: { isLoading: false },
 });
