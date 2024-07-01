@@ -86,10 +86,10 @@ function SignMessageModal() {
           unsignedMessage.type === EMessageTypesEth.ETH_SIGN ||
           unsignedMessage.type === EMessageTypesEth.PERSONAL_SIGN
         ) {
-          validateSignMessageData(unsignedMessage);
+          validateSignMessageData(unsignedMessage, currentNetwork?.impl);
         }
         if (unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V1) {
-          validateTypedSignMessageDataV1(unsignedMessage);
+          validateTypedSignMessageDataV1(unsignedMessage, currentNetwork?.impl);
         }
         if (
           unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
@@ -98,6 +98,7 @@ function SignMessageModal() {
           validateTypedSignMessageDataV3V4(
             unsignedMessage,
             networkUtils.getNetworkChainId({ networkId }),
+            currentNetwork?.impl,
           );
         }
       } catch (e: any) {
@@ -131,7 +132,14 @@ function SignMessageModal() {
         setIsLoading(false);
       }
     },
-    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo],
+    [
+      unsignedMessage,
+      currentNetwork?.impl,
+      networkId,
+      dappApprove,
+      accountId,
+      $sourceInfo,
+    ],
   );
 
   return (
