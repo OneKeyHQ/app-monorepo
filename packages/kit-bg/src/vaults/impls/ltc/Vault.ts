@@ -1,3 +1,5 @@
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+
 import VaultBtc from '../btc/Vault';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -10,6 +12,8 @@ import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 
 export default class Vault extends VaultBtc {
+  override coreApi = coreChainApi.ltc.hd;
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: KeyringQr,
