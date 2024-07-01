@@ -1,8 +1,11 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Toast } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePasswordWebAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import WebAuthSwitch from '../components/WebAuthSwitch';
@@ -15,6 +18,7 @@ interface IWebAuthSwitchContainerProps {
 const WebAuthSwitchContainer = ({
   skipRegistration,
 }: IWebAuthSwitchContainerProps) => {
+  const intl = useIntl();
   const [{ isSupport, isEnable }] = usePasswordWebAuthInfoAtom();
   const { setWebAuthEnable } = useWebAuthActions();
   const [settingsPersistAtom] = useSettingsPersistAtom();
@@ -37,11 +41,12 @@ const WebAuthSwitchContainer = ({
         }
         await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(checked);
       } catch (e: any) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        Toast.error({ title: e?.message || 'Failed to set web auth' });
+        Toast.error({
+          title: intl.formatMessage({ id: ETranslations.Toast_web_auth }),
+        });
       }
     },
-    [setWebAuthEnable, skipRegistration],
+    [setWebAuthEnable, skipRegistration, intl],
   );
   return (
     <WebAuthSwitch
