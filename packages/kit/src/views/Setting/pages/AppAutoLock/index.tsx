@@ -56,6 +56,29 @@ const EnableSystemIdleTimeItem = () => {
   );
 };
 
+const AutoLockDurationDescription = () => {
+  const intl = useIntl();
+  let text = intl.formatMessage({
+    id: ETranslations.settings_set_auto_lock_duration_desktop,
+  });
+  if (platformEnv.isExtension) {
+    text = intl.formatMessage({
+      id: ETranslations.settings_set_auto_lock_duration_extension,
+    });
+  } else if (platformEnv.isWeb) {
+    text = intl.formatMessage({
+      id: ETranslations.settings_set_auto_lock_duration_web,
+    });
+  }
+  return (
+    <Stack px="$5" pb="$5">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {text}
+      </SizableText>
+    </Stack>
+  );
+};
+
 const AppAutoLock = () => {
   const intl = useIntl();
   const [settings] = usePasswordPersistAtom();
@@ -78,6 +101,7 @@ const AppAutoLock = () => {
             options={options}
           />
         </Stack>
+        <AutoLockDurationDescription />
         {platformEnv.isExtension || platformEnv.isDesktop ? (
           <EnableSystemIdleTimeItem />
         ) : null}

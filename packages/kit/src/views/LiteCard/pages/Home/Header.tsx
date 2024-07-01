@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
@@ -9,15 +7,12 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
-import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { LITE_CARD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 export function Header() {
   const intl = useIntl();
-  const locale = useLocaleVariant();
-  const url = useMemo(() => `${LITE_CARD_URL}?language=${locale}`, [locale]);
   return (
     <LinearGradient
       colors={['rgba(222, 226, 229, 0.45)', 'rgba(222, 226, 229, 1)']}
@@ -60,7 +55,7 @@ export function Header() {
         iconColor="white"
         focusStyle={{ bg: 'rgba(0, 0, 0, 0.75)' }}
         hoverStyle={{ bg: 'rgba(0, 0, 0, 0.75)' }}
-        onPress={() => openUrlExternal(url)}
+        onPress={() => openUrlExternal(LITE_CARD_URL)}
       >
         {intl.formatMessage({ id: ETranslations.global_get_one })}
       </Button>

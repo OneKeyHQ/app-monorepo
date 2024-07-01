@@ -169,12 +169,6 @@ export const DefaultSection = () => {
           }}
         />
       ) : null}
-      {/* <ListItem
-        icon="RepeatOutline"
-        title="Migration"
-        drillIn
-        onPress={() => {}}
-      /> */}
       {platformEnv.isNative ? (
         <ListItem
           icon="OnekeyLiteOutline"

@@ -34,8 +34,24 @@ const getLanguage = (symbol: string): string => {
   return languageName || symbol;
 };
 
-const LOCALES_OPTION = Object.keys(LOCALES).map((key) => ({
-  value: key,
+const PRIORITY_LOCALE_KEYS: ILocaleSymbol[] = [
+  'en-US',
+  'zh-CN',
+  'zh-HK',
+  'zh-TW',
+  'ja-JP',
+  'ko-KR',
+];
+
+const LOCALES_KEYS = [
+  ...PRIORITY_LOCALE_KEYS,
+  ...Object.keys(LOCALES).filter(
+    (o) => !PRIORITY_LOCALE_KEYS.includes(o as ILocaleSymbol),
+  ),
+];
+
+const LOCALES_OPTION = LOCALES_KEYS.map((key) => ({
+  value: key as ILocaleSymbol,
   label: getLanguage(key),
 }));
 

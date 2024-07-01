@@ -20,7 +20,8 @@ export const FIRMWARE_UPDATE_BRIDGE_GUIDE =
   'https://help.onekey.so/hc/articles/9740566472335';
 
 export const HELP_CENTER_URL = 'https://help.onekey.so/hc';
-export const LITE_CARD_URL = 'https://lite.onekey.so/';
+export const LITE_CARD_URL =
+  'https://onekey.so/products/onekey-lite-hardware-wallet/';
 export const BRIDGE_STATUS_URL = 'http://127.0.0.1:21320/status/';
 export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
@@ -48,7 +49,7 @@ export const APP_STORE_LINK = `itms-apps://apps.apple.com/app/id1609559473?actio
 export const PLAY_STORE_LINK = `market://details?id=so.onekey.app.wallet`;
 
 export const ONEKEY_KEY_TAG_PURCHASE_URL =
-  'https://onekey.so/zh_CN/products/onekey-keytag/';
+  'https://onekey.so/products/onekey-keytag/';
 
 export const BIP39_DOT_MAP_URL = 'https://github.com/OneKeyHQ/bip39-dotmap';
 
