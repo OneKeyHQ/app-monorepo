@@ -165,7 +165,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
     const tableRowConfig: ITableColumnConfig = {
       'serialNumber': (item) => (
         <SizableText size="$bodyMd" color="$textSubdued" selectable={false}>
-          {item.serialNumber || '-'}
+          {item.serialNumber ?? '-'}
         </SizableText>
       ),
       'symbol': (item) => (
