@@ -87,6 +87,7 @@ export function useLidoWithdraw({
           unsignedMessage: {
             type: EMessageTypesEth.TYPED_DATA_V4,
             message,
+            payload: [account.address, message],
           },
           sceneName: EAccountSelectorSceneName.home,
         })) as string;
