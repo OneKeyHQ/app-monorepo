@@ -245,7 +245,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
       })
       .then((selection) => {
         if (selection.response === 0) {
-          // User clicked 'Install and Restart'
+          logger.info('auto-update', "User clicked 'Install and Restart'");
           app.removeAllListeners('window-all-closed');
           mainWindow.removeAllListeners('close');
           for (const window of BrowserWindow.getAllWindows()) {
