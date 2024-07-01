@@ -305,7 +305,7 @@ function HistoryDetails() {
             ? true
             : new BigNumber(utxoSends.length ?? 0)
                 .plus(utxoReceives.length ?? 0)
-                .eq(1),
+                .isLessThanOrEqualTo(1),
       };
     }
 
