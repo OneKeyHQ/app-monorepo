@@ -715,6 +715,7 @@
   "global.reset": "초기화",
   "global.retry": "다시 시도",
   "global.review_again": "다시 검토하다",
+  "global.revoke_approve": "{symbol} 허용 취소",
   "global.sats": "사츠",
   "global.saved_the_phrases": "저는 문구들을 저장했습니다",
   "global.saved_the_private_key": "나는 개인 키를 저장했습니다",

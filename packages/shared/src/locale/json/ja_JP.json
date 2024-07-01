@@ -715,6 +715,7 @@
   "global.reset": "リセット",
   "global.retry": "再試行",
   "global.review_again": "再度レビューする",
+  "global.revoke_approve": "{symbol}の許可を取り消す",
   "global.sats": "サツ",
   "global.saved_the_phrases": "フレーズを保存しました",
   "global.saved_the_private_key": "プライベートキーを保存しました",

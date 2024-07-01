@@ -715,6 +715,7 @@
   "global.reset": "Сброс",
   "global.retry": "Повторить",
   "global.review_again": "Пересмотреть еще раз",
+  "global.revoke_approve": "Отменить разрешение {symbol}",
   "global.sats": "сатс",
   "global.saved_the_phrases": "Я сохранил фразы",
   "global.saved_the_private_key": "Я сохранил приватный ключ",

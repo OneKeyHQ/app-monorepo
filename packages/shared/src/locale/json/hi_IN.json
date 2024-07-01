@@ -715,6 +715,7 @@
   "global.reset": "रीसेट",
   "global.retry": "पुनः प्रयास करें",
   "global.review_again": "फिर से समीक्षा करें",
+  "global.revoke_approve": "{symbol} की अनुमति रद्द करें",
   "global.sats": "सत्स",
   "global.saved_the_phrases": "मैंने वाक्यांशों को सहेज लिया है",
   "global.saved_the_private_key": "मैंने प्राइवेट की सेव कर ली है",

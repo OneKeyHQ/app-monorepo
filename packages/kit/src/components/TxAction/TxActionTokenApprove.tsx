@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { NumberSizeableText } from '@onekeyhq/components';
@@ -54,9 +55,10 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     approveName,
     approveSymbol,
     approveIsMax,
+    approveLabel,
   } = getTxActionTokenApproveInfo(props);
 
-  const title = intl.formatMessage({ id: ETranslations.global_approve });
+  let title = approveLabel;
   const avatar: ITxActionCommonListViewProps['avatar'] = {
     src: approveIcon,
   };
@@ -65,6 +67,23 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       address: approveSpender,
     }),
   };
+
+  if (!title) {
+    if (new BigNumber(approveAmount).eq(0)) {
+      title = intl.formatMessage(
+        {
+          id: ETranslations.global_revoke_approve,
+        },
+        {
+          symbol: approveSymbol,
+        },
+      );
+    } else {
+      title = intl.formatMessage({
+        id: ETranslations.global_approve,
+      });
+    }
+  }
 
   const changeDescription = (
     <NumberSizeableText
@@ -118,19 +137,31 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     approveIsMax,
   } = getTxActionTokenApproveInfo(props);
 
-  const content =
-    approveLabel ||
-    intl.formatMessage(
-      { id: ETranslations.form__approve_str },
-      {
-        amount: approveIsMax
-          ? intl.formatMessage({
-              id: ETranslations.swap_page_provider_approve_amount_un_limit,
-            })
-          : approveAmount,
-        symbol: approveSymbol,
-      },
-    );
+  let content = approveLabel;
+  if (!content) {
+    if (new BigNumber(approveAmount).eq(0)) {
+      content = intl.formatMessage(
+        {
+          id: ETranslations.global_revoke_approve,
+        },
+        {
+          symbol: approveSymbol,
+        },
+      );
+    } else {
+      content = intl.formatMessage(
+        { id: ETranslations.form__approve_str },
+        {
+          amount: approveIsMax
+            ? intl.formatMessage({
+                id: ETranslations.swap_page_provider_approve_amount_un_limit,
+              })
+            : approveAmount,
+          symbol: approveSymbol,
+        },
+      );
+    }
+  }
 
   return (
     <TxActionCommonDetailView

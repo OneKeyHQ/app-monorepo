@@ -716,6 +716,7 @@ export enum ETranslations {
   global_reset = 'global.reset',
   global_retry = 'global.retry',
   global_review_again = 'global.review_again',
+  global_revoke_approve = 'global.revoke_approve',
   global_sats = 'global.sats',
   global_saved_the_phrases = 'global.saved_the_phrases',
   global_saved_the_private_key = 'global.saved_the_private_key',

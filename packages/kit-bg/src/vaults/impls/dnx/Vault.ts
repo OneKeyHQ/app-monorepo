@@ -330,12 +330,13 @@ export default class Vault extends VaultBase {
   _validateAddressCache = memoizee(
     async (address: string) => {
       try {
-        const res = await this.backgroundApi.serviceValidator.validateAddress({
-          networkId: this.networkId,
-          address,
-        });
+        const res =
+          await this.backgroundApi.serviceValidator.serverValidateAddress({
+            networkId: this.networkId,
+            address,
+          });
 
-        if (res === 'valid') {
+        if (res.data.data.isValid) {
           return {
             normalizedAddress: address,
             displayAddress: address,

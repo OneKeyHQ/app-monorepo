@@ -108,21 +108,42 @@ export function AssetItem({
   const amountAbs = new BigNumber(amount).abs().toFixed();
 
   if (isApprove) {
-    primary = (
-      <SizableText textAlign="right" size="$bodyLgMedium" color="$textSuccess">
-        {isApproveUnlimited
-          ? intl.formatMessage({
-              id: ETranslations.swap_page_button_approve_unlimited,
-            })
-          : intl.formatMessage(
-              { id: ETranslations.form__approve_str },
-              {
-                amount: amountAbs,
-                symbol: asset.symbol,
-              },
-            )}
-      </SizableText>
-    );
+    if (new BigNumber(amountAbs).eq(0)) {
+      primary = (
+        <SizableText
+          textAlign="right"
+          size="$bodyLgMedium"
+          color="$textSuccess"
+        >
+          {intl.formatMessage(
+            { id: ETranslations.global_revoke_approve },
+            {
+              symbol: asset.symbol,
+            },
+          )}
+        </SizableText>
+      );
+    } else {
+      primary = (
+        <SizableText
+          textAlign="right"
+          size="$bodyLgMedium"
+          color="$textSuccess"
+        >
+          {isApproveUnlimited
+            ? intl.formatMessage({
+                id: ETranslations.swap_page_button_approve_unlimited,
+              })
+            : intl.formatMessage(
+                { id: ETranslations.form__approve_str },
+                {
+                  amount: amountAbs,
+                  symbol: asset.symbol,
+                },
+              )}
+        </SizableText>
+      );
+    }
   } else if (!amount) {
     primary = (
       <SizableText textAlign="right" size="$bodyLgMedium" color="$text">

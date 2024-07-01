@@ -715,6 +715,7 @@
   "global.reset": "Cài lại",
   "global.retry": "Thử lại",
   "global.review_again": "Xem lại",
+  "global.revoke_approve": "Hủy bỏ {symbol} cho phép",
   "global.sats": "sats",
   "global.saved_the_phrases": "Tôi đã lưu các cụm từ",
   "global.saved_the_private_key": "Tôi đã lưu khóa riêng",

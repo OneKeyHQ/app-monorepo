@@ -715,6 +715,7 @@
   "global.reset": "Скинути",
   "global.retry": "Повторити",
   "global.review_again": "Перегляньте ще раз",
+  "global.revoke_approve": "Скасувати дозвіл на {symbol}",
   "global.sats": "sats",
   "global.saved_the_phrases": "Я зберіг фрази",
   "global.saved_the_private_key": "Я зберіг приватний ключ",

@@ -715,6 +715,7 @@
   "global.reset": "重設",
   "global.retry": "重試",
   "global.review_again": "再次審查",
+  "global.revoke_approve": "撤銷 {symbol} 津貼",
   "global.sats": "聰",
   "global.saved_the_phrases": "我已儲存助記詞",
   "global.saved_the_private_key": "我已儲存私鑰",
