@@ -173,6 +173,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
       }
     }, 0);
   }, [
+    intl,
     actions,
     navigation,
     redirectMode,
