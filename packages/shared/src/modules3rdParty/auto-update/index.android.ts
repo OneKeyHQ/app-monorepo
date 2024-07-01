@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { NativeEventEmitter, NativeModules } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
@@ -78,6 +78,19 @@ export const useDownloadProgress: IUseDownloadProgress = (
     10,
   );
 
+  const handleSuccess = useCallback(() => {
+    defaultLogger.update.app.log('downloaded');
+    onSuccess();
+  }, [onSuccess]);
+
+  const handleFailed = useCallback(
+    (params: { message: string }) => {
+      defaultLogger.update.app.log('error', params.message);
+      onFailed(params);
+    },
+    [onFailed],
+  );
+
   useEffect(() => {
     const onStartEventListener = eventEmitter.addListener(
       'update/start',
@@ -92,11 +105,11 @@ export const useDownloadProgress: IUseDownloadProgress = (
     );
     const onDownloadedEventListener = eventEmitter.addListener(
       'update/downloaded',
-      onSuccess,
+      handleSuccess,
     );
     const onErrorEventListener = eventEmitter.addListener(
       'update/error',
-      onFailed,
+      handleFailed,
     );
     return () => {
       onStartEventListener.remove();
@@ -104,6 +117,6 @@ export const useDownloadProgress: IUseDownloadProgress = (
       onDownloadedEventListener.remove();
       onErrorEventListener.remove();
     };
-  }, [onFailed, onSuccess, updatePercent]);
+  }, [handleFailed, handleSuccess, onFailed, onSuccess, updatePercent]);
   return percent;
 };
