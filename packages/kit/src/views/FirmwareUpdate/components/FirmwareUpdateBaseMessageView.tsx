@@ -75,7 +75,7 @@ function UpdateErrorTroubleshooting() {
               size="$bodyMd"
               color="$textSubdued"
               linkList={{
-                url: FIRMWARE_CONTACT_US_URL,
+                url: { url: FIRMWARE_CONTACT_US_URL },
               }}
             >
               {text}
