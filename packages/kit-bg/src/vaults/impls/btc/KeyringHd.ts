@@ -1,17 +1,11 @@
-import bs58check from 'bs58check';
-
-import {
-  checkBtcAddressIsUsed,
-  getBtcForkNetwork,
-} from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { checkBtcAddressIsUsed } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { type ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type VaultBtc from './Vault';
-import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
+import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IExportAccountSecretKeysParams,
   IExportAccountSecretKeysResult,

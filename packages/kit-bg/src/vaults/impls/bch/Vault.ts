@@ -3,6 +3,7 @@ import {
   encodeAddress,
 } from '@onekeyhq/core/src/chains/bch/sdkBch';
 import { validateBtcAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 
 import VaultBtc from '../btc/Vault';
 
@@ -16,6 +17,8 @@ import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 
 export default class Vault extends VaultBtc {
+  override coreApi = coreChainApi.bch.hd;
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: KeyringQr,

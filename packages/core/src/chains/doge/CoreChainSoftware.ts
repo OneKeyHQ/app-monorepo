@@ -21,6 +21,14 @@ export default class CoreChainSoftware extends CoreChainSoftwareBtc {
     return Promise.resolve('DOGE');
   }
 
+  override async getXpubRegex() {
+    return '^[d]gub';
+  }
+
+  override async getXprvRegex() {
+    return '^[d]gpv';
+  }
+
   override getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
     return new Psbt({
       network,

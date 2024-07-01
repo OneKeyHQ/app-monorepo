@@ -102,6 +102,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return Promise.resolve(network.isTestnet ? 'TEST' : 'BTC');
   }
 
+  async getXpubRegex() {
+    return '^[xyz]pub';
+  }
+
+  async getXprvRegex() {
+    return '^xprv';
+  }
+
   protected decodeAddress(address: string): string {
     return address;
   }

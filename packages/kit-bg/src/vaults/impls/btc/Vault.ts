@@ -16,6 +16,7 @@ import type {
   IEncodedTxBtc,
   IOutputsForCoinSelect,
 } from '@onekeyhq/core/src/chains/btc/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -82,6 +83,8 @@ import type {
 
 // btc vault
 export default class VaultBtc extends VaultBase {
+  override coreApi = coreChainApi.btc.hd;
+
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
@@ -359,10 +362,24 @@ export default class VaultBtc extends VaultBase {
   }
 
   override async validateXpub(xpub: string): Promise<IXpubValidation> {
+    const xpubRegexString = await this.coreApi.getXpubRegex();
+    const xpubRegex = new RegExp(xpubRegexString);
+    if (!xpubRegex.test(xpub)) {
+      return {
+        isValid: false,
+      };
+    }
     return Promise.resolve(validateBtcXpub({ xpub }));
   }
 
   override async validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+    const xprvRegexString = await this.coreApi.getXprvRegex();
+    const xprvRegex = new RegExp(xprvRegexString);
+    if (!xprvRegex.test(xprvt)) {
+      return {
+        isValid: false,
+      };
+    }
     return Promise.resolve(validateBtcXprvt({ xprvt }));
   }
 
