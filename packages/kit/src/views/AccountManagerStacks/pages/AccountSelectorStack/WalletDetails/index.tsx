@@ -476,7 +476,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                     deriveType: selectedAccount.deriveType,
                   }}
                 >
-                  <Icon name="PlusSmallOutline" />
+                  <Stack ai="center" jc="center">
+                    <Icon name="PlusSmallOutline" />
+                  </Stack>
                 </AccountSelectorCreateAddressButton>
               );
             }

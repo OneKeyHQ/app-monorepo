@@ -194,7 +194,7 @@ function OverviewMarketVOL({
             currency
             title={intl.formatMessage({ id: ETranslations.global_fdv })}
           >
-            {fdv}
+            {fdv ?? '-'}
           </OverviewMarketVOLItem>
           <OverviewMarketVOLItem
             title={intl.formatMessage({
@@ -210,7 +210,7 @@ function OverviewMarketVOL({
               id: ETranslations.global_total_supply,
             })}
           >
-            {totalSupply}
+            {totalSupply ?? '-'}
           </OverviewMarketVOLItem>
           <OverviewMarketVOLItem
             title={intl.formatMessage({

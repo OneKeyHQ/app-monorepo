@@ -63,7 +63,7 @@ export function MarketDetailLinks({
         <XStack space="$3">
           {homePageUrl ? (
             <Button
-              icon="EarthOutline"
+              icon="GlobusOutline"
               iconAfter="OpenOutline"
               onPress={() => openUrlExternal(homePageUrl)}
             >

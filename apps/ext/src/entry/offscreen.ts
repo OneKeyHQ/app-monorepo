@@ -24,4 +24,3 @@ timer = setInterval(
   checkPortEstablished,
   timerUtils.getTimeDurationMs({ seconds: 5 }),
 );
-// console.log('offscreen');
