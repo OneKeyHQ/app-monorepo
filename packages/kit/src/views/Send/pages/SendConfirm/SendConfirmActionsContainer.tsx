@@ -2,8 +2,9 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Page, Toast, usePageUnMounted } from '@onekeyhq/components';
+import { Page, Toast, usePageUnMounted } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
@@ -97,17 +98,26 @@ function SendConfirmActionsContainer(props: IProps) {
       throw e;
     }
 
-    const newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSend({
-      accountId,
-      networkId,
-      unsignedTxs,
-      feeInfo: sendSelectedFeeInfo,
-      nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
-        ? {
-            maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
-          }
-        : undefined,
-    });
+    let newUnsignedTxs: IUnsignedTxPro[];
+    try {
+      newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSend({
+        accountId,
+        networkId,
+        unsignedTxs,
+        feeInfo: sendSelectedFeeInfo,
+        nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
+          ? {
+              maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
+            }
+          : undefined,
+      });
+    } catch (e: any) {
+      setIsSubmitting(false);
+      onFail?.(e as Error);
+      isSubmitted.current = false;
+      void dappApprove.reject(e);
+      throw e;
+    }
 
     // fee info pre-check
     if (sendSelectedFeeInfo) {

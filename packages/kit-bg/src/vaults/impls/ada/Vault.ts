@@ -23,6 +23,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InsufficientBalance,
   InvalidAddress,
+  LowerTransactionAmountError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -161,11 +162,7 @@ export default class Vault extends VaultBase {
         [utxoValueTooSmall, insufficientBalance].includes(e.code) ||
         [utxoValueTooSmall, insufficientBalance].includes(e.message)
       ) {
-        throw new InsufficientBalance({
-          info: {
-            symbol: tokenInfo?.symbol ?? '',
-          },
-        });
+        throw new LowerTransactionAmountError();
       }
       throw e;
     }

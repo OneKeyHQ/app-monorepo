@@ -722,3 +722,14 @@ export class AddressNotSupportSignMethodError extends OneKeyError {
     );
   }
 }
+
+export class LowerTransactionAmountError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'LowerTransactionAmountError',
+        defaultKey: ETranslations.send_amount_invalid,
+      }),
+    );
+  }
+}
