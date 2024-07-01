@@ -203,7 +203,9 @@ class ProviderApiEthereum extends ProviderApiBase {
       request,
     );
     if (!isNil(networks?.[0]?.chainId)) {
-      return hexUtils.hexlify(Number(networks?.[0]?.chainId));
+      return hexUtils.hexlify(Number(networks?.[0]?.chainId), {
+        removeZeros: true,
+      });
     }
 
     return this._getNetworkMockInfo().chainId;
@@ -504,6 +506,9 @@ class ProviderApiEthereum extends ProviderApiBase {
     await this._switchEthereumChainMemo(request, params);
 
     this.notifyNetworkChangedToDappSite(request.origin ?? '');
+    void this.backgroundApi.serviceDApp.notifyDAppChainChanged(
+      request.origin ?? '',
+    );
     // Metamask return null
     return null;
   }
