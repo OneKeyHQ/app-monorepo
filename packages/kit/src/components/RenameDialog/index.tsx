@@ -40,7 +40,6 @@ function V4AccountNameSelector({
           indexedAccountId: indexedAccount.id,
         },
       );
-    console.log(accounts);
     return accounts
       .map((account) => {
         const networkId = v4CoinTypeToNetworkId[account.coinType];
@@ -85,7 +84,6 @@ function V4AccountNameSelector({
         title={intl.formatMessage({
           id: ETranslations.v4_select_account_name_label,
         })}
-        onOpenChange={console.log}
       />
     </Stack>
   );

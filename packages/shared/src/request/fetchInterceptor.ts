@@ -3,7 +3,9 @@ import { forEach, isNil, isString } from 'lodash';
 
 import { checkIsOneKeyDomain } from '@onekeyhq/kit-bg/src/endpoints';
 
-import { getRequestHeaders } from './Interceptor';
+import { defaultLogger } from '../logger/logger';
+
+import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
 
 function getUrlFromResource(resource: RequestInfo | URL | string) {
   if (isString(resource)) {
@@ -53,8 +55,10 @@ const newFetch = async function (
 
   const url = getUrlFromResource(resource);
   const isOneKeyDomain = await checkIsOneKeyDomain(url);
+  let requestId: string | undefined;
   if (isOneKeyDomain) {
     const headers = await getRequestHeaders();
+    requestId = headers[HEADER_REQUEST_ID_KEY];
     forEach(headers, (val, key) => {
       if (
         key &&
@@ -69,6 +73,8 @@ const newFetch = async function (
       options.headers[key] = val;
     });
   }
+
+  defaultLogger.app.network.call('fetch', options.method, url, requestId);
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
   return (

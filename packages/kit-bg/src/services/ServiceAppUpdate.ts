@@ -9,7 +9,6 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -35,9 +34,7 @@ class ServiceAppUpdate extends ServiceBase {
     const response = await client.get<{
       code: number;
       data: IResponseAppUpdateInfo;
-    }>('/utility/v1/app-update', {
-      headers: await getRequestHeaders(),
-    });
+    }>('/utility/v1/app-update');
     const { code, data } = response.data;
     if (code === 0) {
       this.updateAt = Date.now();
