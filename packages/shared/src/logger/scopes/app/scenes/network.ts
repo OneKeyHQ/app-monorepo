@@ -2,7 +2,7 @@ import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../decorators';
 
 export class NetworkScene extends BaseScene {
-  @LogToLocal({ level: 'info' })
+  @LogToLocal({ level: 'debug' })
   public call(
     requestType: string,
     method = 'GET',
