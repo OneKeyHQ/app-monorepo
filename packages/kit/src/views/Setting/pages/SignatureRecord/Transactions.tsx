@@ -287,7 +287,7 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
         </SizableText>
         <IconButton
           variant="tertiary"
-          icon="OpenOutline"
+          icon={item.hash ? 'OpenOutline' : 'GlobusOutline'}
           size="small"
           onPress={onPress}
         />

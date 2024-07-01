@@ -268,7 +268,7 @@ function createMainWindow() {
   }
 
   browserWindow.webContents.on('did-finish-load', () => {
-    console.log('browserWindow >>>> did-finish-load');
+    logger.info('browserWindow >>>> did-finish-load');
     browserWindow.webContents.send(ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS, {
       resourcesPath: (global as any).resourcesPath,
       staticPath: `file://${staticPath}`,
@@ -283,7 +283,7 @@ function createMainWindow() {
   browserWindow.on('closed', () => {
     mainWindow = null;
     isAppReady = false;
-    console.log('set isAppReady on browserWindow closed', isAppReady);
+    logger.info('set isAppReady on browserWindow closed', isAppReady);
   });
 
   browserWindow.webContents.on('devtools-opened', () => {
@@ -296,7 +296,7 @@ function createMainWindow() {
   // dom-ready is fired after ipcMain:app/ready
   browserWindow.webContents.on('dom-ready', () => {
     isAppReady = true;
-    console.log('set isAppReady on browserWindow dom-ready', isAppReady);
+    logger.info('set isAppReady on browserWindow dom-ready', isAppReady);
   });
 
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -306,7 +306,7 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_READY, () => {
     isAppReady = true;
-    console.log('set isAppReady on ipcMain app/ready', isAppReady);
+    logger.info('set isAppReady on ipcMain app/ready', isAppReady);
     emitter.emit('ready');
   });
   ipcMain.on(ipcMessageKeys.APP_READY, () => {
@@ -730,7 +730,7 @@ app.on('will-finish-launching', () => {
   app.on('open-url', handleDeepLinkUrl);
 });
 
-console.log(' ========= Desktop main app start!!!!!!!!!!!!!  ========== ');
+logger.info(' ========= Desktop main app start!!!!!!!!!!!!!  ========== ');
 const userDataPath = app.getPath('userData');
 console.log(JSON.stringify({ userDataPath }, null, 2));
-console.log(' ===================');
+logger.info(' =================== ');
