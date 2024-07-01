@@ -101,6 +101,27 @@ export function useSwapActionState() {
   const hasError = alerts.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );
+  const quoteResultNoMatch = useMemo(
+    () =>
+      (quoteCurrentSelect &&
+        (quoteCurrentSelect.fromTokenInfo.networkId !== fromToken?.networkId ||
+          quoteCurrentSelect.toTokenInfo.networkId !== toToken?.networkId ||
+          quoteCurrentSelect.fromTokenInfo.contractAddress !==
+            fromToken?.contractAddress ||
+          quoteCurrentSelect.toTokenInfo.contractAddress !==
+            toToken?.contractAddress)) ||
+      (quoteCurrentSelect?.allowanceResult &&
+        quoteCurrentSelect.allowanceResult.amount !== fromTokenAmount),
+    [
+      fromToken?.contractAddress,
+      fromToken?.networkId,
+      fromTokenAmount,
+      quoteCurrentSelect,
+      toToken?.contractAddress,
+      toToken?.networkId,
+    ],
+  );
+
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
@@ -185,7 +206,7 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
-      if (isRefreshQuote && !quoteLoading) {
+      if (isRefreshQuote || quoteResultNoMatch) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_refresh_quotes,
         });
@@ -202,6 +223,7 @@ export function useSwapActionState() {
     isRefreshQuote,
     quoteCurrentSelect,
     quoteLoading,
+    quoteResultNoMatch,
     selectedFromTokenBalance,
     swapFromAddressInfo.address,
     swapQuoteApproveAllowanceUnLimit,
@@ -219,7 +241,7 @@ export function useSwapActionState() {
     shoutResetApprove:
       !!quoteCurrentSelect?.allowanceResult?.shouldResetApprove,
     isWrapped: !!quoteCurrentSelect?.isWrapped,
-    isRefreshQuote: isRefreshQuote && !quoteLoading,
+    isRefreshQuote: (isRefreshQuote || quoteResultNoMatch) && !quoteLoading,
   };
   return stepState;
 }

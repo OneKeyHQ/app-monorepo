@@ -24,10 +24,13 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
 }) => (
   <DeriveTypeSelectorTriggerStandAlone
     networkId={networkId}
-    miniMode
     placement="bottom-end"
     renderTrigger={({ label }) => (
-      <ListItem title={title} avatarProps={{ src: icon }}>
+      <ListItem
+        userSelect="none"
+        title={title}
+        avatarProps={{ src: icon, size: '$8' }}
+      >
         <XStack>
           <SizableText mr="$3">{label}</SizableText>
           <ListItem.DrillIn name="ChevronDownSmallSolid" />
@@ -65,26 +68,16 @@ const AccountDerivation = () => {
         </SizableText>
       </Stack>
       {!isLoading ? (
-        <AccountSelectorProviderMirror
-          enabledNum={enabledNum}
-          config={{
-            // TODO remove
-            sceneName: EAccountSelectorSceneName.settings,
-            sceneUrl: '',
-          }}
-          availableNetworksMap={availableNetworksMap}
-        >
-          <Stack>
-            {items.map((o) => (
-              <AccountDerivationListItem
-                key={o.icon}
-                title={o.title}
-                icon={o.icon}
-                networkId={o.defaultNetworkId}
-              />
-            ))}
-          </Stack>
-        </AccountSelectorProviderMirror>
+        <Stack>
+          {items.map((o) => (
+            <AccountDerivationListItem
+              key={o.icon}
+              title={o.title}
+              icon={o.icon}
+              networkId={o.defaultNetworkId}
+            />
+          ))}
+        </Stack>
       ) : null}
     </Page>
   );

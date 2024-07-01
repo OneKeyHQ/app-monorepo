@@ -1,9 +1,15 @@
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 
+import {
+  cloudBackupPersistAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms';
+
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 
 import type { IV4ReduxSettingsState } from './v4types/v4typesRedux';
+import type { ICloudBackupPersistAtom } from '../../states/jotai/atoms';
 
 const validThemeValue = ['light', 'dark', 'system'];
 
@@ -16,11 +22,36 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
     return reduxData?.settings;
   }
 
-  async convertV4SettingsToV5() {
+  async migrateBaseSettings() {
     const v4Settings = await this.getV4Settings();
     if (!v4Settings) {
       return;
     }
+
+    // instanceId
+    await this.v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        if (v4Settings.instanceId) {
+          const v5settings = await settingsPersistAtom.get();
+          if (!v5settings.instanceIdBackup) {
+            v5settings.instanceIdBackup = {
+              v4MigratedInstanceId: v4Settings.instanceId,
+              v5InitializedInstanceId: v5settings.instanceId,
+            };
+            v5settings.instanceId = v4Settings.instanceId;
+            await settingsPersistAtom.set((v) => ({
+              ...v,
+              ...v5settings,
+              instanceId: v4Settings.instanceId,
+            }));
+          }
+        }
+      },
+      {
+        name: 'migrationInstanceId',
+        errorResultFn: () => undefined,
+      },
+    );
 
     // set valid theme value
     await this.v4dbHubs.logger.runAsyncWithCatch(
@@ -54,7 +85,7 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
     );
 
     // Currency
-    if (v4Settings.selectedFiatMoneySymbol) {
+    if (v4Settings?.selectedFiatMoneySymbol) {
       await this.v4dbHubs.logger.runAsyncWithCatch(
         async () => {
           const currencyList =
@@ -76,6 +107,36 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
       );
     }
 
+    // cloud backup
+    await this.v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        const reduxData = await this?.v4dbHubs?.v4reduxDb?.reduxData;
+        if (reduxData?.cloudBackup) {
+          await cloudBackupPersistAtom.set((v) => {
+            const isEnabled = Boolean(reduxData?.cloudBackup?.enabled);
+            const newValue: ICloudBackupPersistAtom = {
+              ...v,
+              isEnabled,
+            };
+            return newValue;
+          });
+        }
+      },
+      {
+        name: 'migrationCloudBackupSettings',
+        errorResultFn: () => undefined,
+      },
+    );
+  }
+
+  async migrateSettings() {
+    const v4Settings = await this.getV4Settings();
+    if (!v4Settings) {
+      return;
+    }
+
+    await this.migrateBaseSettings();
+
     // Auto Lock
     if (v4Settings.enableAppLock && v4Settings.appLockDuration) {
       await this.v4dbHubs.logger.runAsyncWithCatch(
@@ -91,6 +152,7 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
       );
     }
 
+    // Protection
     if (v4Settings.validationSetting) {
       // Protection - Create Transaction
       await this.v4dbHubs.logger.runAsyncWithCatch(
@@ -128,5 +190,18 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
         },
       );
     }
+
+    // bio auth enable
+    await this.v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(
+          !!v4Settings.enableLocalAuthentication,
+        );
+      },
+      {
+        name: 'migrationBioAuthEnable',
+        errorResultFn: () => undefined,
+      },
+    );
   }
 }

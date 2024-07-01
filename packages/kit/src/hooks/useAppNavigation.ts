@@ -31,6 +31,12 @@ navigate by full route path:
     
 */
 
+let lastPushAbleNavigation:
+  | ReturnType<
+      typeof useNavigation<IPageNavigationProp<any> | IModalNavigationProp<any>>
+    >
+  | undefined;
+
 function useAppNavigation<
   P extends
     | IPageNavigationProp<any>
@@ -97,7 +103,16 @@ function useAppNavigation<
 
       // eslint-disable-next-line no-extra-boolean-cast
       if (!!navigationInstance.push) {
+        lastPushAbleNavigation = navigationInstance;
         navigationInstance.push(modalType, {
+          screen: route,
+          params,
+        });
+        return;
+      }
+      // This is a workaround for the root navigation not being able to access the child navigation
+      if (lastPushAbleNavigation) {
+        lastPushAbleNavigation.push(modalType, {
           screen: route,
           params,
         });

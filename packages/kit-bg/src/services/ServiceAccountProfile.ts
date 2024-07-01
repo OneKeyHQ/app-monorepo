@@ -1,25 +1,20 @@
 import qs from 'querystring';
 
-import { isNil, omitBy } from 'lodash';
+import { isNil, omit, omitBy } from 'lodash';
 
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IAddressInteractionStatus,
-  IAddressValidateStatus,
-  IAddressValidation,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
+import { EServerInteractedStatus } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
@@ -33,11 +28,6 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
-type IAddressNetworkIdParams = {
-  networkId: string;
-  address: string;
-};
-
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -48,58 +38,37 @@ class ServiceAccountProfile extends ServiceBase {
   public async fetchAccountDetails(
     params: IFetchAccountDetailsParams,
   ): Promise<IFetchAccountDetailsResp> {
+    const { accountId, networkId } = params;
+
+    const [accountAddress, xpub] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    const queryParams = {
+      ...omit(params, ['accountId']),
+      accountAddress,
+      xpub,
+    };
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.get<{
       data: IFetchAccountDetailsResp;
-    }>(`/wallet/v1/account/get-account?${qs.stringify(omitBy(params, isNil))}`);
+    }>(
+      `/wallet/v1/account/get-account?${qs.stringify(
+        omitBy(queryParams, isNil),
+      )}`,
+    );
 
-    return resp.data.data;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.fillAccountDetails({ accountDetails: resp.data.data });
   }
-
-  @backgroundMethod()
-  public async validateAddress(
-    params: IAddressNetworkIdParams,
-  ): Promise<IAddressValidateStatus> {
-    const { networkId, address } = params;
-    try {
-      const resp = await this.fetchValidateAddressResult(params);
-      return resp.data.data.isValid ? 'valid' : 'invalid';
-    } catch (serverError) {
-      try {
-        const localValidation =
-          await this.backgroundApi.serviceValidator.validateAddress({
-            networkId,
-            address,
-          });
-        return localValidation.isValid ? 'valid' : 'invalid';
-      } catch (localError) {
-        console.error('failed to validateAddress', serverError, localError);
-        defaultLogger.addressInput.validation.failWithUnknownError({
-          networkId,
-          address,
-          serverError: (serverError as Error).message,
-          localError: (localError as Error).message,
-        });
-        return 'unknown';
-      }
-    }
-  }
-
-  fetchValidateAddressResult = memoizee(
-    async (params: IAddressNetworkIdParams) => {
-      const { networkId, address } = params;
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const resp = await client.get<{
-        data: IAddressValidation;
-      }>('/wallet/v1/account/validate-address', {
-        params: { networkId, accountAddress: address },
-      });
-      return resp;
-    },
-    {
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
-    },
-  );
 
   private async getAddressInteractionStatus({
     networkId,
@@ -114,7 +83,7 @@ class ServiceAccountProfile extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{
         data: {
-          interacted: boolean;
+          status: EServerInteractedStatus;
         };
       }>('/wallet/v1/account/interacted', {
         params: {
@@ -123,7 +92,15 @@ class ServiceAccountProfile extends ServiceBase {
           toAccountAddress: toAddress,
         },
       });
-      return resp.data.data.interacted ? 'interacted' : 'not-interacted';
+      const statusMap: Record<
+        EServerInteractedStatus,
+        IAddressInteractionStatus
+      > = {
+        [EServerInteractedStatus.FALSE]: 'not-interacted',
+        [EServerInteractedStatus.TRUE]: 'interacted',
+        [EServerInteractedStatus.UNKNOWN]: 'unknown',
+      };
+      return statusMap[resp.data.data.status] ?? 'unknown';
     } catch {
       return 'unknown';
     }
@@ -178,7 +155,7 @@ class ServiceAccountProfile extends ServiceBase {
   @backgroundMethod()
   public async queryAddress({
     networkId,
-    address,
+    address: rawAddress,
     accountId,
     enableNameResolve,
     enableAddressBook,
@@ -187,13 +164,15 @@ class ServiceAccountProfile extends ServiceBase {
     enableVerifySendFundToSelf,
     skipValidateAddress,
   }: IQueryCheckAddressArgs) {
-    const result: IAddressQueryResult = { input: address };
+    const { serviceValidator } = this.backgroundApi;
+    const address = rawAddress.trim();
+    const result: IAddressQueryResult = { input: rawAddress };
     if (!networkId) {
       return result;
     }
 
     if (!skipValidateAddress) {
-      result.validStatus = await this.validateAddress({
+      result.validStatus = await serviceValidator.validateAddress({
         networkId,
         address,
       });
@@ -276,6 +255,7 @@ class ServiceAccountProfile extends ServiceBase {
     address: string,
     result: IAddressQueryResult,
   ) {
+    const { serviceValidator } = this.backgroundApi;
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
     let resolveNames: IResolveNameResp | null | undefined =
       await vault.resolveDomainName({
@@ -293,7 +273,7 @@ class ServiceAccountProfile extends ServiceBase {
       result.resolveAddress = resolveNames.names?.[0].value;
       result.resolveOptions = resolveNames.names?.map((o) => o.value);
       if (result.validStatus !== 'valid') {
-        result.validStatus = await this.validateAddress({
+        result.validStatus = await serviceValidator.validateAddress({
           networkId,
           address: result.resolveAddress,
         });
@@ -319,12 +299,13 @@ class ServiceAccountProfile extends ServiceBase {
       request,
     );
     const data = resp.data.data.data;
-    if (data.some((item) => !item.success)) {
+    const failedRequest = data.find((item) => !item.success);
+    if (failedRequest) {
       if (returnRawData) {
         // @ts-expect-error
         return data;
       }
-      throw new Error('Failed to send proxy request');
+      throw new Error(failedRequest.error ?? 'Failed to send proxy request');
     }
     return data.map((item) => item.data);
   }

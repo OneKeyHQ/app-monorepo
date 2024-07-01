@@ -1,3 +1,4 @@
+import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   COINTYPE_SOL,
   IMPL_SOL,
@@ -7,7 +8,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
-import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoMapBase,
@@ -28,12 +28,11 @@ const accountDeriveInfo: IAccountDeriveInfoMapSol = {
     desc: 'OneKey, Phantom, Sollet, m/44’/501’/*’/0’',
   },
   ledgerLive: {
-    namePrefix: 'Ledger Live',
+    namePrefix: 'SOL Ledger Live',
     template: `m/44'/${COINTYPE_SOL}'/${INDEX_PLACEHOLDER}'`,
     coinType: COINTYPE_SOL,
     label: 'Ledger Live',
     desc: 'Ledger Live, Solflare, m/44’/501’/*’',
-    disableWalletTypes: [WALLET_TYPE_HW],
   },
 };
 
@@ -56,6 +55,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: true,
   replaceTxEnabled: false,
+  transferZeroNativeTokenEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {

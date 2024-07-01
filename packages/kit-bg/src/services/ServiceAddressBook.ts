@@ -10,6 +10,7 @@ import type {
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -107,12 +108,14 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async getSafeItems({
     networkId,
   }: {
     networkId?: string;
   }): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
-    const isSafe = await this.verifyHash(true);
+    // throw new Error('address book failed to verify hash');
+    const isSafe: boolean = await this.verifyHash(true);
     if (!isSafe) {
       return { isSafe, items: [] };
     }
@@ -163,7 +166,7 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   private async validateItem(item: IAddressItem) {
-    const { serviceAccountProfile } = this.backgroundApi;
+    const { serviceValidator } = this.backgroundApi;
     if (item.name.length > 24) {
       throw new Error('Name is too long');
     }
@@ -175,7 +178,7 @@ class ServiceAddressBook extends ServiceBase {
     if (result && (!item.id || result.id !== item.id)) {
       throw new Error('Name already exist');
     }
-    const validStatus = await serviceAccountProfile.validateAddress({
+    const validStatus = await serviceValidator.validateAddress({
       networkId: item.networkId,
       address: item.address,
     });

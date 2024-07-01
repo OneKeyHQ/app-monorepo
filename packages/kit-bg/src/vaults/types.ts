@@ -35,16 +35,8 @@ import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
+import type { IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
 
-import type { SignClientTypes } from '@walletconnect/types';
-import type { MessageDescriptor } from 'react-intl';
-import type { IBackgroundApi } from '../apis/IBackgroundApi';
-import type { EDBAccountType } from '../dbs/local/consts';
-import type {
-  IDBAccount,
-  IDBWalletId,
-  IDBWalletType,
-} from '../dbs/local/types';
 import type {
   IAccountDeriveInfoMapBtc,
   IAccountDeriveTypesBtc,
@@ -54,6 +46,15 @@ import type {
   IAccountDeriveInfoMapEvm,
   IAccountDeriveTypesEvm,
 } from './impls/evm/settings';
+import type { IBackgroundApi } from '../apis/IBackgroundApi';
+import type { EDBAccountType } from '../dbs/local/consts';
+import type {
+  IDBAccount,
+  IDBWalletId,
+  IDBWalletType,
+} from '../dbs/local/types';
+import type { SignClientTypes } from '@walletconnect/types';
+import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
@@ -97,8 +98,6 @@ export interface IAccountDeriveInfo {
   };
   desc?: string;
   subDesc?: string;
-
-  disableWalletTypes?: IDBWalletType[];
 
   // recommended?: boolean;
   // notRecommended?: boolean;
@@ -190,6 +189,14 @@ export type IVaultSettings = {
   ignoreUpdateNativeAmount?: boolean;
 
   withoutBroadcastTxId?: boolean;
+
+  transferZeroNativeTokenEnabled?: boolean;
+
+  gasLimitValidationEnabled?: boolean;
+
+  showAddressType?: boolean;
+
+  hideTxUtxoListWhenPending?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -222,7 +229,7 @@ export type IPrepareExternalAccountsParams = {
 export type IPrepareWatchingAccountsParams = {
   // target: string; // address, xpub TODO remove
   address: string;
-  networks?: string[]; // watching account only available networkId
+  networks?: string[]; // onlyAvailableOnCertainNetworks
   createAtNetwork: string;
   pub?: string;
   xpub?: string;
@@ -235,6 +242,7 @@ export type IPrepareWatchingAccountsParams = {
 export type IPrepareImportedAccountsParams = {
   password: string;
   importedCredential: ICoreImportedCredentialEncryptHex;
+  networks?: string[]; // onlyAvailableOnCertainNetworks
   createAtNetwork: string;
   name: string;
   template?: string; // TODO use deriveInfo
@@ -348,6 +356,7 @@ export type IApproveInfo = {
 export type ITransferPayload = {
   amountToSend: string;
   isMaxSend: boolean;
+  isNFT: boolean;
 };
 
 export enum EWrappedType {
@@ -400,6 +409,7 @@ export interface IBuildEncodedTxParams {
 export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: ISendSelectedFeeInfo;
+  transferPayload?: ITransferPayload;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
@@ -425,6 +435,14 @@ export interface IBroadcastTransactionParams {
   signature?: string;
 }
 
+export interface IPreCheckFeeInfoParams {
+  encodedTx: IEncodedTx;
+  feeTokenSymbol: string;
+  feeAmount: string;
+  networkId: string;
+  accountAddress: string;
+}
+
 export interface ISignTransactionParamsBase {
   unsignedTx: IUnsignedTxPro;
   // TODO rename externalSignOnly
@@ -443,6 +461,7 @@ export interface IBatchSignTransactionParamsBase {
   nativeAmountInfo?: INativeAmountInfo;
   signOnly?: boolean;
   sourceInfo?: IDappSourceInfo;
+  replaceTxInfo?: IReplaceTxInfo;
 }
 
 export interface ISignMessageParams {

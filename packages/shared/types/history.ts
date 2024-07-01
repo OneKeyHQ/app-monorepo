@@ -3,7 +3,7 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountNFT } from './nft';
 import type { IStakingInfo } from './staking';
 import type { IToken } from './token';
-import type { IDecodedTx, IReplacedTxType } from './tx';
+import type { EReplaceTxType, IDecodedTx } from './tx';
 
 export enum EHistoryTxDetailsBlock {
   Flow = 'Flow',
@@ -18,6 +18,7 @@ export enum EOnChainHistoryTransferType {
 export enum EOnChainHistoryTxStatus {
   Failed = '0',
   Success = '1',
+  Pending = '2',
 }
 
 export enum EOnChainHistoryTxType {
@@ -113,7 +114,7 @@ export type IAccountHistoryTx = {
 
   replacedPrevId?: string; // cancel speedUp replacedId
   replacedNextId?: string;
-  replacedType?: IReplacedTxType; // cancel speedUp
+  replacedType?: EReplaceTxType; // cancel speedUp
 
   decodedTx: IDecodedTx;
   stakingInfo?: IStakingInfo;
@@ -128,11 +129,7 @@ export type IHistoryListSectionGroup = {
 export type IFetchAccountHistoryParams = {
   accountId: string;
   networkId: string;
-  accountAddress: string;
-  xpub?: string;
   tokenIdOnNetwork?: string;
-  onChainHistoryDisabled?: boolean;
-  saveConfirmedTxsEnabled?: boolean;
 };
 
 export type IOnChainHistoryTxToken = {

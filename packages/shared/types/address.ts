@@ -20,9 +20,8 @@ export type IAddressValidation = {
 };
 
 export type IFetchAccountDetailsParams = {
+  accountId: string;
   networkId: string;
-  accountAddress: string;
-  xpub?: string;
   cardanoPubKey?: string;
   withUTXOList?: boolean;
   withNetWorth?: boolean;
@@ -91,6 +90,12 @@ export type INetworkAccountAddressDetail = {
   displayAddress: string; // checksum address in EVM
   allowEmptyAddress: boolean; // allow empty address, like lightning network
 };
+
+export enum EServerInteractedStatus {
+  FALSE = '0',
+  TRUE = '1',
+  UNKNOWN = '2',
+}
 
 export type IAddressInteractionStatus =
   | 'interacted'

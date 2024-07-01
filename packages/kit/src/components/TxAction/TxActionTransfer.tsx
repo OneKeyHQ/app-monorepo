@@ -43,8 +43,10 @@ type ITransferBlock = {
   transfersInfo: IDecodedTxTransferInfo[];
 };
 
-function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
-  const { action, decodedTx, isUTXO } = props;
+function getTxActionTransferInfo(
+  props: ITxActionProps & { isUTXO?: boolean; intl: IntlShape },
+) {
+  const { action, decodedTx, isUTXO, intl } = props;
 
   const { from, to, sends, receives, label } =
     action.assetTransfer as IDecodedTxActionAssetTransfer;
@@ -79,7 +81,10 @@ function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
       const filteredReceives = receives.filter((receive) => !receive.isOwn);
       transferTarget =
         filteredReceives.length > 1
-          ? `${filteredReceives.length} addresses`
+          ? intl.formatMessage(
+              { id: ETranslations.global_count_addresses },
+              { 'count': filteredReceives.length },
+            )
           : filteredReceives[0]
           ? filteredReceives[0].to
           : receives[0].to;
@@ -87,7 +92,10 @@ function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
       const filteredSends = sends.filter((send) => !send.isOwn);
       transferTarget =
         filteredSends.length > 1
-          ? `${filteredSends.length} addresses`
+          ? intl.formatMessage(
+              { id: ETranslations.global_count_addresses },
+              { 'count': filteredSends.length },
+            )
           : filteredSends[0]
           ? filteredSends[0].from
           : sends[0].from;
@@ -131,8 +139,18 @@ function buildTransferChangeInfo({
     if (transfers.length > 1) {
       const tokens = uniq(map(transfers, 'tokenIdOnNetwork'));
       if (tokens.length > 1) {
-        change = `${tokens.length} assets`;
-        changeDescription = `${transfers[0].symbol} and more`;
+        change = intl.formatMessage(
+          { id: ETranslations.count_assets },
+          {
+            count: tokens.length,
+          },
+        );
+        changeDescription = intl.formatMessage(
+          { id: ETranslations.symbol_and_more },
+          {
+            symbol: transfers[0].symbol,
+          },
+        );
         return {
           change: `${changePrefix}${change}`,
           changeSymbol,
@@ -144,9 +162,9 @@ function buildTransferChangeInfo({
     const amountBN = new BigNumber(nativeAmount ?? 0).abs();
     change = amountBN.toFixed();
     changeSymbol = transfers[0].symbol;
-    changeDescription = amountBN
-      .multipliedBy(transfers[0].price ?? 0)
-      .toFixed();
+    changeDescription = isNil(transfers[0].price)
+      ? ''
+      : amountBN.multipliedBy(transfers[0].price).toFixed();
     return {
       change: `${changePrefix}${change}`,
       changeSymbol,
@@ -158,9 +176,9 @@ function buildTransferChangeInfo({
     if (transfers[0].amount) {
       const amountBN = new BigNumber(transfers[0].amount).abs();
       change = amountBN.toFixed();
-      changeDescription = amountBN
-        .multipliedBy(transfers[0].price ?? 0)
-        .toFixed();
+      changeDescription = isNil(transfers[0].price)
+        ? ''
+        : amountBN.multipliedBy(transfers[0].price ?? 0).toFixed();
     }
     changeSymbol = transfers[0].symbol;
   } else {
@@ -173,15 +191,25 @@ function buildTransferChangeInfo({
       change = totalAmountBN.toFixed();
       changeSymbol = transfers[0].symbol;
 
-      changeDescription = totalAmountBN
-        .multipliedBy(transfers[0].price ?? 0)
-        .toFixed();
+      changeDescription = isNil(transfers[0].price)
+        ? ''
+        : totalAmountBN.multipliedBy(transfers[0].price ?? 0).toFixed();
     } else {
       const transfersWithNFT = transfers.filter((send) => send.isNFT);
       const transfersWithToken = transfers.filter((send) => !send.isNFT);
       if (transfersWithNFT.length === 0) {
-        change = `${tokens.length} assets`;
-        changeDescription = `${transfersWithToken[0].symbol} and more`;
+        change = intl.formatMessage(
+          { id: ETranslations.count_assets },
+          {
+            count: tokens.length,
+          },
+        );
+        changeDescription = intl.formatMessage(
+          { id: ETranslations.symbol_and_more },
+          {
+            symbol: transfersWithToken[0].symbol,
+          },
+        );
       } else if (transfersWithNFT.length === 1) {
         change = new BigNumber(transfersWithNFT[0].amount).abs().toFixed();
         changeSymbol = transfersWithNFT[0].symbol;
@@ -194,7 +222,12 @@ function buildTransferChangeInfo({
           .toFixed();
         change = totalNFTs;
         changeSymbol = 'NFTs';
-        changeDescription = `${transfersWithNFT[0].symbol} and more`;
+        changeDescription = intl.formatMessage(
+          { id: ETranslations.symbol_and_more },
+          {
+            symbol: transfersWithNFT[0].symbol,
+          },
+        );
       }
     }
   }
@@ -207,7 +240,8 @@ function buildTransferChangeInfo({
 }
 
 function TxActionTransferListView(props: ITxActionProps) {
-  const { tableLayout, decodedTx, componentProps, showIcon } = props;
+  const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
+    props;
   const { networkId, payload, nativeAmount } = decodedTx;
   const { type } = payload ?? {};
   const intl = useIntl();
@@ -232,6 +266,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     receiveTokenIcon,
   } = getTxActionTransferInfo({
     ...props,
+    intl,
     isUTXO,
   });
   const description = {
@@ -356,6 +391,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       size="$bodyMd"
       color="$textSubdued"
       numberOfLines={1}
+      maxWidth="$40"
     >
       {changeDescription as string}
     </NumberSizeableText>
@@ -383,6 +419,8 @@ function TxActionTransferListView(props: ITxActionProps) {
       hideFeeInfo={hideFeeInfo}
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       showIcon={showIcon}
+      replaceType={replaceType}
+      status={decodedTx.status}
       {...componentProps}
     />
   );
@@ -420,7 +458,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
   const { decodedTx, nativeTokenTransferAmountToUpdate, isSendNativeToken } =
     props;
 
-  const { sends, receives, from } = getTxActionTransferInfo(props);
+  const { sends, receives, from } = getTxActionTransferInfo({
+    ...props,
+    intl,
+  });
 
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
   const receivesBlock = buildTransfersBlock(groupBy(receives, 'from'));
@@ -456,7 +497,9 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                     direction === EDecodedTxDirection.OUT
                       ? nativeTokenTransferAmountToUpdate
                       : transfer.amount
-                  } ${transfer.symbol}`}</SizableText>
+                  } ${
+                    transfer.isNFT ? transfer.name : transfer.symbol
+                  }`}</SizableText>
                   {/* <SizableText size="$bodyMd" color="$textSubdued">
                     TODO: Fiat value
                   </SizableText> */}

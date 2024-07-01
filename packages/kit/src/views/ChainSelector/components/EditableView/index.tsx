@@ -1,5 +1,13 @@
-import { type FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { createContext, useContext, useRef } from 'react';
+import type { FC, RefObject } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,6 +27,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { networkFuseSearch } from '../../utils';
 
 import type { IServerNetworkMatch } from '../../types';
+import type { ScrollView } from 'react-native';
 
 type IEditableViewContext = {
   isEditMode?: boolean;
@@ -41,11 +50,14 @@ const EditableViewListItem = ({
   item,
   sectionIndex,
   drag,
+  scrollViewRef,
 }: {
   item: IServerNetworkMatch;
   sectionIndex: number;
   drag: () => void;
+  scrollViewRef: RefObject<ScrollView>;
 }) => {
+  const intl = useIntl();
   const {
     isEditMode,
     networkId,
@@ -54,6 +66,14 @@ const EditableViewListItem = ({
     onPressItem,
     setTopNetworks,
   } = useContext(EditableViewContext);
+  const pinText = useMemo(
+    () => intl.formatMessage({ id: ETranslations.global_pin_to_top }),
+    [intl],
+  );
+  const unpinText = useMemo(
+    () => intl.formatMessage({ id: ETranslations.global_unpin_from_top }),
+    [intl],
+  );
   return (
     <ListItem
       title={item.name}
@@ -73,7 +93,7 @@ const EditableViewListItem = ({
               setTopNetworks?.([...topNetworks, item]);
             }
           }}
-          title={topNetworkIds.has(item.id) ? 'Unpin' : 'Pin'}
+          title={topNetworkIds.has(item.id) ? unpinText : pinText}
           key="moveToTop"
           animation="quick"
           enterStyle={{
@@ -85,6 +105,9 @@ const EditableViewListItem = ({
           }
           iconProps={{
             color: topNetworkIds.has(item.id) ? '$iconActive' : '$iconSubdued',
+          }}
+          tooltipProps={{
+            scrollViewRef,
           }}
         />
       ) : null}
@@ -230,12 +253,17 @@ export const EditableView: FC<IEditableViewProps> = ({
       drag: () => void;
     }) => (
       <EditableViewListItem
+        scrollViewRef={scrollView}
         item={item}
-        sectionIndex={sections.findIndex((_section) => _section === section)}
+        sectionIndex={
+          searchText.length > 0
+            ? 1
+            : sections.findIndex((_section) => _section === section)
+        }
         drag={drag}
       />
     ),
-    [sections],
+    [sections, searchText],
   );
 
   const renderSectionHeader = useCallback(

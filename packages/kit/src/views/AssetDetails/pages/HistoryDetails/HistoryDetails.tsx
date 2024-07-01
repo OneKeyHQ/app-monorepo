@@ -22,6 +22,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,7 +32,6 @@ import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils'
 import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   EHistoryTxDetailsBlock,
-  EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
 } from '@onekeyhq/shared/types/history';
 import type {
@@ -41,6 +41,7 @@ import type {
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
+  EReplaceTxType,
 } from '@onekeyhq/shared/types/tx';
 
 import { getHistoryTxMeta } from '../../utils';
@@ -90,7 +91,7 @@ export function AssetItem({
     icon: string;
     isNFT?: boolean;
     isNative?: boolean;
-    price: string;
+    price?: string;
   };
   index: number;
   direction?: EDecodedTxDirection;
@@ -144,7 +145,7 @@ export function AssetItem({
         {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amountAbs}`}
       </NumberSizeableText>
     );
-    secondary = (
+    secondary = !isNil(asset.price) ? (
       <NumberSizeableText
         textAlign="right"
         size="$bodyMd"
@@ -154,7 +155,7 @@ export function AssetItem({
       >
         {new BigNumber(amountAbs).times(asset.price ?? 0).toString()}
       </NumberSizeableText>
-    );
+    ) : null;
   }
 
   return (
@@ -164,8 +165,17 @@ export function AssetItem({
         tokenImageUri={asset.icon}
         networkImageUri={networkIcon}
       />
-      <ListItem.Text primary={asset.symbol} secondary={asset.name} flex={1} />
-      <ListItem.Text primary={primary} secondary={secondary} align="right" />
+      <ListItem.Text
+        primary={asset.symbol}
+        secondary={asset.name}
+        flexShrink={0}
+      />
+      <ListItem.Text
+        primary={primary}
+        secondary={secondary}
+        flex={1}
+        align="right"
+      />
     </ListItem>
   );
 }
@@ -198,13 +208,22 @@ function HistoryDetails() {
           txid: historyTx.decodedTx.txid,
         }),
         backgroundApiProxy.serviceToken.getNativeToken({
+          accountId,
           networkId,
-          accountAddress,
         }),
       ]),
     [accountAddress, historyTx.decodedTx.txid, networkId, accountId, xpub],
     { watchLoading: true },
   );
+
+  const handleReplaceTxSuccess = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
+
+  const { handleReplaceTx, canReplaceTx } = useReplaceTx({
+    historyTx,
+    onSuccess: handleReplaceTxSuccess,
+  });
 
   const [network, vaultSettings, txDetailsResp, nativeToken] =
     resp.result ?? [];
@@ -307,7 +326,6 @@ function HistoryDetails() {
           name: approve.name,
           symbol: approve.symbol,
           icon: approve.icon ?? '',
-          price: '0',
         };
 
         return (
@@ -331,7 +349,7 @@ function HistoryDetails() {
           icon: transfer.icon,
           isNFT: transfer.isNFT,
           isNative: transfer.isNative,
-          price: transfer.price ?? '0',
+          price: transfer.price,
         };
 
         return (
@@ -494,24 +512,35 @@ function HistoryDetails() {
     const status = historyTx.decodedTx.status;
     const { key, color } = getTxStatusTextProps(status);
     return (
-      <XStack h="$5" alignItems="center">
+      <XStack minHeight="$5" alignItems="center">
         <SizableText size="$bodyMdMedium" color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {vaultSettings?.replaceTxEnabled &&
-        status === EDecodedTxStatus.Pending ? (
-          <XStack ml="$5">
-            <Button size="small" variant="primary">
-              Speed Up
+        {canReplaceTx ? (
+          <XStack ml="$5" space="$2">
+            <Button
+              size="small"
+              variant="primary"
+              onPress={() =>
+                handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_speed_up })}
             </Button>
-            <Button size="small" variant="secondary" ml="$2.5">
-              Cancel
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={() =>
+                handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_cancel })}
             </Button>
           </XStack>
         ) : null}
       </XStack>
     );
-  }, [historyTx.decodedTx.status, intl, vaultSettings?.replaceTxEnabled]);
+  }, [canReplaceTx, handleReplaceTx, historyTx.decodedTx.status, intl]);
 
   const renderTxFlow = useCallback(() => {
     if (vaultSettings?.isUtxo && !txAddresses.isSingleTransfer) return null;
@@ -708,7 +737,9 @@ function HistoryDetails() {
                 compact
               />
             ) : null}
-            {vaultSettings?.isUtxo ? (
+            {vaultSettings?.isUtxo &&
+            (historyTx.decodedTx.status !== EDecodedTxStatus.Pending ||
+              !vaultSettings.hideTxUtxoListWhenPending) ? (
               <InfoItem
                 renderContent={
                   <Button
@@ -778,16 +809,18 @@ function HistoryDetails() {
     renderTxStatus,
     txInfo.date,
     txInfo.txid,
-    txInfo.nonce,
     txInfo.blockHeight,
+    txInfo.nonce,
     txInfo.confirmations,
     txInfo.swapInfo,
     renderTxMetaInfo,
-    vaultSettings?.isUtxo,
-    vaultSettings?.nonceRequired,
-    handleViewUTXOsOnPress,
     network,
     renderFeeInfo,
+    vaultSettings?.nonceRequired,
+    vaultSettings?.isUtxo,
+    vaultSettings?.hideTxUtxoListWhenPending,
+    historyTx.decodedTx.status,
+    handleViewUTXOsOnPress,
     renderAssetsChange,
   ]);
 

@@ -253,7 +253,7 @@ const SwapAccountAddressContainer = ({
 
   return (
     <XStack pb="$1.5">
-      <SizableText size="$bodyMdMedium" mr="$2">
+      <SizableText size="$bodyMdMedium" mr="$2" userSelect="none">
         {intl.formatMessage({
           id:
             type === ESwapDirectionType.FROM

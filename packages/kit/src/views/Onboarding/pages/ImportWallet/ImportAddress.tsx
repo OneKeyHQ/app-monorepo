@@ -25,9 +25,9 @@ import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/componen
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import {
   AddressInput,
-  type IAddressInputValue,
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -151,6 +151,8 @@ function ImportAddress() {
   const isValidating = useRef<boolean>(false);
   const networkIdText = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'publicKeyValue' });
+  const addressValue = useFormWatch({ control, name: 'addressValue' });
+
   const inputTextDebounced = useDebounce(inputText.trim(), 600);
   const validateFn = useCallback(async () => {
     setValue('deriveType', undefined);
@@ -160,6 +162,11 @@ function ImportAddress() {
           text: inputTextDebounced,
         });
       try {
+        const excludedNetworkIds =
+          networkUtils.getWatchAccountExcludeNetworkIds();
+        if (excludedNetworkIds.includes(networkIdText)) {
+          throw new Error(`Network not supported: ${networkIdText}`);
+        }
         const result =
           await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
             {
@@ -200,14 +207,13 @@ function ImportAddress() {
   }, [validateFn]);
 
   const { start } = useScanQrCode();
-  const addressValuePending = form.watch('addressValue.pending');
 
   const isEnable = useMemo(() => {
     if (method === EImportMethod.Address) {
-      return !addressValuePending && form.formState.isValid;
+      return !addressValue.pending && form.formState.isValid;
     }
     return validateResult?.isValid;
-  }, [method, addressValuePending, validateResult, form]);
+  }, [method, addressValue.pending, validateResult, form]);
 
   const isBtcFork = useMemo(
     () =>
@@ -300,7 +306,7 @@ function ImportAddress() {
                 inputTextDebounced ? (
                   <SizableText color="$textCritical">
                     {intl.formatMessage({
-                      id: ETranslations.form_address_error_invalid,
+                      id: ETranslations.form_public_key_error_invalid,
                     })}
                   </SizableText>
                 ) : null}
@@ -315,12 +321,17 @@ function ImportAddress() {
                 rules={{
                   validate: createValidateAddressRule({
                     defaultErrorMessage: intl.formatMessage({
-                      id: ETranslations.form_public_key_error_invalid,
+                      id: ETranslations.form_address_error_invalid,
                     }),
                   }),
                 }}
               >
-                <AddressInput networkId={networkIdText ?? ''} />
+                <AddressInput
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.form_address_placeholder,
+                  })}
+                  networkId={networkIdText ?? ''}
+                />
               </Form.Field>
             </>
           ) : null}

@@ -1,7 +1,10 @@
-import { flatten, groupBy } from 'lodash';
+import { flatten, groupBy, isEqual } from 'lodash';
 import semver from 'semver';
 
-import { isTaprootPath } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import {
+  isTaprootAddress,
+  isTaprootPath,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
@@ -23,6 +26,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -61,13 +65,38 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async setTheme(theme: 'light' | 'dark' | 'system') {
+    const currentSettings = await settingsPersistAtom.get();
+    if (currentSettings.theme === theme) {
+      return;
+    }
     await settingsPersistAtom.set((prev) => ({ ...prev, theme }));
   }
 
   @backgroundMethod()
   public async setLocale(locale: ILocaleSymbol) {
+    const currentSettings = await settingsPersistAtom.get();
+    if (currentSettings.locale === locale) {
+      return;
+    }
     await settingsPersistAtom.set((prev) => ({ ...prev, locale }));
     await this.refreshLocaleMessages();
+  }
+
+  @backgroundMethod()
+  public async getCurrentLocale() {
+    const { locale } = await settingsPersistAtom.get();
+
+    if (locale === 'system') {
+      return getDefaultLocale();
+    }
+
+    return locale;
+  }
+
+  @backgroundMethod()
+  public async getInstanceId() {
+    const { instanceId } = await settingsPersistAtom.get();
+    return instanceId;
   }
 
   @backgroundMethod()
@@ -93,6 +122,20 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setBiologyAuthSwitchOn(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      isBiologyAuthSwitchOn: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getBiologyAuthSwitchOn() {
+    const { isBiologyAuthSwitchOn } = await settingsPersistAtom.get();
+    return isBiologyAuthSwitchOn;
+  }
+
+  @backgroundMethod()
   public async setSpendDustUTXO(value: boolean) {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
@@ -102,6 +145,9 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async refreshLastActivity() {
+    if (resetUtils.getIsResetting()) {
+      return;
+    }
     await settingsLastActivityAtom.set((prev) => ({
       ...prev,
       time: Date.now(),
@@ -129,6 +175,10 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async setCurrency(currencyInfo: { id: string; symbol: string }) {
+    const currentSettings = await settingsPersistAtom.get();
+    if (isEqual(currentSettings.currencyInfo, currencyInfo)) {
+      return;
+    }
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
   }
 
@@ -327,7 +377,7 @@ class ServiceSetting extends ServiceBase {
       networkId,
       accountId,
     });
-    return isTaprootPath(account.path);
+    return isTaprootPath(account.path) || isTaprootAddress(account.address);
   }
 }
 

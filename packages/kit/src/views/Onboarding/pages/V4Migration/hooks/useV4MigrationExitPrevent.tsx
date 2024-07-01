@@ -12,8 +12,8 @@ import {
   Stack,
   usePreventRemove,
 } from '@onekeyhq/components';
-import { useV4migrationPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useV4migrationPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -130,12 +130,11 @@ export function useModalExitPrevent({
   );
   const shouldPreventRemove =
     exitPreventMode !== EModalExitPreventMode.disabled && isFocused;
-  usePreventRemove(
-    shouldPreventRemove,
+  const preventRemoveCallback =
     exitPreventMode === EModalExitPreventMode.confirm
       ? navPreventRemoveCallback
-      : () => null,
-  );
+      : () => null;
+  usePreventRemove(shouldPreventRemove, preventRemoveCallback);
 }
 
 export function useAppExitPrevent({
@@ -210,6 +209,17 @@ export function useExtensionV4MigrationFromExpandTab() {
   }, [actions]);
 }
 
+export function useIsV4MigrationAutoStartFirstTime() {
+  const [v4migrationPersistData] = useV4migrationPersistAtom();
+
+  const isAutoStartInFirstTime =
+    !v4migrationPersistData.v4migrationAutoStartDisabled &&
+    (!v4migrationPersistData?.v4migrationAutoStartCount ||
+      v4migrationPersistData?.v4migrationAutoStartCount <= 1);
+
+  return isAutoStartInFirstTime;
+}
+
 export function useV4MigrationExitPrevent({
   exitPreventMode,
   isAutoStartOnMount,
@@ -226,23 +236,18 @@ export function useV4MigrationExitPrevent({
   });
   const onConfirmText = intl.formatMessage({ id: ETranslations.global_exit });
   const onCancelText = intl.formatMessage({ id: ETranslations.global_cancel });
-  const [v4migrationPersistData] = useV4migrationPersistAtom();
+  const isAutoStartInFirstTime = useIsV4MigrationAutoStartFirstTime();
 
   // Prevents screen locking
   useKeepAwake();
 
-  const isAutoStartInFirstTime =
-    !v4migrationPersistData.v4migrationAutoStartDisabled &&
-    (!v4migrationPersistData?.v4migrationAutoStartCount ||
-      v4migrationPersistData?.v4migrationAutoStartCount <= 1);
-
   // Prevent Modal exit/back
+  const shouldAlwaysPreventExit =
+    isAutoStartInFirstTime && exitPreventMode === EModalExitPreventMode.confirm;
   useModalExitPrevent({
-    exitPreventMode:
-      isAutoStartInFirstTime &&
-      exitPreventMode === EModalExitPreventMode.confirm
-        ? EModalExitPreventMode.always
-        : exitPreventMode,
+    exitPreventMode: shouldAlwaysPreventExit
+      ? EModalExitPreventMode.always
+      : exitPreventMode,
     isAutoStartOnMount,
     title,
     message,

@@ -30,7 +30,7 @@ import type {
 
 export type ISwitchEthereumChainParameter = {
   chainId: string;
-  networkId?: string;
+  // networkId?: string; // not use?
 };
 
 function prefixTxValueToHex(value: string) {
@@ -553,11 +553,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     address: string;
   }) => {
     try {
-      const status =
-        await this.backgroundApi.serviceAccountProfile.validateAddress({
-          networkId,
-          address,
-        });
+      const status = await this.backgroundApi.serviceValidator.validateAddress({
+        networkId,
+        address,
+      });
       return status === 'valid';
     } catch {
       return false;

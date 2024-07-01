@@ -142,6 +142,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   passphraseState?: string;
   walletNo: number;
   walletOrder?: number;
+  hash?: string; // hd wallet only
   xfp?: string; // qr wallet only
   airGapAccountsInfoRaw?: string;
   airGapAccountsInfo?: IQrWalletAirGapAccountsInfo;
@@ -151,6 +152,7 @@ export type IDBCreateHDWalletParams = {
   rs: IBip39RevealableSeedEncryptHex;
   backuped: boolean;
   name?: string;
+  walletHash?: string;
   avatar?: IAvatarInfo;
 };
 export type IDBCreateHWWalletParamsBase = {
@@ -201,7 +203,7 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   coinType: string;
   impl: string; // single chain account belongs to network impl
   // single chain account belongs to certain networks, check keyring options: onlyAvailableOnCertainNetworks
-  networks?: string[];
+  networks?: string[]; // onlyAvailableOnCertainNetworks
   // single chain account auto change to createAtNetwork when network not compatible and networks not defined
   createAtNetwork?: string;
   template?: string;

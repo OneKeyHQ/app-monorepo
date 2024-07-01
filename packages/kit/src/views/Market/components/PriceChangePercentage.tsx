@@ -10,6 +10,7 @@ export function PriceChangePercentage({
 }: INumberSizeableTextProps) {
   return children ? (
     <NumberSizeableText
+      selectable={false}
       size="$bodyMd"
       formatter="priceChange"
       color={Number(children) > 0 ? '$textSuccess' : '$textCritical'}

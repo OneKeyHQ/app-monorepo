@@ -630,7 +630,7 @@ export default class Vault extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { unsignedTx } = params;
+    const { unsignedTx, transferPayload } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
     const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
 
@@ -643,7 +643,10 @@ export default class Vault extends VaultBase {
         }),
       ];
     } else {
-      actions = await this._decodeNativeTxActions(nativeTx);
+      actions = await this._decodeNativeTxActions({
+        nativeTx,
+        isNFT: transferPayload?.isNFT,
+      });
     }
 
     const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
@@ -690,19 +693,23 @@ export default class Vault extends VaultBase {
     },
   );
 
-  async _decodeNativeTxActions(nativeTx: INativeTxSol) {
+  async _decodeNativeTxActions({
+    nativeTx,
+    isNFT,
+  }: {
+    nativeTx: INativeTxSol;
+    isNFT: boolean | undefined;
+  }) {
     const actions: Array<IDecodedTxAction> = [];
 
     const createdAta: Record<string, IAssociatedTokenInfo> = {};
+    const client = await this.getClient();
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client,
+    });
 
-    // @ts-ignore
-    if (!nativeTx.instructions) {
-      return [{ type: EDecodedTxActionType.UNKNOWN }];
-    }
-
-    const accountAddress = await this.getAccountAddress();
-
-    for (const instruction of (nativeTx as Transaction).instructions) {
+    for (const instruction of instructions) {
       // TODO: only support system transfer & token transfer now
       if (
         instruction.programId.toString() === SystemProgram.programId.toString()
@@ -713,8 +720,8 @@ export default class Vault extends VaultBase {
           if (instructionType === 'Transfer') {
             const nativeToken =
               await this.backgroundApi.serviceToken.getNativeToken({
+                accountId: this.accountId,
                 networkId: this.networkId,
-                accountAddress,
               });
             const { fromPubkey, toPubkey, lamports } =
               SystemInstruction.decodeTransfer(instruction);
@@ -803,9 +810,9 @@ export default class Vault extends VaultBase {
 
             tokenAddress = tokenAddress || mint;
             const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+              accountId: this.accountId,
               networkId: this.networkId,
               tokenIdOnNetwork: tokenAddress,
-              accountAddress,
             });
             if (tokenInfo) {
               const transfer: IDecodedTxTransferInfo = {
@@ -816,7 +823,7 @@ export default class Vault extends VaultBase {
                 name: tokenInfo.name,
                 symbol: tokenInfo.symbol,
                 amount: tokenAmount.shiftedBy(-tokenInfo.decimals).toFixed(),
-                isNFT: false,
+                isNFT,
               };
 
               actions.push(

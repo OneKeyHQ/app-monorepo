@@ -2167,11 +2167,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     ],
     'explorers': [
       {
-        'address': 'https://explorer.mainnet.near.org/accounts/{address}',
-        'block': 'https://explorer.mainnet.near.org/blocks/{block}',
-        'name': 'https://explorer.mainnet.near.org/',
-        'transaction':
-          'https://explorer.mainnet.near.org/transactions/{transaction}',
+        'address': 'https://nearblocks.io/address/{address}',
+        'block': 'https://nearblocks.io/blocks/{block}',
+        'name': 'https://nearblocks.io',
+        'transaction': 'https://nearblocks.io/txns/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,
@@ -2808,12 +2807,11 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'priceConfigs': [],
     'explorers': [
       {
-        'address':
-          'https://explorer.sui.io/addresses/{address}/?network=mainnet',
-        'block': 'https://explorer.sui.io/objects/{block}/?network=mainnet',
-        'name': 'https://explorer.sui.io?network=mainnet',
-        'transaction':
-          'https://explorer.sui.io/transactions/{transaction}/?network=mainnet',
+        'token': 'https://suiscan.xyz/mainnet/coin/{token}',
+        'address': 'https://suiscan.xyz/mainnet/account/{address}',
+        'block': 'https://suiscan.xyz/mainnet/checkpoint/{block}',
+        'name': 'https://suiscan.xyz/mainnet/home',
+        'transaction': 'https://suiscan.xyz/mainnet/tx/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,

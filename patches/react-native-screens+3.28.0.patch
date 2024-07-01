@@ -195,7 +195,7 @@ index 4b24cff..b978114 100644
 +  [screenViews enumerateObjectsUsingBlock:^(RNSScreenView *obj, NSUInteger idx, BOOL *stop) {
 +    obj.activityState = (idx == index) ? RNSActivityStateOnTop : RNSActivityStateInactive;
 +  }];
-+  containerView.shouldBreakJSUpdateCount += 1;
++  // containerView.shouldBreakJSUpdateCount += 1;
 +  UIViewController *controller = screenViews[index].controller;
 +  [navigationController setViewControllers:@[controller] animated:NO];
 +

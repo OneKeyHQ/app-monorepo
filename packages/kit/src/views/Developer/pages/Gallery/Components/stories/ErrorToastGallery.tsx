@@ -5,6 +5,10 @@ import {
   InvoiceExpiredError,
   OneKeyError,
 } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { Layout } from './utils/Layout';
@@ -111,6 +115,19 @@ function Demo1() {
         }}
       >
         调用 background 显示 toast3
+      </Button>
+      <Button
+        onPress={async () => {
+          appEventBus.emit(EAppEventBusNames.ShowToast, {
+            method: 'error',
+            title:
+              'Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, 444444444444444444444444' ??
+              'Error',
+            message: '33333333-33333333-33333333-33333333',
+          });
+        }}
+      >
+        调用 appEventBus 显示 toast1
       </Button>
     </Stack>
   );

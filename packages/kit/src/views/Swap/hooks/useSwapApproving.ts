@@ -15,6 +15,8 @@ import {
   useSwapApprovingTransactionAtom,
 } from '../../../states/jotai/contexts/swap';
 
+import { useSwapBuildTx } from './useSwapBuiltTx';
+
 export function useSwapApproving() {
   const intl = useIntl();
   const { approvingStateAction, cleanApprovingInterval } =
@@ -24,7 +26,11 @@ export function useSwapApproving() {
   if (swapApprovingTxRef.current !== swapApprovingTransactionAtom) {
     swapApprovingTxRef.current = swapApprovingTransactionAtom;
   }
-
+  const { approveTx } = useSwapBuildTx();
+  const approveTxRef = useRef(approveTx);
+  if (approveTxRef.current !== approveTx) {
+    approveTxRef.current = approveTx;
+  }
   useEffect(() => {
     if (
       swapApprovingTransactionAtom?.txId &&
@@ -59,22 +65,22 @@ export function useSwapApproving() {
       swapApprovingTransactionAtom?.status ===
       ESwapApproveTransactionStatus.SUCCESS
     ) {
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.swap_page_toast_approve_successful,
-        }),
-      });
+      if (
+        swapApprovingTransactionAtom?.resetApproveValue &&
+        Number(swapApprovingTransactionAtom?.resetApproveValue) > 0
+      ) {
+        void approveTxRef.current?.(
+          swapApprovingTransactionAtom?.resetApproveValue,
+          !!swapApprovingTransactionAtom?.resetApproveIsMax,
+        );
+      } else {
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.swap_page_toast_approve_successful,
+          }),
+        });
+      }
     }
-    // } else if (
-    //   swapApprovingTransactionAtom?.status ===
-    //   ESwapApproveTransactionStatus.DISCARD
-    // ) {
-    //   Toast.error({
-    //     title: intl.formatMessage({
-    //       id: ETranslations.swap_page_toast_approve_discarded,
-    //     }),
-    //   });
-    // }
     return () => {
       cleanApprovingInterval();
     };
@@ -82,6 +88,8 @@ export function useSwapApproving() {
     approvingStateAction,
     cleanApprovingInterval,
     intl,
+    swapApprovingTransactionAtom?.resetApproveIsMax,
+    swapApprovingTransactionAtom?.resetApproveValue,
     swapApprovingTransactionAtom?.status,
     swapApprovingTransactionAtom?.txId,
   ]);

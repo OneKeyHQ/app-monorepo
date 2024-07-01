@@ -10,26 +10,29 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isRequestIdMessage } from '@onekeyhq/shared/src/request/utils';
 
 export function ErrorToastContainer() {
   const intl = useIntl();
   const { copyText } = useClipboard();
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
-      const message = p?.message ? `RequestId: ${p.message}` : undefined;
-      const actionsProps: IButtonProps | undefined = message
-        ? {
-            children: intl.formatMessage({ id: ETranslations.global_copy }),
-            my: '$2',
-            size: 'small',
-            onPress: () => {
+      const message = p.message;
+      let actionsProps: IButtonProps | undefined;
+      if (isRequestIdMessage(message)) {
+        actionsProps = {
+          children: intl.formatMessage({ id: ETranslations.global_copy }),
+          my: '$2',
+          size: 'small',
+          onPress: () => {
+            if (message) {
               copyText(message);
-            },
-          }
-        : undefined;
+            }
+          },
+        };
+      }
       Toast[p.method]({
         ...p,
-        message,
         actionsProps,
       });
     };

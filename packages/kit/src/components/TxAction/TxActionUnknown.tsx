@@ -19,29 +19,35 @@ function getTxActionUnknownInfo(props: ITxActionProps) {
   const unknownFrom = unknownAction?.from ?? '';
   const unknownTo = unknownAction?.to ?? '';
   const unknownIcon = unknownAction?.icon ?? '';
+  const unknownLabel = unknownAction?.label ?? '';
 
   return {
     unknownFrom,
     unknownTo,
     unknownIcon,
+    unknownLabel,
   };
 }
 
 function TxActionUnknownListView(props: ITxActionProps) {
   const intl = useIntl();
-  const { tableLayout, decodedTx, componentProps, showIcon } = props;
-  const { unknownTo, unknownIcon } = getTxActionUnknownInfo(props);
+  const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
+    props;
+  const { unknownTo, unknownIcon, unknownLabel } =
+    getTxActionUnknownInfo(props);
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
     useFeeInfoInDecodedTx({
       decodedTx,
     });
 
-  const title = intl.formatMessage({
-    id: ETranslations.transaction__contract_interaction,
-  });
+  const title =
+    unknownLabel ||
+    intl.formatMessage({
+      id: ETranslations.transaction__contract_interaction,
+    });
   const avatar: ITxActionCommonListViewProps['avatar'] = {
     src: unknownIcon,
-    fallbackIcon: 'QuestionmarkOutline',
+    fallbackIcon: 'Document2Outline',
   };
   const description = {
     children: accountUtils.shortenAddress({ address: unknownTo }),
@@ -59,6 +65,8 @@ function TxActionUnknownListView(props: ITxActionProps) {
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       showIcon={showIcon}
       hideFeeInfo={hideFeeInfo}
+      replaceType={replaceType}
+      status={decodedTx.status}
       {...componentProps}
     />
   );
@@ -77,6 +85,7 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
         }),
         avatar: {
           src: unknownIcon,
+          fallbackIcon: 'Document2Outline',
         },
       }}
       target={{

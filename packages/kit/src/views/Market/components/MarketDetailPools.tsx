@@ -16,6 +16,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketResponsePool } from '@onekeyhq/shared/types/market';
@@ -223,6 +224,8 @@ export function MarketDetailPools({
   // eslint-disable-next-line react/prop-types
   onContentSizeChange,
 }: ITabPageProps & { pools: IMarketResponsePool[] }) {
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
   const { gtMd, gtXl } = useMedia();
   const oneKeyNetworkIds = useMemo(
@@ -301,10 +304,15 @@ export function MarketDetailPools({
                 <XStack space="$2.5" ai="center">
                   <MarketPoolIcon uri={dexLogoUrl} />
                   <YStack flexShrink={1}>
-                    <SizableText size="$bodyMdMedium" numberOfLines={1}>
+                    <SizableText
+                      size="$bodyMdMedium"
+                      numberOfLines={1}
+                      selectable={false}
+                    >
                       {attributes.name}
                     </SizableText>
                     <SizableText
+                      selectable={false}
                       size="$bodySm"
                       color="$textSubdued"
                       numberOfLines={1}
@@ -318,9 +326,10 @@ export function MarketDetailPools({
               {gtMd ? (
                 <ItemColumn>
                   <NumberSizeableText
+                    selectable={false}
                     size="$bodyMd"
                     formatter="price"
-                    formatterOptions={{ currency: '$' }}
+                    formatterOptions={{ currency }}
                     textAlign="right"
                   >
                     {price}
@@ -330,6 +339,7 @@ export function MarketDetailPools({
               {gtXl ? (
                 <ItemColumn>
                   <NumberSizeableText
+                    selectable={false}
                     size="$bodyMd"
                     formatter="marketCap"
                     textAlign="right"
@@ -340,6 +350,7 @@ export function MarketDetailPools({
               ) : null}
               <ItemColumn>
                 <NumberSizeableText
+                  selectable={false}
                   size="$bodyMd"
                   formatter="marketCap"
                   textAlign="right"
@@ -349,6 +360,7 @@ export function MarketDetailPools({
               </ItemColumn>
               <ItemColumn>
                 <NumberSizeableText
+                  selectable={false}
                   size="$bodyMd"
                   formatter="marketCap"
                   textAlign="right"

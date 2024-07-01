@@ -107,9 +107,10 @@ function SelectItem({
         pressStyle={{ bg: '$bgActive' }}
         onPress={handleSelect}
         testID={testID}
+        alignItems="center"
       >
         {leading ? (
-          <Stack alignContent="center" justifyContent="center" pr="$4">
+          <Stack alignContent="center" justifyContent="center" pr="$3">
             {leading}
           </Stack>
         ) : null}
@@ -188,6 +189,7 @@ function SelectContent() {
     floatingPanelProps,
     placement,
     labelInValue,
+    offset,
   } = useContext(SelectContext);
   const handleSelect = useCallback(
     (item: ISelectItem) => {
@@ -294,6 +296,7 @@ function SelectContent() {
       placement={placement}
       renderTrigger={popoverTrigger}
       renderContent={renderContent}
+      offset={offset}
     />
   );
 }
@@ -309,6 +312,7 @@ function SelectFrame<T extends string | ISelectItem>({
   disabled,
   sections,
   sheetProps,
+  offset,
   labelInValue = false,
   floatingPanelProps,
   placement = 'bottom-start',
@@ -339,6 +343,7 @@ function SelectFrame<T extends string | ISelectItem>({
       sheetProps,
       floatingPanelProps,
       placement,
+      offset,
     }),
     [
       isOpen,
@@ -354,6 +359,7 @@ function SelectFrame<T extends string | ISelectItem>({
       sheetProps,
       floatingPanelProps,
       placement,
+      offset,
     ],
   );
   return (

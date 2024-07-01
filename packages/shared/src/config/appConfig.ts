@@ -5,12 +5,15 @@ import type { EServiceEndpointEnum, IEndpointEnv } from '../../types/endpoint';
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
   process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so';
 
-export const HARDWARE_SDK_VERSION = '1.0.0-alpha.13'; // 0.3.43     1.0.0-alpha.2
+export const HARDWARE_SDK_VERSION = '1.0.3'; // 0.3.43     1.0.0-alpha.2
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
 
 export const FIRMWARE_UPDATE_WEB_TOOLS_URL = 'https://firmware.onekey.so';
+export const FIRMWARE_CONTACT_US_URL = 'https://help.onekey.so/hc/requests/new';
+export const FIRMWARE_MANUAL_ENTERING_BOOTLOADER_MODE_GUIDE =
+  'https://help.onekey.so/hc/articles/8352275268623';
 export const FIRMWARE_UPDATE_FULL_RES_GUIDE =
   'https://help.onekey.so/hc/articles/8884680775951';
 export const FIRMWARE_UPDATE_BRIDGE_GUIDE =

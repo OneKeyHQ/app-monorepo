@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Image,
   RichSizeableText,
@@ -16,6 +17,7 @@ import {
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  FIRMWARE_MANUAL_ENTERING_BOOTLOADER_MODE_GUIDE,
   FIRMWARE_UPDATE_BRIDGE_GUIDE,
   FIRMWARE_UPDATE_FULL_RES_GUIDE,
   FIRMWARE_UPDATE_WEB_TOOLS_URL,
@@ -41,18 +43,25 @@ import type { IDeviceType } from '@onekeyfe/hd-core';
 function CommonError({
   message,
   title,
+  icon,
+  displayTroubleshooting,
 }: {
   message?: string | undefined;
   title?: string | undefined;
+  icon?: IKeyOfIcons | undefined;
+  displayTroubleshooting?: boolean;
 }) {
   const intl = useIntl();
   return (
     <FirmwareUpdateBaseMessageView
+      icon={icon}
+      tone="destructive"
       title={
         title ||
         intl.formatMessage({ id: ETranslations.global_an_error_occurred })
       }
       message={message}
+      displayTroubleshooting={displayTroubleshooting}
     />
   );
 }
@@ -153,7 +162,7 @@ export function EnterBootModeGuide({
         <Image w={353} h={224} source={ImgEnterBootGuideMini} />
         <SizableText size="$headingMd">
           {intl.formatMessage({
-            id: ETranslations.update_manually_entering_bootloader_mode_desc,
+            id: ETranslations.update_manually_entering_bootloader_mode,
           })}
         </SizableText>
         <SizableText mt="$2" color="$textSubdued">
@@ -168,7 +177,9 @@ export function EnterBootModeGuide({
     <Stack mb="$6">
       <RichSizeableText
         mt="$2"
-        linkList={{ url: { url: FIRMWARE_UPDATE_FULL_RES_GUIDE } }}
+        linkList={{
+          url: { url: FIRMWARE_MANUAL_ENTERING_BOOTLOADER_MODE_GUIDE },
+        }}
       >
         {ETranslations.update_follow_online_tutorial_to_proceed_manually}
       </RichSizeableText>
@@ -201,6 +212,76 @@ export function useFirmwareUpdateErrors({
     if (
       isHardwareErrorByCode({
         error,
+        code: [
+          HardwareErrorCode.PinCancelled,
+          HardwareErrorCode.ActionCancelled,
+          HardwareErrorCode.DeviceInterruptedFromOutside,
+        ],
+      })
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            title={intl.formatMessage({
+              id: ETranslations.update_operation_canceled,
+            })}
+            message={intl.formatMessage({
+              id: ETranslations.update_operation_canceled_desc,
+            })}
+          />
+        ),
+        onRetryHandler: onRetry,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
+        code: HardwareErrorCode.FirmwareUpdateDownloadFailed,
+      })
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="DownloadOutline"
+            title={intl.formatMessage({
+              id: ETranslations.update_download_failed,
+            })}
+            message={intl.formatMessage({
+              id: ETranslations.update_check_connection_try_again,
+            })}
+          />
+        ),
+        onRetryHandler: onRetry,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
+        code: HardwareErrorCode.PinInvalid,
+      })
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            message={intl.formatMessage({
+              id: ETranslations.hardware_invalid_pin_error,
+            })}
+          />
+        ),
+        onRetryHandler: onRetry,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
         code: HardwareErrorCode.FirmwareUpdateManuallyEnterBoot,
       }) ||
       isHardwareErrorByCode({
@@ -212,7 +293,14 @@ export function useFirmwareUpdateErrors({
           EFirmwareUpdateTipMessages.AutoRebootToBootloader)
     ) {
       return {
-        content: <CommonError title={error?.message} />,
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            title={intl.formatMessage({
+              id: ETranslations.update_manually_entering_bootloader_mode,
+            })}
+          />
+        ),
         detail: <EnterBootModeGuide deviceType={result?.deviceType} />,
         onRetryHandler: onRetry,
         retryText:
@@ -228,17 +316,72 @@ export function useFirmwareUpdateErrors({
     if (
       isHardwareErrorByCode({
         error,
+        code: [HardwareErrorCode.BridgeNetworkError],
+      })
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            title={intl.formatMessage({
+              id: ETranslations.update_bridge_network_error,
+            })}
+            message={intl.formatMessage({
+              id: ETranslations.update_unable_to_connect_to_bridge,
+            })}
+          />
+        ),
+        onRetryHandler: onRetry,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
+        code: [HardwareErrorCode.BridgeTimeoutError],
+      })
+    ) {
+      return {
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            title={intl.formatMessage({
+              id: ETranslations.update_bridge_timeout_error,
+            })}
+            message={intl.formatMessage({
+              id: ETranslations.update_connection_to_bridge_timed_out,
+            })}
+          />
+        ),
+        onRetryHandler: onRetry,
+        retryText: defaultRetryText,
+      };
+    }
+
+    if (
+      isHardwareErrorByCode({
+        error,
         code: [
-          HardwareErrorCode.BridgeNetworkError,
-          HardwareErrorCode.BridgeTimeoutError,
           HardwareErrorCode.BridgeNotInstalled,
           ECustomOneKeyHardwareError.NeedOneKeyBridge,
         ],
       })
     ) {
       return {
-        // content: <ShouldUpdateBridge result={result} />,
-        content: <CommonError message={error?.message} />,
+        content: (
+          <FirmwareUpdateBaseMessageView
+            icon="CrossedLargeOutline"
+            tone="destructive"
+            title={intl.formatMessage({
+              id: ETranslations.update_bridge_not_installed,
+            })}
+            message={intl.formatMessage({
+              id: ETranslations.update_hardware_update_requires_bridge,
+            })}
+            linkList={{ url: { url: FIRMWARE_UPDATE_BRIDGE_GUIDE } }}
+          />
+        ),
         onRetryHandler: onRetry,
         retryText: defaultRetryText,
       };
@@ -282,7 +425,13 @@ export function useFirmwareUpdateErrors({
 
     if (error) {
       return {
-        content: <CommonError message={error?.message} />,
+        content: (
+          <CommonError
+            icon="CrossedLargeOutline"
+            message={error?.message}
+            displayTroubleshooting
+          />
+        ),
         onRetryHandler: onRetry,
         retryText: defaultRetryText,
       };

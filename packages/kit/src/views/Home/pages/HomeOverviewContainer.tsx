@@ -1,26 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   IconButton,
   NumberSizeableText,
   Skeleton,
   Stack,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOTAL_VALUE,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+
+import type { FontSizeTokens } from 'tamagui';
 
 function HomeOverviewContainer() {
   const intl = useIntl();
@@ -39,19 +44,10 @@ function HomeOverviewContainer() {
   const { result: overview } = usePromiseResult(
     async () => {
       if (!account || !network) return;
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId: account.id,
-          networkId: network.id,
-        });
       const r =
         await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
           networkId: network.id,
-          accountAddress,
-          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId: account.id,
-            networkId: network.id,
-          }),
+          accountId: account.id,
           withNetWorth: true,
           withNonce: false,
         });
@@ -84,6 +80,8 @@ function HomeOverviewContainer() {
       });
     }
   }, [account?.id, network?.id, wallet?.id]);
+  const { md } = useMedia();
+  const balanceDialogInstance = useRef<IDialogInstance | null>(null);
 
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
@@ -92,15 +90,34 @@ function HomeOverviewContainer() {
       </Stack>
     );
 
+  const balanceString = overview?.netWorth ?? '0';
+  const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
+    { length: 25, size: '$headingXl' },
+    { length: 13, size: '$heading4xl' },
+  ];
+  const defaultBalanceSize = '$heading5xl';
+  const numberFormatter: INumberFormatProps = {
+    formatter: 'value',
+    formatterOptions: { currency: settings.currencyInfo.symbol },
+  };
+
   return (
     <XStack alignItems="center" space="$2">
       <NumberSizeableText
+        flexShrink={1}
         minWidth={0}
-        formatter="value"
-        formatterOptions={{ currency: settings.currencyInfo.symbol }}
-        size="$heading5xl"
+        {...numberFormatter}
+        size={
+          md
+            ? balanceSizeList.find(
+                (item) =>
+                  numberFormat(String(balanceString), numberFormatter, true)
+                    .length >= item.length,
+              )?.size ?? defaultBalanceSize
+            : defaultBalanceSize
+        }
       >
-        {overview?.netWorth ?? 0}
+        {balanceString}
       </NumberSizeableText>
       {vaultSettings?.hasFrozenBalance ? (
         <IconButton
@@ -109,13 +126,18 @@ function HomeOverviewContainer() {
           })}
           icon="InfoCircleOutline"
           variant="tertiary"
-          onPressDebounce={200}
-          onPress={() =>
-            showBalanceDetailsDialog({
+          onPress={() => {
+            if (balanceDialogInstance?.current) {
+              return;
+            }
+            balanceDialogInstance.current = showBalanceDetailsDialog({
               accountId: account?.id ?? '',
               networkId: network?.id ?? '',
-            })
-          }
+              onClose: () => {
+                balanceDialogInstance.current = null;
+              },
+            });
+          }}
         />
       ) : null}
     </XStack>

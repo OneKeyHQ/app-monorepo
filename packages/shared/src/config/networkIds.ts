@@ -35,6 +35,7 @@ export type INetworkShortCode =
   | 'ckb'
   | 'btc'
   | 'tbtc'
+  | 'sbtc'
   | 'juno'
   | 'osmosis'
   | 'secretnetwork'
@@ -53,6 +54,7 @@ export type INetworkShortCode =
   | 'sepolia'
   | 'mantle'
   | 'mantapacific'
+  | 'blast'
   | 'fevm';
 
 const checkErrors: string[] = [];

@@ -63,13 +63,6 @@ const TabMe = () => {
           >
             清空缓存密码
           </Button>
-          <Button
-            onPress={() => {
-              void backgroundApiProxy.serviceE2E.resetPasswordSetStatus();
-            }}
-          >
-            重置密码设置
-          </Button>
 
           <Button
             onPress={() => {
@@ -87,6 +80,13 @@ const TabMe = () => {
             }}
           >
             V4 迁移
+          </Button>
+          <Button
+            onPress={() => {
+              void navigateToV4MigrationPage({ isAutoStartOnMount: true });
+            }}
+          >
+            V4 迁移（断点恢复模式）
           </Button>
         </YStack>
       </Page.Body>

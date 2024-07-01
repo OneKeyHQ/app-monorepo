@@ -1,7 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
+  Badge,
   Icon,
   NumberSizeableText,
   SizableText,
@@ -13,6 +13,7 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import {
   InfoItem,
@@ -31,7 +32,14 @@ function TxActionCommonAvatar({
   const containerSize = '$10';
 
   if (!avatar.src || typeof avatar.src === 'string') {
-    return <Token size="lg" isNFT={avatar.isNFT} tokenImageUri={avatar.src} />;
+    return (
+      <Token
+        size="lg"
+        isNFT={avatar.isNFT}
+        fallbackIcon={avatar.fallbackIcon}
+        tokenImageUri={avatar.src}
+      />
+    );
   }
 
   return (
@@ -42,7 +50,12 @@ function TxActionCommonAvatar({
       justifyContent="flex-end"
     >
       <Stack position="absolute" left="$0" top="$0">
-        <Token size="sm" isNFT={avatar.isNFT} tokenImageUri={avatar.src[0]} />
+        <Token
+          size="sm"
+          isNFT={avatar.isNFT}
+          fallbackIcon={avatar.fallbackIcon}
+          tokenImageUri={avatar.src[0]}
+        />
       </Stack>
       <Stack
         borderWidth={2}
@@ -50,7 +63,12 @@ function TxActionCommonAvatar({
         borderRadius="$full"
         zIndex={1}
       >
-        <Token size="sm" isNFT={avatar.isNFT} tokenImageUri={avatar.src[1]} />
+        <Token
+          size="sm"
+          isNFT={avatar.isNFT}
+          fallbackIcon={avatar.fallbackIcon}
+          tokenImageUri={avatar.src[1]}
+        />
       </Stack>
     </Stack>
   );
@@ -59,18 +77,42 @@ function TxActionCommonAvatar({
 function TxActionCommonTitle({
   title,
   tableLayout,
-}: Pick<ITxActionCommonListViewProps, 'title' | 'tableLayout'>) {
+  replaceType,
+  status,
+}: Pick<
+  ITxActionCommonListViewProps,
+  'title' | 'tableLayout' | 'replaceType' | 'status'
+>) {
+  const intl = useIntl();
+
   return (
-    <SizableText
-      numberOfLines={1}
-      size="$bodyLgMedium"
-      textTransform="capitalize"
-      {...(tableLayout && {
-        size: '$bodyMdMedium',
-      })}
-    >
-      {title}
-    </SizableText>
+    <XStack alignItems="center">
+      <SizableText
+        numberOfLines={1}
+        size="$bodyLgMedium"
+        textTransform="capitalize"
+        {...(tableLayout && {
+          size: '$bodyMdMedium',
+        })}
+      >
+        {title}
+      </SizableText>
+      {replaceType && status === EDecodedTxStatus.Pending ? (
+        <Badge badgeSize="sm" badgeType="info" ml="$2">
+          {intl.formatMessage({
+            id:
+              replaceType === EReplaceTxType.SpeedUp
+                ? ETranslations.global_sped_up
+                : ETranslations.global_cancelling,
+          })}
+        </Badge>
+      ) : null}
+      {status === EDecodedTxStatus.Failed ? (
+        <Badge badgeSize="sm" badgeType="critical" ml="$2">
+          {intl.formatMessage({ id: ETranslations.global_failed })}
+        </Badge>
+      ) : null}
+    </XStack>
   );
 }
 
@@ -78,7 +120,7 @@ function TxActionCommonDescription({
   description,
 }: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'>) {
   return (
-    <XStack alignItems="center">
+    <XStack alignItems="center" flex={1}>
       {description?.prefix ? (
         <SizableText size="$bodyMd" color="$textSubdued" pr="$1.5">
           {description?.prefix}
@@ -92,7 +134,7 @@ function TxActionCommonDescription({
           name={description.icon}
         />
       ) : null}
-      <SizableText size="$bodyMd" color="$textSubdued">
+      <SizableText size="$bodyMd" color="$textSubdued" minWidth={0}>
         {description?.children}
       </SizableText>
     </XStack>
@@ -175,6 +217,7 @@ function TxActionCommonListView(
   const {
     avatar,
     title,
+    status,
     description,
     change,
     changeDescription,
@@ -182,18 +225,18 @@ function TxActionCommonListView(
     feeFiatValue,
     feeSymbol,
     timestamp,
-    pending,
     tableLayout,
     showIcon,
     hideFeeInfo,
+    replaceType,
     ...rest
   } = props;
-  const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
 
   return (
     <ListItem
+      testID="tx-action-common-list-view"
       space="$2"
       flexDirection="column"
       alignItems="flex-start"
@@ -202,7 +245,9 @@ function TxActionCommonListView(
     >
       {/* Content */}
       <XStack space="$3" alignSelf="stretch">
+        {/* token, title and subtitle */}
         <XStack
+          flex={1}
           space="$3"
           {...(tableLayout && {
             flexGrow: 1,
@@ -212,9 +257,14 @@ function TxActionCommonListView(
           {showIcon ? (
             <TxActionCommonAvatar avatar={avatar} tableLayout={tableLayout} />
           ) : null}
-          <Stack>
-            <TxActionCommonTitle title={title} tableLayout={tableLayout} />
-            <XStack>
+          <Stack flex={1}>
+            <TxActionCommonTitle
+              title={title}
+              status={status}
+              tableLayout={tableLayout}
+              replaceType={replaceType}
+            />
+            <XStack alignSelf="stretch">
               {tableLayout && timestamp ? (
                 <>
                   <SizableText size="$bodyMd" color="$textSubdued">
@@ -236,12 +286,13 @@ function TxActionCommonListView(
             </XStack>
           </Stack>
         </XStack>
+        {/* changes */}
         <Stack
-          flexGrow={1}
-          flexBasis={0}
           alignItems="flex-end"
           {...(tableLayout && {
             alignItems: 'unset',
+            flexGrow: 1,
+            flexBasis: 0,
           })}
         >
           {typeof change === 'string' ? (
@@ -257,6 +308,7 @@ function TxActionCommonListView(
             changeDescription
           )}
         </Stack>
+        {/* fees */}
         {tableLayout && !hideFeeInfo ? (
           <TxActionCommonFee
             fee={fee}
@@ -266,18 +318,6 @@ function TxActionCommonListView(
           />
         ) : null}
       </XStack>
-
-      {/* Actions */}
-      {pending ? (
-        <XStack pl={52} space="$3">
-          <Button size="small" variant="primary">
-            {intl.formatMessage({ id: ETranslations.global_speed_up })}
-          </Button>
-          <Button size="small">
-            {intl.formatMessage({ id: ETranslations.global_cancel })}
-          </Button>
-        </XStack>
-      ) : null}
     </ListItem>
   );
 }
@@ -292,6 +332,7 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
         renderContent={
           <XStack alignItems="center" space="$3" minWidth={0}>
             <Token
+              fallbackIcon={overview.avatar?.fallbackIcon}
               isNFT={overview.avatar?.isNFT}
               tokenImageUri={overview.avatar?.src}
             />

@@ -50,7 +50,10 @@ const SwapHeaderRightActionContainer = ({
           <Stack borderRadius="$full" p={3} bg="$borderInfo">
             <Stack w="$1.5" h="$1.5" borderRadius="$full" bg="$iconInfo" />
           </Stack>
-          <Badge.Text pl="$2">{`${swapPendingStatusList.length} Pending `}</Badge.Text>
+          <Badge.Text
+            cursor="pointer"
+            pl="$2"
+          >{`${swapPendingStatusList.length} Pending `}</Badge.Text>
         </Badge>
       ) : (
         <HeaderIconButton
@@ -60,11 +63,6 @@ const SwapHeaderRightActionContainer = ({
           size="medium"
         />
       )}
-      <HeaderIconButton
-        icon="QuestionmarkOutline"
-        iconProps={{ size: 24 }}
-        size="medium"
-      />
     </HeaderButtonGroup>
   );
 };

@@ -68,7 +68,9 @@ const SwapCommonInfoItem = ({
         alignItems="center"
       >
         {valueComponent || (
-          <SizableText size="$bodyMdMedium">{value}</SizableText>
+          <SizableText onPress={onPress} size="$bodyMdMedium">
+            {value}
+          </SizableText>
         )}
         {onPress || renderPopoverContent ? (
           <Icon
@@ -97,13 +99,14 @@ const SwapCommonInfoItem = ({
     return rightTrigger;
   }, [popoverOnOpenChange, renderPopoverContent, rightTrigger, title]);
   return (
-    <XStack
-      onPress={onPress}
-      justifyContent="space-between"
-      alignItems="center"
-    >
+    <XStack justifyContent="space-between" alignItems="center">
       <XStack>
-        <SizableText mr="$1" size="$bodyMd" color="$textSubdued">
+        <SizableText
+          userSelect="none"
+          mr="$1"
+          size="$bodyMd"
+          color="$textSubdued"
+        >
           {title}
         </SizableText>
         {questionMarkContent ? questionMarkComponent : null}

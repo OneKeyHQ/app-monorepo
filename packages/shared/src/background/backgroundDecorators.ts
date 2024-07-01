@@ -1,14 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/restrict-template-expressions */
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import errorUtils from '../errors/utils/errorUtils';
+import { formatDateFns } from '../utils/dateUtils';
 
 import {
   throwCrossError,
   warningIfNotRunInBackground,
 } from './backgroundUtils';
-
-import type { OneKeyError } from '../errors';
 
 const INTERNAL_METHOD_PREFIX = 'INTERNAL_';
 const PROVIDER_API_METHOD_PREFIX = 'PROVIDER_API_';
@@ -32,7 +31,8 @@ function backgroundClass() {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           super(...args);
           warningIfNotRunInBackground({
-            name: `[${constructor?.name}] Class`,
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access
+            name: `[${constructor?.name || ''}] Class`,
             target: this,
           });
         }
@@ -42,6 +42,31 @@ function backgroundClass() {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return constructor;
   };
+}
+
+export function isCorrectDevOnlyPassword(
+  password: string | undefined,
+): boolean {
+  // 20240625-onekey-debug
+  const correctPwd = `${formatDateFns(new Date(), 'yyyyMMdd')}-onekey-debug`;
+  return password === correctPwd;
+}
+
+export type IBackgroundMethodWithDevOnlyPassword = {
+  $$devOnlyPassword: string;
+};
+
+export function checkDevOnlyPassword(
+  params: IBackgroundMethodWithDevOnlyPassword,
+  methodName?: string,
+) {
+  if (!isCorrectDevOnlyPassword(params?.$$devOnlyPassword)) {
+    throwCrossError(
+      `You are not allowed to call this method, devOnlyPassword is wrong. method=${
+        methodName || ''
+      }`,
+    );
+  }
 }
 
 function createBackgroundMethodDecorator({
@@ -64,13 +89,25 @@ function createBackgroundMethodDecorator({
     }
 
     if (devOnly && platformEnv.isProduction && !platformEnv.isE2E) {
-      throwCrossError(
-        '@backgroundMethodForDev() / providerApiMethod only available in development.',
-        methodName,
-      );
+      // throwCrossError(
+      //   '@backgroundMethodForDev() / providerApiMethod only available in development.',
+      //   methodName,
+      // );
     }
 
-    target[`${prefix}${methodName}`] = descriptor.value;
+    if (devOnly) {
+      // @ts-ignore
+      target[`${prefix}${methodName}`] = function (p1, ...others) {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        checkDevOnlyPassword(p1, methodName);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        return descriptor.value.call(self, p1, ...others);
+      };
+    } else {
+      target[`${prefix}${methodName}`] = descriptor.value;
+    }
+
     // return PropertyDescriptor
     // descriptor.value.$isBackgroundMethod = true;
     return descriptor;

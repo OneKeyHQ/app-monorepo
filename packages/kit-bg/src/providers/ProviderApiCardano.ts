@@ -8,11 +8,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -215,9 +211,8 @@ class ProviderApiCardano extends ProviderApiBase {
       {
         request,
         unsignedMessage: {
-          // Use ETH_SIGN to sign plain message
-          type: EMessageTypesEth.ETH_SIGN,
-          message: Buffer.from(params.payload, 'hex').toString('utf8'),
+          type: EMessageTypesCommon.HEX_MESSAGE,
+          message: params.payload,
           payload: params,
         },
         networkId: networkId ?? '',

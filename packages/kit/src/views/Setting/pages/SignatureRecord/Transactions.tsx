@@ -5,7 +5,9 @@ import { StyleSheet } from 'react-native';
 
 import {
   Empty,
+  Icon,
   IconButton,
+  Image,
   NumberSizeableText,
   SectionList,
   SizableText,
@@ -14,7 +16,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
@@ -22,7 +23,10 @@ import { useEarnLabelFn } from '@onekeyhq/kit/src/views/Staking/hooks/useLabelFn
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
-import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import {
+  buildExplorerAddressUrl,
+  buildTransactionDetailsUrl,
+} from '@onekeyhq/shared/src/utils/uriUtils';
 import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 import type {
   IApproveTransactionData,
@@ -203,6 +207,36 @@ const EarnLidoTransactionItem = ({ data }: { data: IEarnTransactionData }) => {
   );
 };
 
+const ContractInteractionTransactionItem = () => {
+  const intl = useIntl();
+  return (
+    <XStack justifyContent="space-between" w="100%" alignItems="center">
+      <XStack alignItems="center">
+        <Image
+          borderRadius="$full"
+          overflow="hidden"
+          width={40}
+          height={40}
+          mr="$3"
+        >
+          <Image.Fallback
+            alignItems="center"
+            justifyContent="center"
+            bg="$gray5"
+          >
+            <Icon size={40} name="GlobusOutline" color="$iconSubdued" />
+          </Image.Fallback>
+        </Image>
+        <SizableText size="$bodyLgMedium">
+          {intl.formatMessage({
+            id: ETranslations.transaction__contract_interaction,
+          })}
+        </SizableText>
+      </XStack>
+    </XStack>
+  );
+};
+
 const TransactionData = ({ data }: { data: ISignedTransaction['data'] }) => {
   if (data.type === ETransactionType.SEND) {
     return <SendTransactionItem data={data} />;
@@ -216,19 +250,26 @@ const TransactionData = ({ data }: { data: ISignedTransaction['data'] }) => {
   if (data.type === ETransactionType.EARN) {
     return <EarnLidoTransactionItem data={data} />;
   }
+  if (data.type === ETransactionType.CONTRACT_INTERACTION) {
+    return <ContractInteractionTransactionItem />;
+  }
   return null;
 };
 
 const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
   const network = item.network;
   const onPress = useCallback(() => {
-    openUrl(
-      buildTransactionDetailsUrl({
-        network,
-        txid: item.hash,
-      }),
-    );
-  }, [item.hash, network]);
+    if (item.hash) {
+      openUrl(
+        buildTransactionDetailsUrl({
+          network,
+          txid: item.hash,
+        }),
+      );
+    } else {
+      openUrl(buildExplorerAddressUrl({ network, address: item.address }));
+    }
+  }, [item, network]);
   return (
     <YStack
       borderWidth={StyleSheet.hairlineWidth}

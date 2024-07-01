@@ -39,7 +39,8 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
 }
 
 function TxActionTokenApproveListView(props: ITxActionProps) {
-  const { tableLayout, decodedTx, componentProps, showIcon } = props;
+  const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
+    props;
   const intl = useIntl();
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
     useFeeInfoInDecodedTx({
@@ -58,7 +59,6 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
   const title = intl.formatMessage({ id: ETranslations.global_approve });
   const avatar: ITxActionCommonListViewProps['avatar'] = {
     src: approveIcon,
-    fallbackIcon: 'ImageMountainSolid',
   };
   const description = {
     children: accountUtils.shortenAddress({
@@ -98,6 +98,8 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       showIcon={showIcon}
       hideFeeInfo={hideFeeInfo}
+      replaceType={replaceType}
+      status={decodedTx.status}
       {...componentProps}
     />
   );
