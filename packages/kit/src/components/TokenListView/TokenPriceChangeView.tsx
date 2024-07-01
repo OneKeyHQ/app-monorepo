@@ -18,17 +18,20 @@ function TokenPriceChangeView(props: IProps) {
   const priceChange = token?.price24h ?? 0;
 
   const content = useMemo(() => {
-    let changeColor = '$text';
+    let changeColor = '$textSubdued';
+    let showPlusMinusSigns = false;
     const priceChangeBN = new BigNumber(priceChange);
     if (priceChangeBN.isGreaterThan(0)) {
       changeColor = '$textSuccess';
+      showPlusMinusSigns = true;
     } else if (priceChangeBN.isLessThan(0)) {
       changeColor = '$textCritical';
+      showPlusMinusSigns = true;
     }
     return (
       <NumberSizeableText
         formatter="priceChange"
-        formatterOptions={{ showPlusMinusSigns: true }}
+        formatterOptions={{ showPlusMinusSigns }}
         color={changeColor}
         {...rest}
       >

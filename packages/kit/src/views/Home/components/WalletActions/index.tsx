@@ -11,6 +11,7 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import type {
   IModalSendParamList,
   IModalSwapParamList,
@@ -33,7 +34,7 @@ function WalletActionSend() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
   const [allTokens] = useAllTokenListAtom();
@@ -136,23 +137,17 @@ function WalletActionSwap({ networkId }: { networkId?: string }) {
 
 function WalletActions({ ...rest }: IXStackProps) {
   const {
-    activeAccount: { network, account, wallet, deriveInfo, deriveType },
+    activeAccount: { network, account },
   } = useActiveAccount({ num: 0 });
 
   return (
     <RawActions {...rest}>
       <ReviewControl>
-        <WalletActionBuy networkId={network?.id} accountId={account?.id} />
+        <WalletActionBuy />
       </ReviewControl>
       <WalletActionSwap networkId={network?.id} />
       <WalletActionSend />
-      <WalletActionReceive
-        accountId={account?.id}
-        networkId={network?.id}
-        walletId={wallet?.id}
-        deriveInfo={deriveInfo}
-        deriveType={deriveType}
-      />
+      <WalletActionReceive />
       <WalletActionMore />
     </RawActions>
   );

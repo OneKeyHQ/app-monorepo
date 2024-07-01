@@ -143,13 +143,16 @@ export function getHistoryTxDetailInfo({
     nonce = decodedTx.nonce;
   }
 
-  const date = formatDate(
-    new Date(
-      txDetails?.timestamp
-        ? txDetails.timestamp * 1000
-        : decodedTx.updatedAt ?? decodedTx.createdAt ?? 0,
-    ),
-  );
+  let date = '-';
+
+  if (!isNil(txDetails?.timestamp)) {
+    date = formatDate(new Date(txDetails.timestamp * 1000));
+  } else if (!isNil(decodedTx.updatedAt) || !isNil(decodedTx.createdAt)) {
+    date = formatDate(
+      new Date(decodedTx.updatedAt || decodedTx.createdAt || 0),
+    );
+  }
+
   const txid = decodedTx.txid;
 
   const gasFee = txDetails?.gasFee ?? decodedTx.totalFeeInNative ?? '0';
