@@ -6,6 +6,7 @@ import {
   Button,
   IconButton,
   NumberSizeableText,
+  Popover,
   SizableText,
   Tooltip,
   XStack,
@@ -73,18 +74,30 @@ export const NftListItemStatus = ({
             )}
           </SizableText>
           {status === 'pending' ? (
-            <Tooltip
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.earn_stake_release_period,
+              })}
+              placement="bottom-start"
               renderTrigger={
                 <IconButton
                   variant="tertiary"
                   size="small"
-                  icon="InfoCircleOutline"
+                  icon="QuestionmarkOutline"
                 />
               }
-              renderContent={intl.formatMessage({
-                id: ETranslations.earn_stake_release_period_desc,
-              })}
-              placement="top"
+              renderContent={
+                <SizableText
+                  p="$5"
+                  $gtMd={{
+                    size: '$bodyMd',
+                  }}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.earn_stake_release_period_desc,
+                  })}
+                </SizableText>
+              }
             />
           ) : null}
         </XStack>

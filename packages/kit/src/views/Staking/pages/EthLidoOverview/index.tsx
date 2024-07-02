@@ -204,8 +204,8 @@ const EthLidoOverviewContent = ({
   ] = useSettingsPersistAtom();
 
   return (
-    <Stack px="$5" pt="$5">
-      <YStack>
+    <Stack>
+      <YStack px="$5" pt="$5">
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.earn_staked_value })}
         </SizableText>
@@ -256,8 +256,10 @@ const EthLidoOverviewContent = ({
           tokenImageUrl={eth.info.logoURI}
           tokenSymbol={eth.info.symbol}
         />
-        <EthLidoFAQs />
       </YStack>
+      <Stack>
+        <EthLidoFAQs />
+      </Stack>
       <Page.Footer
         onConfirmText={intl.formatMessage({ id: ETranslations.earn_stake })}
         confirmButtonProps={{

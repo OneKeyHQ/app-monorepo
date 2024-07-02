@@ -315,7 +315,7 @@ export const AddressBookListContent = ({
 
   return (
     <Stack flex={1}>
-      <Stack px="$5">
+      <Stack px="$5" pb="$2">
         <SearchBar
           placeholder={intl.formatMessage({ id: ETranslations.global_search })}
           value={searchKey}

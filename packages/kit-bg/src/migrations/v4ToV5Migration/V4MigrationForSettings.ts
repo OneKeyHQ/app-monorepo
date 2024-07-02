@@ -136,9 +136,8 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
     }
 
     await this.migrateBaseSettings();
-
     // Auto Lock
-    if (v4Settings.enableAppLock && v4Settings.appLockDuration) {
+    if (v4Settings.enableAppLock && !Number.isNaN(v4Settings.appLockDuration)) {
       await this.v4dbHubs.logger.runAsyncWithCatch(
         async () => {
           await this.backgroundApi.servicePassword.setAppLockDuration(

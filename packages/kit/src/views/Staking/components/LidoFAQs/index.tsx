@@ -16,7 +16,15 @@ const LidoFAQ = ({ question, answer }: ILidoFAQProps) => {
   return (
     <YStack>
       <YStack>
-        <XStack mb="$2" onPress={onToggle}>
+        <XStack
+          mb="$2"
+          borderRadius={12}
+          onPress={onToggle}
+          hoverStyle={{ backgroundColor: '$bgHover' }}
+          pressStyle={{ backgroundColor: '$bgHover' }}
+          py="$2"
+          px="$3"
+        >
           <XStack flex={1}>
             <SizableText size="$headingMd">{question}</SizableText>
           </XStack>
@@ -26,7 +34,7 @@ const LidoFAQ = ({ question, answer }: ILidoFAQProps) => {
             />
           </XStack>
         </XStack>
-        <XStack>
+        <XStack px="$3">
           {show ? <SizableText size="$bodyMd">{answer}</SizableText> : null}
         </XStack>
       </YStack>
@@ -38,12 +46,12 @@ export const EthLidoFAQs = () => {
   const intl = useIntl();
   return (
     <YStack mt="$12">
-      <XStack mb="$5">
+      <XStack mb="$5" px="$5">
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.global_faqs })}
         </SizableText>
       </XStack>
-      <YStack space="$5">
+      <YStack px="$2">
         <LidoFAQ
           question={intl.formatMessage({
             id: ETranslations.earn_how_does_the_lido_protocol_work,
@@ -77,12 +85,12 @@ export const MaticLidoFAQs = () => {
   const intl = useIntl();
   return (
     <YStack mt="$12">
-      <XStack mb="$5">
+      <XStack mb="$5" px="$5">
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.global_faqs })}
         </SizableText>
       </XStack>
-      <YStack space="$5">
+      <YStack px="$2">
         <LidoFAQ
           question={intl.formatMessage({
             id: ETranslations.earn_how_does_the_lido_protocol_work,
