@@ -340,7 +340,6 @@ export default class Vault extends VaultBase {
 
   _collectUTXOsInfoByApi = memoizee(
     async (params: { address: string }): Promise<IKaspaUnspentOutputInfo[]> => {
-      const { address } = params;
       try {
         const { utxoList: utxos } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
