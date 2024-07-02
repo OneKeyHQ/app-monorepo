@@ -417,6 +417,10 @@ function createMainWindow() {
     }, 10);
   });
 
+  ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
+    store.setTheme(themeKey);
+  });
+
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
     try {
       await systemPreferences.promptTouchID(msg);
