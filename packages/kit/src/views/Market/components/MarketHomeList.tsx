@@ -1138,6 +1138,7 @@ function BasicMarketHomeList({
             right={gtMd ? '$8' : '$4'}
           >
             <IconButton
+              title=""
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$transparent"
               iconColor="$icon"
