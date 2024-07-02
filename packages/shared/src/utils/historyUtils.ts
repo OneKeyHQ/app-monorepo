@@ -145,9 +145,9 @@ export function getHistoryTxDetailInfo({
 
   let date = '-';
 
-  if (!isNil(txDetails?.timestamp)) {
+  if (txDetails?.timestamp) {
     date = formatDate(new Date(txDetails.timestamp * 1000));
-  } else if (!isNil(decodedTx.updatedAt) || !isNil(decodedTx.createdAt)) {
+  } else if (decodedTx.updatedAt || decodedTx.updatedAt) {
     date = formatDate(
       new Date(decodedTx.updatedAt || decodedTx.createdAt || 0),
     );
