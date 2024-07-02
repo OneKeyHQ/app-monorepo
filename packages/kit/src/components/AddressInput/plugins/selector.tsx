@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type FC } from 'react';
+import { type FC, useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
