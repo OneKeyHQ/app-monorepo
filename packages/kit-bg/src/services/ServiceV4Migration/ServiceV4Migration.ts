@@ -36,6 +36,7 @@ import {
 } from '../../states/jotai/atoms/v4migration';
 import ServiceBase from '../ServiceBase';
 
+import type { IDBIndexedAccount } from '../../dbs/local/types';
 import type {
   IV4MigrationBackupSectionData,
   IV4MigrationBackupSectionDataItem,
@@ -164,6 +165,24 @@ class ServiceV4Migration extends ServiceBase {
         errorResultFn: () => false,
       },
     );
+  }
+
+  @backgroundMethod()
+  async canRenameFromV4AccountName({
+    indexedAccount,
+  }: {
+    indexedAccount: IDBIndexedAccount | undefined;
+  }) {
+    if (!indexedAccount) {
+      return false;
+    }
+    const v4dbExist = await this.checkIfV4DbExist();
+    if (!v4dbExist) {
+      return false;
+    }
+    return simpleDb.v4MigrationResult.isV5IndexedAccountIdMigrated({
+      v5indexedAccountId: indexedAccount.id,
+    });
   }
 
   @backgroundMethod()

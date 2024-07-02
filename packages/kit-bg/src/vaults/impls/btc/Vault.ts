@@ -51,7 +51,6 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
   EDecodedTxActionType,
@@ -397,35 +396,45 @@ export default class VaultBtc extends VaultBase {
       params,
     );
 
-    // build deriveItems
-    let xpub = '';
-    if (result.xpubResult?.isValid) {
-      // xpub from input
-      xpub = input;
-    }
-    const network = await this.getBtcForkNetwork();
-    if (!xpub && result.xprvtResult?.isValid) {
-      // xpub from xprvt(input)
-      ({ xpub } = getBtcXpubFromXprvt({
-        network,
-        privateKeyRaw: convertBtcXprvtToHex({ xprvt: input }),
-      }));
-    }
-    if (xpub) {
-      // encoding list from xpub
-      const { supportEncodings } = getBtcXpubSupportedAddressEncodings({
-        xpub,
-        network,
-      });
+    if (result.addressResult?.isValid && result.addressResult?.encoding) {
+      const settings = await this.getVaultSettings();
+      const items = Object.values(settings.accountDeriveInfo);
+      result.deriveInfoItems = items.filter(
+        (item) =>
+          item.addressEncoding &&
+          result.addressResult?.encoding === item.addressEncoding,
+      );
+    } else {
+      // build deriveItems
+      let xpub = '';
+      if (result.xpubResult?.isValid) {
+        // xpub from input
+        xpub = input;
+      }
+      const network = await this.getBtcForkNetwork();
+      if (!xpub && result.xprvtResult?.isValid) {
+        // xpub from xprvt(input)
+        ({ xpub } = getBtcXpubFromXprvt({
+          network,
+          privateKeyRaw: convertBtcXprvtToHex({ xprvt: input }),
+        }));
+      }
+      if (xpub) {
+        // encoding list from xpub
+        const { supportEncodings } = getBtcXpubSupportedAddressEncodings({
+          xpub,
+          network,
+        });
 
-      if (supportEncodings && supportEncodings.length) {
-        const settings = await this.getVaultSettings();
-        const items = Object.values(settings.accountDeriveInfo);
-        result.deriveInfoItems = items.filter(
-          (item) =>
-            item.addressEncoding &&
-            supportEncodings.includes(item.addressEncoding),
-        );
+        if (supportEncodings && supportEncodings.length) {
+          const settings = await this.getVaultSettings();
+          const items = Object.values(settings.accountDeriveInfo);
+          result.deriveInfoItems = items.filter(
+            (item) =>
+              item.addressEncoding &&
+              supportEncodings.includes(item.addressEncoding),
+          );
+        }
       }
     }
 

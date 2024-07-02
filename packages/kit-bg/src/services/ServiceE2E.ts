@@ -10,6 +10,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
@@ -25,7 +26,7 @@ import {
 
 import ServiceBase from './ServiceBase';
 
-import type { IDBBaseObject } from '../dbs/local/types';
+import type { IDBAccount, IDBBaseObject } from '../dbs/local/types';
 
 @backgroundClass()
 class ServiceE2E extends ServiceBase {
@@ -119,7 +120,8 @@ class ServiceE2E extends ServiceBase {
     { normalize }: { normalize?: boolean } = {},
   ) {
     checkDevOnlyPassword(params);
-    const { serviceAccount, serviceV4Migration } = this.backgroundApi;
+    const { serviceAccount, serviceV4Migration, serviceNetwork } =
+      this.backgroundApi;
     let { accounts } = await serviceAccount.getAllAccounts();
     const { wallets } = await serviceAccount.getAllWallets();
     const { devices } = await serviceAccount.getAllDevices();
@@ -141,7 +143,43 @@ class ServiceE2E extends ServiceBase {
       );
     });
 
+    const { impls } = await serviceNetwork.getAllNetworkImpls();
+
+    const getMissingImpls = (accounts0: IDBAccount[]) =>
+      impls.filter((impl) => {
+        const matchedAccount = accounts0.find(
+          (account) => account.impl === impl,
+        );
+        return !matchedAccount;
+      });
+
+    const hdAccounts = accounts.filter((account) =>
+      accountUtils.isHdAccount({ accountId: account.id }),
+    );
+    const accountMissingImplsHd = getMissingImpls(hdAccounts);
+
+    const hwAccounts = accounts.filter((account) =>
+      accountUtils.isHwAccount({ accountId: account.id }),
+    );
+    const accountMissingImplsHw = getMissingImpls(hwAccounts);
+
+    const importedAccounts = accounts.filter((account) =>
+      accountUtils.isImportedAccount({ accountId: account.id }),
+    );
+    const accountMissingImplsImported = getMissingImpls(importedAccounts);
+
+    const watchingAccounts = accounts.filter((account) =>
+      accountUtils.isWatchingAccount({ accountId: account.id }),
+    );
+    const accountMissingImplsWatching = getMissingImpls(watchingAccounts);
+
     return {
+      accountMissingImpls: {
+        hd: accountMissingImplsHd,
+        hw: accountMissingImplsHw,
+        imported: accountMissingImplsImported,
+        watching: accountMissingImplsWatching,
+      },
       v4dbExists,
       accounts: (accounts || []).sort(sortFn),
       wallets: (wallets || []).sort(sortFn),

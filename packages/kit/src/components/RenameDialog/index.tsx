@@ -103,7 +103,11 @@ function RenameInputWithNameSelector({
   const { result: shouldShowV4AccountNameSelector } =
     usePromiseResult(async () => {
       if (indexedAccount) {
-        return backgroundApiProxy.serviceV4Migration.checkIfV4DbExist();
+        return backgroundApiProxy.serviceV4Migration.canRenameFromV4AccountName(
+          {
+            indexedAccount,
+          },
+        );
       }
       return false;
     }, [indexedAccount]);
