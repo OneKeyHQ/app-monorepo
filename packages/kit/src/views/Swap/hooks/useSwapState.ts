@@ -16,6 +16,7 @@ import {
   ESwapDirectionType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { useDebounce } from '../../../hooks/useDebounce';
 import {
   useSwapActions,
   useSwapAlertsAtom,
@@ -121,7 +122,7 @@ export function useSwapActionState() {
       toToken?.networkId,
     ],
   );
-
+  const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 300);
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
@@ -206,7 +207,7 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
-      if (isRefreshQuote || quoteResultNoMatch) {
+      if (isRefreshQuote || quoteResultNoMatchDebounce) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_refresh_quotes,
         });
@@ -223,7 +224,7 @@ export function useSwapActionState() {
     isRefreshQuote,
     quoteCurrentSelect,
     quoteLoading,
-    quoteResultNoMatch,
+    quoteResultNoMatchDebounce,
     selectedFromTokenBalance,
     swapFromAddressInfo.address,
     swapQuoteApproveAllowanceUnLimit,
@@ -241,7 +242,8 @@ export function useSwapActionState() {
     shoutResetApprove:
       !!quoteCurrentSelect?.allowanceResult?.shouldResetApprove,
     isWrapped: !!quoteCurrentSelect?.isWrapped,
-    isRefreshQuote: (isRefreshQuote || quoteResultNoMatch) && !quoteLoading,
+    isRefreshQuote:
+      (isRefreshQuote || quoteResultNoMatchDebounce) && !quoteLoading,
   };
   return stepState;
 }

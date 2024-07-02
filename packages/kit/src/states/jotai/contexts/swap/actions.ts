@@ -33,7 +33,6 @@ import {
   ESwapRateDifferenceUnit,
   ESwapSlippageSegmentKey,
   ESwapTxHistoryStatus,
-  ETokenRiskLevel,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
@@ -93,17 +92,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const catchTokens = swapTokenMap.tokenCatch?.[key];
       const dateNow = Date.now();
       let catchCount = 0;
-      const newTokens = tokens
-        .filter((t) => t.riskLevel !== ETokenRiskLevel.SCAM)
-        .map((token) => {
-          const network = swapNetworksList.find(
-            (n) => n.networkId === token.networkId,
-          );
-          if (network) {
-            token.networkLogoURI = network.logoURI;
-          }
-          return token;
-        });
+      const newTokens = tokens.map((token) => {
+        const network = swapNetworksList.find(
+          (n) => n.networkId === token.networkId,
+        );
+        if (network) {
+          token.networkLogoURI = network.logoURI;
+        }
+        return token;
+      });
       if (swapTokenMap.tokenCatch && catchTokens?.data) {
         // have catch
         if (JSON.stringify(catchTokens.data) !== JSON.stringify(newTokens)) {
@@ -176,6 +173,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
     this.resetSwapSlippage.call(set);
+    this.cleanManualSelectQuoteProviders.call(set);
   });
 
   tokenListFetchAction = contextAtomMethod(
@@ -769,7 +767,7 @@ export const useSwapActions = () => {
   const syncNetworksSort = actions.syncNetworksSort.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
   const recoverQuoteInterval = actions.recoverQuoteInterval.use();
-  const quoteAction = debounce(actions.quoteAction.use(), 500);
+  const quoteAction = actions.quoteAction.use();
   const approvingStateAction = actions.approvingStateAction.use();
   const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 200);
   const tokenListFetchAction = actions.tokenListFetchAction.use();

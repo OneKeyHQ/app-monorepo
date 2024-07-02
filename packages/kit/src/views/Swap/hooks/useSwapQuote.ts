@@ -10,6 +10,7 @@ import {
   type ISwapApproveTransaction,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { useDebounce } from '../../../hooks/useDebounce';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import {
   useSwapActions,
@@ -47,16 +48,16 @@ export function useSwapQuote() {
   if (swapApprovingTxRef.current !== swapApprovingTransactionAtom) {
     swapApprovingTxRef.current = swapApprovingTransactionAtom;
   }
-
+  const fromAmountDebounce = useDebounce(fromTokenAmount, 500);
   const alignmentDecimal = useCallback(() => {
     const checkedDecimal = truncateDecimalPlaces(
-      fromTokenAmount,
+      fromAmountDebounce,
       fromToken?.decimals,
     );
-    if (checkedDecimal && checkedDecimal !== fromTokenAmount) {
+    if (checkedDecimal && checkedDecimal !== fromAmountDebounce) {
       setFromTokenAmount(checkedDecimal);
     }
-  }, [fromToken?.decimals, fromTokenAmount, setFromTokenAmount]);
+  }, [fromToken?.decimals, fromAmountDebounce, setFromTokenAmount]);
 
   useEffect(() => {
     if (swapSlippageDialogOpening || swapApproveAllowanceSelectOpen) {
@@ -99,6 +100,7 @@ export function useSwapQuote() {
     cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,
+    swapAddressInfo.networkId,
     fromToken,
     toToken?.networkId,
     toToken?.contractAddress,

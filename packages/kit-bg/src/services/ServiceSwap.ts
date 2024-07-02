@@ -255,7 +255,7 @@ export default class ServiceSwap extends ServiceBase {
       );
       this._quoteAbortController = undefined;
 
-      if (data?.code === 0 && data?.data) {
+      if (data?.code === 0 && data?.data?.length) {
         return data?.data;
       }
     } catch (e) {

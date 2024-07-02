@@ -211,14 +211,14 @@ const SwapProviderListItem = ({
     const routesData = providerResult.routesData;
     if (providerResult.info.provider === 'swap_swft') {
       return (
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText size="$bodySm" color="$textSubdued" mt="$3.5">
           {intl.formatMessage({ id: ETranslations.provider_route_swft })}
         </SizableText>
       );
     }
     if (!routesData?.[0]?.subRoutes?.[0]?.length) {
       return (
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText size="$bodySm" color="$textSubdued" mt="$3.5">
           {intl.formatMessage({
             id: ETranslations.provider_route_no_information,
           })}

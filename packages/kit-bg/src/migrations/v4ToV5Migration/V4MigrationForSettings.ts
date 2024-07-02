@@ -1,6 +1,6 @@
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 
+import { biologyAuthUtils } from '../../services/ServicePassword/biologyAuthUtils';
 import {
   cloudBackupPersistAtom,
   settingsPersistAtom,
@@ -194,9 +194,20 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
     // bio auth enable
     await this.v4dbHubs.logger.runAsyncWithCatch(
       async () => {
-        await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(
-          !!v4Settings.enableLocalAuthentication,
-        );
+        let currentV5BioAuthEnable =
+          await this.backgroundApi.serviceSetting.getBiologyAuthSwitchOn();
+        if (currentV5BioAuthEnable) {
+          try {
+            const securePassword = await biologyAuthUtils.getPassword();
+            currentV5BioAuthEnable = !!securePassword;
+          } catch (e) {
+            currentV5BioAuthEnable = false;
+          }
+        }
+        if (!currentV5BioAuthEnable)
+          await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(
+            !!v4Settings.enableLocalAuthentication,
+          );
       },
       {
         name: 'migrationBioAuthEnable',
