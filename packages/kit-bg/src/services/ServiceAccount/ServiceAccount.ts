@@ -1361,7 +1361,7 @@ class ServiceAccount extends ServiceBase {
     avatarInfo?: IAvatarInfo;
     name?: string;
     walletHash?: string;
-  }) {
+  }): Promise<{ wallet: IDBWallet; indexedAccount?: IDBIndexedAccount }> {
     if (platformEnv.isWebDappMode) {
       throw new Error('createHDWallet ERROR: Not supported in Dapp mode');
     }
@@ -1374,7 +1374,13 @@ class ServiceAccount extends ServiceBase {
         (item) => walletHash && item.hash && item.hash === walletHash,
       );
       if (existsSameHashWallet) {
-        throw new Error('Wallet with the same mnemonic hash already exists');
+        // localDb.buildCreateHDAndHWWalletResult({
+        //   walletId: existsSameHashWallet.id,
+        //   addedHdAccountIndex:
+        // })
+        // DO NOT throw error, just return the exists wallet, so v4 migration can continue
+        // throw new Error('Wallet with the same mnemonic hash already exists');
+        return { wallet: existsSameHashWallet };
       }
     }
 

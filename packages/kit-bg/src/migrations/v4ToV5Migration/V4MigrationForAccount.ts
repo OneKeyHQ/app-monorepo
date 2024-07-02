@@ -52,6 +52,16 @@ import v4MigrationUtils from './v4MigrationUtils';
 import { EV4DBAccountType } from './v4types';
 
 import type {
+  IDBAccount,
+  IDBCreateHWWalletParams,
+  IDBDevice,
+  IDBDeviceSettings,
+  IDBUtxoAccount,
+  IDBWallet,
+} from '../../dbs/local/types';
+import type { VaultBase } from '../../vaults/base/VaultBase';
+import type VaultNexa from '../../vaults/impls/nexa/Vault';
+import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
   IV4MigrationWallet,
@@ -67,16 +77,6 @@ import type {
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
 } from './v4local/v4localDBTypes';
-import type {
-  IDBAccount,
-  IDBCreateHWWalletParams,
-  IDBDevice,
-  IDBDeviceSettings,
-  IDBUtxoAccount,
-  IDBWallet,
-} from '../../dbs/local/types';
-import type { VaultBase } from '../../vaults/base/VaultBase';
-import type VaultNexa from '../../vaults/impls/nexa/Vault';
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({
@@ -587,11 +587,20 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           path: v4account.path,
         });
         if (!isNil(index)) {
-          await serviceAccount.addIndexedAccount({
+          const indexedAccountsAdded = await serviceAccount.addIndexedAccount({
             walletId: v5wallet.id,
             indexes: [index],
             skipIfExists: true,
           });
+          for (const indexedAccountAdded of indexedAccountsAdded || []) {
+            try {
+              await simpleDb.v4MigrationResult.saveMigratedIndexedAccountId({
+                v5indexedAccountId: indexedAccountAdded.id,
+              });
+            } catch (error) {
+              //
+            }
+          }
           const coinType = v4account.coinType;
           if (coinType) {
             const networkId = v4CoinTypeToNetworkId[coinType];

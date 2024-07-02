@@ -220,12 +220,10 @@ function isWatchingAccount({ accountId }: { accountId: string }) {
   return isWatchingWallet({ walletId });
 }
 
-
 function isImportedAccount({ accountId }: { accountId: string }) {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isImportedWallet({ walletId });
 }
-
 
 function buildPathFromTemplate({
   template,
