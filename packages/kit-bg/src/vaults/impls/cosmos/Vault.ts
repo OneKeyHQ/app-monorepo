@@ -205,10 +205,9 @@ export default class VaultCosmos extends VaultBase {
     }
     const txBuilder = new TxAminoBuilder();
     const account = await this.getAccount();
-    if (!account.pub) {
-      throw new Error('Invalid account');
-    }
-    const pubkey = bufferUtils.hexToBytes(hexUtils.stripHexPrefix(account.pub));
+    const pubkey = bufferUtils.hexToBytes(
+      hexUtils.stripHexPrefix(account.pub ?? ''),
+    );
 
     const gasLimit = '0';
     const feeAmount = '1';
