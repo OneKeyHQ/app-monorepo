@@ -40,6 +40,9 @@ export const ipcMessageKeys = {
   APP_OPEN_DEV_TOOLS: 'app/openDevTools',
   APP_GET_ENV_PATH: 'app/getEnvPath',
 
+  // Theme
+  THEME_UPDATE: 'theme/update',
+
   // Touch
   TOUCH_ID_CAN_PROMPT: 'touchId/canPrompt',
   TOUCH_ID_PROMPT_RES: 'touchId/prompt-res',

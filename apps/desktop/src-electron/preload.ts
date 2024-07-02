@@ -27,6 +27,7 @@ export type IDesktopAPI = {
   canPromptTouchID: () => boolean;
   getEnvPath: () => { [key: string]: string };
   openDevTools: () => void;
+  changeTheme: (theme: string) => void;
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
   secureGetItemAsync: (key: string) => Promise<string | null>;
@@ -171,6 +172,8 @@ const desktopApi = {
   toggleMaximizeWindow: () =>
     ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
   openDevTools: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_DEV_TOOLS),
+  changeTheme: (theme: string) =>
+    ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme),
   canPromptTouchID: () =>
     ipcRenderer.sendSync(ipcMessageKeys.TOUCH_ID_CAN_PROMPT) as boolean,
   getEnvPath: () =>
