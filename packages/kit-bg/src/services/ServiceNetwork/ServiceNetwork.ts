@@ -54,6 +54,15 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAllNetworkImpls(): Promise<{ impls: string[] }> {
+    const { networks } = await this.getAllNetworks();
+    const impls = uniq(networks.map((n) => n.impl));
+    return {
+      impls,
+    };
+  }
+
+  @backgroundMethod()
   async getNetwork({
     networkId,
     code,
