@@ -44,9 +44,9 @@ function BasicMarketMore({
   );
   return (
     <ActionList
-      title=""
       renderTrigger={
         <IconButton
+          title={intl.formatMessage({ id: ETranslations.global_more })}
           icon="DotVerSolid"
           variant="tertiary"
           iconSize="$5"
