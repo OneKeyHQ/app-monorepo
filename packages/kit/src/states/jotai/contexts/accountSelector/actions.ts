@@ -3,8 +3,6 @@ import { useRef } from 'react';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
   IDBCreateHWWalletParamsBase,
@@ -19,6 +17,8 @@ import type {
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -140,11 +140,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const { num, focusedWallet } = payload;
+      const focusedWalletFixed = focusedWallet;
+      if (
+        focusedWalletFixed &&
+        accountUtils.isOthersWallet({ walletId: focusedWalletFixed })
+      ) {
+        // **** focus to grouped Others Tab
+        // focusedWalletFixed = '$$others';
+      }
       await this.updateSelectedAccount.call(set, {
         num,
         builder: (v) => ({
           ...v,
-          focusedWallet,
+          focusedWallet: focusedWalletFixed,
         }),
       });
     },
@@ -319,8 +327,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             ...v,
           };
           if (clearAccount) {
+            newValue.walletId = undefined;
             newValue.indexedAccountId = undefined;
             newValue.othersWalletAccountId = undefined;
+            newValue.focusedWallet = undefined;
           }
           return newValue;
         },
@@ -403,10 +413,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         // focus to active wallet when open selector
         const focusedWalletNew: IAccountSelectorFocusedWallet =
           activeAccountInfo?.wallet?.id;
-        if (accountUtils.isOthersWallet({ walletId: focusedWalletNew })) {
-          // focus to grouped Others Tab
-          // focusedWalletNew = '$$others';
-        }
         await this.updateSelectedAccountFocusedWallet.call(set, {
           num,
           focusedWallet: focusedWalletNew,

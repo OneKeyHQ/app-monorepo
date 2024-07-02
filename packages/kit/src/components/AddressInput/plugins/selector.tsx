@@ -1,4 +1,4 @@
-import { type FC, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, type FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,11 +8,13 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { useAddressBookPick } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { IAddressPluginProps } from '../types';
 
 type ISelectorPluginProps = IAddressPluginProps & {
   networkId?: string;
+  accountId?: string;
   num?: number;
   onBeforeAccountSelectorOpen?: () => void;
   currentAddress?: string;
@@ -63,6 +65,7 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
 const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   onChange,
   networkId,
+  accountId,
   testID,
   num,
   onBeforeAccountSelectorOpen,
@@ -95,23 +98,55 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
 
   const onShowAccountSelector = useCallback(async () => {
     accountSelectorOpen.current = true;
-    const activeAccount = actions.current.getActiveAccount({
+    let activeAccount = actions.current.getActiveAccount({
       num: accountSelectorNum,
     });
-    if (activeAccount.account?.address !== currentAddress) {
+    if (activeAccount?.account?.address !== currentAddress) {
       await actions.current.clearSelectedAccount({
         num: accountSelectorNum,
         clearAccount: true,
       });
     }
+    activeAccount = actions.current.getActiveAccount({
+      num: accountSelectorNum,
+    });
+    let selectedAccount = actions.current.getSelectedAccount({
+      num: accountSelectorNum,
+    });
+    if (!currentAddress || !activeAccount?.account?.address) {
+      const focusedWalletId: string | undefined = accountId
+        ? accountUtils.getWalletIdFromAccountId({
+            accountId,
+          })
+        : undefined;
+      if (focusedWalletId) {
+        const updateFocusedWallet = async () =>
+          actions.current.updateSelectedAccountFocusedWallet({
+            num: accountSelectorNum,
+            focusedWallet: focusedWalletId,
+          });
+        await updateFocusedWallet();
+        activeAccount = actions.current.getActiveAccount({
+          num: accountSelectorNum,
+        });
+        selectedAccount = actions.current.getSelectedAccount({
+          num: accountSelectorNum,
+        });
+        console.log(activeAccount, selectedAccount);
+        setTimeout(() => {
+          void updateFocusedWallet();
+        }, 0);
+      }
+    }
     onBeforeAccountSelectorOpen?.();
     showAccountSelector();
   }, [
-    onBeforeAccountSelectorOpen,
-    showAccountSelector,
     actions,
     accountSelectorNum,
     currentAddress,
+    onBeforeAccountSelectorOpen,
+    showAccountSelector,
+    accountId,
   ]);
 
   return (
@@ -152,6 +187,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
 export const SelectorPlugin: FC<ISelectorPluginProps> = ({
   onChange,
   networkId,
+  accountId,
   testID,
   num,
   onBeforeAccountSelectorOpen,
@@ -163,6 +199,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
         onChange={onChange}
         num={num}
         networkId={networkId}
+        accountId={accountId}
         onBeforeAccountSelectorOpen={onBeforeAccountSelectorOpen}
         testID={testID}
         currentAddress={currentAddress}
