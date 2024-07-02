@@ -1,11 +1,12 @@
+import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import { NumberSizeableText, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { swapQuoteIntervalMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapCheckWarningDef,
@@ -124,7 +125,10 @@ export function useSwapActionState() {
   );
   const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 300);
   const actionInfo = useMemo(() => {
-    const infoRes = {
+    const infoRes: {
+      disable: boolean;
+      label: string | ReactElement;
+    } = {
       disable: !(!hasError && !!quoteCurrentSelect),
       label: intl.formatMessage({ id: ETranslations.swap_page_swap_button }),
     };
@@ -144,21 +148,26 @@ export function useSwapActionState() {
         });
       }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
-        infoRes.label = swapQuoteApproveAllowanceUnLimit
-          ? `${intl.formatMessage({
-              id: ETranslations.swap_page_button_approve_unlimited,
-            })} ${fromToken?.symbol ?? ''} to ${
-              quoteCurrentSelect?.info.providerName ?? ''
-            }`
-          : `${intl.formatMessage({
+        infoRes.label = swapQuoteApproveAllowanceUnLimit ? (
+          `${intl.formatMessage({
+            id: ETranslations.swap_page_button_approve_unlimited,
+          })} ${fromToken?.symbol ?? ''} to ${
+            quoteCurrentSelect?.info.providerName ?? ''
+          }`
+        ) : (
+          <SizableText>
+            {intl.formatMessage({
               id: ETranslations.swap_page_provider_approve,
-            })}  ${
-              numberFormat(fromTokenAmount, {
-                formatter: 'balance',
-              }) as string
-            } ${fromToken?.symbol ?? ''} to ${
+            })}
+            {'  '}
+            <NumberSizeableText formatter="balance">
+              {fromTokenAmount}
+            </NumberSizeableText>
+            {` ${fromToken?.symbol ?? ''} to ${
               quoteCurrentSelect?.info.providerName ?? ''
-            }`;
+            }`}
+          </SizableText>
+        );
       }
       if (
         quoteCurrentSelect &&
