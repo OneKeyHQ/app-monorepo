@@ -354,7 +354,7 @@ export default class Vault extends VaultBase {
 
         action = await this.buildTxTransferAssetAction({
           from: fromAddress,
-          to: tokenAddress,
+          to: TronWeb.address.fromHex(toAddressHex),
           transfers: [transfer],
         });
       }

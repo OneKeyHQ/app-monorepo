@@ -367,7 +367,7 @@ function HistoryDetails() {
     }
 
     const from = decodedTx.signer;
-    let to = decodedTx.to ?? decodedTx.actions[0]?.assetTransfer?.to;
+    let to = decodedTx.actions[0]?.assetTransfer?.to ?? decodedTx.to;
     if (vaultSettings?.impl === IMPL_DOT && !to) {
       to = txDetails?.to;
     }
