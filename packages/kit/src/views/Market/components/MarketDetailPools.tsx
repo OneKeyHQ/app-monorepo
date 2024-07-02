@@ -185,7 +185,7 @@ function HeaderRow({
       >
         {intl.formatMessage({ id: ETranslations.global_liquidity })}
       </HeaderColumn>
-      <View flex={1}>
+      <View pl="$3" ai="center" jc="center" $gtMd={{ pl: '$7', pr: '$3' }}>
         <View w="$4" h="$4" />
       </View>
     </XStack>
@@ -369,7 +369,12 @@ export function MarketDetailPools({
                   {reserveInUsd}
                 </NumberSizeableText>
               </ItemColumn>
-              <View jc="center" ai="center" flex={1}>
+              <View
+                pl="$3"
+                ai="center"
+                jc="center"
+                $gtMd={{ pl: '$7', pr: '$3' }}
+              >
                 <Icon name="ChevronRightSmallOutline" size="$4" />
               </View>
             </XStack>
