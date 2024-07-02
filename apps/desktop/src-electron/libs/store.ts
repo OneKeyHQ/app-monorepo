@@ -37,7 +37,7 @@ export const setDevTools = (devTools: boolean) => {
   store.set(configKeys.DevTools, devTools);
 };
 
-export const getTheme = () => store.get(configKeys.Theme, 'system');
+export const getTheme = () => store.get(configKeys.Theme, 'system') as string;
 
 export const setTheme = (theme: string) => store.set(configKeys.Theme, theme);
 
