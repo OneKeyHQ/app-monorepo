@@ -114,7 +114,13 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
         };
       }
     }
-  }, [isFocusedInDiscoveryTab, tab.url, webviewRef, isMountedRef, previousUrl]);
+  }, [
+    isFocusedInDiscoveryTab,
+    tab?.url,
+    webviewRef,
+    isMountedRef,
+    previousUrl,
+  ]);
 }
 
 export function useShouldUpdateConnectedAccount() {
