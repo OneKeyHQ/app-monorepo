@@ -12,6 +12,7 @@ import {
   revealableSeedFromMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
+import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
@@ -854,9 +855,11 @@ class ServiceAccount extends ServiceBase {
     });
     let address = '';
     let xpub = '';
+    let btcForkAddressEncoding: EAddressEncodings | undefined;
     const addressValidationResult = await vault.validateAddress(input);
     if (addressValidationResult.isValid) {
       address = addressValidationResult.normalizedAddress;
+      btcForkAddressEncoding = addressValidationResult.encoding;
     } else {
       const xpubValidationResult = await vault.validateXpub(input);
       if (xpubValidationResult.isValid) {
@@ -875,6 +878,28 @@ class ServiceAccount extends ServiceBase {
       createAtNetwork: networkId,
       isUrlAccount,
     };
+
+    let deriveTypeByAddressEncoding: IAccountDeriveTypes | undefined;
+    if (btcForkAddressEncoding) {
+      deriveTypeByAddressEncoding =
+        await this.backgroundApi.serviceNetwork.getDeriveTypeByAddressEncoding({
+          encoding: btcForkAddressEncoding,
+          networkId,
+        });
+      if (
+        deriveType &&
+        deriveTypeByAddressEncoding &&
+        deriveTypeByAddressEncoding !== deriveType
+      ) {
+        throw new Error('addWatchingAccount ERROR: deriveType not correct');
+      }
+    }
+
+    if (!deriveType && deriveTypeByAddressEncoding) {
+      // eslint-disable-next-line no-param-reassign
+      deriveType = deriveTypeByAddressEncoding;
+    }
+
     if (deriveType) {
       const deriveInfo =
         await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({

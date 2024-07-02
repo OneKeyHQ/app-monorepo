@@ -1,5 +1,6 @@
 import { uniq } from 'lodash';
 
+import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -368,6 +369,20 @@ class ServiceNetwork extends ServiceBase {
         deriveType,
       });
     }
+  }
+
+  async getDeriveTypeByAddressEncoding({
+    networkId,
+    encoding,
+  }: {
+    networkId: string;
+    encoding: EAddressEncodings;
+  }): Promise<IAccountDeriveTypes | undefined> {
+    const items = await this.getDeriveInfoItemsOfNetwork({ networkId });
+    const deriveInfo = items.find(
+      (item) => item.item.addressEncoding === encoding,
+    );
+    return deriveInfo?.value as IAccountDeriveTypes | undefined;
   }
 
   async getAccountImportingDeriveTypes({

@@ -24,6 +24,7 @@ import {
   COINTYPE_BTC,
   COINTYPE_COSMOS,
   COINTYPE_DNX,
+  COINTYPE_DOT,
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
   COINTYPE_NEXA,
@@ -74,7 +75,7 @@ import type {
   IDBUtxoAccount,
   IDBWallet,
 } from '../../dbs/local/types';
-import type VaultCosmos from '../../vaults/impls/cosmos/Vault';
+import type { VaultBase } from '../../vaults/base/VaultBase';
 import type VaultNexa from '../../vaults/impls/nexa/Vault';
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
@@ -412,11 +413,14 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
 
       await v4dbHubs.logger.runAsyncWithCatch(
         async () => {
-          if (v4account.coinType === COINTYPE_COSMOS) {
+          if (
+            v4account.coinType === COINTYPE_COSMOS ||
+            v4account.coinType === COINTYPE_DOT
+          ) {
             if (networkId) {
               const vault = (await vaultFactory?.getChainOnlyVault({
                 networkId,
-              })) as VaultCosmos;
+              })) as VaultBase;
               const addressDetail = await vault?.buildAccountAddressDetail({
                 account: v4account as any,
                 networkId,
