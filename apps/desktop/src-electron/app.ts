@@ -262,7 +262,7 @@ function createMainWindow() {
   });
 
   browserWindow.once('ready-to-show', () => {
-    browserWindow.show();
+    showMainWindow();
   });
 
   browserWindow.setAspectRatio(ratio);
