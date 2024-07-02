@@ -1,5 +1,6 @@
 import { memo, useCallback, useRef } from 'react';
 
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Dialog, NumberSizeableText, YStack } from '@onekeyhq/components';
@@ -93,18 +94,21 @@ const SwapQuoteResult = ({
           isLoading={swapQuoteLoading}
         />
       ) : null}
-      {quoteResult.info.provider ? (
+      {!isNil(quoteResult.info.provider) ? (
         <SwapProviderInfoItem
           providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
           isLoading={swapQuoteLoading}
           rate={quoteResult.instantRate}
           fromToken={fromToken}
           toToken={toToken}
-          // showBest={quoteResult.isBest}
           showLock={!!quoteResult.allowanceResult}
-          onPress={() => {
-            onOpenProviderList?.();
-          }}
+          onPress={
+            quoteResult.info.provider
+              ? () => {
+                  onOpenProviderList?.();
+                }
+              : undefined
+          }
         />
       ) : null}
       {quoteResult.toAmount &&
