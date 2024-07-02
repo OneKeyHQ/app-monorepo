@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 
 import BN from 'bn.js';
 
-import { decode } from './address';
+import { decodeAddress } from './address';
 import { getBufferFromBN } from './bn';
 
 export enum ENexaOpcode {
@@ -357,7 +357,7 @@ function readVarLengthBuffer(buffer: Buffer): Buffer {
 }
 
 export function getScriptBufferFromScriptTemplateOut(address: string) {
-  const { hash } = decode(address);
+  const { hash } = decodeAddress(address);
   // buildScriptTemplateOut: scriptBuffer
   return readVarLengthBuffer(Buffer.from(hash));
 }

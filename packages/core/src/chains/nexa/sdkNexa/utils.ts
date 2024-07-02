@@ -5,7 +5,7 @@ import {
   ENexaAddressType,
   ENexaOpcode,
   bufferToScripChunk,
-  decode,
+  decodeAddress,
   decodeScriptBufferToScriptChunks,
   encode,
   getScriptBufferFromScriptTemplateOut,
@@ -38,7 +38,7 @@ import type {
 
 export function verifyNexaAddress(address: string) {
   try {
-    decode(address);
+    decodeAddress(address);
     return {
       isValid: true,
       normalizedAddress: address,

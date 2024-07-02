@@ -3014,7 +3014,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 
   const chainsOnlyEnabledInDev = [
     tatom, // Cosmos Testnet
-    nexaTestnet,
+    // nexaTestnet,
   ];
 
   return [
