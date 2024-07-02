@@ -39,7 +39,7 @@ const SwapRateInfoItem = ({
     if (rateSwitch) {
       return (
         <>
-          {`1 ${toToken.symbol.toUpperCase()} =`}
+          {`1 ${toToken.symbol.toUpperCase()} = `}
           {formatRate}
           {` ${fromToken.symbol.toUpperCase()}`}
         </>
@@ -47,7 +47,7 @@ const SwapRateInfoItem = ({
     }
     return (
       <>
-        {`1 ${fromToken.symbol.toUpperCase()} =`}
+        {`1 ${fromToken.symbol.toUpperCase()} = `}
         {formatRate}
         {` ${toToken.symbol.toUpperCase()}`}
       </>
