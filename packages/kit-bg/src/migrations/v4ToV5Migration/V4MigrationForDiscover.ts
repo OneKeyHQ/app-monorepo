@@ -1,6 +1,7 @@
 import { unionBy } from 'lodash';
 
 import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 
@@ -25,7 +26,7 @@ export class V4MigrationForDiscover extends V4MigrationManagerBase {
       return;
     }
     let v5items: IBrowserBookmark[] = v4items.map((v4item) => ({
-      title: v4item.title ?? '',
+      title: v4item.title ?? uriUtils.getHostNameFromUrl({ url: v4item.url }),
       url: v4item.url,
     }));
     const currentV5Items =
