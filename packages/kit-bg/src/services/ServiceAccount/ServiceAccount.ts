@@ -1133,6 +1133,40 @@ class ServiceAccount extends ServiceBase {
     return localDb.getAccountsInSameIndexedAccountId({ indexedAccountId });
   }
 
+  async getDbAccountIdFromIndexedAccountId({
+    indexedAccountId,
+    networkId,
+    deriveType,
+  }: {
+    indexedAccountId: string;
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }) {
+    const settings = await this.backgroundApi.serviceNetwork.getVaultSettings({
+      networkId,
+    });
+    const deriveInfo =
+      await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
+        networkId,
+        deriveType,
+      });
+    const { idSuffix, template } = deriveInfo;
+
+    const { index, walletId } = accountUtils.parseIndexedAccountId({
+      indexedAccountId,
+    });
+
+    const realDBAccountId = accountUtils.buildHDAccountId({
+      walletId,
+      networkImpl: settings.impl,
+      index,
+      template, // from networkId
+      idSuffix,
+      isUtxo: settings.isUtxo,
+    });
+    return realDBAccountId;
+  }
+
   @backgroundMethod()
   async getAccountsByIndexedAccount({
     indexedAccountIds,
@@ -1145,29 +1179,12 @@ class ServiceAccount extends ServiceBase {
   }): Promise<{
     accounts: INetworkAccount[];
   }> {
-    const settings = await this.backgroundApi.serviceNetwork.getVaultSettings({
-      networkId,
-    });
-    const deriveInfo =
-      await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
-        networkId,
-        deriveType,
-      });
-    const { idSuffix, template } = deriveInfo;
-
     const accounts = await Promise.all(
       indexedAccountIds.map(async (indexedAccountId) => {
-        const { index, walletId } = accountUtils.parseIndexedAccountId({
+        const realDBAccountId = await this.getDbAccountIdFromIndexedAccountId({
           indexedAccountId,
-        });
-
-        const realDBAccountId = accountUtils.buildHDAccountId({
-          walletId,
-          networkImpl: settings.impl,
-          index,
-          template, // from networkId
-          idSuffix,
-          isUtxo: settings.isUtxo,
+          networkId,
+          deriveType,
         });
         return this.getAccount({ accountId: realDBAccountId, networkId });
       }),

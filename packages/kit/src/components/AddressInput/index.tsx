@@ -407,6 +407,7 @@ export function AddressInput(props: IAddressInputProps) {
             <SelectorPlugin
               onChange={onChangeText}
               networkId={networkId}
+              accountId={accountId}
               num={accountSelector?.num}
               currentAddress={inputText}
               onBeforeAccountSelectorOpen={
@@ -428,6 +429,7 @@ export function AddressInput(props: IAddressInputProps) {
       queryResult,
       setResolveAddress,
       networkId,
+      accountId,
       rest.testID,
       onRefresh,
       inputText,

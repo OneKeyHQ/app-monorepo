@@ -62,6 +62,8 @@ function DowngradeWarningDialogContent({
   );
 }
 
+let downgradeConfirmDialogShown = false;
+
 function OnboardingOnMountCmp() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -125,7 +127,8 @@ function OnboardingOnMountCmp() {
     if (platformEnv.isDesktop && !downgradeWarningConfirmedRef.current) {
       const isV4DbExist =
         await backgroundApiProxy.serviceV4Migration.checkIfV4DbExist();
-      if (isV4DbExist) {
+      if (isV4DbExist && !downgradeConfirmDialogShown) {
+        downgradeConfirmDialogShown = true;
         const dialog = Dialog.show({
           tone: 'warning',
           icon: 'ShieldCheckDoneOutline',
