@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { throttle } from 'lodash';
 
@@ -43,6 +43,7 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
   useListenTabFocusState([ETabRoutes.MultiTabBrowser], (isFocus) => {
     setIsFocusedInDiscoveryTab(isFocus);
   });
+  const previousUrl = useRef<string>();
 
   // reconnect jsBridge
   useEffect(() => {
@@ -76,6 +77,16 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
     if (!webviewRef) {
       console.log('no webviewRef');
       return;
+    }
+
+    const preUrlStr = previousUrl.current;
+    previousUrl.current = tab.url;
+    if (preUrlStr && preUrlStr !== tab.url) {
+      const preUrl = new URL(preUrlStr);
+      const curUrl = new URL(tab.url);
+      if (preUrl.origin === curUrl.origin) {
+        return;
+      }
     }
 
     console.log('webview isFocused and notifyChanges: ', tab.url);
