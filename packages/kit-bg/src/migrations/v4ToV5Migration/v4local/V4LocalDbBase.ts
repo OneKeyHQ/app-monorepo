@@ -136,7 +136,10 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
       // update context verifyString
       await this.txUpdateContextVerifyString({
         tx,
-        verifyString: encryptVerifyString({ password: newPassword }),
+        verifyString: encryptVerifyString({
+          password: newPassword,
+          addPrefixString: false,
+        }),
       });
     });
   }

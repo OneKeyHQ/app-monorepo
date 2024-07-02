@@ -154,9 +154,15 @@ function decryptVerifyString({
   ).toString();
 }
 
-function encryptVerifyString({ password }: { password: string }) {
+function encryptVerifyString({
+  password,
+  addPrefixString = true,
+}: {
+  password: string;
+  addPrefixString?: boolean;
+}) {
   return (
-    EncryptPrefixVerifyString +
+    (addPrefixString ? EncryptPrefixVerifyString : '') +
     encrypt(password, Buffer.from(DEFAULT_VERIFY_STRING)).toString('hex')
   );
 }
@@ -481,8 +487,8 @@ export {
   encryptImportedCredential,
   encryptRevealableSeed,
   encryptVerifyString,
-  generateMasterKeyFromSeed,
   fixV4VerifyStringToV5,
+  generateMasterKeyFromSeed,
   generateRootFingerprint,
   mnemonicFromEntropy,
   publicFromPrivate,

@@ -180,10 +180,25 @@ class ServiceAccountSelector extends ServiceBase {
       }
     }
 
-    if (othersWalletAccountId) {
+    let dbAccountId = othersWalletAccountId || '';
+    if (!dbAccountId && indexedAccountId && networkId && deriveType) {
+      try {
+        dbAccountId =
+          await this.backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId(
+            {
+              indexedAccountId,
+              networkId,
+              deriveType,
+            },
+          );
+      } catch (error) {
+        //
+      }
+    }
+    if (dbAccountId) {
       try {
         const r = await serviceAccount.getDBAccount({
-          accountId: othersWalletAccountId,
+          accountId: dbAccountId,
         });
         dbAccount = r;
       } catch (e) {
