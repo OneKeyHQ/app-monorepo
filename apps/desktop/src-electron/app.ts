@@ -218,8 +218,8 @@ const themeColors = {
 
 logger.info('theme >>>> ', theme, nativeTheme.shouldUseDarkColors);
 
-const backgroundColor =
-  themeColors[theme as keyof typeof themeColors] ||
+const getBackgroundColor = (key: string) =>
+  themeColors[key as keyof typeof themeColors] ||
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 function createMainWindow() {
@@ -241,7 +241,7 @@ function createMainWindow() {
     height: Math.min(1200 / ratio, dimensions.height),
     minWidth: isDev ? undefined : 1024, // OK-8215
     minHeight: isDev ? undefined : 800 / ratio,
-    backgroundColor,
+    backgroundColor: getBackgroundColor(theme),
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
@@ -419,6 +419,7 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
     store.setTheme(themeKey);
+    browserWindow.setBackgroundColor(getBackgroundColor(themeKey));
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
@@ -635,7 +636,7 @@ function createMainWindow() {
   });
 
   return browserWindow;
-}
+};
 
 function initChildProcess() {
   return initProcess({ mainWindow: mainWindow as BrowserWindow, store });
