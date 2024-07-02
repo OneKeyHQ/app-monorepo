@@ -16,7 +16,9 @@ import {
   XStack,
   YStack,
   getFontToken,
+  getTokenValue,
   useClipboard,
+  useThemeValue,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -345,6 +347,8 @@ export function TokenDetails() {
   //   );
   // }, [media.gtMd, network?.logoURI, tokenInfo.address]);
 
+  const fontColor = useThemeValue('text');
+
   const headerTitleStyle = useMemo(
     () => ({
       ...(getFontToken('$headingLg') as {
@@ -352,9 +356,9 @@ export function TokenDetails() {
         lineHeight: number;
         letterSpacing: number;
       }),
-      color: '$text',
+      color: fontColor,
     }),
-    [],
+    [fontColor],
   );
   return (
     <Page>
