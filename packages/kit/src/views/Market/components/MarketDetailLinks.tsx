@@ -38,18 +38,21 @@ export function MarketDetailLinks({
         <XStack space="$3">
           {twitterUrl ? (
             <IconButton
+              title="X"
               icon="Xbrand"
               onPress={() => openUrlExternal(twitterUrl)}
             />
           ) : null}
           {telegramUrl ? (
             <IconButton
+              title="Telegram"
               icon="TelegramBrand"
               onPress={() => openUrlExternal(telegramUrl)}
             />
           ) : null}
           {discordUrl ? (
             <IconButton
+              title="Discord"
               icon="DiscordBrand"
               onPress={() => openUrlExternal(discordUrl)}
             />
