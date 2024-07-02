@@ -13,6 +13,7 @@ import {
   Page,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -156,12 +157,7 @@ const SwapTokenSelectPage = () => {
         const rawItem = (item as IFuseResult<ISwapToken>).item
           ? (item as IFuseResult<ISwapToken>).item
           : (item as ISwapToken);
-        return (
-          !rawItem.price ||
-          new BigNumber(rawItem.price).isZero() ||
-          rawItem.riskLevel === ETokenRiskLevel.SPAM ||
-          rawItem.riskLevel === ETokenRiskLevel.MALICIOUS
-        );
+        return !rawItem.price || new BigNumber(rawItem.price).isZero();
       }),
     [currentTokens],
   );
@@ -297,14 +293,16 @@ const SwapTokenSelectPage = () => {
       return (
         <>
           {alertIndex === index ? (
-            <Alert
-              fullBleed
-              type="default"
-              title={intl.formatMessage({
-                id: ETranslations.token_selector_unverified_token_warning,
-              })}
-              icon="InfoCircleOutline"
-            />
+            <Stack pt="$3" pb="$2">
+              <Alert
+                fullBleed
+                type="default"
+                title={intl.formatMessage({
+                  id: ETranslations.token_selector_unverified_token_warning,
+                })}
+                icon="InfoCircleOutline"
+              />
+            </Stack>
           ) : null}
           <TokenListItem {...tokenItem} />
         </>
