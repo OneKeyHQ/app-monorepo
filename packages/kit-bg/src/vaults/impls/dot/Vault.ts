@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { decodeAddress, encodeAddress } from '@polkadot/util-crypto';
+import {
+  checkAddress,
+  decodeAddress,
+  encodeAddress,
+} from '@polkadot/util-crypto';
 import { decode, getRegistry, methods } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isObject } from 'lodash';
@@ -603,10 +607,8 @@ export default class VaultDot extends VaultBase {
     const networkInfo = await this.getNetworkInfo();
     let isValid = true;
     try {
-      encodeAddress(
-        decodeAddress(address, false, +networkInfo.addressPrefix),
-        +networkInfo.addressPrefix,
-      );
+      const [result] = checkAddress(address, +networkInfo.addressPrefix);
+      isValid = result;
     } catch (error) {
       isValid = false;
     }
