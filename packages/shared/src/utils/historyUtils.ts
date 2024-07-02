@@ -147,7 +147,7 @@ export function getHistoryTxDetailInfo({
 
   if (txDetails?.timestamp) {
     date = formatDate(new Date(txDetails.timestamp * 1000));
-  } else if (decodedTx.updatedAt || decodedTx.updatedAt) {
+  } else if (decodedTx.updatedAt || decodedTx.createdAt) {
     date = formatDate(
       new Date(decodedTx.updatedAt || decodedTx.createdAt || 0),
     );
