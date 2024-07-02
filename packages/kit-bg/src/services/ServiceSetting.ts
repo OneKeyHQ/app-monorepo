@@ -49,8 +49,6 @@ export type IAccountDerivationConfigItem = {
   defaultNetworkId: string;
 };
 
-export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
-
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -70,17 +68,6 @@ class ServiceSetting extends ServiceBase {
     const currentSettings = await settingsPersistAtom.get();
     if (currentSettings.theme === theme) {
       return;
-    }
-    // startup theme on web: apps/ext/src/assets/preload-html-head.js
-    if (!platformEnv.isNative) {
-      setTimeout(() => {
-        localStorage.setItem(THEME_PRELOAD_STORAGE_KEY, theme);
-
-        // startup theme on desktop: apps/desktop/src-electron/app.ts 213L
-        if (platformEnv.isDesktop) {
-          window.desktopApi?.changeTheme(theme);
-        }
-      });
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, theme }));
   }
