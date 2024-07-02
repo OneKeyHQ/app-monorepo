@@ -39,7 +39,7 @@ export const setDevTools = (devTools: boolean) => {
 
 export const getTheme = () => store.get(configKeys.Theme, 'system');
 
-export const setTheme = (theme: string) => store.get(configKeys.Theme, theme);
+export const setTheme = (theme: string) => store.set(configKeys.Theme, theme);
 
 export const getWinBounds = (): Electron.Rectangle =>
   store.get(configKeys.WinBounds, {}) as Electron.Rectangle;
