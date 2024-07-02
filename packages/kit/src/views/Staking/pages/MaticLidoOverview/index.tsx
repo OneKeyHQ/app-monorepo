@@ -256,8 +256,8 @@ const MaticLidoOverviewContent = ({
   }, [requests]);
 
   return (
-    <Stack px="$5" pt="$5">
-      <YStack>
+    <Stack>
+      <YStack px="$5" pt="$5">
         <Stack>
           <SizableText size="$headingLg">
             {intl.formatMessage({ id: ETranslations.earn_staked_value })}
@@ -317,8 +317,10 @@ const MaticLidoOverviewContent = ({
           tokenImageUrl={matic.info.logoURI}
           tokenSymbol={matic.info.symbol}
         />
-        <MaticLidoFAQs />
       </YStack>
+      <Stack>
+        <MaticLidoFAQs />
+      </Stack>
       <Page.Footer
         onConfirmText={intl.formatMessage({ id: ETranslations.earn_stake })}
         confirmButtonProps={{

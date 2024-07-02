@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   Page,
   SectionList,
   SizableText,
@@ -44,8 +45,8 @@ const SettingProtectionModal = () => {
               id: ETranslations.settings_token_risk_reminder_desc,
             })}
           </SizableText>
+          <Divider my="$5" mx="$5" />
           <SectionList.SectionHeader
-            mt="$5"
             title={intl.formatMessage({
               id: ETranslations.settings_password_bypass,
             })}
