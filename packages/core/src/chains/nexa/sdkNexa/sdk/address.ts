@@ -200,7 +200,7 @@ export function decodeAddress(address: string) {
     throw new Error(`Invalid address: ${address}`);
   }
 
-  let hash: Uint8Array;
+  // let hash: Uint8Array;
 
   const pieces: string[] = address.toLowerCase().split(':');
   if (pieces.length !== 2) {
@@ -220,18 +220,19 @@ export function decodeAddress(address: string) {
 
   const payloadData = fromUint5Array(Buffer.from(payload.subarray(0, -8)));
   const versionByte = payloadData[0];
+  const hash = payloadData.subarray(1);
   const type = getType(versionByte);
 
-  switch (type) {
-    case 'GROUP':
-      hash = payloadData.subarray(1);
-      break;
-    case 'TEMPLATE':
-      hash = payloadData.subarray(2);
-      break;
-    default:
-      hash = payloadData.subarray(1);
-  }
+  // switch (type) {
+  //   case 'GROUP':
+  //     hash = payloadData.subarray(1);
+  //     break;
+  //   case 'TEMPLATE':
+  //     hash = payloadData.subarray(2);
+  //     break;
+  //   default:
+  //     hash = payloadData.subarray(1);
+  // }
 
   return { prefix, type, hash };
 }
