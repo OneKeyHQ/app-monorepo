@@ -48,6 +48,7 @@ export enum EAppEventBusNames {
   TxFeeInfoChanged = 'TxFeeInfoChanged',
   SendConfirmContainerMounted = 'SendConfirmContainerMounted',
   CloseHardwareUiStateDialogManually = 'CloseHardwareUiStateDialogManually',
+  HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -126,6 +127,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.SendConfirmContainerMounted]: undefined;
   [EAppEventBusNames.CloseHardwareUiStateDialogManually]: undefined;
+  [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
