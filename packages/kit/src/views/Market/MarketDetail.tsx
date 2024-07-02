@@ -268,7 +268,7 @@ function MarketDetail({
     return (
       <YStack px="$5">
         {gtMd ? (
-          <YStack space="$12" width={336}>
+          <YStack space="$12" width={392}>
             <SkeletonHeader />
             <YStack space="$3">
               <Skeleton w={252} h="$3" />
@@ -331,7 +331,7 @@ function MarketDetail({
         {gtMd ? (
           <YStack flex={1}>
             <XStack flex={1} pt="$5">
-              <ScrollView minWidth={336} maxWidth={336}>
+              <ScrollView minWidth={392} maxWidth={392}>
                 {tokenDetailHeader}
               </ScrollView>
               <YStack flex={1}>
