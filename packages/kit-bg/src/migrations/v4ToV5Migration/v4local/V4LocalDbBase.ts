@@ -18,7 +18,6 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { V4LocalDbBaseContainer } from './V4LocalDbBaseContainer';
 import { EV4LocalDBStoreNames } from './v4localDBStoreNames';
 
-import type { IV4AvatarInfo } from '../v4types';
 import type {
   IV4DBContext,
   IV4DBHdCredentialRaw,
@@ -28,6 +27,7 @@ import type {
   IV4LocalDBRecordUpdater,
   IV4LocalDBTransaction,
 } from './v4localDBTypes';
+import type { IV4AvatarInfo } from '../v4types';
 
 export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
   buildSingletonWalletRecord({
