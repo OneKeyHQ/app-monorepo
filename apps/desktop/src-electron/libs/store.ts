@@ -18,6 +18,7 @@ const configKeys = {
   WinBounds: 'winBounds',
   UpdateSettings: 'updateSettings',
   DevTools: 'devTools',
+  Theme: 'theme',
   EncryptedData: 'EncryptedData',
 };
 
@@ -35,6 +36,10 @@ export const getDevTools = () => store.get(configKeys.DevTools, false);
 export const setDevTools = (devTools: boolean) => {
   store.set(configKeys.DevTools, devTools);
 };
+
+export const getTheme = () => store.get(configKeys.Theme, 'system');
+
+export const setTheme = (theme: string) => store.get(configKeys.Theme, theme);
 
 export const getWinBounds = (): Electron.Rectangle =>
   store.get(configKeys.WinBounds, {}) as Electron.Rectangle;
