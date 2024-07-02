@@ -147,6 +147,33 @@ function base32Decode(string: string) {
   return data;
 }
 
+function validChecksum(prefix: string, payload: Uint8Array): boolean {
+  const prefixData = concat(prefixToUint5Array(prefix), new Uint8Array(1));
+  const checksumData = concat(prefixData, payload);
+
+  return polymod(checksumData).equals(0);
+}
+
+/**
+ * Returns true if, and only if, the given string contains either uppercase
+ * or lowercase letters, but not both.
+ *
+ * @private
+ * @param {string} string Input string.
+ * @returns {boolean}
+ */
+function hasSingleCase(str: string): boolean {
+  return str === str.toLowerCase() || str === str.toUpperCase();
+}
+
+const VALID_PREFIXES: string[] = ['nexa', 'nexatest', 'nexareg'];
+
+function isValidPrefix(prefix: string): boolean {
+  return (
+    hasSingleCase(prefix) && VALID_PREFIXES.indexOf(prefix.toLowerCase()) !== -1
+  );
+}
+
 export function encode(
   prefix: string,
   type: ENexaAddressType,
@@ -168,18 +195,43 @@ export function encode(
   return `${prefix}:${base32Encode(payload)}`;
 }
 
-export function decode(address: string) {
-  const pieces = address.toLowerCase().split(':');
+export function decodeAddress(address: string) {
+  if (typeof address !== 'string' || !hasSingleCase(address)) {
+    throw new Error(`Invalid address: ${address}`);
+  }
+
+  let hash: Uint8Array;
+
+  const pieces: string[] = address.toLowerCase().split(':');
+  if (pieces.length !== 2) {
+    throw new Error(`Miss prefix: ${address}`);
+  }
+
   const prefix = pieces[0];
+  if (!isValidPrefix(prefix)) {
+    throw new Error(`Invalid prefix: ${address}`);
+  }
+
   const payload = base32Decode(pieces[1]);
+
+  if (!validChecksum(prefix, payload)) {
+    throw new Error(`Invalid checksum: ${address}`);
+  }
+
   const payloadData = fromUint5Array(Buffer.from(payload.subarray(0, -8)));
   const versionByte = payloadData[0];
-  const hash = payloadData.subarray(1);
-  // no length limits in nexa: validate(getHashSize(versionByte) === hash.length * 8, 'Invalid hash size: ' + address + '.');
   const type = getType(versionByte);
-  return {
-    prefix,
-    type,
-    hash,
-  };
+
+  switch (type) {
+    case 'GROUP':
+      hash = payloadData.subarray(1);
+      break;
+    case 'TEMPLATE':
+      hash = payloadData.subarray(2);
+      break;
+    default:
+      hash = payloadData.subarray(1);
+  }
+
+  return { prefix, type, hash };
 }
