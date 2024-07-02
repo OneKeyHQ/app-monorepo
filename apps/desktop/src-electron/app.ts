@@ -685,10 +685,6 @@ if (!singleInstance && !process.mas) {
       mainWindow = createMainWindow();
     }
     void initChildProcess();
-    // show on 'ready-to-show' event in Production
-    if (isDev) {
-      showMainWindow();
-    }
   });
 }
 
