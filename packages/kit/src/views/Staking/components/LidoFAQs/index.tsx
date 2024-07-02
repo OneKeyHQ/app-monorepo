@@ -21,6 +21,7 @@ const LidoFAQ = ({ question, answer }: ILidoFAQProps) => {
           borderRadius={12}
           onPress={onToggle}
           hoverStyle={{ backgroundColor: '$bgHover' }}
+          pressStyle={{ backgroundColor: '$bgHover' }}
           py="$2"
           px="$3"
         >
