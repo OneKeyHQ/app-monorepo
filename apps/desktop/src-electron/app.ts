@@ -216,7 +216,7 @@ const themeColors = {
   dark: '#0f0f0f',
 };
 
-console.log('theme >>>> ', theme, nativeTheme.shouldUseDarkColors);
+logger.info('theme >>>> ', theme, nativeTheme.shouldUseDarkColors);
 
 const backgroundColor =
   themeColors[theme as keyof typeof themeColors] ||
