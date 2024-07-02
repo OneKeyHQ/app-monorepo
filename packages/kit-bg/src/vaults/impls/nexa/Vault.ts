@@ -4,7 +4,6 @@ import { isEmpty } from 'lodash';
 
 import {
   estimateFee,
-  estimateSize,
   getDisplayAddress,
   verifyNexaAddress,
 } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
@@ -13,11 +12,7 @@ import type {
   INexaUTXO,
 } from '@onekeyhq/core/src/chains/nexa/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   LowerTransactionAmountError,
   OneKeyInternalError,
@@ -36,7 +31,6 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import {
-  EDecodedTxActionType,
   EDecodedTxStatus,
   type IDecodedTx,
   type IDecodedTxAction,
