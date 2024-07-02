@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { throttle } from 'lodash';
 
@@ -14,6 +14,7 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import { usePrevious } from '../../../hooks/usePrevious';
 import { getWebviewWrapperRef } from '../utils/explorerUtils';
 
 import { useWebTabDataById } from './useWebTabs';
@@ -43,7 +44,7 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
   useListenTabFocusState([ETabRoutes.MultiTabBrowser], (isFocus) => {
     setIsFocusedInDiscoveryTab(isFocus);
   });
-  const previousUrl = useRef<string>();
+  const previousUrl = usePrevious(tab?.url);
 
   // reconnect jsBridge
   useEffect(() => {
@@ -79,10 +80,8 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
       return;
     }
 
-    const preUrlStr = previousUrl.current;
-    previousUrl.current = tab.url;
-    if (preUrlStr && preUrlStr !== tab.url) {
-      const preUrl = new URL(preUrlStr);
+    if (previousUrl && previousUrl !== tab.url) {
+      const preUrl = new URL(previousUrl);
       const curUrl = new URL(tab.url);
       if (preUrl.origin === curUrl.origin) {
         return;
@@ -115,7 +114,7 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
         };
       }
     }
-  }, [isFocusedInDiscoveryTab, tab?.url, webviewRef, isMountedRef]);
+  }, [isFocusedInDiscoveryTab, tab.url, webviewRef, isMountedRef, previousUrl]);
 }
 
 export function useShouldUpdateConnectedAccount() {
