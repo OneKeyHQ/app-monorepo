@@ -214,11 +214,30 @@ class ServiceV4Migration extends ServiceBase {
     }
   }
 
+  async saveAppStorageV4migrationAutoStartDisabled({
+    v4migrationAutoStartDisabled,
+  }: {
+    v4migrationAutoStartDisabled: boolean | undefined;
+  }) {
+    await appStorage.setItem(
+      '$$_OneKey_V4Migration_AutoStart_Disabled_$$',
+      v4migrationAutoStartDisabled ? 'true' : '',
+    );
+  }
+
+  async getAppStorageV4migrationAutoStartDisabled() {
+    return appStorage.getItem('$$_OneKey_V4Migration_AutoStart_Disabled_$$');
+  }
+
   @backgroundMethod()
   @toastIfError()
   async checkShouldMigrateV4OnMount() {
     const v4migrationPersistData = await v4migrationPersistAtom.get();
     if (v4migrationPersistData?.v4migrationAutoStartDisabled) {
+      return false;
+    }
+
+    if (await this.getAppStorageV4migrationAutoStartDisabled()) {
       return false;
     }
 
