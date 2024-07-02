@@ -1076,7 +1076,7 @@
   "send.address_exists": "The address already exists",
   "send.address_invalid ": "Invalid address. Please check and re-enter",
   "send.amount": "Amount",
-  "send.amount_invalid": "Pending transaction detected. Please wait or try a smaller amount.",
+  "send.amount_invalid": "Insufficient balance. Please try a smaller amount",
   "send.amount_too_small": "Transfer amount too small.",
   "send.authentication_failed_verify_again": "Authentication failed, please check your network connection and try again.",
   "send.available": "Available: {number}",
