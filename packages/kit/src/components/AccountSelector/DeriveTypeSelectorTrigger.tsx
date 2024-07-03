@@ -25,6 +25,7 @@ import {
 type IDeriveTypeSelectorTriggerPropsBase = {
   renderTrigger?: ISelectProps<ISelectItem>['renderTrigger'];
   placement?: ComponentProps<typeof Select>['placement'];
+  offset?: ISelectProps<ISelectItem>['offset'];
 };
 type IDeriveTypeSelectorTriggerProps = IDeriveTypeSelectorTriggerPropsBase & {
   items: IAccountDeriveInfoItems[];
@@ -39,6 +40,7 @@ function DeriveTypeSelectorTriggerView({
   renderTrigger,
   placement,
   testID,
+  offset,
 }: IDeriveTypeSelectorTriggerProps & {
   testID?: string;
 }) {
@@ -47,6 +49,7 @@ function DeriveTypeSelectorTriggerView({
   return (
     <>
       <Select
+        offset={offset}
         testID={testID}
         items={items}
         floatingPanelProps={{
@@ -198,6 +201,7 @@ export function DeriveTypeSelectorTriggerStandAlone({
   networkId,
   renderTrigger,
   placement,
+  offset,
 }: {
   networkId: string;
 } & IDeriveTypeSelectorTriggerPropsBase) {
@@ -219,6 +223,7 @@ export function DeriveTypeSelectorTriggerStandAlone({
   }, [networkId, deriveTypeChangedTs]);
   return (
     <DeriveTypeSelectorTriggerView
+      offset={offset}
       value={deriveType}
       items={options}
       onChange={async (type) => {
