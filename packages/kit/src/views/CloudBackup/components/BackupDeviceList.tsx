@@ -10,6 +10,7 @@ import {
   SectionList,
   SizableText,
   Stack,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
 import type { ISectionListProps } from '@onekeyhq/components';
@@ -52,6 +53,9 @@ export default function BackupDeviceList<T>({
   const { result: data, run } = usePromiseResult(async () => {
     const backupDeviceList =
       await backgroundApiProxy.serviceCloudBackup.getBackupDeviceList();
+    Toast.show({
+      text: JSON.stringify(backupDeviceList),
+    });
     return !ListEmptyComponent && !isEnabled
       ? []
       : backupDeviceList.map((item) => ({
