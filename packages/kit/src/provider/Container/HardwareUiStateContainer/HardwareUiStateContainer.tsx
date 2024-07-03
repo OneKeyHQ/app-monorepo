@@ -23,6 +23,10 @@ import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
@@ -343,6 +347,10 @@ function HardwareUiStateContainerCmp() {
             onClose: async (params) => {
               log('close toast');
               if (params?.flag !== autoClosedFlag) {
+                appEventBus.emit(
+                  EAppEventBusNames.CloseHardwareUiStateDialogManually,
+                  undefined,
+                );
                 await serviceHardwareUI.closeHardwareUiStateDialog({
                   connectId: currentState?.connectId,
                   skipDeviceCancel: shouldSkipCancelRef.current,
@@ -371,7 +379,12 @@ function HardwareUiStateContainerCmp() {
             ),
             async onClose(params) {
               log('close dialog');
+
               if (params?.flag !== autoClosedFlag) {
+                appEventBus.emit(
+                  EAppEventBusNames.CloseHardwareUiStateDialogManually,
+                  undefined,
+                );
                 await serviceHardwareUI.closeHardwareUiStateDialog({
                   connectId: currentState?.connectId,
                   reason: 'HardwareUiStateContainer onClose',

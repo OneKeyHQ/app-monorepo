@@ -10,6 +10,7 @@ import { useIsMounted } from './useIsMounted';
 type IRunnerConfig = {
   triggerByDeps?: boolean; // true when trigger by deps changed, do not set it when manually trigger
   pollingNonce?: number;
+  alwaysSetState?: boolean;
 };
 
 export type IPromiseResultOptions<T> = {
@@ -97,7 +98,7 @@ export function usePromiseResult<T>(
       const setLoadingFalse = () => {
         if (watchLoading) setIsLoading(false);
       };
-      const shouldSetState = () => {
+      const shouldSetState = (config?: IRunnerConfig) => {
         let flag = true;
         if (checkIsMounted && !isMountedRef.current) {
           flag = false;
@@ -106,7 +107,7 @@ export function usePromiseResult<T>(
           flag = false;
         }
 
-        if (alwaysSetState) {
+        if (alwaysSetState || config?.alwaysSetState) {
           flag = true;
         }
         return flag;
@@ -125,19 +126,19 @@ export function usePromiseResult<T>(
           isDepsChangedOnBlur.current = true;
         }
         try {
-          if (shouldSetState()) {
+          if (shouldSetState(config)) {
             setLoadingTrue();
             nonceRef.current += 1;
             const requestNonce = nonceRef.current;
             const { r, nonce } = await methodWithNonce({
               nonce: requestNonce,
             });
-            if (shouldSetState() && nonceRef.current === nonce) {
+            if (shouldSetState(config) && nonceRef.current === nonce) {
               setResult(r);
             }
           }
         } catch (err) {
-          if (shouldSetState() && undefinedResultIfError) {
+          if (shouldSetState(config) && undefinedResultIfError) {
             setResult(undefined);
           } else {
             throw err;
@@ -146,7 +147,7 @@ export function usePromiseResult<T>(
           if (loadingDelay && watchLoading) {
             await timerUtils.wait(loadingDelay);
           }
-          if (shouldSetState()) {
+          if (shouldSetState(config)) {
             setLoadingFalse();
           }
           if (
@@ -156,7 +157,7 @@ export function usePromiseResult<T>(
             await timerUtils.wait(pollingInterval);
 
             if (pollingNonceRef.current === config?.pollingNonce) {
-              if (shouldSetState()) {
+              if (shouldSetState(config)) {
                 void run({
                   triggerByDeps: true,
                   pollingNonce: config.pollingNonce,
@@ -175,7 +176,7 @@ export function usePromiseResult<T>(
           trailing: true,
         });
         return async (config?: IRunnerConfig) => {
-          if (shouldSetState()) {
+          if (shouldSetState(config)) {
             setLoadingTrue();
           }
           await runnerDebounced(config);

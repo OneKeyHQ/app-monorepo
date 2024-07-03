@@ -183,6 +183,7 @@ function FeeEditor(props: IProps) {
   );
 
   const [feeAlert, setFeeAlert] = useState('');
+  const [priorityFeeAlert, setPriorityFeeAlert] = useState('');
 
   const [currentFeeType, setCurrentFeeType] = useState<EFeeType>(
     sendSelectedFee.feeType,
@@ -346,6 +347,7 @@ function FeeEditor(props: IProps) {
         }
       } else {
         if (maxBaseFee.isNaN() || maxBaseFee.isLessThanOrEqualTo(0)) {
+          setFeeAlert('');
           return intl.formatMessage(
             { id: ETranslations.form_must_greater_then_value },
             {
@@ -371,7 +373,7 @@ function FeeEditor(props: IProps) {
           setFeeAlert(
             intl.formatMessage(
               {
-                id: ETranslations.form_global_error_something_higher_then_necessary,
+                id: ETranslations.fee_fee_rate_too_high,
               },
               {
                 something: intl.formatMessage({
@@ -414,18 +416,57 @@ function FeeEditor(props: IProps) {
             },
           );
         }
-      } else if (priorityFee.isNaN() || priorityFee.isLessThanOrEqualTo(0)) {
-        return intl.formatMessage(
-          { id: ETranslations.form_must_greater_then_value },
-          {
-            value: 0,
-          },
-        );
+      } else {
+        if (priorityFee.isNaN() || priorityFee.isLessThanOrEqualTo(0)) {
+          setPriorityFeeAlert('');
+          return intl.formatMessage(
+            { id: ETranslations.form_must_greater_then_value },
+            {
+              value: 0,
+            },
+          );
+        }
+
+        if (priorityFee.isGreaterThan(recommendPriorityFee.max)) {
+          setPriorityFeeAlert(
+            intl.formatMessage(
+              {
+                id: ETranslations.form_global_error_something_higher_then_necessary,
+              },
+              {
+                something: intl.formatMessage({
+                  id: ETranslations.form__priority_fee,
+                }),
+              },
+            ),
+          );
+        } else if (priorityFee.isLessThan(recommendPriorityFee.min)) {
+          setPriorityFeeAlert(
+            intl.formatMessage(
+              {
+                id: ETranslations.fee_fee_rate_too_low,
+              },
+              {
+                'feeParam': intl.formatMessage({
+                  id: ETranslations.form__priority_fee,
+                }),
+              },
+            ),
+          );
+        } else {
+          setPriorityFeeAlert('');
+        }
       }
 
       return true;
     },
-    [intl, replaceTxMode, replaceTxOriginalFeeInfo?.gasEIP1559],
+    [
+      intl,
+      recommendPriorityFee.max,
+      recommendPriorityFee.min,
+      replaceTxMode,
+      replaceTxOriginalFeeInfo?.gasEIP1559,
+    ],
   );
 
   const handleValidateGasLimit = useCallback(
@@ -433,16 +474,11 @@ function FeeEditor(props: IProps) {
       const gasLimit = new BigNumber(value || 0);
 
       if (vaultSettings?.gasLimitValidationEnabled) {
-        if (
-          gasLimit.isNaN() ||
-          gasLimit.isLessThan(DEFAULT_GAS_LIMIT_MIN) ||
-          gasLimit.isGreaterThan(DEFAULT_GAS_LIMIT_MAX)
-        ) {
+        if (gasLimit.isNaN() || gasLimit.isLessThan(DEFAULT_GAS_LIMIT_MIN)) {
           return intl.formatMessage(
-            { id: ETranslations.form_gas_limit_error_range },
+            { id: ETranslations.form_must_greater_then_value },
             {
-              min: DEFAULT_GAS_LIMIT_MIN,
-              max: DEFAULT_GAS_LIMIT_MAX,
+              value: DEFAULT_GAS_LIMIT_MIN,
             },
           );
         }
@@ -487,7 +523,16 @@ function FeeEditor(props: IProps) {
         const recommendGasPriceMax = BigNumber.max(...recommendGasPrice);
         const recommendGasPriceMin = BigNumber.min(...recommendGasPrice);
 
-        if (gasPrice.isNaN() || gasPrice.isLessThan(recommendGasPriceMin)) {
+        if (gasPrice.isNaN() || gasPrice.isLessThanOrEqualTo(0)) {
+          return intl.formatMessage(
+            { id: ETranslations.form_must_greater_then_value },
+            {
+              value: 0,
+            },
+          );
+        }
+
+        if (gasPrice.isLessThan(recommendGasPriceMin)) {
           setFeeAlert(
             intl.formatMessage(
               {
@@ -1148,6 +1193,9 @@ function FeeEditor(props: IProps) {
         {feeAlert && currentFeeType === EFeeType.Custom ? (
           <Alert type="warning" mt="$4" title={feeAlert} />
         ) : null}
+        {priorityFeeAlert && currentFeeType === EFeeType.Custom ? (
+          <Alert type="warning" mt="$4" title={priorityFeeAlert} />
+        ) : null}
         {vaultSettings?.editFeeEnabled ? (
           <Button
             mt="$4"
@@ -1179,6 +1227,7 @@ function FeeEditor(props: IProps) {
     isSaveFeeDisabled,
     nativeSymbol,
     nativeTokenPrice,
+    priorityFeeAlert,
     unsignedTxs,
     vaultSettings?.editFeeEnabled,
     vaultSettings?.withL1BaseFee,

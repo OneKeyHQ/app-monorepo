@@ -110,16 +110,29 @@ function TxHistoryListContainer(props: ITabPageProps) {
   }, [isHeaderRefreshing, run]);
 
   useEffect(() => {
-    const callback = () => {
+    const clearCallback = () =>
       setHistoryData((prev) =>
         prev.filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending),
       );
-    };
-    appEventBus.on(EAppEventBusNames.ClearLocalHistoryPendingTxs, callback);
+    appEventBus.on(
+      EAppEventBusNames.ClearLocalHistoryPendingTxs,
+      clearCallback,
+    );
     return () => {
-      appEventBus.off(EAppEventBusNames.ClearLocalHistoryPendingTxs, callback);
+      appEventBus.off(
+        EAppEventBusNames.ClearLocalHistoryPendingTxs,
+        clearCallback,
+      );
     };
-  }, []);
+  }, [run]);
+
+  useEffect(() => {
+    const reloadCallback = () => run({ alwaysSetState: true });
+    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
+    };
+  }, [run]);
 
   return (
     <TxHistoryListView

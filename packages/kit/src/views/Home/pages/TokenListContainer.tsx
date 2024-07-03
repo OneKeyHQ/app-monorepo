@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { CanceledError } from 'axios';
 
@@ -9,6 +9,7 @@ import {
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
@@ -212,6 +213,13 @@ function TokenListContainer({
     [account, deriveInfo, deriveType, navigation, network, wallet],
   );
 
+  const isBuyAndReceiveEnabled = useMemo(
+    () =>
+      !vaultSettings?.disabledSendAction &&
+      wallet?.type !== WALLET_TYPE_WATCHING,
+    [vaultSettings?.disabledSendAction, wallet?.type],
+  );
+
   return (
     <>
       {showWalletActions ? (
@@ -228,7 +236,7 @@ function TokenListContainer({
         withHeader
         withFooter
         withPrice
-        withBuyAndReceive={!vaultSettings?.disabledSendAction}
+        withBuyAndReceive={isBuyAndReceiveEnabled}
         isBuyTokenSupported={isSupported}
         onBuyToken={handleOnBuy}
         onReceiveToken={handleOnReceive}

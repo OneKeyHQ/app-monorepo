@@ -743,7 +743,7 @@ export default class Vault extends VaultBase {
 
     const action = await this.buildTxTransferAssetAction({
       from: encodedTx.from,
-      to: encodedTx.to,
+      to: recipient,
       transfers: [transfer],
     });
 
@@ -885,7 +885,7 @@ export default class Vault extends VaultBase {
 
     return this.buildTxTransferAssetAction({
       from: encodedTx.from ?? accountAddress,
-      to: encodedTx.to,
+      to,
       transfers: [transfer],
     });
   }
