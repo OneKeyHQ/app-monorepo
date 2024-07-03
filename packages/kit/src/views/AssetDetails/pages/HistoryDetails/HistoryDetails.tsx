@@ -682,6 +682,22 @@ function HistoryDetails() {
     accountId,
   ]);
 
+  const renderTxApproveFor = useCallback(() => {
+    const approve = historyTx.decodedTx.actions[0]?.tokenApprove;
+
+    if (approve) {
+      return (
+        <InfoItem
+          label={intl.formatMessage({
+            id: ETranslations.global_for,
+          })}
+          renderContent={approve.to}
+          showCopy
+        />
+      );
+    }
+  }, [historyTx.decodedTx.actions, intl]);
+
   const renderTxMetaInfo = useCallback(() => {
     const components = getHistoryTxMeta({ impl: network?.impl ?? '' });
     const TxFlow = components?.[EHistoryTxDetailsBlock.Flow];
@@ -690,12 +706,19 @@ function HistoryDetails() {
     return (
       <>
         {TxFlow ? <TxFlow decodedTx={historyTx.decodedTx} /> : renderTxFlow()}
+        {renderTxApproveFor()}
         {TxAttributes ? (
           <TxAttributes decodedTx={historyTx.decodedTx} txDetails={txDetails} />
         ) : null}
       </>
     );
-  }, [historyTx.decodedTx, network?.impl, renderTxFlow, txDetails]);
+  }, [
+    historyTx.decodedTx,
+    network?.impl,
+    renderTxApproveFor,
+    renderTxFlow,
+    txDetails,
+  ]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,
@@ -715,18 +738,20 @@ function HistoryDetails() {
         >
           {txInfo?.gasFee}
         </NumberSizeableText>
-        <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
-          (
-          <NumberSizeableText
-            formatter="value"
-            formatterOptions={{ currency: settings.currencyInfo.symbol }}
-            size="$bodyMd"
-            color="$textSubdued"
-          >
-            {txInfo?.gasFeeFiatValue ?? '0'}
-          </NumberSizeableText>
-          )
-        </SizableText>
+        {!isNil(txInfo?.gasFeeFiatValue) ? (
+          <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
+            (
+            <NumberSizeableText
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              size="$bodyMd"
+              color="$textSubdued"
+            >
+              {txInfo?.gasFeeFiatValue ?? '0'}
+            </NumberSizeableText>
+            )
+          </SizableText>
+        ) : null}
       </XStack>
     ),
     [
