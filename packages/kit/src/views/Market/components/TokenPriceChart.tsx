@@ -63,12 +63,12 @@ function BasicTokenPriceChart({
         });
       });
   }, [coinGeckoId, days, defer.promise]);
-  const { gtMd } = useMedia();
+  const { gtLg } = useMedia();
   return (
     <YStack px="$5" $gtMd={{ pr: 0 }}>
-      <YStack h={platformEnv.isNative ? 240 : 326} $gtMd={{ h: 298 }}>
+      <YStack h={platformEnv.isNative ? 240 : 326} $gtMd={{ h: 294 }}>
         <PriceChart isFetching={isLoading} data={points}>
-          {gtMd ? (
+          {gtLg ? (
             <SegmentControl
               value={days}
               onChange={setDays as ISegmentControlProps['onChange']}
@@ -77,7 +77,7 @@ function BasicTokenPriceChart({
           ) : null}
         </PriceChart>
       </YStack>
-      {gtMd ? null : (
+      {gtLg ? null : (
         <Stack mt={platformEnv.isNative ? -28 : '$5'}>
           <SegmentControl
             fullWidth
