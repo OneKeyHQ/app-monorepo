@@ -81,7 +81,6 @@ function OnboardingOnMountCmp() {
       if (!isBaseSettingsMigrated) {
         isBaseSettingsMigrated = true;
         await backgroundApiProxy.serviceV4Migration.migrateBaseSettings();
-        await timerUtils.wait(600);
       }
     }
   }, []);
@@ -100,6 +99,7 @@ function OnboardingOnMountCmp() {
             await backgroundApiProxy.serviceV4Migration.checkShouldMigrateV4OnMount();
           if (shouldMigrateFromV4) {
             await migrateBaseSettings();
+            await timerUtils.wait(600);
             await v4migrationActions.navigateToV4MigrationPage({
               isAutoStartOnMount: true,
             });
@@ -141,6 +141,7 @@ function OnboardingOnMountCmp() {
         await backgroundApiProxy.serviceV4Migration.checkIfV4DbExist();
       if (isV4DbExist && !downgradeConfirmDialogShown) {
         await migrateBaseSettings();
+        await timerUtils.wait(600);
         downgradeConfirmDialogShown = true;
         const dialog = Dialog.show({
           tone: 'warning',
