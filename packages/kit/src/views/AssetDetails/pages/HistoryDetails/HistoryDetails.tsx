@@ -712,7 +712,13 @@ function HistoryDetails() {
         ) : null}
       </>
     );
-  }, [historyTx.decodedTx, network?.impl, renderTxFlow, txDetails]);
+  }, [
+    historyTx.decodedTx,
+    network?.impl,
+    renderTxApproveFor,
+    renderTxFlow,
+    txDetails,
+  ]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,
