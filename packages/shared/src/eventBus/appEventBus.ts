@@ -95,7 +95,6 @@ export interface IAppEventBusPayload {
     method: 'success' | 'error' | 'message';
     title: string;
     message?: string;
-    toastId?: string;
     duration?: number;
   };
   [EAppEventBusNames.ShowQrcode]: {
