@@ -8,6 +8,7 @@ import {
   formatPriceChange,
   formatValue,
   fromBigIntHex,
+  numberFormat,
   toBigIntHex,
 } from './numberUtils';
 
@@ -26,6 +27,35 @@ test('fromBigIntHex', () => {
   expect(fromBigIntHex('0xa.1c28f5c28f5c28f5c28f')).toStrictEqual(
     new BigNumber(10),
   );
+});
+
+test('numberFormat', () => {
+  expect(
+    numberFormat('0.00000002146', {
+      formatter: 'balance',
+    }),
+  ).toEqual('0.00000002146');
+  expect(
+    numberFormat('0.0000000002146', {
+      formatter: 'balance',
+    }),
+  ).toEqual('0.0000000002146');
+  expect(
+    numberFormat('0.0002146', {
+      formatter: 'balance',
+    }),
+  ).toEqual('0.0002146');
+  expect(
+    numberFormat('100.000000000002146', {
+      formatter: 'balance',
+    }),
+  ).toEqual('100');
+
+  expect(
+    numberFormat('1000000000.00000002146', {
+      formatter: 'balance',
+    }),
+  ).toEqual('1B');
 });
 
 test('formatBalance', () => {
