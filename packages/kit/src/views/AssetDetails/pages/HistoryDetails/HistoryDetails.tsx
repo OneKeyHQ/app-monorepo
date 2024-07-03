@@ -682,6 +682,22 @@ function HistoryDetails() {
     accountId,
   ]);
 
+  const renderTxApproveFor = useCallback(() => {
+    const approve = historyTx.decodedTx.actions[0]?.tokenApprove;
+
+    if (approve) {
+      return (
+        <InfoItem
+          label={intl.formatMessage({
+            id: ETranslations.global_for,
+          })}
+          renderContent={approve.to}
+          showCopy
+        />
+      );
+    }
+  }, [historyTx.decodedTx.actions, intl]);
+
   const renderTxMetaInfo = useCallback(() => {
     const components = getHistoryTxMeta({ impl: network?.impl ?? '' });
     const TxFlow = components?.[EHistoryTxDetailsBlock.Flow];
@@ -690,6 +706,7 @@ function HistoryDetails() {
     return (
       <>
         {TxFlow ? <TxFlow decodedTx={historyTx.decodedTx} /> : renderTxFlow()}
+        {renderTxApproveFor()}
         {TxAttributes ? (
           <TxAttributes decodedTx={historyTx.decodedTx} txDetails={txDetails} />
         ) : null}

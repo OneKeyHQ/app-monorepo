@@ -617,6 +617,7 @@ export enum ETranslations {
   global_fdv = 'global.fdv',
   global_firmware = 'global.firmware',
   global_follow_the_system = 'global.follow_the_system',
+  global_for = 'global.for',
   global_from = 'global.from',
   global_gas_price = 'global.gas_price',
   global_general = 'global.general',
