@@ -170,6 +170,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IEncodedTxAptos,
   ): Promise<string> {
+    console.log('=====>>>>> signAndSubmitTransaction', request, params);
     const encodeTx = params;
 
     const accounts = await this.getAccountsInfo(request);
@@ -250,6 +251,8 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: string,
   ): Promise<string> {
+    console.log('=====>>>>> martianSignAndSubmitTransaction', request, params);
+
     const { account, accountInfo } = await this._getAccount(request);
     const vault = await this.getAptosVault(request);
 
@@ -277,6 +280,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: string,
   ) {
+    console.log('=====>>>>> martianSignTransaction', request, params);
     const { account, accountInfo } = await this._getAccount(request);
     const vault = await this.getAptosVault(request);
 
@@ -307,6 +311,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IEncodedTxAptos,
   ) {
+    console.log('=====>>>>> signTransaction', request, params);
     const { account, accountInfo } = await this._getAccount(request);
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({

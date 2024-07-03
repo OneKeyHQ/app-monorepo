@@ -468,6 +468,7 @@ class ServiceAccount extends ServiceBase {
         deviceParams,
         skipDeviceCancel,
         hideCheckingDeviceLoading,
+        debugMethodName: 'keyring.prepareAccounts',
       },
     );
   }
@@ -1285,6 +1286,7 @@ class ServiceAccount extends ServiceBase {
         },
         skipDeviceCancel,
         hideCheckingDeviceLoading,
+        debugMethodName: 'createHWHiddenWallet.getPassphraseState',
       },
     );
   }
@@ -1310,6 +1312,7 @@ class ServiceAccount extends ServiceBase {
         },
         skipDeviceCancel: params.skipDeviceCancel,
         hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+        debugMethodName: 'createHWWalletBase',
       },
     );
   }
@@ -1657,6 +1660,7 @@ class ServiceAccount extends ServiceBase {
       },
       {
         deviceParams,
+        debugMethodName: 'verifyHWAccountAddresses.prepareAccounts',
       },
     );
   }

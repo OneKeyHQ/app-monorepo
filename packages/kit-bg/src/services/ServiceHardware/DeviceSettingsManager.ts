@@ -92,6 +92,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           dbDevice,
         },
         hideCheckingDeviceLoading: true,
+        debugMethodName: 'deviceSettings.getDeviceSupportFeatures',
       },
     );
   }
@@ -111,6 +112,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         deviceParams: {
           dbDevice: device,
         },
+        debugMethodName: 'deviceSettings.applySettingsToDevice',
       },
     );
   }

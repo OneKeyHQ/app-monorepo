@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { UserCancelFromOutside } from '@onekeyhq/shared/src/errors';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
@@ -21,6 +22,8 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import { HardwareProcessingManager } from './HardwareProcessingManager';
+
 import type { IHardwareUiPayload } from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
@@ -29,6 +32,7 @@ export type IWithHardwareProcessingOptions = {
   skipDeviceCancel?: boolean;
   skipDeviceCancelAtFirst?: boolean;
   hideCheckingDeviceLoading?: boolean;
+  debugMethodName?: string;
 };
 
 export type ICloseHardwareUiStateDialogParams = {
@@ -44,6 +48,8 @@ class ServiceHardwareUI extends ServiceBase {
     super({ backgroundApi });
   }
 
+  hardwareProcessingManager = new HardwareProcessingManager();
+
   @backgroundMethod()
   async sendUiResponse(response: UiResponseEvent) {
     return (
@@ -53,6 +59,7 @@ class ServiceHardwareUI extends ServiceBase {
 
   @backgroundMethod()
   async showCheckingDeviceDialog({ connectId }: { connectId: string }) {
+    console.log('=====>>>>>> showCheckingDeviceDialog show dialog');
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.DeviceChecking,
       connectId,
@@ -60,7 +67,8 @@ class ServiceHardwareUI extends ServiceBase {
     });
 
     // wait animation done
-    await timerUtils.wait(300);
+    // await timerUtils.wait(300);
+    console.log('=====>>>>>> showCheckingDeviceDialog show dialog Done!!!');
   }
 
   @backgroundMethod()
@@ -153,6 +161,9 @@ class ServiceHardwareUI extends ServiceBase {
       await hardwareUiStateAtom.set(undefined);
 
       if (!skipDeviceCancel) {
+        if (connectId) {
+          this.hardwareProcessingManager.cancelOperation(connectId);
+        }
         console.log('closeHardwareUiStateDialog cancel device: ', connectId);
         // do not wait cancel, may cause caller stuck
         void this.backgroundApi.serviceHardware.cancel(connectId, {
@@ -171,8 +182,10 @@ class ServiceHardwareUI extends ServiceBase {
       skipDeviceCancel,
       skipDeviceCancelAtFirst,
       hideCheckingDeviceLoading,
+      debugMethodName,
     }: IWithHardwareProcessingOptions,
   ): Promise<T> {
+    console.log('=====>>>>>> withHardwareProcessing start: ', debugMethodName);
     // >>> mock hardware connectId
     // if (deviceParams?.dbDevice && deviceParams) {
     //   deviceParams.dbDevice.connectId = '11111';
@@ -204,15 +217,22 @@ class ServiceHardwareUI extends ServiceBase {
       }
     }
 
-    if (connectId && !skipDeviceCancelAtFirst) {
-      try {
-        await this.backgroundApi.serviceHardware.cancel(connectId);
-        await timerUtils.wait(600);
-      } catch (error) {
-        //
-      }
+    // Prevents the sdk from continuing to run if it has not been initialized and clicking Cancel is invalid
+    if (connectId) {
+      await this.hardwareProcessingManager.cancelableFn(connectId, () =>
+        this.backgroundApi.serviceHardware.getSDKInstance(),
+      );
     }
     try {
+      if (connectId && !skipDeviceCancelAtFirst) {
+        await this.backgroundApi.serviceHardware.cancel(connectId);
+        try {
+          await this.hardwareProcessingManager.cancelableDelay(connectId, 600);
+        } catch (error) {
+          throw new UserCancelFromOutside();
+        }
+      }
+
       const r = await fn();
       console.log('withHardwareProcessing done: ', r);
       return r;
@@ -236,7 +256,6 @@ class ServiceHardwareUI extends ServiceBase {
     } finally {
       if (connectId) {
         await this.closeHardwareUiStateDialog({
-          delay: 300,
           connectId,
           skipDeviceCancel, // auto cancel if device call interaction action
         });

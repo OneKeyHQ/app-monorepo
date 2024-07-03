@@ -205,7 +205,7 @@ function HardwareUiStateContainerCmp() {
 
   const log = (...args: any[]) => {
     const ts = Date.now();
-    console.log(`${ts}## HardwareUiStateContainerUiLog`, ...args);
+    console.log(`=====>>>>> ${ts}## HardwareUiStateContainerUiLog`, ...args);
   };
 
   const getDeviceType = useCallback(
@@ -345,7 +345,7 @@ function HardwareUiStateContainerCmp() {
             dismissOnOverlayPress: false,
             disableSwipeGesture: false,
             onClose: async (params) => {
-              log('close toast');
+              log('close toast:', params);
               if (params?.flag !== autoClosedFlag) {
                 appEventBus.emit(
                   EAppEventBusNames.CloseHardwareUiStateDialogManually,
@@ -378,7 +378,7 @@ function HardwareUiStateContainerCmp() {
               <HardwareSingletonDialog ref={ref} state={currentState} />
             ),
             async onClose(params) {
-              log('close dialog');
+              log('close dialog', params);
 
               if (params?.flag !== autoClosedFlag) {
                 appEventBus.emit(

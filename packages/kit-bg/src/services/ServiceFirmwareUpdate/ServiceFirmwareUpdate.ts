@@ -1277,6 +1277,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         },
         skipDeviceCancel: true,
         hideCheckingDeviceLoading: true,
+        debugMethodName: 'startUpdateWorkflow',
       },
     );
   }

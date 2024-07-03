@@ -190,7 +190,7 @@ class ServiceSend extends ServiceBase {
           console.log('signTx@vault.signTransaction', signedTx);
           return signedTx;
         },
-        { deviceParams },
+        { deviceParams, debugMethodName: 'serviceSend.signTransaction' },
       );
 
     console.log('signTx@serviceSend.signTransaction', tx);
@@ -516,7 +516,7 @@ class ServiceSend extends ServiceBase {
           });
           return _signedMessage;
         },
-        { deviceParams },
+        { deviceParams, debugMethodName: 'serviceSend.signMessage' },
       );
 
     return signedMessage;
