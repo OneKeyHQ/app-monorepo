@@ -169,13 +169,13 @@ function DesktopCustomTabBar() {
 
   useEffect(() => {
     const listener = () => {
-      closeAllWebTabs();
+      closeAllWebTabs(navigation);
     };
     appEventBus.on(EAppEventBusNames.CloseAllBrowserTab, listener);
     return () => {
       appEventBus.off(EAppEventBusNames.CloseAllBrowserTab, listener);
     };
-  }, [closeAllWebTabs]);
+  }, [closeAllWebTabs, navigation]);
 
   // For risk detection
   useEffect(() => {
