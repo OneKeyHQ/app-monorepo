@@ -20,6 +20,7 @@ import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4Migration
 
 let lastAutoStartV4MigrationTime = 0;
 let isBaseSettingsMigrated = false;
+let downgradeConfirmDialogShown = false;
 
 function DowngradeWarningDialogContent({
   onConfirm,
@@ -62,8 +63,6 @@ function DowngradeWarningDialogContent({
   );
 }
 
-let downgradeConfirmDialogShown = false;
-
 function OnboardingOnMountCmp() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -74,6 +73,17 @@ function OnboardingOnMountCmp() {
     v4migrationPersistData?.downgradeWarningConfirmed;
   const downgradeWarningConfirmedRef = useRef(downgradeWarningConfirmed);
   downgradeWarningConfirmedRef.current = downgradeWarningConfirmed;
+
+  const migrateBaseSettings = useCallback(async () => {
+    const shouldMigrateFromV4: boolean =
+      await backgroundApiProxy.serviceV4Migration.checkShouldMigrateV4OnMount();
+    if (shouldMigrateFromV4) {
+      if (!isBaseSettingsMigrated) {
+        isBaseSettingsMigrated = true;
+        await backgroundApiProxy.serviceV4Migration.migrateBaseSettings();
+      }
+    }
+  }, []);
 
   const checkOnboardingState = useCallback(
     async ({ checkingV4Migration }: { checkingV4Migration?: boolean } = {}) => {
@@ -88,10 +98,7 @@ function OnboardingOnMountCmp() {
           const shouldMigrateFromV4: boolean =
             await backgroundApiProxy.serviceV4Migration.checkShouldMigrateV4OnMount();
           if (shouldMigrateFromV4) {
-            if (!isBaseSettingsMigrated) {
-              isBaseSettingsMigrated = true;
-              await backgroundApiProxy.serviceV4Migration.migrateBaseSettings();
-            }
+            await migrateBaseSettings();
             await timerUtils.wait(600);
             await v4migrationActions.navigateToV4MigrationPage({
               isAutoStartOnMount: true,
@@ -120,7 +127,12 @@ function OnboardingOnMountCmp() {
         });
       }
     },
-    [navigation, setV4MigrationPersistAtom, v4migrationActions],
+    [
+      migrateBaseSettings,
+      navigation,
+      setV4MigrationPersistAtom,
+      v4migrationActions,
+    ],
   );
 
   const checkStateOnMount = useCallback(async () => {
@@ -128,6 +140,8 @@ function OnboardingOnMountCmp() {
       const isV4DbExist =
         await backgroundApiProxy.serviceV4Migration.checkIfV4DbExist();
       if (isV4DbExist && !downgradeConfirmDialogShown) {
+        await migrateBaseSettings();
+        await timerUtils.wait(600);
         downgradeConfirmDialogShown = true;
         const dialog = Dialog.show({
           tone: 'warning',
@@ -160,7 +174,12 @@ function OnboardingOnMountCmp() {
     }
 
     await checkOnboardingState({ checkingV4Migration: true });
-  }, [checkOnboardingState, intl, setV4MigrationPersistAtom]);
+  }, [
+    checkOnboardingState,
+    intl,
+    migrateBaseSettings,
+    setV4MigrationPersistAtom,
+  ]);
 
   useEffect(() => {
     console.log('OnboardingOnMountOnMount');
@@ -196,4 +215,5 @@ function OnboardingOnMountCmp() {
 
   return null;
 }
+
 export const OnboardingOnMount = memo(OnboardingOnMountCmp);
