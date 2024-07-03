@@ -261,11 +261,13 @@ function createMainWindow() {
     ...savedWinBounds,
   });
 
-  browserWindow.once('ready-to-show', () => {
-    showMainWindow();
-  });
+  if (isMac) {
+    browserWindow.once('ready-to-show', () => {
+      showMainWindow();
+    });
+  }
 
-  browserWindow.setAspectRatio(ratio);
+  // browserWindow.setAspectRatio(ratio);
 
   if (isDev) {
     browserWindow.webContents.openDevTools();
@@ -290,6 +292,10 @@ function createMainWindow() {
 
   browserWindow.webContents.on('did-finish-load', () => {
     logger.info('browserWindow >>>> did-finish-load');
+    // fix white flicker on Windows & Linux
+    if (!isMac) {
+      showMainWindow();
+    }
     browserWindow.webContents.send(ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS, {
       resourcesPath: (global as any).resourcesPath,
       staticPath: `file://${staticPath}`,
@@ -466,7 +472,7 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, (event) => {
     logger.debug('restoreMainWindow receive');
-    browserWindow.show();
+    showMainWindow();
     event.reply(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, true);
   });
 
