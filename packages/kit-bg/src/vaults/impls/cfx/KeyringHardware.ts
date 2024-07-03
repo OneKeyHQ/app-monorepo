@@ -12,6 +12,7 @@ import type {
   ISignedTxPro,
   IUnsignedMessageCfx,
 } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -170,7 +171,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       message.type === EMessageTypesEth.ETH_SIGN ||
       message.type === EMessageTypesEth.TYPED_DATA_V1
     ) {
-      throw web3Errors.provider.unsupportedMethod();
+      throw new NotImplemented();
     }
 
     if (message.type === EMessageTypesEth.PERSONAL_SIGN) {

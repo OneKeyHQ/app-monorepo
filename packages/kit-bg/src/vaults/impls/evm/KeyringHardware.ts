@@ -179,7 +179,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       message.type === EMessageTypesEth.TYPED_DATA_V1 ||
       message.type === EMessageTypesEth.ETH_SIGN
     ) {
-      throw web3Errors.provider.unsupportedMethod();
+      throw new NotImplemented();
     }
 
     if (message.type === EMessageTypesEth.PERSONAL_SIGN) {
