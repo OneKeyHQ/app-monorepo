@@ -4,18 +4,18 @@ import { useIntl } from 'react-intl';
 
 import { Page, SizableText, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTriggerStandAlone } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 type IAccountDerivationListItemProps = {
   title: string;
   icon?: string;
   networkId: string;
 };
+
+const offset = { mainAxis: -4, crossAxis: -10 };
 
 const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
   title,
@@ -25,6 +25,7 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
   <DeriveTypeSelectorTriggerStandAlone
     networkId={networkId}
     placement="bottom-end"
+    offset={offset}
     renderTrigger={({ label }) => (
       <ListItem
         userSelect="none"
@@ -42,7 +43,7 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
 
 const AccountDerivation = () => {
   const {
-    result: { enabledNum, availableNetworksMap, items },
+    result: { items },
     isLoading,
   } = usePromiseResult(
     () => backgroundApiProxy.serviceSetting.getAccountDerivationConfig(),
