@@ -24,23 +24,7 @@ import {
   nistp256,
   secp256k1,
 } from '../secret';
-import {
-  ECoreCredentialType,
-  type ICoreApiGetAddressItem,
-  type ICoreApiGetAddressQueryImported,
-  type ICoreApiGetAddressQueryPublicKey,
-  type ICoreApiGetAddressesQueryHd,
-  type ICoreApiGetAddressesResult,
-  type ICoreApiGetExportedSecretKey,
-  type ICoreApiGetPrivateKeysMapHdQuery,
-  type ICoreApiPrivateKeysMap,
-  type ICoreApiSignBasePayload,
-  type ICoreApiSignMsgPayload,
-  type ICoreApiSignTxPayload,
-  type ICoreCredentialsInfo,
-  type ICurveName,
-  type ISignedTxPro,
-} from '../types';
+import { ECoreCredentialType } from '../types';
 import { slicePathTemplate } from '../utils';
 
 import { ChainSigner } from './ChainSigner';
@@ -48,8 +32,22 @@ import { ChainSigner } from './ChainSigner';
 import type { ISigner } from './ChainSigner';
 import type { ISecretPrivateKeyInfo, ISecretPublicKeyInfo } from '../secret';
 import type {
+  ICoreApiGetAddressItem,
+  ICoreApiGetAddressQueryImported,
+  ICoreApiGetAddressQueryPublicKey,
+  ICoreApiGetAddressesQueryHd,
+  ICoreApiGetAddressesResult,
+  ICoreApiGetExportedSecretKey,
+  ICoreApiGetPrivateKeysMapHdQuery,
+  ICoreApiPrivateKeysMap,
+  ICoreApiSignBasePayload,
+  ICoreApiSignMsgPayload,
+  ICoreApiSignTxPayload,
   ICoreApiValidateXprvtParams,
   ICoreApiValidateXpubParams,
+  ICoreCredentialsInfo,
+  ICurveName,
+  ISignedTxPro,
 } from '../types';
 
 export abstract class CoreChainApiBase {

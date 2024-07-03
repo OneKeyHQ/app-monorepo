@@ -5,11 +5,11 @@ import type {
   ISecretPublicKeyInfo,
 } from '@onekeyhq/core/src/secret';
 
-import { IBtcForkNetwork } from '../chains/btc/types';
 import type { EAddressEncodings } from './coreEnums';
 import type { ICurveName } from './coreTypesBase';
 import type { IUnsignedMessage } from './coreTypesMessage';
 import type { IUnsignedTxPro } from './coreTypesTx';
+import type { IBtcForkNetwork } from '../chains/btc/types';
 
 export * from './coreEnums';
 export * from './coreTypesBase';

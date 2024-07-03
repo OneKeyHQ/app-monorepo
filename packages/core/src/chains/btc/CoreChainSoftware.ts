@@ -36,26 +36,7 @@ import {
   secp256k1,
   verify,
 } from '../../secret';
-import {
-  EAddressEncodings,
-  ECoreApiExportedSecretKeyType,
-  type ICoreApiGetAddressItem,
-  type ICoreApiGetAddressQueryImportedBtc,
-  type ICoreApiGetAddressQueryPublicKey,
-  type ICoreApiGetAddressesQueryHdBtc,
-  type ICoreApiGetAddressesResult,
-  type ICoreApiGetExportedSecretKey,
-  type ICoreApiPrivateKeysMap,
-  type ICoreApiSignAccount,
-  type ICoreApiSignBasePayload,
-  type ICoreApiSignMsgPayload,
-  type ICoreApiSignTxPayload,
-  type ICurveName,
-  type IEncodedTx,
-  type ISignedTxPro,
-  type ITxInputToSign,
-  type IUnsignedMessageBtc,
-} from '../../types';
+import { EAddressEncodings, ECoreApiExportedSecretKeyType } from '../../types';
 import { slicePathTemplate } from '../../utils';
 
 import {
@@ -80,8 +61,24 @@ import type { IBtcForkNetwork, IEncodedTxBtc } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 import type { IBip32ExtendedKey, IBip32KeyDeriver } from '../../secret';
 import type {
+  ICoreApiGetAddressItem,
+  ICoreApiGetAddressQueryImportedBtc,
+  ICoreApiGetAddressQueryPublicKey,
+  ICoreApiGetAddressesQueryHdBtc,
+  ICoreApiGetAddressesResult,
+  ICoreApiGetExportedSecretKey,
+  ICoreApiPrivateKeysMap,
+  ICoreApiSignAccount,
+  ICoreApiSignBasePayload,
+  ICoreApiSignMsgPayload,
+  ICoreApiSignTxPayload,
   ICoreApiValidateXprvtParams,
   ICoreApiValidateXpubParams,
+  ICurveName,
+  IEncodedTx,
+  ISignedTxPro,
+  ITxInputToSign,
+  IUnsignedMessageBtc,
 } from '../../types';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { Signer, networks } from 'bitcoinjs-lib';
