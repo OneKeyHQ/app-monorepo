@@ -139,6 +139,15 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
             walletId: WALLET_TYPE_WATCHING,
             othersWalletAccountId: r.accounts[0].id,
           });
+
+          setTimeout(() => {
+            void actions.current.updateSelectedAccountForSingletonAccount({
+              num: 0,
+              networkId,
+              walletId: WALLET_TYPE_WATCHING,
+              othersWalletAccountId: r.accounts[0].id,
+            });
+          }, 300);
         } catch (error) {
           console.error('UrlAccountAutoCreate error: ', error);
           Toast.error({
