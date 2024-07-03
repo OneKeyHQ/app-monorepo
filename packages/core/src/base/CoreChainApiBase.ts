@@ -4,8 +4,15 @@ import type {
   IGetDefaultPrivateKeyParams,
   IGetDefaultPrivateKeyResult,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type {
+  IXprvtValidation,
+  IXpubValidation,
+} from '@onekeyhq/shared/types/address';
 
 import {
   batchGetPrivateKeys,
@@ -38,8 +45,9 @@ import { slicePathTemplate } from '../utils';
 
 import { ChainSigner } from './ChainSigner';
 
-import type { ISigner } from './ChainSigner';
+import type { IBtcForkNetwork } from '../chains/btc/types';
 import type { ISecretPrivateKeyInfo, ISecretPublicKeyInfo } from '../secret';
+import type { ISigner } from './ChainSigner';
 
 export abstract class CoreChainApiBase {
   protected baseGetCurve(curveName: ICurveName) {
@@ -276,6 +284,22 @@ export abstract class CoreChainApiBase {
     return {
       privateKeyRaw: encryptedPrivateKey,
     };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async validateXpub(params: {
+    xpub: string;
+    btcForkNetwork: IBtcForkNetwork;
+  }): Promise<IXpubValidation> {
+    throw new NotImplemented();
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async validateXprvt(params: {
+    xprvt: string;
+    btcForkNetwork: IBtcForkNetwork;
+  }): Promise<IXprvtValidation> {
+    throw new NotImplemented();
   }
 
   // ----------------------------------------------

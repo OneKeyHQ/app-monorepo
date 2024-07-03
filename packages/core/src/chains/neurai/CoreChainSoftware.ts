@@ -18,6 +18,14 @@ export default class CoreChainSoftware extends CoreChainSoftwareBtc {
     return Promise.resolve('NEURAI');
   }
 
+  override async getXpubRegex() {
+    return '^xgub';
+  }
+
+  override async getXprvRegex() {
+    return '^xgpv';
+  }
+
   override signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
     return super.signMessage(payload);
   }
