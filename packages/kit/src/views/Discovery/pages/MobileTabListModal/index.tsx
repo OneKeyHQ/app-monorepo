@@ -373,7 +373,7 @@ function MobileTabListModal() {
           onAddTab={handleAddNewTab}
           onCloseAll={() => {
             triggerCloseTab.current = true;
-            closeAllWebTabs(navigation);
+            closeAllWebTabs();
           }}
           onDone={() => {
             navigation.pop();

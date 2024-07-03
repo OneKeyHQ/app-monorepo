@@ -133,9 +133,6 @@ function DesktopCustomTabBar() {
     },
     [closeWebTab],
   );
-  const handleCloseAllTabs = useCallback(async () => {
-    closeAllWebTabs(navigation);
-  }, [closeAllWebTabs, navigation]);
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {
       if (bookmark) {
@@ -169,13 +166,13 @@ function DesktopCustomTabBar() {
 
   useEffect(() => {
     const listener = () => {
-      closeAllWebTabs(navigation);
+      closeAllWebTabs();
     };
     appEventBus.on(EAppEventBusNames.CloseAllBrowserTab, listener);
     return () => {
       appEventBus.off(EAppEventBusNames.CloseAllBrowserTab, listener);
     };
-  }, [closeAllWebTabs, navigation]);
+  }, [closeAllWebTabs]);
 
   // For risk detection
   useEffect(() => {
@@ -261,7 +258,7 @@ function DesktopCustomTabBar() {
             containerType: 'normal',
             transform: 'translateY(-50%)',
           }}
-          onPress={handleCloseAllTabs}
+          onPress={closeAllWebTabs}
         >
           <Icon
             flexShrink={0}
