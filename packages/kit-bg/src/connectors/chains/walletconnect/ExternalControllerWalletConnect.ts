@@ -159,6 +159,8 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
   ): Promise<ISignedTxPro> {
     const { networkId, account } = payload;
     const connector = payload.connector as ExternalConnectorWalletConnect;
+
+    // call walletconnect general checkNetworkOrAddressMatched
     await this.checkNetworkOrAddressMatched({
       networkId,
       account,
@@ -167,11 +169,14 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
     const ctrl = await this.factory.getController({
       networkId,
     });
+
+    // call chain specified (EVM) checkNetworkOrAddressMatched
     await ctrl.checkNetworkOrAddressMatched({
       networkId,
       account,
       connector,
     });
+
     // TODO openNativeWalletAppByDeepLink
     return ctrl.sendTransactionByWalletConnect({ ...payload, connector });
   }
@@ -181,6 +186,8 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
   ): Promise<ISignedMessagePro> {
     const { networkId, account } = payload;
     const connector = payload.connector as ExternalConnectorWalletConnect;
+
+    // call walletconnect general checkNetworkOrAddressMatched
     await this.checkNetworkOrAddressMatched({
       networkId,
       account,
@@ -189,11 +196,14 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
     const ctrl = await this.factory.getController({
       networkId,
     });
+
+    // call chain specified (EVM) checkNetworkOrAddressMatched
     await ctrl.checkNetworkOrAddressMatched({
       networkId,
       account,
       connector,
     });
+
     // TODO openNativeWalletAppByDeepLink
     return ctrl.signMessageByWalletConnect({ ...payload, connector });
   }
