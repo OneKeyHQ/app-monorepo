@@ -164,7 +164,7 @@ function BasicTokenDetailTabs({
       refreshControl={
         <RefreshControl refreshing={!!isRefreshing} onRefresh={onRefresh} />
       }
-      $gtMd={{ pr: '$5' }}
+      $gtMd={{ px: 0 }}
       $md={{ mt: '$5' }}
       data={tabConfig}
       ListHeaderComponent={

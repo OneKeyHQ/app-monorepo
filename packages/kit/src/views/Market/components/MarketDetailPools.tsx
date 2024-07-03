@@ -132,7 +132,7 @@ function HeaderRow({
     [onSortTypeChange, sortType?.columnName, sortType?.order, useSortFunc],
   );
   return (
-    <XStack py="$2.5" px="$5" $gtMd={{ pr: 0 }}>
+    <XStack py="$2.5" px="$5">
       <HeaderColumn
         name="dexDataName"
         jc="flex-start"
@@ -202,7 +202,7 @@ function NetworkIdSelect({
   onChange: (selectedIndex: number) => void;
 }) {
   return (
-    <XStack space="$2" px="$5" $gtMd={{ pr: 0 }} py="$2">
+    <XStack space="$2" px="$5" py="$2">
       {options.map((networkId, index) => (
         <Stack
           key={networkId}
@@ -288,7 +288,6 @@ export function MarketDetailPools({
           return (
             <XStack
               px="$5"
-              $gtMd={{ pr: 0 }}
               py="$2"
               borderRadius="$3"
               {...listItemPressStyle}

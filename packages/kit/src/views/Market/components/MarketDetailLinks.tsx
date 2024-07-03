@@ -25,7 +25,6 @@ export function MarketDetailLinks({
   return (
     <YStack
       px="$5"
-      $gtMd={{ pr: 0 }}
       onLayout={({
         nativeEvent: {
           layout: { width, height },
