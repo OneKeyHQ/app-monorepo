@@ -66,6 +66,8 @@ export type IDesktopOpenUrlEventData = {
   platform?: string;
 };
 
+const isMacOS = os.type() === 'darwin';
+
 function showMainWindow() {
   if (!mainWindow) {
     return;
@@ -261,9 +263,11 @@ function createMainWindow() {
     ...savedWinBounds,
   });
 
-  browserWindow.once('ready-to-show', () => {
-    showMainWindow();
-  });
+  if (isMacOS) {
+    browserWindow.once('ready-to-show', () => {
+      showMainWindow();
+    });
+  }
 
   browserWindow.setAspectRatio(ratio);
 
@@ -290,6 +294,10 @@ function createMainWindow() {
 
   browserWindow.webContents.on('did-finish-load', () => {
     logger.info('browserWindow >>>> did-finish-load');
+    // fix white flicker on Windows & Linux
+    if (!isMacOS) {
+      showMainWindow();
+    }
     browserWindow.webContents.send(ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS, {
       resourcesPath: (global as any).resourcesPath,
       staticPath: `file://${staticPath}`,
@@ -466,7 +474,7 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, (event) => {
     logger.debug('restoreMainWindow receive');
-    browserWindow.show();
+    showMainWindow();
     event.reply(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, true);
   });
 
