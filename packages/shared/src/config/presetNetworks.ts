@@ -866,11 +866,11 @@ const celestia: IServerNetwork = {
   'name': 'Celestia',
   'shortcode': 'celestia',
   'shortname': 'Celestia',
-  'symbol': 'Tia',
+  'symbol': 'TIA',
   'feeMeta': {
     'code': 'tia',
     'decimals': 6,
-    'symbol': 'Tia',
+    'symbol': 'TIA',
   },
   'defaultEnabled': true,
   'priceConfigs': [
