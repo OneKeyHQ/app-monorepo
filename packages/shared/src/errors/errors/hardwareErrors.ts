@@ -89,12 +89,26 @@ export class DeviceOpenedPassphrase extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceOpenedPassphrase;
 }
 
+export class PinCancelled extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PinCancelled',
+        defaultKey: ETranslations.feedback_pin_verification_cancelled,
+        // defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.PinCancelled;
+}
+
 export class UserCancel extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UserCancel',
-        defaultKey: ETranslations.global_cancel_confirm_on_device_feedback,
+        defaultKey: ETranslations.hardware_user_cancel_error,
         // defaultAutoToast: true,
       }),
     );
@@ -400,6 +414,20 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
   // constructor(errorPayload?: IOneKeyHardwareErrorPayload) {
   //   super(errorPayload, { 0: 'require' });
   // }
+}
+
+export class DeviceInitializeFailed extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceInitializeFailed',
+        defaultKey: ETranslations.hardware_connect_timeout_error,
+        // defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.DeviceInitializeFailed;
 }
 
 export class NotInBootLoaderMode extends OneKeyHardwareError {
