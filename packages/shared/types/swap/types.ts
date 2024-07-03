@@ -1,5 +1,3 @@
-import type { ReactElement } from 'react';
-
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 
 import type { INetworkExplorerConfig } from '..';
@@ -239,7 +237,7 @@ export enum ESwapFetchCancelCause {
 
 // swap action&alert state
 export interface ISwapState {
-  label: string | ReactElement;
+  label: string;
   isLoading: boolean;
   isWrapped?: boolean;
   isApprove?: boolean;
