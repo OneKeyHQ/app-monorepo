@@ -32,6 +32,8 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 
+import * as CloudFs from '@onekeyhq/shared/src/cloudfs';
+
 function FinalizeWalletSetupPage({
   route,
 }: IPageScreenProps<
@@ -110,6 +112,7 @@ function FinalizeWalletSetupPage({
   };
   useEffect(() => {
     if (currentStep === EFinalizeWalletSetupSteps.CreatingWallet) {
+      void CloudFs.deleteFile('onekey_backup_V5/metadata.json');
       void readIsFirstCreateWallet();
     }
     if (!showStep) {
