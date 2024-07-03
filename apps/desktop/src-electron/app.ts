@@ -265,7 +265,7 @@ function createMainWindow() {
     showMainWindow();
   });
 
-  browserWindow.setAspectRatio(ratio);
+  // browserWindow.setAspectRatio(ratio);
 
   if (isDev) {
     browserWindow.webContents.openDevTools();
