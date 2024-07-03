@@ -139,7 +139,7 @@ export function getHistoryTxDetailInfo({
   let swapInfo;
   let nonce = txDetails?.nonce;
 
-  if (isNil(nonce) || nonce === 0) {
+  if (isNil(nonce) && !isNil(decodedTx.nonce)) {
     nonce = decodedTx.nonce;
   }
 
