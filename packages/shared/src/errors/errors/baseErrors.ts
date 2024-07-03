@@ -106,6 +106,7 @@ export class OneKeyError<
       code: number;
       message: string;
       requestId?: string;
+      toastId?: string;
       data?: DataT;
       stack?: string;
     } = {
@@ -117,6 +118,9 @@ export class OneKeyError<
     }
     if (this.requestId !== undefined) {
       serialized.requestId = this.requestId;
+    }
+    if (this.toastId !== undefined) {
+      serialized.toastId = this.toastId;
     }
     // TODO read error.stack cause app crash
     // if (this.stack) {
