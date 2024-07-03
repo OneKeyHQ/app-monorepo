@@ -76,7 +76,6 @@ export class BackgroundApiProxyBase
           method: 'error',
           title: error?.message ?? 'Error',
           message: error?.requestId,
-          toastId: error?.toastId,
         });
       }
     });

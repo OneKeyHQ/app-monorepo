@@ -39,8 +39,6 @@ export class OneKeyError<
 
   autoToast?: boolean | undefined;
 
-  toastId?: string | undefined;
-
   requestId?: string | undefined;
 
   constructor(
@@ -54,7 +52,6 @@ export class OneKeyError<
     let infoData: I18nInfoT | undefined;
     let hardwareErrorPayload: IOneKeyHardwareErrorPayload | undefined;
     let autoToast: boolean | undefined;
-    let toastId: string | undefined;
     let requestId: string | undefined;
     if (!isString(errorProps) && errorProps && isObject(errorProps)) {
       ({
@@ -65,7 +62,6 @@ export class OneKeyError<
         key,
         autoToast,
         requestId,
-        toastId,
         payload: hardwareErrorPayload,
       } = errorProps);
     } else {
@@ -92,7 +88,6 @@ export class OneKeyError<
       this.payload = hardwareErrorPayload;
     }
     this.autoToast = autoToast;
-    this.toastId = toastId;
     this.requestId = requestId;
   }
 
