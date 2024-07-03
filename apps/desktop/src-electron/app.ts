@@ -267,7 +267,7 @@ function createMainWindow() {
     });
   }
 
-  browserWindow.setAspectRatio(ratio);
+  // browserWindow.setAspectRatio(ratio);
 
   if (isDev) {
     browserWindow.webContents.openDevTools();
