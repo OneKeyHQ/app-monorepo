@@ -626,8 +626,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     from: string;
     to: string;
     transfers: IDecodedTxTransferInfo[];
+    data?: string;
+    application?: {
+      name: string;
+      icon: string;
+    };
   }): Promise<IDecodedTxAction> {
-    const { from, to, transfers } = params;
+    const { from, to, transfers, data, application } = params;
     const [accountAddress, network] = await Promise.all([
       this.getAccountAddress(),
       this.getNetwork(),
@@ -640,6 +645,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       to,
       sends: [],
       receives: [],
+      data,
+      application,
     };
 
     transfers.forEach((transfer) => {

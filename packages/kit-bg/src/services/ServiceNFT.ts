@@ -25,12 +25,27 @@ class ServiceNFT extends ServiceBase {
     super({ backgroundApi });
   }
 
+  _fetchAccountNFTsController: AbortController | null = null;
+
+  @backgroundMethod()
+  public async abortFetchAccountNFTs() {
+    if (this._fetchAccountNFTsController) {
+      this._fetchAccountNFTsController.abort();
+      this._fetchAccountNFTsController = null;
+    }
+  }
+
   @backgroundMethod()
   public async fetchAccountNFTs(params: IFetchAccountNFTsParams) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const controller = new AbortController();
+    this._fetchAccountNFTsController = controller;
     const resp = await client.get<{
       data: IFetchAccountNFTsResp;
-    }>(`/wallet/v1/account/nft/list?${qs.stringify(omitBy(params, isNil))}`);
+    }>(`/wallet/v1/account/nft/list?${qs.stringify(omitBy(params, isNil))}`, {
+      signal: controller.signal,
+    });
+    this._fetchAccountNFTsController = null;
     return resp.data.data;
   }
 

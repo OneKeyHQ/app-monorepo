@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -7,6 +9,7 @@ import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { EV4LocalDBStoreNames } from './v4local/v4localDBStoreNames';
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
+import migrationUtil from './v4MigrationUtils';
 
 import type { IV4DBAccount, IV4DBUtxoAccount } from './v4local/v4localDBTypes';
 import type { IV4EncodedTx, IV4EncodedTxBtc, IV4HistoryTx } from './v4types';
@@ -73,7 +76,7 @@ export class V4MigrationForHistory extends V4MigrationManagerBase {
   }: {
     v4pendingTxs: IV4HistoryTx[];
   }) {
-    const { serviceSend } = this.backgroundApi;
+    const { serviceSend, serviceNetwork, serviceToken } = this.backgroundApi;
     const v5pendingTxs: Record<
       string,
       {
@@ -112,6 +115,31 @@ export class V4MigrationForHistory extends V4MigrationManagerBase {
               v4ReplaceType = EReplaceTxType.Cancel;
             }
 
+            let totalFeeInNative = v4decodedTx.totalFeeInNative;
+
+            if (isNil(totalFeeInNative) && v4decodedTx.feeInfo) {
+              const network = await serviceNetwork.getNetwork({
+                networkId: v4decodedTx.networkId,
+              });
+
+              const feeRange = migrationUtil.calculateTotalFeeRange(
+                v4decodedTx.feeInfo,
+                network.feeMeta.decimals,
+              );
+              totalFeeInNative = migrationUtil.calculateTotalFeeNative({
+                amount: feeRange.max,
+                info: {
+                  defaultPresetIndex: '0',
+                  prices: [],
+
+                  feeSymbol: network.feeMeta.symbol,
+                  feeDecimals: network.feeMeta.decimals,
+                  nativeSymbol: network.symbol,
+                  nativeDecimals: network.decimals,
+                },
+              });
+            }
+
             const v5pendingTx: IAccountHistoryTx = {
               id: v4pendingTx.id,
               isLocalCreated: v4pendingTx.isLocalCreated,
@@ -122,6 +150,7 @@ export class V4MigrationForHistory extends V4MigrationManagerBase {
               decodedTx: {
                 ...v5DecodedTx,
                 txid: v4decodedTx.txid,
+                totalFeeInNative,
               },
             };
 
