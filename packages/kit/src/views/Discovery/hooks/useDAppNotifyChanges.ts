@@ -21,19 +21,19 @@ import { useWebTabDataById } from './useWebTabs';
 
 import type { IHandleAccountChangedParams } from '../../DAppConnection/hooks/useHandleAccountChanged';
 
-const notifyChanges = throttle(
-  (url: string, fromScene?: string) => {
-    console.log('webview notify changed events: ', url, fromScene);
-    const targetOrigin = new URL(url).origin;
-    void backgroundApiProxy.serviceDApp.notifyDAppAccountsChanged(targetOrigin);
-    void backgroundApiProxy.serviceDApp.notifyDAppChainChanged(targetOrigin);
-  },
-  800,
-  {
-    leading: true,
-    trailing: false,
-  },
-);
+const skipDomReadyNotifySites: Record<string, boolean> = {
+  'https://wallet.keplr.app': true,
+};
+
+const notifyChanges = throttle((url: string, fromScene?: string) => {
+  console.log('webview notify changed events: ', url, fromScene);
+  const targetOrigin = new URL(url).origin;
+  if (fromScene === 'domReady' && skipDomReadyNotifySites[targetOrigin]) {
+    return;
+  }
+  void backgroundApiProxy.serviceDApp.notifyDAppAccountsChanged(targetOrigin);
+  void backgroundApiProxy.serviceDApp.notifyDAppChainChanged(targetOrigin);
+}, 800);
 
 export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
   const isMountedRef = useIsMounted();
