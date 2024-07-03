@@ -43,6 +43,16 @@ function DowngradeWarningDialogContent({
 
   return (
     <YStack>
+      <Dialog.Title>
+        {intl.formatMessage({
+          id: ETranslations.downgrade_warning_title,
+        })}
+      </Dialog.Title>
+      <Dialog.Description>
+        {intl.formatMessage({
+          id: ETranslations.downgrade_warning_description,
+        })}
+      </Dialog.Description>
       <Checkbox
         value={checkState}
         label={intl.formatMessage({
@@ -154,12 +164,6 @@ function OnboardingOnMountCmp() {
           // TODO disable gesture close
           showCancelButton: false,
           dismissOnOverlayPress: false,
-          title: intl.formatMessage({
-            id: ETranslations.downgrade_warning_title,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.downgrade_warning_description,
-          }),
           renderContent: (
             <DowngradeWarningDialogContent
               onConfirm={() => {
@@ -178,12 +182,7 @@ function OnboardingOnMountCmp() {
     }
 
     await checkOnboardingState({ checkingV4Migration: true });
-  }, [
-    checkOnboardingState,
-    intl,
-    migrateBaseSettings,
-    setV4MigrationPersistAtom,
-  ]);
+  }, [checkOnboardingState, migrateBaseSettings, setV4MigrationPersistAtom]);
 
   useEffect(() => {
     console.log('OnboardingOnMountOnMount');
