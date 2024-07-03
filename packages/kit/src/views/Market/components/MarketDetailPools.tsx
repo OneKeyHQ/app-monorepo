@@ -143,7 +143,7 @@ function HeaderRow({
       >
         {intl.formatMessage({ id: ETranslations.global_pair })}
       </HeaderColumn>
-      {gtMd ? (
+      {gtXl ? (
         <HeaderColumn
           name="price"
           jc="flex-end"
@@ -185,7 +185,7 @@ function HeaderRow({
       >
         {intl.formatMessage({ id: ETranslations.global_liquidity })}
       </HeaderColumn>
-      <View pl="$3" ai="center" jc="center" $gtMd={{ pl: '$7', pr: '$3' }}>
+      <View pl="$3" ai="center" jc="center" $gtMd={{ pl: '$7', pr: '$1' }}>
         <View w="$4" h="$4" />
       </View>
     </XStack>
@@ -324,7 +324,7 @@ export function MarketDetailPools({
                 </XStack>
               </ItemColumn>
 
-              {gtMd ? (
+              {gtXl ? (
                 <ItemColumn>
                   <NumberSizeableText
                     selectable={false}
@@ -373,7 +373,7 @@ export function MarketDetailPools({
                 pl="$3"
                 ai="center"
                 jc="center"
-                $gtMd={{ pl: '$7', pr: '$3' }}
+                $gtMd={{ pl: '$7', pr: '$1' }}
               >
                 <Icon name="ChevronRightSmallOutline" size="$4" />
               </View>
