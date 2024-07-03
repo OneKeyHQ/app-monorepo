@@ -147,7 +147,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
               walletId: WALLET_TYPE_WATCHING,
               othersWalletAccountId: r.accounts[0].id,
             });
-          }, 300);
+          }, 1500);
         } catch (error) {
           console.error('UrlAccountAutoCreate error: ', error);
           Toast.error({
