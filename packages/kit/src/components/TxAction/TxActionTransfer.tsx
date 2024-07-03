@@ -48,7 +48,7 @@ function getTxActionTransferInfo(
 ) {
   const { action, decodedTx, isUTXO, intl } = props;
 
-  const { from, to, sends, receives, label } =
+  const { from, to, sends, receives, label, data, application } =
     action.assetTransfer as IDecodedTxActionAssetTransfer;
 
   const { type } = decodedTx.payload ?? {};
@@ -115,6 +115,8 @@ function getTxActionTransferInfo(
     receiveNFTIcon: receivesWithNFT[0]?.icon,
     sendTokenIcon: sendsWithToken[0]?.icon,
     receiveTokenIcon: receivesWithToken[0]?.icon,
+    data,
+    application,
   };
 }
 
@@ -458,7 +460,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
   const { decodedTx, nativeTokenTransferAmountToUpdate, isSendNativeToken } =
     props;
 
-  const { sends, receives, from } = getTxActionTransferInfo({
+  const { sends, receives, from, data, application } = getTxActionTransferInfo({
     ...props,
     intl,
   });
@@ -534,12 +536,18 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         transferElements.push(
           <InfoItem
             key={`${index}-target`}
-            label={intl.formatMessage({
-              id:
-                direction === EDecodedTxDirection.OUT
-                  ? ETranslations.global_to
-                  : ETranslations.global_from,
-            })}
+            label={
+              application && data
+                ? intl.formatMessage({
+                    id: ETranslations.interact_with_contract,
+                  })
+                : intl.formatMessage({
+                    id:
+                      direction === EDecodedTxDirection.OUT
+                        ? ETranslations.global_to
+                        : ETranslations.global_from,
+                  })
+            }
             renderContent={target}
             description={
               <AddressInfo
@@ -551,6 +559,29 @@ function TxActionTransferDetailView(props: ITxActionProps) {
           />,
         );
       });
+
+      if (application) {
+        transferElements.push(
+          <InfoItem
+            label={intl.formatMessage({
+              id: ETranslations.transaction_application,
+            })}
+            renderContent={
+              <XStack alignItems="center" space="$2">
+                <Image
+                  borderRadius="$1"
+                  w="$5"
+                  h="$5"
+                  source={{ uri: application.icon }}
+                />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {application.name}
+                </SizableText>
+              </XStack>
+            }
+          />,
+        );
+      }
 
       transferElements.push(
         <InfoItem
@@ -575,6 +606,8 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       );
     },
     [
+      application,
+      data,
       decodedTx.accountId,
       decodedTx.networkId,
       from,
