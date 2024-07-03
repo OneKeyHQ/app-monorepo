@@ -66,7 +66,7 @@ function ModalExitPreventDialogContent({
             value={dontShowAgain}
             onChange={() => setDontShowAgain(!dontShowAgain)}
             label={intl.formatMessage({
-              id: ETranslationsMock.v4_migration_exit_dialog_never_show_again,
+              id: ETranslations.v4_migration_exit_migration_checkbox_label,
             })}
           />
         </Stack>

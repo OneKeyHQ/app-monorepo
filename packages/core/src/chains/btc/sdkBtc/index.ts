@@ -226,7 +226,29 @@ export function isBRC20Token(tokenAddress?: string) {
   );
 }
 
-export function validateBtcXpub({ xpub }: { xpub: string }): IXpubValidation {
+function isMatchedByRegex({ regex, value }: { regex: string; value: string }) {
+  if (regex) {
+    const regexRule = new RegExp(regex);
+    if (!regexRule.test(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function validateBtcXpub({
+  xpub,
+  regex,
+}: {
+  xpub: string;
+  regex: string;
+}): IXpubValidation {
+  if (!isMatchedByRegex({ regex, value: xpub })) {
+    return {
+      isValid: false,
+    };
+  }
+
   let isValid = false;
   try {
     bs58check.decode(xpub);
@@ -241,9 +263,17 @@ export function validateBtcXpub({ xpub }: { xpub: string }): IXpubValidation {
 
 export function validateBtcXprvt({
   xprvt,
+  regex,
 }: {
   xprvt: string;
+  regex: string;
 }): IXprvtValidation {
+  if (!isMatchedByRegex({ regex, value: xprvt })) {
+    return {
+      isValid: false,
+    };
+  }
+
   let isValid = false;
   try {
     bs58check.decode(xprvt);
