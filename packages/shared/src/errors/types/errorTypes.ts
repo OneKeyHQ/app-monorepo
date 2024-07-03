@@ -65,6 +65,9 @@ export interface IOneKeyError<
 
   // ---server props
   requestId?: string;
+
+  // ---Toast props
+  toastId?: string;
 }
 
 export type IOneKeyHardwareErrorPayload = {
