@@ -118,7 +118,10 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     if (btcForkNetwork.networkChainCode === presetNetworksMap.btc.code) {
       return '^[xyz]pub';
     }
-    if (btcForkNetwork.networkChainCode === presetNetworksMap.tbtc.code) {
+    if (
+      btcForkNetwork.networkChainCode === presetNetworksMap.tbtc.code ||
+      btcForkNetwork.networkChainCode === presetNetworksMap.sbtc.code
+    ) {
       return '^[tuv]pub';
     }
     // Other fork chains do not verify the regular expression
@@ -133,7 +136,10 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     if (btcForkNetwork.networkChainCode === presetNetworksMap.btc.code) {
       return '^[xyz]prv';
     }
-    if (btcForkNetwork.networkChainCode === presetNetworksMap.tbtc.code) {
+    if (
+      btcForkNetwork.networkChainCode === presetNetworksMap.tbtc.code ||
+      btcForkNetwork.networkChainCode === presetNetworksMap.sbtc.code
+    ) {
       return '^[tuv]prv';
     }
     // Other fork chains do not verify the regular expression
