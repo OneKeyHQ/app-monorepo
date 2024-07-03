@@ -21,6 +21,7 @@ import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4Migration
 let lastAutoStartV4MigrationTime = 0;
 let isBaseSettingsMigrated = false;
 let downgradeConfirmDialogShown = false;
+let isAutoStartV4MigrationShown = false;
 
 function DowngradeWarningDialogContent({
   onConfirm,
@@ -42,6 +43,16 @@ function DowngradeWarningDialogContent({
 
   return (
     <YStack>
+      <Dialog.Title>
+        {intl.formatMessage({
+          id: ETranslations.downgrade_warning_title,
+        })}
+      </Dialog.Title>
+      <Dialog.Description>
+        {intl.formatMessage({
+          id: ETranslations.downgrade_warning_description,
+        })}
+      </Dialog.Description>
       <Checkbox
         value={checkState}
         label={intl.formatMessage({
@@ -100,17 +111,20 @@ function OnboardingOnMountCmp() {
           if (shouldMigrateFromV4) {
             await migrateBaseSettings();
             await timerUtils.wait(600);
-            await v4migrationActions.navigateToV4MigrationPage({
-              isAutoStartOnMount: true,
-            });
-            const now = Date.now();
-            if (now - lastAutoStartV4MigrationTime > 3000) {
-              lastAutoStartV4MigrationTime = now;
-              setV4MigrationPersistAtom((v) => ({
-                ...v,
-                v4migrationAutoStartCount:
-                  (v.v4migrationAutoStartCount || 0) + 1,
-              }));
+            if (!isAutoStartV4MigrationShown) {
+              isAutoStartV4MigrationShown = true;
+              await v4migrationActions.navigateToV4MigrationPage({
+                isAutoStartOnMount: true,
+              });
+              const now = Date.now();
+              if (now - lastAutoStartV4MigrationTime > 3000) {
+                lastAutoStartV4MigrationTime = now;
+                setV4MigrationPersistAtom((v) => ({
+                  ...v,
+                  v4migrationAutoStartCount:
+                    (v.v4migrationAutoStartCount || 0) + 1,
+                }));
+              }
             }
             return;
           }
@@ -140,9 +154,9 @@ function OnboardingOnMountCmp() {
       const isV4DbExist =
         await backgroundApiProxy.serviceV4Migration.checkIfV4DbExist();
       if (isV4DbExist && !downgradeConfirmDialogShown) {
+        downgradeConfirmDialogShown = true;
         await migrateBaseSettings();
         await timerUtils.wait(600);
-        downgradeConfirmDialogShown = true;
         const dialog = Dialog.show({
           tone: 'warning',
           icon: 'ShieldCheckDoneOutline',
@@ -150,12 +164,6 @@ function OnboardingOnMountCmp() {
           // TODO disable gesture close
           showCancelButton: false,
           dismissOnOverlayPress: false,
-          title: intl.formatMessage({
-            id: ETranslations.downgrade_warning_title,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.downgrade_warning_description,
-          }),
           renderContent: (
             <DowngradeWarningDialogContent
               onConfirm={() => {
@@ -169,17 +177,12 @@ function OnboardingOnMountCmp() {
             />
           ),
         });
-        return;
       }
+      return;
     }
 
     await checkOnboardingState({ checkingV4Migration: true });
-  }, [
-    checkOnboardingState,
-    intl,
-    migrateBaseSettings,
-    setV4MigrationPersistAtom,
-  ]);
+  }, [checkOnboardingState, migrateBaseSettings, setV4MigrationPersistAtom]);
 
   useEffect(() => {
     console.log('OnboardingOnMountOnMount');
