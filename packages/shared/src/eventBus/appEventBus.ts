@@ -96,6 +96,7 @@ export interface IAppEventBusPayload {
     title: string;
     message?: string;
     duration?: number;
+    errorCode?: number;
   };
   [EAppEventBusNames.ShowQrcode]: {
     title?: string;
