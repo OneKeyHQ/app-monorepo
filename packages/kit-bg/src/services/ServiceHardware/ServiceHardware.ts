@@ -1,3 +1,4 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 
@@ -8,7 +9,11 @@ import {
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  convertDeviceResponse,
+  isHardwareErrorByCode,
+  isHardwareInterruptErrorByCode,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
@@ -76,7 +81,7 @@ class ServiceHardware extends ServiceBase {
     backgroundApi: this.backgroundApi,
   });
 
-  registeredEvents = false;
+  private registeredEvents = false;
 
   checkSdkVersionValid() {
     if (process.env.NODE_ENV !== 'production') {
@@ -426,7 +431,11 @@ class ServiceHardware extends ServiceBase {
 
     // cancel the hardware process
     // (cancel not working on enter pin on device mode, use getFeatures() later)
-    sdk.cancel(connectId);
+    try {
+      sdk.cancel(connectId);
+    } catch (e: any) {
+      console.log('sdk cancel error: ', e.message);
+    }
 
     console.log('sdk call cancel device: ', connectId);
 
@@ -438,12 +447,12 @@ class ServiceHardware extends ServiceBase {
         await this.getFeaturesWithoutCache({
           connectId,
           params: {
-            retryCount: 2,
+            retryCount: 0,
           },
         }); // TODO move to sdk.cancel()
       }
-    } catch (e) {
-      //
+    } catch (error) {
+      // ignore
     }
   }
 

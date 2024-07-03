@@ -345,7 +345,7 @@ function HardwareUiStateContainerCmp() {
             dismissOnOverlayPress: false,
             disableSwipeGesture: true,
             onClose: async (params) => {
-              log('close toast');
+              log('close toast:', params);
               if (params?.flag !== autoClosedFlag) {
                 appEventBus.emit(
                   EAppEventBusNames.CloseHardwareUiStateDialogManually,
