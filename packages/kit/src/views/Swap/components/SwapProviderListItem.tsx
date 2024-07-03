@@ -15,6 +15,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IFetchQuoteResult,
   ISwapToken,
@@ -130,11 +131,9 @@ const SwapProviderListItem = ({
           return intl.formatMessage(
             { id: ETranslations.provider_min_amount_required },
             {
-              amount: (
-                <NumberSizeableText formatter="balance">
-                  {providerResult.limit.min ?? ''}
-                </NumberSizeableText>
-              ),
+              amount: numberFormat(providerResult.limit.min, {
+                formatter: 'balance',
+              }) as string,
               token: fromToken?.symbol ?? 'unknown',
             },
           );
@@ -146,11 +145,9 @@ const SwapProviderListItem = ({
           return intl.formatMessage(
             { id: ETranslations.provider_max_amount_required },
             {
-              amount: (
-                <NumberSizeableText formatter="balance">
-                  {providerResult.limit.max ?? ''}
-                </NumberSizeableText>
-              ),
+              amount: numberFormat(providerResult.limit.max, {
+                formatter: 'balance',
+              }) as string,
               token: fromToken?.symbol ?? 'unknown',
             },
           );
@@ -158,14 +155,11 @@ const SwapProviderListItem = ({
       }
     }
     if (providerResult.toAmount) {
-      return (
-        <NumberSizeableText
-          formatter="balance"
-          formatterOptions={{ tokenSymbol: toToken?.symbol ?? 'unknown' }}
-        >
-          {providerResult.toAmount || ''}
-        </NumberSizeableText>
-      );
+      return `${
+        numberFormat(providerResult.toAmount, {
+          formatter: 'balance',
+        }) as string
+      } ${toToken?.symbol ?? 'unknown'}`;
     }
     return '';
   }, [
