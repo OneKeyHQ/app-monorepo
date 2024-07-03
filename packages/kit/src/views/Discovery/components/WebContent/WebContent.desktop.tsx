@@ -177,7 +177,6 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       id,
-      url,
       onDidFinishLoad,
       onDidStartLoading,
       onDidStartNavigation,

@@ -54,7 +54,7 @@ export default function BackupDeviceList<T>({
     const backupDeviceList =
       await backgroundApiProxy.serviceCloudBackup.getBackupDeviceList();
     Toast.error({
-      title: JSON.stringify(backupDeviceList),
+      title: backupDeviceList ? JSON.stringify(backupDeviceList) : 'null',
     });
     return !ListEmptyComponent && !isEnabled
       ? []
