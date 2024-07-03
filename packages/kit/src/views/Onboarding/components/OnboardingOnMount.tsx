@@ -140,8 +140,8 @@ function OnboardingOnMountCmp() {
       const isV4DbExist =
         await backgroundApiProxy.serviceV4Migration.checkIfV4DbExist();
       if (isV4DbExist && !downgradeConfirmDialogShown) {
-        downgradeConfirmDialogShown = true;
         await migrateBaseSettings();
+        downgradeConfirmDialogShown = true;
         const dialog = Dialog.show({
           tone: 'warning',
           icon: 'ShieldCheckDoneOutline',
