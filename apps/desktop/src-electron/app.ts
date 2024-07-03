@@ -66,8 +66,6 @@ export type IDesktopOpenUrlEventData = {
   platform?: string;
 };
 
-const isMacOS = os.type() === 'darwin';
-
 function showMainWindow() {
   if (!mainWindow) {
     return;
@@ -263,7 +261,7 @@ function createMainWindow() {
     ...savedWinBounds,
   });
 
-  if (isMacOS) {
+  if (isMac) {
     browserWindow.once('ready-to-show', () => {
       showMainWindow();
     });
@@ -295,7 +293,7 @@ function createMainWindow() {
   browserWindow.webContents.on('did-finish-load', () => {
     logger.info('browserWindow >>>> did-finish-load');
     // fix white flicker on Windows & Linux
-    if (!isMacOS) {
+    if (!isMac) {
       showMainWindow();
     }
     browserWindow.webContents.send(ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS, {
