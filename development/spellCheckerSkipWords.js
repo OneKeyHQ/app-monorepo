@@ -33,6 +33,7 @@ module.exports = [
   'derivetype',
   'xfp',
   'Markt',
+  'splitter',
   'lottie',
   'sys',
   'usb',
