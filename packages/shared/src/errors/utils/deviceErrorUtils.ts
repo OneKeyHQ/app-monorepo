@@ -80,6 +80,8 @@ export function convertDeviceError(
       return new HardwareErrors.DeviceNotSame({ payload });
     case HardwareErrorCode.DeviceNotFound:
       return new HardwareErrors.DeviceNotFound({ payload });
+    case HardwareErrorCode.DeviceInitializeFailed:
+      return new HardwareErrors.DeviceInitializeFailed({ payload });
     case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
       return new HardwareErrors.NotInBootLoaderMode({ payload });
     case HardwareErrorCode.DeviceDetectInBootloaderMode:
@@ -150,6 +152,7 @@ export function convertDeviceError(
     case HardwareErrorCode.DeviceNotOpenedPassphrase:
       return new HardwareErrors.DeviceNotOpenedPassphrase({ payload });
     case HardwareErrorCode.PinCancelled:
+      return new HardwareErrors.PinCancelled({ payload });
     case HardwareErrorCode.ActionCancelled:
       return new HardwareErrors.UserCancel({ payload });
     case HardwareErrorCode.BridgeNotInstalled:
