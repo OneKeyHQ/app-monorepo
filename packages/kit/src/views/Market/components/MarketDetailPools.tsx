@@ -132,7 +132,7 @@ function HeaderRow({
     [onSortTypeChange, sortType?.columnName, sortType?.order, useSortFunc],
   );
   return (
-    <XStack py="$2.5" px="$5" $gtMd={{ pr: 0 }}>
+    <XStack py="$2.5" px="$5" $gtMd={{ px: 0 }}>
       <HeaderColumn
         name="dexDataName"
         jc="flex-start"
@@ -143,7 +143,7 @@ function HeaderRow({
       >
         {intl.formatMessage({ id: ETranslations.global_pair })}
       </HeaderColumn>
-      {gtMd ? (
+      {gtXl ? (
         <HeaderColumn
           name="price"
           jc="flex-end"
@@ -202,7 +202,7 @@ function NetworkIdSelect({
   onChange: (selectedIndex: number) => void;
 }) {
   return (
-    <XStack space="$2" px="$5" $gtMd={{ pr: 0 }} py="$2">
+    <XStack space="$2" px="$5" $gtMd={{ px: 0 }} py="$2">
       {options.map((networkId, index) => (
         <Stack
           key={networkId}
@@ -288,7 +288,7 @@ export function MarketDetailPools({
           return (
             <XStack
               px="$5"
-              $gtMd={{ pr: 0 }}
+              $gtMd={{ px: 0 }}
               py="$2"
               borderRadius="$3"
               {...listItemPressStyle}
@@ -324,7 +324,7 @@ export function MarketDetailPools({
                 </XStack>
               </ItemColumn>
 
-              {gtMd ? (
+              {gtXl ? (
                 <ItemColumn>
                   <NumberSizeableText
                     selectable={false}
