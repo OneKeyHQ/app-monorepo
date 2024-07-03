@@ -10,7 +10,6 @@ import {
   SectionList,
   SizableText,
   Stack,
-  Toast,
   XStack,
 } from '@onekeyhq/components';
 import type { ISectionListProps } from '@onekeyhq/components';

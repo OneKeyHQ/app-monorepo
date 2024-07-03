@@ -133,6 +133,9 @@ function DesktopCustomTabBar() {
     },
     [closeWebTab],
   );
+  const handleCloseAllTabs = useCallback(async () => {
+    closeAllWebTabs(navigation);
+  }, [closeAllWebTabs, navigation]);
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {
       if (bookmark) {
@@ -258,7 +261,7 @@ function DesktopCustomTabBar() {
             containerType: 'normal',
             transform: 'translateY(-50%)',
           }}
-          onPress={closeAllWebTabs}
+          onPress={handleCloseAllTabs}
         >
           <Icon
             flexShrink={0}

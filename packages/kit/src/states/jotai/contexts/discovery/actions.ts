@@ -226,21 +226,24 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     this.buildWebTabs.call(set, { data: [...tabs] });
   });
 
-  closeAllWebTabs = contextAtomMethod((get, set) => {
-    const { tabs } = get(webTabsAtom());
-    const activeTabId = get(activeTabIdAtom());
-    const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
-    // should update active tab, if active tab is not in pinnedTabs
-    if (pinnedTabs.every((tab) => tab.id !== activeTabId)) {
-      this.setCurrentWebTab.call(set, pinnedTabs?.[0]?.id);
-    }
-    for (const id of Object.getOwnPropertyNames(webviewRefs)) {
-      if (!pinnedTabs.find((tab) => tab.id === id)) {
-        delete webviewRefs[id];
+  closeAllWebTabs = contextAtomMethod(
+    (get, set, navigation: ReturnType<typeof useAppNavigation>) => {
+      const { tabs } = get(webTabsAtom());
+      const activeTabId = get(activeTabIdAtom());
+      const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
+      // should update active tab, if active tab is not in pinnedTabs
+      if (pinnedTabs.every((tab) => tab.id !== activeTabId)) {
+        this.setCurrentWebTab.call(set, null);
+        navigation.switchTab(ETabRoutes.Discovery);
       }
-    }
-    this.buildWebTabs.call(set, { data: pinnedTabs });
-  });
+      for (const id of Object.getOwnPropertyNames(webviewRefs)) {
+        if (!pinnedTabs.find((tab) => tab.id === id)) {
+          delete webviewRefs[id];
+        }
+      }
+      this.buildWebTabs.call(set, { data: pinnedTabs });
+    },
+  );
 
   setPinnedTab = contextAtomMethod(
     (_, set, payload: { id: string; pinned: boolean }) => {
