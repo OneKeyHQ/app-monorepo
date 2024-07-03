@@ -232,7 +232,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
     // should update active tab, if active tab is not in pinnedTabs
     if (pinnedTabs.every((tab) => tab.id !== activeTabId)) {
-      this.setCurrentWebTab.call(set, null);
+      this.setCurrentWebTab.call(set, pinnedTabs?.[0]?.id);
     }
     for (const id of Object.getOwnPropertyNames(webviewRefs)) {
       if (!pinnedTabs.find((tab) => tab.id === id)) {
