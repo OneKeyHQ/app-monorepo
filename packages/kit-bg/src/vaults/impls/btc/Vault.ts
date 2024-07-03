@@ -359,11 +359,15 @@ export default class VaultBtc extends VaultBase {
   }
 
   override async validateXpub(xpub: string): Promise<IXpubValidation> {
-    return Promise.resolve(this.coreApi.validateXpub(xpub));
+    const btcForkNetwork = await this.getBtcForkNetwork();
+    return Promise.resolve(this.coreApi.validateXpub({ xpub, btcForkNetwork }));
   }
 
   override async validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    return Promise.resolve(this.coreApi.validateXprvt(xprvt));
+    const btcForkNetwork = await this.getBtcForkNetwork();
+    return Promise.resolve(
+      this.coreApi.validateXprvt({ xprvt, btcForkNetwork }),
+    );
   }
 
   override async validateAddress(address: string) {

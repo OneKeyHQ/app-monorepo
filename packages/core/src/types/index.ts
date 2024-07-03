@@ -5,6 +5,7 @@ import type {
   ISecretPublicKeyInfo,
 } from '@onekeyhq/core/src/secret';
 
+import { IBtcForkNetwork } from '../chains/btc/types';
 import type { EAddressEncodings } from './coreEnums';
 import type { ICurveName } from './coreTypesBase';
 import type { IUnsignedMessage } from './coreTypesMessage';
@@ -100,6 +101,14 @@ export type ICoreApiSignAccount = {
   pubKey?: string; // TODO rename to pub?
   xpub?: string;
   template?: string;
+};
+export type ICoreApiValidateXpubParams = {
+  xpub: string;
+  btcForkNetwork: IBtcForkNetwork;
+};
+export type ICoreApiValidateXprvtParams = {
+  xprvt: string;
+  btcForkNetwork: IBtcForkNetwork;
 };
 export type ICoreApiSignBasePayload = {
   networkInfo: ICoreApiNetworkInfo;

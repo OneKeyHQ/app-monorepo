@@ -45,9 +45,12 @@ import { slicePathTemplate } from '../utils';
 
 import { ChainSigner } from './ChainSigner';
 
-import type { IBtcForkNetwork } from '../chains/btc/types';
-import type { ISecretPrivateKeyInfo, ISecretPublicKeyInfo } from '../secret';
 import type { ISigner } from './ChainSigner';
+import type { ISecretPrivateKeyInfo, ISecretPublicKeyInfo } from '../secret';
+import type {
+  ICoreApiValidateXprvtParams,
+  ICoreApiValidateXpubParams,
+} from '../types';
 
 export abstract class CoreChainApiBase {
   protected baseGetCurve(curveName: ICurveName) {
@@ -286,19 +289,17 @@ export abstract class CoreChainApiBase {
     };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async validateXpub(params: {
-    xpub: string;
-    btcForkNetwork: IBtcForkNetwork;
-  }): Promise<IXpubValidation> {
+  async validateXpub(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    params: ICoreApiValidateXpubParams,
+  ): Promise<IXpubValidation> {
     throw new NotImplemented();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async validateXprvt(params: {
-    xprvt: string;
-    btcForkNetwork: IBtcForkNetwork;
-  }): Promise<IXprvtValidation> {
+  async validateXprvt(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    params: ICoreApiValidateXprvtParams,
+  ): Promise<IXprvtValidation> {
     throw new NotImplemented();
   }
 

@@ -79,6 +79,10 @@ import type { IGetAddressFromXpubResult } from './sdkBtc';
 import type { IBtcForkNetwork, IEncodedTxBtc } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 import type { IBip32ExtendedKey, IBip32KeyDeriver } from '../../secret';
+import type {
+  ICoreApiValidateXprvtParams,
+  ICoreApiValidateXpubParams,
+} from '../../types';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { Signer, networks } from 'bitcoinjs-lib';
 
@@ -124,7 +128,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     return '';
   }
 
-  async getXprvRegex({
+  async getXprvtRegex({
     btcForkNetwork,
   }: {
     btcForkNetwork: IBtcForkNetwork;
@@ -139,23 +143,21 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     return '';
   }
 
-  override async validateXprvt(params: {
-    xprvt: string;
-    btcForkNetwork: IBtcForkNetwork;
-  }): Promise<IXprvtValidation> {
+  override async validateXprvt(
+    params: ICoreApiValidateXprvtParams,
+  ): Promise<IXprvtValidation> {
     const { xprvt, btcForkNetwork } = params;
     return Promise.resolve(
       validateBtcXprvt({
         xprvt,
-        regex: await this.getXprvRegex({ btcForkNetwork }),
+        regex: await this.getXprvtRegex({ btcForkNetwork }),
       }),
     );
   }
 
-  override async validateXpub(params: {
-    xpub: string;
-    btcForkNetwork: IBtcForkNetwork;
-  }): Promise<IXpubValidation> {
+  override async validateXpub(
+    params: ICoreApiValidateXpubParams,
+  ): Promise<IXpubValidation> {
     const { xpub, btcForkNetwork } = params;
     return Promise.resolve(
       validateBtcXpub({
