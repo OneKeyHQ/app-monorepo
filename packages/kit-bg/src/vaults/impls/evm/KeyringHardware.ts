@@ -175,14 +175,14 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const chainId = Number(await this.getNetworkChainId());
 
-    if (message.type === EMessageTypesEth.TYPED_DATA_V1) {
+    if (
+      message.type === EMessageTypesEth.TYPED_DATA_V1 ||
+      message.type === EMessageTypesEth.ETH_SIGN
+    ) {
       throw new NotImplemented();
     }
 
-    if (
-      message.type === EMessageTypesEth.ETH_SIGN ||
-      message.type === EMessageTypesEth.PERSONAL_SIGN
-    ) {
+    if (message.type === EMessageTypesEth.PERSONAL_SIGN) {
       let messageBuffer: Buffer;
       try {
         if (!hexUtils.isHexString(message.message))
