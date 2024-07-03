@@ -738,18 +738,20 @@ function HistoryDetails() {
         >
           {txInfo?.gasFee}
         </NumberSizeableText>
-        <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
-          (
-          <NumberSizeableText
-            formatter="value"
-            formatterOptions={{ currency: settings.currencyInfo.symbol }}
-            size="$bodyMd"
-            color="$textSubdued"
-          >
-            {txInfo?.gasFeeFiatValue ?? '0'}
-          </NumberSizeableText>
-          )
-        </SizableText>
+        {!isNil(txInfo?.gasFeeFiatValue) ? (
+          <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
+            (
+            <NumberSizeableText
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              size="$bodyMd"
+              color="$textSubdued"
+            >
+              {txInfo?.gasFeeFiatValue ?? '0'}
+            </NumberSizeableText>
+            )
+          </SizableText>
+        ) : null}
       </XStack>
     ),
     [
