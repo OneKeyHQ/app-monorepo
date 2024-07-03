@@ -4,8 +4,15 @@ import type {
   IGetDefaultPrivateKeyParams,
   IGetDefaultPrivateKeyResult,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type {
+  IXprvtValidation,
+  IXpubValidation,
+} from '@onekeyhq/shared/types/address';
 
 import {
   batchGetPrivateKeys,
@@ -17,29 +24,31 @@ import {
   nistp256,
   secp256k1,
 } from '../secret';
-import {
-  ECoreCredentialType,
-  type ICoreApiGetAddressItem,
-  type ICoreApiGetAddressQueryImported,
-  type ICoreApiGetAddressQueryPublicKey,
-  type ICoreApiGetAddressesQueryHd,
-  type ICoreApiGetAddressesResult,
-  type ICoreApiGetExportedSecretKey,
-  type ICoreApiGetPrivateKeysMapHdQuery,
-  type ICoreApiPrivateKeysMap,
-  type ICoreApiSignBasePayload,
-  type ICoreApiSignMsgPayload,
-  type ICoreApiSignTxPayload,
-  type ICoreCredentialsInfo,
-  type ICurveName,
-  type ISignedTxPro,
-} from '../types';
+import { ECoreCredentialType } from '../types';
 import { slicePathTemplate } from '../utils';
 
 import { ChainSigner } from './ChainSigner';
 
 import type { ISigner } from './ChainSigner';
 import type { ISecretPrivateKeyInfo, ISecretPublicKeyInfo } from '../secret';
+import type {
+  ICoreApiGetAddressItem,
+  ICoreApiGetAddressQueryImported,
+  ICoreApiGetAddressQueryPublicKey,
+  ICoreApiGetAddressesQueryHd,
+  ICoreApiGetAddressesResult,
+  ICoreApiGetExportedSecretKey,
+  ICoreApiGetPrivateKeysMapHdQuery,
+  ICoreApiPrivateKeysMap,
+  ICoreApiSignBasePayload,
+  ICoreApiSignMsgPayload,
+  ICoreApiSignTxPayload,
+  ICoreApiValidateXprvtParams,
+  ICoreApiValidateXpubParams,
+  ICoreCredentialsInfo,
+  ICurveName,
+  ISignedTxPro,
+} from '../types';
 
 export abstract class CoreChainApiBase {
   protected baseGetCurve(curveName: ICurveName) {
@@ -276,6 +285,20 @@ export abstract class CoreChainApiBase {
     return {
       privateKeyRaw: encryptedPrivateKey,
     };
+  }
+
+  async validateXpub(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    params: ICoreApiValidateXpubParams,
+  ): Promise<IXpubValidation> {
+    throw new NotImplemented();
+  }
+
+  async validateXprvt(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    params: ICoreApiValidateXprvtParams,
+  ): Promise<IXprvtValidation> {
+    throw new NotImplemented();
   }
 
   // ----------------------------------------------

@@ -39,6 +39,16 @@ if (typeof Buffer === 'undefined') {
   global.Buffer = require('buffer').Buffer;
 }
 
+// patch Buffer.prototype.subarray
+if (!(Buffer.alloc(1).subarray(0, 1) instanceof Buffer)) {
+  Buffer.prototype.subarray = function subarray() {
+    // eslint-disable-next-line prefer-rest-params
+    const result = Uint8Array.prototype.subarray.apply(this, arguments);
+    Object.setPrototypeOf(result, Buffer.prototype);
+    return result;
+  };
+}
+
 // Crypto polyfill
 
 if (typeof crypto === 'undefined') {
