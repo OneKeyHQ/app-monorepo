@@ -19,11 +19,11 @@ export default class CoreChainSoftware extends CoreChainSoftwareBtc {
   }
 
   override async getXpubRegex() {
-    return '^xgub';
+    return '^xpub';
   }
 
   override async getXprvtRegex() {
-    return '^xgpv';
+    return '^xprv';
   }
 
   override signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {

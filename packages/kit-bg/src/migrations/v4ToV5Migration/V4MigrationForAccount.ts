@@ -52,6 +52,16 @@ import v4MigrationUtils from './v4MigrationUtils';
 import { EV4DBAccountType } from './v4types';
 
 import type {
+  IDBAccount,
+  IDBCreateHWWalletParams,
+  IDBDevice,
+  IDBDeviceSettings,
+  IDBUtxoAccount,
+  IDBWallet,
+} from '../../dbs/local/types';
+import type { VaultBase } from '../../vaults/base/VaultBase';
+import type VaultNexa from '../../vaults/impls/nexa/Vault';
+import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
   IV4MigrationWallet,
@@ -67,16 +77,6 @@ import type {
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
 } from './v4local/v4localDBTypes';
-import type {
-  IDBAccount,
-  IDBCreateHWWalletParams,
-  IDBDevice,
-  IDBDeviceSettings,
-  IDBUtxoAccount,
-  IDBWallet,
-} from '../../dbs/local/types';
-import type { VaultBase } from '../../vaults/base/VaultBase';
-import type VaultNexa from '../../vaults/impls/nexa/Vault';
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({
@@ -807,12 +807,12 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             if (networkId) {
               const v4accountUtxo = v4account as IV4DBUtxoAccount;
 
-              if (
-                v4accountUtxo.address ===
-                '====bc1pmxftvl44gfdeu0w2qhksz0nj296lsd4keafh32097tc8kkaeeues6wklpg'
-              ) {
-                debugger;
-              }
+              // if (
+              //   v4accountUtxo.address ===
+              //   '====bc1pmxftvl44gfdeu0w2qhksz0nj296lsd4keafh32097tc8kkaeeues6wklpg'
+              // ) {
+              //   debugger;
+              // }
 
               const addWatchingAccountByInput = async (
                 input: string,
@@ -889,12 +889,12 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                 for (const [mapNetworkId, mapAddress] of networkToAddress) {
                   await v4dbHubs.logger.runAsyncWithCatch(
                     async () => {
-                      if (
-                        mapAddress ===
-                        '====bc1pmxftvl44gfdeu0w2qhksz0nj296lsd4keafh32097tc8kkaeeues6wklpg'
-                      ) {
-                        debugger;
-                      }
+                      // if (
+                      //   mapAddress ===
+                      //   '====bc1pmxftvl44gfdeu0w2qhksz0nj296lsd4keafh32097tc8kkaeeues6wklpg'
+                      // ) {
+                      //   debugger;
+                      // }
 
                       // skip add address watching if xpub watching is added with same address
                       if (
@@ -1000,12 +1000,13 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               );
 
             if (networkId) {
-              if (
-                v4account.address ===
-                '====bc1qjclx3t2ykepvcqegx8tmn3nwd5ahsswenrvd90'
-              ) {
-                debugger;
-              }
+              // if (
+              //   v4account.address ===
+              // eslint-disable-next-line spellcheck/spell-checker
+              //   '====bc1qjclx3t2ykepvcqegx8tmn3nwd5ahsswenrvd90'
+              // ) {
+              //   debugger;
+              // }
               const v4accountTemplate = await this.fixV4AccountTemplate({
                 v4account,
               });
