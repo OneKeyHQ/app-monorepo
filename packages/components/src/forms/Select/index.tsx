@@ -173,7 +173,7 @@ const useRenderPopoverTrigger = () => {
 };
 
 const requestIdleCallback = (callback: () => void) => {
-  setTimeout(callback, 50);
+  setTimeout(callback, 150);
 };
 
 function SelectContent() {

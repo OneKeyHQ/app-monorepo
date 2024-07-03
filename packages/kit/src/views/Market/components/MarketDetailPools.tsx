@@ -132,7 +132,7 @@ function HeaderRow({
     [onSortTypeChange, sortType?.columnName, sortType?.order, useSortFunc],
   );
   return (
-    <XStack py="$2.5" px="$5">
+    <XStack py="$2.5" px="$5" $gtMd={{ pr: 0 }}>
       <HeaderColumn
         name="dexDataName"
         jc="flex-start"
@@ -185,7 +185,7 @@ function HeaderRow({
       >
         {intl.formatMessage({ id: ETranslations.global_liquidity })}
       </HeaderColumn>
-      <View flex={1}>
+      <View pl="$3" ai="center" jc="center" $gtMd={{ pl: '$7', pr: '$3' }}>
         <View w="$4" h="$4" />
       </View>
     </XStack>
@@ -202,7 +202,7 @@ function NetworkIdSelect({
   onChange: (selectedIndex: number) => void;
 }) {
   return (
-    <XStack space="$2" px="$5" py="$2">
+    <XStack space="$2" px="$5" $gtMd={{ pr: 0 }} py="$2">
       {options.map((networkId, index) => (
         <Stack
           key={networkId}
@@ -288,6 +288,7 @@ export function MarketDetailPools({
           return (
             <XStack
               px="$5"
+              $gtMd={{ pr: 0 }}
               py="$2"
               borderRadius="$3"
               {...listItemPressStyle}
@@ -368,7 +369,12 @@ export function MarketDetailPools({
                   {reserveInUsd}
                 </NumberSizeableText>
               </ItemColumn>
-              <View jc="center" ai="center" flex={1}>
+              <View
+                pl="$3"
+                ai="center"
+                jc="center"
+                $gtMd={{ pl: '$7', pr: '$3' }}
+              >
                 <Icon name="ChevronRightSmallOutline" size="$4" />
               </View>
             </XStack>

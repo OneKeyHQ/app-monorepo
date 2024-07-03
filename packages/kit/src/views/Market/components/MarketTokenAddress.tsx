@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { ISizableTextProps } from '@onekeyhq/components';
 import {
   Icon,
@@ -10,6 +12,7 @@ import {
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -33,6 +36,7 @@ export function MarketTokenAddress({
   tokenNameSize?: ISizableTextProps['size'];
   addressSize?: ISizableTextProps['size'];
 }) {
+  const intl = useIntl();
   const { copyText } = useClipboard();
   const { result: network } = usePromiseResult(
     () =>
@@ -91,6 +95,7 @@ export function MarketTokenAddress({
         )}`}</SizableText>
       </XStack>
       <IconButton
+        title={intl.formatMessage({ id: ETranslations.global_copy })}
         variant="tertiary"
         color="$iconSubdued"
         icon="Copy1Outline"
@@ -99,6 +104,9 @@ export function MarketTokenAddress({
         onPress={() => copyText(address)}
       />
       <IconButton
+        title={intl.formatMessage({
+          id: ETranslations.global_view_in_blockchain_explorer,
+        })}
         variant="tertiary"
         color="$iconSubdued"
         icon="OpenOutline"

@@ -35,7 +35,6 @@ import {
   YStack,
   useMedia,
   usePopoverContext,
-  useThemeValue,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -379,10 +378,12 @@ function TableRow({
   return (
     <XStack
       space="$3"
-      px="$5"
+      px="$3"
+      mx="$2"
       py={py}
       minHeight={minHeight}
       onPress={handlePress}
+      borderRadius="$3"
       {...(showListItemPressStyle && listItemPressStyle)}
     >
       <Column
@@ -1137,6 +1138,7 @@ function BasicMarketHomeList({
             right={gtMd ? '$8' : '$4'}
           >
             <IconButton
+              title=""
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$transparent"
               iconColor="$icon"

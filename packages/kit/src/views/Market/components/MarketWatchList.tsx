@@ -5,12 +5,12 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Icon,
-  Image,
   ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
+  getSharedButtonStyles,
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -38,35 +38,36 @@ function RecommendItem({
   coingeckoId: string;
   onChange: (checked: boolean, coingeckoId: string) => void;
 }) {
+  const { sharedFrameStyles } = useMemo(
+    () =>
+      getSharedButtonStyles({
+        disabled: false,
+        loading: false,
+      }),
+    [],
+  );
   return (
     <XStack
-      cursor="pointer"
+      userSelect="none"
       flexGrow={1}
       flexBasis={0}
       justifyContent="space-between"
       px={platformEnv.isExtensionUiPopup ? '$3' : '$4'}
       py={platformEnv.isExtensionUiPopup ? '$1.5' : '$3.5'}
-      bg="$bgSubdued"
-      borderColor="$borderSubdued"
-      borderWidth="$px"
       borderRadius="$3"
       onPress={() => {
         onChange(!checked, coingeckoId);
       }}
       ai="center"
+      {...sharedFrameStyles}
     >
       <XStack space="$3" ai="center" flexShrink={1}>
         <MarketTokenIcon uri={icon} size="$8" />
         <YStack flexShrink={1}>
-          <SizableText
-            selectable={false}
-            size="$bodyLgMedium"
-            numberOfLines={1}
-          >
+          <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {symbol.toUpperCase()}
           </SizableText>
           <SizableText
-            selectable={false}
             size="$bodyMd"
             color="$textSubdued"
             flexShrink={1}

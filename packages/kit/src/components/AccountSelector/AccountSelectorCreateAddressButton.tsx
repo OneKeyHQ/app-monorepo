@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps } from '@onekeyhq/components';
+import type { IButtonProps, IKeyOfIcons } from '@onekeyhq/components';
 import { Button } from '@onekeyhq/components';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
@@ -26,10 +26,12 @@ export function AccountSelectorCreateAddressButton({
   autoCreateAddress,
   account,
   buttonRender,
+  icon,
 }: {
   num: number;
   children?: React.ReactNode;
   selectAfterCreate?: boolean;
+  icon?: IKeyOfIcons;
   autoCreateAddress?: boolean;
   account: {
     walletId: IDBWalletId | undefined;
@@ -156,8 +158,10 @@ export function AccountSelectorCreateAddressButton({
   return buttonRender({
     loading: isLoading,
     onPress: doCreate,
-    children:
-      children ||
-      intl.formatMessage({ id: ETranslations.global_create_address }),
+    icon,
+    children: icon
+      ? ''
+      : children ??
+        intl.formatMessage({ id: ETranslations.global_create_address }),
   });
 }
