@@ -192,24 +192,43 @@ function SendReplaceTxContainer() {
         replaceFeeInfo.maxPriorityFeePerGas
       ) {
         const normalFee = f.gasEIP1559[1];
+        let shouldReplaceMaxFee = false;
+        let shouldReplaceMaxPriorityFee = false;
+
         if (
           new BigNumber(normalFee.maxFeePerGas).isGreaterThan(
             replaceFeeInfo.maxFeePerGas,
-          ) &&
-          new BigNumber(normalFee.maxPriorityFeePerGas).isGreaterThan(
-            new BigNumber(replaceFeeInfo.maxPriorityFeePerGas),
           )
         ) {
+          shouldReplaceMaxFee = true;
+        }
+
+        if (
+          new BigNumber(normalFee.maxPriorityFeePerGas).isGreaterThan(
+            replaceFeeInfo.maxPriorityFeePerGas,
+          )
+        ) {
+          shouldReplaceMaxPriorityFee = true;
+        }
+        if (shouldReplaceMaxFee || shouldReplaceMaxPriorityFee) {
           setReplaceFeeInfo((prev) => ({
             ...prev,
-            maxFeePerGas: normalFee.maxFeePerGas,
-            maxPriorityFeePerGas: normalFee.maxPriorityFeePerGas,
+            maxFeePerGas: shouldReplaceMaxFee
+              ? normalFee.maxFeePerGas
+              : prev.maxFeePerGas,
+            maxPriorityFeePerGas: shouldReplaceMaxPriorityFee
+              ? normalFee.maxPriorityFeePerGas
+              : prev.maxPriorityFeePerGas,
           }));
 
           setFeeInfoUsedAsRestBase((prev) => ({
             ...prev,
-            maxFeePerGas: normalFee.maxFeePerGas,
-            maxPriorityFeePerGas: normalFee.maxPriorityFeePerGas,
+            maxFeePerGas: shouldReplaceMaxFee
+              ? normalFee.maxFeePerGas
+              : prev.maxFeePerGas,
+            maxPriorityFeePerGas: shouldReplaceMaxPriorityFee
+              ? normalFee.maxPriorityFeePerGas
+              : prev.maxPriorityFeePerGas,
           }));
         }
       } else if (f.gas && f.gas[1] && replaceFeeInfo.gasPrice) {

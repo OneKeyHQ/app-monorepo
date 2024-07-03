@@ -383,7 +383,7 @@ export const numberFormat = (
         return r;
       }
       if (r.type === 'sub') {
-        return new Array(r.value).fill(0).join('');
+        return new Array(r.value - 1).fill(0).join('');
       }
       return '';
     })

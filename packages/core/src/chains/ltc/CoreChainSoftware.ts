@@ -18,6 +18,14 @@ export default class CoreChainSoftware extends CoreChainSoftwareBtc {
     return Promise.resolve('LTC');
   }
 
+  override async getXpubRegex() {
+    return '^([LM]tub|zpub)';
+  }
+
+  override async getXprvRegex() {
+    return '^([LM]tpv|zprv)';
+  }
+
   override signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
     return super.signMessage(payload);
   }

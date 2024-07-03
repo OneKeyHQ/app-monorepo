@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps } from '@onekeyhq/components';
+import type { IButtonProps, IKeyOfIcons } from '@onekeyhq/components';
 import { Button } from '@onekeyhq/components';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { useAccountIsAutoCreatingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAccountIsAutoCreatingAtom,
+  useAccountManualCreatingAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -23,10 +26,12 @@ export function AccountSelectorCreateAddressButton({
   autoCreateAddress,
   account,
   buttonRender,
+  icon,
 }: {
   num: number;
   children?: React.ReactNode;
   selectAfterCreate?: boolean;
+  icon?: IKeyOfIcons;
   autoCreateAddress?: boolean;
   account: {
     walletId: IDBWalletId | undefined;
@@ -51,11 +56,12 @@ export function AccountSelectorCreateAddressButton({
   accountRef.current = account;
 
   const { createAddress } = useAccountSelectorCreateAddress();
-  const [isLoadingState, setIsLoading] = useState(false);
+  const [accountManualCreatingAtom, setAccountManualCreatingAtom] =
+    useAccountManualCreatingAtom();
 
   const isLoading = useMemo(
     () =>
-      isLoadingState ||
+      accountManualCreatingAtom.isLoading ||
       (accountIsAutoCreating &&
         accountIsAutoCreating.walletId === walletId &&
         accountIsAutoCreating.indexedAccountId === indexedAccountId &&
@@ -65,7 +71,7 @@ export function AccountSelectorCreateAddressButton({
       accountIsAutoCreating,
       deriveType,
       indexedAccountId,
-      isLoadingState,
+      accountManualCreatingAtom.isLoading,
       networkId,
       walletId,
     ],
@@ -86,7 +92,10 @@ export function AccountSelectorCreateAddressButton({
       return;
     }
     isLoadingRef.current = true;
-    setIsLoading(true);
+    setAccountManualCreatingAtom((prev) => ({
+      ...prev,
+      isLoading: true,
+    }));
     setAccountIsAutoCreating(accountRef.current);
     try {
       if (process.env.NODE_ENV !== 'production' && account?.walletId) {
@@ -98,7 +107,10 @@ export function AccountSelectorCreateAddressButton({
       await createAddress({ num, selectAfterCreate, account });
       await timerUtils.wait(300);
     } finally {
-      setIsLoading(false);
+      setAccountManualCreatingAtom((prev) => ({
+        ...prev,
+        isLoading: false,
+      }));
       setAccountIsAutoCreating(undefined);
     }
   }, [
@@ -108,6 +120,7 @@ export function AccountSelectorCreateAddressButton({
     selectAfterCreate,
     serviceAccount,
     setAccountIsAutoCreating,
+    setAccountManualCreatingAtom,
   ]);
 
   useEffect(() => {
@@ -145,8 +158,10 @@ export function AccountSelectorCreateAddressButton({
   return buttonRender({
     loading: isLoading,
     onPress: doCreate,
-    children:
-      children ||
-      intl.formatMessage({ id: ETranslations.global_create_address }),
+    icon,
+    children: icon
+      ? ''
+      : children ??
+        intl.formatMessage({ id: ETranslations.global_create_address }),
   });
 }

@@ -382,7 +382,7 @@ export default class Vault extends VaultBase {
 
               action = await this.buildTxTransferAssetAction({
                 from: nativeTx.signerId,
-                to: nativeTx.receiverId,
+                to: transferData.receiver_id,
                 transfers: [transfer],
               });
             }

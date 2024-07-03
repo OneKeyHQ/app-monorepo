@@ -4301,17 +4301,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@koale/useworker@npm:^4.0.2":
-  version: 4.0.2
-  resolution: "@koale/useworker@npm:4.0.2"
-  dependencies:
-    dequal: "npm:^1.0.0"
-  peerDependencies:
-    react: ^16.8.0
-  checksum: 10/b2daed6366a5bfa0e7499d35e2a85ed8b5053f394b7b18187d0f8a9f9fef22f0e151f5adfffb4f3f7b85e44c2f3256c601af54447460eaae656f6814013af871
-  languageName: node
-  linkType: hard
-
 "@leichtgewicht/ip-codec@npm:^2.0.1":
   version: 2.0.4
   resolution: "@leichtgewicht/ip-codec@npm:2.0.4"
@@ -5677,13 +5666,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-tab-page-view@npm:1.0.4":
-  version: 1.0.4
-  resolution: "@onekeyfe/react-native-tab-page-view@npm:1.0.4"
+"@onekeyfe/react-native-tab-page-view@npm:1.0.5":
+  version: 1.0.5
+  resolution: "@onekeyfe/react-native-tab-page-view@npm:1.0.5"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/7c097a48ae6a105f9801157fc5c1e44c1d6144f00326522c26cd492d1a87ce1dec9222c602398a918c437a8a75dad91f839879de3c1917c72f0e9e78d890f1e9
+  checksum: 10/b93b8c7a5a0fe535a6e925806a0900d459e3b11c6a611cd041605826af2da6c776a32b5f09e7a9bc4df7da2ac1baf69d1b3a2514de77a74c95d6fbf5dbe15bc5
   languageName: node
   linkType: hard
 
@@ -5998,7 +5987,7 @@ __metadata:
     dequal: "npm:^2.0.3"
     dotbit: "npm:^0.4.1"
     eth-chains: "npm:^1.0.0"
-    expo-camera: "npm:13.2.1"
+    expo-camera: "npm:15.0.12"
     folderslint: "npm:^1.2.0"
     fuse.js: "npm:^7.0.0"
     lightweight-charts: "npm:^3.8.0"
@@ -6031,7 +6020,7 @@ __metadata:
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.6"
-    "@onekeyfe/react-native-tab-page-view": "npm:1.0.4"
+    "@onekeyfe/react-native-tab-page-view": "npm:1.0.5"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
@@ -17462,13 +17451,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dequal@npm:^1.0.0":
-  version: 1.0.1
-  resolution: "dequal@npm:1.0.1"
-  checksum: 10/92a80c10ec52c256e306ef44c6640f0f2451edfba795b314aec90ee2770930f472c95e8f438b2fb80b0060033d0b5589f2ccb243c0ddd3e9a427c0faa92035c3
-  languageName: node
-  linkType: hard
-
 "dequal@npm:^2.0.3":
   version: 2.0.3
   resolution: "dequal@npm:2.0.3"
@@ -19773,15 +19755,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-camera@npm:13.2.1":
-  version: 13.2.1
-  resolution: "expo-camera@npm:13.2.1"
+"expo-camera@npm:15.0.12":
+  version: 15.0.12
+  resolution: "expo-camera@npm:15.0.12"
   dependencies:
-    "@koale/useworker": "npm:^4.0.2"
     invariant: "npm:^2.2.4"
   peerDependencies:
     expo: "*"
-  checksum: 10/1a9d5997908fee06dc53d08ffa6366f9cd261ee84dcbc6240a4ccca8cbe2d297b3edf1e0e32f1fc529f082394f7647ced5bc20ac01b2ade49726174b86f99f85
+  checksum: 10/3c107ab4e28f1e14176707206e461769a36d3871804196cbb66c5b87fd9015bdbded39177ed338638582aa6c6b6786ad772fe8e821d8d1ea4e613c030aba3952
   languageName: node
   linkType: hard
 

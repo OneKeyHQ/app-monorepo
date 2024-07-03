@@ -469,15 +469,14 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 <AccountSelectorCreateAddressButton
                   num={num}
                   selectAfterCreate
+                  icon="PlusSmallOutline"
                   account={{
                     walletId: focusedWalletInfo?.wallet?.id,
                     networkId: linkedNetworkId,
                     indexedAccountId: indexedAccount?.id,
                     deriveType: selectedAccount.deriveType,
                   }}
-                >
-                  <Icon name="PlusSmallOutline" />
-                </AccountSelectorCreateAddressButton>
+                />
               );
             }
             return null;

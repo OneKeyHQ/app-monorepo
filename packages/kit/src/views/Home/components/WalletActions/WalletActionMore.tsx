@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,11 +9,17 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { useSupportNetworkId } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  WALLET_TYPE_HW,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalFiatCryptoRoutes,
   EModalRoutes,
@@ -25,15 +31,43 @@ import { RawActions } from './RawActions';
 export function WalletActionMore() {
   const [devSettings] = useDevSettingsPersistAtom();
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const { copyText } = useClipboard();
   const navigation = useAppNavigation();
+  const { handleOnReceive } = useReceiveToken({
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+    walletId: wallet?.id ?? '',
+    deriveInfo,
+    deriveType,
+  });
   const { result: isSupported } = useSupportNetworkId(
     network?.id ?? '',
     'sell',
   );
+
+  const isSellDisabled = useMemo(() => {
+    if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
+      return true;
+    }
+
+    if (!isSupported) {
+      return true;
+    }
+
+    return false;
+  }, [isSupported, wallet?.type]);
+
+  const handleCopyAddress = useCallback(() => {
+    if (wallet?.type === WALLET_TYPE_HW) {
+      handleOnReceive();
+    } else {
+      copyText(account?.address || '');
+    }
+  }, [account?.address, copyText, handleOnReceive, wallet?.type]);
+
   const sellCrypto = useCallback(() => {
     navigation.pushModal(EModalRoutes.FiatCryptoModal, {
       screen: EModalFiatCryptoRoutes.SellModal,
@@ -55,7 +89,7 @@ export function WalletActionMore() {
         {
           label: intl.formatMessage({ id: ETranslations.global_copy_address }),
           icon: 'Copy1Outline',
-          onPress: () => copyText(account?.address || ''),
+          onPress: handleCopyAddress,
         },
       ],
     },
@@ -87,7 +121,7 @@ export function WalletActionMore() {
         {
           label: intl.formatMessage({ id: ETranslations.global_sell }),
           icon: 'MinusLargeOutline',
-          disabled: !isSupported,
+          disabled: isSellDisabled,
           onPress: sellCrypto,
         },
       ],

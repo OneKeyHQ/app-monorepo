@@ -829,7 +829,7 @@ export default class Vault extends VaultBase {
               actions.push(
                 await this.buildTxTransferAssetAction({
                   from: fromAddress,
-                  to: tokenAddress,
+                  to: toAddress ?? ataAddress,
                   transfers: [transfer],
                 }),
               );

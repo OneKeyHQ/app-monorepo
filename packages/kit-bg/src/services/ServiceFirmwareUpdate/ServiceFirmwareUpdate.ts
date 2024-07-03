@@ -1116,7 +1116,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     actionType,
   }: {
     releaseResult: ICheckAllFirmwareReleaseResult | undefined;
-    actionType: 'nextPhase' | 'retry' | 'ble-done' | 'boot-done';
+    actionType: 'nextPhase' | 'retry' | 'ble-done' | 'boot-done' | 'done';
   }) {
     // use getFeatures to wait device reboot, not working, will pending forever
     // await this.backgroundApi.serviceHardware.getFeatures(
@@ -1132,6 +1132,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await timerUtils.wait(5 * 1000);
     }
     if (actionType === 'ble-done') {
+      if (['touch', 'pro'].includes(releaseResult?.deviceType ?? '')) {
+        await timerUtils.wait(15 * 1000);
+      }
+    }
+    if (actionType === 'done') {
       await timerUtils.wait(
         releaseResult?.deviceType === 'mini' ? 5 * 1000 : 2 * 1000,
       );
@@ -1246,6 +1251,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
           );
 
           shouldRebootAfterUpdate = true;
+
+          await this.waitDeviceRestart({
+            actionType: 'ble-done',
+            releaseResult: params.releaseResult,
+          });
         }
 
         serviceHardwareUtils.hardwareLog('startUpdateWorkflow DONE', params);
@@ -1253,7 +1263,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         await firmwareUpdateRetryAtom.set(undefined);
         if (params.releaseResult.originalConnectId) {
           await this.waitDeviceRestart({
-            actionType: 'ble-done',
+            actionType: 'done',
             releaseResult: params.releaseResult,
           });
           await this.detectMap.deleteUpdateInfo({

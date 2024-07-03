@@ -12,6 +12,7 @@ import {
   revealableSeedFromMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
+import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
@@ -854,9 +855,11 @@ class ServiceAccount extends ServiceBase {
     });
     let address = '';
     let xpub = '';
+    let btcForkAddressEncoding: EAddressEncodings | undefined;
     const addressValidationResult = await vault.validateAddress(input);
     if (addressValidationResult.isValid) {
       address = addressValidationResult.normalizedAddress;
+      btcForkAddressEncoding = addressValidationResult.encoding;
     } else {
       const xpubValidationResult = await vault.validateXpub(input);
       if (xpubValidationResult.isValid) {
@@ -875,6 +878,28 @@ class ServiceAccount extends ServiceBase {
       createAtNetwork: networkId,
       isUrlAccount,
     };
+
+    let deriveTypeByAddressEncoding: IAccountDeriveTypes | undefined;
+    if (btcForkAddressEncoding) {
+      deriveTypeByAddressEncoding =
+        await this.backgroundApi.serviceNetwork.getDeriveTypeByAddressEncoding({
+          encoding: btcForkAddressEncoding,
+          networkId,
+        });
+      if (
+        deriveType &&
+        deriveTypeByAddressEncoding &&
+        deriveTypeByAddressEncoding !== deriveType
+      ) {
+        throw new Error('addWatchingAccount ERROR: deriveType not correct');
+      }
+    }
+
+    if (!deriveType && deriveTypeByAddressEncoding) {
+      // eslint-disable-next-line no-param-reassign
+      deriveType = deriveTypeByAddressEncoding;
+    }
+
     if (deriveType) {
       const deriveInfo =
         await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
@@ -1108,6 +1133,40 @@ class ServiceAccount extends ServiceBase {
     return localDb.getAccountsInSameIndexedAccountId({ indexedAccountId });
   }
 
+  async getDbAccountIdFromIndexedAccountId({
+    indexedAccountId,
+    networkId,
+    deriveType,
+  }: {
+    indexedAccountId: string;
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }) {
+    const settings = await this.backgroundApi.serviceNetwork.getVaultSettings({
+      networkId,
+    });
+    const deriveInfo =
+      await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
+        networkId,
+        deriveType,
+      });
+    const { idSuffix, template } = deriveInfo;
+
+    const { index, walletId } = accountUtils.parseIndexedAccountId({
+      indexedAccountId,
+    });
+
+    const realDBAccountId = accountUtils.buildHDAccountId({
+      walletId,
+      networkImpl: settings.impl,
+      index,
+      template, // from networkId
+      idSuffix,
+      isUtxo: settings.isUtxo,
+    });
+    return realDBAccountId;
+  }
+
   @backgroundMethod()
   async getAccountsByIndexedAccount({
     indexedAccountIds,
@@ -1120,29 +1179,12 @@ class ServiceAccount extends ServiceBase {
   }): Promise<{
     accounts: INetworkAccount[];
   }> {
-    const settings = await this.backgroundApi.serviceNetwork.getVaultSettings({
-      networkId,
-    });
-    const deriveInfo =
-      await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
-        networkId,
-        deriveType,
-      });
-    const { idSuffix, template } = deriveInfo;
-
     const accounts = await Promise.all(
       indexedAccountIds.map(async (indexedAccountId) => {
-        const { index, walletId } = accountUtils.parseIndexedAccountId({
+        const realDBAccountId = await this.getDbAccountIdFromIndexedAccountId({
           indexedAccountId,
-        });
-
-        const realDBAccountId = accountUtils.buildHDAccountId({
-          walletId,
-          networkImpl: settings.impl,
-          index,
-          template, // from networkId
-          idSuffix,
-          isUtxo: settings.isUtxo,
+          networkId,
+          deriveType,
         });
         return this.getAccount({ accountId: realDBAccountId, networkId });
       }),
@@ -1336,7 +1378,7 @@ class ServiceAccount extends ServiceBase {
     avatarInfo?: IAvatarInfo;
     name?: string;
     walletHash?: string;
-  }) {
+  }): Promise<{ wallet: IDBWallet; indexedAccount?: IDBIndexedAccount }> {
     if (platformEnv.isWebDappMode) {
       throw new Error('createHDWallet ERROR: Not supported in Dapp mode');
     }
@@ -1349,7 +1391,13 @@ class ServiceAccount extends ServiceBase {
         (item) => walletHash && item.hash && item.hash === walletHash,
       );
       if (existsSameHashWallet) {
-        throw new Error('Wallet with the same mnemonic hash already exists');
+        // localDb.buildCreateHDAndHWWalletResult({
+        //   walletId: existsSameHashWallet.id,
+        //   addedHdAccountIndex:
+        // })
+        // DO NOT throw error, just return the exists wallet, so v4 migration can continue
+        // throw new Error('Wallet with the same mnemonic hash already exists');
+        return { wallet: existsSameHashWallet };
       }
     }
 

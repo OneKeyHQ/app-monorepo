@@ -229,28 +229,28 @@ function TxFeeContainer(props: IProps) {
           common: txFee.common,
         };
 
-        if (txFee.gas) {
+        if (txFee.gas && !isEmpty(txFee.gas)) {
           customFeeInfo.gas = {
             ...txFee.gas[sendSelectedFee.presetIndex],
             ...(customFee?.gas ?? {}),
           };
         }
 
-        if (txFee.gasEIP1559) {
+        if (txFee.gasEIP1559 && !isEmpty(txFee.gasEIP1559)) {
           customFeeInfo.gasEIP1559 = {
             ...txFee.gasEIP1559[sendSelectedFee.presetIndex],
             ...(customFee?.gasEIP1559 ?? {}),
           };
         }
 
-        if (txFee.feeUTXO) {
+        if (txFee.feeUTXO && !isEmpty(txFee.feeUTXO)) {
           customFeeInfo.feeUTXO = {
             ...txFee.feeUTXO[sendSelectedFee.presetIndex],
             ...(customFee?.feeUTXO ?? {}),
           };
         }
 
-        if (txFee.feeSol) {
+        if (txFee.feeSol && !isEmpty(txFee.feeSol)) {
           customFeeInfo.feeSol = {
             ...txFee.feeSol[sendSelectedFee.presetIndex],
             ...(customFee?.feeSol ?? {}),

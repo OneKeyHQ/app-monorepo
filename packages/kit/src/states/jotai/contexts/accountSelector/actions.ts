@@ -76,10 +76,10 @@ export type IAccountSelectorSyncFromSceneParams = {
 
 export type IFinalizeWalletSetupCreateWalletResult = {
   wallet: IDBWallet;
-  indexedAccount: IDBIndexedAccount;
+  indexedAccount: IDBIndexedAccount | undefined;
   hidden?: {
     wallet: IDBWallet;
-    indexedAccount: IDBIndexedAccount;
+    indexedAccount: IDBIndexedAccount | undefined;
   };
 };
 
@@ -140,11 +140,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const { num, focusedWallet } = payload;
+      const focusedWalletFixed = focusedWallet;
+      if (
+        focusedWalletFixed &&
+        accountUtils.isOthersWallet({ walletId: focusedWalletFixed })
+      ) {
+        // **** focus to grouped Others Tab
+        // focusedWalletFixed = '$$others';
+      }
       await this.updateSelectedAccount.call(set, {
         num,
         builder: (v) => ({
           ...v,
-          focusedWallet,
+          focusedWallet: focusedWalletFixed,
         }),
       });
     },
@@ -319,8 +327,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             ...v,
           };
           if (clearAccount) {
+            newValue.walletId = undefined;
             newValue.indexedAccountId = undefined;
             newValue.othersWalletAccountId = undefined;
+            newValue.focusedWallet = undefined;
           }
           return newValue;
         },
@@ -403,10 +413,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         // focus to active wallet when open selector
         const focusedWalletNew: IAccountSelectorFocusedWallet =
           activeAccountInfo?.wallet?.id;
-        if (accountUtils.isOthersWallet({ walletId: focusedWalletNew })) {
-          // focus to grouped Others Tab
-          // focusedWalletNew = '$$others';
-        }
         await this.updateSelectedAccountFocusedWallet.call(set, {
           num,
           focusedWallet: focusedWalletNew,
@@ -501,7 +507,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       set,
       params: {
         wallet: IDBWallet;
-        indexedAccount: IDBIndexedAccount;
+        indexedAccount: IDBIndexedAccount | undefined;
         skipDeviceCancel?: boolean;
         hideCheckingDeviceLoading?: boolean;
       },
@@ -519,7 +525,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const deriveType = selectedAccount.deriveType;
       return serviceAccount.addDefaultNetworkAccounts({
         walletId: wallet.id,
-        indexedAccountId: indexedAccount.id,
+        indexedAccountId: indexedAccount?.id,
         customNetworks:
           networkId && deriveType ? [{ networkId, deriveType }] : undefined,
 
@@ -1243,13 +1249,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         wallet,
         indexedAccount,
-      }: { wallet: IDBWallet; indexedAccount: IDBIndexedAccount },
+      }: { wallet: IDBWallet; indexedAccount?: IDBIndexedAccount },
     ) => {
       await this.updateSelectedAccount.call(set, {
         num: 0,
         builder: (v) => ({
           ...v,
-          indexedAccountId: indexedAccount.id,
+          indexedAccountId: indexedAccount?.id,
           walletId: wallet.id,
           focusedWallet: wallet.id,
         }),

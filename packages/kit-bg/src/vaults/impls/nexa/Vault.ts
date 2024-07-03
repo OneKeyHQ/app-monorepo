@@ -4,7 +4,6 @@ import { isEmpty } from 'lodash';
 
 import {
   estimateFee,
-  estimateSize,
   getDisplayAddress,
   verifyNexaAddress,
 } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
@@ -13,12 +12,11 @@ import type {
   INexaUTXO,
 } from '@onekeyhq/core/src/chains/nexa/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import {
+  LowerTransactionAmountError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -32,9 +30,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
-  EDecodedTxActionType,
   EDecodedTxStatus,
   type IDecodedTx,
   type IDecodedTxAction,
@@ -51,7 +47,6 @@ import { KeyringWatching } from './KeyringWatching';
 import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -117,6 +112,15 @@ export default class VaultNexa extends VaultBase {
       address: dbAccount.address,
     });
 
+    // validate utxos balance is enough
+    const totalBalance = utxos.reduce(
+      (acc, utxo) => acc.plus(utxo.satoshis),
+      new BigNumber(0),
+    );
+    if (totalBalance.isLessThan(amount)) {
+      throw new LowerTransactionAmountError();
+    }
+
     const preEncodedTx: IEncodedTxNexa = {
       inputs: utxos,
       outputs: [
@@ -133,6 +137,10 @@ export default class VaultNexa extends VaultBase {
       preEncodedTx,
       '0',
     );
+
+    if (!finalInputs.length) {
+      throw new LowerTransactionAmountError();
+    }
 
     return {
       ...preEncodedTx,
@@ -268,6 +276,9 @@ export default class VaultNexa extends VaultBase {
       params.unsignedTx.encodedTx as IEncodedTxNexa,
       newFee,
     );
+    if (!finalInputs.length) {
+      throw new LowerTransactionAmountError();
+    }
     const fixedEncodedTx = {
       ...(encodedTx as IEncodedTxNexa),
       inputs: finalInputs,

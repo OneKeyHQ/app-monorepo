@@ -49,11 +49,11 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
       </Stack>
       <Stack flex={1}>
         <ListView
-          estimatedItemSize={48}
+          pb="$2"
+          estimatedItemSize={60}
           data={data}
           renderItem={({ item }) => (
             <ListItem
-              h={48}
               renderAvatar={<Token size="md" tokenImageUri={item.icon} />}
               title={item.symbol.toUpperCase()}
               subtitle={item.name}

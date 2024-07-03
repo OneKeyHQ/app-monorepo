@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
+import { defaultLogger } from '../../logger/logger';
+
 import type {
   IDownloadPackage,
   IInstallPackage,
@@ -10,7 +12,7 @@ import type {
 
 const updateCheckingTasks: (() => void)[] = [];
 window.desktopApi?.on?.('update/checking', () => {
-  console.log('update/checking');
+  defaultLogger.update.app.log('checking');
   while (updateCheckingTasks.length) {
     updateCheckingTasks.pop()?.();
   }
@@ -18,7 +20,7 @@ window.desktopApi?.on?.('update/checking', () => {
 
 const updateAvailableTasks: (() => void)[] = [];
 window.desktopApi?.on?.('update/available', ({ version }) => {
-  console.log('update/available, version: ', version);
+  defaultLogger.update.app.log('available', version);
   while (updateAvailableTasks.length) {
     updateAvailableTasks.pop()?.();
   }
@@ -26,10 +28,11 @@ window.desktopApi?.on?.('update/available', ({ version }) => {
 
 window.desktopApi?.on?.('update/not-available', (params) => {
   console.log('update/not-available', params);
+  defaultLogger.update.app.log('not-available');
 });
 
 window.desktopApi?.on?.('update/download', ({ version }) => {
-  console.log('update/download, version: ', version);
+  defaultLogger.update.app.log('download', version);
 });
 
 let updateDownloadingTasks: ((params: {
@@ -49,12 +52,14 @@ window.desktopApi?.on?.(
     transferred: number;
   }) => {
     console.log('update/downloading', params);
+    defaultLogger.update.app.log('downloading', params.percent);
     updateDownloadingTasks.forEach((t) => t(params));
   },
 );
 
 const updateDownloadedTasks: (() => void)[] = [];
 window.desktopApi.on('update/downloaded', () => {
+  defaultLogger.update.app.log('download');
   while (updateDownloadedTasks.length) {
     updateDownloadedTasks.pop()?.();
   }
@@ -75,6 +80,7 @@ window.desktopApi?.on?.(
     const message =
       err.message ||
       'Network exception, please check your internet connection.';
+    defaultLogger.update.app.log('error', message);
     while (updateErrorTasks.length) {
       updateErrorTasks.pop()?.({ message });
     }
@@ -92,6 +98,7 @@ export const downloadPackage: IDownloadPackage = () =>
   });
 
 export const installPackage: IInstallPackage = async () => {
+  defaultLogger.update.app.log('install');
   window.desktopApi.installUpdate();
 };
 
@@ -111,7 +118,7 @@ export const useDownloadProgress: IUseDownloadProgress = (
       percent: number;
       bytesPerSecond: number;
     }) => {
-      console.log('update/downloading', progress);
+      defaultLogger.update.app.log('downloading', progress);
       setPercent((prev) => Math.max(Number(Number(progress).toFixed()), prev));
     },
     10,
