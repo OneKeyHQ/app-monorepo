@@ -7,8 +7,6 @@ import {
   getBtcXpubFromXprvt,
   getBtcXpubSupportedAddressEncodings,
   validateBtcAddress,
-  validateBtcXprvt,
-  validateBtcXpub,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type {
   IBtcInput,
@@ -361,25 +359,15 @@ export default class VaultBtc extends VaultBase {
   }
 
   override async validateXpub(xpub: string): Promise<IXpubValidation> {
-    const xpubRegexString = await this.coreApi.getXpubRegex();
-    const xpubRegex = new RegExp(xpubRegexString);
-    if (!xpubRegex.test(xpub)) {
-      return {
-        isValid: false,
-      };
-    }
-    return Promise.resolve(validateBtcXpub({ xpub }));
+    const btcForkNetwork = await this.getBtcForkNetwork();
+    return Promise.resolve(this.coreApi.validateXpub({ xpub, btcForkNetwork }));
   }
 
   override async validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    const xprvRegexString = await this.coreApi.getXprvRegex();
-    const xprvRegex = new RegExp(xprvRegexString);
-    if (!xprvRegex.test(xprvt)) {
-      return {
-        isValid: false,
-      };
-    }
-    return Promise.resolve(validateBtcXprvt({ xprvt }));
+    const btcForkNetwork = await this.getBtcForkNetwork();
+    return Promise.resolve(
+      this.coreApi.validateXprvt({ xprvt, btcForkNetwork }),
+    );
   }
 
   override async validateAddress(address: string) {

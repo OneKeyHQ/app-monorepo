@@ -9,6 +9,7 @@ import type { EAddressEncodings } from './coreEnums';
 import type { ICurveName } from './coreTypesBase';
 import type { IUnsignedMessage } from './coreTypesMessage';
 import type { IUnsignedTxPro } from './coreTypesTx';
+import type { IBtcForkNetwork } from '../chains/btc/types';
 
 export * from './coreEnums';
 export * from './coreTypesBase';
@@ -100,6 +101,14 @@ export type ICoreApiSignAccount = {
   pubKey?: string; // TODO rename to pub?
   xpub?: string;
   template?: string;
+};
+export type ICoreApiValidateXpubParams = {
+  xpub: string;
+  btcForkNetwork: IBtcForkNetwork;
+};
+export type ICoreApiValidateXprvtParams = {
+  xprvt: string;
+  btcForkNetwork: IBtcForkNetwork;
 };
 export type ICoreApiSignBasePayload = {
   networkInfo: ICoreApiNetworkInfo;
