@@ -36,7 +36,6 @@ import ServiceBase from '../ServiceBase';
 
 import { WalletConnectDappSide } from './WalletConnectDappSide';
 
-import type { IDBExternalAccount } from '../../dbs/local/types';
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types';
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
@@ -568,10 +567,12 @@ class ServiceWalletConnect extends ServiceBase {
             });
             if (address) {
               const updateAddressMap = (key: string) => {
-                const currentAddress = addressMap[key];
-                addressMap[key] = `${currentAddress || ''}${
-                  currentAddress ? ',' : ''
-                }${address}`;
+                const currentAddress = addressMap?.[key] || '';
+                if (currentAddress && currentAddress === address) {
+                  return;
+                }
+                const splitter = currentAddress ? ',' : '';
+                addressMap[key] = `${currentAddress}${splitter}${address}`;
               };
               // always save networkId map for send tx address matched checking
               updateAddressMap(chainInfo.networkId);

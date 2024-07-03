@@ -26,7 +26,9 @@ import type {
 } from '@onekeyhq/shared/types/externalWallet.types';
 
 import localDb from '../../../dbs/local/localDb';
+import { WalletConnectDappSideProvider } from '../../../services/ServiceWalletConnect/WalletConnectDappSideProvider';
 import { ExternalControllerBase } from '../../base/ExternalControllerBase';
+import { ExternalConnectorWalletConnect } from '../walletconnect/ExternalConnectorWalletConnect';
 
 import { EvmConnectorManager } from './EvmConnectorManager';
 import evmConnectorUtils from './evmConnectorUtils';
@@ -479,16 +481,55 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     return [result];
   }
 
-  async requestChainId({ connector }: { connector: IExternalConnectorEvm }) {
+  async requestChainId({
+    connector,
+    networkId,
+  }: {
+    connector: IExternalConnectorEvm;
+    networkId: string;
+  }): Promise<number> {
     const provider = await connector.getProvider();
+    const walletConnectProvider =
+      provider instanceof WalletConnectDappSideProvider ? provider : undefined;
+
+    if (walletConnectProvider) {
+      const wcChain = await this.getWcChain({ networkId });
+      const chainIdNumOrHexString = (await walletConnectProvider.request(
+        {
+          method: 'eth_chainId',
+        },
+        wcChain,
+      )) as string;
+      return new BigNumber(chainIdNumOrHexString).toNumber();
+    }
+
     const chainIdNumOrHexString = await provider.request({
       method: 'eth_chainId',
     });
     return new BigNumber(chainIdNumOrHexString).toNumber();
   }
 
-  async requestAccounts({ connector }: { connector: IExternalConnectorEvm }) {
+  async requestAccounts({
+    connector,
+    networkId,
+  }: {
+    connector: IExternalConnectorEvm;
+    networkId: string;
+  }): Promise<`0x${string}`[]> {
     const provider = await connector.getProvider();
+    const walletConnectProvider =
+      provider instanceof WalletConnectDappSideProvider ? provider : undefined;
+
+    if (walletConnectProvider) {
+      const wcChain = await this.getWcChain({ networkId });
+      return (await walletConnectProvider.request(
+        {
+          method: 'eth_accounts',
+        },
+        wcChain,
+      )) as `0x${string}`[];
+    }
+
     return provider.request({
       method: 'eth_accounts',
     });
@@ -499,9 +540,11 @@ export class ExternalControllerEvm extends ExternalControllerBase {
   ): Promise<void> {
     const { account, networkId } = payload;
     const chainId = networkUtils.getNetworkChainId({ networkId });
+    const isWalletConnect =
+      payload.connector instanceof ExternalConnectorWalletConnect;
     const connector = payload.connector as IExternalConnectorEvm;
-    const peerChainIdNum = await this.requestChainId({ connector });
-    const peerAddresses = await this.requestAccounts({ connector });
+    const peerChainIdNum = await this.requestChainId({ connector, networkId });
+    const peerAddresses = await this.requestAccounts({ connector, networkId });
 
     if (!peerAddresses.includes(account.address as any)) {
       throw new Error(
@@ -510,7 +553,11 @@ export class ExternalControllerEvm extends ExternalControllerBase {
         })}: ${networkId} ${account.address}`,
       );
     }
-    if (chainId !== peerChainIdNum.toString()) {
+
+    // walletconnect does not need to check if chainId matches
+    // because wcChain has been passed in request()
+    // and OKX wallet will not return the correct chainId
+    if (!isWalletConnect && chainId !== peerChainIdNum.toString()) {
       throw new Error(
         `${appLocale.intl.formatMessage({
           id: ETranslations.global_network_not_matched,
