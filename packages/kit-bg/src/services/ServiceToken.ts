@@ -46,7 +46,7 @@ class ServiceToken extends ServiceBase {
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
     const { mergeTokens, flag, ...rest } = params;
-    const { networkId, contractList = [] } = rest;
+    const { networkId, accountId, contractList = [] } = rest;
     if (
       [getNetworkIdsMap().eth, getNetworkIdsMap().sepolia].includes(networkId)
     ) {
@@ -70,6 +70,10 @@ class ServiceToken extends ServiceBase {
       rest,
       {
         signal: controller.signal,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
       },
     );
     this._fetchAccountTokensController = null;
@@ -121,6 +125,12 @@ class ServiceToken extends ServiceBase {
         contractList,
         withCheckInscription,
         withFrozenBalance,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
       },
     );
 

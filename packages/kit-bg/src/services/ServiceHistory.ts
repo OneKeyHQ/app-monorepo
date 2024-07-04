@@ -17,6 +17,7 @@ import {
   type IFetchHistoryTxDetailsResp,
   type IFetchTxDetailsParams,
 } from '@onekeyhq/shared/types/history';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 import type {
   IReplaceTxInfo,
@@ -27,7 +28,6 @@ import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
@@ -217,6 +217,14 @@ class ServiceHistory extends ServiceBase {
           tokenAddress: tokenIdOnNetwork,
           ...extraParams,
         },
+        {
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId: params.accountId,
+              },
+            ),
+        },
       );
     } catch (e) {
       const error = e as OneKeyServerApiError;
@@ -254,7 +262,7 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
-      const { networkId, txid, accountAddress, xpub } = params;
+      const { accountId, networkId, txid, accountAddress, xpub } = params;
       const extraParams = await this.buildFetchHistoryListParams({
         ...params,
         accountAddress: accountAddress || '',
@@ -270,6 +278,12 @@ class ServiceHistory extends ServiceBase {
             accountAddress,
             ...extraParams,
           },
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
         },
       );
       return resp.data.data;

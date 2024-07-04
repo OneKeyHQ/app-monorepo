@@ -66,6 +66,7 @@ export function NFTDetails() {
       ] = [
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         backgroundApiProxy.serviceNFT.fetchNFTDetails({
+          accountId,
           networkId,
           accountAddress,
           nfts: [{ collectionAddress, itemId }],
