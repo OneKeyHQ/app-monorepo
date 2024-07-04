@@ -303,7 +303,7 @@ function HistoryDetails() {
     navigation.pop();
   }, [navigation]);
 
-  const { handleReplaceTx, canReplaceTx } = useReplaceTx({
+  const { handleReplaceTx, canReplaceTx, canCancelTx } = useReplaceTx({
     historyTx,
     onSuccess: handleReplaceTxSuccess,
   });
@@ -586,17 +586,13 @@ function HistoryDetails() {
     vaultSettings?.isUtxo,
   ]);
 
-  const renderTxStatus = useCallback(() => {
-    const { key, color } = getTxStatusTextProps(
-      txDetails?.status ?? historyTx.decodedTx.status,
-    );
+  const renderReplaceTxActions = useCallback(() => {
+    if (!canReplaceTx) return null;
+
     return (
-      <XStack minHeight="$5" alignItems="center">
-        <SizableText size="$bodyMdMedium" color={color}>
-          {intl.formatMessage({ id: key })}
-        </SizableText>
-        {canReplaceTx ? (
-          <XStack ml="$5" space="$2">
+      <XStack ml="$5" space="$2">
+        {canCancelTx ? (
+          <>
             <Button
               size="small"
               variant="primary"
@@ -615,15 +611,38 @@ function HistoryDetails() {
             >
               {intl.formatMessage({ id: ETranslations.global_cancel })}
             </Button>
-          </XStack>
-        ) : null}
+          </>
+        ) : (
+          <Button
+            size="small"
+            variant="primary"
+            onPress={() =>
+              handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.global_speed_up })}
+          </Button>
+        )}
+      </XStack>
+    );
+  }, [canCancelTx, canReplaceTx, handleReplaceTx, intl]);
+
+  const renderTxStatus = useCallback(() => {
+    const { key, color } = getTxStatusTextProps(
+      txDetails?.status ?? historyTx.decodedTx.status,
+    );
+    return (
+      <XStack minHeight="$5" alignItems="center">
+        <SizableText size="$bodyMdMedium" color={color}>
+          {intl.formatMessage({ id: key })}
+        </SizableText>
+        {renderReplaceTxActions()}
       </XStack>
     );
   }, [
-    canReplaceTx,
-    handleReplaceTx,
     historyTx.decodedTx.status,
     intl,
+    renderReplaceTxActions,
     txDetails?.status,
   ]);
 
