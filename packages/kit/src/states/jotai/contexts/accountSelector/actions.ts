@@ -47,6 +47,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  accountSelectorContextDataAtom,
   accountSelectorEditModeAtom,
   accountSelectorStorageReadyAtom,
   accountSelectorUpdateMetaAtom,
@@ -261,6 +262,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) => IAccountSelectorSelectedAccount;
       },
     ) => {
+      const contextData = get(accountSelectorContextDataAtom());
+      if (!contextData) {
+        return;
+      }
       const { num, builder, updateMeta } = payload;
       const oldSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
         this.getSelectedAccount.call(set, { num }) || defaultSelectedAccount(),
@@ -279,6 +284,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const newDriveType =
           await backgroundApiProxy.serviceAccountSelector.getGlobalDeriveType({
             selectedAccount: newSelectedAccount,
+            sceneName: contextData.sceneName,
           });
         if (newDriveType) {
           newSelectedAccount.deriveType = newDriveType;
@@ -873,6 +879,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const globalDeriveType =
           await backgroundApiProxy.serviceAccountSelector.getGlobalDeriveType({
             selectedAccount,
+            sceneName,
           });
         // **** globalDeriveType -> selectedAccount.deriveType
         if (globalDeriveType) {
@@ -1025,6 +1032,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         // **** save global derive type (with event emit if need)
         const updateMeta = get(accountSelectorUpdateMetaAtom())[num];
         const eventEmitDisabled = Boolean(updateMeta?.eventEmitDisabled);
+
         await backgroundApiProxy.serviceAccountSelector.saveGlobalDeriveType({
           eventEmitDisabled,
           selectedAccount,
