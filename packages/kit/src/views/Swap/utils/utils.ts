@@ -66,7 +66,7 @@ export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
   if (status === ESwapTxHistoryStatus.CANCELED) {
     return {
       key: ETranslations.swap_history_status_canceled,
-      color: '$textCritical',
+      color: '$textCaution',
     };
   }
 
