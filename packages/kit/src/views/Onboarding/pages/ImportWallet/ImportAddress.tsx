@@ -30,17 +30,16 @@ import {
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
-  IValidateGeneralInputParams,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
@@ -119,14 +118,35 @@ function ImportAddress() {
   const intl = useIntl();
   const media = useMedia();
   const navigation = useAppNavigation();
-  const validationParams = useMemo<IValidateGeneralInputParams>(
-    () => ({
-      input: '',
-      validateAddress: true,
-      validateXpub: true,
-    }),
+
+  const { result: networksResp } = usePromiseResult(
+    async () => {
+      const resp =
+        await backgroundApiProxy.serviceNetwork.getPublicKeyExportOrWatchingAccountEnabledNetworks();
+      const networkIds = resp.map((o) => o.network.id);
+      const publicKeyExportEnabledNetworkIds = resp
+        .filter((o) => o.publicKeyExportEnabled)
+        .map((t) => t.network.id);
+
+      const watchingAccountEnabledNetworkIds = resp
+        .filter((o) => o.watchingAccountEnabled)
+        .map((t) => t.network.id);
+      return {
+        networkIds,
+        publicKeyExportEnabled: new Set(publicKeyExportEnabledNetworkIds),
+        watchingAccountEnabled: new Set(watchingAccountEnabledNetworkIds),
+      };
+    },
     [],
+    {
+      initResult: {
+        networkIds: [],
+        publicKeyExportEnabled: new Set([]),
+        watchingAccountEnabled: new Set([]),
+      },
+    },
   );
+
   const actions = useAccountSelectorActions();
   const [method, setMethod] = useState<EImportMethod>(EImportMethod.Address);
   const {
@@ -162,22 +182,19 @@ function ImportAddress() {
           text: inputTextDebounced,
         });
       try {
-        const excludedNetworkIds =
-          networkUtils.getWatchAccountExcludeNetworkIds();
-        if (excludedNetworkIds.includes(networkIdText)) {
+        if (!networksResp.publicKeyExportEnabled.has(networkIdText)) {
           throw new Error(`Network not supported: ${networkIdText}`);
         }
         const result =
           await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
             {
-              ...validationParams,
               input,
               networkId: networkIdText,
+              validateXpub: true,
             },
           );
         setValidateResult(result);
         console.log('validateGeneralInputOfImporting result', result);
-        // TODO: need to replaced by https://github.com/mattermost/react-native-paste-input
         clearText();
       } catch (error) {
         setValidateResult({
@@ -192,7 +209,7 @@ function ImportAddress() {
     inputTextDebounced,
     networkIdText,
     setValue,
-    validationParams,
+    networksResp.publicKeyExportEnabled,
   ]);
 
   useEffect(() => {
@@ -215,16 +232,15 @@ function ImportAddress() {
     return validateResult?.isValid;
   }, [method, addressValue.pending, validateResult, form.formState]);
 
-  const isBtcFork = useMemo(
+  const isKeyExportEnabled = useMemo(
     () =>
-      networkIdText &&
-      networkUtils.getBtcForkNetworkIds().includes(networkIdText),
-    [networkIdText],
+      networkIdText && networksResp.publicKeyExportEnabled.has(networkIdText),
+    [networkIdText, networksResp.publicKeyExportEnabled],
   );
 
   const isPublicKeyImport = useMemo(
-    () => method === EImportMethod.PublicKey && isBtcFork,
-    [method, isBtcFork],
+    () => method === EImportMethod.PublicKey && isKeyExportEnabled,
+    [method, isKeyExportEnabled],
   );
 
   return (
@@ -239,10 +255,10 @@ function ImportAddress() {
             name="networkId"
           >
             <ControlledNetworkSelectorTrigger
-              excludedNetworkIds={networkUtils.getWatchAccountExcludeNetworkIds()}
+              networkIds={networksResp.networkIds}
             />
           </Form.Field>
-          {isBtcFork ? (
+          {isKeyExportEnabled ? (
             <SegmentControl
               fullWidth
               value={method}

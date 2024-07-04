@@ -14,7 +14,7 @@ type IChainSelectorInputProps = Pick<
   ComponentProps<typeof Input>,
   'value' | 'disabled' | 'error' | 'editable' | 'size'
 > & {
-  excludedNetworkIds?: string[];
+  networkIds?: string[];
   testID?: string;
   onChange?: (value: string) => void;
   title?: string;
@@ -28,19 +28,19 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
   size,
   onChange,
   title,
-  excludedNetworkIds,
+  networkIds,
   ...rest
 }) => {
   const { result: selectorNetworks } = usePromiseResult(
     async () => {
       const { networks } =
         await backgroundApiProxy.serviceNetwork.getAllNetworks();
-      if (excludedNetworkIds && excludedNetworkIds.length > 0) {
-        return networks.filter((o) => !excludedNetworkIds.includes(o.id));
+      if (networkIds && networkIds.length > 0) {
+        return networks.filter((o) => networkIds.includes(o.id));
       }
       return networks;
     },
-    [excludedNetworkIds],
+    [networkIds],
     { initResult: [] },
   );
 

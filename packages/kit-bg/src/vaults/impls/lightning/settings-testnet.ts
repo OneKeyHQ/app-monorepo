@@ -26,6 +26,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: false,
 
+  addressBookDisabled: true,
+
   defaultFeePresetIndex: 0,
 
   isUtxo: false,
