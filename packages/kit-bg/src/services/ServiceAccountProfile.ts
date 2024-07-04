@@ -380,7 +380,8 @@ class ServiceAccountProfile extends ServiceBase {
         return ERequestWalletTypeEnum.THIRD_PARTY;
       }
       if (accountUtils.isHwWallet({ walletId })) {
-        return ERequestWalletTypeEnum.HW_CLASSIC;
+        // TODO: fetch device type
+        return ERequestWalletTypeEnum.HW;
       }
       if (accountUtils.isQrWallet({ walletId })) {
         return ERequestWalletTypeEnum.HW_QRCODE;
@@ -400,7 +401,8 @@ class ServiceAccountProfile extends ServiceBase {
         return ERequestWalletTypeEnum.THIRD_PARTY;
       }
       if (accountUtils.isHwAccount({ accountId })) {
-        return ERequestWalletTypeEnum.HW_CLASSIC;
+        // TODO: fetch device type
+        return ERequestWalletTypeEnum.HW;
       }
       if (accountUtils.isQrAccount({ accountId })) {
         return ERequestWalletTypeEnum.HW_QRCODE;

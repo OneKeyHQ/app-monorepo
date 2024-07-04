@@ -45,8 +45,8 @@ class ServiceToken extends ServiceBase {
   public async fetchAccountTokens(
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
-    const { mergeTokens, flag, ...rest } = params;
-    const { networkId, accountId, contractList = [] } = rest;
+    const { mergeTokens, flag, accountId, ...rest } = params;
+    const { networkId, contractList = [] } = rest;
     if (
       [getNetworkIdsMap().eth, getNetworkIdsMap().sepolia].includes(networkId)
     ) {

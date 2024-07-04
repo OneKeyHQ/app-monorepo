@@ -26,6 +26,7 @@ export enum ERequestWalletTypeEnum {
   HD = 'hd',
   PRIVATE_KEY = 'private-key',
   WATCHED_ONLY = 'watched-only',
+  HW = 'hw',
   HW_CLASSIC = 'hw-classic',
   HW_CLASSIC1S = 'hw-classic1s',
   HW_MINI = 'hw-mini',
