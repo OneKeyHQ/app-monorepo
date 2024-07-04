@@ -1,8 +1,10 @@
 import type { RefObject } from 'react';
 import { createRef } from 'react';
+import { useMedia } from 'tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ToastProvider } from '@tamagui/toast';
-import { Platform, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { SizableText, YStack } from 'tamagui';
 
 import { Portal } from '../../hocs';
@@ -110,6 +112,8 @@ function ToastInner({
   actions?: JSX.Element[];
 }) {
   const { height, width } = useWindowDimensions();
+  const media = useMedia();
+
   return (
     <YStack
       flex={1}
@@ -132,11 +136,11 @@ function ToastInner({
 
         {actionsProps ? <Button {...actionsProps} /> : null}
 
-        {actions && Platform.OS !== 'android' && Platform.OS !== 'ios' ? (
+        {actions &&
+        !(platformEnv.isNativeAndroid || platformEnv.isNativeIOS) ? (
           <XStack
             alignItems="center"
             justifyContent="flex-end"
-            flexDirection="row"
             space="$2"
             p="$1"
           >
@@ -144,7 +148,7 @@ function ToastInner({
           </XStack>
         ) : null}
 
-        {actions && (Platform.OS === 'android' || Platform.OS === 'ios') ? (
+        {actions && (platformEnv.isNativeAndroid || platformEnv.isNativeIOS) ? (
           <YStack pt="$1" space="$2">
             {actions}
           </YStack>
