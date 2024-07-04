@@ -84,7 +84,7 @@ export function FirmwareUpdateCheckList({
           id: ETranslations.update_ready_to_upgrade_checklist,
         })}
       </SizableText>
-      <Stack space="$3">
+      <Stack space="$3" mr="$3">
         {checkValueList.map((checkValue) => (
           <Checkbox
             key={checkValue.label}

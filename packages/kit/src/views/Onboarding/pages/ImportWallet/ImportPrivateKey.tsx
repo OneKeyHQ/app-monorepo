@@ -6,11 +6,11 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IValidateGeneralInputParams } from '@onekeyhq/kit-bg/src/vaults/types';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Tutorials } from '../../components';
@@ -33,6 +33,17 @@ function ImportPrivateKey() {
 
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
+
+  const { result: networkIds } = usePromiseResult(
+    async () => {
+      const networks =
+        await backgroundApiProxy.serviceNetwork.getImportedAccountEnabledNetworks();
+      const result = networks.map((o) => o.id);
+      return result;
+    },
+    [],
+    { initResult: [] },
+  );
 
   return (
     <ImportSingleChainBase
@@ -81,7 +92,7 @@ function ImportPrivateKey() {
         });
         navigation.popStack();
       }}
-      excludedNetworkIds={networkUtils.getImportedAccountExcludeNetworkIds()}
+      networkIds={networkIds}
     >
       <Tutorials
         list={[
