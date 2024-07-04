@@ -251,7 +251,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
           formatter="marketCap"
           formatterOptions={{ currency }}
         >
-          {item.totalVolume}
+          {item.totalVolume || '-'}
         </NumberSizeableText>
       ),
       'marketCap': (item) => (
@@ -261,7 +261,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
           formatter="marketCap"
           formatterOptions={{ currency }}
         >
-          {item.marketCap}
+          {item.marketCap || '-'}
         </NumberSizeableText>
       ),
       'sparkline': (item) => (
@@ -1111,7 +1111,7 @@ function BasicMarketHomeList({
         </YStack>
       )}
 
-      <YStack flex={1} $gtMd={{ py: '$3' }}>
+      <YStack flex={1} $gtMd={{ pt: '$3' }}>
         {gtMd ? HeaderColumns : undefined}
         <ListView
           ref={listViewRef}
