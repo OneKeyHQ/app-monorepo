@@ -76,6 +76,36 @@ class ServiceValidator extends ServiceBase {
     },
   );
 
+  public serverBatchValidateAddress = memoizee(
+    async (params: {
+      networkIdList: string[];
+      accountAddress: string;
+    }): Promise<{ isValid: boolean; networkIds: string[] }> => {
+      const { networkIdList, accountAddress } = params;
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.post<{
+        data: Record<string, IAddressValidation>;
+      }>('/wallet/v1/account/validate-address-batch', {
+        networkIdList,
+        accountAddress,
+      });
+      const validateResult = resp.data.data || {};
+      const validItems = Object.entries(validateResult)
+        .map(([networkId, validation]) => ({
+          networkId,
+          validation,
+        }))
+        .filter(({ validation }) => validation.isValid);
+      return {
+        isValid: validItems.length > 0,
+        networkIds: validItems.map(({ networkId }) => networkId),
+      };
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+    },
+  );
+
   @backgroundMethod()
   async localValidateAddress({
     networkId,
