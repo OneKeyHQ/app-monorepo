@@ -465,7 +465,7 @@ export default class Vault extends VaultBase {
             acc.push(current.objectId);
           }
           return acc;
-        }, new Array<string>(inputs.length));
+        }, [] as string[]);
 
         const objects = await client.multiGetObjects({
           ids: objectIds,
