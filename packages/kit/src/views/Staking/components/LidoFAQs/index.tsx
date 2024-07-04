@@ -35,7 +35,11 @@ const LidoFAQ = ({ question, answer }: ILidoFAQProps) => {
           </XStack>
         </XStack>
         <XStack px="$3">
-          {show ? <SizableText size="$bodyMd">{answer}</SizableText> : null}
+          {show ? (
+            <SizableText size="$bodyMd" pb="$5">
+              {answer}
+            </SizableText>
+          ) : null}
         </XStack>
       </YStack>
     </YStack>
