@@ -29,7 +29,7 @@ export type IAccountNFT = {
     externalUrl: string;
     image?: string;
     itemUrl: string;
-    name: string;
+    name?: string;
     attributes?: ITraits[];
   };
 };
