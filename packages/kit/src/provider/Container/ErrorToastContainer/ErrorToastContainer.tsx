@@ -12,27 +12,33 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { isRequestIdMessage } from '@onekeyhq/shared/src/request/utils';
 
+const ERROR_CODE = [403];
+const isFilterErrorCode = (code?: number) => code && ERROR_CODE.includes(code);
+
 export function ErrorToastContainer() {
   const intl = useIntl();
   const { copyText } = useClipboard();
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
       const message = p.message;
-      let actionsProps: IButtonProps | undefined;
-      if (isRequestIdMessage(message)) {
-        actionsProps = {
-          children: intl.formatMessage({ id: ETranslations.global_copy }),
-          my: '$2',
-          size: 'small',
-          onPress: () => {
-            if (message) {
-              copyText(message);
-            }
-          },
-        };
-      }
+      const toastId = isFilterErrorCode(p.errorCode)
+        ? String(p.errorCode)
+        : undefined;
+      const actionsProps = isRequestIdMessage(message)
+        ? ({
+            children: intl.formatMessage({ id: ETranslations.global_copy }),
+            my: '$2',
+            size: 'small',
+            onPress: () => {
+              if (message) {
+                copyText(message);
+              }
+            },
+          } as IButtonProps)
+        : undefined;
       Toast[p.method]({
         ...p,
+        toastId,
         actionsProps,
       });
     };
