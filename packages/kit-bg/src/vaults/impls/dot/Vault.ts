@@ -173,7 +173,7 @@ export default class VaultDot extends VaultBase {
           { block: { header: { number: number } } },
         ]
       >,
-      this._getMetadataRpc(),
+      this._getMetadataRpc(this.networkId),
     ]);
     const info = {
       metadataRpc,
@@ -310,11 +310,11 @@ export default class VaultDot extends VaultBase {
   }
 
   private _getMetadataRpc = memoizee(
-    async (): Promise<`0x${string}`> => {
+    async (networkId: string): Promise<`0x${string}`> => {
       const [res] =
         await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
           {
-            networkId: this.networkId,
+            networkId,
             body: [
               {
                 route: 'rpc',
@@ -330,6 +330,7 @@ export default class VaultDot extends VaultBase {
     },
     {
       maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
     },
   );
 
@@ -342,7 +343,7 @@ export default class VaultDot extends VaultBase {
 
     let metadataRpcHex: `0x${string}`;
     if (isNil(params.metadataRpc) || isEmpty(params.metadataRpc)) {
-      metadataRpcHex = await this._getMetadataRpc();
+      metadataRpcHex = await this._getMetadataRpc(this.networkId);
     } else {
       metadataRpcHex = params.metadataRpc;
     }
@@ -393,7 +394,7 @@ export default class VaultDot extends VaultBase {
 
     let { metadataRpc } = unsigned;
     if (!metadataRpc) {
-      metadataRpc = await this._getMetadataRpc();
+      metadataRpc = await this._getMetadataRpc(this.networkId);
     }
     const decodedUnsigned = decode(unsigned, {
       metadataRpc,
@@ -518,7 +519,7 @@ export default class VaultDot extends VaultBase {
       (await this.buildEncodedTx(params))) as IEncodedTxDot;
     if (encodedTx) {
       if (!encodedTx.metadataRpc) {
-        encodedTx.metadataRpc = await this._getMetadataRpc();
+        encodedTx.metadataRpc = await this._getMetadataRpc(this.networkId);
       }
       return {
         encodedTx,
