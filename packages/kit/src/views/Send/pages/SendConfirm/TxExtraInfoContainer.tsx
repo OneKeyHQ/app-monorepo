@@ -28,11 +28,7 @@ function TxExtraInfoContainer() {
 
   const encodedTx = unsignedTx?.encodedTx as IEncodedTxEvm;
 
-  if (
-    encodedTx &&
-    encodedTx.data &&
-    !checkIsEvmNativeTransfer({ tx: encodedTx })
-  ) {
+  if (encodedTx && encodedTx.data) {
     return (
       <>
         <Divider mx="$5" />
