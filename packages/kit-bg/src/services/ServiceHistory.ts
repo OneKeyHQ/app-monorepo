@@ -17,6 +17,7 @@ import {
   type IFetchHistoryTxDetailsResp,
   type IFetchTxDetailsParams,
 } from '@onekeyhq/shared/types/history';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 import type {
   IReplaceTxInfo,
@@ -27,7 +28,6 @@ import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
