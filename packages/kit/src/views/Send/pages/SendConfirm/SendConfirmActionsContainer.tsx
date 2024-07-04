@@ -2,7 +2,12 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Toast, usePageUnMounted } from '@onekeyhq/components';
+import {
+  Page,
+  SizableText,
+  Toast,
+  usePageUnMounted,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -225,22 +230,26 @@ function SendConfirmActionsContainer(props: IProps) {
   });
 
   return (
-    <Page.Footer
-      confirmButtonProps={{
-        disabled: isSubmitDisabled,
-        loading: isSubmitting,
-      }}
-      cancelButtonProps={{
-        disabled: isSubmitting,
-      }}
-      onConfirmText={
-        signOnly
-          ? intl.formatMessage({ id: ETranslations.global_sign })
-          : intl.formatMessage({ id: ETranslations.global_confirm })
-      }
-      onConfirm={handleOnConfirm}
-      onCancel={handleOnCancel}
-    />
+    <Page.Footer>
+      <Page.FooterActions
+        confirmButtonProps={{
+          disabled: isSubmitDisabled,
+          loading: isSubmitting,
+        }}
+        cancelButtonProps={{
+          disabled: isSubmitting,
+        }}
+        onConfirmText={
+          signOnly
+            ? intl.formatMessage({ id: ETranslations.global_sign })
+            : intl.formatMessage({ id: ETranslations.global_confirm })
+        }
+        onConfirm={handleOnConfirm}
+        onCancel={handleOnCancel}
+      >
+        <SizableText>123</SizableText>
+      </Page.FooterActions>
+    </Page.Footer>
   );
 }
 
