@@ -339,10 +339,12 @@ class ServiceAccountSelector extends ServiceBase {
     sceneName,
   }: {
     selectedAccount: IAccountSelectorSelectedAccount;
-    sceneName: EAccountSelectorSceneName;
+    sceneName: EAccountSelectorSceneName | undefined;
   }): Promise<IAccountDeriveTypes | undefined> {
-    if (!(await this.shouldUseGlobalDeriveType({ sceneName }))) {
-      return undefined;
+    if (sceneName) {
+      if (!(await this.shouldUseGlobalDeriveType({ sceneName }))) {
+        return undefined;
+      }
     }
     const { networkId, walletId } = selectedAccount;
     if (!networkId) {

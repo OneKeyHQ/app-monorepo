@@ -3,8 +3,6 @@ import { useRef } from 'react';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
   IDBCreateHWWalletParamsBase,
@@ -19,6 +17,8 @@ import type {
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -262,10 +262,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) => IAccountSelectorSelectedAccount;
       },
     ) => {
-      const contextData = get(accountSelectorContextDataAtom());
-      if (!contextData) {
-        return;
-      }
+      // const contextData = get(accountSelectorContextDataAtom());
+      // if (!contextData) {
+      //   return;
+      // }
       const { num, builder, updateMeta } = payload;
       const oldSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
         this.getSelectedAccount.call(set, { num }) || defaultSelectedAccount(),
@@ -274,20 +274,37 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       if (isEqual(oldSelectedAccount, newSelectedAccount)) {
         return;
       }
+
+      const newNetworkId = newSelectedAccount?.networkId;
+      const oldNetworkId = oldSelectedAccount?.networkId;
+      const newDeriveType = newSelectedAccount?.deriveType;
+      const oldDeriveType = oldSelectedAccount?.deriveType;
       // fix deriveType from global storage if change network only, as current deriveType is previous network's
       // **** important: remove this logic will cause infinite loop
       // if you want to change networkId and driveType at same time, you should call updateSelectedAccount twice, first change networkId, then change deriveType
       if (
-        newSelectedAccount.networkId !== oldSelectedAccount.networkId &&
-        newSelectedAccount.deriveType === oldSelectedAccount.deriveType
+        newNetworkId &&
+        newNetworkId !== oldNetworkId &&
+        newDeriveType === oldDeriveType
       ) {
-        const newDriveType =
-          await backgroundApiProxy.serviceAccountSelector.getGlobalDeriveType({
-            selectedAccount: newSelectedAccount,
-            sceneName: contextData.sceneName,
-          });
-        if (newDriveType) {
-          newSelectedAccount.deriveType = newDriveType;
+        const isNewDeriveTypeAvailable =
+          await backgroundApiProxy.serviceNetwork.isDeriveTypeAvailableForNetwork(
+            {
+              networkId: newNetworkId,
+              deriveType: newDeriveType,
+            },
+          );
+        if (!isNewDeriveTypeAvailable) {
+          const newDriveTypeFixed =
+            await backgroundApiProxy.serviceAccountSelector.getGlobalDeriveType(
+              {
+                selectedAccount: newSelectedAccount,
+                sceneName: undefined,
+              },
+            );
+          if (newDriveTypeFixed) {
+            newSelectedAccount.deriveType = newDriveTypeFixed;
+          }
         }
       }
       if (
