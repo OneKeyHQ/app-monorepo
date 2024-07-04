@@ -68,7 +68,7 @@ function PlusButton({ onPress, loading }: IButtonProps) {
       borderWidth={0}
       borderRadius="$2"
       variant="tertiary"
-      size="small"
+      size="medium"
       loading={loading}
       onPress={onPress}
       icon="PlusSmallOutline"
