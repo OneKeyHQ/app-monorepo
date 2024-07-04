@@ -1,15 +1,10 @@
-import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { type RefObject, useEffect, useMemo, useState } from 'react';
 
 import { Tooltip as TMTooltip } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useScrollViewRef } from '../../hocs';
 import { SizableText } from '../../primitives';
 
 import type { ISizableTextProps } from '../../primitives';
@@ -21,12 +16,12 @@ import type {
 
 export function TooltipText({
   children,
-  scrollViewRef,
   onDisplayChange,
 }: ISizableTextProps & {
   scrollViewRef?: RefObject<ScrollView>;
   onDisplayChange?: (isShow: boolean) => void;
 }) {
+  const scrollViewRef = useScrollViewRef();
   // Since the browser does not trigger mouse events when the page scrolls,
   //  it is necessary to manually close the tooltip when page elements scroll
   useEffect(() => {

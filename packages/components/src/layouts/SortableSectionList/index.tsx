@@ -15,6 +15,7 @@ import { withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ScrollViewRefProvider, useForwardedScrollViewRef } from '../../hocs';
 import { Stack } from '../../primitives';
 import { SectionList } from '../SectionList';
 
@@ -93,7 +94,7 @@ function BaseSortableSectionList(
     onDragEnd,
     ...props
   }: ISortableSectionListProps,
-  ref: ForwardedRef<ISortableSectionListRef> | undefined,
+  forwardedRef: ForwardedRef<ISortableSectionListRef> | undefined,
 ) {
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
@@ -222,16 +223,19 @@ function BaseSortableSectionList(
     renderItem,
   ]);
 
+  const ref = useForwardedScrollViewRef(forwardedRef);
   return (
-    <NestableScrollContainer
-      ref={ref}
-      style={style as StyleProp<ViewStyle>}
-      contentContainerStyle={rawContentContainerStyle}
-      stickyHeaderIndices={reloadStickyHeaderIndices}
-      {...restProps}
-    >
-      {scrollChildList}
-    </NestableScrollContainer>
+    <ScrollViewRefProvider value={ref}>
+      <NestableScrollContainer
+        ref={ref as any}
+        style={style as StyleProp<ViewStyle>}
+        contentContainerStyle={rawContentContainerStyle}
+        stickyHeaderIndices={reloadStickyHeaderIndices}
+        {...restProps}
+      >
+        {scrollChildList}
+      </NestableScrollContainer>
+    </ScrollViewRefProvider>
   );
 }
 
