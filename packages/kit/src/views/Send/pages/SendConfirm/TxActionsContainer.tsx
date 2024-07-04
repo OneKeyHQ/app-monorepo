@@ -46,6 +46,7 @@ function TxActionsContainer(props: IProps) {
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [isSendNativeToken, setIsSendNativeToken] = useState(false);
   const { vaultSettings } = useAccountData({ networkId });
+  const swapInfo = unsignedTxs[0]?.swapInfo;
 
   const r = usePromiseResult(
     () =>
@@ -207,6 +208,7 @@ function TxActionsContainer(props: IProps) {
         nativeTokenTransferAmountToUpdate={
           nativeTokenTransferAmountToUpdate.amountToUpdate
         }
+        swapInfo={swapInfo}
       />
     ));
   }, [
@@ -214,6 +216,7 @@ function TxActionsContainer(props: IProps) {
     nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     r.result,
+    swapInfo,
   ]);
 
   return <>{renderActions()}</>;
