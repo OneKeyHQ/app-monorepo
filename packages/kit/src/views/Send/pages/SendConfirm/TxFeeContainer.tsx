@@ -513,6 +513,10 @@ function TxFeeContainer(props: IProps) {
   ]);
 
   const renderFeeEditor = useCallback(() => {
+    if (!vaultSettings?.editFeeEnabled) {
+      return null;
+    }
+
     if (!txFeeInit.current || !feeSelectorItems.length) {
       return (
         <Stack py="$1">
@@ -552,6 +556,7 @@ function TxFeeContainer(props: IProps) {
     sendFeeStatus.status,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
+    vaultSettings?.editFeeEnabled,
   ]);
 
   return (
@@ -567,9 +572,11 @@ function TxFeeContainer(props: IProps) {
             id: ETranslations.global_est_network_fee,
           })}
         </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          •
-        </SizableText>
+        {vaultSettings?.editFeeEnabled ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            •
+          </SizableText>
+        ) : null}
         {renderFeeEditor()}
       </XStack>
       <XStack space="$1" alignItems="center">

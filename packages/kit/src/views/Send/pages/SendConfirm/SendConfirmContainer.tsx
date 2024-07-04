@@ -31,8 +31,6 @@ import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
 import { TxExtraInfoContainer } from './TxExtraInfoContainer';
-import TxFeeContainer from './TxFeeContainer';
-import TxSimulationContainer from './TxSimulationContainer';
 import { TxSourceInfoContainer } from './TxSourceInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -179,7 +177,7 @@ function SendConfirmContainer() {
             transferPayload={transferPayload}
           />
           {/* <TxSwapInfoContainer /> */}
-          <TxSimulationContainer />
+          {/* <TxSimulationContainer /> */}
           <TxExtraInfoContainer />
         </Page.Body>
         <SendConfirmActionsContainer

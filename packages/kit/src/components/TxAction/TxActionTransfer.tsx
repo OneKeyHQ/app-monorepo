@@ -457,8 +457,12 @@ function buildTransfersBlock(
 
 function TxActionTransferDetailView(props: ITxActionProps) {
   const intl = useIntl();
-  const { decodedTx, nativeTokenTransferAmountToUpdate, isSendNativeToken } =
-    props;
+  const {
+    decodedTx,
+    nativeTokenTransferAmountToUpdate,
+    isSendNativeToken,
+    swapInfo,
+  } = props;
 
   const { sends, receives, from, data, application } = getTxActionTransferInfo({
     ...props,
@@ -476,7 +480,9 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     (transfersBlock: ITransferBlock[], direction: EDecodedTxDirection) => {
       if (isEmpty(transfersBlock)) return null;
 
-      const transferElements: React.ReactElement[] = [];
+      const transferChangeElements: React.ReactElement[] = [];
+
+      const transferExtraElements: React.ReactElement[] = [];
 
       transfersBlock.forEach((block, index) => {
         const { target, transfersInfo } = block;
@@ -508,9 +514,29 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 </Stack>
               </XStack>
             ))}
+            {swapInfo ? (
+              <XStack alignItems="center" space="$2">
+                <Token
+                  size="xs"
+                  isNFT={false}
+                  tokenImageUri={swapInfo.receiver.token.logoURI}
+                />
+                <NumberSizeableText
+                  formatter="balance"
+                  formatterOptions={{
+                    showPlusMinusSigns: true,
+                    tokenSymbol: swapInfo.receiver.token.symbol,
+                  }}
+                  size="$bodyMd"
+                  color="$textSubdued"
+                >
+                  {swapInfo.receiver.amount}
+                </NumberSizeableText>
+              </XStack>
+            ) : null}
           </YStack>
         );
-        transferElements.push(
+        transferChangeElements.push(
           <InfoItem
             key={`${index}-amount`}
             label={intl.formatMessage({ id: ETranslations.content__amount })}
@@ -518,7 +544,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
           />,
         );
         if (direction === EDecodedTxDirection.OUT) {
-          transferElements.push(
+          transferExtraElements.push(
             <InfoItem
               key="from"
               label={intl.formatMessage({ id: ETranslations.global_from })}
@@ -533,7 +559,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             />,
           );
         }
-        transferElements.push(
+        transferExtraElements.push(
           <InfoItem
             key={`${index}-target`}
             label={
@@ -560,7 +586,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         );
       });
 
-      transferElements.push(
+      transferExtraElements.push(
         <InfoItem
           compact
           label={intl.formatMessage({ id: ETranslations.network__network })}
@@ -576,7 +602,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       );
 
       if (application) {
-        transferElements.push(
+        transferExtraElements.push(
           <InfoItem
             compact
             label={intl.formatMessage({
@@ -602,7 +628,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       return (
         <>
           <InfoItemGroup testID="transfer-tx-action">
-            {transferElements}
+            {transferChangeElements}
+          </InfoItemGroup>
+          <InfoItemGroup testID="transfer-tx-action">
+            {transferExtraElements}
           </InfoItemGroup>
         </>
       );
@@ -618,6 +647,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       nativeTokenTransferAmountToUpdate,
       network?.logoURI,
       network?.name,
+      swapInfo,
     ],
   );
 
