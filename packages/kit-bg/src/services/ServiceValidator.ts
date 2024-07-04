@@ -7,7 +7,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
-  IAddressValidateStatus,
+  IAddressValidateBaseStatus,
   IAddressValidation,
 } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -26,7 +26,7 @@ class ServiceValidator extends ServiceBase {
   public async validateAddress(params: {
     networkId: string;
     address: string;
-  }): Promise<IAddressValidateStatus> {
+  }): Promise<IAddressValidateBaseStatus> {
     // Both server and local validation are required. If server-level validation fails due to a network issue, we will fall back to local validation."
     const { networkId, address } = params;
     try {
@@ -102,7 +102,7 @@ class ServiceValidator extends ServiceBase {
       };
     },
     {
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
     },
   );
 
