@@ -391,6 +391,10 @@ class ServiceAccountProfile extends ServiceBase {
       if (accountUtils.isHdAccount({ accountId })) {
         return ERequestWalletTypeEnum.HD;
       }
+      // urlAccount must be checked before watchAccount
+      if (accountUtils.isUrlAccountFn({ accountId })) {
+        return ERequestWalletTypeEnum.URL;
+      }
       if (accountUtils.isImportedAccount({ accountId })) {
         return ERequestWalletTypeEnum.PRIVATE_KEY;
       }
@@ -406,9 +410,6 @@ class ServiceAccountProfile extends ServiceBase {
       }
       if (accountUtils.isQrAccount({ accountId })) {
         return ERequestWalletTypeEnum.HW_QRCODE;
-      }
-      if (accountUtils.isUrlAccountFn({ accountId })) {
-        return ERequestWalletTypeEnum.URL;
       }
     }
     return ERequestWalletTypeEnum.UNKNOWN;
