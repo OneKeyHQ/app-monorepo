@@ -620,7 +620,7 @@ function HistoryDetails() {
               handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
             }
           >
-            {intl.formatMessage({ id: ETranslations.global_speed_up })}
+            {intl.formatMessage({ id: ETranslations.speed_up_cancellation })}
           </Button>
         )}
       </XStack>
