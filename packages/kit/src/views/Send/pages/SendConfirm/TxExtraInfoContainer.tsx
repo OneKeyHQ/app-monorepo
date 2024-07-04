@@ -1,18 +1,17 @@
 import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Button,
   Divider,
   ScrollView,
   SizableText,
-  Stack,
   useClipboard,
 } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import { useUnsignedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import { checkIsEvmNativeTransfer } from '@onekeyhq/kit-bg/src/vaults/impls/evm/decoder/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
@@ -29,7 +28,11 @@ function TxExtraInfoContainer() {
 
   const encodedTx = unsignedTx?.encodedTx as IEncodedTxEvm;
 
-  if (encodedTx && encodedTx.data) {
+  if (
+    encodedTx &&
+    encodedTx.data &&
+    !checkIsEvmNativeTransfer({ tx: encodedTx })
+  ) {
     return (
       <>
         <Divider mx="$5" />
