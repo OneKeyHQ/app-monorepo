@@ -70,6 +70,7 @@ export function InfoItem({
             <SizableText
               size="$bodyMd"
               color="$textSubdued"
+              style={{ wordBreak: 'break-all' }}
               flex={1}
               {...(description && {
                 mb: '$1',
