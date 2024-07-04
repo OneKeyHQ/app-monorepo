@@ -19,7 +19,13 @@ function DesktopBrowser() {
   const navigation = useAppNavigation();
   const firstRender = useRef(true);
   useEffect(() => {
-    if (!firstRender.current && tabs.filter((x) => !x.isPinned).length === 0) {
+    if (
+      !firstRender.current &&
+      // unpin == 0
+      tabs.filter((x) => !x.isPinned).length === 0 &&
+      // pin & active == 0
+      tabs.filter((x) => x.isPinned && x.isActive).length === 0
+    ) {
       navigation.switchTab(ETabRoutes.Discovery);
     }
     if (firstRender.current) {
