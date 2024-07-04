@@ -32,3 +32,7 @@ export function useDebugComponentRemountLog({
     };
   }, []);
 }
+
+export default {
+  useDebugComponentRemountLog,
+};

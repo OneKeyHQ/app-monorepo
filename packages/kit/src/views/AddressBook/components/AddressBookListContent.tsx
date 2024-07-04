@@ -325,7 +325,7 @@ export const AddressBookListContent = ({
       <SectionList
         showsVerticalScrollIndicator={false}
         onContentSizeChange={onContentSizeChange}
-        estimatedItemSize="$6"
+        estimatedItemSize="$20"
         sections={memoSections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}

@@ -6,8 +6,9 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
@@ -15,8 +16,6 @@ import type {
   IUniversalSearchSingleResult,
 } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
-
-import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
@@ -81,6 +80,43 @@ class ServiceUniversalSearch extends ServiceBase {
     return this.backgroundApi.serviceMarket.searchToken(query);
   }
 
+  private getUniversalValidateNetworkIds = memoizee(
+    async () => {
+      const { serviceNetwork } = this.backgroundApi;
+      const { networks } = await serviceNetwork.getAllNetworks();
+      let isEvmAddressChecked = false;
+      const items: string[] = [];
+      for (const network of networks) {
+        if (
+          [
+            //
+            getNetworkIdsMap().lightning,
+            getNetworkIdsMap().tlightning,
+            //
+          ].includes(network.id)
+        ) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+
+        if (isEvmAddressChecked && network.impl === IMPL_EVM) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        items.push(network.id);
+
+        // evm address check only once
+        if (network.impl === IMPL_EVM) {
+          isEvmAddressChecked = true;
+        }
+      }
+      return items;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+    },
+  );
+
   async universalSearchOfAddress({
     input,
     networkId,
@@ -89,48 +125,35 @@ class ServiceUniversalSearch extends ServiceBase {
     networkId?: string;
   }): Promise<IUniversalSearchSingleResult> {
     let items: IUniversalSearchResultItem[] = [];
-    const { serviceNetwork } = this.backgroundApi;
-    const { networks } = await serviceNetwork.getAllNetworks();
-    let isEvmAddressChecked = false;
-    for (const network of networks) {
-      if (
-        [
-          //
-          getNetworkIdsMap().lightning,
-          getNetworkIdsMap().tlightning,
-          //
-        ].includes(network.id)
-      ) {
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-      const vault = await vaultFactory.getChainOnlyVault({
-        networkId: network.id,
+    const { serviceNetwork, serviceValidator } = this.backgroundApi;
+    const networkIdList = await this.getUniversalValidateNetworkIds();
+    const batchValidateResult =
+      await serviceValidator.serverBatchValidateAddress({
+        networkIdList,
+        accountAddress: input,
       });
 
-      if (isEvmAddressChecked && network.impl === IMPL_EVM) {
-        // eslint-disable-next-line no-continue
-        continue;
-      }
+    // failed to validate address on server side
+    if (!batchValidateResult.isValid) {
+      return { items } as IUniversalSearchSingleResult;
+    }
 
-      try {
-        const r = await vault.validateAddress(input);
-        if (r.isValid) {
-          items.push({
-            type: EUniversalSearchType.Address,
-            payload: {
-              addressInfo: r,
-              network,
-            },
-          } as IUniversalSearchResultItem);
-        }
-      } catch (error) {
-        (error as IOneKeyError).$$autoPrintErrorIgnore = true;
-      }
-
-      // evm address check only once
-      if (network.impl === IMPL_EVM) {
-        isEvmAddressChecked = true;
+    for (const batchNetworkId of batchValidateResult.networkIds) {
+      const network = await serviceNetwork.getNetworkSafe({
+        networkId: batchNetworkId,
+      });
+      const localValidateResult = await serviceValidator.localValidateAddress({
+        networkId: batchNetworkId,
+        address: input,
+      });
+      if (network && localValidateResult.isValid) {
+        items.push({
+          type: EUniversalSearchType.Address,
+          payload: {
+            addressInfo: localValidateResult,
+            network,
+          },
+        } as IUniversalSearchResultItem);
       }
     }
 
