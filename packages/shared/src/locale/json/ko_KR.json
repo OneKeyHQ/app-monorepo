@@ -1258,6 +1258,7 @@
   "slippage_tolerance.title": "슬리피지 허용치",
   "slippage_tolerance.warning_message_1": "높은 슬리피지 허용치는 자산 손실을 초래할 수 있습니다.",
   "slippage_tolerance.warning_message_2": "{number}% 미만의 슬리피지는 거래 실패를 초래할 수 있습니다.",
+  "speed_up_cancellation": "취소를 빠르게 진행하세요",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",
   "swap_account.to_address_edit": " (편집됨)",
