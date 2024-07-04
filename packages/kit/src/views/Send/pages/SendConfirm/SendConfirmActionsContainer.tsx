@@ -2,12 +2,7 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Page,
-  SizableText,
-  Toast,
-  usePageUnMounted,
-} from '@onekeyhq/components';
+import { Page, Toast, usePageUnMounted } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -30,6 +25,8 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 
+import TxFeeContainer from './TxFeeContainer';
+
 type IProps = {
   accountId: string;
   networkId: string;
@@ -38,6 +35,7 @@ type IProps = {
   onCancel?: () => void;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
+  useFeeInTx?: boolean;
 };
 
 function SendConfirmActionsContainer(props: IProps) {
@@ -49,6 +47,7 @@ function SendConfirmActionsContainer(props: IProps) {
     onCancel,
     sourceInfo,
     signOnly,
+    useFeeInTx,
   } = props;
   const intl = useIntl();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -247,7 +246,11 @@ function SendConfirmActionsContainer(props: IProps) {
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
       >
-        <SizableText>123</SizableText>
+        <TxFeeContainer
+          accountId={accountId}
+          networkId={networkId}
+          useFeeInTx={useFeeInTx}
+        />
       </Page.FooterActions>
     </Page.Footer>
   );

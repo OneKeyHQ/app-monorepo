@@ -178,11 +178,6 @@ function SendConfirmContainer() {
             networkId={networkId}
             transferPayload={transferPayload}
           />
-          <TxFeeContainer
-            accountId={accountId}
-            networkId={networkId}
-            useFeeInTx={useFeeInTx}
-          />
           {/* <TxSwapInfoContainer /> */}
           <TxSimulationContainer />
           <TxExtraInfoContainer />
@@ -195,24 +190,25 @@ function SendConfirmContainer() {
           onSuccess={onSuccess}
           onFail={onFail}
           onCancel={onCancel}
+          useFeeInTx={useFeeInTx}
         />
       </>
     ),
     [
       sendFeeStatus.errMessage,
       sendAlertStatus.isInsufficientNativeBalance,
-      preCheckTxStatus.errorMessage,
       intl,
       network?.symbol,
+      preCheckTxStatus.errorMessage,
       sourceInfo,
       accountId,
       networkId,
       transferPayload,
-      useFeeInTx,
       signOnly,
       onSuccess,
       onFail,
       onCancel,
+      useFeeInTx,
     ],
   );
 
