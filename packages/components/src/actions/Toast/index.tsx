@@ -132,7 +132,7 @@ function ToastInner({
 
         {actionsProps ? <Button {...actionsProps} /> : null}
 
-        {actions && Platform.OS !== 'ios' ? (
+        {actions && Platform.OS !== 'android' && Platform.OS !== 'ios' ? (
           <XStack
             alignItems="center"
             justifyContent="flex-end"
@@ -144,7 +144,7 @@ function ToastInner({
           </XStack>
         ) : null}
 
-        {actions && Platform.OS === 'ios' ? (
+        {actions && (Platform.OS === 'android' || Platform.OS === 'ios') ? (
           <YStack pt="$1" space="$2">
             {actions}
           </YStack>

@@ -7,13 +7,13 @@ function generateLongTestText(num: number) {
   return new Array(num)
     .fill(
       `Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
-       Quisque nec elementum eros. 
-       Vestibulum faucibus nibh id tincidunt sollicitudin. 
-       Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-       Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-       Vestibulum faucibus nibh id tincidunt sollicitudin. 
-       Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-       Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.`,
+Quisque nec elementum eros. 
+Vestibulum faucibus nibh id tincidunt sollicitudin. 
+Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
+Vestibulum faucibus nibh id tincidunt sollicitudin. 
+Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.`,
     )
     .join('');
 }
