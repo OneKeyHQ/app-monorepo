@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
-import { requestPermissionsAsync as requestCameraPermissionsAsync } from 'expo-barcode-scanner';
+import {
+  getCameraPermissionsAsync,
+  requestCameraPermissionsAsync,
+} from 'expo-camera';
 import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
 
@@ -77,68 +80,74 @@ export function ScanQrCode({
   );
 
   useEffect(() => {
-    void requestCameraPermissionsAsync().then(({ status }) => {
-      if (status !== PermissionStatus.GRANTED) {
-        const { isExtensionUiPopup } = platformEnv;
-        const canViewTutorial =
-          platformEnv.isRuntimeBrowser &&
-          !platformEnv.isDesktop &&
-          (platformEnv.isRuntimeChrome ||
-            platformEnv.isRuntimeEdge ||
-            platformEnv.isRuntimeBrave);
-        const permissionConfirmText = canViewTutorial
-          ? ETranslations.global_view_tutorial
-          : ETranslations.global_go_settings;
-        Dialog.show({
-          tone: 'warning',
-          icon: 'ErrorOutline',
-          title: intl.formatMessage({
-            id: ETranslations.scan_camera_access_denied,
-          }),
-          description: intl.formatMessage({
-            id: isExtensionUiPopup
-              ? ETranslations.scan_grant_camera_access_in_expand_view
-              : ETranslations.scan_enable_camera_permissions,
-          }),
-          onConfirmText: intl.formatMessage({
-            id: isExtensionUiPopup
-              ? ETranslations.global_expand_view
-              : permissionConfirmText,
-          }),
-          showCancelButton: true,
-          showConfirmButton: true,
-          onConfirm: () => {
-            if (isExtensionUiPopup) {
-              extUtils
-                .openUrlInTab(EXT_HTML_FILES.uiExpandTab)
-                .catch(console.error);
-            } else {
-              if (platformEnv.isRuntimeBrowser && !platformEnv.isDesktop) {
-                if (platformEnv.isRuntimeChrome) {
-                  openUrlExternal(
-                    'https://support.google.com/chrome/answer/2693767',
-                  );
-                  return;
+    void getCameraPermissionsAsync().then(({ status: readSilentStatus }) => {
+      if (readSilentStatus !== PermissionStatus.GRANTED) {
+        void requestCameraPermissionsAsync().then(({ status }) => {
+          setCurrentPermission(status);
+          if (status !== PermissionStatus.GRANTED) {
+            const { isExtensionUiPopup } = platformEnv;
+            const canViewTutorial =
+              platformEnv.isRuntimeBrowser &&
+              !platformEnv.isDesktop &&
+              (platformEnv.isRuntimeChrome ||
+                platformEnv.isRuntimeEdge ||
+                platformEnv.isRuntimeBrave);
+            const permissionConfirmText = canViewTutorial
+              ? ETranslations.global_view_tutorial
+              : ETranslations.global_go_settings;
+            Dialog.show({
+              tone: 'warning',
+              icon: 'ErrorOutline',
+              title: intl.formatMessage({
+                id: ETranslations.scan_camera_access_denied,
+              }),
+              description: intl.formatMessage({
+                id: isExtensionUiPopup
+                  ? ETranslations.scan_grant_camera_access_in_expand_view
+                  : ETranslations.scan_enable_camera_permissions,
+              }),
+              onConfirmText: intl.formatMessage({
+                id: isExtensionUiPopup
+                  ? ETranslations.global_expand_view
+                  : permissionConfirmText,
+              }),
+              showCancelButton: true,
+              showConfirmButton: true,
+              onConfirm: () => {
+                if (isExtensionUiPopup) {
+                  extUtils
+                    .openUrlInTab(EXT_HTML_FILES.uiExpandTab)
+                    .catch(console.error);
+                } else {
+                  if (platformEnv.isRuntimeBrowser && !platformEnv.isDesktop) {
+                    if (platformEnv.isRuntimeChrome) {
+                      openUrlExternal(
+                        'https://support.google.com/chrome/answer/2693767',
+                      );
+                      return;
+                    }
+                    if (platformEnv.isRuntimeEdge) {
+                      openUrlExternal(
+                        'https://support.microsoft.com/zh-cn/windows/a83257bc-e990-d54a-d212-b5e41beba857',
+                      );
+                      return;
+                    }
+                    if (platformEnv.isRuntimeBrave) {
+                      openUrlExternal(
+                        'https://support.brave.com/hc/en-us/articles/360018205431',
+                      );
+                      return;
+                    }
+                  }
+                  openSettings('camera');
                 }
-                if (platformEnv.isRuntimeEdge) {
-                  openUrlExternal(
-                    'https://support.microsoft.com/zh-cn/windows/a83257bc-e990-d54a-d212-b5e41beba857',
-                  );
-                  return;
-                }
-                if (platformEnv.isRuntimeBrave) {
-                  openUrlExternal(
-                    'https://support.brave.com/hc/en-us/articles/360018205431',
-                  );
-                  return;
-                }
-              }
-              openSettings('camera');
-            }
-          },
+              },
+            });
+          }
         });
+      } else {
+        setCurrentPermission(readSilentStatus);
       }
-      setCurrentPermission(status);
     });
   }, [intl]);
   return currentPermission === PermissionStatus.GRANTED ? (

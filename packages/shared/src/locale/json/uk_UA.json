@@ -1265,6 +1265,8 @@
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
+  "swap_history.status_canceled": "Скасовано",
+  "swap_history.status_cancelling": "Скасування",
   "swap_history.status_discard": "Таймаут",
   "swap_history.status_failed": "Помилка",
   "swap_history.status_pending": "В очікуванні",
