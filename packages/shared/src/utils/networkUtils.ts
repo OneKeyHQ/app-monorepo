@@ -82,44 +82,6 @@ export function getBtcDappNetworkName(network: IServerNetwork) {
   }
 }
 
-function getBtcForkNetworkIds() {
-  return [
-    getNetworkIdsMap().btc,
-    getNetworkIdsMap().tbtc,
-    getNetworkIdsMap().sbtc,
-    getNetworkIdsMap().ltc,
-    getNetworkIdsMap().doge,
-    getNetworkIdsMap().bch,
-    getNetworkIdsMap().neurai,
-  ];
-}
-
-function getWatchAccountExcludeNetworkIds() {
-  return [
-    getNetworkIdsMap().dnx,
-    getNetworkIdsMap().nostr,
-    getNetworkIdsMap().lightning,
-    getNetworkIdsMap().tlightning,
-  ];
-}
-
-function getImportedAccountExcludeNetworkIds() {
-  return [
-    getNetworkIdsMap().nostr,
-    getNetworkIdsMap().lightning,
-    getNetworkIdsMap().tlightning,
-    getNetworkIdsMap().dnx,
-  ];
-}
-
-function getAddressBookExcludedNetworkIds() {
-  return [
-    getNetworkIdsMap().nostr,
-    getNetworkIdsMap().lightning,
-    getNetworkIdsMap().tlightning,
-  ];
-}
-
 export default {
   getNetworkChainId,
   getNetworkImpl,
@@ -129,8 +91,4 @@ export default {
   isLightningNetworkByNetworkId,
   isBTCNetwork,
   getBtcDappNetworkName,
-  getBtcForkNetworkIds,
-  getWatchAccountExcludeNetworkIds,
-  getImportedAccountExcludeNetworkIds,
-  getAddressBookExcludedNetworkIds,
 };
