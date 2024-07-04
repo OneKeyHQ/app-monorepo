@@ -213,7 +213,7 @@ class ProviderApiSui extends ProviderApiBase {
       accountId: accountId ?? '',
       networkId: networkId ?? '',
       unsignedMessage: {
-        type: EMessageTypesCommon.SIMPLE_SIGN,
+        type: EMessageTypesCommon.HEX_MESSAGE,
         message: params.messageSerialize,
         secure: true,
       },
