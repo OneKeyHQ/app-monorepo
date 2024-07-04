@@ -16,6 +16,7 @@ import type { IPortalManager } from '../../hocs';
 import type { IButtonProps, ISizableTextProps } from '../../primitives';
 
 export interface IToastProps {
+  toastId?: string;
   title: string;
   message?: string;
   /**
@@ -46,13 +47,11 @@ const RenderLines = ({
   size,
   children: text,
   hasMessage = false,
-  maxWidth,
 }: {
   children?: string;
   size: ISizableTextProps['size'];
   icon?: JSX.Element;
   hasMessage?: boolean;
-  maxWidth?: number;
 }) => {
   if (!text) {
     return null;
@@ -70,15 +69,9 @@ const RenderLines = ({
             key={index}
             space="$1.5"
           >
-            {icon}
+            <XStack flexShrink={0}>{icon}</XStack>
             <SizableText
-              $platform-native={{
-                ...(maxWidth
-                  ? {
-                      maxWidth: maxWidth - (icon !== undefined ? 40 : 0),
-                    }
-                  : {}),
-              }}
+              flexShrink={1}
               selectable={false}
               size={size}
               wordWrap="break-word"
@@ -134,24 +127,19 @@ function Title({
       }}
     >
       <YStack>
-        <RenderLines
-          maxWidth={maxWidth}
-          size="$headingSm"
-          icon={icon}
-          hasMessage={!!message}
-        >
+        <RenderLines size="$headingSm" icon={icon} hasMessage={!!message}>
           {title}
         </RenderLines>
-        <RenderLines maxWidth={maxWidth} size="$bodySm">
-          {message}
-        </RenderLines>
+        <RenderLines size="$bodySm">{message}</RenderLines>
         {actionsProps ? <Button {...actionsProps} /> : null}
       </YStack>
     </YStack>
   );
 }
 
+const toastIdMap = new Map<string, [number, number]>();
 function toastMessage({
+  toastId,
   title,
   message,
   duration = 5000,
@@ -159,6 +147,20 @@ function toastMessage({
   preset = 'custom',
   actionsProps,
 }: IToastBaseProps) {
+  if (toastId) {
+    if (toastIdMap.has(toastId)) {
+      const [createdAt, toastDuration] = toastIdMap.get(toastId) as [
+        number,
+        number,
+      ];
+      if (Date.now() - createdAt < toastDuration) {
+        return;
+      }
+      toastIdMap.delete(toastId);
+    }
+
+    toastIdMap.set(toastId, [Date.now(), duration + 500]);
+  }
   showMessage({
     renderContent: (props) => (
       <Title

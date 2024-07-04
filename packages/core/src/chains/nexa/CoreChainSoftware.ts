@@ -122,7 +122,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
 
     return Promise.resolve({
-      address,
+      // The address of nexa must be pub, not the actual address, because the mainnet and testnet addresses of nexa are different
+      address: publicKey,
       publicKey,
       xpub: '',
       path,

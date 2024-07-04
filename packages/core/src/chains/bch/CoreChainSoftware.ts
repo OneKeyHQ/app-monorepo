@@ -24,6 +24,14 @@ export default class CoreChainSoftware extends CoreChainSoftwareBtc {
     return Promise.resolve('BCH');
   }
 
+  override async getXpubRegex() {
+    return '^([x]pub)';
+  }
+
+  override async getXprvtRegex() {
+    return '^([x]prv)';
+  }
+
   override decodeAddress(address: string): string {
     return sdkBch.decodeAddress(address);
   }

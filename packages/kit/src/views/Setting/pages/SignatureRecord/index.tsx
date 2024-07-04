@@ -16,6 +16,8 @@ import { SignatureContext } from './Context';
 import { SignText } from './SignText';
 import { Transactions } from './Transactions';
 
+const contentContainerStyle = { paddingTop: 10 };
+
 const ListHeaderComponent = () => {
   const intl = useIntl();
   const { searchContent, setSearchContent } = useContext(SignatureContext);
@@ -81,7 +83,7 @@ const PageView = () => {
       },
       {
         title: intl.formatMessage({
-          id: ETranslations.settings_connected_sites,
+          id: ETranslations.explore_dapp_connections,
         }),
         page: ConnectedSites,
       },
@@ -102,6 +104,7 @@ const PageView = () => {
           <Tab.Page
             ListHeaderComponent={<ListHeaderComponent />}
             data={tabConfig}
+            contentContainerStyle={contentContainerStyle}
             initialScrollIndex={0}
           />
         </Page.Body>

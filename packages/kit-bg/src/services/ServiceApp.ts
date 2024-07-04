@@ -21,6 +21,7 @@ import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import localDb from '../dbs/local/localDb';
+import { v4migrationPersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -72,6 +73,10 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async resetApp() {
+    const v4migrationPersistData = await v4migrationPersistAtom.get();
+    const v4migrationAutoStartDisabled =
+      v4migrationPersistData?.v4migrationAutoStartDisabled;
+
     resetUtils.startResetting();
     try {
       await this.resetData();
@@ -80,6 +85,13 @@ class ServiceApp extends ServiceBase {
     } finally {
       resetUtils.endResetting();
     }
+
+    await timerUtils.wait(600);
+    await this.backgroundApi.serviceV4Migration.saveAppStorageV4migrationAutoStartDisabled(
+      {
+        v4migrationAutoStartDisabled,
+      },
+    );
     this.restartApp();
   }
 

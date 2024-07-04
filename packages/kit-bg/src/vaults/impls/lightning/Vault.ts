@@ -371,14 +371,16 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
-    try {
-      const { isTestnet } = await this.getNetwork();
-      return validateBtcAddress({
-        network: getBtcForkNetwork(isTestnet ? IMPL_TBTC : IMPL_BTC),
-        address,
-      });
-    } catch {
-      // ignore btc address validation error
+    if (address.startsWith('bc1q') || address.startsWith('tb1q')) {
+      try {
+        const { isTestnet } = await this.getNetwork();
+        return validateBtcAddress({
+          network: getBtcForkNetwork(isTestnet ? IMPL_TBTC : IMPL_BTC),
+          address,
+        });
+      } catch {
+        // ignore btc address validation error
+      }
     }
 
     // maybe it's a lnurl
@@ -619,7 +621,6 @@ export default class Vault extends VaultBase {
         paymentRequest,
       });
     } catch (e: any) {
-      console.log('===>E: ', e);
       throw new Error((e as Error)?.message ?? e);
     }
 

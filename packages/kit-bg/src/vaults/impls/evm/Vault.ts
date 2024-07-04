@@ -743,7 +743,7 @@ export default class Vault extends VaultBase {
 
     const action = await this.buildTxTransferAssetAction({
       from: encodedTx.from,
-      to: encodedTx.to,
+      to: recipient,
       transfers: [transfer],
     });
 
@@ -784,9 +784,15 @@ export default class Vault extends VaultBase {
   }) {
     const { encodedTx, swapInfo } = params;
     const swapSendToken = swapInfo.sender.token;
+    const providerInfo = swapInfo.swapBuildResData.result.info;
     const action = await this.buildTxTransferAssetAction({
       from: swapInfo.accountAddress,
       to: encodedTx.to,
+      data: encodedTx.data,
+      application: {
+        name: providerInfo.providerName,
+        icon: providerInfo.providerLogo ?? '',
+      },
       transfers: [
         {
           from: swapInfo.accountAddress,
@@ -885,7 +891,7 @@ export default class Vault extends VaultBase {
 
     return this.buildTxTransferAssetAction({
       from: encodedTx.from ?? accountAddress,
-      to: encodedTx.to,
+      to,
       transfers: [transfer],
     });
   }

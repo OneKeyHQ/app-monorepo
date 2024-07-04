@@ -14,10 +14,12 @@ import {
   Page,
   SizableText,
   Stack,
+  Toast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -33,15 +35,22 @@ export function V4MigrationGetStarted({
 >) {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  const isAutoStartOnMount = route?.params?.isAutoStartOnMount;
+  const isAutoStartOnMount = Boolean(route?.params?.isAutoStartOnMount);
 
   const [isLoading, setIsLoading] = useState(false);
 
   const handleNavigateToV4MigrationPreview = async () => {
+    if (platformEnv.isWebDappMode) {
+      Toast.message({
+        title: 'V4Migration Not supported in web dapp mode',
+      });
+      throw new Error('V4Migration Not supported in web dapp mode');
+    }
     try {
       setIsLoading(true);
-      const res =
-        await backgroundApiProxy.serviceV4Migration.prepareMigration();
+      const res = await backgroundApiProxy.serviceV4Migration.prepareMigration({
+        isAutoStartOnMount,
+      });
       console.log('prepareMigration result', res);
       const goNext = () => {
         if (res.shouldBackup) {
@@ -118,6 +127,7 @@ export function V4MigrationGetStarted({
       scrollEnabled={false}
       onMounted={() => {
         void backgroundApiProxy.serviceV4Migration.clearV4MigrationLogs();
+        void backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
       }}
       isAutoStartOnMount={isAutoStartOnMount}
     >

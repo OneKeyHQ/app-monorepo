@@ -258,6 +258,7 @@ const TransactionData = ({ data }: { data: ISignedTransaction['data'] }) => {
 
 const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
   const network = item.network;
+  const intl = useIntl();
   const onPress = useCallback(() => {
     if (item.hash) {
       openUrl(
@@ -287,7 +288,16 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
         </SizableText>
         <IconButton
           variant="tertiary"
-          icon="OpenOutline"
+          title={
+            item.hash
+              ? intl.formatMessage({
+                  id: ETranslations.settings_view_transaction_in_explorer,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.settings_view_address_in_explorer,
+                })
+          }
+          icon={item.hash ? 'OpenOutline' : 'GlobusOutline'}
           size="small"
           onPress={onPress}
         />
@@ -299,7 +309,7 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
         <Stack mr="$2">
           <NetworkAvatar size={16} networkId={item.networkId} />
         </Stack>
-        <SizableText color="$textSubdued">
+        <SizableText color="$textSubdued" size="$bodySmMedium">
           {item.network.name} •{' '}
           {utils.shortenAddress({ address: item.address })}
         </SizableText>

@@ -1,24 +1,42 @@
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
-import { useAccountData } from './useAccountData';
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+
+import { usePromiseResult } from './usePromiseResult';
 
 export function useFeeInfoInDecodedTx({
   decodedTx,
 }: {
   decodedTx: IDecodedTx;
 }) {
-  const { network, vaultSettings } = useAccountData({
-    networkId: decodedTx.networkId,
-  });
+  const { accountId, networkId } = decodedTx;
+
+  const { nativeToken, vaultSettings } =
+    usePromiseResult(async () => {
+      const [n, v] = await Promise.all([
+        backgroundApiProxy.serviceToken.getNativeToken({
+          accountId,
+          networkId,
+        }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId,
+        }),
+      ]);
+
+      return {
+        nativeToken: n,
+        vaultSettings: v,
+      };
+    }, [accountId, networkId]).result ?? {};
 
   const { totalFeeInNative, totalFeeFiatValue } = decodedTx;
-  const txFee = totalFeeInNative ?? '0';
-  const txFeeFiatValue = totalFeeFiatValue ?? '0';
+  const txFee = totalFeeInNative;
+  const txFeeFiatValue = totalFeeFiatValue;
 
   return {
     txFee,
     txFeeFiatValue,
-    txFeeSymbol: network?.symbol ?? '',
+    txFeeSymbol: nativeToken?.symbol ?? '',
     hideFeeInfo: vaultSettings?.hideFeeInfoInHistoryList,
   };
 }

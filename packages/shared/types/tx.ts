@@ -167,6 +167,11 @@ export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
   utxoFrom?: IUtxoAddressInfo[];
   utxoTo?: IUtxoAddressInfo[];
   label?: string;
+  data?: string;
+  application?: {
+    name: string;
+    icon: string;
+  };
 };
 
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {

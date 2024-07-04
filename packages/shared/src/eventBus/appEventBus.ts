@@ -47,6 +47,8 @@ export enum EAppEventBusNames {
   ClearLocalHistoryPendingTxs = 'ClearLocalHistoryPendingTxs',
   TxFeeInfoChanged = 'TxFeeInfoChanged',
   SendConfirmContainerMounted = 'SendConfirmContainerMounted',
+  CloseHardwareUiStateDialogManually = 'CloseHardwareUiStateDialogManually',
+  HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -94,6 +96,7 @@ export interface IAppEventBusPayload {
     title: string;
     message?: string;
     duration?: number;
+    errorCode?: number;
   };
   [EAppEventBusNames.ShowQrcode]: {
     title?: string;
@@ -124,6 +127,8 @@ export interface IAppEventBusPayload {
     feeSelectorItems: IFeeSelectorItem[];
   };
   [EAppEventBusNames.SendConfirmContainerMounted]: undefined;
+  [EAppEventBusNames.CloseHardwareUiStateDialogManually]: undefined;
+  [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

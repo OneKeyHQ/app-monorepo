@@ -361,7 +361,13 @@ export default class ServicePassword extends ServiceBase {
       await this.saveBiologyAuthPassword(newPassword);
       await this.setCachedPassword(newPassword);
       await this.setPasswordSetStatus(true);
+      // update v5 db password
       await localDb.updatePassword({ oldPassword, newPassword });
+      // update v4 db password
+      await this.backgroundApi.serviceV4Migration.updateV4Password({
+        oldPassword,
+        newPassword,
+      });
       await this.backgroundApi.serviceAddressBook.finishUpdateHash();
       return newPassword;
     } catch (e) {

@@ -213,6 +213,82 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.error({
+                  duration: 999999,
+                  title:
+                    'Lorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit amet',
+                  message: `Lorem ipsum dolor sit amet, 
+                    consectetur adipiscing elit. 
+                    Quisque nec elementum eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
+                    consectetur adipiscing elit. 
+                    Quisque nec elementum eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
+                    consectetur adipiscing elit. 
+                    Quisque nec elementum eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
+                    consectetur adipiscing elit. 
+                    Quisque nec elementum eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
+                    consectetur adipiscing elit. 
+                    Quisque nec elementum eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
+                    consectetur adipiscing elit. 
+                    Quisque nec elementum eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
+                    consectetur adipiscing elit. 
+                    Quisque nec elementum eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
+                    consectetur adipiscing elit. 
+                    Quisque nec elementum eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
+                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.`,
+                });
+              }}
+            >
+              Long Title with Long message
+            </Button>
+            <Button
+              onPress={() => {
+                Toast.error({
                   duration: 1400,
                   title: 'Title',
                   message: `Lorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit amet`,
@@ -227,6 +303,21 @@ const ToastGallery = () => (
               }}
             >
               Copy it
+            </Button>
+            <Button
+              onPress={() => {
+                new Array(10).fill(0).forEach(() => {
+                  setTimeout(() => {
+                    Toast.error({
+                      toastId: '403',
+                      title: '403!',
+                      message: `ERROR 403!`,
+                    });
+                  }, 0);
+                });
+              }}
+            >
+              filter out duplicate toasts by toastId
             </Button>
           </YStack>
         ),

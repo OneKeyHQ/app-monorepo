@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
-import { Checkbox, Dialog, SizableText, YStack } from '@onekeyhq/components';
+import { Checkbox, Dialog, YStack } from '@onekeyhq/components';
 import { useV4migrationPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -20,6 +20,8 @@ import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4Migration
 
 let lastAutoStartV4MigrationTime = 0;
 let isBaseSettingsMigrated = false;
+let downgradeConfirmDialogShown = false;
+let isAutoStartV4MigrationShown = false;
 
 function DowngradeWarningDialogContent({
   onConfirm,
@@ -41,6 +43,16 @@ function DowngradeWarningDialogContent({
 
   return (
     <YStack>
+      <Dialog.Title>
+        {intl.formatMessage({
+          id: ETranslations.downgrade_warning_title,
+        })}
+      </Dialog.Title>
+      <Dialog.Description>
+        {intl.formatMessage({
+          id: ETranslations.downgrade_warning_description,
+        })}
+      </Dialog.Description>
       <Checkbox
         value={checkState}
         label={intl.formatMessage({
@@ -73,6 +85,17 @@ function OnboardingOnMountCmp() {
   const downgradeWarningConfirmedRef = useRef(downgradeWarningConfirmed);
   downgradeWarningConfirmedRef.current = downgradeWarningConfirmed;
 
+  const migrateBaseSettings = useCallback(async () => {
+    const shouldMigrateFromV4: boolean =
+      await backgroundApiProxy.serviceV4Migration.checkShouldMigrateV4OnMount();
+    if (shouldMigrateFromV4) {
+      if (!isBaseSettingsMigrated) {
+        isBaseSettingsMigrated = true;
+        await backgroundApiProxy.serviceV4Migration.migrateBaseSettings();
+      }
+    }
+  }, []);
+
   const checkOnboardingState = useCallback(
     async ({ checkingV4Migration }: { checkingV4Migration?: boolean } = {}) => {
       // if (!isFocused) {
@@ -86,22 +109,22 @@ function OnboardingOnMountCmp() {
           const shouldMigrateFromV4: boolean =
             await backgroundApiProxy.serviceV4Migration.checkShouldMigrateV4OnMount();
           if (shouldMigrateFromV4) {
-            if (!isBaseSettingsMigrated) {
-              isBaseSettingsMigrated = true;
-              await backgroundApiProxy.serviceV4Migration.migrateBaseSettings();
-            }
+            await migrateBaseSettings();
             await timerUtils.wait(600);
-            await v4migrationActions.navigateToV4MigrationPage({
-              isAutoStartOnMount: true,
-            });
-            const now = Date.now();
-            if (now - lastAutoStartV4MigrationTime > 3000) {
-              lastAutoStartV4MigrationTime = now;
-              setV4MigrationPersistAtom((v) => ({
-                ...v,
-                v4migrationAutoStartCount:
-                  (v.v4migrationAutoStartCount || 0) + 1,
-              }));
+            if (!isAutoStartV4MigrationShown) {
+              isAutoStartV4MigrationShown = true;
+              await v4migrationActions.navigateToV4MigrationPage({
+                isAutoStartOnMount: true,
+              });
+              const now = Date.now();
+              if (now - lastAutoStartV4MigrationTime > 3000) {
+                lastAutoStartV4MigrationTime = now;
+                setV4MigrationPersistAtom((v) => ({
+                  ...v,
+                  v4migrationAutoStartCount:
+                    (v.v4migrationAutoStartCount || 0) + 1,
+                }));
+              }
             }
             return;
           }
@@ -118,41 +141,48 @@ function OnboardingOnMountCmp() {
         });
       }
     },
-    [navigation, setV4MigrationPersistAtom, v4migrationActions],
+    [
+      migrateBaseSettings,
+      navigation,
+      setV4MigrationPersistAtom,
+      v4migrationActions,
+    ],
   );
 
   const checkStateOnMount = useCallback(async () => {
-    if (!downgradeWarningConfirmedRef.current && platformEnv.isDesktop) {
-      const dialog = Dialog.show({
-        tone: 'warning',
-        icon: 'ShieldCheckDoneOutline',
-        showExitButton: false,
-        // TODO disable gesture close
-        showCancelButton: false,
-        dismissOnOverlayPress: false,
-        title: intl.formatMessage({
-          id: ETranslations.downgrade_warning_title,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.downgrade_warning_description,
-        }),
-        renderContent: (
-          <DowngradeWarningDialogContent
-            onConfirm={() => {
-              setV4MigrationPersistAtom((v) => ({
-                ...v,
-                downgradeWarningConfirmed: true,
-              }));
-              void checkOnboardingState({ checkingV4Migration: true });
-              void dialog.close();
-            }}
-          />
-        ),
-      });
+    if (platformEnv.isDesktop && !downgradeWarningConfirmedRef.current) {
+      const isV4DbExist =
+        await backgroundApiProxy.serviceV4Migration.checkIfV4DbExist();
+      if (isV4DbExist && !downgradeConfirmDialogShown) {
+        downgradeConfirmDialogShown = true;
+        await migrateBaseSettings();
+        await timerUtils.wait(600);
+        const dialog = Dialog.show({
+          tone: 'warning',
+          icon: 'ShieldCheckDoneOutline',
+          showExitButton: false,
+          // TODO disable gesture close
+          showCancelButton: false,
+          dismissOnOverlayPress: false,
+          renderContent: (
+            <DowngradeWarningDialogContent
+              onConfirm={() => {
+                setV4MigrationPersistAtom((v) => ({
+                  ...v,
+                  downgradeWarningConfirmed: true,
+                }));
+                void checkOnboardingState({ checkingV4Migration: true });
+                void dialog.close();
+              }}
+            />
+          ),
+        });
+      }
       return;
     }
+
     await checkOnboardingState({ checkingV4Migration: true });
-  }, [checkOnboardingState, intl, setV4MigrationPersistAtom]);
+  }, [checkOnboardingState, migrateBaseSettings, setV4MigrationPersistAtom]);
 
   useEffect(() => {
     console.log('OnboardingOnMountOnMount');
@@ -188,4 +218,5 @@ function OnboardingOnMountCmp() {
 
   return null;
 }
+
 export const OnboardingOnMount = memo(OnboardingOnMountCmp);

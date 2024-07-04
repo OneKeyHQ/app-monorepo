@@ -73,6 +73,7 @@ export class BackgroundApiProxyBase
       // TODO log error to file if developer mode on
       if (error && error?.autoToast) {
         appEventBus.emit(EAppEventBusNames.ShowToast, {
+          errorCode: error.code,
           method: 'error',
           title: error?.message ?? 'Error',
           message: error?.requestId,

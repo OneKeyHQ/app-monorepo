@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -20,11 +20,17 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { POLLING_INTERVAL_FOR_HISTORY } from '@onekeyhq/shared/src/consts/walletConsts';
 import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
@@ -32,6 +38,7 @@ import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils'
 import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   EHistoryTxDetailsBlock,
+  EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
 } from '@onekeyhq/shared/types/history';
 import type {
@@ -51,27 +58,47 @@ import { InfoItem, InfoItemGroup } from './components/TxDetailsInfoItem';
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
 
-function getTxStatusTextProps(status: EDecodedTxStatus): {
+function getTxStatusTextProps(
+  status: EDecodedTxStatus | EOnChainHistoryTxStatus,
+): {
   key: ETranslations;
   color: ColorValue;
 } {
-  if (status === EDecodedTxStatus.Pending) {
+  if (
+    status === EDecodedTxStatus.Pending ||
+    status === EOnChainHistoryTxStatus.Pending
+  ) {
     return {
       key: ETranslations.global_pending,
       color: '$textCaution',
     };
   }
 
-  if (status === EDecodedTxStatus.Confirmed) {
+  if (
+    status === EDecodedTxStatus.Confirmed ||
+    status === EOnChainHistoryTxStatus.Success
+  ) {
     return {
       key: ETranslations.global_success,
       color: '$textSuccess',
     };
   }
 
+  if (
+    status === EDecodedTxStatus.Dropped ||
+    status === EDecodedTxStatus.Removed ||
+    status === EDecodedTxStatus.Failed ||
+    status === EOnChainHistoryTxStatus.Failed
+  ) {
+    return {
+      key: ETranslations.global_failed,
+      color: '$textCritical',
+    };
+  }
+
   return {
-    key: ETranslations.global_failed,
-    color: '$textCritical',
+    key: ETranslations.global_pending,
+    color: '$textCaution',
   };
 }
 
@@ -108,21 +135,42 @@ export function AssetItem({
   const amountAbs = new BigNumber(amount).abs().toFixed();
 
   if (isApprove) {
-    primary = (
-      <SizableText textAlign="right" size="$bodyLgMedium" color="$textSuccess">
-        {isApproveUnlimited
-          ? intl.formatMessage({
-              id: ETranslations.swap_page_button_approve_unlimited,
-            })
-          : intl.formatMessage(
-              { id: ETranslations.form__approve_str },
-              {
-                amount: amountAbs,
-                symbol: asset.symbol,
-              },
-            )}
-      </SizableText>
-    );
+    if (new BigNumber(amountAbs).eq(0)) {
+      primary = (
+        <SizableText
+          textAlign="right"
+          size="$bodyLgMedium"
+          color="$textSuccess"
+        >
+          {intl.formatMessage(
+            { id: ETranslations.global_revoke_approve },
+            {
+              symbol: asset.symbol,
+            },
+          )}
+        </SizableText>
+      );
+    } else {
+      primary = (
+        <SizableText
+          textAlign="right"
+          size="$bodyLgMedium"
+          color="$textSuccess"
+        >
+          {isApproveUnlimited
+            ? intl.formatMessage({
+                id: ETranslations.swap_page_button_approve_unlimited,
+              })
+            : intl.formatMessage(
+                { id: ETranslations.form__approve_str },
+                {
+                  amount: amountAbs,
+                  symbol: asset.symbol,
+                },
+              )}
+        </SizableText>
+      );
+    }
   } else if (!amount) {
     primary = (
       <SizableText textAlign="right" size="$bodyLgMedium" color="$text">
@@ -193,27 +241,62 @@ function HistoryDetails() {
   const { accountId, networkId, accountAddress, historyTx, xpub } =
     route.params;
 
+  const historyInit = useRef(false);
+  const historyConfirmed = useRef(false);
+
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
-  const resp = usePromiseResult(
+
+  const { network, vaultSettings } = useAccountData({ networkId });
+
+  const nativeToken = usePromiseResult(
     () =>
-      Promise.all([
-        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-        backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
-        backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
-          accountId,
-          networkId,
-          accountAddress,
-          xpub,
-          txid: historyTx.decodedTx.txid,
-        }),
-        backgroundApiProxy.serviceToken.getNativeToken({
-          accountId,
-          networkId,
-        }),
-      ]),
-    [accountAddress, historyTx.decodedTx.txid, networkId, accountId, xpub],
-    { watchLoading: true },
+      backgroundApiProxy.serviceToken.getNativeToken({
+        accountId,
+        networkId,
+      }),
+    [accountId, networkId],
+  ).result;
+
+  const { result: txDetails, isLoading } = usePromiseResult(
+    async () => {
+      const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
+        accountId,
+        networkId,
+        accountAddress,
+        xpub,
+        txid: historyTx.decodedTx.txid,
+      });
+      historyInit.current = true;
+      if (
+        r?.data &&
+        r?.data.status !== EOnChainHistoryTxStatus.Pending &&
+        historyTx.decodedTx.status === EDecodedTxStatus.Pending
+      ) {
+        historyConfirmed.current = true;
+        appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+      }
+
+      return r?.data;
+    },
+
+    [
+      accountId,
+      networkId,
+      accountAddress,
+      xpub,
+      historyTx.decodedTx.txid,
+      historyTx.decodedTx.status,
+    ],
+    {
+      watchLoading: true,
+      pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused &&
+        (!historyInit.current ||
+          (historyTx.decodedTx.status === EDecodedTxStatus.Pending &&
+            !historyConfirmed.current)),
+    },
   );
 
   const handleReplaceTxSuccess = useCallback(() => {
@@ -224,11 +307,6 @@ function HistoryDetails() {
     historyTx,
     onSuccess: handleReplaceTxSuccess,
   });
-
-  const [network, vaultSettings, txDetailsResp, nativeToken] =
-    resp.result ?? [];
-
-  const { data: txDetails } = txDetailsResp ?? {};
 
   const handleViewUTXOsOnPress = useCallback(() => {
     navigation.push(EModalAssetDetailRoutes.UTXODetails, {
@@ -284,12 +362,12 @@ function HistoryDetails() {
             ? true
             : new BigNumber(utxoSends.length ?? 0)
                 .plus(utxoReceives.length ?? 0)
-                .eq(1),
+                .isLessThanOrEqualTo(1),
       };
     }
 
     const from = decodedTx.signer;
-    let to = decodedTx.to ?? decodedTx.actions[0]?.assetTransfer?.to;
+    let to = decodedTx.actions[0]?.assetTransfer?.to ?? decodedTx.to;
     if (vaultSettings?.impl === IMPL_DOT && !to) {
       to = txDetails?.to;
     }
@@ -509,8 +587,9 @@ function HistoryDetails() {
   ]);
 
   const renderTxStatus = useCallback(() => {
-    const status = historyTx.decodedTx.status;
-    const { key, color } = getTxStatusTextProps(status);
+    const { key, color } = getTxStatusTextProps(
+      txDetails?.status ?? historyTx.decodedTx.status,
+    );
     return (
       <XStack minHeight="$5" alignItems="center">
         <SizableText size="$bodyMdMedium" color={color}>
@@ -540,7 +619,13 @@ function HistoryDetails() {
         ) : null}
       </XStack>
     );
-  }, [canReplaceTx, handleReplaceTx, historyTx.decodedTx.status, intl]);
+  }, [
+    canReplaceTx,
+    handleReplaceTx,
+    historyTx.decodedTx.status,
+    intl,
+    txDetails?.status,
+  ]);
 
   const renderTxFlow = useCallback(() => {
     if (vaultSettings?.isUtxo && !txAddresses.isSingleTransfer) return null;
@@ -597,6 +682,22 @@ function HistoryDetails() {
     accountId,
   ]);
 
+  const renderTxApproveFor = useCallback(() => {
+    const approve = historyTx.decodedTx.actions[0]?.tokenApprove;
+
+    if (approve) {
+      return (
+        <InfoItem
+          label={intl.formatMessage({
+            id: ETranslations.global_for,
+          })}
+          renderContent={approve.to}
+          showCopy
+        />
+      );
+    }
+  }, [historyTx.decodedTx.actions, intl]);
+
   const renderTxMetaInfo = useCallback(() => {
     const components = getHistoryTxMeta({ impl: network?.impl ?? '' });
     const TxFlow = components?.[EHistoryTxDetailsBlock.Flow];
@@ -605,12 +706,19 @@ function HistoryDetails() {
     return (
       <>
         {TxFlow ? <TxFlow decodedTx={historyTx.decodedTx} /> : renderTxFlow()}
+        {renderTxApproveFor()}
         {TxAttributes ? (
           <TxAttributes decodedTx={historyTx.decodedTx} txDetails={txDetails} />
         ) : null}
       </>
     );
-  }, [historyTx.decodedTx, network?.impl, renderTxFlow, txDetails]);
+  }, [
+    historyTx.decodedTx,
+    network?.impl,
+    renderTxApproveFor,
+    renderTxFlow,
+    txDetails,
+  ]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,
@@ -630,18 +738,20 @@ function HistoryDetails() {
         >
           {txInfo?.gasFee}
         </NumberSizeableText>
-        <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
-          (
-          <NumberSizeableText
-            formatter="value"
-            formatterOptions={{ currency: settings.currencyInfo.symbol }}
-            size="$bodyMd"
-            color="$textSubdued"
-          >
-            {txInfo?.gasFeeFiatValue ?? '0'}
-          </NumberSizeableText>
-          )
-        </SizableText>
+        {!isNil(txInfo?.gasFeeFiatValue) ? (
+          <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
+            (
+            <NumberSizeableText
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              size="$bodyMd"
+              color="$textSubdued"
+            >
+              {txInfo?.gasFeeFiatValue ?? '0'}
+            </NumberSizeableText>
+            )
+          </SizableText>
+        ) : null}
       </XStack>
     ),
     [
@@ -653,7 +763,7 @@ function HistoryDetails() {
   );
 
   const renderHistoryDetails = useCallback(() => {
-    if (resp.isLoading) {
+    if (isLoading && !historyInit.current) {
       return (
         <Stack pt={240} justifyContent="center" alignItems="center">
           <Spinner size="large" />
@@ -803,7 +913,7 @@ function HistoryDetails() {
       </>
     );
   }, [
-    resp.isLoading,
+    isLoading,
     transfersToRender,
     intl,
     renderTxStatus,

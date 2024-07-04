@@ -697,14 +697,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipIfExists: boolean;
   }) {
     const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
-      await this.txAddIndexedAccount({
+    return db.withTransaction(async (tx) =>
+      this.txAddIndexedAccount({
         tx,
         walletId,
         skipIfExists,
         indexes,
-      });
-    });
+      }),
+    );
   }
 
   async txAddIndexedAccount({
@@ -780,6 +780,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       records,
     });
     console.log('txAddIndexedAccount txGetWallet');
+    return records;
     // const [wallet] = await this.txGetWallet({
     //   tx,
     //   walletId,
@@ -2112,6 +2113,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       account.name = indexedAccount.name;
     }
     return this.refillAccountInfo({ account });
+  }
+
+  async getAccountSafe({
+    accountId,
+  }: {
+    accountId: string;
+  }): Promise<IDBAccount | undefined> {
+    try {
+      return await this.getAccount({ accountId });
+    } catch (error) {
+      return undefined;
+    }
   }
 
   refillAccountInfo({ account }: { account: IDBAccount }) {

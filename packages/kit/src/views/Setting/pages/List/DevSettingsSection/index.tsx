@@ -26,6 +26,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   isWebInDappMode,
   switchWebDappMode,
@@ -42,6 +43,11 @@ import { StartTimePanel } from './StartTimePanel';
 import { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 
 let correctDevOnlyPwd = '';
+
+if (process.env.NODE_ENV !== 'production') {
+  correctDevOnlyPwd = `${formatDateFns(new Date(), 'yyyyMMdd')}-onekey-debug`;
+}
+
 function showDevOnlyPasswordDialog({
   title,
   desc,
@@ -124,7 +130,7 @@ export const DevSettingsSection = () => {
         <>
           <SectionPressItem
             title="Open Chrome DevTools in Desktop"
-            subtitle="重启后会在导航栏的菜单栏中出现相关按钮"
+            subtitle="重启后会使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
             onPress={handleOpenDevTools}
           />
           <SectionPressItem

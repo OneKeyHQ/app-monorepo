@@ -16,10 +16,11 @@ import {
   XStack,
   YStack,
   getFontToken,
+  getTokenValue,
   useClipboard,
+  useThemeValue,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import type { IPageHeaderProps } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -32,6 +33,7 @@ import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalReceiveRoutes,
@@ -78,7 +80,11 @@ export function TokenDetails() {
   const [isBlocked, setIsBlocked] = useState(!!tokenIsBlocked);
   const [initialized, setInitialized] = useState(false);
 
-  const { network } = useAccountData({ accountId, networkId });
+  const { network, wallet } = useAccountData({
+    accountId,
+    networkId,
+    walletId,
+  });
 
   const { result: tokenDetails, isLoading: isLoadingTokenDetails } =
     usePromiseResult(
@@ -346,14 +352,30 @@ export function TokenDetails() {
   //   );
   // }, [media.gtMd, network?.logoURI, tokenInfo.address]);
 
-  const headerTitleStyle = useMemo(() => getFontToken('$headingLg'), []);
+  const fontColor = useThemeValue('text');
+
+  const headerTitleStyle = useMemo(
+    () => ({
+      ...(getFontToken('$headingLg') as {
+        fontSize: number;
+        lineHeight: number;
+        letterSpacing: number;
+      }),
+      color: fontColor,
+    }),
+    [fontColor],
+  );
+
+  const isReceiveDisabled = useMemo(
+    () => wallet?.type === WALLET_TYPE_WATCHING,
+    [wallet?.type],
+  );
+
   return (
     <Page>
       <Page.Header
         headerTitle={tokenInfo.name ?? tokenDetails?.info.name}
-        headerTitleStyle={
-          headerTitleStyle as IPageHeaderProps['headerTitleStyle']
-        }
+        headerTitleStyle={headerTitleStyle}
         headerRight={headerRight}
       />
       <Page.Body>
@@ -432,6 +454,7 @@ export function TokenDetails() {
                       <ActionBuy
                         networkId={networkId}
                         accountId={accountId}
+                        walletType={wallet?.type}
                         tokenAddress={tokenInfo.address}
                       />
                     </ReviewControl>
@@ -439,11 +462,15 @@ export function TokenDetails() {
                     <RawActions.Swap onPress={handleOnSwap} />
 
                     <RawActions.Send onPress={handleSendPress} />
-                    <RawActions.Receive onPress={handleReceivePress} />
+                    <RawActions.Receive
+                      disabled={isReceiveDisabled}
+                      onPress={handleReceivePress}
+                    />
                     <ReviewControl>
                       <ActionSell
                         networkId={networkId}
                         accountId={accountId}
+                        walletType={wallet?.type}
                         tokenAddress={tokenInfo.address}
                       />
                     </ReviewControl>

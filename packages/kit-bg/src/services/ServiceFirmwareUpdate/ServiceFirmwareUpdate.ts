@@ -353,6 +353,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         bridge.shouldUpdate = true;
       }
 
+      // TODO only check bootloader upgrade？
       if (!bridge?.shouldUpdate) {
         bootloader = await this.checkBootloaderRelease({
           connectId: updatingConnectId,
@@ -523,13 +524,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     let changelog: IFirmwareChangeLog | undefined;
     // boot releaseInfo?.release may be string of resource download url
     const versionFromReleaseInfo =
-      usedReleasePayload?.release?.bootloaderVersion;
+      usedReleasePayload?.release?.displayBootloaderVersion;
     if (versionFromReleaseInfo && isArray(versionFromReleaseInfo)) {
       toVersion = this.arrayVersionToString(versionFromReleaseInfo as any);
     }
     if (!toVersion) {
       toVersion = this.arrayVersionToString(
-        firmwareUpdateInfo.releasePayload.release?.bootloaderVersion,
+        firmwareUpdateInfo.releasePayload.release?.displayBootloaderVersion,
       );
     }
     changelog = usedReleasePayload.release?.bootloaderChangelog;
@@ -611,17 +612,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hasUpgrade = true;
     }
 
-    if (!releasePayload?.bootloaderMode && fromVersion && toVersion) {
+    if (
+      firmwareType !== 'bootloader' &&
+      !releasePayload?.bootloaderMode &&
+      fromVersion &&
+      toVersion
+    ) {
       if (semver.gte(fromVersion, toVersion)) {
-        hasUpgrade = false;
-        hasUpgradeForce = false;
-      }
-    }
-    if (firmwareType === 'bootloader') {
-      if (
-        fromVersion === toVersion ||
-        (fromVersion && toVersion && semver.gte(fromVersion, toVersion))
-      ) {
         hasUpgrade = false;
         hasUpgradeForce = false;
       }
@@ -1119,7 +1116,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     actionType,
   }: {
     releaseResult: ICheckAllFirmwareReleaseResult | undefined;
-    actionType: 'nextPhase' | 'retry' | 'ble-done' | 'boot-done';
+    actionType: 'nextPhase' | 'retry' | 'ble-done' | 'boot-done' | 'done';
   }) {
     // use getFeatures to wait device reboot, not working, will pending forever
     // await this.backgroundApi.serviceHardware.getFeatures(
@@ -1135,6 +1132,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await timerUtils.wait(5 * 1000);
     }
     if (actionType === 'ble-done') {
+      if (['touch', 'pro'].includes(releaseResult?.deviceType ?? '')) {
+        await timerUtils.wait(15 * 1000);
+      }
+    }
+    if (actionType === 'done') {
       await timerUtils.wait(
         releaseResult?.deviceType === 'mini' ? 5 * 1000 : 2 * 1000,
       );
@@ -1249,6 +1251,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
           );
 
           shouldRebootAfterUpdate = true;
+
+          await this.waitDeviceRestart({
+            actionType: 'ble-done',
+            releaseResult: params.releaseResult,
+          });
         }
 
         serviceHardwareUtils.hardwareLog('startUpdateWorkflow DONE', params);
@@ -1256,7 +1263,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         await firmwareUpdateRetryAtom.set(undefined);
         if (params.releaseResult.originalConnectId) {
           await this.waitDeviceRestart({
-            actionType: 'ble-done',
+            actionType: 'done',
             releaseResult: params.releaseResult,
           });
           await this.detectMap.deleteUpdateInfo({

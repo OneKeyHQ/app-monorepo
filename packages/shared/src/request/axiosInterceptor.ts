@@ -9,12 +9,13 @@ import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
+import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 import {
+  HEADER_REQUEST_ID_KEY,
   checkRequestIsOneKeyDomain,
   getRequestHeaders,
-  normalizeHeaderKey,
 } from './Interceptor';
 
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
@@ -22,7 +23,11 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 axios.interceptors.request.use(async (config) => {
   try {
     const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
-    if (!isOneKeyDomain) return config;
+
+    if (!isOneKeyDomain) {
+      defaultLogger.app.network.call('axios', config.method, config.url);
+      return config;
+    }
   } catch (e) {
     return config;
   }
@@ -32,6 +37,12 @@ axios.interceptors.request.use(async (config) => {
     config.headers[key] = val;
   });
 
+  defaultLogger.app.network.call(
+    'axios',
+    config.method,
+    config.url,
+    headers[HEADER_REQUEST_ID_KEY],
+  );
   return config;
 });
 
@@ -49,7 +60,7 @@ axios.interceptors.response.use(
     const data = response.data as IOneKeyAPIBaseResponse;
 
     if (data.code !== 0) {
-      const requestIdKey = normalizeHeaderKey('X-Onekey-Request-ID');
+      const requestIdKey = HEADER_REQUEST_ID_KEY;
       if (platformEnv.isDev) {
         console.error(requestIdKey, config.headers[requestIdKey]);
       }

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { NativeEventEmitter, NativeModules } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
+import { defaultLogger } from '../../logger/logger';
 import RNFS from '../react-native-fs';
 
 import type {
@@ -51,6 +52,7 @@ export const downloadPackage: IDownloadPackage = async ({
 };
 
 export const installPackage: IInstallPackage = ({ latestVersion, sha256 }) => {
+  defaultLogger.update.app.log('install', latestVersion);
   if (!latestVersion) {
     return Promise.resolve();
   }
@@ -70,16 +72,30 @@ export const useDownloadProgress: IUseDownloadProgress = (
   const updatePercent = useThrottledCallback(
     ({ progress }: { progress: number }) => {
       console.log('update/downloading', progress);
+      defaultLogger.update.app.log('downloading', progress);
       setPercent(progress);
     },
     10,
+  );
+
+  const handleSuccess = useCallback(() => {
+    defaultLogger.update.app.log('downloaded');
+    onSuccess();
+  }, [onSuccess]);
+
+  const handleFailed = useCallback(
+    (params: { message: string }) => {
+      defaultLogger.update.app.log('error', params.message);
+      onFailed(params);
+    },
+    [onFailed],
   );
 
   useEffect(() => {
     const onStartEventListener = eventEmitter.addListener(
       'update/start',
       () => {
-        console.log('update/start');
+        defaultLogger.update.app.log('start');
         setPercent(0);
       },
     );
@@ -89,11 +105,11 @@ export const useDownloadProgress: IUseDownloadProgress = (
     );
     const onDownloadedEventListener = eventEmitter.addListener(
       'update/downloaded',
-      onSuccess,
+      handleSuccess,
     );
     const onErrorEventListener = eventEmitter.addListener(
       'update/error',
-      onFailed,
+      handleFailed,
     );
     return () => {
       onStartEventListener.remove();
@@ -101,6 +117,6 @@ export const useDownloadProgress: IUseDownloadProgress = (
       onDownloadedEventListener.remove();
       onErrorEventListener.remove();
     };
-  }, [onFailed, onSuccess, updatePercent]);
+  }, [handleFailed, handleSuccess, onFailed, onSuccess, updatePercent]);
   return percent;
 };

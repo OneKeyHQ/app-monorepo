@@ -83,10 +83,11 @@ export function useLidoWithdraw({
         (await backgroundApiProxy.serviceDApp.openSignMessageModal({
           accountId,
           networkId,
-          request: { origin: 'https://www.onekey.so', scope: 'ethereum' },
+          request: { origin: 'https://lido.fi/', scope: 'ethereum' },
           unsignedMessage: {
             type: EMessageTypesEth.TYPED_DATA_V4,
             message,
+            payload: [account.address, message],
           },
           sceneName: EAccountSelectorSceneName.home,
         })) as string;
