@@ -25,6 +25,8 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 
+import TxFeeContainer from './TxFeeContainer';
+
 type IProps = {
   accountId: string;
   networkId: string;
@@ -33,6 +35,7 @@ type IProps = {
   onCancel?: () => void;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
+  useFeeInTx?: boolean;
 };
 
 function SendConfirmActionsContainer(props: IProps) {
@@ -44,6 +47,7 @@ function SendConfirmActionsContainer(props: IProps) {
     onCancel,
     sourceInfo,
     signOnly,
+    useFeeInTx,
   } = props;
   const intl = useIntl();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -225,22 +229,30 @@ function SendConfirmActionsContainer(props: IProps) {
   });
 
   return (
-    <Page.Footer
-      confirmButtonProps={{
-        disabled: isSubmitDisabled,
-        loading: isSubmitting,
-      }}
-      cancelButtonProps={{
-        disabled: isSubmitting,
-      }}
-      onConfirmText={
-        signOnly
-          ? intl.formatMessage({ id: ETranslations.global_sign })
-          : intl.formatMessage({ id: ETranslations.global_confirm })
-      }
-      onConfirm={handleOnConfirm}
-      onCancel={handleOnCancel}
-    />
+    <Page.Footer>
+      <Page.FooterActions
+        confirmButtonProps={{
+          disabled: isSubmitDisabled,
+          loading: isSubmitting,
+        }}
+        cancelButtonProps={{
+          disabled: isSubmitting,
+        }}
+        onConfirmText={
+          signOnly
+            ? intl.formatMessage({ id: ETranslations.global_sign })
+            : intl.formatMessage({ id: ETranslations.global_confirm })
+        }
+        onConfirm={handleOnConfirm}
+        onCancel={handleOnCancel}
+      >
+        <TxFeeContainer
+          accountId={accountId}
+          networkId={networkId}
+          useFeeInTx={useFeeInTx}
+        />
+      </Page.FooterActions>
+    </Page.Footer>
   );
 }
 

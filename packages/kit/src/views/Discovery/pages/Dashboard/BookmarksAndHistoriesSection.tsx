@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IXStackProps } from '@onekeyhq/components';
 import {
@@ -89,6 +90,9 @@ function Items({
               w: '$12',
               h: '$12',
             }}
+            borderCurve="continuous"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
           >
             <Image.Source
               source={{

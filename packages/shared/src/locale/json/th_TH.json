@@ -1258,6 +1258,7 @@
   "slippage_tolerance.title": "ความคลาดเคลื่อนที่ยอมรับได้",
   "slippage_tolerance.warning_message_1": "การทนต่อการลื่นไถลที่สูงอาจทำให้คุณสูญเสียสินทรัพย์",
   "slippage_tolerance.warning_message_2": "การสไลป์ที่ต่ำกว่า {number}% อาจทำให้การซื้อขายล้มเหลว",
+  "speed_up_cancellation": "เร่งการยกเลิก",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",
   "swap_account.to_address_edit": " (แก้ไขแล้ว)",

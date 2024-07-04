@@ -1258,6 +1258,7 @@
   "slippage_tolerance.title": "Tolérance au glissement",
   "slippage_tolerance.warning_message_1": "Une tolérance élevée au glissement peut entraîner la perte de votre actif.",
   "slippage_tolerance.warning_message_2": "Un glissement de moins de {number}% peut entraîner un échec de la transaction.",
+  "speed_up_cancellation": "Accélérez l'annulation",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",
   "swap_account.to_address_edit": " (modifié)",

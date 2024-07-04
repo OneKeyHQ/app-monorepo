@@ -1258,6 +1258,7 @@
   "slippage_tolerance.title": "滑点容忍度",
   "slippage_tolerance.warning_message_1": "高滑点容忍度可能会导致您的资产损失。",
   "slippage_tolerance.warning_message_2": "滑点低于{number}%可能会导致交易失败。",
+  "speed_up_cancellation": "加速取消",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",
   "swap_account.to_address_edit": "(已编辑)",

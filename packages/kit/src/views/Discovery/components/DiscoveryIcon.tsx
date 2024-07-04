@@ -1,5 +1,7 @@
 import { memo } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import type { IImageProps } from '@onekeyhq/components';
 import { Icon, Image, Skeleton, Stack } from '@onekeyhq/components';
 
@@ -16,7 +18,13 @@ function BasicDiscoveryIcon({
     return <Skeleton width={size} height={size} radius="round" />;
   }
   return (
-    <Image size={size} borderRadius={borderRadius}>
+    <Image
+      size={size}
+      borderRadius={borderRadius}
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      borderCurve="continuous"
+    >
       <Image.Source source={{ uri: decodeURIComponent(uri) }} />
       <Image.Fallback>
         <Stack

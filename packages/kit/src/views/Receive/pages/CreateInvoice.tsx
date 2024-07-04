@@ -118,6 +118,7 @@ function CreateInvoice() {
             name="amount"
             description={
               <NumberSizeableText
+                pt="$1.5"
                 size="$bodyMd"
                 color="$textSubdued"
                 formatter="value"

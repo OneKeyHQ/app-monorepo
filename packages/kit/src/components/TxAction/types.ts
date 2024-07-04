@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import type { ETxActionComponentType } from '@onekeyhq/shared/types';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   EDecodedTxStatus,
   EReplaceTxType,
@@ -20,6 +21,7 @@ export type ITxActionProps = {
   nativeTokenTransferAmountToUpdate?: string;
   showIcon?: boolean;
   replaceType?: EReplaceTxType;
+  swapInfo?: ISwapTxInfo;
 };
 
 export type ITxActionComponents = {

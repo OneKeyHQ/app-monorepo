@@ -76,6 +76,7 @@ function CommonAssetImage(props: IProps) {
           borderColor="$bgApp"
         >
           <SizableText color="$textInverse" size="$bodyLgMedium">
+            x
             {new BigNumber(nft.amount).gt(SHOW_NFT_AMOUNT_MAX)
               ? `${SHOW_NFT_AMOUNT_MAX}+`
               : nft.amount}

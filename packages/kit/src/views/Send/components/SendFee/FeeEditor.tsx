@@ -666,7 +666,6 @@ function FeeEditor(props: IProps) {
           {feeTitle}
         </SizableText> */}
         <SegmentControl
-          mb="$5"
           fullWidth
           value={currentFeeIndex}
           onChange={(v) => {
@@ -856,7 +855,7 @@ function FeeEditor(props: IProps) {
     if (customFee.gas) {
       return (
         <Form form={form}>
-          <YStack space="$5" pt="$5">
+          <YStack space="$5">
             <Form.Field
               label={intl.formatMessage(
                 {
@@ -918,7 +917,7 @@ function FeeEditor(props: IProps) {
     if (customFee.feeUTXO) {
       return (
         <Form form={form}>
-          <YStack pt="$5">
+          <YStack>
             <Form.Field
               name="feeRate"
               rules={{
@@ -947,7 +946,7 @@ function FeeEditor(props: IProps) {
     if (customFee.feeSol) {
       return (
         <Form form={form}>
-          <YStack pt="$5">
+          <YStack>
             <Form.Field
               label={intl.formatMessage({
                 id: ETranslations.form__priority_fee,
@@ -1300,8 +1299,10 @@ function FeeEditor(props: IProps) {
   return (
     <>
       <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$72">
-        {renderFeeTypeSelector()}
-        {renderFeeEditorForm()}
+        <Stack space="$5">
+          {renderFeeTypeSelector()}
+          {renderFeeEditorForm()}
+        </Stack>
       </ScrollView>
       <Stack
         pt="$4"
