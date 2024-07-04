@@ -131,7 +131,10 @@ export type IVaultSettings = {
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
+  publicKeyExportEnabled?: boolean;
+
   softwareAccountDisabled?: boolean;
+  addressBookDisabled?: boolean;
 
   disabledSwapAction?: boolean;
   disabledSendAction?: boolean;
