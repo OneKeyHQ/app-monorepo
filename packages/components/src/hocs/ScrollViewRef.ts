@@ -1,11 +1,9 @@
-import type { ForwardedRef, RefObject } from 'react';
+import type { RefObject } from 'react';
 import { createContext, memo, useContext, useRef } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ScrollView as ScrollViewNative } from 'react-native';
-
-export type IScrollViewRef = ScrollViewNative;
 
 const ScrollViewRefContext = createContext<
   React.RefObject<ScrollViewNative | null>
@@ -21,9 +19,7 @@ const ScrollViewRefContext = createContext<
 });
 export const ScrollViewRefProvider = memo(ScrollViewRefContext.Provider);
 
-export const useForwardedScrollViewRef = (
-  ref: any,
-) => {
+export const useForwardedScrollViewRef = (ref: any) => {
   const scrollViewRef = useRef<ScrollViewNative | null>(null);
   const refProxy = ref || scrollViewRef;
   return refProxy as RefObject<ScrollViewNative>;
