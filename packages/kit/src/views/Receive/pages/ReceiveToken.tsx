@@ -108,6 +108,15 @@ function ReceiveToken() {
     return false;
   }, [addressState, hardwareUiState?.action, isDeviceWallet]);
 
+  const shouldHighLightAddress = useMemo(() => {
+    if (
+      addressState === EAddressState.Verifying &&
+      hardwareUiState?.action === EHardwareUiStateAction.REQUEST_BUTTON
+    ) {
+      return true;
+    }
+  }, [addressState, hardwareUiState?.action]);
+
   const isShowQRCode = useMemo(() => {
     if (!isDeviceWallet) {
       return true;
@@ -333,7 +342,7 @@ function ReceiveToken() {
         </Stack>
         <ConfirmHighlighter
           maxWidth="$96"
-          highlight={addressState === EAddressState.Verifying}
+          highlight={shouldHighLightAddress}
           mt="$5"
           px="$3"
           borderRadius="$3"
@@ -389,12 +398,11 @@ function ReceiveToken() {
     addressType,
     intl,
     isShowQRCode,
-    addressState,
+    shouldHighLightAddress,
     shouldShowAddress,
+    addressState,
     renderCopyAddressButton,
   ]);
-
-  useEffect(() => {}, [account?.indexedAccountId]);
 
   return (
     <Page>

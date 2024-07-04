@@ -52,6 +52,7 @@ import {
 } from '@onekeyhq/core/src/secret';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -62,10 +63,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type {
-  IEstimateFeeParams,
-  IFeeInfoUnit,
-} from '@onekeyhq/shared/types/fee';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
@@ -88,6 +86,7 @@ import ClientSol from './sdkSol/ClientSol';
 import {
   BASE_FEE,
   COMPUTE_UNIT_PRICE_DECIMALS,
+  JUPITER_V6_PROGRAM_ID,
   TOKEN_AUTH_RULES_ID,
   masterEditionAddress,
   metadataAddress,
@@ -640,6 +639,7 @@ export default class Vault extends VaultBase {
       actions = [
         await this._buildTxActionFromSwap({
           swapInfo: unsignedTx.swapInfo,
+          nativeTx,
         }),
       ];
     } else {
@@ -708,7 +708,6 @@ export default class Vault extends VaultBase {
       nativeTx,
       client,
     });
-
     for (const instruction of instructions) {
       // TODO: only support system transfer & token transfer now
       if (
@@ -756,7 +755,6 @@ export default class Vault extends VaultBase {
       } else if (
         instruction.programId.toString() ===
           ASSOCIATED_TOKEN_PROGRAM_ID.toString() &&
-        instruction.data.length === 0 &&
         instruction.keys[4].pubkey.toString() ===
           SystemProgram.programId.toString() &&
         instruction.keys[5].pubkey.toString() === TOKEN_PROGRAM_ID.toString()
@@ -847,16 +845,42 @@ export default class Vault extends VaultBase {
     return actions;
   }
 
-  async _buildTxActionFromSwap(params: { swapInfo: ISwapTxInfo }) {
-    const { swapInfo } = params;
+  async _buildTxActionFromSwap(params: {
+    swapInfo: ISwapTxInfo;
+    nativeTx: INativeTxSol;
+  }) {
+    const { swapInfo, nativeTx } = params;
+    const providerInfo = swapInfo.swapBuildResData.result.info;
     const swapSendToken = swapInfo.sender.token;
+    const client = await this.getClient();
+
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client,
+    });
+
+    let interactedProgram = '';
+
+    for (const instruction of instructions) {
+      if (
+        JUPITER_V6_PROGRAM_ID.toString() === instruction.programId.toString()
+      ) {
+        interactedProgram = JUPITER_V6_PROGRAM_ID.toString();
+        break;
+      }
+    }
+
     const action = await this.buildTxTransferAssetAction({
       from: swapInfo.accountAddress,
-      to: swapInfo.receivingAddress,
+      to: interactedProgram,
+      application: {
+        name: providerInfo.providerName,
+        icon: providerInfo.providerLogo ?? '',
+      },
       transfers: [
         {
           from: swapInfo.accountAddress,
-          to: swapInfo.receivingAddress,
+          to: interactedProgram,
           tokenIdOnNetwork: swapSendToken.contractAddress,
           icon: swapSendToken.logoURI ?? '',
           name: swapSendToken.name ?? '',
