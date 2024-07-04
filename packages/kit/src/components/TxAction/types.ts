@@ -10,6 +10,7 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import type { ListItem } from '../ListItem';
+import { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 export type ITxActionProps = {
   action: IDecodedTxAction;
@@ -20,6 +21,7 @@ export type ITxActionProps = {
   nativeTokenTransferAmountToUpdate?: string;
   showIcon?: boolean;
   replaceType?: EReplaceTxType;
+  swapInfo?: ISwapTxInfo;
 };
 
 export type ITxActionComponents = {
