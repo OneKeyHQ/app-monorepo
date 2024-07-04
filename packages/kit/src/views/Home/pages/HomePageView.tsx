@@ -116,7 +116,7 @@ export function HomePageView({
         },
       ].filter(Boolean),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [intl, network?.id],
+    [intl, network?.id, isNFTEnabled],
   );
 
   const renderTabs = useCallback(
