@@ -1266,6 +1266,8 @@ export enum ETranslations {
   swap_history_amount_received = 'swap_history.amount_received',
   swap_history_amount_sent = 'swap_history.amount_sent',
   swap_history_date_time_format = 'swap_history.date_time_format',
+  swap_history_status_canceled = 'swap_history.status_canceled',
+  swap_history_status_cancelling = 'swap_history.status_cancelling',
   swap_history_status_discard = 'swap_history.status_discard',
   swap_history_status_failed = 'swap_history.status_failed',
   swap_history_status_pending = 'swap_history.status_pending',

@@ -1265,6 +1265,8 @@
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
+  "swap_history.status_canceled": "취소됨",
+  "swap_history.status_cancelling": "취소 중",
   "swap_history.status_discard": "타임아웃",
   "swap_history.status_failed": "실패",
   "swap_history.status_pending": "보류 중",

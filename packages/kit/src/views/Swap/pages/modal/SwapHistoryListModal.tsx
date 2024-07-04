@@ -69,13 +69,13 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
       swapTxHistoryList?.filter(
         (item) =>
           item.status === ESwapTxHistoryStatus.PENDING ||
-          item.status === ESwapTxHistoryStatus.DISCARD,
+          item.status === ESwapTxHistoryStatus.CANCELING,
       ) ?? [];
     const otherData =
       swapTxHistoryList?.filter(
         (item) =>
           item.status !== ESwapTxHistoryStatus.PENDING &&
-          item.status !== ESwapTxHistoryStatus.DISCARD,
+          item.status !== ESwapTxHistoryStatus.CANCELING,
       ) ?? [];
     const groupByDay = otherData.reduce<Record<string, ISwapTxHistory[]>>(
       (acc, item) => {

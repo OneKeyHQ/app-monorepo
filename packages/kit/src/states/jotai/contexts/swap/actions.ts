@@ -327,14 +327,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           if (txState.state !== ESwapTxHistoryStatus.SUCCESS) {
             set(swapBuildTxFetchingAtom(), false);
           }
-        } else if (txState.state === ESwapTxHistoryStatus.DISCARD) {
-          set(swapApprovingTransactionAtom(), (pre) => {
-            if (!pre) return pre;
-            return {
-              ...pre,
-              status: ESwapApproveTransactionStatus.DISCARD,
-            };
-          });
         } else {
           set(swapApprovingTransactionAtom(), (pre) => {
             if (!pre || pre.status === ESwapApproveTransactionStatus.PENDING) {

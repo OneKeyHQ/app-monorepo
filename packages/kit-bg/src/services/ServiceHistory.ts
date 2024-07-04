@@ -27,6 +27,7 @@ import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
@@ -441,6 +442,15 @@ class ServiceHistory extends ServiceBase {
           newHistoryTx.decodedTx.actions =
             prevTx.decodedTx.actions || newHistoryTx.decodedTx.actions;
         }
+
+        void this.backgroundApi.serviceSwap.updateSwapHistoryTx({
+          oldTxId: prevTx.decodedTx.txid,
+          newTxId: newHistoryTx.decodedTx.txid,
+          status:
+            replaceTxInfo.replaceType === EReplaceTxType.Cancel
+              ? ESwapTxHistoryStatus.CANCELING
+              : ESwapTxHistoryStatus.PENDING,
+        });
       }
     }
 

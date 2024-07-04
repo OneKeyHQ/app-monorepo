@@ -28,12 +28,13 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   }
 
   @backgroundMethod()
-  async updateSwapHistoryItem(item: ISwapTxHistory) {
+  async updateSwapHistoryItem(item: ISwapTxHistory, oldTxId?: string) {
     const data = await this.getRawData();
     const histories = data?.histories ?? [];
-    const index = histories.findIndex(
-      (i) => i.txInfo.txId === item.txInfo.txId,
-    );
+    let index = histories.findIndex((i) => i.txInfo.txId === item.txInfo.txId);
+    if (oldTxId) {
+      index = histories.findIndex((i) => i.txInfo.txId === oldTxId);
+    }
     if (index !== -1) {
       histories[index] = item;
       await this.setRawData({ histories });

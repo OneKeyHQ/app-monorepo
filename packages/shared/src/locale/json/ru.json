@@ -1265,6 +1265,8 @@
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
+  "swap_history.status_canceled": "Отменено",
+  "swap_history.status_cancelling": "Отмена",
   "swap_history.status_discard": "Тайм-аут",
   "swap_history.status_failed": "Не удалось",
   "swap_history.status_pending": "В ожидании",

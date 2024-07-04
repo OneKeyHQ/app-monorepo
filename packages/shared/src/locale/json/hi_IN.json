@@ -1265,6 +1265,8 @@
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
+  "swap_history.status_canceled": "रद्द किया गया",
+  "swap_history.status_cancelling": "रद्द कर रहा है",
   "swap_history.status_discard": "समय समाप्त",
   "swap_history.status_failed": "विफल",
   "swap_history.status_pending": "लंबित",

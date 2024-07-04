@@ -166,7 +166,8 @@ export default class ServicePassword extends ServiceBase {
     const now = Date.now();
     if (
       !this.cachedPassword ||
-      now - this.cachedPasswordActivityTimeStep > this.cachedPasswordTTL
+      now - this.cachedPasswordActivityTimeStep > this.cachedPasswordTTL ||
+      now < this.cachedPasswordActivityTimeStep
     ) {
       await this.clearCachedPassword();
       return undefined;
@@ -617,7 +618,8 @@ export default class ServicePassword extends ServiceBase {
     if (
       !result ||
       !this.securitySession ||
-      now - this.securitySession.startAt > this.securitySession.timeout
+      now - this.securitySession.startAt > this.securitySession.timeout ||
+      now < this.securitySession.startAt
       // return result immediately if result is false or last visit is timeout/ not exist
     ) {
       return result;
