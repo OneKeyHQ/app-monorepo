@@ -8,17 +8,30 @@ export const networkFuseSearch = (
   searchText: string,
 ): IServerNetworkMatch[] => {
   const implArr = ['evm', 'dot', 'cosmos'];
-  const symbolSet = new Set(
-    networks.map((network) => network.symbol.toLowerCase()),
-  );
+
+  const symbolSet = new Set<string>();
+  const shortnameSet = new Set<string>();
+
+  // exact match symbol, shortname
+  networks.forEach((network) => {
+    symbolSet.add(network.symbol.toLowerCase());
+    shortnameSet.add(network.shortname.toLowerCase());
+  });
+
+  const searchTextLower = searchText.toLowerCase();
+
   const keys = ['name'];
-  if (implArr.includes(searchText.toLowerCase())) {
+  if (implArr.includes(searchTextLower)) {
     keys.push('impl');
   }
-  if (symbolSet.has(searchText.toLowerCase())) {
+  if (symbolSet.has(searchTextLower)) {
     keys.push('symbol');
   }
+  if (shortnameSet.has(searchTextLower)) {
+    keys.push('shortname');
+  }
   const fuse = buildFuse(networks, { keys });
+
   const data = fuse.search(searchText).map((o) => ({
     ...o.item,
     titleMatch: o.matches?.find((i) => i.key === 'name'),
