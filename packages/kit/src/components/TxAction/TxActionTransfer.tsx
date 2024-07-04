@@ -32,6 +32,7 @@ import {
   InfoItemGroup,
 } from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import { AddressInfo } from '../AddressInfo';
+import { ListItem } from '../ListItem';
 import { Token } from '../Token';
 
 import { TxActionCommonListView } from './TxActionCommon';
@@ -492,13 +493,21 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       transfersBlock.forEach((block, index) => {
         const { target, transfersInfo } = block;
         const transfersContent = (
-          <YStack space="$2">
+          <YStack py="$2.5">
+            <XStack px="$5" pb="$2">
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({ id: ETranslations.send_amount })}
+              </SizableText>
+              {swapInfo ? (
+                <SizableText size="$bodyMd" color="$textSubdued" pl="$1.5">
+                  (
+                  {intl.formatMessage({ id: ETranslations.for_reference_only })}
+                  )
+                </SizableText>
+              ) : null}
+            </XStack>
             {transfersInfo.map((transfer) => (
-              <XStack
-                alignItems="center"
-                space="$3"
-                key={transfer.tokenIdOnNetwork}
-              >
+              <ListItem key={transfer.tokenIdOnNetwork}>
                 <Token isNFT={transfer.isNFT} tokenImageUri={transfer.icon} />
                 <Stack flex={1}>
                   <SizableText size="$bodyLgMedium">{`${
@@ -517,10 +526,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                     TODO: Fiat value
                   </SizableText> */}
                 </Stack>
-              </XStack>
+              </ListItem>
             ))}
             {swapInfo ? (
-              <XStack alignItems="center" space="$3">
+              <ListItem>
                 <Token
                   size="lg"
                   isNFT={false}
@@ -536,17 +545,11 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 >
                   {swapInfo.receiver.amount}
                 </NumberSizeableText>
-              </XStack>
+              </ListItem>
             ) : null}
           </YStack>
         );
-        transferChangeElements.push(
-          <InfoItem
-            key={`${index}-amount`}
-            // label={intl.formatMessage({ id: ETranslations.content__amount })}
-            renderContent={transfersContent}
-          />,
-        );
+        transferChangeElements.push(transfersContent);
         if (direction === EDecodedTxDirection.OUT) {
           transferExtraElements.push(
             <InfoItem
@@ -603,14 +606,24 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             label={intl.formatMessage({ id: ETranslations.network__network })}
             renderContent={
               <XStack alignItems="center" space="$2">
-                <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
-                <Image
-                  w="$5"
-                  h="$5"
-                  source={{ uri: swapReceiveNetwork?.logoURI }}
-                />
+                <XStack alignItems="center">
+                  <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+                  <Stack
+                    p="$0.5"
+                    m="$-0.5"
+                    ml="$-1"
+                    borderRadius="$full"
+                    bg="$bgApp"
+                  >
+                    <Image
+                      w="$5"
+                      h="$5"
+                      source={{ uri: swapReceiveNetwork?.logoURI }}
+                    />
+                  </Stack>
+                </XStack>
                 <SizableText size="$bodyMd" color="$textSubdued">
-                  {network?.name} - {swapReceiveNetwork?.name}
+                  {network?.name} → {swapReceiveNetwork?.name}
                 </SizableText>
               </XStack>
             }
@@ -661,9 +674,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
       return (
         <>
-          <InfoItemGroup testID="transfer-tx-amount">
-            {transferChangeElements}
-          </InfoItemGroup>
+          <Stack testID="transfer-tx-amount">{transferChangeElements}</Stack>
           <Divider mx="$5" />
           <InfoItemGroup testID="transfer-tx-action">
             {transferExtraElements}

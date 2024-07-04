@@ -140,6 +140,7 @@ function SendConfirmContainer() {
           <Stack>
             {sendFeeStatus.errMessage ? (
               <Alert
+                mb="$2.5"
                 fullBleed
                 icon="ErrorOutline"
                 type="critical"
@@ -148,6 +149,7 @@ function SendConfirmContainer() {
             ) : null}
             {sendAlertStatus.isInsufficientNativeBalance ? (
               <Alert
+                mb="$2.5"
                 fullBleed
                 icon="ErrorOutline"
                 type="critical"
@@ -163,6 +165,7 @@ function SendConfirmContainer() {
             ) : null}
             {preCheckTxStatus.errorMessage ? (
               <Alert
+                mb="$2.5"
                 fullBleed
                 icon="ErrorOutline"
                 type="critical"

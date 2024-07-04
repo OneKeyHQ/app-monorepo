@@ -855,7 +855,7 @@ function FeeEditor(props: IProps) {
     if (customFee.gas) {
       return (
         <Form form={form}>
-          <YStack space="$5" pt="$5">
+          <YStack space="$5">
             <Form.Field
               label={intl.formatMessage(
                 {
@@ -917,7 +917,7 @@ function FeeEditor(props: IProps) {
     if (customFee.feeUTXO) {
       return (
         <Form form={form}>
-          <YStack pt="$5">
+          <YStack>
             <Form.Field
               name="feeRate"
               rules={{
@@ -946,7 +946,7 @@ function FeeEditor(props: IProps) {
     if (customFee.feeSol) {
       return (
         <Form form={form}>
-          <YStack pt="$5">
+          <YStack>
             <Form.Field
               label={intl.formatMessage({
                 id: ETranslations.form__priority_fee,
