@@ -102,6 +102,7 @@ class ProviderApiBtc extends ProviderApiBase {
         return accounts;
       }
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      void this._getConnectedNetworkName(request);
       return this.getAccounts(request);
     });
   }
