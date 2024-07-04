@@ -489,7 +489,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 key={transfer.tokenIdOnNetwork}
               >
                 <Token isNFT={transfer.isNFT} tokenImageUri={transfer.icon} />
-                <Stack>
+                <Stack flex={1}>
                   <SizableText size="$bodyLgMedium">{`${
                     direction === EDecodedTxDirection.OUT ? '-' : '+'
                   }${
@@ -560,9 +560,25 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         );
       });
 
+      transferElements.push(
+        <InfoItem
+          compact
+          label={intl.formatMessage({ id: ETranslations.network__network })}
+          renderContent={
+            <XStack alignItems="center" space="$2">
+              <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {network?.name}
+              </SizableText>
+            </XStack>
+          }
+        />,
+      );
+
       if (application) {
         transferElements.push(
           <InfoItem
+            compact
             label={intl.formatMessage({
               id: ETranslations.transaction_application,
             })}
@@ -582,20 +598,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
           />,
         );
       }
-
-      transferElements.push(
-        <InfoItem
-          label={intl.formatMessage({ id: ETranslations.network__network })}
-          renderContent={
-            <XStack alignItems="center" space="$2">
-              <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {network?.name}
-              </SizableText>
-            </XStack>
-          }
-        />,
-      );
 
       return (
         <>

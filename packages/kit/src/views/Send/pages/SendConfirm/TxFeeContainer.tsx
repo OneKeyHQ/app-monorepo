@@ -555,63 +555,117 @@ function TxFeeContainer(props: IProps) {
   ]);
 
   return (
-    <InfoItemGroup
-      animation="repeat"
-      animateOnly={['opacity']}
-      opacity={isLoading && txFeeInit.current ? 0.5 : 1}
+    <Stack
+      mb="$5"
+      $gtMd={{
+        mb: '$0',
+      }}
     >
-      <InfoItem
-        label={intl.formatMessage({
-          id: ETranslations.global_est_network_fee,
-        })}
-        renderContent={
-          <>
-            <XStack space="$1">
-              <XStack space="$1">
-                {txFeeInit.current ? (
-                  <NumberSizeableText
-                    formatter="balance"
-                    formatterOptions={{
-                      tokenSymbol: txFee?.common.nativeSymbol,
-                    }}
-                    size="$bodyMd"
-                    color="$textSubdued"
-                  >
-                    {selectedFee?.totalNativeForDisplay ?? '0.00'}
-                  </NumberSizeableText>
-                ) : (
-                  <Stack py="$1">
-                    <Skeleton height="$3" width="$24" />
-                  </Stack>
-                )}
-                {txFeeInit.current ? (
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    (
-                    <NumberSizeableText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      formatter="value"
-                      formatterOptions={{
-                        currency: settings.currencyInfo.symbol,
-                      }}
-                    >
-                      {selectedFee?.totalFiatForDisplay ?? '0.00'}
-                    </NumberSizeableText>
-                    )
-                  </SizableText>
-                ) : (
-                  ''
-                )}
-              </XStack>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                •
-              </SizableText>
-              {renderFeeEditor()}
-            </XStack>
-          </>
-        }
-      />
-    </InfoItemGroup>
+      <XStack space="$2" alignItems="center" pb="$1">
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.global_est_network_fee,
+          })}
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          •
+        </SizableText>
+        {renderFeeEditor()}
+      </XStack>
+      <XStack space="$1" alignItems="center">
+        {txFeeInit.current && !isLoading ? (
+          <NumberSizeableText
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: txFee?.common.nativeSymbol,
+            }}
+            size="$bodyMd"
+            color="$textSubdued"
+          >
+            {selectedFee?.totalNativeForDisplay ?? '0.00'}
+          </NumberSizeableText>
+        ) : (
+          <Stack py="$1">
+            <Skeleton height="$3" width="$24" />
+          </Stack>
+        )}
+        {txFeeInit.current && !isLoading ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            (
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{
+                currency: settings.currencyInfo.symbol,
+              }}
+            >
+              {selectedFee?.totalFiatForDisplay ?? '0.00'}
+            </NumberSizeableText>
+            )
+          </SizableText>
+        ) : (
+          ''
+        )}
+      </XStack>
+    </Stack>
+    // <InfoItemGroup
+    //   animation="repeat"
+    //   animateOnly={['opacity']}
+    //   opacity={isLoading && txFeeInit.current ? 0.5 : 1}
+    // >
+    //   <InfoItem
+    //     label={intl.formatMessage({
+    //       id: ETranslations.global_est_network_fee,
+    //     })}
+    //     renderContent={
+    //       <>
+    //         <XStack space="$1">
+    //           <XStack space="$1">
+    //             {txFeeInit.current ? (
+    //               <NumberSizeableText
+    //                 formatter="balance"
+    //                 formatterOptions={{
+    //                   tokenSymbol: txFee?.common.nativeSymbol,
+    //                 }}
+    //                 size="$bodyMd"
+    //                 color="$textSubdued"
+    //               >
+    //                 {selectedFee?.totalNativeForDisplay ?? '0.00'}
+    //               </NumberSizeableText>
+    //             ) : (
+    //               <Stack py="$1">
+    //                 <Skeleton height="$3" width="$24" />
+    //               </Stack>
+    //             )}
+    //             {txFeeInit.current ? (
+    //               <SizableText size="$bodyMd" color="$textSubdued">
+    //                 (
+    //                 <NumberSizeableText
+    //                   size="$bodyMd"
+    //                   color="$textSubdued"
+    //                   formatter="value"
+    //                   formatterOptions={{
+    //                     currency: settings.currencyInfo.symbol,
+    //                   }}
+    //                 >
+    //                   {selectedFee?.totalFiatForDisplay ?? '0.00'}
+    //                 </NumberSizeableText>
+    //                 )
+    //               </SizableText>
+    //             ) : (
+    //               ''
+    //             )}
+    //           </XStack>
+    //           <SizableText size="$bodyMd" color="$textSubdued">
+    //             •
+    //           </SizableText>
+    //           {renderFeeEditor()}
+    //         </XStack>
+    //       </>
+    //     }
+    //   />
+    // </InfoItemGroup>
   );
 }
 export default memo(TxFeeContainer);

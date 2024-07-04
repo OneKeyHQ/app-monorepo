@@ -55,7 +55,7 @@ function TxExtraInfoContainer() {
                 <ScrollView
                   maxHeight="$48"
                   showsVerticalScrollIndicator={false}
-                  pb="$2.5" // for spacing between the text and the border while haven't scroll behavior
+                  pb="$5" // for spacing between the text and the border while haven't scroll behavior
                   borderBottomWidth={StyleSheet.hairlineWidth}
                   borderColor="$borderSubdued"
                 >
