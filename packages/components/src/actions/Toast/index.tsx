@@ -111,13 +111,12 @@ function ToastInner({
   actionsProps?: IToastProps['actionsProps'];
   actions?: JSX.Element[];
 }) {
-  const { height, width } = useWindowDimensions();
+  const { height } = useWindowDimensions();
 
   return (
     <YStack
       flex={1}
       maxWidth={maxWidth}
-      width={width}
       maxHeight={height - 100}
       $platform-native={{
         maxHeight: height - 200,
