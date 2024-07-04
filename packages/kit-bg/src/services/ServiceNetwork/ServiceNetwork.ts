@@ -263,6 +263,20 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async isDeriveTypeAvailableForNetwork({
+    networkId,
+    deriveType,
+  }: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }): Promise<boolean> {
+    const deriveInfoItems = await this.getDeriveInfoItemsOfNetwork({
+      networkId,
+    });
+    return Boolean(deriveInfoItems.find((item) => item.value === deriveType));
+  }
+
+  @backgroundMethod()
   async getDeriveInfoItemsOfNetwork({
     networkId,
     enabledItems,
