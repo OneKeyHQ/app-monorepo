@@ -195,6 +195,7 @@ function SendConfirmContainer() {
           onSuccess={onSuccess}
           onFail={onFail}
           onCancel={onCancel}
+          transferPayload={transferPayload}
         />
       </>
     ),

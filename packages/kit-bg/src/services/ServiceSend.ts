@@ -297,6 +297,7 @@ class ServiceSend extends ServiceBase {
       sourceInfo,
       feeInfo: sendSelectedFeeInfo,
       replaceTxInfo,
+      transferPayload,
     } = params;
 
     const result: ISendTxOnSuccessData[] = [];
@@ -320,6 +321,7 @@ class ServiceSend extends ServiceBase {
         accountId,
         unsignedTx,
         feeInfo: sendSelectedFeeInfo,
+        transferPayload,
       });
 
       const data = {

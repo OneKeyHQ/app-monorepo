@@ -17,6 +17,7 @@ import {
   useSendTxStatusAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -33,6 +34,7 @@ type IProps = {
   onCancel?: () => void;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
+  transferPayload: ITransferPayload | undefined;
 };
 
 function SendConfirmActionsContainer(props: IProps) {
@@ -44,6 +46,7 @@ function SendConfirmActionsContainer(props: IProps) {
     onCancel,
     sourceInfo,
     signOnly,
+    transferPayload,
   } = props;
   const intl = useIntl();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -146,6 +149,7 @@ function SendConfirmActionsContainer(props: IProps) {
           feeInfo: sendSelectedFeeInfo,
           signOnly,
           sourceInfo,
+          transferPayload,
         });
       onSuccess?.(result);
       setIsSubmitting(false);
@@ -173,17 +177,18 @@ function SendConfirmActionsContainer(props: IProps) {
     }
   }, [
     sendSelectedFeeInfo,
-    checkFeeInfoIsOverflow,
-    unsignedTxs,
-    showFeeInfoOverflowConfirm,
     networkId,
     accountId,
+    unsignedTxs,
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     onFail,
     dappApprove,
+    checkFeeInfoIsOverflow,
+    showFeeInfoOverflowConfirm,
     signOnly,
     sourceInfo,
+    transferPayload,
     onSuccess,
     intl,
     navigation,
