@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IFetchHistoryTxDetailsResp } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTxStatus,
+  type IFetchHistoryTxDetailsResp,
+} from '@onekeyhq/shared/types/history';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -34,7 +37,11 @@ function useTxTrack({
           accountId,
           txid: txHash,
         });
-      if (txDetailsResp) {
+      if (
+        txDetailsResp &&
+        txDetailsResp.data &&
+        txDetailsResp.data.status !== EOnChainHistoryTxStatus.Pending
+      ) {
         setTxDetails(txDetailsResp);
       } else if (Date.now() - startAt < timeout) {
         // Continue checking until the timeout is reached
