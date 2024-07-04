@@ -6,7 +6,7 @@ import { useWindowDimensions } from 'react-native';
 import { SizableText, YStack } from 'tamagui';
 
 import { Portal } from '../../hocs';
-import { Button, Icon, XStack } from '../../primitives';
+import { Button, Icon, Stack, XStack } from '../../primitives';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { showMessage } from './showMessage';
@@ -122,7 +122,7 @@ function ToastInner({
         overflow: 'hidden',
       }}
     >
-      <YStack>
+      <YStack space="$1">
         <RenderLines size="$headingSm" icon={icon} hasMessage={!!message}>
           {title}
         </RenderLines>
