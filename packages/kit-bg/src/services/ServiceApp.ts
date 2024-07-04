@@ -59,6 +59,8 @@ class ServiceApp extends ServiceBase {
     if (platformEnv.isRuntimeBrowser) {
       try {
         global.localStorage.clear();
+        // reset href
+        global.location.href = '/';
       } catch {
         console.error('window.localStorage.clear() error');
       }

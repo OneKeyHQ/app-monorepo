@@ -29,6 +29,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
   const displayUrl = activeTabId && tab?.url;
+  const isHttpsUrl = displayUrl && /^https/i.test(tab?.url);
 
   return (
     <XStack
@@ -50,7 +51,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       borderCurve="continuous"
     >
       <Icon
-        name={displayUrl ? 'LockOutline' : 'SearchOutline'}
+        name={isHttpsUrl ? 'LockOutline' : 'SearchOutline'}
         size="$5"
         color="$iconSubdued"
       />
@@ -63,7 +64,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
         testID="explore-index-search"
       >
         {displayUrl
-          ? tab?.url
+          ? tab?.url?.replace?.(/^https:\/\//i, '')
           : intl.formatMessage({
               id: ETranslations.explore_search_placeholder,
             })}
