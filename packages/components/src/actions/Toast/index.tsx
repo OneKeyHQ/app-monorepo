@@ -2,11 +2,11 @@ import type { RefObject } from 'react';
 import { createRef } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import { SizableText, YStack } from 'tamagui';
 
 import { Portal } from '../../hocs';
-import { Button, Icon, Stack, XStack } from '../../primitives';
+import { Button, Icon, XStack } from '../../primitives';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { showMessage } from './showMessage';
@@ -109,11 +109,12 @@ function ToastInner({
   actionsProps?: IToastProps['actionsProps'];
   actions?: JSX.Element[];
 }) {
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
   return (
     <YStack
       flex={1}
       maxWidth={maxWidth}
+      width={width}
       maxHeight={height - 100}
       $platform-native={{
         maxHeight: height - 200,
@@ -131,7 +132,7 @@ function ToastInner({
 
         {actionsProps ? <Button {...actionsProps} /> : null}
 
-        {actions ? (
+        {actions && Platform.OS !== 'ios' ? (
           <XStack
             alignItems="center"
             justifyContent="flex-end"
@@ -141,6 +142,12 @@ function ToastInner({
           >
             {actions}
           </XStack>
+        ) : null}
+
+        {actions && Platform.OS === 'ios' ? (
+          <YStack pt="$1" space="$2">
+            {actions}
+          </YStack>
         ) : null}
       </YStack>
     </YStack>
