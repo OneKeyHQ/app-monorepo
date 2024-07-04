@@ -470,6 +470,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     intl,
   });
 
+  const { network: swapReceiveNetwork } = useAccountData({
+    networkId: swapInfo?.receiver?.token?.networkId,
+  });
+
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
   const receivesBlock = buildTransfersBlock(groupBy(receives, 'from'));
 
@@ -586,20 +590,50 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         );
       });
 
-      transferExtraElements.push(
-        <InfoItem
-          compact
-          label={intl.formatMessage({ id: ETranslations.network__network })}
-          renderContent={
-            <XStack alignItems="center" space="$2">
-              <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {network?.name}
-              </SizableText>
-            </XStack>
-          }
-        />,
-      );
+      let networkInfo: React.ReactElement | null = null;
+
+      if (
+        swapInfo &&
+        swapReceiveNetwork?.id &&
+        swapReceiveNetwork?.id !== network?.id
+      ) {
+        networkInfo = (
+          <InfoItem
+            compact
+            label={intl.formatMessage({ id: ETranslations.network__network })}
+            renderContent={
+              <XStack alignItems="center" space="$2">
+                <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+                <Image
+                  w="$5"
+                  h="$5"
+                  source={{ uri: swapReceiveNetwork?.logoURI }}
+                />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {network?.name} - {swapReceiveNetwork?.name}
+                </SizableText>
+              </XStack>
+            }
+          />
+        );
+      } else {
+        networkInfo = (
+          <InfoItem
+            compact
+            label={intl.formatMessage({ id: ETranslations.network__network })}
+            renderContent={
+              <XStack alignItems="center" space="$2">
+                <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {network?.name}
+                </SizableText>
+              </XStack>
+            }
+          />
+        );
+      }
+
+      transferExtraElements.push(networkInfo);
 
       if (application) {
         transferExtraElements.push(
@@ -646,9 +680,13 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       intl,
       isSendNativeToken,
       nativeTokenTransferAmountToUpdate,
+      network?.id,
       network?.logoURI,
       network?.name,
       swapInfo,
+      swapReceiveNetwork?.id,
+      swapReceiveNetwork?.logoURI,
+      swapReceiveNetwork?.name,
     ],
   );
 
