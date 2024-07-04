@@ -1,6 +1,5 @@
 import type { RefObject } from 'react';
 import { createRef } from 'react';
-import { useMedia } from 'tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ToastProvider } from '@tamagui/toast';
@@ -113,7 +112,6 @@ function ToastInner({
   actions?: JSX.Element[];
 }) {
   const { height, width } = useWindowDimensions();
-  const media = useMedia();
 
   return (
     <YStack
