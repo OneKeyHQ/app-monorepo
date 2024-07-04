@@ -26,6 +26,13 @@ export function getWebviewWrapperRef(id?: string) {
   return ref ?? null;
 }
 
+export function formatHiddenHttpsUrl(url?: string) {
+  return {
+    isHttpsUrl: url && /^https/i.test(url),
+    hiddenHttpsUrl: url?.replace?.(/^https:\/\//i, ''),
+  };
+}
+
 export function crossWebviewLoadUrl({
   url,
   tabId,
