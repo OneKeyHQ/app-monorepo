@@ -4,7 +4,6 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { UserCancelFromOutside } from '@onekeyhq/shared/src/errors';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
@@ -40,6 +39,7 @@ export type ICloseHardwareUiStateDialogParams = {
   delay?: number;
   connectId: string | undefined;
   reason?: string;
+  deviceResetToHome?: boolean;
 };
 
 @backgroundClass()
@@ -59,16 +59,11 @@ class ServiceHardwareUI extends ServiceBase {
 
   @backgroundMethod()
   async showCheckingDeviceDialog({ connectId }: { connectId: string }) {
-    console.log('=====>>>>>> showCheckingDeviceDialog show dialog');
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.DeviceChecking,
       connectId,
       payload: undefined,
     });
-
-    // wait animation done
-    // await timerUtils.wait(300);
-    console.log('=====>>>>>> showCheckingDeviceDialog show dialog Done!!!');
   }
 
   @backgroundMethod()
@@ -147,18 +142,24 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
+  async cleanHardwareUiState() {
+    await hardwareUiStateAtom.set(undefined);
+  }
+
+  @backgroundMethod()
   async closeHardwareUiStateDialog({
     skipDeviceCancel,
     delay,
     connectId,
     reason,
+    deviceResetToHome = true,
   }: ICloseHardwareUiStateDialogParams) {
     try {
       console.log(`closeHardwareUiStateDialog: ${reason || 'no reason'}`);
       if (delay) {
         await timerUtils.wait(delay);
       }
-      await hardwareUiStateAtom.set(undefined);
+      await this.cleanHardwareUiState();
 
       if (!skipDeviceCancel) {
         if (connectId) {
@@ -167,7 +168,7 @@ class ServiceHardwareUI extends ServiceBase {
         console.log('closeHardwareUiStateDialog cancel device: ', connectId);
         // do not wait cancel, may cause caller stuck
         void this.backgroundApi.serviceHardware.cancel(connectId, {
-          forceDeviceResetToHome: true,
+          forceDeviceResetToHome: deviceResetToHome,
         });
       }
     } catch (error) {
@@ -185,7 +186,7 @@ class ServiceHardwareUI extends ServiceBase {
       debugMethodName,
     }: IWithHardwareProcessingOptions,
   ): Promise<T> {
-    console.log('=====>>>>>> withHardwareProcessing start: ', debugMethodName);
+    console.log('withHardwareProcessing start: ', debugMethodName);
     // >>> mock hardware connectId
     // if (deviceParams?.dbDevice && deviceParams) {
     //   deviceParams.dbDevice.connectId = '11111';
@@ -197,6 +198,12 @@ class ServiceHardwareUI extends ServiceBase {
       await this.showCheckingDeviceDialog({
         connectId,
       });
+    }
+
+    // wait action animation done
+    // action dialog may call getFeatures of the hardware when it is closed
+    if (connectId) {
+      await this.hardwareProcessingManager.cancelableDelay(connectId, 350);
     }
 
     // test delay
@@ -223,17 +230,16 @@ class ServiceHardwareUI extends ServiceBase {
         this.backgroundApi.serviceHardware.getSDKInstance(),
       );
     }
+
+    let deviceResetToHome = true;
     try {
-      if (connectId && !skipDeviceCancelAtFirst) {
-        await this.backgroundApi.serviceHardware.cancel(connectId);
-        try {
-          await this.hardwareProcessingManager.cancelableDelay(connectId, 600);
-        } catch (error) {
-          throw new UserCancelFromOutside();
-        }
-      }
+      // if (connectId && !skipDeviceCancelAtFirst) {
+      //   await this.backgroundApi.serviceHardware.cancel(connectId);
+      //   await this.hardwareProcessingManager.cancelableDelay(connectId, 600);
+      // }
 
       const r = await fn();
+      deviceResetToHome = false;
       console.log('withHardwareProcessing done: ', r);
       return r;
     } catch (error) {
@@ -252,12 +258,28 @@ class ServiceHardwareUI extends ServiceBase {
           connectId,
         });
       }
+      // skip reset to home if user cancel
+      if (
+        isHardwareErrorByCode({
+          error: error as any,
+          code: [
+            HardwareErrorCode.ActionCancelled,
+            HardwareErrorCode.PinCancelled,
+            // Hardware interrupts generally have follow-up actions; skip reset to home
+            HardwareErrorCode.DeviceInterruptedFromUser,
+            HardwareErrorCode.DeviceInterruptedFromOutside,
+          ],
+        })
+      ) {
+        deviceResetToHome = false;
+      }
       throw error;
     } finally {
       if (connectId) {
         await this.closeHardwareUiStateDialog({
           connectId,
           skipDeviceCancel, // auto cancel if device call interaction action
+          deviceResetToHome,
         });
         void this.backgroundApi.serviceFirmwareUpdate.delayShouldDetectTimeCheck(
           { connectId },

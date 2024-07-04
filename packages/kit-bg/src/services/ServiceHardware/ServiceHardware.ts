@@ -1,4 +1,3 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 
@@ -9,11 +8,7 @@ import {
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import {
-  convertDeviceResponse,
-  isHardwareErrorByCode,
-  isHardwareInterruptErrorByCode,
-} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,

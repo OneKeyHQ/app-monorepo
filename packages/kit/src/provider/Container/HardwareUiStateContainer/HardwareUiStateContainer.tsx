@@ -314,6 +314,26 @@ function HardwareUiStateContainerCmp() {
     [hasToastAction],
   );
 
+  const hasDeviceResetToHome = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (
+        currentState?.action &&
+        [
+          EHardwareUiStateAction.REQUEST_PASSPHRASE,
+          EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE,
+          EHardwareUiStateAction.REQUEST_PIN,
+          EHardwareUiStateAction.EnterPinOnDevice,
+          EHardwareUiStateAction.REQUEST_BUTTON,
+        ].includes(currentState?.action)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [],
+  );
+
   const shouldSkipCancel = useMemo(() => {
     // TODO atom firmware is updating
     if (
@@ -335,6 +355,7 @@ function HardwareUiStateContainerCmp() {
   const showActionsToast = useCallback(
     (currentState: IHardwareUiState | undefined) => {
       const currentDeviceType = getDeviceType(currentState);
+      const currentShouldDeviceResetToHome = hasDeviceResetToHome(currentState);
       toastQueueManagerRef?.current?.addQueue(() => ({
         state: currentState,
         action: () =>
@@ -345,7 +366,10 @@ function HardwareUiStateContainerCmp() {
             dismissOnOverlayPress: false,
             disableSwipeGesture: true,
             onClose: async (params) => {
-              log('close toast:', params);
+              log('close toast:', params, currentState, {
+                currentShouldDeviceResetToHome,
+                shouldSkipCancel: shouldSkipCancelRef.current,
+              });
               if (params?.flag !== autoClosedFlag) {
                 appEventBus.emit(
                   EAppEventBusNames.CloseHardwareUiStateDialogManually,
@@ -354,19 +378,21 @@ function HardwareUiStateContainerCmp() {
                 await serviceHardwareUI.closeHardwareUiStateDialog({
                   connectId: currentState?.connectId,
                   skipDeviceCancel: shouldSkipCancelRef.current,
+                  deviceResetToHome: currentShouldDeviceResetToHome,
                 });
               }
             },
           }),
       }));
     },
-    [getDeviceType, serviceHardwareUI],
+    [getDeviceType, serviceHardwareUI, hasDeviceResetToHome],
   );
 
   const showActionsDialog = useCallback(
     (currentState: IHardwareUiState | undefined) => {
       // Required operation dialog
       const isOperationAction = hasOperationAction(currentState);
+      const currentShouldDeviceResetToHome = hasDeviceResetToHome(currentState);
       dialogQueueManagerRef?.current?.addQueue(() => ({
         state: currentState,
         action: () =>
@@ -379,7 +405,10 @@ function HardwareUiStateContainerCmp() {
               <HardwareSingletonDialog ref={ref} state={currentState} />
             ),
             async onClose(params) {
-              log('close dialog');
+              log('close dialog', params, currentState, {
+                currentShouldDeviceResetToHome,
+                shouldSkipCancel: shouldSkipCancelRef.current,
+              });
 
               if (params?.flag !== autoClosedFlag) {
                 appEventBus.emit(
@@ -390,13 +419,14 @@ function HardwareUiStateContainerCmp() {
                   connectId: currentState?.connectId,
                   reason: 'HardwareUiStateContainer onClose',
                   skipDeviceCancel: shouldSkipCancelRef.current,
+                  deviceResetToHome: false,
                 });
               }
             },
           }),
       }));
     },
-    [hasOperationAction, serviceHardwareUI],
+    [hasOperationAction, serviceHardwareUI, hasDeviceResetToHome],
   );
 
   const hasSameDialogAction = useCallback(
@@ -496,4 +526,5 @@ function HardwareUiStateContainerCmp() {
 
   return null;
 }
+
 export const HardwareUiStateContainer = memo(HardwareUiStateContainerCmp);

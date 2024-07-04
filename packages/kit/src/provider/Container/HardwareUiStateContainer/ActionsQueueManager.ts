@@ -35,7 +35,7 @@ export default class ActionsQueueManager {
       await backgroundApiProxy.serviceDevSetting.getDevSetting();
     if (devSetting) {
       console.log(
-        `=====>>>>> ActionsQueueManager ${this.tag} action `,
+        `[ActionsQueueManager] ${this.tag} action `,
         message,
         optionalParams,
       );

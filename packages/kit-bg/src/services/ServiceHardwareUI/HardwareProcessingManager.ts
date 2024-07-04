@@ -26,17 +26,16 @@ export class HardwareProcessingManager {
       };
 
       this.registerCancelCallback(connectId, cancelCallback);
-
-      fn().then(
-        (result) => {
-          this.unregisterCancelCallback(connectId);
+      fn()
+        .then((result) => {
           resolve(result);
-        },
-        (error) => {
-          this.unregisterCancelCallback(connectId);
+        })
+        .then((error) => {
           reject(error);
-        },
-      );
+        })
+        .finally(() => {
+          this.unregisterCancelCallback(connectId);
+        });
     });
   }
 
