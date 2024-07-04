@@ -52,6 +52,7 @@ import {
 } from '@onekeyhq/core/src/secret';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -85,6 +86,7 @@ import ClientSol from './sdkSol/ClientSol';
 import {
   BASE_FEE,
   COMPUTE_UNIT_PRICE_DECIMALS,
+  JUPITER_V6_PROGRAM_ID,
   TOKEN_AUTH_RULES_ID,
   masterEditionAddress,
   metadataAddress,
@@ -633,18 +635,18 @@ export default class Vault extends VaultBase {
 
     let actions: IDecodedTxAction[] = [];
 
-    actions = await this._decodeNativeTxActions({
-      nativeTx,
-      isNFT: transferPayload?.isNFT,
-    });
-
     if (unsignedTx.swapInfo) {
       actions = [
         await this._buildTxActionFromSwap({
           swapInfo: unsignedTx.swapInfo,
-          actions,
+          nativeTx,
         }),
       ];
+    } else {
+      actions = await this._decodeNativeTxActions({
+        nativeTx,
+        isNFT: transferPayload?.isNFT,
+      });
     }
 
     const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
@@ -706,7 +708,6 @@ export default class Vault extends VaultBase {
       nativeTx,
       client,
     });
-
     for (const instruction of instructions) {
       // TODO: only support system transfer & token transfer now
       if (
@@ -754,7 +755,6 @@ export default class Vault extends VaultBase {
       } else if (
         instruction.programId.toString() ===
           ASSOCIATED_TOKEN_PROGRAM_ID.toString() &&
-        instruction.data.length === 0 &&
         instruction.keys[4].pubkey.toString() ===
           SystemProgram.programId.toString() &&
         instruction.keys[5].pubkey.toString() === TOKEN_PROGRAM_ID.toString()
@@ -847,17 +847,50 @@ export default class Vault extends VaultBase {
 
   async _buildTxActionFromSwap(params: {
     swapInfo: ISwapTxInfo;
-    actions: IDecodedTxAction[];
+    nativeTx: INativeTxSol;
   }) {
-    const { swapInfo, actions } = params;
+    const { swapInfo, nativeTx } = params;
     const providerInfo = swapInfo.swapBuildResData.result.info;
-    const action = actions[0];
-    if (action.assetTransfer) {
-      action.assetTransfer.application = {
+    const swapSendToken = swapInfo.sender.token;
+    const client = await this.getClient();
+
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client,
+    });
+
+    let interactedProgram = '';
+
+    for (const instruction of instructions) {
+      if (
+        JUPITER_V6_PROGRAM_ID.toString() === instruction.programId.toString()
+      ) {
+        interactedProgram = JUPITER_V6_PROGRAM_ID.toString();
+        break;
+      }
+    }
+
+    const action = await this.buildTxTransferAssetAction({
+      from: swapInfo.accountAddress,
+      to: interactedProgram,
+      application: {
         name: providerInfo.providerName,
         icon: providerInfo.providerLogo ?? '',
-      };
-    }
+      },
+      transfers: [
+        {
+          from: swapInfo.accountAddress,
+          to: interactedProgram,
+          tokenIdOnNetwork: swapSendToken.contractAddress,
+          icon: swapSendToken.logoURI ?? '',
+          name: swapSendToken.name ?? '',
+          symbol: swapSendToken.symbol,
+          amount: swapInfo.sender.amount,
+          isNFT: false,
+          isNative: swapSendToken.isNative,
+        },
+      ],
+    });
     return action;
   }
 

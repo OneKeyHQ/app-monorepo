@@ -570,7 +570,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
           <InfoItem
             key={`${index}-target`}
             label={
-              application && data
+              application
                 ? intl.formatMessage({
                     id: ETranslations.interact_with_contract,
                   })
@@ -581,7 +581,9 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                         : ETranslations.global_from,
                   })
             }
-            renderContent={target}
+            renderContent={
+              target || intl.formatMessage({ id: ETranslations.global_unknown })
+            }
             description={
               <AddressInfo
                 address={target}
@@ -684,7 +686,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     },
     [
       application,
-      data,
       decodedTx.accountId,
       decodedTx.networkId,
       from,

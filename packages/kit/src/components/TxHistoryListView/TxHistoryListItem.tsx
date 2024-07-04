@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Button, XStack } from '@onekeyhq/components';
@@ -10,7 +12,6 @@ import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 import { useReplaceTx } from '../../hooks/useReplaceTx';
 
 import { TxHistoryListItemErrorBoundary } from './TxHistoryListItemErrorBoundary';
-import { useCallback } from 'react';
 
 type IProps = {
   index: number;
