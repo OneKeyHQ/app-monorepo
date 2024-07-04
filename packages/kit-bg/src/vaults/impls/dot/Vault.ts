@@ -125,57 +125,56 @@ export default class VaultDot extends VaultBase {
     registry: TypeRegistry;
   }> {
     const [
-      { specName, specVersion, transactionVersion },
-      blockHash,
-      genesisHash,
-      { block },
-      metadataRpc,
-    ] = (await this.backgroundApi.serviceAccountProfile.sendProxyRequest({
-      networkId: this.networkId,
-      body: [
-        {
-          route: 'rpc',
-          params: {
-            method: 'state_getRuntimeVersion',
-            params: [],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'chain_getBlockHash',
-            params: [],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'chain_getBlockHash',
-            params: [0],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'chain_getBlock',
-            params: [],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'state_getMetadata',
-            params: [],
-          },
-        },
+      [
+        { specName, specVersion, transactionVersion },
+        blockHash,
+        genesisHash,
+        { block },
       ],
-    })) as [
-      { specName: string; specVersion: number; transactionVersion: number },
-      string,
-      string,
-      { block: { header: { number: number } } },
-      `0x${string}`,
-    ];
+      metadataRpc,
+    ] = await Promise.all([
+      this.backgroundApi.serviceAccountProfile.sendProxyRequest({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: 'state_getRuntimeVersion',
+              params: [],
+            },
+          },
+          {
+            route: 'rpc',
+            params: {
+              method: 'chain_getBlockHash',
+              params: [],
+            },
+          },
+          {
+            route: 'rpc',
+            params: {
+              method: 'chain_getBlockHash',
+              params: [0],
+            },
+          },
+          {
+            route: 'rpc',
+            params: {
+              method: 'chain_getBlock',
+              params: [],
+            },
+          },
+        ],
+      }) as Promise<
+        [
+          { specName: string; specVersion: number; transactionVersion: number },
+          string,
+          string,
+          { block: { header: { number: number } } },
+        ]
+      >,
+      this._getMetadataRpc(),
+    ]);
     const info = {
       metadataRpc,
       specName: specName as 'polkadot',
@@ -310,24 +309,29 @@ export default class VaultDot extends VaultBase {
     };
   }
 
-  private async _getMetadataRpc(): Promise<`0x${string}`> {
-    const [res] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
-        {
-          networkId: this.networkId,
-          body: [
-            {
-              route: 'rpc',
-              params: {
-                method: 'state_getMetadata',
-                params: [],
+  private _getMetadataRpc = memoizee(
+    async (): Promise<`0x${string}`> => {
+      const [res] =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
+          {
+            networkId: this.networkId,
+            body: [
+              {
+                route: 'rpc',
+                params: {
+                  method: 'state_getMetadata',
+                  params: [],
+                },
               },
-            },
-          ],
-        },
-      );
-    return res;
-  }
+            ],
+          },
+        );
+      return res;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
 
   private async _getRegistry(params: {
     metadataRpc?: `0x${string}`;
@@ -448,14 +452,9 @@ export default class VaultDot extends VaultBase {
       to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
 
       if (decodeUnsignedTx.method.name === 'transferAll') {
-        const accountDetail =
-          await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-            networkId: this.networkId,
-            accountId: this.accountId,
-            withNonce: false,
-            withNetWorth: true,
-          });
-        const balance = new BigNumber(accountDetail.balance ?? 0);
+        const balance = new BigNumber(
+          params.transferPayload?.amountToSend ?? 0,
+        ).shiftedBy(tokenInfo.decimals);
         const feeInfo = unsignedTx.feeInfo;
         const fee = feeInfo
           ? new BigNumber(feeInfo.gas?.gasLimit ?? 0)
