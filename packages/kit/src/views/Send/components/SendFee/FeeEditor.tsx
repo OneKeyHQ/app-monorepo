@@ -1299,8 +1299,10 @@ function FeeEditor(props: IProps) {
   return (
     <>
       <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$72">
-        {renderFeeTypeSelector()}
-        {renderFeeEditorForm()}
+        <Stack space="$5">
+          {renderFeeTypeSelector()}
+          {renderFeeEditorForm()}
+        </Stack>
       </ScrollView>
       <Stack
         pt="$4"
