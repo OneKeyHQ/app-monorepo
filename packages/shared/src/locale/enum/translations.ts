@@ -1259,6 +1259,7 @@ export enum ETranslations {
   slippage_tolerance_title = 'slippage_tolerance.title',
   slippage_tolerance_warning_message_1 = 'slippage_tolerance.warning_message_1',
   slippage_tolerance_warning_message_2 = 'slippage_tolerance.warning_message_2',
+  speed_up_cancellation = 'speed_up_cancellation',
   swap_account_from_address = 'swap_account.from_address',
   swap_account_to_address = 'swap_account.to_address',
   swap_account_to_address_edit = 'swap_account.to_address_edit',

@@ -1258,6 +1258,7 @@
   "slippage_tolerance.title": "Toleransi slippage",
   "slippage_tolerance.warning_message_1": "Toleransi slippage yang tinggi dapat menyebabkan kerugian aset Anda.",
   "slippage_tolerance.warning_message_2": "Slippage di bawah {number}% dapat menyebabkan kegagalan perdagangan.",
+  "speed_up_cancellation": "Percepat pembatalan",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",
   "swap_account.to_address_edit": " (diedit)",

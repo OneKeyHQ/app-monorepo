@@ -175,9 +175,23 @@ export function FooterActions({
     ) : null;
   }, [confirmButton, confirmButtonProps, onConfirm, onConfirmText]);
   return (
-    <Stack p="$5" animation="fast" bg="$bgApp" {...restProps}>
+    <Stack
+      p="$5"
+      $gtMd={{
+        flexDirection: 'row',
+        alignItems: 'center',
+      }}
+      bg="$bgApp"
+      {...restProps}
+    >
       {children}
-      <XStack justifyContent="flex-end" space="$2.5" {...buttonContainerProps}>
+      <XStack
+        space="$2.5"
+        $gtMd={{
+          ml: 'auto',
+        }}
+        {...buttonContainerProps}
+      >
         {renderCancelButton()}
         {renderConfirmButton()}
       </XStack>

@@ -27,9 +27,9 @@ export type IAccountNFT = {
   metadata?: {
     description: string;
     externalUrl: string;
-    image: string;
+    image?: string;
     itemUrl: string;
-    name: string;
+    name?: string;
     attributes?: ITraits[];
   };
 };

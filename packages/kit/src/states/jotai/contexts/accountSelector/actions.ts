@@ -47,6 +47,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  accountSelectorContextDataAtom,
   accountSelectorEditModeAtom,
   accountSelectorStorageReadyAtom,
   accountSelectorUpdateMetaAtom,
@@ -261,6 +262,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) => IAccountSelectorSelectedAccount;
       },
     ) => {
+      // const contextData = get(accountSelectorContextDataAtom());
+      // if (!contextData) {
+      //   return;
+      // }
       const { num, builder, updateMeta } = payload;
       const oldSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
         this.getSelectedAccount.call(set, { num }) || defaultSelectedAccount(),
@@ -269,19 +274,37 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       if (isEqual(oldSelectedAccount, newSelectedAccount)) {
         return;
       }
+
+      const newNetworkId = newSelectedAccount?.networkId;
+      const oldNetworkId = oldSelectedAccount?.networkId;
+      const newDeriveType = newSelectedAccount?.deriveType;
+      const oldDeriveType = oldSelectedAccount?.deriveType;
       // fix deriveType from global storage if change network only, as current deriveType is previous network's
       // **** important: remove this logic will cause infinite loop
       // if you want to change networkId and driveType at same time, you should call updateSelectedAccount twice, first change networkId, then change deriveType
       if (
-        newSelectedAccount.networkId !== oldSelectedAccount.networkId &&
-        newSelectedAccount.deriveType === oldSelectedAccount.deriveType
+        newNetworkId &&
+        newNetworkId !== oldNetworkId &&
+        newDeriveType === oldDeriveType
       ) {
-        const newDriveType =
-          await backgroundApiProxy.serviceAccountSelector.getGlobalDeriveType({
-            selectedAccount: newSelectedAccount,
-          });
-        if (newDriveType) {
-          newSelectedAccount.deriveType = newDriveType;
+        const isNewDeriveTypeAvailable =
+          await backgroundApiProxy.serviceNetwork.isDeriveTypeAvailableForNetwork(
+            {
+              networkId: newNetworkId,
+              deriveType: newDeriveType,
+            },
+          );
+        if (!isNewDeriveTypeAvailable) {
+          const newDriveTypeFixed =
+            await backgroundApiProxy.serviceAccountSelector.getGlobalDeriveType(
+              {
+                selectedAccount: newSelectedAccount,
+                sceneName: undefined,
+              },
+            );
+          if (newDriveTypeFixed) {
+            newSelectedAccount.deriveType = newDriveTypeFixed;
+          }
         }
       }
       if (
@@ -873,6 +896,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const globalDeriveType =
           await backgroundApiProxy.serviceAccountSelector.getGlobalDeriveType({
             selectedAccount,
+            sceneName,
           });
         // **** globalDeriveType -> selectedAccount.deriveType
         if (globalDeriveType) {
@@ -1025,6 +1049,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         // **** save global derive type (with event emit if need)
         const updateMeta = get(accountSelectorUpdateMetaAtom())[num];
         const eventEmitDisabled = Boolean(updateMeta?.eventEmitDisabled);
+
         await backgroundApiProxy.serviceAccountSelector.saveGlobalDeriveType({
           eventEmitDisabled,
           selectedAccount,
