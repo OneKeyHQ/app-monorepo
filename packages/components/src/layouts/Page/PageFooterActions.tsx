@@ -180,13 +180,18 @@ export function FooterActions({
       $gtMd={{
         flexDirection: 'row',
         alignItems: 'center',
-        ...(children ? { justifyContent: 'space-between' } : {}),
       }}
       bg="$bgApp"
       {...restProps}
     >
       {children}
-      <XStack space="$2.5" {...buttonContainerProps}>
+      <XStack
+        space="$2.5"
+        $gtMd={{
+          ml: 'auto',
+        }}
+        {...buttonContainerProps}
+      >
         {renderCancelButton()}
         {renderConfirmButton()}
       </XStack>

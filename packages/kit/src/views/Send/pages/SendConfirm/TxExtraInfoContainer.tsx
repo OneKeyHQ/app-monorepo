@@ -1,8 +1,16 @@
 import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { Button, SizableText, Stack } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  ScrollView,
+  SizableText,
+  Stack,
+  useClipboard,
+} from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import { useUnsignedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -17,37 +25,61 @@ function TxExtraInfoContainer() {
   const unsignedTx = unsignedTxs[0];
   const intl = useIntl();
   const [shouldShowData, setShouldShowData] = useState<boolean>(false);
+  const { copyText } = useClipboard();
 
   const encodedTx = unsignedTx?.encodedTx as IEncodedTxEvm;
 
   if (encodedTx && encodedTx.data) {
     return (
-      <InfoItemGroup>
-        <Stack p="$2.5">
-          <Button
-            size="small"
-            iconAfter={
-              shouldShowData
-                ? 'ChevronTopSmallOutline'
-                : 'ChevronDownSmallOutline'
-            }
-            onPress={() => setShouldShowData((prev) => !prev)}
-          >
-            {intl.formatMessage({ id: ETranslations.transaction_data })}
-          </Button>
-        </Stack>
-        {shouldShowData ? (
+      <>
+        <Divider mx="$5" />
+        <InfoItemGroup>
           <InfoItem
+            label={
+              <Button
+                alignSelf="flex-start"
+                variant="tertiary"
+                size="small"
+                iconAfter={
+                  shouldShowData
+                    ? 'ChevronDownSmallOutline'
+                    : 'ChevronRightSmallOutline'
+                }
+                onPress={() => setShouldShowData((prev) => !prev)}
+              >
+                {intl.formatMessage({ id: ETranslations.transaction_data })}
+              </Button>
+            }
             renderContent={
-              <Stack flex={1}>
-                <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
-                  {encodedTx.data}
-                </SizableText>
-              </Stack>
+              shouldShowData ? (
+                <ScrollView
+                  maxHeight="$48"
+                  showsVerticalScrollIndicator={false}
+                  borderRadius="$3"
+                  borderCurve="continuous"
+                  bg="$bgSubdued"
+                >
+                  <SizableText
+                    p="$4"
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    flex={1}
+                    hoverStyle={{
+                      color: '$text',
+                    }}
+                    userSelect="none"
+                    onPress={() => {
+                      copyText(encodedTx.data as string);
+                    }}
+                  >
+                    {encodedTx.data}
+                  </SizableText>
+                </ScrollView>
+              ) : null
             }
           />
-        ) : null}
-      </InfoItemGroup>
+        </InfoItemGroup>
+      </>
     );
   }
 

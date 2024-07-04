@@ -666,7 +666,6 @@ function FeeEditor(props: IProps) {
           {feeTitle}
         </SizableText> */}
         <SegmentControl
-          mb="$5"
           fullWidth
           value={currentFeeIndex}
           onChange={(v) => {
