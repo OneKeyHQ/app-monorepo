@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import type { IIconButtonProps, IStackProps } from '@onekeyhq/components';
 import { IconButton, useMedia } from '@onekeyhq/components';
@@ -8,6 +9,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useWatchListAction } from './wachListHooks';
 
@@ -21,6 +23,7 @@ function BasicMarketStar({
   size?: IIconButtonProps['size'];
   coingeckoId: string;
 } & IStackProps) {
+  const intl = useIntl();
   const actions = useWatchListAction();
 
   const [checked, setIsChecked] = useState(() =>
@@ -72,6 +75,11 @@ function BasicMarketStar({
 
   return (
     <IconButton
+      title={intl.formatMessage({
+        id: checked
+          ? ETranslations.market_remove_from_watchlist
+          : ETranslations.market_add_to_watchlist,
+      })}
       icon={checked ? 'StarSolid' : 'StarOutline'}
       variant="tertiary"
       size={size}

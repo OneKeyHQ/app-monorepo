@@ -24,6 +24,7 @@ import {
   COINTYPE_BTC,
   COINTYPE_COSMOS,
   COINTYPE_DNX,
+  COINTYPE_DOT,
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
   COINTYPE_NEXA,
@@ -74,7 +75,7 @@ import type {
   IDBUtxoAccount,
   IDBWallet,
 } from '../../dbs/local/types';
-import type VaultCosmos from '../../vaults/impls/cosmos/Vault';
+import type { VaultBase } from '../../vaults/base/VaultBase';
 import type VaultNexa from '../../vaults/impls/nexa/Vault';
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
@@ -412,11 +413,14 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
 
       await v4dbHubs.logger.runAsyncWithCatch(
         async () => {
-          if (v4account.coinType === COINTYPE_COSMOS) {
+          if (
+            v4account.coinType === COINTYPE_COSMOS ||
+            v4account.coinType === COINTYPE_DOT
+          ) {
             if (networkId) {
               const vault = (await vaultFactory?.getChainOnlyVault({
                 networkId,
-              })) as VaultCosmos;
+              })) as VaultBase;
               const addressDetail = await vault?.buildAccountAddressDetail({
                 account: v4account as any,
                 networkId,
@@ -583,11 +587,20 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           path: v4account.path,
         });
         if (!isNil(index)) {
-          await serviceAccount.addIndexedAccount({
+          const indexedAccountsAdded = await serviceAccount.addIndexedAccount({
             walletId: v5wallet.id,
             indexes: [index],
             skipIfExists: true,
           });
+          for (const indexedAccountAdded of indexedAccountsAdded || []) {
+            try {
+              await simpleDb.v4MigrationResult.saveMigratedIndexedAccountId({
+                v5indexedAccountId: indexedAccountAdded.id,
+              });
+            } catch (error) {
+              //
+            }
+          }
           const coinType = v4account.coinType;
           if (coinType) {
             const networkId = v4CoinTypeToNetworkId[coinType];
@@ -794,6 +807,13 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             if (networkId) {
               const v4accountUtxo = v4account as IV4DBUtxoAccount;
 
+              // if (
+              //   v4accountUtxo.address ===
+              //   '====bc1pmxftvl44gfdeu0w2qhksz0nj296lsd4keafh32097tc8kkaeeues6wklpg'
+              // ) {
+              //   debugger;
+              // }
+
               const addWatchingAccountByInput = async (
                 input: string,
                 type: string,
@@ -823,34 +843,43 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               let addedV5Accounts: IDBAccount[] = [];
 
               if (v4account?.pub) {
-                addedV5Accounts = await addWatchingAccountByInput(
-                  v4account.pub,
-                  'pub',
-                );
+                addedV5Accounts = [
+                  ...addedV5Accounts,
+                  ...(await addWatchingAccountByInput(v4account.pub, 'pub')),
+                ];
               }
 
               if (v4accountUtxo?.xpub) {
-                addedV5Accounts = await addWatchingAccountByInput(
-                  v4accountUtxo.xpub,
-                  'xpub',
-                );
+                addedV5Accounts = [
+                  ...addedV5Accounts,
+                  ...(await addWatchingAccountByInput(
+                    v4accountUtxo.xpub,
+                    'xpub',
+                  )),
+                ];
               }
 
               if (v4accountUtxo?.xpubSegwit) {
-                addedV5Accounts = await addWatchingAccountByInput(
-                  v4accountUtxo.xpubSegwit,
-                  'xpubSegwit',
-                );
+                addedV5Accounts = [
+                  ...addedV5Accounts,
+                  ...(await addWatchingAccountByInput(
+                    v4accountUtxo.xpubSegwit,
+                    'xpubSegwit',
+                  )),
+                ];
               }
 
               if (
                 v4account?.address &&
                 !addedV5Accounts?.filter?.(Boolean)?.length
               ) {
-                addedV5Accounts = await addWatchingAccountByInput(
-                  v4account.address,
-                  'address',
-                );
+                addedV5Accounts = [
+                  ...addedV5Accounts,
+                  ...(await addWatchingAccountByInput(
+                    v4account.address,
+                    'address',
+                  )),
+                ];
               }
 
               const networkToAddress = Object.entries(
@@ -860,6 +889,24 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                 for (const [mapNetworkId, mapAddress] of networkToAddress) {
                   await v4dbHubs.logger.runAsyncWithCatch(
                     async () => {
+                      // if (
+                      //   mapAddress ===
+                      //   '====bc1pmxftvl44gfdeu0w2qhksz0nj296lsd4keafh32097tc8kkaeeues6wklpg'
+                      // ) {
+                      //   debugger;
+                      // }
+
+                      // skip add address watching if xpub watching is added with same address
+                      if (
+                        addedV5Accounts?.find(
+                          (item) =>
+                            (item as IDBUtxoAccount)?.xpub &&
+                            item.address === mapAddress,
+                        )
+                      ) {
+                        return;
+                      }
+
                       v4account.address = mapAddress;
                       await this.addV5WatchingAccount({
                         input: mapAddress,
@@ -953,6 +1000,16 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               );
 
             if (networkId) {
+              // if (
+              //   v4account.address ===
+              // eslint-disable-next-line spellcheck/spell-checker
+              //   '====bc1qjclx3t2ykepvcqegx8tmn3nwd5ahsswenrvd90'
+              // ) {
+              //   debugger;
+              // }
+              const v4accountTemplate = await this.fixV4AccountTemplate({
+                v4account,
+              });
               const deriveTypes =
                 await serviceNetwork.getAccountImportingDeriveTypes({
                   networkId,
@@ -961,9 +1018,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                   }),
                   validatePrivateKey: true,
                   validateXprvt: true,
-                  template: await this.fixV4AccountTemplate({
-                    v4account,
-                  }),
+                  template: v4accountTemplate,
                 });
               for (const deriveType of deriveTypes) {
                 v4dbHubs.logger.log({

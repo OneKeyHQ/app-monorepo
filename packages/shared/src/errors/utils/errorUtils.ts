@@ -1,4 +1,4 @@
-import { isObject, isString, isUndefined, omitBy } from 'lodash';
+import { isObject, isPlainObject, isString, isUndefined, omitBy } from 'lodash';
 
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -164,7 +164,9 @@ function autoPrintErrorIgnore(error: unknown | undefined) {
 }
 
 function toastIfError(error: unknown) {
-  if (error instanceof Error) {
+  // Some third-party libraries or external wallets return not an Error object, but a normal JSON object. Here we need to use isPlainObject to do a compatible processing.
+
+  if (error instanceof Error || isPlainObject(error)) {
     const e = error as IOneKeyError | undefined;
     if (e) {
       // handle autoToast error by BackgroundApiProxyBase
@@ -174,7 +176,9 @@ function toastIfError(error: unknown) {
 }
 
 function toastIfErrorDisable(error: unknown) {
-  if (error instanceof Error) {
+  // Some third-party libraries or external wallets return not an Error object, but a normal JSON object. Here we need to use isPlainObject to do a compatible processing.
+
+  if (error instanceof Error || isPlainObject(error)) {
     const e = error as IOneKeyError | undefined;
     if (e) {
       e.autoToast = false;

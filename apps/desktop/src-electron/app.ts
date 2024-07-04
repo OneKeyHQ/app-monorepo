@@ -9,6 +9,7 @@ import {
   Menu,
   app,
   ipcMain,
+  nativeTheme,
   powerMonitor,
   screen,
   session,
@@ -207,12 +208,27 @@ function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
   }, 1000);
 }
 
+const theme = store.getTheme();
+
+// colors from packages/components/tamagui.config.ts
+const themeColors = {
+  light: '#ffffff',
+  dark: '#0f0f0f',
+};
+
+logger.info('theme >>>> ', theme, nativeTheme.shouldUseDarkColors);
+
+const getBackgroundColor = (key: string) =>
+  themeColors[key as keyof typeof themeColors] ||
+  themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
+
 function createMainWindow() {
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   const ratio = 16 / 9;
   const savedWinBounds: any = store.getWinBounds();
   const browserWindow = new BrowserWindow({
+    show: false,
     title: APP_NAME,
     titleBarStyle: isWin ? 'default' : 'hidden',
     trafficLightPosition: { x: 20, y: 18 },
@@ -225,6 +241,7 @@ function createMainWindow() {
     height: Math.min(1200 / ratio, dimensions.height),
     minWidth: isDev ? undefined : 1024, // OK-8215
     minHeight: isDev ? undefined : 800 / ratio,
+    backgroundColor: getBackgroundColor(theme),
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
@@ -243,6 +260,12 @@ function createMainWindow() {
     icon: path.join(staticPath, 'images/icons/512x512.png'),
     ...savedWinBounds,
   });
+
+  if (isMac) {
+    browserWindow.once('ready-to-show', () => {
+      showMainWindow();
+    });
+  }
 
   // browserWindow.setAspectRatio(ratio);
 
@@ -269,6 +292,10 @@ function createMainWindow() {
 
   browserWindow.webContents.on('did-finish-load', () => {
     logger.info('browserWindow >>>> did-finish-load');
+    // fix white flicker on Windows & Linux
+    if (!isMac) {
+      showMainWindow();
+    }
     browserWindow.webContents.send(ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS, {
       resourcesPath: (global as any).resourcesPath,
       staticPath: `file://${staticPath}`,
@@ -396,6 +423,11 @@ function createMainWindow() {
     }, 10);
   });
 
+  ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
+    store.setTheme(themeKey);
+    browserWindow.setBackgroundColor(getBackgroundColor(themeKey));
+  });
+
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
     try {
       await systemPreferences.promptTouchID(msg);
@@ -440,7 +472,7 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, (event) => {
     logger.debug('restoreMainWindow receive');
-    browserWindow.show();
+    showMainWindow();
     event.reply(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, true);
   });
 
@@ -659,7 +691,6 @@ if (!singleInstance && !process.mas) {
       mainWindow = createMainWindow();
     }
     void initChildProcess();
-    showMainWindow();
   });
 }
 

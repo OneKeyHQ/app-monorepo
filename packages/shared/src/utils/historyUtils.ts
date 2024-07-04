@@ -139,15 +139,15 @@ export function getHistoryTxDetailInfo({
   let swapInfo;
   let nonce = txDetails?.nonce;
 
-  if (isNil(nonce) || nonce === 0) {
+  if (isNil(nonce) && !isNil(decodedTx.nonce)) {
     nonce = decodedTx.nonce;
   }
 
   let date = '-';
 
-  if (!isNil(txDetails?.timestamp)) {
+  if (txDetails?.timestamp) {
     date = formatDate(new Date(txDetails.timestamp * 1000));
-  } else if (!isNil(decodedTx.updatedAt) || !isNil(decodedTx.createdAt)) {
+  } else if (decodedTx.updatedAt || decodedTx.createdAt) {
     date = formatDate(
       new Date(decodedTx.updatedAt || decodedTx.createdAt || 0),
     );
@@ -155,9 +155,9 @@ export function getHistoryTxDetailInfo({
 
   const txid = decodedTx.txid;
 
-  const gasFee = txDetails?.gasFee ?? decodedTx.totalFeeInNative ?? '0';
+  const gasFee = txDetails?.gasFee ?? decodedTx.totalFeeInNative;
   const gasFeeFiatValue =
-    txDetails?.gasFeeFiatValue ?? decodedTx.totalFeeFiatValue ?? '0';
+    txDetails?.gasFeeFiatValue ?? decodedTx.totalFeeFiatValue;
   const confirmations = txDetails?.confirmations;
   const blockHeight = txDetails?.block;
 

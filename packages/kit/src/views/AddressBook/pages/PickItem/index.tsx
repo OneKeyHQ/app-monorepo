@@ -45,7 +45,7 @@ const PickItemPage = () => {
           id: ETranslations.address_book_select_title,
         })}
       />
-      <Page.Body px="$4">
+      <Page.Body>
         <ContentContainer
           loading={isLoading}
           error={Boolean(!isLoading && !result)}
