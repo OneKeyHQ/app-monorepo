@@ -1265,6 +1265,8 @@
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
+  "swap_history.status_canceled": "Cancelado",
+  "swap_history.status_cancelling": "Cancelando",
   "swap_history.status_discard": "Tempo esgotado",
   "swap_history.status_failed": "Falhou",
   "swap_history.status_pending": "Pendente",
