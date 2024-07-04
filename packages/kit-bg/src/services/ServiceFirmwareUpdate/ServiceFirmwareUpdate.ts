@@ -1067,6 +1067,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const { servicePromise } = this.backgroundApi;
     // TODO disabled servicePromise auto reject when timeout
     const id = servicePromise.createCallback({ reject, resolve });
+
     this.updateTasks[id] = fn;
     return id;
   }

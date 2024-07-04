@@ -39,11 +39,12 @@ export function AccountRemoveDialog({
             indexedAccount,
             account,
           });
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.feedback_change_saved,
-            }),
-          });
+          // Toast.success({
+          //   title: intl.formatMessage({
+          //     // TODO remove success not changed success
+          //     id: ETranslations.feedback_change_saved,
+          //   }),
+          // });
         } finally {
           setLoading(false);
           await close();

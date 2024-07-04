@@ -140,6 +140,17 @@ export const urlAccountNavigation = {
       StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, params),
     );
   },
+  pushUrlAccountPageLanding(
+    navigation: IAppNavigation,
+    params: {
+      address: string | undefined;
+      networkId: string | undefined;
+    },
+  ) {
+    navigation.dispatch(
+      StackActions.push(ETabHomeRoutes.TabHomeUrlAccountLanding, params),
+    );
+  },
   async pushUrlAccountPageFromDeeplink(
     navigation: IAppNavigation,
     params: {

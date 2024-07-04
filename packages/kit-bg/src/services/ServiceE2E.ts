@@ -1,3 +1,4 @@
+import { uniq } from 'lodash';
 import natsort from 'natsort';
 
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -143,44 +144,60 @@ class ServiceE2E extends ServiceBase {
       );
     });
 
-    const { impls } = await serviceNetwork.getAllNetworkImpls();
+    const { networks } = await serviceNetwork.getAllNetworks();
 
-    const getMissingImpls = (accounts0: IDBAccount[]) =>
-      impls.filter((impl) => {
-        const matchedAccount = accounts0.find(
-          (account) => account.impl === impl,
-        );
-        return !matchedAccount;
+    const getMissingImpls = async (accounts0: IDBAccount[]) => {
+      const missingImpls: string[] = [];
+
+      for (const network of networks) {
+        const impl = network.impl;
+        const deriveItems =
+          await this.backgroundApi.serviceNetwork.getDeriveInfoItemsOfNetwork({
+            networkId: network.id,
+          });
+        for (const deriveItem of deriveItems) {
+          const matchedAccount = accounts0.find(
+            (account) =>
+              account.impl === impl &&
+              (!account.template ||
+                (account.template &&
+                  account.template === deriveItem.item.template)),
+          );
+          if (!matchedAccount) {
+            missingImpls.push(`${impl} - ${deriveItem.value}`);
+          }
+        }
+      }
+
+      return uniq(missingImpls);
+    };
+
+    const accountsGroupedByWallet: {
+      [walletId: string]: IDBAccount[];
+    } = {};
+
+    accounts.forEach((account) => {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: account.id,
       });
+      if (!accountsGroupedByWallet[walletId]) {
+        accountsGroupedByWallet[walletId] = [];
+      }
+      accountsGroupedByWallet[walletId].push(account);
+    });
 
-    const hdAccounts = accounts.filter((account) =>
-      accountUtils.isHdAccount({ accountId: account.id }),
-    );
-    const accountMissingImplsHd = getMissingImpls(hdAccounts);
+    const accountMissingImpls: {
+      [walletId: string]: string[];
+    } = {};
 
-    const hwAccounts = accounts.filter((account) =>
-      accountUtils.isHwAccount({ accountId: account.id }),
-    );
-    const accountMissingImplsHw = getMissingImpls(hwAccounts);
-
-    const importedAccounts = accounts.filter((account) =>
-      accountUtils.isImportedAccount({ accountId: account.id }),
-    );
-    const accountMissingImplsImported = getMissingImpls(importedAccounts);
-
-    const watchingAccounts = accounts.filter((account) =>
-      accountUtils.isWatchingAccount({ accountId: account.id }),
-    );
-    const accountMissingImplsWatching = getMissingImpls(watchingAccounts);
+    for (const walletId of Object.keys(accountsGroupedByWallet)) {
+      const accounts0: IDBAccount[] = accountsGroupedByWallet[walletId];
+      accountMissingImpls[walletId] = await getMissingImpls(accounts0);
+    }
 
     return {
-      accountMissingImpls: {
-        hd: accountMissingImplsHd,
-        hw: accountMissingImplsHw,
-        imported: accountMissingImplsImported,
-        watching: accountMissingImplsWatching,
-      },
       v4dbExists,
+      accountMissingImpls,
       accounts: (accounts || []).sort(sortFn),
       wallets: (wallets || []).sort(sortFn),
       devices: (devices || []).sort(sortFn),
