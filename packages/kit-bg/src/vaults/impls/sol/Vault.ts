@@ -62,10 +62,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type {
-  IEstimateFeeParams,
-  IFeeInfoUnit,
-} from '@onekeyhq/shared/types/fee';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
@@ -636,17 +633,18 @@ export default class Vault extends VaultBase {
 
     let actions: IDecodedTxAction[] = [];
 
+    actions = await this._decodeNativeTxActions({
+      nativeTx,
+      isNFT: transferPayload?.isNFT,
+    });
+
     if (unsignedTx.swapInfo) {
       actions = [
         await this._buildTxActionFromSwap({
           swapInfo: unsignedTx.swapInfo,
+          actions,
         }),
       ];
-    } else {
-      actions = await this._decodeNativeTxActions({
-        nativeTx,
-        isNFT: transferPayload?.isNFT,
-      });
     }
 
     const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
@@ -847,26 +845,19 @@ export default class Vault extends VaultBase {
     return actions;
   }
 
-  async _buildTxActionFromSwap(params: { swapInfo: ISwapTxInfo }) {
-    const { swapInfo } = params;
-    const swapSendToken = swapInfo.sender.token;
-    const action = await this.buildTxTransferAssetAction({
-      from: swapInfo.accountAddress,
-      to: swapInfo.receivingAddress,
-      transfers: [
-        {
-          from: swapInfo.accountAddress,
-          to: swapInfo.receivingAddress,
-          tokenIdOnNetwork: swapSendToken.contractAddress,
-          icon: swapSendToken.logoURI ?? '',
-          name: swapSendToken.name ?? '',
-          symbol: swapSendToken.symbol,
-          amount: swapInfo.sender.amount,
-          isNFT: false,
-          isNative: swapSendToken.isNative,
-        },
-      ],
-    });
+  async _buildTxActionFromSwap(params: {
+    swapInfo: ISwapTxInfo;
+    actions: IDecodedTxAction[];
+  }) {
+    const { swapInfo, actions } = params;
+    const providerInfo = swapInfo.swapBuildResData.result.info;
+    const action = actions[0];
+    if (action.assetTransfer) {
+      action.assetTransfer.application = {
+        name: providerInfo.providerName,
+        icon: providerInfo.providerLogo ?? '',
+      };
+    }
     return action;
   }
 
