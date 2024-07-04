@@ -18,19 +18,14 @@ import type { IButtonProps, ISizableTextProps } from '../../primitives';
 export interface IToastProps {
   title: string;
   message?: string;
-  /**
-   * Duration in seconds.
-   */
   duration?: number;
   actionsProps?: IButtonProps;
+  actions?: JSX.Element[];
 }
 
 export interface IToastBaseProps extends IToastProps {
   title: string;
   message?: string;
-  /**
-   * Duration in seconds.
-   */
   duration?: number;
   haptic?: 'success' | 'warning' | 'error' | 'none';
   preset?: 'done' | 'error' | 'none' | 'custom';
@@ -99,18 +94,20 @@ const RenderLines = ({
   );
 };
 
-function Title({
+function ToastContent({
   title,
   message,
   icon,
   maxWidth,
   actionsProps,
+  actions,
 }: {
   title: string;
   message?: string;
   maxWidth?: number;
   icon?: JSX.Element;
   actionsProps?: IToastProps['actionsProps'];
+  actions?: JSX.Element[];
 }) {
   const { height } = useWindowDimensions();
   return (
@@ -129,8 +126,20 @@ function Title({
         <RenderLines size="$headingSm" icon={icon} hasMessage={!!message}>
           {title}
         </RenderLines>
+
         <RenderLines size="$bodySm">{message}</RenderLines>
+
         {actionsProps ? <Button {...actionsProps} /> : null}
+
+        <XStack
+          alignItems="center"
+          justifyContent="flex-end"
+          flexDirection="row"
+          space="$2"
+          p="$1"
+        >
+          {actions}
+        </XStack>
       </YStack>
     </YStack>
   );
@@ -143,15 +152,17 @@ function toastMessage({
   haptic,
   preset = 'custom',
   actionsProps,
+  actions,
 }: IToastBaseProps) {
   showMessage({
     renderContent: (props) => (
-      <Title
+      <ToastContent
         title={title}
         maxWidth={props?.width}
         message={message}
         icon={iconMap[haptic as keyof typeof iconMap]}
         actionsProps={actionsProps}
+        actions={actions}
       />
     ),
     duration,

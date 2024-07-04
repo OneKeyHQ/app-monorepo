@@ -126,6 +126,40 @@ const ToastGallery = () => (
             >
               Copy it
             </Button>
+
+            <Button
+              onPress={() => {
+                Toast.error({
+                  duration: 1000,
+                  title: 'Title',
+                  message: `Lorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit amet`,
+                  actions: [
+                    <Button
+                      variant="primary"
+                      size="small"
+                      key="primary"
+                      onPress={() => {
+                        alert('Primary');
+                      }}
+                    >
+                      Primary
+                    </Button>,
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      key="secondary"
+                      onPress={() => {
+                        alert('Secondary');
+                      }}
+                    >
+                      Secondary
+                    </Button>,
+                  ],
+                });
+              }}
+            >
+              Actions
+            </Button>
           </YStack>
         ),
       },
