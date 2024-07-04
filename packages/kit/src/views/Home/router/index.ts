@@ -30,6 +30,7 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     // exact: true,
   },
   {
+    // web refresh will match this route first, make sure it's different url from the home route
     name: ETabHomeRoutes.TabHomeUrlAccountLanding,
     component: UrlAccountLanding,
     rewrite: urlAccountLandingRewrite,

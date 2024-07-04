@@ -16,6 +16,7 @@ import type { IPortalManager } from '../../hocs';
 import type { IButtonProps, ISizableTextProps } from '../../primitives';
 
 export interface IToastProps {
+  toastId?: string;
   title: string;
   message?: string;
   /**
@@ -136,7 +137,9 @@ function Title({
   );
 }
 
+const toastIdMap = new Map<string, [number, number]>();
 function toastMessage({
+  toastId,
   title,
   message,
   duration = 5000,
@@ -144,6 +147,20 @@ function toastMessage({
   preset = 'custom',
   actionsProps,
 }: IToastBaseProps) {
+  if (toastId) {
+    if (toastIdMap.has(toastId)) {
+      const [createdAt, toastDuration] = toastIdMap.get(toastId) as [
+        number,
+        number,
+      ];
+      if (Date.now() - createdAt < toastDuration) {
+        return;
+      }
+      toastIdMap.delete(toastId);
+    }
+
+    toastIdMap.set(toastId, [Date.now(), duration + 500]);
+  }
   showMessage({
     renderContent: (props) => (
       <Title
