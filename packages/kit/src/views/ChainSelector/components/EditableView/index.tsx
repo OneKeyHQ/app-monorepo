@@ -12,7 +12,6 @@ import {
 import { useIntl } from 'react-intl';
 
 import {
-  Image,
   SearchBar,
   SectionList,
   SortableSectionList,
@@ -20,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -79,7 +79,7 @@ const EditableViewListItem = ({
       title={item.name}
       titleMatch={item.titleMatch}
       h={CELL_HEIGHT}
-      renderAvatar={<Image src={item.logoURI} size="$8" />}
+      renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
       {sectionIndex !== 0 && isEditMode ? (

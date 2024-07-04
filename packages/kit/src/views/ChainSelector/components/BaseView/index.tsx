@@ -1,8 +1,11 @@
 import { useIntl } from 'react-intl';
 
-import { Empty, Image, ListView, Stack } from '@onekeyhq/components';
+import { Empty, ListView, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { AllNetworksAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import {
+  AllNetworksAvatar,
+  NetworkAvatarBase,
+} from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -44,7 +47,7 @@ export const BaseListView = ({
           item.id === dangerAllNetworkRepresent.id ? (
             <AllNetworksAvatar size="$8" />
           ) : (
-            <Image src={item.logoURI} size="$8" />
+            <NetworkAvatarBase logoURI={item.logoURI} size="$8" />
           )
         }
         title={item.name}
