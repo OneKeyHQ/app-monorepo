@@ -86,7 +86,6 @@ function BalanceDetailsContent({
   return (
     <>
       <Dialog.Header>
-        <Dialog.Icon icon="CryptoCoinOutline" />
         <Dialog.Title>
           {isLoading ? (
             <Skeleton w="$40" h="$9" />

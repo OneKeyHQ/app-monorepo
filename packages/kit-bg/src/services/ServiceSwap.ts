@@ -402,7 +402,7 @@ export default class ServiceSwap extends ServiceBase {
     const pendingHistories = histories.filter(
       (history) =>
         history.status === ESwapTxHistoryStatus.PENDING ||
-        history.status === ESwapTxHistoryStatus.DISCARD,
+        history.status === ESwapTxHistoryStatus.CANCELING,
     );
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
@@ -429,20 +429,56 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateSwapHistoryTx({
+    oldTxId,
+    newTxId,
+    status,
+  }: {
+    oldTxId: string;
+    newTxId: string;
+    status: ESwapTxHistoryStatus;
+  }) {
+    const { swapHistoryPendingList } = await inAppNotificationAtom.get();
+    const oldHistoryItemIndex = swapHistoryPendingList.findIndex(
+      (item) => item.txInfo.txId === oldTxId,
+    );
+    if (oldHistoryItemIndex !== -1) {
+      const newHistoryItem = swapHistoryPendingList[oldHistoryItemIndex];
+      const updated = Date.now();
+      newHistoryItem.date = { ...newHistoryItem.date, updated };
+      newHistoryItem.txInfo.txId = newTxId;
+      newHistoryItem.status = status;
+      await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+        newHistoryItem,
+        oldTxId,
+      );
+      await inAppNotificationAtom.set((pre) => {
+        const newPendingList = [...pre.swapHistoryPendingList];
+        newPendingList[oldHistoryItemIndex] = newHistoryItem;
+        return {
+          ...pre,
+          swapHistoryPendingList: [...newPendingList],
+        };
+      });
+    }
+  }
+
+  @backgroundMethod()
   async updateSwapHistoryItem(item: ISwapTxHistory) {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const index = swapHistoryPendingList.findIndex(
       (i) => i.txInfo.txId === item.txInfo.txId,
     );
-    if (
-      item.status === ESwapTxHistoryStatus.DISCARD &&
-      swapHistoryPendingList[index]?.status === ESwapTxHistoryStatus.DISCARD
-    ) {
-      return;
-    }
     if (index !== -1) {
       const updated = Date.now();
       item.date = { ...item.date, updated };
+      const oldItem = swapHistoryPendingList[index];
+      if (
+        oldItem.status === ESwapTxHistoryStatus.CANCELING &&
+        item.status === ESwapTxHistoryStatus.SUCCESS
+      ) {
+        item.status = ESwapTxHistoryStatus.CANCELED;
+      }
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
       await inAppNotificationAtom.set((pre) => {
         const newPendingList = [...pre.swapHistoryPendingList];
@@ -452,7 +488,7 @@ export default class ServiceSwap extends ServiceBase {
           swapHistoryPendingList: [...newPendingList],
         };
       });
-      if (item.status !== ESwapTxHistoryStatus.DISCARD) {
+      if (item.status !== ESwapTxHistoryStatus.PENDING) {
         void this.backgroundApi.serviceApp.showToast({
           method:
             item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
@@ -532,9 +568,6 @@ export default class ServiceSwap extends ServiceBase {
           },
         });
         await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
-        if (txStatusRes?.state === ESwapTxHistoryStatus.DISCARD) {
-          enableInterval = true;
-        }
       }
     } catch (e) {
       const error = e as { message?: string };
@@ -557,7 +590,7 @@ export default class ServiceSwap extends ServiceBase {
     const statusPendingList = swapHistoryPendingList.filter(
       (item) =>
         item.status === ESwapTxHistoryStatus.PENDING ||
-        item.status === ESwapTxHistoryStatus.DISCARD,
+        item.status === ESwapTxHistoryStatus.CANCELING,
     );
     await this.cleanHistoryStateIntervals();
     if (!statusPendingList.length) return;
