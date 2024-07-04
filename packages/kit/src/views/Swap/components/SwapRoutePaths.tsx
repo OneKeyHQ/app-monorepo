@@ -46,29 +46,40 @@ const SwapRoutePaths = ({ routeContent }: ISwapRoutePathProps) => (
                 <Stack key={index} h="$0.5" bg="$borderSubdued" flex={1} />
               ))}
             </XStack>
-            {row.map((item, itemIndex) => (
-              <Stack key={itemIndex} bg="$bgApp" alignItems="center">
-                <XStack>
-                  {item.images.map((image, index) => (
-                    <Token
-                      key={index}
-                      size="sm"
-                      tokenImageUri={image.logoImageUri}
-                      {...(index !== 0 && {
-                        ml: '$-2.5',
-                      })}
-                    />
-                  ))}
-                </XStack>
-                <SizableText
-                  pt="$1.5"
-                  size="$bodySmMedium"
-                  color="$textSubdued"
+            {row.map((item, itemIndex) => {
+              const maxWidth = `$${5 + 4 * item.images.length}`;
+              return (
+                <Stack
+                  key={itemIndex}
+                  bg="$bgApp"
+                  alignItems="center"
+                  maxWidth={maxWidth}
                 >
-                  {item.label}
-                </SizableText>
-              </Stack>
-            ))}
+                  <XStack>
+                    {item.images.map((image, index) => (
+                      <Token
+                        key={index}
+                        size="sm"
+                        tokenImageUri={image.logoImageUri}
+                        {...(index !== 0 && {
+                          ml: '$-2.5',
+                        })}
+                      />
+                    ))}
+                  </XStack>
+                  <Stack maxWidth="$16" $gtMd={{ maxWidth: '$24' }}>
+                    <SizableText
+                      pt="$1.5"
+                      size="$bodySmMedium"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                    >
+                      {item.label}
+                    </SizableText>
+                  </Stack>
+                </Stack>
+              );
+            })}
           </XStack>
         ))}
       </>
