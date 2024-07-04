@@ -114,18 +114,18 @@ function TokenDetailHeader({
           <TextCell
             title={intl.formatMessage({ id: ETranslations.market_24h_vol_usd })}
           >
-            {volume24h}
+            {volume24h || '-'}
           </TextCell>
           <TextCell
             title={intl.formatMessage({ id: ETranslations.global_market_cap })}
             rank={marketCapRank}
           >
-            {marketCap}
+            {marketCap || '-'}
           </TextCell>
           <TextCell
             title={intl.formatMessage({ id: ETranslations.global_fdv })}
           >
-            {fdv}
+            {fdv || '-'}
           </TextCell>
         </XStack>
       )}
