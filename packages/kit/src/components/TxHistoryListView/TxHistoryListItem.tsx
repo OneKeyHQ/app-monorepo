@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Button, XStack } from '@onekeyhq/components';
@@ -23,7 +25,53 @@ function TxHistoryListItem(props: IProps) {
   const { historyTx, tableLayout, onPress, showIcon } = props;
   const intl = useIntl();
 
-  const { canReplaceTx, handleReplaceTx } = useReplaceTx({ historyTx });
+  const { canReplaceTx, canCancelTx, handleReplaceTx } = useReplaceTx({
+    historyTx,
+  });
+
+  const renderReplaceTxActions = useCallback(() => {
+    if (!canReplaceTx) return null;
+
+    return (
+      <XStack
+        pl={72}
+        testID="history-list-item-speed-up-and-cancel-buttons"
+        pb="$3"
+      >
+        {canCancelTx ? (
+          <XStack space="$3">
+            <Button
+              size="small"
+              variant="primary"
+              onPress={() =>
+                handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_speed_up })}
+            </Button>
+            <Button
+              size="small"
+              onPress={() =>
+                handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_cancel })}
+            </Button>
+          </XStack>
+        ) : (
+          <Button
+            size="small"
+            variant="primary"
+            onPress={() =>
+              handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.speed_up_cancellation })}
+          </Button>
+        )}
+      </XStack>
+    );
+  }, [canCancelTx, canReplaceTx, handleReplaceTx, intl]);
 
   if (!historyTx || !historyTx.decodedTx) return null;
 
@@ -43,32 +91,7 @@ function TxHistoryListItem(props: IProps) {
           //   }),
         }}
       />
-      {canReplaceTx ? (
-        <XStack
-          pl={72}
-          space="$3"
-          testID="history-list-item-speed-up-and-cancel-buttons"
-          pb="$3"
-        >
-          <Button
-            size="small"
-            variant="primary"
-            onPress={() =>
-              handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
-            }
-          >
-            {intl.formatMessage({ id: ETranslations.global_speed_up })}
-          </Button>
-          <Button
-            size="small"
-            onPress={() =>
-              handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
-            }
-          >
-            {intl.formatMessage({ id: ETranslations.global_cancel })}
-          </Button>
-        </XStack>
-      ) : null}
+      {renderReplaceTxActions()}
     </TxHistoryListItemErrorBoundary>
   );
 }

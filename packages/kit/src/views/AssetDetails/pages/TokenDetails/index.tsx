@@ -28,6 +28,7 @@ import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListVie
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
@@ -36,7 +37,6 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  EModalReceiveRoutes,
   EModalRoutes,
   EModalSendRoutes,
   EModalSwapRoutes,
@@ -84,6 +84,14 @@ export function TokenDetails() {
     accountId,
     networkId,
     walletId,
+  });
+
+  const { handleOnReceive } = useReceiveToken({
+    accountId,
+    networkId,
+    walletId,
+    deriveInfo,
+    deriveType,
   });
 
   const { result: tokenDetails, isLoading: isLoadingTokenDetails } =
@@ -151,19 +159,6 @@ export function TokenDetails() {
     tokenInfo.name,
     tokenInfo.symbol,
   ]);
-
-  const handleReceivePress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveToken,
-      params: {
-        networkId,
-        accountId,
-        walletId,
-        deriveInfo,
-        deriveType,
-      },
-    });
-  }, [accountId, deriveInfo, deriveType, navigation, networkId, walletId]);
 
   const handleHistoryItemPress = useCallback(
     async (tx: IAccountHistoryTx) => {
@@ -464,7 +459,7 @@ export function TokenDetails() {
                     <RawActions.Send onPress={handleSendPress} />
                     <RawActions.Receive
                       disabled={isReceiveDisabled}
-                      onPress={handleReceivePress}
+                      onPress={handleOnReceive}
                     />
                     <ReviewControl>
                       <ActionSell

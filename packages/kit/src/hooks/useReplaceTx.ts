@@ -2,8 +2,7 @@ import { useCallback } from 'react';
 
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
-import type { EReplaceTxType } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -41,6 +40,8 @@ function useReplaceTx({
     });
   }, [historyTx]).result;
 
+  const canCancelTx = historyTx.replacedType !== EReplaceTxType.Cancel;
+
   const handleReplaceTx = useCallback(
     async ({ replaceType }: { replaceType: EReplaceTxType }) => {
       const { decodedTx } = historyTx;
@@ -71,7 +72,7 @@ function useReplaceTx({
     [historyTx, navigation, onSuccess],
   );
 
-  return { canReplaceTx, handleReplaceTx };
+  return { canReplaceTx, canCancelTx, handleReplaceTx };
 }
 
 export { useReplaceTx };
