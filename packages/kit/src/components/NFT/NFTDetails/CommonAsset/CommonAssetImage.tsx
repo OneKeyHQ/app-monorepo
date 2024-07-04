@@ -22,7 +22,7 @@ function CommonAssetImage(props: IProps) {
   const isUnSupportedImageInNative = useMemo(
     () =>
       platformEnv.isNative &&
-      !!unSupportedImage.find((i) => nft.metadata?.image.includes(i)),
+      !!unSupportedImage.find((i) => nft.metadata?.image?.includes(i)),
     [nft.metadata?.image],
   );
   if (isUnSupportedImageInNative) {
