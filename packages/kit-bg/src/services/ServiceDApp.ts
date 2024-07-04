@@ -270,7 +270,7 @@ class ServiceDApp extends ServiceBase {
         networkId,
         sceneName,
       },
-      fullScreen: true,
+      fullScreen: !platformEnv.isNativeIOS,
     });
   }
 
