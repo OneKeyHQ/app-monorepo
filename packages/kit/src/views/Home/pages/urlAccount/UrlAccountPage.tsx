@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   NavBackButton,
   Page,
   SizableText,
@@ -20,6 +19,7 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -52,14 +52,18 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
   const [urlAccountStatus, setUrlAccountStatus] = useState<
     'ok' | 'invalid' | undefined
   >();
+  const routeParamsRef = useRef(routeParams);
+  routeParamsRef.current = routeParams;
+  const routePathRef = useRef(route.path);
+  routePathRef.current = route.path;
 
   useEffect(() => {
     if (
       !platformEnv.isDev &&
       platformEnv.isDesktop &&
-      route.path === '/index.html' // production Desktop use `file:///index.html` not `file:///` as init route
+      routePathRef.current === '/index.html' // production Desktop use `file:///index.html` not `file:///` as init route
     ) {
-      const newRouteParams = cloneDeep(routeParams);
+      const newRouteParams = cloneDeep(routeParamsRef.current);
       // 'file:///?networkId=index.html'
       if (newRouteParams && newRouteParams?.networkId === 'index.html') {
         delete newRouteParams.networkId;
@@ -69,9 +73,9 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
     }
 
     setTimeout(async () => {
-      let networkId = routeParams?.networkId;
-      let networkCode = routeParams?.networkId;
-      let routeAddress = routeParams?.address;
+      let networkId = routeParamsRef.current?.networkId;
+      let networkCode = routeParamsRef.current?.networkId;
+      let routeAddress = routeParamsRef.current?.address;
 
       const fixNetworkParams = (network: IServerNetwork | undefined) => {
         if (network) {
@@ -133,12 +137,22 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
             isUrlAccount: true,
           });
 
-          void actions.current.updateSelectedAccountForSingletonAccount({
-            num: 0,
-            networkId,
-            walletId: WALLET_TYPE_WATCHING,
-            othersWalletAccountId: r.accounts[0].id,
-          });
+          const updateSelectedAccount = async () => {
+            console.log(
+              'URLAccountMount: updateSelectedAccountForSingletonAccount',
+            );
+            return actions.current.updateSelectedAccountForSingletonAccount({
+              num: 0,
+              networkId,
+              walletId: WALLET_TYPE_WATCHING,
+              othersWalletAccountId: r?.accounts?.[0]?.id,
+            });
+          };
+          await updateSelectedAccount();
+          // en: Especially on mobile devices, especially Android, when performance is insufficient, the order of UI refresh and data update may be problematic, delay the update again to ensure data update
+          setTimeout(() => {
+            void updateSelectedAccount();
+          }, 600);
         } catch (error) {
           console.error('UrlAccountAutoCreate error: ', error);
           Toast.error({
@@ -172,17 +186,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         }
       }
     }, 0);
-  }, [
-    intl,
-    actions,
-    navigation,
-    redirectMode,
-    route.params,
-    route.path,
-    routeParams,
-    routeParams?.address,
-    routeParams?.networkId,
-  ]);
+  }, [intl, actions, navigation, redirectMode]);
 
   const backToHomePage = useCallback(() => {
     urlAccountNavigation.replaceHomePage(navigation);
@@ -222,6 +226,9 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
 }
 
 export function UrlAccountPageContainer() {
+  useDebugComponentRemountLog({
+    name: 'URLAccountMount:  UrlAccountPageContainer',
+  });
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -236,6 +243,9 @@ export function UrlAccountPageContainer() {
 }
 
 export function UrlAccountLanding() {
+  useDebugComponentRemountLog({
+    name: 'URLAccountMount:  UrlAccountLanding',
+  });
   return (
     <AccountSelectorProviderMirror
       config={{

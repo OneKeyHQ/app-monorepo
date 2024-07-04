@@ -1,3 +1,4 @@
+import { uniq } from 'lodash';
 import natsort from 'natsort';
 
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -27,7 +28,6 @@ import {
 import ServiceBase from './ServiceBase';
 
 import type { IDBAccount, IDBBaseObject } from '../dbs/local/types';
-import { uniq } from 'lodash';
 
 @backgroundClass()
 class ServiceE2E extends ServiceBase {
