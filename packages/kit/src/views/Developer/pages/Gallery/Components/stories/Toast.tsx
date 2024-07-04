@@ -304,6 +304,21 @@ const ToastGallery = () => (
             >
               Copy it
             </Button>
+            <Button
+              onPress={() => {
+                new Array(10).fill(0).forEach(() => {
+                  setTimeout(() => {
+                    Toast.error({
+                      toastId: '403',
+                      title: '403!',
+                      message: `ERROR 403!`,
+                    });
+                  }, 0);
+                });
+              }}
+            >
+              filter out duplicate toasts by toastId
+            </Button>
           </YStack>
         ),
       },
