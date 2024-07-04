@@ -55,12 +55,11 @@ function TxExtraInfoContainer() {
                 <ScrollView
                   maxHeight="$48"
                   showsVerticalScrollIndicator={false}
-                  borderRadius="$3"
-                  borderCurve="continuous"
-                  bg="$bgSubdued"
+                  pb="$2.5" // for spacing between the text and the border while haven't scroll behavior
+                  borderBottomWidth={StyleSheet.hairlineWidth}
+                  borderColor="$borderSubdued"
                 >
                   <SizableText
-                    p="$4"
                     size="$bodyMd"
                     color="$textSubdued"
                     flex={1}
