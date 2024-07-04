@@ -18,6 +18,8 @@ function generateLongTestText(num: number) {
     .join('');
 }
 
+const LONG_DURATION = 999999;
+
 const ToastGallery = () => (
   <Layout
     description=""
@@ -77,7 +79,7 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.success({
-                  duration: 999999,
+                  duration: LONG_DURATION,
                   title: generateLongTestText(10),
                 });
               }}
@@ -87,7 +89,7 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.error({
-                  duration: 999999,
+                  duration: LONG_DURATION,
                   title: 'Title',
                   message: generateLongTestText(10),
                 });
@@ -99,7 +101,7 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.error({
-                  duration: 999999,
+                  duration: LONG_DURATION,
                   title:
                     'Lorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit amet',
                   message: generateLongTestText(10),
@@ -111,7 +113,7 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.error({
-                  duration: 1400,
+                  duration: LONG_DURATION,
                   title: 'Title',
                   message: `Lorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit amet`,
                   actionsProps: {
@@ -130,7 +132,7 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.error({
-                  duration: 1000,
+                  duration: LONG_DURATION,
                   title: 'Title',
                   message: `Lorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit amet`,
                   actions: [
