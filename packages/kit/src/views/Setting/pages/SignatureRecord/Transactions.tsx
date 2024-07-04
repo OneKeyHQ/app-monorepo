@@ -309,7 +309,7 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
         <Stack mr="$2">
           <NetworkAvatar size={16} networkId={item.networkId} />
         </Stack>
-        <SizableText color="$textSubdued">
+        <SizableText color="$textSubdued" size="$bodySmMedium">
           {item.network.name} •{' '}
           {utils.shortenAddress({ address: item.address })}
         </SizableText>

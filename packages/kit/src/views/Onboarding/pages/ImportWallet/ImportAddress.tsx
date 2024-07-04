@@ -213,7 +213,7 @@ function ImportAddress() {
       return !addressValue.pending && form.formState.isValid;
     }
     return validateResult?.isValid;
-  }, [method, addressValue.pending, validateResult, form]);
+  }, [method, addressValue.pending, validateResult, form.formState]);
 
   const isBtcFork = useMemo(
     () =>

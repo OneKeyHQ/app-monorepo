@@ -83,7 +83,7 @@ const PageView = () => {
       },
       {
         title: intl.formatMessage({
-          id: ETranslations.settings_connected_sites,
+          id: ETranslations.explore_dapp_connections,
         }),
         page: ConnectedSites,
       },
