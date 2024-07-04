@@ -63,7 +63,7 @@ const RenderLines = ({
             key={index}
             space="$1.5"
           >
-            <XStack flexShrink={0}>{icon}</XStack>
+            {icon ? <XStack flexShrink={0}>{icon}</XStack> : null}
             <SizableText
               flexShrink={1}
               selectable={false}
