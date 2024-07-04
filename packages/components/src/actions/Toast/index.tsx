@@ -94,7 +94,7 @@ const RenderLines = ({
   );
 };
 
-function ToastContent({
+function ToastInner({
   title,
   message,
   icon,
@@ -131,15 +131,17 @@ function ToastContent({
 
         {actionsProps ? <Button {...actionsProps} /> : null}
 
-        <XStack
-          alignItems="center"
-          justifyContent="flex-end"
-          flexDirection="row"
-          space="$2"
-          p="$1"
-        >
-          {actions}
-        </XStack>
+        {actions ? (
+          <XStack
+            alignItems="center"
+            justifyContent="flex-end"
+            flexDirection="row"
+            space="$2"
+            p="$1"
+          >
+            {actions}
+          </XStack>
+        ) : null}
       </YStack>
     </YStack>
   );
@@ -156,7 +158,7 @@ function toastMessage({
 }: IToastBaseProps) {
   showMessage({
     renderContent: (props) => (
-      <ToastContent
+      <ToastInner
         title={title}
         maxWidth={props?.width}
         message={message}
