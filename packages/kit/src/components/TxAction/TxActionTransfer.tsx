@@ -6,6 +6,7 @@ import { forOwn, groupBy, isEmpty, isNil, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   Image,
   NumberSizeableText,
   SizableText,
@@ -515,9 +516,9 @@ function TxActionTransferDetailView(props: ITxActionProps) {
               </XStack>
             ))}
             {swapInfo ? (
-              <XStack alignItems="center" space="$2">
+              <XStack alignItems="center" space="$3">
                 <Token
-                  size="xs"
+                  size="lg"
                   isNFT={false}
                   tokenImageUri={swapInfo.receiver.token.logoURI}
                 />
@@ -527,8 +528,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                     showPlusMinusSigns: true,
                     tokenSymbol: swapInfo.receiver.token.symbol,
                   }}
-                  size="$bodyMd"
-                  color="$textSubdued"
+                  size="$bodyLgMedium"
                 >
                   {swapInfo.receiver.amount}
                 </NumberSizeableText>
@@ -539,7 +539,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         transferChangeElements.push(
           <InfoItem
             key={`${index}-amount`}
-            label={intl.formatMessage({ id: ETranslations.content__amount })}
+            // label={intl.formatMessage({ id: ETranslations.content__amount })}
             renderContent={transfersContent}
           />,
         );
@@ -627,9 +627,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
       return (
         <>
-          <InfoItemGroup testID="transfer-tx-action">
+          <InfoItemGroup testID="transfer-tx-amount">
             {transferChangeElements}
           </InfoItemGroup>
+          <Divider mx="$5" />
           <InfoItemGroup testID="transfer-tx-action">
             {transferExtraElements}
           </InfoItemGroup>
