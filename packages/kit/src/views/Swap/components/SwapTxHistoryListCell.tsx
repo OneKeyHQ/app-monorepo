@@ -46,31 +46,54 @@ const SwapTxHistoryListCell = ({
 }: ISwapTxHistoryListCellProps) => {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
+  const statusBadge = useMemo(() => {
+    if (item.status === ESwapTxHistoryStatus.FAILED) {
+      return (
+        <Badge badgeType="critical" badgeSize="lg">
+          {intl.formatMessage({
+            id: ETranslations.swap_history_status_failed,
+          })}
+        </Badge>
+      );
+    }
+    if (item.status === ESwapTxHistoryStatus.CANCELED) {
+      return (
+        <Badge badgeType="warning" badgeSize="lg">
+          {intl.formatMessage({
+            id: ETranslations.swap_history_status_canceled,
+          })}
+        </Badge>
+      );
+    }
+    if (item.status === ESwapTxHistoryStatus.CANCELING) {
+      return (
+        <Badge badgeType="warning" badgeSize="lg">
+          {intl.formatMessage({
+            id: ETranslations.swap_history_status_canceled,
+          })}
+        </Badge>
+      );
+    }
+    return null;
+  }, [intl, item.status]);
   const subContent = useMemo(() => {
     const { created } = item.date;
     const dateStr = formatDate(new Date(created), {
       hideYear: true,
-      onlyTime: item.status !== ESwapTxHistoryStatus.PENDING,
+      onlyTime:
+        item.status !== ESwapTxHistoryStatus.PENDING &&
+        item.status !== ESwapTxHistoryStatus.CANCELING,
     });
+
     return (
       <XStack space="$2">
         <SizableText size="$bodyMd" color="$textSubdued">
           {dateStr}
         </SizableText>
-        {item.status === ESwapTxHistoryStatus.FAILED ||
-        item.status === ESwapTxHistoryStatus.DISCARD ? (
-          <Badge badgeType="critical" badgeSize="lg">
-            {intl.formatMessage({
-              id:
-                item.status === ESwapTxHistoryStatus.DISCARD
-                  ? ETranslations.swap_history_status_discard
-                  : ETranslations.swap_history_status_failed,
-            })}
-          </Badge>
-        ) : null}
+        {statusBadge}
       </XStack>
     );
-  }, [formatDate, intl, item.date, item.status]);
+  }, [formatDate, item.date, item.status, statusBadge]);
 
   const title = useMemo(
     () => (

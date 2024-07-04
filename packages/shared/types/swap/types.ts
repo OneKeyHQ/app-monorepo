@@ -126,7 +126,6 @@ export enum ESwapApproveTransactionStatus {
   PENDING = 'pending',
   SUCCESS = 'success',
   CANCEL = 'cancel',
-  DISCARD = 'discard',
   FAILED = 'failed',
 }
 export interface ISwapApproveTransaction {
@@ -337,7 +336,6 @@ export enum ESwapTxHistoryStatus {
   SUCCESS = 'success',
   FAILED = 'failed',
   PENDING = 'pending',
-  DISCARD = 'discard',
 }
 
 export interface IFetchSwapTxHistoryStatusResponse {

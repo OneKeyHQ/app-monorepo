@@ -56,9 +56,16 @@ export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
     };
   }
 
-  if (status === ESwapTxHistoryStatus.DISCARD) {
+  if (status === ESwapTxHistoryStatus.CANCELING) {
     return {
-      key: ETranslations.swap_history_status_discard,
+      key: ETranslations.swap_history_status_cancelling,
+      color: '$textCaution',
+    };
+  }
+
+  if (status === ESwapTxHistoryStatus.CANCELED) {
+    return {
+      key: ETranslations.swap_history_status_canceled,
       color: '$textCritical',
     };
   }

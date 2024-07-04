@@ -1265,6 +1265,8 @@
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
+  "swap_history.status_canceled": "キャンセルされました",
+  "swap_history.status_cancelling": "キャンセル",
   "swap_history.status_discard": "タイムアウト",
   "swap_history.status_failed": "失敗しました",
   "swap_history.status_pending": "保留中",
