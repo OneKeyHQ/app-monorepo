@@ -336,6 +336,8 @@ export enum ESwapTxHistoryStatus {
   SUCCESS = 'success',
   FAILED = 'failed',
   PENDING = 'pending',
+  CANCELED = 'canceled',
+  CANCELING = 'canceling',
 }
 
 export interface IFetchSwapTxHistoryStatusResponse {

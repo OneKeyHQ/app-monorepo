@@ -69,7 +69,7 @@ const SwapTxHistoryListCell = ({
       return (
         <Badge badgeType="warning" badgeSize="lg">
           {intl.formatMessage({
-            id: ETranslations.swap_history_status_canceled,
+            id: ETranslations.swap_history_status_cancelling,
           })}
         </Badge>
       );
