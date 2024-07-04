@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import type { ETxActionComponentType } from '@onekeyhq/shared/types';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   EDecodedTxStatus,
   EReplaceTxType,
@@ -10,7 +11,6 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import type { ListItem } from '../ListItem';
-import { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 export type ITxActionProps = {
   action: IDecodedTxAction;

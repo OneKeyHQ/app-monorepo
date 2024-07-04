@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Button,
