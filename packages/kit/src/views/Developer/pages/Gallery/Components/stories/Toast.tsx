@@ -3,6 +3,23 @@ import { Button, Toast, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
+function generateLongTestText(num: number) {
+  return new Array(num)
+    .fill(
+      `
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
+    Quisque nec elementum eros. 
+    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
+    Vestibulum faucibus nibh id tincidunt sollicitudin. 
+    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
+    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.
+  `,
+    )
+    .join('');
+}
+
 const ToastGallery = () => (
   <Layout
     description=""
@@ -53,7 +70,7 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.success({
-                  title: `Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, 444444444444444444444444`,
+                  title: generateLongTestText(1),
                 });
               }}
             >
@@ -63,72 +80,7 @@ const ToastGallery = () => (
               onPress={() => {
                 Toast.success({
                   duration: 999999,
-                  title: `Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. `,
+                  title: generateLongTestText(10),
                 });
               }}
             >
@@ -139,71 +91,7 @@ const ToastGallery = () => (
                 Toast.error({
                   duration: 999999,
                   title: 'Title',
-                  message: `Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.`,
+                  message: generateLongTestText(10),
                 });
               }}
             >
@@ -216,71 +104,7 @@ const ToastGallery = () => (
                   duration: 999999,
                   title:
                     'Lorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit amet',
-                  message: `Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.Lorem ipsum dolor sit amet, 
-                    consectetur adipiscing elit. 
-                    Quisque nec elementum eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros. 
-                    Vestibulum faucibus nibh id tincidunt sollicitudin. 
-                    Donec elementum sollicitudin sollicitudin. Nunc eu urna nisl.
-                    Praesent justo purus, egestas nec accumsan ac, pharetra nec eros.`,
+                  message: generateLongTestText(10),
                 });
               }}
             >
