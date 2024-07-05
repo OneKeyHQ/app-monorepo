@@ -467,6 +467,7 @@ export interface IBatchSignTransactionParamsBase {
   signOnly?: boolean;
   sourceInfo?: IDappSourceInfo;
   replaceTxInfo?: IReplaceTxInfo;
+  transferPayload: ITransferPayload | undefined;
 }
 
 export interface ISignMessageParams {
