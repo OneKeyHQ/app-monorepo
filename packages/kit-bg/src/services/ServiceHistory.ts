@@ -457,6 +457,13 @@ class ServiceHistory extends ServiceBase {
             prevTx.decodedTx.actions || newHistoryTx.decodedTx.actions;
         }
 
+        // if the prev tx is a cancel tx, the new tx should keep canceled status
+        if (prevTx.replacedType === EReplaceTxType.Cancel) {
+          newHistoryTx.decodedTx.actions =
+            prevTx.decodedTx.actions || newHistoryTx.decodedTx.actions;
+          newHistoryTx.replacedType = EReplaceTxType.Cancel;
+        }
+
         void this.backgroundApi.serviceSwap.updateSwapHistoryTx({
           oldTxId: prevTx.decodedTx.txid,
           newTxId: newHistoryTx.decodedTx.txid,

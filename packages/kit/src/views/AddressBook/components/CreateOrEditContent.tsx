@@ -19,7 +19,8 @@ import {
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { ChainSelectorInput } from '@onekeyhq/kit/src/components/ChainSelectorInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { IAddressItem } from '../type';
 
@@ -80,6 +81,17 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
     [onSubmit],
   );
 
+  const { result: addressBookEnabledNetworkIds } = usePromiseResult(
+    async () => {
+      const resp =
+        await backgroundApiProxy.serviceNetwork.getAddressBookEnabledNetworks();
+      const networkIds = resp.map((o) => o.id);
+      return networkIds;
+    },
+    [],
+    { initResult: [] },
+  );
+
   return (
     <Page>
       <Page.Header title={title} headerRight={headerRight} />
@@ -92,9 +104,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             name="networkId"
             rules={{ required: true }}
           >
-            <ChainSelectorInput
-              excludedNetworkIds={networkUtils.getAddressBookExcludedNetworkIds()}
-            />
+            <ChainSelectorInput networkIds={addressBookEnabledNetworkIds} />
           </Form.Field>
           <Form.Field
             label={intl.formatMessage({
