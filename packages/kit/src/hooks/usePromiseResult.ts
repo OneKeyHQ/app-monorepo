@@ -212,8 +212,8 @@ export function usePromiseResult<T>(
             pollingInterval &&
             pollingNonceRef.current === config?.pollingNonce
           ) {
-            await timerUtils.wait(pollingInterval);
             await defer.promise;
+            await timerUtils.wait(pollingInterval);
 
             if (pollingNonceRef.current === config?.pollingNonce) {
               if (shouldSetState(config)) {
