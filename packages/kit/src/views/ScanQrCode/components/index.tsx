@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import {
-  getCameraPermissionsAsync,
-  requestCameraPermissionsAsync,
-} from 'expo-camera';
+  getPermissionsAsync,
+  requestPermissionsAsync,
+} from 'expo-barcode-scanner';
 import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
 
@@ -80,9 +80,9 @@ export function ScanQrCode({
   );
 
   useEffect(() => {
-    void getCameraPermissionsAsync().then(({ status: readSilentStatus }) => {
+    void getPermissionsAsync().then(({ status: readSilentStatus }) => {
       if (readSilentStatus !== PermissionStatus.GRANTED) {
-        void requestCameraPermissionsAsync().then(({ status }) => {
+        void requestPermissionsAsync().then(({ status }) => {
           setCurrentPermission(status);
           if (status !== PermissionStatus.GRANTED) {
             const { isExtensionUiPopup } = platformEnv;
