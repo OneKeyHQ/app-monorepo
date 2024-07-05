@@ -147,6 +147,12 @@ export default class ServiceSwap extends ServiceBase {
         {
           params,
           signal: this._tokenListAbortController.signal,
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
         },
       );
       return data?.data ?? [];
@@ -206,7 +212,13 @@ export default class ServiceSwap extends ServiceBase {
     }
     const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
       '/swap/v1/token/detail',
-      { params },
+      {
+        params,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
     );
     return data?.data;
   }
@@ -220,6 +232,7 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage,
     autoSlippage,
     blockNumber,
+    accountId,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -228,6 +241,7 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage: number;
     autoSlippage?: boolean;
     blockNumber?: number;
+    accountId?: string;
   }): Promise<IFetchQuoteResult[]> {
     await this.cancelFetchQuotes();
     const params: IFetchQuotesParams = {
@@ -251,6 +265,12 @@ export default class ServiceSwap extends ServiceBase {
         {
           params,
           signal: this._quoteAbortController.signal,
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
         },
       );
       this._quoteAbortController = undefined;
@@ -285,6 +305,7 @@ export default class ServiceSwap extends ServiceBase {
     provider,
     receivingAddress,
     slippagePercentage,
+    accountId,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -294,6 +315,7 @@ export default class ServiceSwap extends ServiceBase {
     userAddress: string;
     receivingAddress: string;
     slippagePercentage: number;
+    accountId?: string;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
@@ -312,7 +334,15 @@ export default class ServiceSwap extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
         '/swap/v1/build-tx',
-        { params },
+        {
+          params,
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
+        },
       );
       return data?.data;
     } catch (e) {
@@ -367,11 +397,13 @@ export default class ServiceSwap extends ServiceBase {
     tokenAddress,
     spenderAddress,
     walletAddress,
+    accountId,
   }: {
     networkId: string;
     tokenAddress: string;
     spenderAddress: string;
     walletAddress: string;
+    accountId?: string;
   }) {
     const params = {
       networkId,
@@ -383,7 +415,13 @@ export default class ServiceSwap extends ServiceBase {
 
     const { data } = await client.get<IFetchResponse<string>>(
       '/swap/v1/allowance',
-      { params },
+      {
+        params,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
     );
     return data?.data;
   }
