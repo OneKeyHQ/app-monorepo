@@ -27,7 +27,7 @@ import {
 
 import ServiceBase from './ServiceBase';
 
-import type { IDBAccount, IDBBaseObject } from '../dbs/local/types';
+import type { IDBAccount, IDBBaseObject, IDBDevice } from '../dbs/local/types';
 
 @backgroundClass()
 class ServiceE2E extends ServiceBase {
@@ -200,7 +200,10 @@ class ServiceE2E extends ServiceBase {
       accountMissingImpls,
       accounts: (accounts || []).sort(sortFn),
       wallets: (wallets || []).sort(sortFn),
-      devices: (devices || []).sort(sortFn),
+      devices: (devices || []).sort(sortFn).map((device: IDBDevice) => {
+        delete (device as { features?: string })?.features;
+        return device;
+      }),
     };
   }
 }
