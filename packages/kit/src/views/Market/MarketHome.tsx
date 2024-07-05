@@ -1,6 +1,7 @@
 import type { ForwardedRef } from 'react';
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -112,55 +113,55 @@ function MarketHome() {
   );
 
   const ref = useRef<IAnimatedIconRef>(null);
-  return useMemo(
-    () => (
-      <Page>
-        {gtMd ? <MarketHomeHeader /> : <MDMarketHomeHeader />}
-        <Page.Body>
-          {tabConfig.length ? (
-            <Tab.Page
-              data={tabConfig}
-              contentItemWidth={CONTENT_ITEM_WIDTH}
-              contentWidth={screenWidth}
-              headerProps={{
-                contentContainerStyle: { paddingRight: '$5' },
-                showHorizontalScrollButton:
-                  !gtMd && platformEnv.isRuntimeBrowser,
-                renderItem: (item, index, titleStyle) =>
-                  index === 0 && !gtMd ? (
-                    <AnimatedIcon
-                      ref={ref}
-                      normalColor={
-                        (titleStyle as { normalColor: IColorTokens })
-                          ?.normalColor
-                      }
-                      selectedColor={
-                        (titleStyle as { selectedColor: IColorTokens })
-                          ?.selectedColor
-                      }
-                    />
-                  ) : (
-                    <Tab.SelectedLabel {...(titleStyle as any)} />
-                  ),
-              }}
-              onSelectedPageIndex={(index: number) => {
-                ref?.current?.setIsSelected?.(index === 0);
-                appEventBus.emit(EAppEventBusNames.SwitchMarketHomeTab, {
-                  tabIndex: index,
-                });
-                console.log('选中', index, index === 0 ? 1 : 0);
-              }}
-              windowSize={3}
-            />
-          ) : (
-            <Stack flex={1} ai="center" jc="center">
-              <Spinner size="large" />
-            </Stack>
-          )}
-        </Page.Body>
-      </Page>
-    ),
-    [gtMd, screenWidth, tabConfig],
+  const headerProps = useMemo(
+    () => ({
+      contentContainerStyle: { paddingRight: '$5' },
+      showHorizontalScrollButton: !gtMd && platformEnv.isRuntimeBrowser,
+      renderItem: (item: any, index: any, titleStyle: any) =>
+        index === 0 && !gtMd ? (
+          <AnimatedIcon
+            ref={ref}
+            normalColor={
+              (titleStyle as { normalColor: IColorTokens })?.normalColor
+            }
+            selectedColor={
+              (titleStyle as { selectedColor: IColorTokens })?.selectedColor
+            }
+          />
+        ) : (
+          <Tab.SelectedLabel {...titleStyle} />
+        ),
+    }),
+    [gtMd],
+  );
+
+  const handleSelectedPageIndex = useCallback((index: number) => {
+    ref?.current?.setIsSelected?.(index === 0);
+    appEventBus.emit(EAppEventBusNames.SwitchMarketHomeTab, {
+      tabIndex: index,
+    });
+    console.log('选中', index, index === 0 ? 1 : 0);
+  }, []);
+  return (
+    <Page>
+      {gtMd ? <MarketHomeHeader /> : <MDMarketHomeHeader />}
+      <Page.Body>
+        {tabConfig.length ? (
+          <Tab.Page
+            data={tabConfig}
+            contentItemWidth={CONTENT_ITEM_WIDTH}
+            contentWidth={screenWidth}
+            headerProps={headerProps}
+            onSelectedPageIndex={handleSelectedPageIndex}
+            windowSize={3}
+          />
+        ) : (
+          <Stack flex={1} ai="center" jc="center">
+            <Spinner size="large" />
+          </Stack>
+        )}
+      </Page.Body>
+    </Page>
   );
 }
 
