@@ -608,7 +608,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
         from: tx.from,
-        to: tokenApprove.spender,
+        to: tx.to,
+        spender: tokenApprove.spender,
         icon,
         name,
         symbol,

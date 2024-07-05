@@ -178,6 +178,7 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amount: string;
   symbol: string;
   name: string;
+  spender: string;
   isInfiniteAmount: boolean;
   tokenIdOnNetwork: string;
   label?: string;

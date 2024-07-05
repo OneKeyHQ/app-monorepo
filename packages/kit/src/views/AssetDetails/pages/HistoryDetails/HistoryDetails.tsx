@@ -590,9 +590,9 @@ function HistoryDetails() {
     if (!canReplaceTx) return null;
 
     return (
-      <XStack ml="$5" space="$2">
+      <XStack ml="$5">
         {canCancelTx ? (
-          <>
+          <XStack space="$2">
             <Button
               size="small"
               variant="primary"
@@ -611,7 +611,7 @@ function HistoryDetails() {
             >
               {intl.formatMessage({ id: ETranslations.global_cancel })}
             </Button>
-          </>
+          </XStack>
         ) : (
           <Button
             size="small"
@@ -710,7 +710,7 @@ function HistoryDetails() {
           label={intl.formatMessage({
             id: ETranslations.global_for,
           })}
-          renderContent={approve.to}
+          renderContent={approve.spender}
           showCopy
         />
       );

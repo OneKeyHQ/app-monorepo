@@ -765,7 +765,8 @@ export default class Vault extends VaultBase {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
         from: encodedTx.from ?? accountAddress,
-        to: spender,
+        to: encodedTx.to,
+        spender,
         amount,
         icon: token.logoURI ?? '',
         name: token.name,
