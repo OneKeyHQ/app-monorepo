@@ -151,7 +151,7 @@ function TxFeeContainer(props: IProps) {
     [accountId, networkId, unsignedTxs, updateSendFeeStatus],
     {
       watchLoading: true,
-      pollingInterval: 6000,
+      pollingInterval: vaultSettings?.estimatedFeePollingInterval,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused && sendSelectedFee.feeType !== EFeeType.Custom,
     },

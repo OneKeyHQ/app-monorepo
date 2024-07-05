@@ -37,6 +37,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  estimatedFeePollingInterval: 6,
 
   minTransferAmount: '0.00000546',
 

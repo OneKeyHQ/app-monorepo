@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -45,6 +46,10 @@ import {
 } from '../../../components/Hardware/HardwareDialog';
 
 import ActionsQueueManager from './ActionsQueueManager';
+import {
+  SHOW_CLOSE_ACTION_MIN_DURATION,
+  SHOW_CLOSE_LOADING_ACTION_MIN_DURATION,
+} from './constants';
 
 function HardwareSingletonDialogCmp(
   props: any,
@@ -56,6 +61,7 @@ function HardwareSingletonDialogCmp(
   // state?.payload?.deviceType
   const { serviceHardwareUI } = backgroundApiProxy;
   const intl = useIntl();
+  const [showCloseButton, setIsShowExitButton] = useState(false);
 
   // TODO make sure toast is last session action
   // TODO pin -> passpharse -> confirm -> address -> sign -> confirm
@@ -68,6 +74,27 @@ function HardwareSingletonDialogCmp(
       ) : null}
     </CommonDeviceLoading>,
   );
+
+  useEffect(() => {
+    let delayTime = SHOW_CLOSE_ACTION_MIN_DURATION;
+    if (
+      action &&
+      [
+        EHardwareUiStateAction.DeviceChecking,
+        EHardwareUiStateAction.ProcessLoading,
+      ].includes(action)
+    ) {
+      delayTime = SHOW_CLOSE_LOADING_ACTION_MIN_DURATION;
+    }
+
+    const timer = setTimeout(() => {
+      setIsShowExitButton(true);
+    }, delayTime);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [action]);
 
   if (action === EHardwareUiStateAction.DeviceChecking) {
     title.current = intl.formatMessage({
@@ -162,13 +189,13 @@ function HardwareSingletonDialogCmp(
   ) {
     return <RequireBlePermissionDialog ref={ref} {...props} />;
   }
-
   return (
     <DialogContainer
       ref={ref}
       title={title.current}
       renderContent={content.current}
       {...props} // pass down cloneElement props
+      showExitButton={showCloseButton}
     />
   );
 }
@@ -314,6 +341,26 @@ function HardwareUiStateContainerCmp() {
     [hasToastAction],
   );
 
+  const hasDeviceResetToHome = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (
+        currentState?.action &&
+        [
+          EHardwareUiStateAction.REQUEST_PASSPHRASE,
+          EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE,
+          EHardwareUiStateAction.REQUEST_PIN,
+          EHardwareUiStateAction.EnterPinOnDevice,
+          EHardwareUiStateAction.REQUEST_BUTTON,
+        ].includes(currentState?.action)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [],
+  );
+
   const shouldSkipCancel = useMemo(() => {
     // TODO atom firmware is updating
     if (
@@ -335,6 +382,7 @@ function HardwareUiStateContainerCmp() {
   const showActionsToast = useCallback(
     (currentState: IHardwareUiState | undefined) => {
       const currentDeviceType = getDeviceType(currentState);
+      const currentShouldDeviceResetToHome = hasDeviceResetToHome(currentState);
       toastQueueManagerRef?.current?.addQueue(() => ({
         state: currentState,
         action: () =>
@@ -345,7 +393,10 @@ function HardwareUiStateContainerCmp() {
             dismissOnOverlayPress: false,
             disableSwipeGesture: true,
             onClose: async (params) => {
-              log('close toast');
+              log('close toast:', params, currentState, {
+                currentShouldDeviceResetToHome,
+                shouldSkipCancel: shouldSkipCancelRef.current,
+              });
               if (params?.flag !== autoClosedFlag) {
                 appEventBus.emit(
                   EAppEventBusNames.CloseHardwareUiStateDialogManually,
@@ -354,32 +405,38 @@ function HardwareUiStateContainerCmp() {
                 await serviceHardwareUI.closeHardwareUiStateDialog({
                   connectId: currentState?.connectId,
                   skipDeviceCancel: shouldSkipCancelRef.current,
+                  deviceResetToHome: currentShouldDeviceResetToHome,
                 });
               }
             },
           }),
       }));
     },
-    [getDeviceType, serviceHardwareUI],
+    [getDeviceType, serviceHardwareUI, hasDeviceResetToHome],
   );
 
   const showActionsDialog = useCallback(
     (currentState: IHardwareUiState | undefined) => {
       // Required operation dialog
       const isOperationAction = hasOperationAction(currentState);
+      const currentShouldDeviceResetToHome = hasDeviceResetToHome(currentState);
       dialogQueueManagerRef?.current?.addQueue(() => ({
         state: currentState,
         action: () =>
           Dialog.show({
             dismissOnOverlayPress: false,
             // disableSwipeGesture: true,
+            disableDrag: true,
             showFooter: !!isOperationAction,
             // eslint-disable-next-line react/no-unstable-nested-components
             dialogContainer: ({ ref }: { ref: any }) => (
               <HardwareSingletonDialog ref={ref} state={currentState} />
             ),
             async onClose(params) {
-              log('close dialog');
+              log('close dialog', params, currentState, {
+                currentShouldDeviceResetToHome,
+                shouldSkipCancel: shouldSkipCancelRef.current,
+              });
 
               if (params?.flag !== autoClosedFlag) {
                 appEventBus.emit(
@@ -390,13 +447,14 @@ function HardwareUiStateContainerCmp() {
                   connectId: currentState?.connectId,
                   reason: 'HardwareUiStateContainer onClose',
                   skipDeviceCancel: shouldSkipCancelRef.current,
+                  deviceResetToHome: currentShouldDeviceResetToHome,
                 });
               }
             },
           }),
       }));
     },
-    [hasOperationAction, serviceHardwareUI],
+    [hasOperationAction, serviceHardwareUI, hasDeviceResetToHome],
   );
 
   const hasSameDialogAction = useCallback(
@@ -496,4 +554,5 @@ function HardwareUiStateContainerCmp() {
 
   return null;
 }
+
 export const HardwareUiStateContainer = memo(HardwareUiStateContainerCmp);

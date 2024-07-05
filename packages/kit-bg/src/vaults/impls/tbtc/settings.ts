@@ -62,6 +62,7 @@ const settings: IVaultSettings = {
   accountDeriveInfo,
   impl: IMPL_TBTC,
   coinTypeDefault: COINTYPE_TBTC,
+  estimatedFeePollingInterval: 60,
 };
 
 export default Object.freeze(settings);

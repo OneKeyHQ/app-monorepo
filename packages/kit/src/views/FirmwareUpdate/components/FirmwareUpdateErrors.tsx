@@ -424,11 +424,20 @@ export function useFirmwareUpdateErrors({
     }
 
     if (error) {
+      let message = error?.message;
+
+      // web3Errors.provider.requestTimeout();
+      if (error.code === 4500) {
+        message = intl.formatMessage({
+          id: ETranslations.feedback_hw_polling_time_out,
+        });
+      }
+
       return {
         content: (
           <CommonError
             icon="CrossedLargeOutline"
-            message={error?.message}
+            message={message}
             displayTroubleshooting
           />
         ),
