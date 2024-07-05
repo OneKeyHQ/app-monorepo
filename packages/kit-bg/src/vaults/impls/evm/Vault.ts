@@ -217,9 +217,9 @@ export default class Vault extends VaultBase {
     let extraNativeTransferAction: IDecodedTxAction | undefined;
 
     if (swapInfo) {
-      action = await this._buildTxActionFromSwap({
-        encodedTx,
+      action = await this.buildInternalSwapAction({
         swapInfo,
+        swapData: encodedTx.data,
       });
     } else {
       if (encodedTx.value) {
@@ -765,7 +765,8 @@ export default class Vault extends VaultBase {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
         from: encodedTx.from ?? accountAddress,
-        to: spender,
+        to: encodedTx.to,
+        spender,
         amount,
         icon: token.logoURI ?? '',
         name: token.name,
@@ -775,38 +776,6 @@ export default class Vault extends VaultBase {
       },
     };
 
-    return action;
-  }
-
-  async _buildTxActionFromSwap(params: {
-    encodedTx: IEncodedTxEvm;
-    swapInfo: ISwapTxInfo;
-  }) {
-    const { encodedTx, swapInfo } = params;
-    const swapSendToken = swapInfo.sender.token;
-    const providerInfo = swapInfo.swapBuildResData.result.info;
-    const action = await this.buildTxTransferAssetAction({
-      from: swapInfo.accountAddress,
-      to: encodedTx.to,
-      data: encodedTx.data,
-      application: {
-        name: providerInfo.providerName,
-        icon: providerInfo.providerLogo ?? '',
-      },
-      transfers: [
-        {
-          from: swapInfo.accountAddress,
-          to: encodedTx.to,
-          tokenIdOnNetwork: swapSendToken.contractAddress,
-          icon: swapSendToken.logoURI ?? '',
-          name: swapSendToken.name ?? '',
-          symbol: swapSendToken.symbol,
-          amount: swapInfo.sender.amount,
-          isNFT: false,
-          isNative: swapSendToken.isNative,
-        },
-      ],
-    });
     return action;
   }
 

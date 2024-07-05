@@ -52,7 +52,6 @@ import {
 } from '@onekeyhq/core/src/secret';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -64,7 +63,6 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -86,7 +84,6 @@ import ClientSol from './sdkSol/ClientSol';
 import {
   BASE_FEE,
   COMPUTE_UNIT_PRICE_DECIMALS,
-  JUPITER_V6_PROGRAM_ID,
   TOKEN_AUTH_RULES_ID,
   masterEditionAddress,
   metadataAddress,
@@ -637,9 +634,8 @@ export default class Vault extends VaultBase {
 
     if (unsignedTx.swapInfo) {
       actions = [
-        await this._buildTxActionFromSwap({
+        await this.buildInternalSwapAction({
           swapInfo: unsignedTx.swapInfo,
-          nativeTx,
         }),
       ];
     } else {
@@ -843,55 +839,6 @@ export default class Vault extends VaultBase {
     }
 
     return actions;
-  }
-
-  async _buildTxActionFromSwap(params: {
-    swapInfo: ISwapTxInfo;
-    nativeTx: INativeTxSol;
-  }) {
-    const { swapInfo, nativeTx } = params;
-    const providerInfo = swapInfo.swapBuildResData.result.info;
-    const swapSendToken = swapInfo.sender.token;
-    const client = await this.getClient();
-
-    const { instructions } = await parseNativeTxDetail({
-      nativeTx,
-      client,
-    });
-
-    let interactedProgram = '';
-
-    for (const instruction of instructions) {
-      if (
-        JUPITER_V6_PROGRAM_ID.toString() === instruction.programId.toString()
-      ) {
-        interactedProgram = JUPITER_V6_PROGRAM_ID.toString();
-        break;
-      }
-    }
-
-    const action = await this.buildTxTransferAssetAction({
-      from: swapInfo.accountAddress,
-      to: interactedProgram,
-      application: {
-        name: providerInfo.providerName,
-        icon: providerInfo.providerLogo ?? '',
-      },
-      transfers: [
-        {
-          from: swapInfo.accountAddress,
-          to: interactedProgram,
-          tokenIdOnNetwork: swapSendToken.contractAddress,
-          icon: swapSendToken.logoURI ?? '',
-          name: swapSendToken.name ?? '',
-          symbol: swapSendToken.symbol,
-          amount: swapInfo.sender.amount,
-          isNFT: false,
-          isNative: swapSendToken.isNative,
-        },
-      ],
-    });
-    return action;
   }
 
   override async buildUnsignedTx(
