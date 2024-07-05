@@ -178,6 +178,7 @@ function SendReplaceTxContainer() {
         });
 
       const f = await backgroundApiProxy.serviceGas.estimateFee({
+        accountId,
         networkId,
         accountAddress: account.address,
         encodedTx,

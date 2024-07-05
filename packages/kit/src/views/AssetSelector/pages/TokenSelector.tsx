@@ -69,6 +69,7 @@ function TokenSelector() {
       });
 
     const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+      accountId,
       networkId,
       accountAddress,
       mergeTokens: true,
