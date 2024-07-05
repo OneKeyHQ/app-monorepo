@@ -14,7 +14,6 @@ import type {
   ESwapRateDifferenceUnit,
   IFetchQuoteResult,
   ISwapAlertState,
-  ISwapApproveTransaction,
   ISwapNetwork,
   ISwapSlippageSegmentItem,
   ISwapToken,
