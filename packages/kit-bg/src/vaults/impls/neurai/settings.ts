@@ -25,10 +25,10 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
 const settings: IVaultSettings = {
   ...settingsBtc,
 
-  importedAccountEnabled: false,
+  importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
-  watchingAccountEnabled: false,
+  watchingAccountEnabled: true,
 
   accountDeriveInfo,
   impl: IMPL_NEURAI,
