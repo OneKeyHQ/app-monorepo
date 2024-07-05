@@ -50,6 +50,7 @@ import ActionBuy from './ActionBuy';
 import ActionSell from './ActionSell';
 
 import type { RouteProp } from '@react-navigation/core';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 export function TokenDetails() {
   const intl = useIntl();
@@ -162,6 +163,20 @@ export function TokenDetails() {
 
   const handleHistoryItemPress = useCallback(
     async (tx: IAccountHistoryTx) => {
+      if (tx.decodedTx.status === EDecodedTxStatus.Pending) {
+        const localTx =
+          await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
+            accountId,
+            networkId,
+            historyId: tx.id,
+          });
+
+        // tx has been replaced by another tx
+        if (!localTx || localTx.replacedNextId) {
+          return;
+        }
+      }
+
       navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
         accountId,
         networkId,

@@ -7,7 +7,7 @@ import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
-import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { useReplaceTx } from '../../hooks/useReplaceTx';
 
@@ -32,9 +32,11 @@ function TxHistoryListItem(props: IProps) {
   const renderReplaceTxActions = useCallback(() => {
     if (!canReplaceTx) return null;
 
+    if (historyTx.decodedTx.status !== EDecodedTxStatus.Pending) return null;
+
     return (
       <XStack
-        pl={showIcon ? 72 : 0}
+        pl={showIcon ? 72 : 20}
         testID="history-list-item-speed-up-and-cancel-buttons"
         pb="$3"
       >
@@ -71,7 +73,14 @@ function TxHistoryListItem(props: IProps) {
         )}
       </XStack>
     );
-  }, [canCancelTx, canReplaceTx, handleReplaceTx, intl, showIcon]);
+  }, [
+    canCancelTx,
+    canReplaceTx,
+    handleReplaceTx,
+    historyTx.decodedTx.status,
+    intl,
+    showIcon,
+  ]);
 
   if (!historyTx || !historyTx.decodedTx) return null;
 

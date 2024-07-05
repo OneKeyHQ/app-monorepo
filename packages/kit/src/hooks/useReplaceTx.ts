@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -12,15 +13,18 @@ import { usePromiseResult } from './usePromiseResult';
 function useReplaceTx({
   historyTx,
   onSuccess,
+  isConfirmed,
 }: {
   historyTx: IAccountHistoryTx;
-  onSuccess?: () => void;
+  onSuccess?: (data: ISendTxOnSuccessData) => void;
+  isConfirmed?: boolean;
 }) {
   const navigation = useAppNavigation();
 
   const canReplaceTx = usePromiseResult(async () => {
-    const { decodedTx } = historyTx;
-    const { accountId, networkId, status, encodedTx } = decodedTx;
+    const { accountId, networkId, status, encodedTx } = historyTx.decodedTx;
+
+    if (isConfirmed) return false;
 
     if (!encodedTx) return false;
 
@@ -38,7 +42,7 @@ function useReplaceTx({
       networkId,
       encodedTx,
     });
-  }, [historyTx]).result;
+  }, [historyTx, isConfirmed]).result;
 
   const canCancelTx = historyTx.replacedType !== EReplaceTxType.Cancel;
 
@@ -65,7 +69,13 @@ function useReplaceTx({
           replaceType,
           replaceEncodedTx,
           historyTx,
-          onSuccess,
+          onSuccess: (data: ISendTxOnSuccessData) => {
+            void backgroundApiProxy.serviceHistory.fetchAccountHistory({
+              accountId,
+              networkId,
+            });
+            onSuccess?.(data);
+          },
         },
       });
     },
