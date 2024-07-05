@@ -37,12 +37,13 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountNFTs(params: IFetchAccountNFTsParams) {
+    const { accountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
     this._fetchAccountNFTsController = controller;
     const resp = await client.get<{
       data: IFetchAccountNFTsResp;
-    }>(`/wallet/v1/account/nft/list?${qs.stringify(omitBy(params, isNil))}`, {
+    }>(`/wallet/v1/account/nft/list?${qs.stringify(omitBy(rest, isNil))}`, {
       signal: controller.signal,
       headers:
         await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
@@ -56,7 +57,7 @@ class ServiceNFT extends ServiceBase {
   @backgroundMethod()
   public async fetchNFTDetails(params: IFetchNFTDetailsParams) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const { nfts, ...rest } = params;
+    const { nfts, accountId, ...rest } = params;
     const resp = await client.post<IFetchNFTDetailsResp>(
       '/wallet/v1/account/nft/detail',
       {
@@ -70,7 +71,7 @@ class ServiceNFT extends ServiceBase {
       {
         headers:
           await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId: params.accountId,
+            accountId,
           }),
       },
     );
