@@ -19,10 +19,23 @@ class ServiceGas extends ServiceBase {
     super({ backgroundApi });
   }
 
+  _estimateFeeController: AbortController | null = null;
+
+  @backgroundMethod()
+  public async abortEstimateFee() {
+    if (this._estimateFeeController) {
+      this._estimateFeeController.abort();
+      this._estimateFeeController = null;
+    }
+  }
+
   @backgroundMethod()
   async estimateFee(params: IEstimateGasParams) {
     const { accountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
+
+    const controller = new AbortController();
+    this._estimateFeeController = controller;
 
     const resp = await client.post<{ data: IEstimateGasResp }>(
       '/wallet/v1/account/estimate-fee',
@@ -34,6 +47,9 @@ class ServiceGas extends ServiceBase {
           }),
       },
     );
+
+    this._estimateFeeController = null;
+
     const feeInfo = resp.data.data;
     return {
       common: {

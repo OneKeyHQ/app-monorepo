@@ -69,13 +69,7 @@ function useReplaceTx({
           replaceType,
           replaceEncodedTx,
           historyTx,
-          onSuccess: (data: ISendTxOnSuccessData) => {
-            void backgroundApiProxy.serviceHistory.fetchAccountHistory({
-              accountId,
-              networkId,
-            });
-            onSuccess?.(data);
-          },
+          onSuccess,
         },
       });
     },
