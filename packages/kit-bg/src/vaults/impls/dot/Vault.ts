@@ -125,57 +125,56 @@ export default class VaultDot extends VaultBase {
     registry: TypeRegistry;
   }> {
     const [
-      { specName, specVersion, transactionVersion },
-      blockHash,
-      genesisHash,
-      { block },
-      metadataRpc,
-    ] = (await this.backgroundApi.serviceAccountProfile.sendProxyRequest({
-      networkId: this.networkId,
-      body: [
-        {
-          route: 'rpc',
-          params: {
-            method: 'state_getRuntimeVersion',
-            params: [],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'chain_getBlockHash',
-            params: [],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'chain_getBlockHash',
-            params: [0],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'chain_getBlock',
-            params: [],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'state_getMetadata',
-            params: [],
-          },
-        },
+      [
+        { specName, specVersion, transactionVersion },
+        blockHash,
+        genesisHash,
+        { block },
       ],
-    })) as [
-      { specName: string; specVersion: number; transactionVersion: number },
-      string,
-      string,
-      { block: { header: { number: number } } },
-      `0x${string}`,
-    ];
+      metadataRpc,
+    ] = await Promise.all([
+      this.backgroundApi.serviceAccountProfile.sendProxyRequest({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: 'state_getRuntimeVersion',
+              params: [],
+            },
+          },
+          {
+            route: 'rpc',
+            params: {
+              method: 'chain_getBlockHash',
+              params: [],
+            },
+          },
+          {
+            route: 'rpc',
+            params: {
+              method: 'chain_getBlockHash',
+              params: [0],
+            },
+          },
+          {
+            route: 'rpc',
+            params: {
+              method: 'chain_getBlock',
+              params: [],
+            },
+          },
+        ],
+      }) as Promise<
+        [
+          { specName: string; specVersion: number; transactionVersion: number },
+          string,
+          string,
+          { block: { header: { number: number } } },
+        ]
+      >,
+      this._getMetadataRpc(this.networkId),
+    ]);
     const info = {
       metadataRpc,
       specName: specName as 'polkadot',
@@ -310,24 +309,30 @@ export default class VaultDot extends VaultBase {
     };
   }
 
-  private async _getMetadataRpc(): Promise<`0x${string}`> {
-    const [res] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
-        {
-          networkId: this.networkId,
-          body: [
-            {
-              route: 'rpc',
-              params: {
-                method: 'state_getMetadata',
-                params: [],
+  private _getMetadataRpc = memoizee(
+    async (networkId: string): Promise<`0x${string}`> => {
+      const [res] =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
+          {
+            networkId,
+            body: [
+              {
+                route: 'rpc',
+                params: {
+                  method: 'state_getMetadata',
+                  params: [],
+                },
               },
-            },
-          ],
-        },
-      );
-    return res;
-  }
+            ],
+          },
+        );
+      return res;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
 
   private async _getRegistry(params: {
     metadataRpc?: `0x${string}`;
@@ -338,7 +343,7 @@ export default class VaultDot extends VaultBase {
 
     let metadataRpcHex: `0x${string}`;
     if (isNil(params.metadataRpc) || isEmpty(params.metadataRpc)) {
-      metadataRpcHex = await this._getMetadataRpc();
+      metadataRpcHex = await this._getMetadataRpc(this.networkId);
     } else {
       metadataRpcHex = params.metadataRpc;
     }
@@ -389,7 +394,7 @@ export default class VaultDot extends VaultBase {
 
     let { metadataRpc } = unsigned;
     if (!metadataRpc) {
-      metadataRpc = await this._getMetadataRpc();
+      metadataRpc = await this._getMetadataRpc(this.networkId);
     }
     const decodedUnsigned = decode(unsigned, {
       metadataRpc,
@@ -448,14 +453,9 @@ export default class VaultDot extends VaultBase {
       to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
 
       if (decodeUnsignedTx.method.name === 'transferAll') {
-        const accountDetail =
-          await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-            networkId: this.networkId,
-            accountId: this.accountId,
-            withNonce: false,
-            withNetWorth: true,
-          });
-        const balance = new BigNumber(accountDetail.balance ?? 0);
+        const balance = new BigNumber(
+          params.transferPayload?.amountToSend ?? 0,
+        ).shiftedBy(tokenInfo.decimals);
         const feeInfo = unsignedTx.feeInfo;
         const fee = feeInfo
           ? new BigNumber(feeInfo.gas?.gasLimit ?? 0)
@@ -519,7 +519,7 @@ export default class VaultDot extends VaultBase {
       (await this.buildEncodedTx(params))) as IEncodedTxDot;
     if (encodedTx) {
       if (!encodedTx.metadataRpc) {
-        encodedTx.metadataRpc = await this._getMetadataRpc();
+        encodedTx.metadataRpc = await this._getMetadataRpc(this.networkId);
       }
       return {
         encodedTx,
