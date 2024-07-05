@@ -83,8 +83,10 @@ export function WalletActionMore() {
     return settings;
   }, [network?.id]).result;
 
-  const sections: ComponentProps<typeof RawActions.More>['sections'] = [
-    {
+  const sections: ComponentProps<typeof RawActions.More>['sections'] = [];
+
+  if (!vaultSettings?.copyAddressDisabled) {
+    sections.unshift({
       items: [
         {
           label: intl.formatMessage({ id: ETranslations.global_copy_address }),
@@ -92,8 +94,8 @@ export function WalletActionMore() {
           onPress: handleCopyAddress,
         },
       ],
-    },
-  ];
+    });
+  }
 
   if (!vaultSettings?.hideBlockExplorer) {
     sections.unshift({
