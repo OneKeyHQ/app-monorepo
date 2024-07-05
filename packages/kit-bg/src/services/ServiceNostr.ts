@@ -104,7 +104,7 @@ class ServiceNostr extends ServiceBase {
             });
             return signedTx;
           },
-          { deviceParams },
+          { deviceParams, debugMethodName: 'nostr.signTransaction' },
         );
       return {
         data: JSON.parse(signedEvent.rawTx),
@@ -152,7 +152,7 @@ class ServiceNostr extends ServiceBase {
           });
           return signedTx;
         },
-        { deviceParams },
+        { deviceParams, debugMethodName: 'nostr.encrypt' },
       );
     return {
       data: encrypted,
@@ -252,7 +252,7 @@ class ServiceNostr extends ServiceBase {
           });
           return signedTx;
         },
-        { deviceParams },
+        { deviceParams, debugMethodName: 'nostr.signMessage' },
       );
     return {
       data: signedMessage[0],

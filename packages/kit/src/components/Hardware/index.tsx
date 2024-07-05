@@ -1,4 +1,5 @@
 import { Dialog, Toast } from '@onekeyhq/components';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
   ConfirmOnDeviceToastContent,
@@ -63,7 +64,7 @@ export const confirmOnDeviceToastSample = async () => {
   setTimeout(async () => {
     event.confirm();
     await toast.close();
-  }, 3500);
+  }, timerUtils.getTimeDurationMs({ seconds: 35 }));
   await event.run();
 };
 
