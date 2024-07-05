@@ -39,6 +39,7 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   onChainHistoryDisabled: true,
   transferZeroNativeTokenEnabled: true,
+  estimatedFeePollingInterval: 6,
 
   accountDeriveInfo,
   networkInfo: {

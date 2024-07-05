@@ -149,6 +149,7 @@ export type IVaultSettings = {
   defaultFeePresetIndex: number;
   checkFeeDetailEnabled?: boolean;
   replaceTxEnabled: boolean;
+  estimatedFeePollingInterval: number;
 
   minTransferAmount?: string;
   utxoDustAmount?: string;
