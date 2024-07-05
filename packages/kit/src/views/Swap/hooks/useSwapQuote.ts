@@ -36,13 +36,11 @@ export function useSwapQuote() {
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [swapApprovingTransactionAtom] = useSwapApprovingTransactionAtom();
-  const activeAccountAddressRef = useRef<string | undefined>();
-  const activeAccountNetworkIdRef = useRef<string | undefined>();
-  if (activeAccountAddressRef.current !== swapAddressInfo?.address) {
-    activeAccountAddressRef.current = swapAddressInfo?.address;
-  }
-  if (activeAccountNetworkIdRef.current !== swapAddressInfo.networkId) {
-    activeAccountNetworkIdRef.current = swapAddressInfo.networkId;
+  const activeAccountRef = useRef<
+    ReturnType<typeof useSwapAddressInfo> | undefined
+  >();
+  if (activeAccountRef.current !== swapAddressInfo) {
+    activeAccountRef.current = swapAddressInfo;
   }
   const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>();
   if (swapApprovingTxRef.current !== swapApprovingTransactionAtom) {
@@ -63,7 +61,10 @@ export function useSwapQuote() {
     if (swapSlippageDialogOpening || swapApproveAllowanceSelectOpen) {
       cleanQuoteInterval();
     } else {
-      void recoverQuoteInterval(activeAccountAddressRef.current);
+      void recoverQuoteInterval(
+        activeAccountRef.current?.address,
+        activeAccountRef.current?.accountInfo?.account?.id,
+      );
     }
   }, [
     cleanQuoteInterval,
@@ -81,18 +82,22 @@ export function useSwapQuote() {
       !swapApprovingTransactionAtom.resetApproveValue
     ) {
       void quoteAction(
-        activeAccountAddressRef.current,
+        activeAccountRef.current?.address,
+        activeAccountRef.current?.accountInfo?.account?.id,
         swapApprovingTransactionAtom.blockNumber,
       );
     }
   }, [cleanQuoteInterval, quoteAction, swapApprovingTransactionAtom]);
 
   useEffect(() => {
-    if (fromToken?.networkId !== activeAccountNetworkIdRef.current) {
+    if (fromToken?.networkId !== activeAccountRef.current?.networkId) {
       return;
     }
     alignmentDecimal();
-    void quoteAction(activeAccountAddressRef.current);
+    void quoteAction(
+      activeAccountRef.current?.address,
+      activeAccountRef.current?.accountInfo?.account?.id,
+    );
     return () => {
       cleanQuoteInterval();
     };
@@ -113,7 +118,10 @@ export function useSwapQuote() {
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (pageType !== EPageType.modal) {
         if (isFocus && !isHiddenModel && !swapApprovingTxRef.current?.txId) {
-          void recoverQuoteInterval(activeAccountAddressRef.current);
+          void recoverQuoteInterval(
+            activeAccountRef.current?.address,
+            activeAccountRef.current?.accountInfo?.account?.id,
+          );
         } else {
           cleanQuoteInterval();
         }
@@ -125,7 +133,10 @@ export function useSwapQuote() {
   useEffect(() => {
     if (pageType === EPageType.modal) {
       if (isFocused && !swapApprovingTxRef.current?.txId) {
-        void recoverQuoteInterval(activeAccountAddressRef.current);
+        void recoverQuoteInterval(
+          activeAccountRef.current?.address,
+          activeAccountRef.current?.accountInfo?.account?.id,
+        );
       } else {
         cleanQuoteInterval();
       }

@@ -239,7 +239,8 @@ export function useSwapBuildTx() {
           slippagePercentage: slippageItem.value,
           receivingAddress: swapToAddressInfo.address,
           userAddress: swapFromAddressInfo.address,
-          provider: selectQuote.info.provider,
+          provider: selectQuote?.info.provider,
+          accountId: swapFromAddressInfo.accountInfo?.account?.id,
         });
         if (res) {
           let transferInfo: ITransferInfo | undefined;
@@ -328,9 +329,11 @@ export function useSwapBuildTx() {
     toToken,
     fromTokenAmount,
     slippageItem,
-    selectQuote,
+    selectQuote?.toAmount,
+    selectQuote?.info.provider,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
+    swapFromAddressInfo.accountInfo?.account?.id,
     swapToAddressInfo.address,
     setSwapBuildTxFetching,
     navigationToSendConfirm,

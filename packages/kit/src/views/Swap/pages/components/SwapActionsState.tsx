@@ -84,7 +84,10 @@ const SwapActionsState = ({
 
   const onActionHandler = useCallback(() => {
     if (swapActionState.isRefreshQuote) {
-      void quoteAction(swapFromAddressInfo.address);
+      void quoteAction(
+        swapFromAddressInfo?.address,
+        swapFromAddressInfo?.accountInfo?.account?.id,
+      );
     } else {
       cleanQuoteInterval();
       if (swapActionState.isApprove) {
@@ -107,7 +110,8 @@ const SwapActionsState = ({
     swapActionState.isApprove,
     swapActionState.isRefreshQuote,
     swapActionState.isWrapped,
-    swapFromAddressInfo.address,
+    swapFromAddressInfo?.accountInfo?.account?.id,
+    swapFromAddressInfo?.address,
   ]);
 
   const approveStepComponent = useMemo(

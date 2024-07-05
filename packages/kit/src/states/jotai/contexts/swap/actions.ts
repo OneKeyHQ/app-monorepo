@@ -210,6 +210,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       slippagePercentage: number,
       autoSlippage?: boolean,
       address?: string,
+      accountId?: string,
       loadingDelayEnable?: boolean,
       blockNumber?: number,
     ) => {
@@ -229,6 +230,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           slippagePercentage,
           autoSlippage,
           blockNumber,
+          accountId,
         });
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), false);
@@ -251,7 +253,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (enableInterval) {
           this.quoteIntervalCount += 1;
           if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
-            void this.recoverQuoteInterval.call(set, address, true);
+            void this.recoverQuoteInterval.call(set, address, accountId, true);
           }
         }
       }
@@ -259,7 +261,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   );
 
   quoteAction = contextAtomMethod(
-    async (get, set, address?: string, blockNumber?: number) => {
+    async (
+      get,
+      set,
+      address?: string,
+      accountId?: string,
+      blockNumber?: number,
+    ) => {
       this.cleanQuoteInterval();
       this.quoteIntervalCount = 0;
       set(swapBuildTxFetchingAtom(), false);
@@ -282,6 +290,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           slippageItem.value,
           slippageItem.key === ESwapSlippageSegmentKey.AUTO,
           address,
+          accountId,
           false,
           blockNumber,
         );
@@ -365,7 +374,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   });
 
   recoverQuoteInterval = contextAtomMethod(
-    async (get, set, address?: string, unResetCount?: boolean) => {
+    async (
+      get,
+      set,
+      address?: string,
+      accountId?: string,
+      unResetCount?: boolean,
+    ) => {
       this.cleanQuoteInterval();
       if (!unResetCount) {
         this.quoteIntervalCount = 0;
@@ -401,6 +416,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             slippageItem.value,
             slippageItem.key === ESwapSlippageSegmentKey.AUTO,
             address,
+            accountId,
             true,
           );
         }, swapQuoteFetchInterval);
