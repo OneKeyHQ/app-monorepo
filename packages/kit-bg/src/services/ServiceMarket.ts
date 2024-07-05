@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketCategory,
@@ -129,7 +130,7 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchTokenChart(coingeckoId: string, days: string, points: number) {
+  async fetchTokenChart(coingeckoId: string, days: string) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: IMarketTokenChart;
@@ -137,7 +138,7 @@ class ServiceMarket extends ServiceBase {
       params: {
         coingeckoId,
         days,
-        points,
+        points: !platformEnv.isNative || platformEnv.isNativeIOSPad ? 500 : 200,
       },
     });
     const { data } = response.data;

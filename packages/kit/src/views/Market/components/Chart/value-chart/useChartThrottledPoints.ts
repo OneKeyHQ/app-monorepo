@@ -6,7 +6,7 @@ import { debounce } from 'lodash';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
-export const POINT_LIMITS = platformEnv.isNativeIOSPad ? 300 : 100;
+export const POINT_LIMITS = platformEnv.isNativeIOSPad ? 500 : 200;
 const DUMMY_POINTS = 10;
 
 interface IPoint {
