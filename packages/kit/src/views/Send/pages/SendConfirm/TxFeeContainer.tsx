@@ -44,10 +44,6 @@ import type {
   IFeeSelectorItem,
 } from '@onekeyhq/shared/types/fee';
 
-import {
-  InfoItem,
-  InfoItemGroup,
-} from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import { FeeEditor, FeeSelectorTrigger } from '../../components/SendFee';
 
 type IProps = {
@@ -262,6 +258,7 @@ function TxFeeContainer(props: IProps) {
             maxPriorityFeePerGas,
           } = unsignedTxs[0].encodedTx as IEncodedTxEvm;
           const limit = gasLimit || gas;
+          let originalFeeChanged = false;
           if (
             maxFeePerGas &&
             maxPriorityFeePerGas &&
@@ -281,6 +278,7 @@ function TxFeeContainer(props: IProps) {
               gasLimitForDisplay:
                 limit ?? customFeeInfo.gasEIP1559?.gasLimitForDisplay,
             };
+            originalFeeChanged = true;
           } else if (gasPrice && customFeeInfo.gas) {
             customFeeInfo.gas = {
               ...customFeeInfo.gas,
@@ -292,6 +290,7 @@ function TxFeeContainer(props: IProps) {
               gasLimitForDisplay:
                 limit ?? customFeeInfo.gas?.gasLimitForDisplay,
             };
+            originalFeeChanged = true;
           } else if (limit) {
             if (customFeeInfo.gasEIP1559) {
               customFeeInfo.gasEIP1559 = {
@@ -299,6 +298,7 @@ function TxFeeContainer(props: IProps) {
                 gasLimit: limit,
                 gasLimitForDisplay: limit,
               };
+              originalFeeChanged = true;
             }
             if (customFeeInfo.gas) {
               customFeeInfo.gas = {
@@ -306,13 +306,16 @@ function TxFeeContainer(props: IProps) {
                 gasLimit: limit,
                 gasLimitForDisplay: limit,
               };
+              originalFeeChanged = true;
             }
           }
 
-          updateSendSelectedFee({
-            feeType: EFeeType.Custom,
-            presetIndex: 0,
-          });
+          if (originalFeeChanged) {
+            updateSendSelectedFee({
+              feeType: EFeeType.Custom,
+              presetIndex: 0,
+            });
+          }
 
           feeInTxUpdated.current = true;
         }
@@ -580,7 +583,7 @@ function TxFeeContainer(props: IProps) {
         {renderFeeEditor()}
       </XStack>
       <XStack space="$1" alignItems="center">
-        {txFeeInit.current && !isLoading ? (
+        {txFeeInit.current ? (
           <NumberSizeableText
             formatter="balance"
             formatterOptions={{
@@ -596,7 +599,7 @@ function TxFeeContainer(props: IProps) {
             <Skeleton height="$3" width="$24" />
           </Stack>
         )}
-        {txFeeInit.current && !isLoading ? (
+        {txFeeInit.current ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             (
             <NumberSizeableText
