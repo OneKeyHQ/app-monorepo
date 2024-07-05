@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -45,6 +46,10 @@ import {
 } from '../../../components/Hardware/HardwareDialog';
 
 import ActionsQueueManager from './ActionsQueueManager';
+import {
+  SHOW_CLOSE_ACTION_MIN_DURATION,
+  SHOW_CLOSE_LOADING_ACTION_MIN_DURATION,
+} from './constants';
 
 function HardwareSingletonDialogCmp(
   props: any,
@@ -56,6 +61,7 @@ function HardwareSingletonDialogCmp(
   // state?.payload?.deviceType
   const { serviceHardwareUI } = backgroundApiProxy;
   const intl = useIntl();
+  const [showCloseButton, setIsShowExitButton] = useState(false);
 
   // TODO make sure toast is last session action
   // TODO pin -> passpharse -> confirm -> address -> sign -> confirm
@@ -68,6 +74,27 @@ function HardwareSingletonDialogCmp(
       ) : null}
     </CommonDeviceLoading>,
   );
+
+  useEffect(() => {
+    let delayTime = SHOW_CLOSE_ACTION_MIN_DURATION;
+    if (
+      action &&
+      [
+        EHardwareUiStateAction.DeviceChecking,
+        EHardwareUiStateAction.ProcessLoading,
+      ].includes(action)
+    ) {
+      delayTime = SHOW_CLOSE_LOADING_ACTION_MIN_DURATION;
+    }
+
+    const timer = setTimeout(() => {
+      setIsShowExitButton(true);
+    }, delayTime);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [action]);
 
   if (action === EHardwareUiStateAction.DeviceChecking) {
     title.current = intl.formatMessage({
@@ -162,13 +189,13 @@ function HardwareSingletonDialogCmp(
   ) {
     return <RequireBlePermissionDialog ref={ref} {...props} />;
   }
-
   return (
     <DialogContainer
       ref={ref}
       title={title.current}
       renderContent={content.current}
       {...props} // pass down cloneElement props
+      showExitButton={showCloseButton}
     />
   );
 }
@@ -399,6 +426,7 @@ function HardwareUiStateContainerCmp() {
           Dialog.show({
             dismissOnOverlayPress: false,
             // disableSwipeGesture: true,
+            disableDrag: true,
             showFooter: !!isOperationAction,
             // eslint-disable-next-line react/no-unstable-nested-components
             dialogContainer: ({ ref }: { ref: any }) => (
@@ -419,7 +447,7 @@ function HardwareUiStateContainerCmp() {
                   connectId: currentState?.connectId,
                   reason: 'HardwareUiStateContainer onClose',
                   skipDeviceCancel: shouldSkipCancelRef.current,
-                  deviceResetToHome: false,
+                  deviceResetToHome: currentShouldDeviceResetToHome,
                 });
               }
             },

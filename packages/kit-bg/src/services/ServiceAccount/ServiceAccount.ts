@@ -1660,6 +1660,7 @@ class ServiceAccount extends ServiceBase {
       },
       {
         deviceParams,
+        skipDeviceCancelAtFirst: true,
         debugMethodName: 'verifyHWAccountAddresses.prepareAccounts',
       },
     );

@@ -233,10 +233,10 @@ class ServiceHardwareUI extends ServiceBase {
 
     let deviceResetToHome = true;
     try {
-      // if (connectId && !skipDeviceCancelAtFirst) {
-      //   await this.backgroundApi.serviceHardware.cancel(connectId);
-      //   await this.hardwareProcessingManager.cancelableDelay(connectId, 600);
-      // }
+      if (connectId && !skipDeviceCancelAtFirst) {
+        await this.backgroundApi.serviceHardware.cancel(connectId);
+        await this.hardwareProcessingManager.cancelableDelay(connectId, 600);
+      }
 
       const r = await fn();
       deviceResetToHome = false;

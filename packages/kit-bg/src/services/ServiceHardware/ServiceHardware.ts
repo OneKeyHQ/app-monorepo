@@ -159,17 +159,24 @@ class ServiceHardware extends ServiceBase {
         connectId: newPayload.connectId,
       });
 
-      const { device } = originEvent.payload || {};
-      const { features } = device || {};
-
-      const inputPinOnSoftware = supportInputPinOnSoftwareSdk(features);
-      const supportInputPinOnSoftware =
-        dbDevice?.settings?.inputPinOnSoftware !== false &&
-        inputPinOnSoftware.support;
-
-      if (!supportInputPinOnSoftware) {
-        await this.backgroundApi.serviceHardwareUI.showEnterPinOnDevice();
+      if (
+        dbDevice?.deviceType &&
+        ['touch', 'pro'].includes(dbDevice?.deviceType)
+      ) {
         newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
+      } else {
+        const { device } = originEvent.payload || {};
+        const { features } = device || {};
+
+        const inputPinOnSoftware = supportInputPinOnSoftwareSdk(features);
+        const supportInputPinOnSoftware =
+          dbDevice?.settings?.inputPinOnSoftware !== false &&
+          inputPinOnSoftware.support;
+
+        if (!supportInputPinOnSoftware) {
+          await this.backgroundApi.serviceHardwareUI.showEnterPinOnDevice();
+          newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
+        }
       }
     }
 

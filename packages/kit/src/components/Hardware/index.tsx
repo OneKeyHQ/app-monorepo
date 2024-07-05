@@ -63,7 +63,7 @@ export const confirmOnDeviceToastSample = async () => {
   setTimeout(async () => {
     event.confirm();
     await toast.close();
-  }, 3500);
+  }, 35 * 1000);
   await event.run();
 };
 
