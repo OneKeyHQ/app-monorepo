@@ -33,6 +33,7 @@ export type IEncodedTxAptos = {
   chain_id?: number;
   bscTxn?: string;
   forcePendingTx?: boolean;
+  payload?: ITxPayload;
 } & ITxPayload;
 
 export class ArgumentABI {
