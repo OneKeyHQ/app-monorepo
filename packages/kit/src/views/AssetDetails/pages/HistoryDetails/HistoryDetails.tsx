@@ -453,7 +453,11 @@ function HistoryDetails() {
         txAddresses.from &&
         txAddresses.to &&
         txAddresses.from === txAddresses.to &&
-        !isEmpty(historyTx.decodedTx.actions[0]?.assetTransfer?.sends)
+        !isEmpty(historyTx.decodedTx.actions[0]?.assetTransfer?.sends) &&
+        historyTx.decodedTx.actions[0]?.assetTransfer?.sends[0]
+          ?.tokenIdOnNetwork ===
+          historyTx.decodedTx.actions[0]?.assetTransfer?.receives[0]
+            ?.tokenIdOnNetwork
       ),
     [
       historyTx.decodedTx.actions,
@@ -485,6 +489,12 @@ function HistoryDetails() {
 
     if (decodedTx.status !== EDecodedTxStatus.Pending && label) {
       title = label;
+    }
+
+    if (!title && decodedTx.actions[0]?.assetTransfer?.isInternalSwap) {
+      title = intl.formatMessage({
+        id: ETranslations.global_swap,
+      });
     }
 
     return title;
@@ -647,6 +657,43 @@ function HistoryDetails() {
   ]);
 
   const renderTxFlow = useCallback(() => {
+    const action = historyTx.decodedTx.actions[0];
+
+    if (action.assetTransfer?.isInternalSwap) {
+      return (
+        <>
+          <InfoItem
+            label={intl.formatMessage({
+              id: ETranslations.swap_history_detail_pay_address,
+            })}
+            renderContent={txAddresses.from}
+            showCopy
+            description={
+              <AddressInfo
+                address={txAddresses.from}
+                networkId={networkId}
+                accountId={accountId}
+              />
+            }
+          />
+          <InfoItem
+            label={intl.formatMessage({
+              id: ETranslations.swap_history_detail_received_address,
+            })}
+            renderContent={txAddresses.to}
+            showCopy
+            description={
+              <AddressInfo
+                address={txAddresses.to ?? ''}
+                networkId={networkId}
+                accountId={accountId}
+              />
+            }
+          />
+        </>
+      );
+    }
+
     if (vaultSettings?.isUtxo && !txAddresses.isSingleTransfer) return null;
 
     if (txAddresses.from && txAddresses.to && txAddresses.isSingleTransfer) {
@@ -692,6 +739,7 @@ function HistoryDetails() {
       );
     }
   }, [
+    historyTx.decodedTx.actions,
     vaultSettings?.isUtxo,
     txAddresses.isSingleTransfer,
     txAddresses.from,
@@ -889,45 +937,6 @@ function HistoryDetails() {
               />
             ) : null}
           </InfoItemGroup>
-          {/* Tertiary */}
-          {txInfo.swapInfo ? (
-            <>
-              <Divider mx="$5" />
-              <InfoItemGroup>
-                <InfoItem
-                  label="Rate"
-                  renderContent="1 ETH = 2229.259 USDC"
-                  compact
-                />
-                <InfoItem
-                  label="Application"
-                  renderContent={
-                    <XStack>
-                      <Image
-                        src="https://cdn.1inch.io/logo.png"
-                        w="$5"
-                        h="$5"
-                      />
-                      <SizableText
-                        size="$bodyMd"
-                        color="$textSubdued"
-                        pl="$1.5"
-                      >
-                        1inch
-                      </SizableText>
-                    </XStack>
-                  }
-                  compact
-                />
-                <InfoItem label="Protocol Fee" renderContent="$0.12" compact />
-                <InfoItem
-                  label="OneKey Fee"
-                  renderContent="0.3% (0.002 ETH)"
-                  compact
-                />
-              </InfoItemGroup>
-            </>
-          ) : null}
         </Stack>
       </>
     );
@@ -941,7 +950,6 @@ function HistoryDetails() {
     txInfo.blockHeight,
     txInfo.nonce,
     txInfo.confirmations,
-    txInfo.swapInfo,
     renderTxMetaInfo,
     network,
     renderFeeInfo,
