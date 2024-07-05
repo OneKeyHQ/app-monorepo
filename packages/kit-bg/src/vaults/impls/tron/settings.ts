@@ -39,6 +39,7 @@ const settings: IVaultSettings = {
   checkFeeDetailEnabled: true,
   replaceTxEnabled: false,
   allowZeroFee: true,
+  estimatedFeePollingInterval: 6,
 
   accountDeriveInfo,
   networkInfo: {
