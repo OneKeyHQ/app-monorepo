@@ -31,8 +31,6 @@ import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
 import { TxExtraInfoContainer } from './TxExtraInfoContainer';
-import TxFeeContainer from './TxFeeContainer';
-import TxSimulationContainer from './TxSimulationContainer';
 import { TxSourceInfoContainer } from './TxSourceInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -142,6 +140,7 @@ function SendConfirmContainer() {
           <Stack>
             {sendFeeStatus.errMessage ? (
               <Alert
+                mb="$2.5"
                 fullBleed
                 icon="ErrorOutline"
                 type="critical"
@@ -150,6 +149,7 @@ function SendConfirmContainer() {
             ) : null}
             {sendAlertStatus.isInsufficientNativeBalance ? (
               <Alert
+                mb="$2.5"
                 fullBleed
                 icon="ErrorOutline"
                 type="critical"
@@ -165,6 +165,7 @@ function SendConfirmContainer() {
             ) : null}
             {preCheckTxStatus.errorMessage ? (
               <Alert
+                mb="$2.5"
                 fullBleed
                 icon="ErrorOutline"
                 type="critical"
@@ -178,13 +179,8 @@ function SendConfirmContainer() {
             networkId={networkId}
             transferPayload={transferPayload}
           />
-          <TxFeeContainer
-            accountId={accountId}
-            networkId={networkId}
-            useFeeInTx={useFeeInTx}
-          />
           {/* <TxSwapInfoContainer /> */}
-          <TxSimulationContainer />
+          {/* <TxSimulationContainer /> */}
           <TxExtraInfoContainer />
         </Page.Body>
         <SendConfirmActionsContainer
@@ -196,24 +192,25 @@ function SendConfirmContainer() {
           onFail={onFail}
           onCancel={onCancel}
           transferPayload={transferPayload}
+          useFeeInTx={useFeeInTx}
         />
       </>
     ),
     [
       sendFeeStatus.errMessage,
       sendAlertStatus.isInsufficientNativeBalance,
-      preCheckTxStatus.errorMessage,
       intl,
       network?.symbol,
+      preCheckTxStatus.errorMessage,
       sourceInfo,
       accountId,
       networkId,
       transferPayload,
-      useFeeInTx,
       signOnly,
       onSuccess,
       onFail,
       onCancel,
+      useFeeInTx,
     ],
   );
 
