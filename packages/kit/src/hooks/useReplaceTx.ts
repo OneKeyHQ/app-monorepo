@@ -16,7 +16,7 @@ function useReplaceTx({
   isConfirmed,
 }: {
   historyTx: IAccountHistoryTx;
-  onSuccess?: (data: ISendTxOnSuccessData) => void;
+  onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   isConfirmed?: boolean;
 }) {
   const navigation = useAppNavigation();

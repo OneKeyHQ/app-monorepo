@@ -773,6 +773,7 @@ function SendReplaceTxContainer() {
     navigation,
     networkId,
     newFeeInfo,
+    onSuccess,
     replaceEncodedTx,
     replaceType,
     showFeeInfoOverflowConfirm,
