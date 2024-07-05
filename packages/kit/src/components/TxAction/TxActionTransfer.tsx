@@ -550,15 +550,79 @@ function TxActionTransferDetailView(props: ITxActionProps) {
           </YStack>
         );
         transferChangeElements.push(transfersContent);
-        if (direction === EDecodedTxDirection.OUT) {
+
+        if (swapInfo) {
+          transferExtraElements.push(
+            ...[
+              <InfoItem
+                key="pay-address"
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_pay_address,
+                })}
+                renderContent={swapInfo.accountAddress}
+                description={
+                  <AddressInfo
+                    address={swapInfo.accountAddress}
+                    networkId={decodedTx.networkId}
+                    accountId={decodedTx.accountId}
+                  />
+                }
+              />,
+              <InfoItem
+                key="received-address"
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_received_address,
+                })}
+                renderContent={swapInfo.receivingAddress}
+                description={
+                  <AddressInfo
+                    address={swapInfo.receivingAddress}
+                    networkId={decodedTx.networkId}
+                    accountId={decodedTx.accountId}
+                  />
+                }
+              />,
+            ],
+          );
+        } else {
+          if (direction === EDecodedTxDirection.OUT) {
+            transferExtraElements.push(
+              <InfoItem
+                key="from"
+                label={intl.formatMessage({ id: ETranslations.global_from })}
+                renderContent={from}
+                description={
+                  <AddressInfo
+                    address={from}
+                    networkId={decodedTx.networkId}
+                    accountId={decodedTx.accountId}
+                  />
+                }
+              />,
+            );
+          }
           transferExtraElements.push(
             <InfoItem
-              key="from"
-              label={intl.formatMessage({ id: ETranslations.global_from })}
-              renderContent={from}
+              key={`${index}-target`}
+              label={
+                application
+                  ? intl.formatMessage({
+                      id: ETranslations.interact_with_contract,
+                    })
+                  : intl.formatMessage({
+                      id:
+                        direction === EDecodedTxDirection.OUT
+                          ? ETranslations.global_to
+                          : ETranslations.global_from,
+                    })
+              }
+              renderContent={
+                target ||
+                intl.formatMessage({ id: ETranslations.global_unknown })
+              }
               description={
                 <AddressInfo
-                  address={from}
+                  address={target}
                   networkId={decodedTx.networkId}
                   accountId={decodedTx.accountId}
                 />
@@ -566,33 +630,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             />,
           );
         }
-        transferExtraElements.push(
-          <InfoItem
-            key={`${index}-target`}
-            label={
-              application
-                ? intl.formatMessage({
-                    id: ETranslations.interact_with_contract,
-                  })
-                : intl.formatMessage({
-                    id:
-                      direction === EDecodedTxDirection.OUT
-                        ? ETranslations.global_to
-                        : ETranslations.global_from,
-                  })
-            }
-            renderContent={
-              target || intl.formatMessage({ id: ETranslations.global_unknown })
-            }
-            description={
-              <AddressInfo
-                address={target}
-                networkId={decodedTx.networkId}
-                accountId={decodedTx.accountId}
-              />
-            }
-          />,
-        );
       });
 
       let networkInfo: React.ReactElement | null = null;
