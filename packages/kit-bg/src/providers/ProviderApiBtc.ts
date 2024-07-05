@@ -332,6 +332,7 @@ class ProviderApiBtc extends ProviderApiBase {
       accountId,
     });
     const result = await vault.broadcastTransaction({
+      accountId,
       accountAddress: address ?? '',
       networkId,
       signedTx: {
@@ -538,6 +539,7 @@ class ProviderApiBtc extends ProviderApiBase {
     });
     const result = await vault.broadcastTransaction({
       accountAddress: address ?? '',
+      accountId,
       networkId,
       signedTx: {
         txid: '',
@@ -574,6 +576,7 @@ class ProviderApiBtc extends ProviderApiBase {
       });
 
     const result = await this.backgroundApi.serviceGas.estimateFee({
+      accountId,
       networkId,
       encodedTx,
       accountAddress,

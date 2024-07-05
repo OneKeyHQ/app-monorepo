@@ -217,6 +217,14 @@ class ServiceHistory extends ServiceBase {
           tokenAddress: tokenIdOnNetwork,
           ...extraParams,
         },
+        {
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId: params.accountId,
+              },
+            ),
+        },
       );
     } catch (e) {
       const error = e as OneKeyServerApiError;
@@ -254,7 +262,7 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
-      const { networkId, txid, accountAddress, xpub } = params;
+      const { accountId, networkId, txid, accountAddress, xpub } = params;
       const extraParams = await this.buildFetchHistoryListParams({
         ...params,
         accountAddress: accountAddress || '',
@@ -270,6 +278,12 @@ class ServiceHistory extends ServiceBase {
             accountAddress,
             ...extraParams,
           },
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
         },
       );
       return resp.data.data;

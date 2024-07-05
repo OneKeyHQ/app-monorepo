@@ -50,6 +50,7 @@ export type IFeeFil = {
 };
 
 export type IEstimateGasParams = {
+  accountId: string;
   networkId: string;
   accountAddress: string;
   encodedTx?: IEncodedTx;

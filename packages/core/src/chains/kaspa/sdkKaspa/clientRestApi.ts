@@ -2,6 +2,7 @@ import Axios from 'axios';
 import { get } from 'lodash';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { submitTransactionFromString } from './transaction';
 
@@ -115,14 +116,14 @@ export class RestAPIClient {
         if (message.match(/payment of \d+ is dust/)) {
           throw new OneKeyInternalError({
             message,
-            key: 'msg__amount_too_small',
+            key: ETranslations.send_amount_too_small,
           });
         }
 
         if (message.toLowerCase().indexOf('insufficient balance') !== -1) {
           throw new OneKeyInternalError({
             message,
-            key: 'msg__broadcast_dot_tx_Insufficient_fee',
+            key: ETranslations.earn_insufficient_balance,
           });
         }
 

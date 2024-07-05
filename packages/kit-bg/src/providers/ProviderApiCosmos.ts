@@ -376,6 +376,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     const account = await this._getAccount(request, networkId);
 
     const res = await this.backgroundApi.serviceSend.broadcastTransaction({
+      accountId: account.account.id ?? '',
       networkId,
       accountAddress: account?.account.address ?? '',
       signedTx: {

@@ -239,6 +239,7 @@ class ServiceSend extends ServiceBase {
         accountId,
       });
       const { txid } = await vault.broadcastTransaction({
+        accountId,
         networkId,
         accountAddress,
         signedTx,

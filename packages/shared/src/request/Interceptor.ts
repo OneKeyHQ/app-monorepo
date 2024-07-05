@@ -74,6 +74,7 @@ export async function getRequestHeaders() {
     [HEADER_REQUEST_ID_KEY]: requestId,
     [normalizeHeaderKey('X-Amzn-Trace-Id')]: requestId,
     [normalizeHeaderKey('X-Onekey-Request-Currency')]: settings.currencyInfo.id,
+    [normalizeHeaderKey('X-Onekey-Instance-Id')]: settings.instanceId,
     [normalizeHeaderKey('X-Onekey-Request-Locale')]: locale.toLowerCase(),
     [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
     [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,

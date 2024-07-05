@@ -89,6 +89,7 @@ function TokenListContainer({
             networkId: network.id,
           });
         const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+          accountId: account.id,
           mergeTokens: true,
           networkId: network.id,
           accountAddress,

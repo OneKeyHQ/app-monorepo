@@ -133,6 +133,7 @@ function SendDataInputContainer() {
         });
       if (isNFT && nft) {
         nftResp = await serviceNFT.fetchNFTDetails({
+          accountId,
           networkId,
           accountAddress,
           nfts: [

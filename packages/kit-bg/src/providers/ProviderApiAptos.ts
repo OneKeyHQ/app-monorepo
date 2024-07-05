@@ -529,6 +529,7 @@ class ProviderApiAptos extends ProviderApiBase {
         rawTx: bufferUtils.bytesToHex(bcsTxn),
       },
       accountAddress: account.address,
+      accountId: accountInfo?.accountId ?? '',
       networkId: accountInfo?.networkId ?? '',
     });
     return res;

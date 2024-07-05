@@ -26,6 +26,12 @@ class ServiceGas extends ServiceBase {
     const resp = await client.post<{ data: IEstimateGasResp }>(
       '/wallet/v1/account/estimate-fee',
       params,
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+          }),
+      },
     );
     const feeInfo = resp.data.data;
     return {

@@ -28,6 +28,7 @@ function FeePredictionContainer(props: IProps) {
         networkId,
       });
       const r = await backgroundApiProxy.serviceGas.estimateFee({
+        accountId,
         networkId,
         accountAddress: account.address,
       });
