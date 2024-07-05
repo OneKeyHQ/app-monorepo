@@ -23,10 +23,10 @@ const settings: IVaultSettings = {
   coinTypeDefault: COINTYPE_CKB,
   accountType: EDBAccountType.SIMPLE,
 
-  importedAccountEnabled: false,
+  importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
-  watchingAccountEnabled: false,
+  watchingAccountEnabled: true,
 
   defaultFeePresetIndex: 0,
 

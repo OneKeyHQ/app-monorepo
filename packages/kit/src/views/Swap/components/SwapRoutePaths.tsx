@@ -47,15 +47,10 @@ const SwapRoutePaths = ({ routeContent }: ISwapRoutePathProps) => (
               ))}
             </XStack>
             {row.map((item, itemIndex) => {
-              const maxWidth = `$${5 + 4 * item.images.length}`;
+              const maxWidth = `$${4 + 4 * item.images.length}`;
               return (
-                <Stack
-                  key={itemIndex}
-                  bg="$bgApp"
-                  alignItems="center"
-                  maxWidth={maxWidth}
-                >
-                  <XStack>
+                <Stack key={itemIndex} alignItems="center">
+                  <XStack bg="$bgApp" maxWidth={maxWidth}>
                     {item.images.map((image, index) => (
                       <Token
                         key={index}
