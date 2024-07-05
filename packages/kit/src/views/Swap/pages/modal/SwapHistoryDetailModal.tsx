@@ -157,6 +157,7 @@ const SwapHistoryDetailModal = () => {
           size="$bodyMd"
           color="$textSubdued"
           formatter="balance"
+          mr="$0.5"
         >
           {gasFeeDisplay}
         </NumberSizeableText>

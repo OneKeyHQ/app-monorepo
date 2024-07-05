@@ -238,11 +238,6 @@ export const {
   use: useSwapApproveAllowanceSelectOpenAtom,
 } = contextAtom<boolean>(false);
 
-export const {
-  atom: swapApprovingTransactionAtom,
-  use: useSwapApprovingTransactionAtom,
-} = contextAtom<ISwapApproveTransaction | undefined>(undefined);
-
 // swap slippage
 
 export const {

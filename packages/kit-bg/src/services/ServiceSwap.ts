@@ -9,7 +9,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import { swapHistoryStateFetchInterval } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  swapHistoryStateFetchInterval,
+  swapHistoryStateFetchRiceIntervalCount,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
@@ -20,6 +23,7 @@ import type {
   IFetchTokenDetailParams,
   IFetchTokenListParams,
   IFetchTokensParams,
+  ISwapApproveTransaction,
   ISwapNetwork,
   ISwapNetworkBase,
   ISwapToken,
@@ -27,6 +31,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapApproveTransactionStatus,
   ESwapFetchCancelCause,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -43,6 +48,8 @@ export default class ServiceSwap extends ServiceBase {
 
   private historyStateIntervals: Record<string, ReturnType<typeof setTimeout>> =
     {};
+
+  private historyStateIntervalCountMap: Record<string, number> = {};
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -305,6 +312,7 @@ export default class ServiceSwap extends ServiceBase {
     provider,
     receivingAddress,
     slippagePercentage,
+    quoteResultCtx,
     accountId,
   }: {
     fromToken: ISwapToken;
@@ -316,6 +324,7 @@ export default class ServiceSwap extends ServiceBase {
     receivingAddress: string;
     slippagePercentage: number;
     accountId?: string;
+    quoteResultCtx?: any;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
@@ -329,13 +338,14 @@ export default class ServiceSwap extends ServiceBase {
       userAddress,
       receivingAddress,
       slippagePercentage,
+      quoteResultCtx,
     };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
-      const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
+      const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
         '/swap/v1/build-tx',
+        params,
         {
-          params,
           headers:
             await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
@@ -426,6 +436,21 @@ export default class ServiceSwap extends ServiceBase {
     return data?.data;
   }
 
+  // swap approving transaction
+  @backgroundMethod()
+  async getApprovingTransaction() {
+    const { swapApprovingTransaction } = await inAppNotificationAtom.get();
+    return swapApprovingTransaction;
+  }
+
+  @backgroundMethod()
+  async setApprovingTransaction(item?: ISwapApproveTransaction) {
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapApprovingTransaction: item,
+    }));
+  }
+
   // --- swap history
   @backgroundMethod()
   async fetchSwapHistoryListFromSimple() {
@@ -498,6 +523,16 @@ export default class ServiceSwap extends ServiceBase {
           swapHistoryPendingList: [...newPendingList],
         };
       });
+      return;
+    }
+    const approvingTransaction = await this.getApprovingTransaction();
+    if (
+      approvingTransaction &&
+      approvingTransaction.status === ESwapApproveTransactionStatus.PENDING &&
+      approvingTransaction.txId === oldTxId
+    ) {
+      approvingTransaction.txId = newTxId;
+      await this.setApprovingTransaction(approvingTransaction);
     }
   }
 
@@ -565,9 +600,11 @@ export default class ServiceSwap extends ServiceBase {
         clearInterval(interval);
       });
       this.historyStateIntervals = {};
+      this.historyStateIntervalCountMap = {};
     } else if (this.historyStateIntervals[historyId]) {
       clearInterval(this.historyStateIntervals[historyId]);
       delete this.historyStateIntervals[historyId];
+      delete this.historyStateIntervalCountMap[historyId];
     }
   }
 
@@ -612,11 +649,19 @@ export default class ServiceSwap extends ServiceBase {
       console.error('Swap History Status Fetch Error', error?.message);
     } finally {
       if (enableInterval) {
+        this.historyStateIntervalCountMap[swapTxHistory.txInfo.txId] =
+          (this.historyStateIntervalCountMap[swapTxHistory.txInfo.txId] ?? 0) +
+          1;
         this.historyStateIntervals[swapTxHistory.txInfo.txId] = setTimeout(
           () => {
             void this.swapHistoryStatusRunFetch(swapTxHistory);
           },
-          swapHistoryStateFetchInterval,
+          swapHistoryStateFetchInterval *
+            (Math.floor(
+              (this.historyStateIntervalCountMap[swapTxHistory.txInfo.txId] ??
+                0) / swapHistoryStateFetchRiceIntervalCount,
+            ) +
+              1),
         );
       }
     }

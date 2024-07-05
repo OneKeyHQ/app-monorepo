@@ -9,6 +9,9 @@ const InAppNotification = () => {
 
   useEffect(() => {
     void backgroundApiProxy.serviceSwap.swapHistoryStatusFetchLoop();
+    return () => {
+      void backgroundApiProxy.serviceSwap.cleanHistoryStateIntervals();
+    };
   }, [swapHistoryPendingList]);
   return null;
 };
