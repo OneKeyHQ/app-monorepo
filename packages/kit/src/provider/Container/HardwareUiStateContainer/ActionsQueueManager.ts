@@ -3,8 +3,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-const OPEN_ACTION_MIN_DURATION = 300; // Minimum duration for Toast to be visible
-const CLOSE_ACTION_MIN_DURATION = 300; // Minimum duration for Toast to be visible
+import {
+  CLOSE_ACTION_MIN_DURATION,
+  OPEN_ACTION_MIN_DURATION,
+} from './constants';
+
 const autoClosedFlag = 'autoClosed';
 
 type IAction = {
@@ -35,7 +38,7 @@ export default class ActionsQueueManager {
       await backgroundApiProxy.serviceDevSetting.getDevSetting();
     if (devSetting) {
       console.log(
-        `=== ActionsQueueManager ${this.tag} action `,
+        `[ActionsQueueManager] ${this.tag} action `,
         message,
         optionalParams,
       );

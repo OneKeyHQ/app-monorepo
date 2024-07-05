@@ -1,4 +1,6 @@
-import { useCallback, useState } from 'react';
+/* eslint-disable react/no-unstable-nested-components */
+import type { ForwardedRef } from 'react';
+import { forwardRef, useCallback, useEffect, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 
@@ -7,6 +9,7 @@ import {
   Button,
   Checkbox,
   Dialog,
+  DialogContainer,
   Form,
   Input,
   ScrollView,
@@ -19,6 +22,10 @@ import {
   useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
+import type {
+  IDialogContainerProps,
+  IDialogInstance,
+} from '@onekeyhq/components/src/composite/Dialog/type';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   EGalleryRoutes,
@@ -781,6 +788,48 @@ const DialogGallery = () => (
               }}
             >
               closeFlag
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'showExit',
+        element: (
+          <YStack>
+            <Button
+              onPress={() => {
+                const Container = (
+                  props: IDialogContainerProps,
+                  ref: ForwardedRef<IDialogInstance>,
+                ) => {
+                  const [showExitButton, setIsShowExitButton] = useState(false);
+                  useEffect(() => {
+                    setTimeout(() => {
+                      setIsShowExitButton(true);
+                    }, 5000);
+                  }, []);
+                  return (
+                    <DialogContainer
+                      title="title"
+                      ref={ref}
+                      showExitButton={showExitButton}
+                      renderContent={<SizableText>content</SizableText>}
+                      onClose={async (data) => console.log(data)}
+                    />
+                  );
+                };
+                const ForwardedContainer = forwardRef(Container);
+                Dialog.show({
+                  dialogContainer: ({ ref }: { ref: any }) => (
+                    <ForwardedContainer
+                      ref={ref}
+                      onClose={async (extra) => console.log(extra)}
+                    />
+                  ),
+                });
+              }}
+            >
+              showExitButton
             </Button>
           </YStack>
         ),
