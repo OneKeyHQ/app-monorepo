@@ -40,12 +40,14 @@ export const swapQuoteFetchInterval = timerUtils.getTimeDurationMs({
 });
 
 export const swapApprovingStateFetchInterval = timerUtils.getTimeDurationMs({
-  seconds: 1,
+  seconds: 2,
 });
 
 export const swapHistoryStateFetchInterval = timerUtils.getTimeDurationMs({
   seconds: 3,
 });
+
+export const swapHistoryStateFetchRiceIntervalCount = 10;
 
 export const swapNetworksCommonCount = 8;
 export const swapNetworksCommonCountMD = 5;

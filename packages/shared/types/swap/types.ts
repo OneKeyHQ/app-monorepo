@@ -201,6 +201,7 @@ export interface IFetchQuoteResult {
   unSupportSlippage?: boolean;
   fromTokenInfo: ISwapTokenBase;
   toTokenInfo: ISwapTokenBase;
+  quoteResultCtx?: any;
 }
 
 export interface IAllowanceResult {
@@ -271,6 +272,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   slippagePercentage: number;
   toTokenAmount: string;
   provider: string;
+  quoteResultCtx?: any;
 }
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;

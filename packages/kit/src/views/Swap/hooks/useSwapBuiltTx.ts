@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EWrappedType } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IApproveInfo,
@@ -19,7 +20,6 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSendConfirm } from '../../../hooks/useSendConfirm';
 import {
-  useSwapApprovingTransactionAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -38,7 +38,7 @@ export function useSwapBuildTx() {
   const [{ slippageItem }] = useSwapSlippagePercentageAtom();
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
-  const [, setSwapApprovingTransaction] = useSwapApprovingTransactionAtom();
+  const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
@@ -75,14 +75,21 @@ export function useSwapBuildTx() {
       if (data?.[0]) {
         const transactionSignedInfo = data[0].signedTx;
         const txId = transactionSignedInfo.txid;
-        setSwapApprovingTransaction((prev) => {
-          if (prev) {
-            return { ...prev, txId };
+        setInAppNotificationAtom((prev) => {
+          if (prev.swapApprovingTransaction) {
+            return {
+              ...prev,
+              swapApprovingTransaction: {
+                ...prev.swapApprovingTransaction,
+                txId,
+              },
+            };
           }
+          return prev;
         });
       }
     },
-    [setSwapApprovingTransaction],
+    [setInAppNotificationAtom],
   );
 
   const handleTxFail = useCallback(() => {
@@ -91,11 +98,19 @@ export function useSwapBuildTx() {
 
   const cancelApproveTx = useCallback(() => {
     handleTxFail();
-    setSwapApprovingTransaction((pre) => {
-      if (!pre) return pre;
-      return { ...pre, status: ESwapApproveTransactionStatus.CANCEL };
+    setInAppNotificationAtom((prev) => {
+      if (prev.swapApprovingTransaction) {
+        return {
+          ...prev,
+          swapApprovingTransaction: {
+            ...prev.swapApprovingTransaction,
+            status: ESwapApproveTransactionStatus.CANCEL,
+          },
+        };
+      }
+      return prev;
     });
-  }, [handleTxFail, setSwapApprovingTransaction]);
+  }, [handleTxFail, setInAppNotificationAtom]);
 
   const wrappedTx = useCallback(async () => {
     if (
@@ -180,17 +195,20 @@ export function useSwapBuildTx() {
               name: fromToken.name ?? fromToken.symbol,
             },
           };
-          setSwapApprovingTransaction({
-            provider: selectQuote?.info.provider,
-            fromToken,
-            toToken,
-            amount,
-            useAddress: swapFromAddressInfo.address,
-            spenderAddress: allowanceInfo.allowanceTarget,
-            status: ESwapApproveTransactionStatus.PENDING,
-            resetApproveValue,
-            resetApproveIsMax: isMax,
-          });
+          setInAppNotificationAtom((pre) => ({
+            ...pre,
+            swapApprovingTransaction: {
+              provider: selectQuote?.info.provider,
+              fromToken,
+              toToken,
+              amount,
+              useAddress: swapFromAddressInfo.address ?? '',
+              spenderAddress: allowanceInfo.allowanceTarget,
+              status: ESwapApproveTransactionStatus.PENDING,
+              resetApproveValue,
+              resetApproveIsMax: isMax,
+            },
+          }));
           await navigationToSendConfirm({
             approveInfo,
             onSuccess: handleApproveTxSuccess,
@@ -211,10 +229,10 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.accountInfo?.account?.id,
       swapFromAddressInfo.address,
       setSwapBuildTxFetching,
-      setSwapApprovingTransaction,
+      setInAppNotificationAtom,
       navigationToSendConfirm,
-      cancelApproveTx,
       handleApproveTxSuccess,
+      cancelApproveTx,
     ],
   );
 
@@ -241,6 +259,7 @@ export function useSwapBuildTx() {
           userAddress: swapFromAddressInfo.address,
           provider: selectQuote?.info.provider,
           accountId: swapFromAddressInfo.accountInfo?.account?.id,
+          quoteResultCtx: selectQuote?.quoteResultCtx,
         });
         if (res) {
           let transferInfo: ITransferInfo | undefined;
@@ -331,6 +350,7 @@ export function useSwapBuildTx() {
     slippageItem,
     selectQuote?.toAmount,
     selectQuote?.info.provider,
+    selectQuote?.quoteResultCtx,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,

@@ -122,7 +122,7 @@ export function useSwapActionState() {
       toToken?.networkId,
     ],
   );
-  const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 300);
+  const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 100);
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),

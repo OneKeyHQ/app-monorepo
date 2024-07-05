@@ -4,16 +4,14 @@ import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { EPageType, Toast, usePageType } from '@onekeyhq/components';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapApproveTransaction } from '@onekeyhq/shared/types/swap/types';
 import { ESwapApproveTransactionStatus } from '@onekeyhq/shared/types/swap/types';
 
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
-import {
-  useSwapActions,
-  useSwapApprovingTransactionAtom,
-} from '../../../states/jotai/contexts/swap';
+import { useSwapActions } from '../../../states/jotai/contexts/swap';
 
 import { useSwapBuildTx } from './useSwapBuiltTx';
 
@@ -21,10 +19,10 @@ export function useSwapApproving() {
   const intl = useIntl();
   const { approvingStateAction, cleanApprovingInterval } =
     useSwapActions().current;
-  const [swapApprovingTransactionAtom] = useSwapApprovingTransactionAtom();
+  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
   const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>();
-  if (swapApprovingTxRef.current !== swapApprovingTransactionAtom) {
-    swapApprovingTxRef.current = swapApprovingTransactionAtom;
+  if (swapApprovingTxRef.current !== swapApprovingTransaction) {
+    swapApprovingTxRef.current = swapApprovingTransaction;
   }
   const { approveTx } = useSwapBuildTx();
   const approveTxRef = useRef(approveTx);
@@ -33,17 +31,15 @@ export function useSwapApproving() {
   }
   useEffect(() => {
     if (
-      swapApprovingTransactionAtom?.txId &&
-      swapApprovingTransactionAtom?.status ===
-        ESwapApproveTransactionStatus.PENDING
+      swapApprovingTransaction?.txId &&
+      swapApprovingTransaction?.status === ESwapApproveTransactionStatus.PENDING
     ) {
       void approvingStateAction();
     } else {
       cleanApprovingInterval();
     }
     if (
-      swapApprovingTransactionAtom?.status ===
-      ESwapApproveTransactionStatus.FAILED
+      swapApprovingTransaction?.status === ESwapApproveTransactionStatus.FAILED
     ) {
       Toast.error({
         title: intl.formatMessage({
@@ -51,8 +47,7 @@ export function useSwapApproving() {
         }),
       });
     } else if (
-      swapApprovingTransactionAtom?.status ===
-      ESwapApproveTransactionStatus.CANCEL
+      swapApprovingTransaction?.status === ESwapApproveTransactionStatus.CANCEL
     ) {
       Toast.error({
         title: intl.formatMessage({
@@ -60,16 +55,15 @@ export function useSwapApproving() {
         }),
       });
     } else if (
-      swapApprovingTransactionAtom?.status ===
-      ESwapApproveTransactionStatus.SUCCESS
+      swapApprovingTransaction?.status === ESwapApproveTransactionStatus.SUCCESS
     ) {
       if (
-        swapApprovingTransactionAtom?.resetApproveValue &&
-        Number(swapApprovingTransactionAtom?.resetApproveValue) > 0
+        swapApprovingTransaction?.resetApproveValue &&
+        Number(swapApprovingTransaction?.resetApproveValue) > 0
       ) {
         void approveTxRef.current?.(
-          swapApprovingTransactionAtom?.resetApproveValue,
-          !!swapApprovingTransactionAtom?.resetApproveIsMax,
+          swapApprovingTransaction?.resetApproveValue,
+          !!swapApprovingTransaction?.resetApproveIsMax,
         );
       } else {
         Toast.success({
@@ -86,10 +80,10 @@ export function useSwapApproving() {
     approvingStateAction,
     cleanApprovingInterval,
     intl,
-    swapApprovingTransactionAtom?.resetApproveIsMax,
-    swapApprovingTransactionAtom?.resetApproveValue,
-    swapApprovingTransactionAtom?.status,
-    swapApprovingTransactionAtom?.txId,
+    swapApprovingTransaction?.resetApproveIsMax,
+    swapApprovingTransaction?.resetApproveValue,
+    swapApprovingTransaction?.status,
+    swapApprovingTransaction?.txId,
   ]);
 
   const pageType = usePageType();
