@@ -47,6 +47,7 @@ import type {
   IExternalSendTransactionPayload,
   IExternalSignMessageByWalletConnectPayload,
   IExternalSignMessagePayload,
+  IExternalSyncAccountFromPeerWalletPayload,
 } from '../../base/ExternalControllerBase';
 
 export class ExternalControllerEvm extends ExternalControllerBase {
@@ -117,23 +118,35 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     const { accounts } = wagmiConnectorChangeEventParams;
     const usedChainId = wagmiConnectorChangeEventParams.chainId ?? chainId;
     if (accounts && accounts.length && !isNil(usedChainId)) {
-      const { addressMap, createAtNetwork } =
-        await this.buildEvmConnectedAddressMap({
-          chainId: usedChainId,
-          accounts: accounts as any,
-        });
-      await localDb.updateExternalAccount({
+      await this.updateAccountAddresses({
         accountId,
-        addressMap,
-        createAtNetwork,
+        chainId: usedChainId,
+        accounts,
       });
-      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     } else if (!isNil(usedChainId)) {
       await this.updateAccountCreateAtNetwork({
         chainId: usedChainId,
         accountId,
       });
     }
+  }
+
+  async syncAccountFromPeerWallet(
+    payload: IExternalSyncAccountFromPeerWalletPayload,
+  ) {
+    const connector = payload.connector as IExternalConnectorEvm;
+    const { networkId, account } = payload;
+    const accounts: `0x${string}`[] = await this.requestAccounts({
+      connector,
+      networkId,
+    });
+    const chainId: number = await this.requestChainId({ connector, networkId });
+
+    await this.updateAccountAddresses({
+      accountId: account.id,
+      chainId,
+      accounts,
+    });
   }
 
   _manager: EvmConnectorManager | undefined;
@@ -420,6 +433,28 @@ export class ExternalControllerEvm extends ExternalControllerBase {
         accountId: account.id,
       });
     }
+  }
+
+  async updateAccountAddresses({
+    accountId,
+    chainId,
+    accounts,
+  }: {
+    accountId: string;
+    chainId: number;
+    accounts: readonly `0x${string}`[];
+  }) {
+    const { addressMap, createAtNetwork } =
+      await this.buildEvmConnectedAddressMap({
+        chainId,
+        accounts: accounts as any,
+      });
+    await localDb.updateExternalAccount({
+      accountId,
+      addressMap,
+      createAtNetwork,
+    });
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
   }
 
   async updateAccountCreateAtNetwork({

@@ -7,7 +7,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -24,23 +26,43 @@ import { useAutoSelectAccount } from './hooks/useAutoSelectAccount';
 import { useAutoSelectDeriveType } from './hooks/useAutoSelectDeriveType';
 import { useAutoSelectNetwork } from './hooks/useAutoSelectNetwork';
 
-function useCurrentAccountActivate({ num }: { num: number }) {
+function useExternalAccountActivate({ num }: { num: number }) {
   const { activeAccount } = useActiveAccount({ num });
   const activeAccountRef = useRef(activeAccount);
   activeAccountRef.current = activeAccount;
-  const connectionInfo = (
-    activeAccount.account as IDBExternalAccount | undefined
-  )?.connectionInfo;
 
   useEffect(() => {
+    if (
+      !activeAccount.account?.id ||
+      !accountUtils.isExternalAccount({
+        accountId: activeAccount.account?.id,
+      })
+    ) {
+      return;
+    }
+
+    const connectionInfo = (
+      activeAccountRef.current?.account as IDBExternalAccount | undefined
+    )?.connectionInfo;
+
     if (!connectionInfo) {
       return;
     }
-    // activate connector will register account events
-    void backgroundApiProxy.serviceDappSide.activateConnector({
-      connectionInfo,
-    });
-  }, [connectionInfo]);
+
+    void (async () => {
+      // activate connector will register account events
+      await backgroundApiProxy.serviceDappSide.activateConnector({
+        connectionInfo,
+      });
+      if (activeAccount.account?.id && activeAccount.network?.id) {
+        await timerUtils.wait(600);
+        await backgroundApiProxy.serviceDappSide.syncAccountFromPeerWallet({
+          accountId: activeAccount.account?.id,
+          networkId: activeAccount.network?.id,
+        });
+      }
+    })();
+  }, [activeAccount.account?.id, activeAccount.network?.id]);
 }
 
 function AccountSelectorEffectsCmp({ num }: { num: number }) {
@@ -73,7 +95,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   useAutoSelectAccount({ num });
   useAutoSelectNetwork({ num });
   useAutoSelectDeriveType({ num });
-  useCurrentAccountActivate({ num });
+  useExternalAccountActivate({ num });
 
   const reloadActiveAccountInfo = useCallback(async () => {
     if (!isReady) {
