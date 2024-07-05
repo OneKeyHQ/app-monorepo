@@ -84,4 +84,12 @@ export type ITxActionCommonDetailViewProps = {
       icon?: IKeyOfIcons;
     };
   };
+  applyFor?: {
+    title?: string;
+    content: string;
+    description?: {
+      content?: React.ReactNode;
+      icon?: IKeyOfIcons;
+    };
+  };
 };

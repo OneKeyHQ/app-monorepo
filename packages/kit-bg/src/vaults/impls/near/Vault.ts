@@ -291,14 +291,26 @@ export default class Vault extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxNear;
     const accountAddress = await this.getAccountAddress();
-
     const nativeTx = deserializeTransaction(encodedTx);
+
+    let actions: IDecodedTxAction[] = [];
+
+    if (unsignedTx.swapInfo) {
+      actions = [
+        await this.buildInternalSwapAction({
+          swapInfo: unsignedTx.swapInfo,
+        }),
+      ];
+    } else {
+      actions = await this._nativeTxActionToEncodedTxAction(nativeTx);
+    }
+
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: accountAddress,
       signer: nativeTx.signerId,
       nonce: 0,
-      actions: await this._nativeTxActionToEncodedTxAction(nativeTx),
+      actions,
 
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,

@@ -323,7 +323,7 @@ function TxActionCommonListView(
 }
 
 function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
-  const { overview, target, source } = props;
+  const { overview, target, source, applyFor } = props;
   const intl = useIntl();
   return (
     <InfoItemGroup>
@@ -362,6 +362,17 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
           }
           renderContent={target.content}
           description={target.description?.content}
+        />
+      ) : null}
+
+      {applyFor && applyFor.content ? (
+        <InfoItem
+          label={
+            applyFor.title ??
+            intl.formatMessage({ id: ETranslations.global_for })
+          }
+          renderContent={applyFor.content}
+          description={applyFor.description?.content}
         />
       ) : null}
     </InfoItemGroup>

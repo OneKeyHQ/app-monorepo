@@ -370,7 +370,8 @@ export default class Vault extends VaultBase {
           type: EDecodedTxActionType.TOKEN_APPROVE,
           tokenApprove: {
             from: fromAddress,
-            to: TronWeb.address.fromHex(spenderAddressHex),
+            to: tokenAddress,
+            spender: TronWeb.address.fromHex(spenderAddressHex),
             amount: amountBN.shiftedBy(-token.decimals).toFixed(),
             icon: token.logoURI ?? '',
             name: token.name,

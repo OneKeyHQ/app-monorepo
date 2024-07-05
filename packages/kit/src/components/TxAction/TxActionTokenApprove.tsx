@@ -23,7 +23,8 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const approveAmount = tokenApprove?.amount ?? '';
   const approveName = tokenApprove?.name ?? '';
   const approveSymbol = tokenApprove?.symbol ?? '';
-  const approveSpender = tokenApprove?.to ?? '';
+  const approveSpender = tokenApprove?.spender ?? '';
+  const approveInteractWith = tokenApprove?.to ?? '';
   const approveOwner = tokenApprove?.from ?? '';
   const approveIsMax = tokenApprove?.isInfiniteAmount ?? false;
 
@@ -36,6 +37,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
     approveSpender,
     approveOwner,
     approveIsMax,
+    approveInteractWith,
   };
 }
 
@@ -135,6 +137,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     approveAmount,
     approveSymbol,
     approveIsMax,
+    approveInteractWith,
   } = getTxActionTokenApproveInfo(props);
 
   let content = approveLabel;
@@ -173,7 +176,11 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
         },
       }}
       target={{
-        content: decodedTx.to ?? approveSpender,
+        title: intl.formatMessage({ id: ETranslations.interact_with_contract }),
+        content: approveInteractWith,
+      }}
+      applyFor={{
+        content: approveSpender,
       }}
       source={{
         content: approveOwner,

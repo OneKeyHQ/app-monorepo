@@ -30,7 +30,7 @@ export function useFeeInfoInDecodedTx({
     }, [accountId, networkId]).result ?? {};
 
   const { totalFeeInNative, totalFeeFiatValue } = decodedTx;
-  const txFee = totalFeeInNative;
+  const txFee = totalFeeInNative ?? '-';
   const txFeeFiatValue = totalFeeFiatValue;
 
   return {
