@@ -113,7 +113,7 @@ export const ConnectedSites = () => {
   return (
     <SectionList
       sections={sections}
-      estimatedItemSize="$36"
+      estimatedItemSize={142}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (
