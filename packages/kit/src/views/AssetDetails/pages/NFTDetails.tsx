@@ -84,7 +84,7 @@ export function NFTDetails() {
         device,
       };
     },
-    [accountAddress, collectionAddress, itemId, networkId, walletId],
+    [accountAddress, collectionAddress, itemId, networkId, walletId, accountId],
     {
       watchLoading: true,
     },
