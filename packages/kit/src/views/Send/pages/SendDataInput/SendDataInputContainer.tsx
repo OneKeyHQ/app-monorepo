@@ -199,6 +199,16 @@ function SendDataInputContainer() {
     { watchLoading: true, alwaysSetState: true },
   );
 
+  const { result: addressBookEnabledNetworkIds } = usePromiseResult(
+    async () => {
+      const networks =
+        await backgroundApiProxy.serviceNetwork.getAddressBookEnabledNetworks();
+      return networks.map((o) => o.id);
+    },
+    [],
+    { initResult: [] },
+  );
+
   if (tokenDetails && isNil(tokenDetails?.balanceParsed)) {
     tokenDetails.balanceParsed = new BigNumber(tokenDetails.balance)
       .shiftedBy(tokenDetails.info.decimals * -1)
@@ -793,6 +803,12 @@ function SendDataInputContainer() {
     renderPaymentIdForm,
   ]);
 
+  const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
+    () =>
+      addressBookEnabledNetworkIds.includes(networkId) ? { num: 0 } : undefined,
+    [addressBookEnabledNetworkIds, networkId],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -879,8 +895,8 @@ function SendDataInputContainer() {
                 enableWalletName
                 enableVerifySendFundToSelf
                 enableAddressInteractionStatus
-                contacts
-                accountSelector={{ num: 0 }}
+                contacts={addressBookEnabledNetworkIds.includes(networkId)}
+                accountSelector={addressInputAccountSelectorArgs}
               />
             </Form.Field>
             {renderDataInput()}
