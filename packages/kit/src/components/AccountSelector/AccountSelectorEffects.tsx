@@ -51,6 +51,8 @@ function useExternalAccountActivate({ num }: { num: number }) {
 
     void (async () => {
       // activate connector will register account events
+      // throw error if external wallet not installed
+      //    EVM EIP6963 provider not found: so.onekey.app.wallet
       await backgroundApiProxy.serviceDappSide.activateConnector({
         connectionInfo,
       });
