@@ -55,7 +55,7 @@ function BasicTokenPriceChart({
   useEffect(() => {
     setIsLoading(true);
     void backgroundApiProxy.serviceMarket
-      .fetchTokenChart(coinGeckoId, days, 300)
+      .fetchTokenChart(coinGeckoId, days)
       .then((response) => {
         void defer.promise.then(() => {
           setPoints(response);
