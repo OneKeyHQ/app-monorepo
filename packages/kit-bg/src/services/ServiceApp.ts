@@ -21,6 +21,7 @@ import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import localDb from '../dbs/local/localDb';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import v4dbHubs from '../migrations/v4ToV5Migration/v4dbHubs';
 
 import ServiceBase from './ServiceBase';
