@@ -14,7 +14,6 @@ import type {
   ESwapRateDifferenceUnit,
   IFetchQuoteResult,
   ISwapAlertState,
-  ISwapApproveTransaction,
   ISwapNetwork,
   ISwapSlippageSegmentItem,
   ISwapToken,
@@ -237,11 +236,6 @@ export const {
   atom: swapApproveAllowanceSelectOpenAtom,
   use: useSwapApproveAllowanceSelectOpenAtom,
 } = contextAtom<boolean>(false);
-
-export const {
-  atom: swapApprovingTransactionAtom,
-  use: useSwapApprovingTransactionAtom,
-} = contextAtom<ISwapApproveTransaction | undefined>(undefined);
 
 // swap slippage
 

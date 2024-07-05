@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 
 import { EPageType, usePageType } from '@onekeyhq/components';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ESwapApproveTransactionStatus,
@@ -15,7 +16,6 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import {
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,
-  useSwapApprovingTransactionAtom,
   useSwapFromTokenAmountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -35,7 +35,7 @@ export function useSwapQuote() {
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [swapApprovingTransactionAtom] = useSwapApprovingTransactionAtom();
+  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
   const activeAccountRef = useRef<
     ReturnType<typeof useSwapAddressInfo> | undefined
   >();
@@ -43,8 +43,8 @@ export function useSwapQuote() {
     activeAccountRef.current = swapAddressInfo;
   }
   const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>();
-  if (swapApprovingTxRef.current !== swapApprovingTransactionAtom) {
-    swapApprovingTxRef.current = swapApprovingTransactionAtom;
+  if (swapApprovingTxRef.current !== swapApprovingTransaction) {
+    swapApprovingTxRef.current = swapApprovingTransaction;
   }
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500);
   const alignmentDecimal = useCallback(() => {
@@ -75,19 +75,19 @@ export function useSwapQuote() {
 
   useEffect(() => {
     if (
-      swapApprovingTransactionAtom &&
-      swapApprovingTransactionAtom.txId &&
-      swapApprovingTransactionAtom.status ===
+      swapApprovingTransaction &&
+      swapApprovingTransaction.txId &&
+      swapApprovingTransaction.status ===
         ESwapApproveTransactionStatus.SUCCESS &&
-      !swapApprovingTransactionAtom.resetApproveValue
+      !swapApprovingTransaction.resetApproveValue
     ) {
       void quoteAction(
         activeAccountRef.current?.address,
         activeAccountRef.current?.accountInfo?.account?.id,
-        swapApprovingTransactionAtom.blockNumber,
+        swapApprovingTransaction.blockNumber,
       );
     }
-  }, [cleanQuoteInterval, quoteAction, swapApprovingTransactionAtom]);
+  }, [cleanQuoteInterval, quoteAction, swapApprovingTransaction]);
 
   useEffect(() => {
     if (fromToken?.networkId !== activeAccountRef.current?.networkId) {

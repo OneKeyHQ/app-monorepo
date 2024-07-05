@@ -14,6 +14,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   swapApprovingStateFetchInterval,
+  swapHistoryStateFetchRiceIntervalCount,
   swapQuoteFetchInterval,
   swapQuoteIntervalMaxCount,
   swapRateDifferenceMax,
@@ -23,6 +24,7 @@ import {
 import type {
   IFetchTokensParams,
   ISwapAlertState,
+  ISwapApproveTransaction,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -41,7 +43,6 @@ import {
   contextAtomMethod,
   rateDifferenceAtom,
   swapAlertsAtom,
-  swapApprovingTransactionAtom,
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
   swapManualSelectQuoteProvidersAtom,
@@ -65,6 +66,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private quoteInterval: ReturnType<typeof setTimeout> | undefined;
 
   private approvingInterval: ReturnType<typeof setTimeout> | undefined;
+
+  private approvingIntervalCount = 0;
 
   private quoteIntervalCount = 0;
 
@@ -214,9 +217,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       loadingDelayEnable?: boolean,
       blockNumber?: number,
     ) => {
-      set(swapApprovingTransactionAtom(), (pre) => {
-        if (pre) return undefined;
-      });
+      await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
       let enableInterval = true;
       try {
         if (!loadingDelayEnable) {
@@ -310,48 +311,56 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           txId,
           networkId,
         });
-
+        const preApproveTx =
+          await backgroundApiProxy.serviceSwap.getApprovingTransaction();
         if (
           txState.state === ESwapTxHistoryStatus.SUCCESS ||
           txState.state === ESwapTxHistoryStatus.FAILED
         ) {
           enableInterval = false;
-          set(swapApprovingTransactionAtom(), (pre) => {
-            if (!pre) return pre;
-            if (txState.state === ESwapTxHistoryStatus.SUCCESS) {
-              return {
-                ...pre,
+          if (preApproveTx) {
+            if (
+              txState.state === ESwapTxHistoryStatus.SUCCESS ||
+              txState.state === ESwapTxHistoryStatus.FAILED
+            ) {
+              let newApproveTx: ISwapApproveTransaction = {
+                ...preApproveTx,
                 blockNumber: txState.blockNumber,
                 status: ESwapApproveTransactionStatus.SUCCESS,
               };
+              if (txState.state === ESwapTxHistoryStatus.FAILED) {
+                newApproveTx = {
+                  ...preApproveTx,
+                  txId: undefined,
+                  status: ESwapApproveTransactionStatus.FAILED,
+                };
+              }
+              await backgroundApiProxy.serviceSwap.setApprovingTransaction(
+                newApproveTx,
+              );
             }
-            if (txState.state === ESwapTxHistoryStatus.FAILED) {
-              return {
-                ...pre,
-                txId: undefined,
-                status: ESwapApproveTransactionStatus.FAILED,
-              };
-            }
-          });
+          }
           if (txState.state !== ESwapTxHistoryStatus.SUCCESS) {
             set(swapBuildTxFetchingAtom(), false);
           }
-        } else {
-          set(swapApprovingTransactionAtom(), (pre) => {
-            if (!pre || pre.status === ESwapApproveTransactionStatus.PENDING) {
-              return pre;
-            }
-            return {
-              ...pre,
-              status: ESwapApproveTransactionStatus.PENDING,
-            };
+        } else if (
+          preApproveTx &&
+          preApproveTx.status !== ESwapApproveTransactionStatus.PENDING
+        ) {
+          await backgroundApiProxy.serviceSwap.setApprovingTransaction({
+            ...preApproveTx,
+            status: ESwapApproveTransactionStatus.PENDING,
           });
         }
       } catch (e) {
         console.error(e);
       } finally {
         if (enableInterval) {
+          this.approvingIntervalCount += 1;
           void this.approvingStateAction.call(set);
+        } else {
+          this.cleanApprovingInterval();
+          this.approvingIntervalCount = 0;
         }
       }
     },
@@ -359,7 +368,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   approvingStateAction = contextAtomMethod(async (get, set) => {
     this.cleanApprovingInterval();
-    const approvingTransaction = get(swapApprovingTransactionAtom());
+    const approvingTransaction =
+      await backgroundApiProxy.serviceSwap.getApprovingTransaction();
     if (approvingTransaction && approvingTransaction.txId) {
       this.approvingInterval = setTimeout(() => {
         if (approvingTransaction.txId) {
@@ -369,7 +379,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             approvingTransaction.txId,
           );
         }
-      }, swapApprovingStateFetchInterval);
+      }, swapApprovingStateFetchInterval * (Math.floor(this.approvingIntervalCount / swapHistoryStateFetchRiceIntervalCount) + 1));
     }
   });
 
@@ -387,15 +397,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       set(swapBuildTxFetchingAtom(), false);
       set(swapQuoteFetchingAtom(), false);
-      set(swapApprovingTransactionAtom(), (pre) => {
-        if (pre?.status === ESwapApproveTransactionStatus.PENDING) {
-          return {
-            ...pre,
-            status: ESwapApproveTransactionStatus.CANCEL,
-          };
-        }
-        return pre;
-      });
+      const currentApproveTx =
+        await backgroundApiProxy.serviceSwap.getApprovingTransaction();
+      if (currentApproveTx?.status === ESwapApproveTransactionStatus.PENDING) {
+        void backgroundApiProxy.serviceSwap.setApprovingTransaction({
+          ...currentApproveTx,
+          status: ESwapApproveTransactionStatus.CANCEL,
+        });
+      }
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
