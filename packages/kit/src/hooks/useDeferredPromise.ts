@@ -13,7 +13,6 @@ export type IDeferredPromise<DeferType> = {
   status: EDeferStatus;
 };
 
-
 export function useDeferredPromise<DeferType>() {
   const defer = useMemo(() => {
     const deferred = {} as IDeferredPromise<DeferType>;

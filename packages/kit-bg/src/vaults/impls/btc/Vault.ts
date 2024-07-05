@@ -161,10 +161,11 @@ export default class VaultBtc extends VaultBase {
 
     if (swapInfo) {
       const swapSendToken = swapInfo.sender.token;
+      const swapReceiveToken = swapInfo.receiver.token;
       const providerInfo = swapInfo.swapBuildResData.result.info;
       const action = await this.buildTxTransferAssetAction({
         from: swapInfo.accountAddress,
-        to: utxoTo[0].address,
+        to: swapInfo.receivingAddress,
         application: {
           name: providerInfo.providerName,
           icon: providerInfo.providerLogo ?? '',
@@ -172,7 +173,7 @@ export default class VaultBtc extends VaultBase {
         transfers: [
           {
             from: swapInfo.accountAddress,
-            to: utxoTo[0].address,
+            to: '',
             tokenIdOnNetwork: swapSendToken.contractAddress,
             icon: swapSendToken.logoURI ?? '',
             name: swapSendToken.name ?? '',
@@ -180,6 +181,17 @@ export default class VaultBtc extends VaultBase {
             amount: swapInfo.sender.amount,
             isNFT: false,
             isNative: swapSendToken.isNative,
+          },
+          {
+            from: '',
+            to: swapInfo.receivingAddress,
+            tokenIdOnNetwork: swapReceiveToken.contractAddress,
+            icon: swapReceiveToken.logoURI ?? '',
+            name: swapReceiveToken.name ?? '',
+            symbol: swapReceiveToken.symbol,
+            amount: swapInfo.receiver.amount,
+            isNFT: false,
+            isNative: swapReceiveToken.isNative,
           },
         ],
       });
