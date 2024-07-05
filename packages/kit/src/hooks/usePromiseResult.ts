@@ -68,16 +68,8 @@ export function usePromiseResult<T>(
   }, [defer]);
 
   useEffect(() => {
-    const handleVisibilityStateChange = () => {
-      const string = document.visibilityState;
-      if (string === 'hidden') {
-        resetDefer();
-      } else if (string === 'visible') {
-        resolveDefer();
-      }
-    };
-
     resolveDefer();
+    // Native app will trigger visibilityChange event
     if (platformEnv.isNative) {
       const subscription = AppState.addEventListener(
         'change',
@@ -93,6 +85,15 @@ export function usePromiseResult<T>(
         subscription.remove();
       };
     }
+    // Web app will trigger visibilityChange event
+    const handleVisibilityStateChange = () => {
+      const string = document.visibilityState;
+      if (string === 'hidden') {
+        resetDefer();
+      } else if (string === 'visible') {
+        resolveDefer();
+      }
+    };
     document.addEventListener(
       'visibilitychange',
       handleVisibilityStateChange,
