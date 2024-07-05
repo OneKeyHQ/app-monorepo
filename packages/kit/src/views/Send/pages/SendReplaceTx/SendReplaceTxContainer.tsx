@@ -744,6 +744,7 @@ function SendReplaceTxContainer() {
           replaceHistoryId: historyTx.id,
           replaceType,
         },
+        transferPayload: undefined,
       });
       setIsSubmitting(false);
       Toast.success({
