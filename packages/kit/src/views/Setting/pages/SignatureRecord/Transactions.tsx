@@ -346,7 +346,7 @@ export const Transactions = () => {
   return (
     <SectionList
       sections={sections}
-      estimatedItemSize="$36"
+      estimatedItemSize={154}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (
