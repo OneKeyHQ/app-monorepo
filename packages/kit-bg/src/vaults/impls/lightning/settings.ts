@@ -26,6 +26,7 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: false,
   addressBookDisabled: true,
+  copyAddressDisabled: true,
 
   defaultFeePresetIndex: 0,
 

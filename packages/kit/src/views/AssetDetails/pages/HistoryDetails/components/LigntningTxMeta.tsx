@@ -50,7 +50,10 @@ function LightningTxFlow({ decodedTx }: { decodedTx: IDecodedTx }) {
     transferAction &&
     transferAction.type === EDecodedTxActionType.ASSET_TRANSFER
   ) {
-    if (transferAction.direction === EDecodedTxDirection.IN) {
+    if (
+      Array.isArray(transferAction.assetTransfer?.receives) &&
+      transferAction.assetTransfer.receives.length
+    ) {
       return (
         <InfoItem
           label={intl.formatMessage({ id: ETranslations.global_to })}

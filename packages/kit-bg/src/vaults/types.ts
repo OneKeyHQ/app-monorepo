@@ -135,6 +135,7 @@ export type IVaultSettings = {
 
   softwareAccountDisabled?: boolean;
   addressBookDisabled?: boolean;
+  copyAddressDisabled?: boolean;
 
   disabledSwapAction?: boolean;
   disabledSendAction?: boolean;
@@ -466,6 +467,7 @@ export interface IBatchSignTransactionParamsBase {
   signOnly?: boolean;
   sourceInfo?: IDappSourceInfo;
   replaceTxInfo?: IReplaceTxInfo;
+  transferPayload: ITransferPayload | undefined;
 }
 
 export interface ISignMessageParams {
