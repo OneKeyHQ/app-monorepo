@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 
-import { Toast } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapInitParams,
   ISwapNetwork,
@@ -30,17 +30,12 @@ import { useSwapAddressInfo } from './useSwapAccount';
 export function useSwapInit(params?: ISwapInitParams) {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
-  const [, setToToken] = useSwapSelectToTokenAtom();
+  const [toToken, setToToken] = useSwapSelectToTokenAtom();
   const [, setSelectSort] = useSwapProviderSortAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
-  const [defaultTokenLoading, setDefaultTokenLoading] = useState<boolean>(true);
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
   const swapAddressInfoRef = useRef<ReturnType<typeof useSwapAddressInfo>>();
-  const defaultTokenLoadingRef = useRef<boolean>(defaultTokenLoading);
-  if (defaultTokenLoadingRef.current !== defaultTokenLoading) {
-    defaultTokenLoadingRef.current = defaultTokenLoading;
-  }
   if (swapAddressInfoRef.current !== swapAddressInfo) {
     swapAddressInfoRef.current = swapAddressInfo;
   }
@@ -51,6 +46,10 @@ export function useSwapInit(params?: ISwapInitParams) {
   const fromTokenRef = useRef<ISwapToken>();
   if (fromTokenRef.current !== fromToken) {
     fromTokenRef.current = fromToken;
+  }
+  const toTokenRef = useRef<ISwapToken>();
+  if (toTokenRef.current !== toToken) {
+    toTokenRef.current = toToken;
   }
   const fetchSwapNetworks = useCallback(async () => {
     if (swapNetworks.length) {
@@ -111,7 +110,6 @@ export function useSwapInit(params?: ISwapInitParams) {
     ) {
       setFromToken(params.importFromToken);
       setToToken(params.importToToken);
-      setDefaultTokenLoading(false);
       return;
     }
     if (
@@ -121,7 +119,8 @@ export function useSwapInit(params?: ISwapInitParams) {
       (params?.importNetworkId &&
         swapAddressInfoRef.current?.networkId &&
         params?.importNetworkId !== swapAddressInfoRef.current?.networkId) ||
-      !!fromTokenRef.current
+      !!fromTokenRef.current ||
+      !!toTokenRef.current
     ) {
       return;
     }
@@ -130,58 +129,27 @@ export function useSwapInit(params?: ISwapInitParams) {
     );
     if (accountNetwork) {
       if (
-        !isNil(accountNetwork.defaultSelectToken?.from) ||
-        !isNil(accountNetwork.defaultSelectToken?.to)
+        !isNil(swapDefaultSetTokens[accountNetwork.networkId]?.fromToken) ||
+        !isNil(swapDefaultSetTokens[accountNetwork.networkId]?.toToken)
       ) {
-        try {
-          const tokenInfos =
-            await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-              networkId: accountNetwork.networkId,
-              accountAddress: swapAddressInfoRef.current?.address,
-              accountId: swapAddressInfoRef.current?.accountInfo?.account?.id,
-              contractAddress: `${
-                !isNil(accountNetwork.defaultSelectToken?.from)
-                  ? accountNetwork.defaultSelectToken?.from
-                  : ''
-              }${
-                !isNil(accountNetwork.defaultSelectToken?.to)
-                  ? `${
-                      !isNil(accountNetwork.defaultSelectToken?.from) ? ',' : ''
-                    }${accountNetwork.defaultSelectToken?.to}`
-                  : ''
-              }`,
-            });
-          const defaultFromToken = tokenInfos?.find(
-            (token) =>
-              token.contractAddress.toLowerCase() ===
-              accountNetwork.defaultSelectToken?.from?.toLowerCase(),
-          );
-          const defaultToToken = tokenInfos?.find(
-            (token) =>
-              token.contractAddress.toLowerCase() ===
-              accountNetwork.defaultSelectToken?.to?.toLowerCase(),
-          );
-          if (defaultFromToken) {
-            setFromToken({
-              ...defaultFromToken,
-              networkLogoURI: accountNetwork.logoURI,
-            });
-          }
-          if (defaultToToken) {
-            setToToken({
-              ...defaultToToken,
-              networkLogoURI: accountNetwork.logoURI,
-            });
-          }
-        } catch (e: any) {
-          const error = e as { message?: string };
-          Toast.error({
-            title: error?.message ?? 'Failed to fetch token details',
+        const defaultFromToken =
+          swapDefaultSetTokens[accountNetwork.networkId]?.fromToken;
+        const defaultToToken =
+          swapDefaultSetTokens[accountNetwork.networkId]?.toToken;
+        if (defaultFromToken) {
+          setFromToken({
+            ...defaultFromToken,
+            networkLogoURI: accountNetwork.logoURI,
+          });
+        }
+        if (defaultToToken) {
+          setToToken({
+            ...defaultToToken,
+            networkLogoURI: accountNetwork.logoURI,
           });
         }
       }
     }
-    setDefaultTokenLoading(false);
   }, [
     params?.importFromToken,
     params?.importNetworkId,
@@ -195,15 +163,6 @@ export function useSwapInit(params?: ISwapInitParams) {
       await fetchSwapNetworks();
     })();
   }, [fetchSwapNetworks, swapNetworks.length]);
-
-  useEffect(() => {
-    setTimeout(() => {
-      if (defaultTokenLoadingRef.current) {
-        setDefaultTokenLoading(false);
-      }
-    }, 12000);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -239,14 +198,14 @@ export function useSwapInit(params?: ISwapInitParams) {
   }, [
     swapAddressInfo.accountInfo?.ready,
     swapNetworks.length,
-    // swapAddressInfo.networkId,
+    swapAddressInfo.networkId,
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,
   ]);
 
   return {
-    fetchLoading: networkListFetching || defaultTokenLoading,
+    fetchLoading: networkListFetching,
   };
 }
 
