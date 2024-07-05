@@ -115,6 +115,7 @@ function TxFeeContainer(props: IProps) {
           });
 
         const r = await backgroundApiProxy.serviceGas.estimateFee({
+          accountId,
           networkId,
           encodedTx,
           accountAddress,

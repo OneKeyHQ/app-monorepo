@@ -66,7 +66,9 @@ class ServiceFiatCrypto extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{
         data: IFiatCryptoToken[];
-      }>('/wallet/v1/fiat-pay/list', { params });
+      }>('/wallet/v1/fiat-pay/list', {
+        params,
+      });
       return resp.data.data;
     },
     {

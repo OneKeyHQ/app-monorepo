@@ -863,6 +863,7 @@ export default class Vault extends VaultBase {
       txDesc?.args.map((arg) => String(arg)) || [];
 
     const nft = await this.backgroundApi.serviceNFT.getNFT({
+      accountId: this.accountId,
       networkId: this.networkId,
       collectionAddress: encodedTx.to,
       nftId,

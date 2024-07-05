@@ -432,6 +432,7 @@ export interface IUpdateUnsignedTxParams {
   nativeAmountInfo?: INativeAmountInfo;
 }
 export interface IBroadcastTransactionParams {
+  accountId: string;
   networkId: string;
   accountAddress: string;
   signedTx: ISignedTxPro;
