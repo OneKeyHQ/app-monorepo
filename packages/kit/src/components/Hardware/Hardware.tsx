@@ -21,10 +21,10 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 import { isPassphraseValid } from '../../utils/passphraseUtils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
-import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 
 export interface IConfirmOnDeviceToastContentProps {
   deviceType: IDeviceType;
