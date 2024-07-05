@@ -135,6 +135,7 @@ export type IVaultSettings = {
 
   softwareAccountDisabled?: boolean;
   addressBookDisabled?: boolean;
+  copyAddressDisabled?: boolean;
 
   disabledSwapAction?: boolean;
   disabledSendAction?: boolean;
