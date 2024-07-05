@@ -113,7 +113,11 @@ class ServiceDappSide extends ServiceBase {
         }
       }
       if (shouldDestroyConnector) {
-        await this.destroyConnector({ connectionInfo });
+        try {
+          await this.destroyConnector({ connectionInfo });
+        } catch (error) {
+          //
+        }
       }
     }
   }

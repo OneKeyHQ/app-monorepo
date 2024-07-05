@@ -147,6 +147,9 @@ export class ExternalControllerEvm extends ExternalControllerBase {
       chainId,
       accounts,
     });
+    if (!accounts?.length) {
+      connector.emitter.emit('disconnect');
+    }
   }
 
   _manager: EvmConnectorManager | undefined;
@@ -444,6 +447,10 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     chainId: number;
     accounts: readonly `0x${string}`[];
   }) {
+    // emit disconnect event
+    if (!accounts?.length) {
+      return;
+    }
     const { addressMap, createAtNetwork } =
       await this.buildEvmConnectedAddressMap({
         chainId,
