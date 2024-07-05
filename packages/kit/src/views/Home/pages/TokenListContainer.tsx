@@ -260,7 +260,7 @@ const TokenListContainerWithProvider = memo((props: ITabPageProps) => {
   });
   return isUrlAccount ? (
     <UrlAccountHomeTokenListProviderMirror>
-      <TokenListContainer {...props} />
+      <TokenListContainer showWalletActions {...props} />
     </UrlAccountHomeTokenListProviderMirror>
   ) : (
     <HomeTokenListProviderMirror>
