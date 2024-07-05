@@ -44,6 +44,10 @@ class ServiceNFT extends ServiceBase {
       data: IFetchAccountNFTsResp;
     }>(`/wallet/v1/account/nft/list?${qs.stringify(omitBy(params, isNil))}`, {
       signal: controller.signal,
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId: params.accountId,
+        }),
     });
     this._fetchAccountNFTsController = null;
     return resp.data.data;
@@ -62,6 +66,12 @@ class ServiceNFT extends ServiceBase {
             ? nft.collectionAddress
             : `${nft.collectionAddress}:${nft.itemId}`,
         ),
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+          }),
       },
     );
     const result = resp.data.data;
@@ -97,6 +107,7 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async getNFT(params: {
+    accountId: string;
     networkId: string;
     nftId: string;
     collectionAddress: string;
@@ -113,17 +124,20 @@ class ServiceNFT extends ServiceBase {
 
   _getNFTMemo = memoizee(
     async ({
+      accountId,
       networkId,
       nftId,
       collectionAddress,
       accountAddress,
     }: {
+      accountId: string;
       networkId: string;
       nftId: string;
       collectionAddress: string;
       accountAddress: string;
     }) => {
       const nftDetails = await this.fetchNFTDetails({
+        accountId,
         networkId,
         nfts: [{ collectionAddress, itemId: nftId }],
         accountAddress,

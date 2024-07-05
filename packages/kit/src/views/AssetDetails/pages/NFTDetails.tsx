@@ -66,6 +66,7 @@ export function NFTDetails() {
       ] = [
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         backgroundApiProxy.serviceNFT.fetchNFTDetails({
+          accountId,
           networkId,
           accountAddress,
           nfts: [{ collectionAddress, itemId }],
@@ -83,7 +84,7 @@ export function NFTDetails() {
         device,
       };
     },
-    [accountAddress, collectionAddress, itemId, networkId, walletId],
+    [accountAddress, collectionAddress, itemId, networkId, walletId, accountId],
     {
       watchLoading: true,
     },
