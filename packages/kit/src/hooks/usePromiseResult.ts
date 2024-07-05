@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { debounce } from 'lodash';
+import { AppState } from 'react-native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { useDeferredPromise } from './useDeferredPromise';
 import { useIsMounted } from './useIsMounted';
 
 type IRunnerConfig = {
@@ -54,6 +57,61 @@ export function usePromiseResult<T>(
   deps: any[] = [],
   options: IPromiseResultOptions<T> = {},
 ): IUsePromiseResultReturn<T> {
+  const defer = useDeferredPromise();
+
+  const resolveDefer = useCallback(() => {
+    defer.resolve(null);
+  }, [defer]);
+
+  const resetDefer = useCallback(() => {
+    defer.reset();
+  }, [defer]);
+
+  useEffect(() => {
+    resolveDefer();
+    // Native app will trigger visibilityChange event
+    if (platformEnv.isNative) {
+      const subscription = AppState.addEventListener(
+        'change',
+        (nextAppState) => {
+          if (nextAppState === 'active') {
+            resolveDefer();
+            return;
+          }
+          resetDefer();
+        },
+      );
+      return () => {
+        subscription.remove();
+      };
+    }
+    // Web app will trigger visibilityChange event
+    const handleVisibilityStateChange = () => {
+      const string = document.visibilityState;
+      if (string === 'hidden') {
+        resetDefer();
+      } else if (string === 'visible') {
+        resolveDefer();
+      }
+    };
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityStateChange,
+      false,
+    );
+    window.addEventListener('focus', resolveDefer);
+    window.addEventListener('blur', resetDefer);
+    return () => {
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityStateChange,
+        false,
+      );
+      window.removeEventListener('focus', resolveDefer);
+      window.removeEventListener('blur', resetDefer);
+    };
+  }, [resetDefer, resolveDefer]);
+
   const [result, setResult] = useState<T | undefined>(
     options.initResult as any,
   );
@@ -154,6 +212,7 @@ export function usePromiseResult<T>(
             pollingInterval &&
             pollingNonceRef.current === config?.pollingNonce
           ) {
+            await defer.promise;
             await timerUtils.wait(pollingInterval);
 
             if (pollingNonceRef.current === config?.pollingNonce) {
@@ -203,15 +262,18 @@ export function usePromiseResult<T>(
 
   const isFocusedRefValue = isFocusedRef.current;
   useEffect(() => {
-    if (
-      isFocusedRefValue &&
-      optionsRef.current.checkIsFocused &&
-      isDepsChangedOnBlur.current
-    ) {
-      isDepsChangedOnBlur.current = false;
-      void runRef.current({ pollingNonce: pollingNonceRef.current });
+    if (optionsRef.current.checkIsFocused) {
+      if (isFocusedRefValue) {
+        resolveDefer();
+      } else {
+        resetDefer();
+      }
+      if (isFocusedRefValue && isDepsChangedOnBlur.current) {
+        isDepsChangedOnBlur.current = false;
+        void runRef.current({ pollingNonce: pollingNonceRef.current });
+      }
     }
-  }, [isFocusedRefValue]);
+  }, [isFocusedRefValue, resetDefer, resolveDefer]);
 
   return { result, isLoading, run };
 }
