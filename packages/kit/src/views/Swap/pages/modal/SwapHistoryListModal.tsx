@@ -49,7 +49,7 @@ interface ISwapHistoryListModalProps {
 
 const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
   const intl = useIntl();
-  const [swapPendingList] = useInAppNotificationAtom();
+  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
     async () => {
       const histories =
@@ -57,7 +57,7 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
       return histories;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swapPendingList],
+    [swapHistoryPendingList],
     { watchLoading: true },
   );
 
