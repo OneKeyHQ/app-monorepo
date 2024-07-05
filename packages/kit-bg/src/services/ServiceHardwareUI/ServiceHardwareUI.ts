@@ -224,13 +224,6 @@ class ServiceHardwareUI extends ServiceBase {
       }
     }
 
-    // Prevents the sdk from continuing to run if it has not been initialized and clicking Cancel is invalid
-    if (connectId) {
-      await this.hardwareProcessingManager.cancelableFn(connectId, () =>
-        this.backgroundApi.serviceHardware.getSDKInstance(),
-      );
-    }
-
     let deviceResetToHome = true;
     try {
       if (connectId && !skipDeviceCancelAtFirst) {

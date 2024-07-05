@@ -436,7 +436,8 @@ class ServiceHardware extends ServiceBase {
     try {
       sdk.cancel(connectId);
     } catch (e: any) {
-      console.log('sdk cancel error: ', e.message);
+      const { message } = e || {};
+      console.log('sdk cancel error: ', message);
     }
 
     console.log('sdk call cancel device: ', connectId);
