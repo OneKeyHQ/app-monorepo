@@ -424,6 +424,13 @@ const DotMapGallery = LazyLoadPage(
     ),
 );
 
+const UsePromiseResultGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/UsePromiseResult'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -607,5 +614,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentDotMap,
     component: DotMapGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentUsePromiseResult,
+    component: UsePromiseResultGallery,
   },
 ];

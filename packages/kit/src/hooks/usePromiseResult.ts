@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { debounce } from 'lodash';
+import { AppState } from 'react-native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { useDeferredPromise } from './useDeferredPromise';
 import { useIsMounted } from './useIsMounted';
 
 type IRunnerConfig = {
@@ -54,6 +57,60 @@ export function usePromiseResult<T>(
   deps: any[] = [],
   options: IPromiseResultOptions<T> = {},
 ): IUsePromiseResultReturn<T> {
+  const defer = useDeferredPromise();
+
+  const resolveDefer = useCallback(() => {
+    defer.resolve(null);
+  }, [defer]);
+
+  const resetDefer = useCallback(() => {
+    defer.reset();
+  }, [defer]);
+
+  useEffect(() => {
+    const handleVisibilityStateChange = () => {
+      const string = document.visibilityState;
+      if (string === 'hidden') {
+        resetDefer();
+      } else if (string === 'visible') {
+        resolveDefer();
+      }
+    };
+
+    resolveDefer();
+    if (platformEnv.isNative) {
+      const subscription = AppState.addEventListener(
+        'change',
+        (nextAppState) => {
+          if (nextAppState === 'active') {
+            resolveDefer();
+            return;
+          }
+          resetDefer();
+        },
+      );
+      return () => {
+        subscription.remove();
+      };
+    }
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityStateChange,
+      false,
+    );
+    window.addEventListener('focus', resolveDefer);
+    window.addEventListener('blur', resetDefer);
+    return () => {
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityStateChange,
+        false,
+      );
+      window.removeEventListener('focus', resolveDefer);
+      window.removeEventListener('blur', resetDefer);
+    };
+  }, [resetDefer, resolveDefer]);
+
   const [result, setResult] = useState<T | undefined>(
     options.initResult as any,
   );
@@ -155,6 +212,7 @@ export function usePromiseResult<T>(
             pollingNonceRef.current === config?.pollingNonce
           ) {
             await timerUtils.wait(pollingInterval);
+            await defer.promise;
 
             if (pollingNonceRef.current === config?.pollingNonce) {
               if (shouldSetState(config)) {
