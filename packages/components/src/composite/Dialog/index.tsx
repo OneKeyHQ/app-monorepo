@@ -337,6 +337,16 @@ function BaseDialogContainer(
     icon,
     showExitButton,
   });
+
+  useEffect(() => {
+    setHeaderProps({
+      title,
+      tone,
+      description,
+      icon,
+      showExitButton,
+    });
+  }, [description, icon, showExitButton, title, tone]);
   const headerContextValue = useMemo(
     () => ({ headerProps, setHeaderProps }),
     [headerProps],
