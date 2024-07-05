@@ -57,6 +57,12 @@ export type IExternalCheckNetworkOrAddressMatchedPayload = {
   connector: IExternalConnector;
 };
 
+export type IExternalSyncAccountFromPeerWalletPayload = {
+  account: IDBExternalAccount;
+  networkId: string;
+  connector: IExternalConnector;
+};
+
 export abstract class ExternalControllerBase {
   constructor({
     factory,
@@ -132,5 +138,9 @@ export abstract class ExternalControllerBase {
 
   abstract checkNetworkOrAddressMatched(
     payload: IExternalCheckNetworkOrAddressMatchedPayload,
+  ): Promise<void>;
+
+  abstract syncAccountFromPeerWallet(
+    payload: IExternalSyncAccountFromPeerWalletPayload,
   ): Promise<void>;
 }

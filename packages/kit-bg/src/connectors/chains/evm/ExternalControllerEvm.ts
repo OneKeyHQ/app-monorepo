@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
@@ -33,7 +34,10 @@ import { ExternalConnectorWalletConnect } from '../walletconnect/ExternalConnect
 import { EvmConnectorManager } from './EvmConnectorManager';
 import evmConnectorUtils from './evmConnectorUtils';
 import { ExternalConnectorEvmEIP6963 } from './ExternalConnectorEvmEIP6963';
-import { ExternalConnectorEvmInjected } from './ExternalConnectorEvmInjected';
+import {
+  EVM_INJECTED_GLOBAL_VAR,
+  ExternalConnectorEvmInjected,
+} from './ExternalConnectorEvmInjected';
 
 import type { IDBAccountAddressesMap } from '../../../dbs/local/types';
 import type {
@@ -43,6 +47,7 @@ import type {
   IExternalSendTransactionPayload,
   IExternalSignMessageByWalletConnectPayload,
   IExternalSignMessagePayload,
+  IExternalSyncAccountFromPeerWalletPayload,
 } from '../../base/ExternalControllerBase';
 
 export class ExternalControllerEvm extends ExternalControllerBase {
@@ -113,22 +118,37 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     const { accounts } = wagmiConnectorChangeEventParams;
     const usedChainId = wagmiConnectorChangeEventParams.chainId ?? chainId;
     if (accounts && accounts.length && !isNil(usedChainId)) {
-      const { addressMap, createAtNetwork } =
-        await this.buildEvmConnectedAddressMap({
-          chainId: usedChainId,
-          accounts: accounts as any,
-        });
-      await localDb.updateExternalAccount({
+      await this.updateAccountAddresses({
         accountId,
-        addressMap,
-        createAtNetwork,
+        chainId: usedChainId,
+        accounts,
       });
-      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     } else if (!isNil(usedChainId)) {
       await this.updateAccountCreateAtNetwork({
         chainId: usedChainId,
         accountId,
       });
+    }
+  }
+
+  async syncAccountFromPeerWallet(
+    payload: IExternalSyncAccountFromPeerWalletPayload,
+  ) {
+    const connector = payload.connector as IExternalConnectorEvm;
+    const { networkId, account } = payload;
+    const accounts: `0x${string}`[] = await this.requestAccounts({
+      connector,
+      networkId,
+    });
+    const chainId: number = await this.requestChainId({ connector, networkId });
+
+    await this.updateAccountAddresses({
+      accountId: account.id,
+      chainId,
+      accounts,
+    });
+    if (!accounts?.length) {
+      connector.emitter.emit('disconnect');
     }
   }
 
@@ -149,17 +169,24 @@ export class ExternalControllerEvm extends ExternalControllerBase {
       .filter((item) => item.info.uuid !== uuidOneKeyInjectAsMetamask);
 
     const icon = externalWalletLogoUtils.getLogoInfo('injected').logo;
-    const evmInjectedWallet: IExternalWalletInfo = {
-      name: 'Injected',
-      icon,
-      connectionInfo: {
-        evmInjected: {
-          global: 'ethereum',
-          icon,
-          name: 'Injected',
+    let evmInjectedWallet: IExternalWalletInfo | undefined;
+    if (
+      platformEnv.isWeb &&
+      // @ts-ignore
+      global?.[EVM_INJECTED_GLOBAL_VAR]
+    ) {
+      evmInjectedWallet = {
+        name: 'Injected',
+        icon,
+        connectionInfo: {
+          evmInjected: {
+            global: EVM_INJECTED_GLOBAL_VAR,
+            icon,
+            name: 'Injected',
+          },
         },
-      },
-    };
+      };
+    }
 
     // return allProvidersDetail;
     const eip6963Wallets: IExternalWalletInfo[] = uniqBy(
@@ -176,7 +203,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     }));
 
     return {
-      wallets: [evmInjectedWallet, ...eip6963Wallets],
+      wallets: [evmInjectedWallet, ...eip6963Wallets].filter(Boolean),
     };
   }
 
@@ -409,6 +436,32 @@ export class ExternalControllerEvm extends ExternalControllerBase {
         accountId: account.id,
       });
     }
+  }
+
+  async updateAccountAddresses({
+    accountId,
+    chainId,
+    accounts,
+  }: {
+    accountId: string;
+    chainId: number;
+    accounts: readonly `0x${string}`[];
+  }) {
+    // emit disconnect event
+    if (!accounts?.length) {
+      return;
+    }
+    const { addressMap, createAtNetwork } =
+      await this.buildEvmConnectedAddressMap({
+        chainId,
+        accounts: accounts as any,
+      });
+    await localDb.updateExternalAccount({
+      accountId,
+      addressMap,
+      createAtNetwork,
+    });
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
   }
 
   async updateAccountCreateAtNetwork({

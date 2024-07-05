@@ -23,6 +23,7 @@ import type {
   IExternalSendTransactionPayload,
   IExternalSignMessageByWalletConnectPayload,
   IExternalSignMessagePayload,
+  IExternalSyncAccountFromPeerWalletPayload,
 } from '../../base/ExternalControllerBase';
 
 export class ExternalControllerWalletConnect extends ExternalControllerBase {
@@ -206,5 +207,13 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
 
     // TODO openNativeWalletAppByDeepLink
     return ctrl.signMessageByWalletConnect({ ...payload, connector });
+  }
+
+  override async syncAccountFromPeerWallet(
+    payload: IExternalSyncAccountFromPeerWalletPayload,
+  ): Promise<void> {
+    console.log(
+      'walletconnect syncAccountFromPeerWallet skipped, walletconnect support offline events sync',
+    );
   }
 }

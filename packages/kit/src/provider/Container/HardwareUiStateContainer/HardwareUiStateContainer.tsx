@@ -343,7 +343,7 @@ function HardwareUiStateContainerCmp() {
               <ConfirmOnDeviceToastContent deviceType={currentDeviceType} />
             ),
             dismissOnOverlayPress: false,
-            disableSwipeGesture: false,
+            disableSwipeGesture: true,
             onClose: async (params) => {
               log('close toast');
               if (params?.flag !== autoClosedFlag) {
@@ -371,7 +371,8 @@ function HardwareUiStateContainerCmp() {
         state: currentState,
         action: () =>
           Dialog.show({
-            dismissOnOverlayPress: !!isOperationAction,
+            dismissOnOverlayPress: false,
+            // disableSwipeGesture: true,
             showFooter: !!isOperationAction,
             // eslint-disable-next-line react/no-unstable-nested-components
             dialogContainer: ({ ref }: { ref: any }) => (
