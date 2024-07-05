@@ -261,15 +261,18 @@ export function usePromiseResult<T>(
 
   const isFocusedRefValue = isFocusedRef.current;
   useEffect(() => {
-    if (
-      isFocusedRefValue &&
-      optionsRef.current.checkIsFocused &&
-      isDepsChangedOnBlur.current
-    ) {
-      isDepsChangedOnBlur.current = false;
-      void runRef.current({ pollingNonce: pollingNonceRef.current });
+    if (optionsRef.current.checkIsFocused) {
+      if (isFocusedRefValue) {
+        resolveDefer();
+      } else {
+        resetDefer();
+      }
+      if (isFocusedRefValue && isDepsChangedOnBlur.current) {
+        isDepsChangedOnBlur.current = false;
+        void runRef.current({ pollingNonce: pollingNonceRef.current });
+      }
     }
-  }, [isFocusedRefValue]);
+  }, [isFocusedRefValue, resetDefer, resolveDefer]);
 
   return { result, isLoading, run };
 }
