@@ -247,46 +247,52 @@ export function AmountInput({
     if (!balanceProps) {
       return null;
     }
-    return balanceProps.loading ? (
-      <Stack py="$1" px="$3.5">
-        <Skeleton h="$3" w="$16" />
-      </Stack>
-    ) : (
-      <XStack
-        alignItems="center"
-        px="$3.5"
-        pb="$2"
-        onPress={balanceProps.onPress}
-        {...(enableMaxAmount && {
-          userSelect: 'none',
-          hoverStyle: {
-            bg: '$bgHover',
-          },
-          pressStyle: {
-            bg: '$bgActive',
-          },
-        })}
-        {...(balanceHelperProps && {
-          pr: '$0',
-        })}
-      >
-        <Icon name="WalletOutline" size="$5" color="$iconSubdued" mr="$1" />
-        <SizableText size="$bodyMd" color="$textSubdued">
-          <NumberSizeableText
-            size="$bodyMd"
-            color="$textSubdued"
-            formatter="balance"
-          >
-            {balanceProps.value ?? 0}
-          </NumberSizeableText>
-        </SizableText>
-        {enableMaxAmount ? (
-          <SizableText pl="$1" size="$bodyMdMedium" color="$textInteractive">
-            {intl.formatMessage({ id: ETranslations.send_max })}
+    if (balanceProps.loading) {
+      return (
+        <Stack py="$1" px="$3.5">
+          <Skeleton h="$3" w="$16" />
+        </Stack>
+      );
+    }
+    if (balanceProps.value) {
+      return (
+        <XStack
+          alignItems="center"
+          px="$3.5"
+          pb="$2"
+          onPress={balanceProps.onPress}
+          {...(enableMaxAmount && {
+            userSelect: 'none',
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+          })}
+          {...(balanceHelperProps && {
+            pr: '$0',
+          })}
+        >
+          <Icon name="WalletOutline" size="$5" color="$iconSubdued" mr="$1" />
+          <SizableText size="$bodyMd" color="$textSubdued">
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="balance"
+            >
+              {balanceProps.value ?? 0}
+            </NumberSizeableText>
           </SizableText>
-        ) : null}
-      </XStack>
-    );
+          {enableMaxAmount ? (
+            <SizableText pl="$1" size="$bodyMdMedium" color="$textInteractive">
+              {intl.formatMessage({ id: ETranslations.send_max })}
+            </SizableText>
+          ) : null}
+        </XStack>
+      );
+    }
+    return null;
   }, [balanceHelperProps, balanceProps, enableMaxAmount, intl]);
 
   const balanceHelper = useMemo(() => {

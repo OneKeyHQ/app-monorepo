@@ -682,6 +682,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               ...pre,
               [type]: true,
             }));
+            // reset balance
+            if (type === ESwapDirectionType.FROM) {
+              set(swapSelectedFromTokenBalanceAtom(), '');
+            } else {
+              set(swapSelectedToTokenBalanceAtom(), '');
+            }
             const detailInfo =
               await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
                 networkId: token.networkId,

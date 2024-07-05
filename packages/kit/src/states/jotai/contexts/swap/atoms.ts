@@ -86,12 +86,12 @@ export const {
 export const {
   atom: swapSelectedFromTokenBalanceAtom,
   use: useSwapSelectedFromTokenBalanceAtom,
-} = contextAtom('0');
+} = contextAtom('');
 
 export const {
   atom: swapSelectedToTokenBalanceAtom,
   use: useSwapSelectedToTokenBalanceAtom,
-} = contextAtom('0');
+} = contextAtom('');
 
 // swap quote
 export const {
