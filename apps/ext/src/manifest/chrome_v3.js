@@ -118,6 +118,7 @@ module.exports = {
     // 'webRequestBlocking' requires manifest version of 2 or lower.
     // 'webRequestBlocking',
     // 'clipboardWrite',
+    'clipboardRead',
     'notifications',
     // 'activeTab',
     // 'webRequest',
