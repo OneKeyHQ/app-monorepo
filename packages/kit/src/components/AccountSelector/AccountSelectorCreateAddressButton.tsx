@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -54,24 +54,29 @@ export function AccountSelectorCreateAddressButton({
   accountRef.current = account;
 
   const { createAddress } = useAccountSelectorCreateAddress();
+  const manualCreatingKey = useMemo(() => Math.random().toString(), []);
+
   const [accountManualCreatingAtom, setAccountManualCreatingAtom] =
     useAccountManualCreatingAtom();
 
   const isLoading = useMemo(
     () =>
-      accountManualCreatingAtom.isLoading ||
+      (accountManualCreatingAtom.isLoading &&
+        accountManualCreatingAtom.key === manualCreatingKey) ||
       (accountIsAutoCreating &&
         accountIsAutoCreating.walletId === walletId &&
         accountIsAutoCreating.indexedAccountId === indexedAccountId &&
         accountIsAutoCreating.networkId === networkId &&
         accountIsAutoCreating.deriveType === deriveType),
     [
-      accountIsAutoCreating,
-      deriveType,
-      indexedAccountId,
       accountManualCreatingAtom.isLoading,
-      networkId,
+      accountManualCreatingAtom.key,
+      manualCreatingKey,
+      accountIsAutoCreating,
       walletId,
+      indexedAccountId,
+      networkId,
+      deriveType,
     ],
   );
 
@@ -92,6 +97,7 @@ export function AccountSelectorCreateAddressButton({
     isLoadingRef.current = true;
     setAccountManualCreatingAtom((prev) => ({
       ...prev,
+      key: manualCreatingKey,
       isLoading: true,
     }));
     setAccountIsAutoCreating(accountRef.current);
@@ -107,6 +113,7 @@ export function AccountSelectorCreateAddressButton({
     } finally {
       setAccountManualCreatingAtom((prev) => ({
         ...prev,
+        key: undefined,
         isLoading: false,
       }));
       setAccountIsAutoCreating(undefined);
@@ -114,6 +121,7 @@ export function AccountSelectorCreateAddressButton({
   }, [
     account,
     createAddress,
+    manualCreatingKey,
     num,
     selectAfterCreate,
     serviceAccount,
