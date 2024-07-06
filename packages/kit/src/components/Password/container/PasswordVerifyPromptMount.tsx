@@ -17,9 +17,14 @@ const PasswordVerifyPromptMount = () => {
 
   const [{ passwordPromptPromiseTriggerData }] =
     usePasswordPromptPromiseTriggerAtom();
-  const onClose = useCallback((id: number) => {
-    void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id);
-  }, []);
+  const onClose = useCallback(
+    (id: number) => {
+      void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id, {
+        message: intl.formatMessage({ id: ETranslations.global_close }),
+      });
+    },
+    [intl],
+  );
 
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
 

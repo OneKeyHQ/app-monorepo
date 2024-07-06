@@ -20,6 +20,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyError from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -504,7 +506,11 @@ export default class ServicePassword extends ServiceBase {
       passwordPromptPromiseTriggerData: params,
     }));
     this.passwordPromptTimeout = setTimeout(() => {
-      void this.rejectPasswordPromptDialog(params.idNumber);
+      void this.rejectPasswordPromptDialog(params.idNumber, {
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.global_close,
+        }),
+      });
     }, this.passwordPromptTTL);
   }
 
