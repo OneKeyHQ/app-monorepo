@@ -118,10 +118,15 @@ class ServiceSignature extends ServiceBase {
       const network = await this.backgroundApi.serviceNetwork.getNetwork({
         networkId: item.networkId,
       });
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({
+          networkId: network.id,
+        });
       return {
         ...rest,
         data,
         network,
+        vaultSettings,
       };
     });
     let items = await Promise.all(promises);
