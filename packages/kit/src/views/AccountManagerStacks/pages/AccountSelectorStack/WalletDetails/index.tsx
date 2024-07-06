@@ -317,12 +317,8 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     if (isOthers) {
       return 'Others';
     }
-    return focusedWalletInfo?.wallet?.name
-      ? intl.formatMessage({
-          id: focusedWalletInfo?.wallet?.name as ETranslations,
-        })
-      : '';
-  }, [focusedWalletInfo, intl, isOthers]);
+    return focusedWalletInfo?.wallet?.name || '';
+  }, [focusedWalletInfo, isOthers]);
   return (
     <Stack flex={1} pb={bottom} testID="account-selector-accountList">
       <WalletDetailsHeader
