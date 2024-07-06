@@ -263,7 +263,7 @@ class ServiceSignature extends ServiceBase {
           fromNetworkId: fromToken.networkId,
           toNetworkId: toToken.networkId,
           fromAmount: swapInfo.sender.amount,
-          toAmount: swapInfo.sender.amount,
+          toAmount: swapInfo.receiver.amount,
           fromToken: {
             name: fromToken.name ?? toToken.symbol,
             symbol: fromToken.symbol,
