@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import ServiceBase from './ServiceBase';
@@ -25,7 +26,8 @@ export type IPromiseContainerResolve = {
 
 export type IPromiseContainerReject = {
   id: number | string;
-  error?: unknown; // toPlainErrorObject()
+  // error can not be undefined, otherwise JSBridge can not determine whether the return object is an error or a normal return
+  error: Error | IOneKeyError | unknown; // toPlainErrorObject()
 };
 
 let latestId = 1;

@@ -262,7 +262,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) => IAccountSelectorSelectedAccount;
       },
     ) => {
-      // const contextData = get(accountSelectorContextDataAtom());
+      const contextData = get(accountSelectorContextDataAtom());
       // if (!contextData) {
       //   return;
       // }
@@ -287,23 +287,43 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         newNetworkId !== oldNetworkId &&
         newDeriveType === oldDeriveType
       ) {
-        const isNewDeriveTypeAvailable =
-          await backgroundApiProxy.serviceNetwork.isDeriveTypeAvailableForNetwork(
-            {
-              networkId: newNetworkId,
-              deriveType: newDeriveType,
-            },
-          );
-        if (!isNewDeriveTypeAvailable) {
+        const fixDeriveTypeByGlobal = async ({
+          sceneName,
+        }: {
+          sceneName: EAccountSelectorSceneName | undefined;
+        }) => {
           const newDriveTypeFixed =
             await backgroundApiProxy.serviceAccountSelector.getGlobalDeriveType(
               {
                 selectedAccount: newSelectedAccount,
-                sceneName: undefined,
+                sceneName,
               },
             );
           if (newDriveTypeFixed) {
             newSelectedAccount.deriveType = newDriveTypeFixed;
+          }
+        };
+
+        if (contextData?.sceneName) {
+          await fixDeriveTypeByGlobal({ sceneName: contextData?.sceneName });
+
+          const shouldUseGlobalDeriveType =
+            await backgroundApiProxy.serviceAccountSelector.shouldUseGlobalDeriveType(
+              {
+                sceneName: contextData?.sceneName,
+              },
+            );
+          if (!shouldUseGlobalDeriveType && newSelectedAccount?.networkId) {
+            const isNewDeriveTypeAvailable =
+              await backgroundApiProxy.serviceNetwork.isDeriveTypeAvailableForNetwork(
+                {
+                  networkId: newSelectedAccount?.networkId,
+                  deriveType: newSelectedAccount?.deriveType,
+                },
+              );
+            if (!isNewDeriveTypeAvailable) {
+              await fixDeriveTypeByGlobal({ sceneName: undefined });
+            }
           }
         }
       }
