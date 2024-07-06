@@ -146,7 +146,6 @@ export function usePromiseResult<T>(
         checkIsMounted,
         checkIsFocused,
         undefinedResultIfError,
-        pollingInterval,
         alwaysSetState,
       } = optionsRef.current;
 
@@ -180,6 +179,7 @@ export function usePromiseResult<T>(
       };
 
       const runner = async (config?: IRunnerConfig) => {
+        const { pollingInterval } = optionsRef.current;
         if (config?.triggerByDeps && !isFocusedRef.current) {
           isDepsChangedOnBlur.current = true;
         }
@@ -251,6 +251,11 @@ export function usePromiseResult<T>(
   const runRef = useRef(run);
   runRef.current = run;
 
+  const runnerDeps = useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    () => [...deps, optionsRef.current.pollingInterval],
+    [deps],
+  );
   useEffect(() => {
     pollingNonceRef.current += 1;
     void runRef.current({
@@ -258,7 +263,7 @@ export function usePromiseResult<T>(
       pollingNonce: pollingNonceRef.current,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, runnerDeps);
 
   const isFocusedRefValue = isFocusedRef.current;
   useEffect(() => {

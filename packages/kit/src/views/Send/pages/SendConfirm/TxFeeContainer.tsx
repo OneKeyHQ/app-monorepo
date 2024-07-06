@@ -38,6 +38,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type {
   IFeeInfoUnit,
@@ -151,7 +152,11 @@ function TxFeeContainer(props: IProps) {
     [accountId, networkId, unsignedTxs, updateSendFeeStatus],
     {
       watchLoading: true,
-      pollingInterval: vaultSettings?.estimatedFeePollingInterval,
+      pollingInterval: vaultSettings?.estimatedFeePollingInterval
+        ? timerUtils.getTimeDurationMs({
+            seconds: vaultSettings?.estimatedFeePollingInterval,
+          })
+        : undefined,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused && sendSelectedFee.feeType !== EFeeType.Custom,
     },
