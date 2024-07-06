@@ -43,7 +43,7 @@ const settings: IVaultSettings = {
   editFeeEnabled: true,
   replaceTxEnabled: false,
   onChainHistoryDisabled: true,
-  estimatedFeePollingInterval: 120,
+  estimatedFeePollingInterval: 120 * 1000,
 
   minTransferAmount: '0.0000001',
 

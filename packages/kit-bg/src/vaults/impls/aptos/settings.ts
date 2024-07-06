@@ -40,7 +40,7 @@ const settings: IVaultSettings = {
   editFeeEnabled: true,
   replaceTxEnabled: false,
   transferZeroNativeTokenEnabled: true,
-  estimatedFeePollingInterval: 120,
+  estimatedFeePollingInterval: 120 * 1000,
 
   accountDeriveInfo,
   networkInfo: {
