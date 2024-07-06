@@ -29,60 +29,60 @@ const getConnectedSiteTitle = (url: string) => {
 };
 
 const ConnectedSiteItem = ({ item }: { item: IConnectedSite }) => (
-  <YStack
-    borderWidth={StyleSheet.hairlineWidth}
-    mx="$5"
-    mb="$3"
-    borderRadius="$3"
-    borderColor="$borderSubdued"
-    overflow="hidden"
-  >
-    <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
-      <SizableText size="$bodyMd">
-        {formatTime(new Date(item.createdAt), { hideSeconds: true })}
-      </SizableText>
-    </XStack>
-    <XStack p="$3" alignItems="center">
-      <Image
-        borderRadius="$full"
-        overflow="hidden"
-        width={40}
-        height={40}
-        mr="$3"
-      >
-        <Image.Source
-          source={{
-            uri: item.logo,
-          }}
-        />
-        <Image.Fallback
-          alignItems="center"
-          justifyContent="center"
-          bg="$gray5"
-          delayMs={1000}
+  <Stack px="$5" pb="$3">
+    <YStack
+      borderWidth={StyleSheet.hairlineWidth}
+      borderRadius="$3"
+      borderColor="$borderSubdued"
+      overflow="hidden"
+    >
+      <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
+        <SizableText size="$bodyMd">
+          {formatTime(new Date(item.createdAt), { hideSeconds: true })}
+        </SizableText>
+      </XStack>
+      <XStack p="$3" alignItems="center">
+        <Image
+          borderRadius="$full"
+          overflow="hidden"
+          width={40}
+          height={40}
+          mr="$3"
         >
-          <Icon size={40} name="GlobusOutline" color="$iconSubdued" />
-        </Image.Fallback>
-      </Image>
-      <SizableText size="$bodyLgMedium">
-        {getConnectedSiteTitle(item.url)}
-      </SizableText>
-    </XStack>
-    <YStack p="$3" backgroundColor="$bgSubdued">
-      {item.networkIds.map((networkId, i) => (
-        <XStack key={networkId} alignItems="center">
-          <Stack mr="$2">
-            <NetworkAvatar size={16} networkId={networkId} />
-          </Stack>
-          <SizableText color="$textSubdued" size="$bodySmMedium">
-            {item.networks[i].name}
-            {' • '}
-            {utils.shortenAddress({ address: item.addresses[i] })}
-          </SizableText>
-        </XStack>
-      ))}
+          <Image.Source
+            source={{
+              uri: item.logo,
+            }}
+          />
+          <Image.Fallback
+            alignItems="center"
+            justifyContent="center"
+            bg="$gray5"
+            delayMs={1000}
+          >
+            <Icon size={40} name="GlobusOutline" color="$iconSubdued" />
+          </Image.Fallback>
+        </Image>
+        <SizableText size="$bodyLgMedium">
+          {getConnectedSiteTitle(item.url)}
+        </SizableText>
+      </XStack>
+      <YStack p="$3" backgroundColor="$bgSubdued">
+        {item.networkIds.map((networkId, i) => (
+          <XStack key={networkId} alignItems="center">
+            <Stack mr="$2">
+              <NetworkAvatar size={16} networkId={networkId} />
+            </Stack>
+            <SizableText color="$textSubdued" size="$bodySmMedium">
+              {item.networks[i].name}
+              {' • '}
+              {utils.shortenAddress({ address: item.addresses[i] })}
+            </SizableText>
+          </XStack>
+        ))}
+      </YStack>
     </YStack>
-  </YStack>
+  </Stack>
 );
 
 type ISectionListData = {
@@ -113,7 +113,7 @@ export const ConnectedSites = () => {
   return (
     <SectionList
       sections={sections}
-      estimatedItemSize={142}
+      estimatedItemSize={154}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (

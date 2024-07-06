@@ -1,3 +1,5 @@
+import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
+
 import type { IServerNetwork } from '.';
 import type { ELidoLabels } from './staking';
 
@@ -111,6 +113,7 @@ export type ISignedTransaction = IBaseSignedTransaction &
   IBaseSignedTransactionData &
   IBaseCreatedAt & {
     network: IServerNetwork;
+    vaultSettings: IVaultSettings;
   };
 
 export type IConnectedSite = IBaseConnectedSite &
