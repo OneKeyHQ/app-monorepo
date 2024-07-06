@@ -38,9 +38,11 @@ export function NavCloseButton(props: INavButtonProps) {
         <Tooltip.Text>
           {intl.formatMessage({ id: ETranslations.global_close })}
         </Tooltip.Text>
-        <Shortcut pl="$2">
-          <Shortcut.Key>ESC</Shortcut.Key>
-        </Shortcut>
+        {!platformEnv.isExtensionUiPopup ? (
+          <Shortcut pl="$2">
+            <Shortcut.Key>ESC</Shortcut.Key>
+          </Shortcut>
+        ) : null}
       </XStack>
     ),
     [intl],
