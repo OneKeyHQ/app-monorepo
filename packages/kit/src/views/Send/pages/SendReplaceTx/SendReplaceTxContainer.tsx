@@ -51,8 +51,14 @@ function SendReplaceTxContainer() {
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendReplaceTx>>();
 
-  const { accountId, networkId, replaceEncodedTx, replaceType, historyTx } =
-    route.params;
+  const {
+    accountId,
+    networkId,
+    replaceEncodedTx,
+    replaceType,
+    historyTx,
+    onSuccess,
+  } = route.params;
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -735,17 +741,19 @@ function SendReplaceTxContainer() {
         }
       }
 
-      await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
-        accountId,
-        networkId,
-        feeInfo: sendSelectedFeeInfo,
-        unsignedTxs: newUnsignedTxs,
-        replaceTxInfo: {
-          replaceHistoryId: historyTx.id,
-          replaceType,
-        },
-        transferPayload: undefined,
-      });
+      const result =
+        await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
+          accountId,
+          networkId,
+          feeInfo: sendSelectedFeeInfo,
+          unsignedTxs: newUnsignedTxs,
+          replaceTxInfo: {
+            replaceHistoryId: historyTx.id,
+            replaceType,
+          },
+          transferPayload: undefined,
+        });
+      onSuccess?.(result);
       setIsSubmitting(false);
       Toast.success({
         title: intl.formatMessage({
@@ -765,6 +773,7 @@ function SendReplaceTxContainer() {
     navigation,
     networkId,
     newFeeInfo,
+    onSuccess,
     replaceEncodedTx,
     replaceType,
     showFeeInfoOverflowConfirm,

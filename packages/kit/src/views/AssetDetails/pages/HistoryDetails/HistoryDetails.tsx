@@ -300,12 +300,14 @@ function HistoryDetails() {
   );
 
   const handleReplaceTxSuccess = useCallback(() => {
-    navigation.pop();
+    navigation.popStack();
   }, [navigation]);
 
   const { handleReplaceTx, canReplaceTx, canCancelTx } = useReplaceTx({
     historyTx,
     onSuccess: handleReplaceTxSuccess,
+    isConfirmed:
+      txDetails && txDetails.status !== EOnChainHistoryTxStatus.Pending,
   });
 
   const handleViewUTXOsOnPress = useCallback(() => {

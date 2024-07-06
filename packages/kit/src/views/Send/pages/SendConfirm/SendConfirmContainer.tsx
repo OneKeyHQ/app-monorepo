@@ -145,6 +145,19 @@ function SendConfirmContainer() {
                 icon="ErrorOutline"
                 type="critical"
                 title={sendFeeStatus.errMessage}
+                action={{
+                  primary: intl.formatMessage({
+                    id: ETranslations.global_retry,
+                  }),
+                  isPrimaryLoading:
+                    sendFeeStatus.status === ESendFeeStatus.Loading,
+                  onPrimaryPress() {
+                    appEventBus.emit(
+                      EAppEventBusNames.EstimateTxFeeRetry,
+                      undefined,
+                    );
+                  },
+                }}
               />
             ) : null}
             {sendAlertStatus.isInsufficientNativeBalance ? (
@@ -198,8 +211,9 @@ function SendConfirmContainer() {
     ),
     [
       sendFeeStatus.errMessage,
-      sendAlertStatus.isInsufficientNativeBalance,
+      sendFeeStatus.status,
       intl,
+      sendAlertStatus.isInsufficientNativeBalance,
       network?.symbol,
       preCheckTxStatus.errorMessage,
       sourceInfo,

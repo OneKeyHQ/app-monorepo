@@ -50,6 +50,21 @@ function TxHistoryListContainer(props: ITabPageProps) {
   const handleHistoryItemPress = useCallback(
     async (history: IAccountHistoryTx) => {
       if (!account || !network) return;
+
+      if (history.decodedTx.status === EDecodedTxStatus.Pending) {
+        const localTx =
+          await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
+            accountId: account.id,
+            networkId: network.id,
+            historyId: history.id,
+          });
+
+        // tx has been replaced by another tx
+        if (!localTx || localTx.replacedNextId) {
+          return;
+        }
+      }
+
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.HistoryDetails,
         params: {

@@ -335,6 +335,32 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getLocalHistoryTxById(params: {
+    accountId: string;
+    networkId: string;
+    historyId: string;
+  }) {
+    const { accountId, networkId, historyId } = params;
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    return this.backgroundApi.simpleDb.localHistory.getLocalHistoryTxById({
+      networkId,
+      accountAddress,
+      xpub,
+      historyId,
+    });
+  }
+
+  @backgroundMethod()
   public async saveLocalHistoryPendingTxs(params: {
     networkId: string;
     accountAddress?: string;

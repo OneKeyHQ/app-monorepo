@@ -28,6 +28,8 @@ type IAlertActionProps = {
   onPrimaryPress?: () => void;
   secondary?: string;
   onSecondaryPress?: () => void;
+  isPrimaryLoading?: boolean;
+  isSecondaryLoading?: boolean;
 };
 
 const AlertContext = createStyledContext<{
@@ -144,7 +146,11 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
       </YStack>
       {action ? (
         <XStack space="$4" alignItems="center">
-          <Button size="small" onPress={action.onPrimaryPress}>
+          <Button
+            size="small"
+            onPress={action.onPrimaryPress}
+            loading={action.isPrimaryLoading}
+          >
             {action.primary}
           </Button>
           {action.secondary ? (
@@ -152,6 +158,7 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
               size="small"
               variant="tertiary"
               onPress={action.onSecondaryPress}
+              loading={action.isSecondaryLoading}
             >
               {action.secondary}
             </Button>
