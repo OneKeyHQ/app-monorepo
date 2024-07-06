@@ -58,7 +58,7 @@ export type IModalSendParamList = {
     replaceType: EReplaceTxType;
     replaceEncodedTx: IEncodedTx;
     historyTx: IAccountHistoryTx;
-    onSuccess?: () => void;
+    onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   };
 
   // Lightning Network

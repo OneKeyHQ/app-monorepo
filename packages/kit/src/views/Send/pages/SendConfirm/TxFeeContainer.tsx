@@ -91,12 +91,15 @@ function TxFeeContainer(props: IProps) {
       ]);
     }, [accountId, networkId]);
 
-  const { result, isLoading } = usePromiseResult(
+  const { result, run } = usePromiseResult(
     async () => {
       try {
+        await backgroundApiProxy.serviceGas.abortEstimateFee();
+
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
         });
+
         const accountAddress =
           await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
             networkId,
@@ -134,6 +137,7 @@ function TxFeeContainer(props: IProps) {
           e,
         };
       } catch (e) {
+        txFeeInit.current = true;
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
           errMessage:
@@ -485,6 +489,14 @@ function TxFeeContainer(props: IProps) {
     });
   }, [feeSelectorItems]);
 
+  useEffect(() => {
+    const callback = () => run();
+    appEventBus.on(EAppEventBusNames.EstimateTxFeeRetry, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.EstimateTxFeeRetry, callback);
+    };
+  }, [run]);
+
   const handlePress = useCallback(() => {
     Dialog.show({
       title: intl.formatMessage({
@@ -521,7 +533,9 @@ function TxFeeContainer(props: IProps) {
       return null;
     }
 
-    if (!txFeeInit.current || !feeSelectorItems.length) {
+    if (sendFeeStatus.errMessage) return null;
+
+    if (!txFeeInit.current) {
       return (
         <Stack py="$1">
           <Skeleton height="$3" width="$12" />
@@ -552,11 +566,11 @@ function TxFeeContainer(props: IProps) {
       />
     );
   }, [
-    feeSelectorItems.length,
     handlePress,
     intl,
     isSinglePreset,
     openFeeEditorEnabled,
+    sendFeeStatus.errMessage,
     sendFeeStatus.status,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
@@ -576,7 +590,7 @@ function TxFeeContainer(props: IProps) {
             id: ETranslations.global_est_network_fee,
           })}
         </SizableText>
-        {vaultSettings?.editFeeEnabled ? (
+        {vaultSettings?.editFeeEnabled && !sendFeeStatus.errMessage ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             •
           </SizableText>
@@ -593,14 +607,14 @@ function TxFeeContainer(props: IProps) {
             size="$bodyMd"
             color="$textSubdued"
           >
-            {selectedFee?.totalNativeForDisplay ?? '0.00'}
+            {selectedFee?.totalNativeForDisplay ?? '-'}
           </NumberSizeableText>
         ) : (
           <Stack py="$1">
             <Skeleton height="$3" width="$24" />
           </Stack>
         )}
-        {txFeeInit.current ? (
+        {txFeeInit.current && !isNil(selectedFee?.totalFiatForDisplay) ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             (
             <NumberSizeableText
@@ -611,7 +625,7 @@ function TxFeeContainer(props: IProps) {
                 currency: settings.currencyInfo.symbol,
               }}
             >
-              {selectedFee?.totalFiatForDisplay ?? '0.00'}
+              {selectedFee?.totalFiatForDisplay ?? '-'}
             </NumberSizeableText>
             )
           </SizableText>
