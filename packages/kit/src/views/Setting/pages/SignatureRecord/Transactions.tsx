@@ -272,49 +272,51 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
     }
   }, [item, network]);
   return (
-    <YStack
-      borderWidth={StyleSheet.hairlineWidth}
-      mx="$5"
-      borderRadius="$3"
-      borderColor="$borderSubdued"
-      overflow="hidden"
-      mb="$3"
-    >
-      <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
-        <SizableText size="$bodyMd">
-          {formatTime(new Date(item.createdAt), { hideSeconds: true })}
-          {' • '}
-          {item.title}
-        </SizableText>
-        <IconButton
-          variant="tertiary"
-          title={
-            item.hash
-              ? intl.formatMessage({
-                  id: ETranslations.settings_view_transaction_in_explorer,
-                })
-              : intl.formatMessage({
-                  id: ETranslations.settings_view_address_in_explorer,
-                })
-          }
-          icon={item.hash ? 'OpenOutline' : 'GlobusOutline'}
-          size="small"
-          onPress={onPress}
-        />
-      </XStack>
-      <XStack p="$3">
-        <TransactionData data={item.data} />
-      </XStack>
-      <XStack p="$3" backgroundColor="$bgSubdued" alignItems="center">
-        <Stack mr="$2">
-          <NetworkAvatar size={16} networkId={item.networkId} />
-        </Stack>
-        <SizableText color="$textSubdued" size="$bodySmMedium">
-          {item.network.name} •{' '}
-          {utils.shortenAddress({ address: item.address })}
-        </SizableText>
-      </XStack>
-    </YStack>
+    <Stack px="$5" pb="$3">
+      <YStack
+        borderWidth={StyleSheet.hairlineWidth}
+        borderRadius="$3"
+        borderColor="$borderSubdued"
+        overflow="hidden"
+      >
+        <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
+          <SizableText size="$bodyMd">
+            {formatTime(new Date(item.createdAt), { hideSeconds: true })}
+            {' • '}
+            {item.title}
+          </SizableText>
+          <IconButton
+            variant="tertiary"
+            title={
+              item.hash
+                ? intl.formatMessage({
+                    id: ETranslations.settings_view_transaction_in_explorer,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.settings_view_address_in_explorer,
+                  })
+            }
+            icon={item.hash ? 'OpenOutline' : 'GlobusOutline'}
+            size="small"
+            onPress={onPress}
+          />
+        </XStack>
+        <XStack p="$3">
+          <XStack h={44} width="100%" alignItems="center">
+            <TransactionData data={item.data} />
+          </XStack>
+        </XStack>
+        <XStack p="$3" backgroundColor="$bgSubdued" alignItems="center">
+          <Stack mr="$2">
+            <NetworkAvatar size={16} networkId={item.networkId} />
+          </Stack>
+          <SizableText color="$textSubdued" size="$bodySmMedium">
+            {item.network.name} •{' '}
+            {utils.shortenAddress({ address: item.address })}
+          </SizableText>
+        </XStack>
+      </YStack>
+    </Stack>
   );
 };
 
@@ -346,7 +348,7 @@ export const Transactions = () => {
   return (
     <SectionList
       sections={sections}
-      estimatedItemSize={154}
+      estimatedItemSize={158}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (
