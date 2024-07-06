@@ -453,7 +453,14 @@ class ServiceDApp extends ServiceBase {
       const walletConnectTopic =
         rawData?.data?.walletConnect?.[origin].walletConnectTopic;
       if (walletConnectTopic) {
-        await serviceWalletConnect.walletConnectDisconnect(walletConnectTopic);
+        try {
+          await serviceWalletConnect.walletConnectDisconnect(
+            walletConnectTopic,
+          );
+        } catch (e) {
+          // ignore error
+          console.error('wallet connect disconnect error: ', e);
+        }
       }
     }
     await simpleDb.dappConnection.deleteConnection(origin, storageType);
