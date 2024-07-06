@@ -79,7 +79,7 @@ const settings: IVaultSettings = {
   withL1BaseFee: true,
   transferZeroNativeTokenEnabled: true,
   gasLimitValidationEnabled: true,
-  estimatedFeePollingInterval: 6 * 1000,
+  estimatedFeePollingInterval: 6,
 
   accountDeriveInfo,
   networkInfo: {

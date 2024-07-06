@@ -67,7 +67,7 @@ const settings: IVaultSettings = {
   minTransferAmount: '0.00000546',
   hasFrozenBalance: false,
   showAddressType: false,
-  estimatedFeePollingInterval: 60 * 1000,
+  estimatedFeePollingInterval: 60,
 };
 
 export default Object.freeze(settings);

@@ -31,7 +31,7 @@ const settings: IVaultSettings = {
   utxoDustAmount: '0.0099999',
   hasFrozenBalance: false,
   showAddressType: false,
-  estimatedFeePollingInterval: 60 * 1000,
+  estimatedFeePollingInterval: 60,
 };
 
 export default Object.freeze(settings);

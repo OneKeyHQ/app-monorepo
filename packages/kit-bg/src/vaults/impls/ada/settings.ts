@@ -39,7 +39,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: true,
   editFeeEnabled: false,
   replaceTxEnabled: false,
-  estimatedFeePollingInterval: 600 * 1000,
+  estimatedFeePollingInterval: 600,
 
   accountDeriveInfo,
   networkInfo: {
