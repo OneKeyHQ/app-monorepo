@@ -16,6 +16,7 @@ import {
   IconButton,
   Image,
   LinearGradient,
+  NavCloseButton,
   Page,
   SizableText,
   Spinner,
