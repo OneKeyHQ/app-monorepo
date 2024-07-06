@@ -662,17 +662,34 @@ function HistoryDetails() {
     const action = historyTx.decodedTx.actions[0];
 
     if (action.assetTransfer?.isInternalSwap) {
+      const { from, to, swapReceivedAddress } = action.assetTransfer;
       return (
         <>
+          {to ? (
+            <InfoItem
+              label={intl.formatMessage({
+                id: ETranslations.interact_with_contract,
+              })}
+              renderContent={to}
+              showCopy
+              description={
+                <AddressInfo
+                  address={to}
+                  networkId={networkId}
+                  accountId={accountId}
+                />
+              }
+            />
+          ) : null}
           <InfoItem
             label={intl.formatMessage({
               id: ETranslations.swap_history_detail_pay_address,
             })}
-            renderContent={txAddresses.from}
+            renderContent={from}
             showCopy
             description={
               <AddressInfo
-                address={txAddresses.from}
+                address={from}
                 networkId={networkId}
                 accountId={accountId}
               />
@@ -682,11 +699,11 @@ function HistoryDetails() {
             label={intl.formatMessage({
               id: ETranslations.swap_history_detail_received_address,
             })}
-            renderContent={txAddresses.to}
+            renderContent={swapReceivedAddress}
             showCopy
             description={
               <AddressInfo
-                address={txAddresses.to ?? ''}
+                address={swapReceivedAddress ?? ''}
                 networkId={networkId}
                 accountId={accountId}
               />

@@ -220,6 +220,7 @@ export default class Vault extends VaultBase {
       action = await this.buildInternalSwapAction({
         swapInfo,
         swapData: encodedTx.data,
+        swapToAddress: encodedTx.to,
       });
     } else {
       if (encodedTx.value) {
