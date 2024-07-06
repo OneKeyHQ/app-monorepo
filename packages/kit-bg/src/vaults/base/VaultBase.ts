@@ -634,8 +634,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       icon: string;
     };
     isInternalSwap?: boolean;
+    swapReceivedAddress?: string;
   }): Promise<IDecodedTxAction> {
-    const { from, to, transfers, data, application, isInternalSwap } = params;
+    const {
+      from,
+      to,
+      transfers,
+      data,
+      application,
+      isInternalSwap,
+      swapReceivedAddress,
+    } = params;
     const [accountAddress, network] = await Promise.all([
       this.getAccountAddress(),
       this.getNetwork(),
@@ -650,6 +659,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       receives: [],
       application,
       isInternalSwap,
+      swapReceivedAddress,
     };
 
     transfers.forEach((transfer) => {
@@ -689,20 +699,22 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async buildInternalSwapAction(params: {
     swapInfo: ISwapTxInfo;
     swapData?: string;
+    swapToAddress?: string;
   }) {
-    const { swapData, swapInfo } = params;
+    const { swapData, swapInfo, swapToAddress } = params;
     const swapSendToken = swapInfo.sender.token;
     const swapReceiveToken = swapInfo.receiver.token;
     const providerInfo = swapInfo.swapBuildResData.result.info;
     const action = await this.buildTxTransferAssetAction({
       from: swapInfo.accountAddress,
-      to: swapInfo.receivingAddress,
+      to: swapToAddress ?? '',
       data: swapData,
       application: {
         name: providerInfo.providerName,
         icon: providerInfo.providerLogo ?? '',
       },
       isInternalSwap: true,
+      swapReceivedAddress: swapInfo.receivingAddress,
       transfers: [
         {
           from: swapInfo.accountAddress,

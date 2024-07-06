@@ -186,5 +186,5 @@ export function buildLocalHistoryKey({
     throw new OneKeyInternalError('accountAddress or xpub is required');
   }
 
-  return `${networkId}_${accountAddress ?? xpub ?? ''}`;
+  return `${networkId}_${xpub ?? accountAddress ?? ''}`.toLowerCase();
 }

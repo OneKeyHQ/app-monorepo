@@ -165,7 +165,7 @@ export default class VaultBtc extends VaultBase {
       const providerInfo = swapInfo.swapBuildResData.result.info;
       const action = await this.buildTxTransferAssetAction({
         from: swapInfo.accountAddress,
-        to: swapInfo.receivingAddress,
+        to: utxoTo[0].address,
         application: {
           name: providerInfo.providerName,
           icon: providerInfo.providerLogo ?? '',
@@ -194,6 +194,8 @@ export default class VaultBtc extends VaultBase {
             isNative: swapReceiveToken.isNative,
           },
         ],
+        isInternalSwap: true,
+        swapReceivedAddress: swapInfo.receivingAddress,
       });
       if (swapSendToken.isNative) {
         sendNativeTokenAmountBN = new BigNumber(swapInfo.sender.amount);

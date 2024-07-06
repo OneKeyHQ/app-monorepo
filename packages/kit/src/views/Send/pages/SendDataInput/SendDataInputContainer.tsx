@@ -530,12 +530,15 @@ function SendDataInputContainer() {
     displayAmountFormItem,
   ]);
 
-  const maxAmount = useMemo(() => {
-    if (isUseFiat) {
-      return tokenDetails?.fiatValue ?? '0';
-    }
-    return tokenDetails?.balanceParsed ?? '0';
-  }, [isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue]);
+  const maxBalance = useMemo(
+    () => tokenDetails?.balanceParsed ?? '0',
+    [tokenDetails?.balanceParsed],
+  );
+
+  const maxBalanceFiat = useMemo(
+    () => tokenDetails?.fiatValue ?? '0',
+    [tokenDetails?.fiatValue],
+  );
 
   const renderTokenDataInputForm = useCallback(
     () => (
@@ -572,9 +575,9 @@ function SendDataInputContainer() {
           enableMaxAmount
           balanceProps={{
             loading: isLoadingAssets,
-            value: maxAmount,
+            value: maxBalance,
             onPress: () => {
-              form.setValue('amount', maxAmount);
+              form.setValue('amount', isUseFiat ? maxBalanceFiat : maxBalance);
               void form.trigger('amount');
               setIsMaxSend(true);
             },
@@ -634,7 +637,8 @@ function SendDataInputContainer() {
       isSelectTokenDisabled,
       isUseFiat,
       linkedAmount.amount,
-      maxAmount,
+      maxBalance,
+      maxBalanceFiat,
       network?.logoURI,
       networkId,
       nft?.metadata?.image,

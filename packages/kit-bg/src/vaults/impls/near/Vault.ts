@@ -299,6 +299,7 @@ export default class Vault extends VaultBase {
       actions = [
         await this.buildInternalSwapAction({
           swapInfo: unsignedTx.swapInfo,
+          swapToAddress: nativeTx.receiverId,
         }),
       ];
     } else {
