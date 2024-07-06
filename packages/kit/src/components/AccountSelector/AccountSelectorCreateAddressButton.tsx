@@ -54,7 +54,13 @@ export function AccountSelectorCreateAddressButton({
   accountRef.current = account;
 
   const { createAddress } = useAccountSelectorCreateAddress();
-  const manualCreatingKey = useMemo(() => Math.random().toString(), []);
+  const manualCreatingKey = useMemo(
+    () =>
+      networkId && walletId && (deriveType || indexedAccountId)
+        ? [networkId, deriveType, walletId, indexedAccountId].join('-')
+        : Math.random().toString(),
+    [deriveType, indexedAccountId, networkId, walletId],
+  );
 
   const [accountManualCreatingAtom, setAccountManualCreatingAtom] =
     useAccountManualCreatingAtom();
