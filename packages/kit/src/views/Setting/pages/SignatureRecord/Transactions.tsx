@@ -258,6 +258,7 @@ const TransactionData = ({ data }: { data: ISignedTransaction['data'] }) => {
 
 const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
   const network = item.network;
+  const vaultSettings = item.vaultSettings;
   const intl = useIntl();
   const onPress = useCallback(() => {
     if (item.hash) {
@@ -285,21 +286,23 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
             {' • '}
             {item.title}
           </SizableText>
-          <IconButton
-            variant="tertiary"
-            title={
-              item.hash
-                ? intl.formatMessage({
-                    id: ETranslations.settings_view_transaction_in_explorer,
-                  })
-                : intl.formatMessage({
-                    id: ETranslations.settings_view_address_in_explorer,
-                  })
-            }
-            icon={item.hash ? 'OpenOutline' : 'GlobusOutline'}
-            size="small"
-            onPress={onPress}
-          />
+          {!vaultSettings.hideBlockExplorer ? (
+            <IconButton
+              variant="tertiary"
+              title={
+                item.hash
+                  ? intl.formatMessage({
+                      id: ETranslations.settings_view_transaction_in_explorer,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.settings_view_address_in_explorer,
+                    })
+              }
+              icon={item.hash ? 'OpenOutline' : 'GlobusOutline'}
+              size="small"
+              onPress={onPress}
+            />
+          ) : null}
         </XStack>
         <XStack p="$3">
           <XStack h={44} width="100%" alignItems="center">
