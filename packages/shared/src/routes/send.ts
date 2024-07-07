@@ -38,6 +38,9 @@ export type IModalSendParamList = {
     token?: IToken;
     address?: string;
     amount?: string;
+    onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
+    onFail?: (error: Error) => void;
+    onCancel?: () => void;
   };
   [EModalSendRoutes.SendConfirm]: {
     networkId: string;
