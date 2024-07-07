@@ -228,20 +228,25 @@ class ServiceAccountProfile extends ServiceBase {
 
       if (walletAccountItems.length > 0) {
         let item = walletAccountItems[0];
-        if (accountId) {
-          const account = await this.backgroundApi.serviceAccount.getAccount({
-            accountId,
-            networkId,
-          });
-          const accountItem = walletAccountItems.find(
-            (a) =>
-              account.indexedAccountId === a.accountId ||
-              account.id === a.accountId,
-          );
+        try {
+          if (accountId) {
+            const account = await this.backgroundApi.serviceAccount.getAccount({
+              accountId,
+              networkId,
+            });
+            const accountItem = walletAccountItems.find(
+              (a) =>
+                account.indexedAccountId === a.accountId ||
+                account.id === a.accountId,
+            );
 
-          if (accountItem) {
-            item = accountItem;
+            if (accountItem) {
+              item = accountItem;
+            }
           }
+        } catch (e) {
+          console.error(e);
+          // pass
         }
 
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
