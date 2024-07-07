@@ -59,6 +59,7 @@ export type ITxActionCommonListViewProps = {
 };
 
 export type ITxActionCommonDetailViewProps = {
+  networkId: string;
   overview: {
     avatar?: {
       isNFT?: boolean;

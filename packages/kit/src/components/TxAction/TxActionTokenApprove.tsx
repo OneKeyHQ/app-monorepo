@@ -168,6 +168,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
 
   return (
     <TxActionCommonDetailView
+      networkId={decodedTx.networkId}
       overview={{
         title: intl.formatMessage({ id: ETranslations.content__amount }),
         content,
