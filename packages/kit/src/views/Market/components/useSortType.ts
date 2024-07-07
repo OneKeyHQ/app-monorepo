@@ -1,5 +1,22 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+const isNumericColumn = (columnValue: any) =>
+  typeof columnValue === 'number' ||
+  columnValue === null ||
+  columnValue === '-';
+
+const getNumericValue = (
+  values: Record<string, unknown>,
+  columnName: string,
+  sortBy?: 'asc' | 'desc',
+) => {
+  const value = values[columnName];
+  if (typeof value === 'number') {
+    return value;
+  }
+  return sortBy === 'desc' ? Number.MIN_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+};
+
 export const useSortType = (
   listData: Record<string, unknown>[],
   extraData?: any,
@@ -29,13 +46,21 @@ export const useSortType = (
   );
 
   const sortedListData = useMemo(() => {
-    const columnValue = listDataRef.current?.[0]?.[sortByType?.columnName];
-    if (columnValue) {
-      if (sortByType.order) {
-        if (typeof columnValue === 'number')
+    if (listDataRef.current?.length) {
+      const columnValue = listDataRef.current[0]?.[sortByType?.columnName];
+      if (sortByType?.order) {
+        if (isNumericColumn(columnValue))
           return listDataRef.current?.slice().sort((a, b) => {
-            const numberA = a[sortByType.columnName] as number;
-            const numberB = b[sortByType.columnName] as number;
+            const numberA = getNumericValue(
+              a,
+              sortByType.columnName,
+              sortByType.order,
+            );
+            const numberB = getNumericValue(
+              b,
+              sortByType.columnName,
+              sortByType.order,
+            );
             return sortByType.order === 'desc'
               ? numberB - numberA
               : numberA - numberB;
