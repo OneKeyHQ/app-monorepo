@@ -594,6 +594,7 @@ export default class ServiceSwap extends ServiceBase {
     }));
   }
 
+  @backgroundMethod()
   async cleanHistoryStateIntervals(historyId?: string) {
     if (!historyId) {
       Object.values(this.historyStateIntervals).forEach((interval) => {
