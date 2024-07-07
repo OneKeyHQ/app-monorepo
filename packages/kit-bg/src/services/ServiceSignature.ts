@@ -118,10 +118,15 @@ class ServiceSignature extends ServiceBase {
       const network = await this.backgroundApi.serviceNetwork.getNetwork({
         networkId: item.networkId,
       });
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({
+          networkId: network.id,
+        });
       return {
         ...rest,
         data,
         network,
+        vaultSettings,
       };
     });
     let items = await Promise.all(promises);
@@ -263,7 +268,7 @@ class ServiceSignature extends ServiceBase {
           fromNetworkId: fromToken.networkId,
           toNetworkId: toToken.networkId,
           fromAmount: swapInfo.sender.amount,
-          toAmount: swapInfo.sender.amount,
+          toAmount: swapInfo.receiver.amount,
           fromToken: {
             name: fromToken.name ?? toToken.symbol,
             symbol: fromToken.symbol,

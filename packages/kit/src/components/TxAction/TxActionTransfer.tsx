@@ -557,6 +557,22 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       if (swapInfo) {
         transferExtraElements.push(
           ...[
+            to ? (
+              <InfoItem
+                key="to"
+                label={intl.formatMessage({
+                  id: ETranslations.interact_with_contract,
+                })}
+                renderContent={to}
+                description={
+                  <AddressInfo
+                    address={to}
+                    networkId={decodedTx.networkId}
+                    accountId={decodedTx.accountId}
+                  />
+                }
+              />
+            ) : null,
             <InfoItem
               key="pay-address"
               label={intl.formatMessage({
@@ -585,7 +601,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 />
               }
             />,
-          ],
+          ].filter(Boolean),
         );
       } else {
         transferExtraElements.push(
