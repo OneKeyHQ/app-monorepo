@@ -105,6 +105,12 @@ const ListEmptyComponent = () => {
   );
 };
 
+const keyExtractor = (item: unknown) => {
+  const createdAt = (item as IConnectedSite)?.createdAt;
+  const url = (item as IConnectedSite)?.url;
+  return `${url}${createdAt}`;
+};
+
 export const ConnectedSites = () => {
   const { sections, onEndReached } = useGetSignatureSections(async (params) =>
     backgroundApiProxy.serviceSignature.getConnectedSites(params),
@@ -121,6 +127,7 @@ export const ConnectedSites = () => {
           title={(section as ISectionListData).title}
         />
       )}
+      keyExtractor={keyExtractor}
       renderItem={({ item }) => <ConnectedSiteItem item={item} />}
       ListEmptyComponent={ListEmptyComponent}
       onEndReached={onEndReached}

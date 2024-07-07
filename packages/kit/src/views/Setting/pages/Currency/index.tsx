@@ -61,8 +61,12 @@ const CurrencyItem: FC<{
   );
 };
 
+const keyExtractor = (item: unknown) => {
+  const key = (item as ICurrencyItem).id;
+  return key;
+};
+
 export default function SettingCurrencyModal() {
-  const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
   const [text, onChangeText] = useState('');
   const currencyRef = useRef({
@@ -195,6 +199,7 @@ export default function SettingCurrencyModal() {
             renderItem={renderItem}
             renderSectionHeader={renderSectionHeader}
             extraData={currency}
+            keyExtractor={keyExtractor}
           />
         )}
       </Page.Body>

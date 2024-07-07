@@ -19,6 +19,11 @@ type ILidoHistoryProps = {
   items: ILidoHistoryItem[];
 };
 
+const keyExtractor = (item: unknown) => {
+  const key = (item as ILidoHistoryItem)?.txHash;
+  return key;
+};
+
 export const LidoHistory = ({ items }: ILidoHistoryProps) => {
   const labelFn = useEarnLabelFn();
   const sections = useMemo(() => {
@@ -105,6 +110,7 @@ export const LidoHistory = ({ items }: ILidoHistoryProps) => {
       sections={sections}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
+      keyExtractor={keyExtractor}
       ListEmptyComponent={
         <Empty
           icon="ClockTimeHistoryOutline"
