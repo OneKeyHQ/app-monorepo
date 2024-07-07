@@ -339,7 +339,12 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
               isNFT={overview.avatar?.isNFT}
               tokenImageUri={overview.avatar?.src}
             />
-            <SizableText minWidth={0} maxWidth="$96" size="$bodyLgMedium">
+            <SizableText
+              minWidth={0}
+              maxWidth="$96"
+              size="$bodyLgMedium"
+              flex={1}
+            >
               {overview.content}
             </SizableText>
           </XStack>

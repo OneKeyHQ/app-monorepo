@@ -84,6 +84,9 @@ function SendDataInputContainer() {
     nfts,
     address,
     amount: sendAmount = '',
+    onSuccess,
+    onFail,
+    onCancel,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -368,6 +371,9 @@ function SendDataInputContainer() {
       await sendConfirm.navigationToSendConfirm({
         transfersInfo,
         sameModal: true,
+        onSuccess,
+        onFail,
+        onCancel,
         transferPayload: {
           amountToSend: realAmount,
           isMaxSend,
@@ -403,6 +409,9 @@ function SendDataInputContainer() {
     linkedAmount.originalAmount,
     nftAmount,
     nftDetails,
+    onCancel,
+    onFail,
+    onSuccess,
     sendConfirm,
     tokenDetails,
   ]);
