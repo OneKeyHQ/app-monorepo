@@ -343,6 +343,11 @@ const ListEmptyComponent = () => {
   );
 };
 
+const keyExtractor = (item: unknown) => {
+  const hash = (item as ISignedTransaction)?.hash;
+  return hash;
+};
+
 export const Transactions = () => {
   const { sections, onEndReached } = useGetSignatureSections(async (params) =>
     backgroundApiProxy.serviceSignature.getSignedTransactions(params),
@@ -359,6 +364,7 @@ export const Transactions = () => {
           title={(section as ISectionListData).title}
         />
       )}
+      keyExtractor={keyExtractor}
       renderItem={({ item }) => <TransactionItem item={item} />}
       ListEmptyComponent={ListEmptyComponent}
       onEndReached={onEndReached}

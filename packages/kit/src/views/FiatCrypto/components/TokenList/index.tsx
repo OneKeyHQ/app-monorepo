@@ -15,6 +15,11 @@ type ITokenListProps = {
   onPress?: (network: IFiatCryptoToken) => void;
 };
 
+const keyExtractor = (item: unknown) => {
+  const key = (item as IFiatCryptoToken).address;
+  return key || 'main';
+};
+
 export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
   const [text, setText] = useState('');
   const onChangeText = useCallback((value: string) => {
@@ -72,6 +77,7 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
               ) : null}
             </ListItem>
           )}
+          keyExtractor={keyExtractor}
           ListHeaderComponent={<Stack h="$2" />}
           ListFooterComponent={<Stack h="$2" />}
           ListEmptyComponent={

@@ -96,6 +96,11 @@ type ISectionListData = {
   data: ISignedMessage[];
 };
 
+const keyExtractor = (item: unknown) => {
+  const createdAt = (item as ISignedMessage)?.createdAt;
+  return String(createdAt);
+};
+
 export const SignText = () => {
   const { sections, onEndReached } = useGetSignatureSections(async (params) =>
     backgroundApiProxy.serviceSignature.getSignedMessages(params),
@@ -104,6 +109,7 @@ export const SignText = () => {
   return (
     <SectionList
       sections={sections}
+      keyExtractor={keyExtractor}
       estimatedItemSize={191}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
