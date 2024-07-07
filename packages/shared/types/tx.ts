@@ -173,6 +173,7 @@ export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
   };
   isInternalSwap?: boolean;
   swapReceivedAddress?: string;
+  swapReceivedNetworkId?: string;
 };
 
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {

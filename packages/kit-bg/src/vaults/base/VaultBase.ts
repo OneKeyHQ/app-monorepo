@@ -635,6 +635,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
     isInternalSwap?: boolean;
     swapReceivedAddress?: string;
+    swapReceivedNetworkId?: string;
   }): Promise<IDecodedTxAction> {
     const {
       from,
@@ -644,6 +645,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       application,
       isInternalSwap,
       swapReceivedAddress,
+      swapReceivedNetworkId,
     } = params;
     const [accountAddress, network] = await Promise.all([
       this.getAccountAddress(),
@@ -660,6 +662,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       application,
       isInternalSwap,
       swapReceivedAddress,
+      swapReceivedNetworkId,
     };
 
     transfers.forEach((transfer) => {
@@ -715,6 +718,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       },
       isInternalSwap: true,
       swapReceivedAddress: swapInfo.receivingAddress,
+      swapReceivedNetworkId: swapInfo.receiver.token.networkId,
       transfers: [
         {
           from: swapInfo.accountAddress,

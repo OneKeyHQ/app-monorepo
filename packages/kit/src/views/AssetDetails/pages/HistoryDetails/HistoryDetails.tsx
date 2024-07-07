@@ -662,7 +662,8 @@ function HistoryDetails() {
     const action = historyTx.decodedTx.actions[0];
 
     if (action.assetTransfer?.isInternalSwap) {
-      const { from, to, swapReceivedAddress } = action.assetTransfer;
+      const { from, to, swapReceivedAddress, swapReceivedNetworkId } =
+        action.assetTransfer;
       return (
         <>
           {to ? (
@@ -704,7 +705,7 @@ function HistoryDetails() {
             description={
               <AddressInfo
                 address={swapReceivedAddress ?? ''}
-                networkId={networkId}
+                networkId={swapReceivedNetworkId ?? ''}
                 accountId={accountId}
               />
             }
