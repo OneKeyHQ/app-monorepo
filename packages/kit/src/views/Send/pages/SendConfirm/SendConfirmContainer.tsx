@@ -60,6 +60,7 @@ function SendConfirmContainer() {
     signOnly,
     useFeeInTx,
     transferPayload,
+    feeInfoEditable,
   } = route.params;
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -206,6 +207,7 @@ function SendConfirmContainer() {
           onCancel={onCancel}
           transferPayload={transferPayload}
           useFeeInTx={useFeeInTx}
+          feeInfoEditable={feeInfoEditable}
         />
       </>
     ),
@@ -225,6 +227,7 @@ function SendConfirmContainer() {
       onFail,
       onCancel,
       useFeeInTx,
+      feeInfoEditable,
     ],
   );
 

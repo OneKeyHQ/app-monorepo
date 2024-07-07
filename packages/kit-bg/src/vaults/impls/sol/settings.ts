@@ -68,6 +68,8 @@ const settings: IVaultSettings = {
     },
   },
   hasFrozenBalance: true,
+
+  preCheckDappTxFeeInfoRequired: true,
 };
 
 export default Object.freeze(settings);

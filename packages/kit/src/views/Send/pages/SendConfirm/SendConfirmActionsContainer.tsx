@@ -38,6 +38,7 @@ type IProps = {
   signOnly?: boolean;
   transferPayload: ITransferPayload | undefined;
   useFeeInTx?: boolean;
+  feeInfoEditable?: boolean;
 };
 
 function SendConfirmActionsContainer(props: IProps) {
@@ -51,6 +52,7 @@ function SendConfirmActionsContainer(props: IProps) {
     signOnly,
     transferPayload,
     useFeeInTx,
+    feeInfoEditable,
   } = props;
   const intl = useIntl();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -255,6 +257,7 @@ function SendConfirmActionsContainer(props: IProps) {
           accountId={accountId}
           networkId={networkId}
           useFeeInTx={useFeeInTx}
+          feeInfoEditable={feeInfoEditable}
         />
       </Page.FooterActions>
     </Page.Footer>

@@ -326,9 +326,29 @@ export function useSwapBuildTx() {
             receivingAddress: swapToAddressInfo.address,
             swapBuildResData: res,
           };
+
+          const vaultSettings =
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: swapFromAddressInfo.networkId,
+            });
+
+          let newEncodedTx = encodedTx;
+
+          if (vaultSettings?.preCheckDappTxFeeInfoRequired && newEncodedTx) {
+            const encodedTxWithFee =
+              await backgroundApiProxy.serviceGas.preCheckDappTxFeeInfo({
+                accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                networkId: swapFromAddressInfo.networkId,
+                encodedTx: newEncodedTx,
+              });
+            if (encodedTxWithFee !== '') {
+              newEncodedTx = encodedTxWithFee;
+            }
+          }
+
           await navigationToSendConfirm({
             transfersInfo: transferInfo ? [transferInfo] : undefined,
-            encodedTx,
+            encodedTx: newEncodedTx,
             swapInfo,
             onSuccess: handleBuildTxSuccess,
             onFail: handleTxFail,
