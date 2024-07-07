@@ -90,31 +90,46 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     networkId,
     accountAddress,
     xpub,
-    txs,
+    confirmedTxsToSave,
+    confirmedTxsToRemove,
   }: {
     networkId: string;
     accountAddress?: string;
     xpub?: string;
-    txs: IAccountHistoryTx[];
+    confirmedTxsToSave?: IAccountHistoryTx[];
+    confirmedTxsToRemove?: IAccountHistoryTx[];
   }) {
     if (!accountAddress && !xpub) {
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    const rawData = await this.getRawData();
+    if (isEmpty(confirmedTxsToSave) && !isEmpty(confirmedTxsToRemove)) return;
 
-    if (!txs) return;
+    const rawData = await this.getRawData();
 
     const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
 
-    if (isEmpty(txs) && isEmpty(rawData?.confirmedTxs[key])) return;
+    let finalConfirmedTxs = rawData?.confirmedTxs?.[key] || [];
+
+    finalConfirmedTxs = uniqBy(
+      [...(confirmedTxsToSave ?? []), ...finalConfirmedTxs],
+      (tx) => tx.id,
+    );
+
+    if (confirmedTxsToRemove && !isEmpty(confirmedTxsToRemove)) {
+      finalConfirmedTxs = finalConfirmedTxs.filter(
+        (tx) => !confirmedTxsToRemove.find((item) => item.id === tx.id),
+      );
+    }
 
     const pendingTxs = rawData?.pendingTxs || {};
 
     return this.setRawData({
       ...(rawData ?? {}),
       pendingTxs,
-      confirmedTxs: assign({}, rawData?.confirmedTxs, { [key]: txs }),
+      confirmedTxs: assign({}, rawData?.confirmedTxs, {
+        [key]: finalConfirmedTxs,
+      }),
     });
   }
 

@@ -141,6 +141,7 @@ class ServiceHistory extends ServiceBase {
 
     // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
     let confirmedTxsToSave: IAccountHistoryTx[] = [];
+    let confirmedTxsToRemove: IAccountHistoryTx[] = [];
     if (!vaultSettings.saveConfirmedTxsEnabled) {
       confirmedTxsToSave = mergedConfirmedTxs.filter(
         (tx) =>
@@ -148,10 +149,16 @@ class ServiceHistory extends ServiceBase {
             (onChainHistoryTx) => onChainHistoryTx.id === tx.id,
           ),
       );
+
+      confirmedTxsToRemove = mergedConfirmedTxs.filter((tx) =>
+        onChainHistoryTxs.find(
+          (onChainHistoryTx) => onChainHistoryTx.id === tx.id,
+        ),
+      );
     }
     // If some chains require saving all confirmed transactions, save all confirmed transactions without filtering
     else {
-      confirmedTxsToSave = mergedConfirmedTxs;
+      confirmedTxsToSave = confirmedTxs;
     }
 
     await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
@@ -159,7 +166,8 @@ class ServiceHistory extends ServiceBase {
         networkId,
         accountAddress,
         xpub,
-        txs: confirmedTxsToSave,
+        confirmedTxsToSave,
+        confirmedTxsToRemove,
       },
     );
 
@@ -168,16 +176,22 @@ class ServiceHistory extends ServiceBase {
         networkId,
         accountAddress,
         xpub,
-        pendingTxs,
+        confirmedTxs,
       },
     );
 
     // Merge the locally pending transactions, confirmed transactions, and on-chain history to return
 
-    return unionBy(
+    const result = unionBy(
       [...pendingTxs, ...confirmedTxsToSave, ...onChainHistoryTxs],
       (tx) => tx.id,
+    ).sort(
+      (b, a) =>
+        (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+        (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
     );
+
+    return result;
   }
 
   @backgroundMethod()
