@@ -596,7 +596,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
               description={
                 <AddressInfo
                   address={swapInfo.receivingAddress}
-                  networkId={decodedTx.networkId}
+                  networkId={swapInfo.receiver.token.networkId}
                   accountId={decodedTx.accountId}
                 />
               }

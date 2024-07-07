@@ -196,6 +196,7 @@ export default class VaultBtc extends VaultBase {
         ],
         isInternalSwap: true,
         swapReceivedAddress: swapInfo.receivingAddress,
+        swapReceivedNetworkId: swapInfo.receiver.token.networkId,
       });
       if (swapSendToken.isNative) {
         sendNativeTokenAmountBN = new BigNumber(swapInfo.sender.amount);
