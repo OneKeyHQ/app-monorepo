@@ -147,12 +147,12 @@ export const swapDefaultSetTokens: Record<
     },
     toToken: {
       'networkId': 'evm--43114',
-      'contractAddress': '0xa7d7079b0fead91f3e65f86e8915cb59c1a4c664',
+      'contractAddress': '0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e',
       'name': 'USD Coin',
-      'symbol': 'USDC.e',
+      'symbol': 'USDC',
       'decimals': 6,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--43114/tokens/address-0xa7d7079b0fead91f3e65f86e8915cb59c1a4c664.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--43114/tokens/address-0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e.png',
       'isNative': false,
     },
   },
@@ -259,12 +259,12 @@ export const swapDefaultSetTokens: Record<
     },
     toToken: {
       'networkId': 'evm--324',
-      'contractAddress': '0x3355df6d4c9c3035724fd0e3914de96a5a83aaf4',
-      'name': 'Bridged USDC (zkSync)',
-      'symbol': 'USDC.e',
+      'contractAddress': '0x1d17cbcf0d6d143135ae902365d2e5e2a16538d4',
+      'name': 'USDC',
+      'symbol': 'USDC',
       'decimals': 6,
       'logoURI':
-        'https://uni-test.onekey-asset.com/server-service-onchain/evm--324/tokens/0x3355df6d4c9c3035724fd0e3914de96a5a83aaf4.png',
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--324/tokens/0x1d17cbcf0d6d143135ae902365d2e5e2a16538d4.png',
       'isNative': false,
     },
   },
