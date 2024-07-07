@@ -34,7 +34,6 @@ import { useSwapTxHistoryActions } from './useSwapTxHistory';
 export function useSwapBuildTx() {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [{ slippageItem }] = useSwapSlippagePercentageAtom();
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
@@ -116,7 +115,7 @@ export function useSwapBuildTx() {
     if (
       fromToken &&
       toToken &&
-      fromTokenAmount &&
+      selectQuote?.fromAmount &&
       selectQuote?.toAmount &&
       swapFromAddressInfo.address &&
       swapToAddressInfo.address &&
@@ -133,11 +132,11 @@ export function useSwapBuildTx() {
           wrappedType === EWrappedType.WITHDRAW
             ? fromToken.contractAddress
             : toToken.contractAddress,
-        amount: fromTokenAmount,
+        amount: selectQuote?.fromAmount,
       };
       const swapInfo = {
         sender: {
-          amount: fromTokenAmount,
+          amount: selectQuote?.fromAmount,
           token: fromToken,
         },
         receiver: {
@@ -159,7 +158,6 @@ export function useSwapBuildTx() {
   }, [
     fromToken,
     toToken,
-    fromTokenAmount,
     selectQuote,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
@@ -240,7 +238,7 @@ export function useSwapBuildTx() {
     if (
       fromToken &&
       toToken &&
-      fromTokenAmount &&
+      selectQuote?.fromAmount &&
       slippageItem &&
       selectQuote?.toAmount &&
       swapFromAddressInfo.address &&
@@ -253,7 +251,7 @@ export function useSwapBuildTx() {
           fromToken,
           toToken,
           toTokenAmount: selectQuote.toAmount,
-          fromTokenAmount,
+          fromTokenAmount: selectQuote.fromAmount,
           slippagePercentage: slippageItem.value,
           receivingAddress: swapToAddressInfo.address,
           userAddress: swapFromAddressInfo.address,
@@ -317,7 +315,7 @@ export function useSwapBuildTx() {
           }
           const swapInfo = {
             sender: {
-              amount: fromTokenAmount,
+              amount: selectQuote.fromAmount,
               token: fromToken,
             },
             receiver: {
@@ -346,11 +344,11 @@ export function useSwapBuildTx() {
   }, [
     fromToken,
     toToken,
-    fromTokenAmount,
-    slippageItem,
+    selectQuote?.fromAmount,
     selectQuote?.toAmount,
     selectQuote?.info.provider,
     selectQuote?.quoteResultCtx,
+    slippageItem,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
