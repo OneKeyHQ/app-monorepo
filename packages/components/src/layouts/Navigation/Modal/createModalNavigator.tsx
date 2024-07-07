@@ -224,6 +224,7 @@ function ModalNavigator({
           // Prevents bubbling to prevent the background click event from being triggered when clicking on the modal window
           onPress={(e) => e?.stopPropagation()}
           testID="APP-Modal-Screen"
+          className="app-region-no-drag"
           bg="$bgApp"
           overflow="hidden"
           width="100%"

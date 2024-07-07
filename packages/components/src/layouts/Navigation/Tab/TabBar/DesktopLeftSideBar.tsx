@@ -206,13 +206,6 @@ export function DesktopLeftSideBar({
         overflow: 'hidden',
       }}
     >
-      {platformEnv.isDesktopMac ? (
-        <DesktopDragZoneAbsoluteBar
-          position="relative"
-          testID="Desktop-AppSideBar-DragZone"
-          h="$10"
-        />
-      ) : null}
       <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
         <OneKeyLogo />
         <YStack flex={1} p="$3">
