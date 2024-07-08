@@ -258,7 +258,6 @@ const SwapHistoryDetailModal = () => {
           <InfoItemGroup>
             {txHistory.txInfo.orderId ? (
               <InfoItem
-                disabledCopy
                 label="Order ID"
                 renderContent={txHistory.txInfo.orderId}
                 showCopy
