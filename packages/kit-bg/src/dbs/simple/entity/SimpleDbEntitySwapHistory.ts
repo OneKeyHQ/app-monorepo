@@ -1,5 +1,8 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ESwapTxHistoryStatus,
+  ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -38,6 +41,20 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     if (index !== -1) {
       histories[index] = item;
       await this.setRawData({ histories });
+    }
+  }
+
+  @backgroundMethod()
+  async deleteSwapHistoryItem(statuses?: ESwapTxHistoryStatus[]) {
+    if (statuses) {
+      const data = await this.getRawData();
+      const histories = data?.histories ?? [];
+      const newHistories = histories.filter(
+        (i) => !statuses?.includes(i.status),
+      );
+      await this.setRawData({ histories: newHistories });
+    } else {
+      await this.setRawData({ histories: [] });
     }
   }
 
