@@ -348,6 +348,7 @@ const DesktopWebView = forwardRef(
             ...style,
           }}
           blinkfeatures="false"
+          // @ts-expect-error
           nodeintegration="false"
           allowpopups={allowpopups}
           webpreferences="contextIsolation=0, nativeWindowOpen=1, sandbox=0"
