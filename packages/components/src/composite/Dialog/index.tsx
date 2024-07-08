@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -338,14 +339,16 @@ function BaseDialogContainer(
     showExitButton,
   });
 
-  useEffect(() => {
-    setHeaderProps({
+  // If the header properties change, update the headerContext content.
+  useLayoutEffect(() => {
+    setHeaderProps((prev) => ({
+      ...prev,
       title,
       tone,
       description,
       icon,
       showExitButton,
-    });
+    }));
   }, [description, icon, showExitButton, title, tone]);
   const headerContextValue = useMemo(
     () => ({ headerProps, setHeaderProps }),
