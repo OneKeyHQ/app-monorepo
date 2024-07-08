@@ -339,13 +339,14 @@ function BaseDialogContainer(
   });
 
   useEffect(() => {
-    setHeaderProps({
+    setHeaderProps((prev) => ({
+      ...prev,
       title,
       tone,
       description,
       icon,
       showExitButton,
-    });
+    }));
   }, [description, icon, showExitButton, title, tone]);
   const headerContextValue = useMemo(
     () => ({ headerProps, setHeaderProps }),
