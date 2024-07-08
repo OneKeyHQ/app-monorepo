@@ -586,11 +586,17 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cleanSwapHistoryItems() {
-    await this.backgroundApi.simpleDb.swapHistory.setRawData({ histories: [] });
+  async cleanSwapHistoryItems(statuses?: ESwapTxHistoryStatus[]) {
+    await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
+      statuses,
+    );
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
-      swapHistoryPendingList: [],
+      swapHistoryPendingList: statuses
+        ? pre.swapHistoryPendingList.filter(
+            (item) => !statuses?.includes(item.status),
+          )
+        : [],
     }));
   }
 
