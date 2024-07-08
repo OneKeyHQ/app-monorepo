@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -339,7 +340,7 @@ function BaseDialogContainer(
   });
 
   // If the header properties change, update the headerContext content.
-  useEffect(() => {
+  useLayoutEffect(() => {
     setHeaderProps((prev) => ({
       ...prev,
       title,
