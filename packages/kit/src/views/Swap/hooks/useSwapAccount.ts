@@ -118,14 +118,17 @@ export function useSwapFromAccountNetworkSync() {
   );
 
   useEffect(() => {
-    void (async () => {
-      await checkTokenForAccountNetworkDebounce();
-    })();
+    if (pageType !== EPageType.modal) {
+      void (async () => {
+        await checkTokenForAccountNetworkDebounce();
+      })();
+    }
   }, [
     checkTokenForAccountNetworkDebounce,
     fromToken,
     toToken,
     swapProviderSupportReceiveAddress,
+    pageType,
   ]);
 
   const isFocused = useIsFocused();
@@ -137,7 +140,14 @@ export function useSwapFromAccountNetworkSync() {
         })();
       }
     }
-  }, [checkTokenForAccountNetworkDebounce, isFocused, pageType]);
+  }, [
+    checkTokenForAccountNetworkDebounce,
+    isFocused,
+    pageType,
+    fromToken,
+    toToken,
+    swapProviderSupportReceiveAddress,
+  ]);
 }
 
 export function useSwapAddressInfo(type: ESwapDirectionType) {
