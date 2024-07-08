@@ -51,7 +51,10 @@ function TxHistoryListContainer(props: ITabPageProps) {
     async (history: IAccountHistoryTx) => {
       if (!account || !network) return;
 
-      if (history.decodedTx.status === EDecodedTxStatus.Pending) {
+      if (
+        history.decodedTx.status === EDecodedTxStatus.Pending &&
+        history.isLocalCreated
+      ) {
         const localTx =
           await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
             accountId: account.id,

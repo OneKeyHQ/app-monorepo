@@ -174,7 +174,10 @@ export function TokenDetails() {
 
   const handleHistoryItemPress = useCallback(
     async (tx: IAccountHistoryTx) => {
-      if (tx.decodedTx.status === EDecodedTxStatus.Pending) {
+      if (
+        tx.decodedTx.status === EDecodedTxStatus.Pending &&
+        tx.isLocalCreated
+      ) {
         const localTx =
           await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
             accountId,
