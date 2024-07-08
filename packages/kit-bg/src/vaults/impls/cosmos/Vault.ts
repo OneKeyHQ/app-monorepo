@@ -284,28 +284,32 @@ export default class VaultCosmos extends VaultBase {
           accountId: this.accountId,
           tokenIdOnNetwork: amounts[0].denom,
         });
-        const amountNumber = new BigNumber(amounts[0].amount)
-          .shiftedBy(-token.decimals)
-          .toFixed();
-        const amountDenom = token.symbol;
+        if (token) {
+          const amountNumber = new BigNumber(amounts[0].amount)
+            .shiftedBy(-token.decimals)
+            .toFixed();
+          const amountDenom = token.symbol;
 
-        action = await this.buildTxTransferAssetAction({
-          from: fromAddress,
-          to: toAddress,
-          transfers: [
-            {
-              from: fromAddress,
-              to: toAddress,
-              amount: amountNumber,
-              icon: token.logoURI ?? '',
-              symbol: amountDenom,
-              name: token.name,
-              tokenIdOnNetwork: token.address,
-              isNative: amountDenom === network.symbol,
-            },
-          ],
-        });
-      } else {
+          action = await this.buildTxTransferAssetAction({
+            from: fromAddress,
+            to: toAddress,
+            transfers: [
+              {
+                from: fromAddress,
+                to: toAddress,
+                amount: amountNumber,
+                icon: token.logoURI ?? '',
+                symbol: amountDenom,
+                name: token.name,
+                tokenIdOnNetwork: token.address,
+                isNative: amountDenom === network.symbol,
+              },
+            ],
+          });
+        }
+      }
+
+      if (!action) {
         action = {
           type: EDecodedTxActionType.UNKNOWN,
           direction: EDecodedTxDirection.OTHER,
@@ -315,6 +319,7 @@ export default class VaultCosmos extends VaultBase {
           },
         };
       }
+
       if (action) actions.push(action);
     }
 

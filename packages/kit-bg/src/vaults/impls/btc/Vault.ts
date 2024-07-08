@@ -118,12 +118,6 @@ export default class VaultBtc extends VaultBase {
       tokenIdOnNetwork: '',
     });
 
-    if (!nativeToken) {
-      throw new OneKeyInternalError('Native token not found');
-    }
-
-    let actions: IDecodedTxAction[] = [];
-
     const utxoFrom = inputs.map((input) => ({
       address: input.address,
       balance: new BigNumber(input.value)
@@ -158,6 +152,16 @@ export default class VaultBtc extends VaultBase {
 
     let sendNativeTokenAmountBN = new BigNumber(0);
     let sendNativeTokenAmountValueBN = new BigNumber(0);
+
+    let actions: IDecodedTxAction[] = [
+      {
+        type: EDecodedTxActionType.UNKNOWN,
+        unknownAction: {
+          from: account.address,
+          to: utxoTo[0].address,
+        },
+      },
+    ];
 
     if (swapInfo) {
       const swapSendToken = swapInfo.sender.token;
@@ -209,7 +213,7 @@ export default class VaultBtc extends VaultBase {
         action.assetTransfer.utxoTo = originalUtxoTo;
       }
       actions = [action];
-    } else {
+    } else if (nativeToken) {
       actions = [
         {
           type: EDecodedTxActionType.ASSET_TRANSFER,

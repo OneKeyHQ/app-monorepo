@@ -718,32 +718,34 @@ export default class Vault extends VaultBase {
                 accountId: this.accountId,
                 networkId: this.networkId,
               });
-            const { fromPubkey, toPubkey, lamports } =
-              SystemInstruction.decodeTransfer(instruction);
-            const nativeAmount = new BigNumber(lamports.toString());
-            const from = fromPubkey.toString();
-            const to = toPubkey.toString();
-            const transfer: IDecodedTxTransferInfo = {
-              from,
-              to,
-              tokenIdOnNetwork: nativeToken.address,
-              icon: nativeToken.logoURI ?? '',
-              name: nativeToken.name,
-              symbol: nativeToken.symbol,
-              amount: new BigNumber(nativeAmount)
-                .shiftedBy(-nativeToken.decimals)
-                .toFixed(),
-              isNFT: false,
-              isNative: true,
-            };
-
-            actions.push(
-              await this.buildTxTransferAssetAction({
+            if (nativeToken) {
+              const { fromPubkey, toPubkey, lamports } =
+                SystemInstruction.decodeTransfer(instruction);
+              const nativeAmount = new BigNumber(lamports.toString());
+              const from = fromPubkey.toString();
+              const to = toPubkey.toString();
+              const transfer: IDecodedTxTransferInfo = {
                 from,
                 to,
-                transfers: [transfer],
-              }),
-            );
+                tokenIdOnNetwork: nativeToken.address,
+                icon: nativeToken.logoURI ?? '',
+                name: nativeToken.name,
+                symbol: nativeToken.symbol,
+                amount: new BigNumber(nativeAmount)
+                  .shiftedBy(-nativeToken.decimals)
+                  .toFixed(),
+                isNFT: false,
+                isNative: true,
+              };
+
+              actions.push(
+                await this.buildTxTransferAssetAction({
+                  from,
+                  to,
+                  transfers: [transfer],
+                }),
+              );
+            }
           }
         } catch {
           // pass

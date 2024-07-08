@@ -1014,7 +1014,9 @@ function FeeEditor(props: IProps) {
           watchAllFields.priorityFee || 0,
         );
       } else {
-        limit = new BigNumber(fee.gasEIP1559.gasLimitForDisplay);
+        limit = new BigNumber(
+          fee.gasEIP1559.gasLimitForDisplay || fee.gasEIP1559.gasLimit,
+        );
         priorityFee = new BigNumber(fee.gasEIP1559.maxPriorityFeePerGas);
         maxFee = new BigNumber(fee.gasEIP1559.maxFeePerGas);
       }
@@ -1062,8 +1064,8 @@ function FeeEditor(props: IProps) {
         limit = new BigNumber(watchAllFields.gasLimit || 0);
         gasPrice = new BigNumber(watchAllFields.gasPrice || 0);
       } else {
-        limit = new BigNumber(fee.gas.gasLimitForDisplay || 0);
-        gasPrice = new BigNumber(fee.gas.gasPrice || 0);
+        limit = new BigNumber(fee.gas.gasLimitForDisplay || fee.gas.gasLimit);
+        gasPrice = new BigNumber(fee.gas.gasPrice);
       }
 
       const maxFeeInNative = calculateTotalFeeNative({

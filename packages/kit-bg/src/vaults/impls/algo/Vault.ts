@@ -184,10 +184,6 @@ export default class Vault extends VaultBase {
       | IEncodedTxAlgo
       | IEncodedTxGroupAlgo;
     const accountAddress = await this.getAccountAddress();
-    const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
-      networkId: this.networkId,
-      accountId: this.accountId,
-    });
     const actions: IDecodedTxAction[] = [];
     const notes: string[] = [];
     let sender = '';
@@ -226,7 +222,6 @@ export default class Vault extends VaultBase {
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
-      totalFeeInNative: txFee.shiftedBy(-nativeToken.decimals).toFixed(),
       extraInfo: {
         note: trim(notes.join(' ')),
         groupId,
@@ -238,10 +233,6 @@ export default class Vault extends VaultBase {
   }
 
   async _decodeAlgoTx(encodedTx: IEncodedTxAlgo) {
-    const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
-      networkId: this.networkId,
-      accountId: this.accountId,
-    });
     let action: IDecodedTxAction = { type: EDecodedTxActionType.UNKNOWN };
     const nativeTx = sdkAlgo.decodeObj(
       Buffer.from(encodedTx, 'base64'),
@@ -249,26 +240,33 @@ export default class Vault extends VaultBase {
     const sender = sdkAlgo.encodeAddress(nativeTx.snd);
 
     if (nativeTx.type === sdkAlgo.TransactionType.pay) {
-      const amount = nativeTx.amt?.toString() || '0';
-      const to = sdkAlgo.encodeAddress(nativeTx.rcv!);
-      const transfer: IDecodedTxTransferInfo = {
-        from: sender,
-        to,
-        tokenIdOnNetwork: nativeToken.address,
-        icon: nativeToken.logoURI ?? '',
-        name: nativeToken.name,
-        symbol: nativeToken.symbol,
-        amount: new BigNumber(amount)
-          .shiftedBy(-nativeToken.decimals)
-          .toFixed(),
-        isNFT: false,
-        isNative: true,
-      };
-      action = await this.buildTxTransferAssetAction({
-        from: sender,
-        to,
-        transfers: [transfer],
+      const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
+        networkId: this.networkId,
+        accountId: this.accountId,
       });
+
+      if (nativeToken) {
+        const amount = nativeTx.amt?.toString() || '0';
+        const to = sdkAlgo.encodeAddress(nativeTx.rcv!);
+        const transfer: IDecodedTxTransferInfo = {
+          from: sender,
+          to,
+          tokenIdOnNetwork: nativeToken.address,
+          icon: nativeToken.logoURI ?? '',
+          name: nativeToken.name,
+          symbol: nativeToken.symbol,
+          amount: new BigNumber(amount)
+            .shiftedBy(-nativeToken.decimals)
+            .toFixed(),
+          isNFT: false,
+          isNative: true,
+        };
+        action = await this.buildTxTransferAssetAction({
+          from: sender,
+          to,
+          transfers: [transfer],
+        });
+      }
     }
 
     if (nativeTx.type === sdkAlgo.TransactionType.axfer) {

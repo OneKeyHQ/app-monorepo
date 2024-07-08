@@ -449,42 +449,48 @@ export default class VaultDot extends VaultBase {
         tokenIdOnNetwork: assetId || (networkInfo.nativeTokenAddress ?? ''),
       });
 
-      const { value: tokenAmount } = decodeUnsignedTx.method.args;
-      to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
+      if (tokenInfo) {
+        const { value: tokenAmount } = decodeUnsignedTx.method.args;
+        to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
 
-      if (decodeUnsignedTx.method.name === 'transferAll') {
-        const balance = new BigNumber(
-          params.transferPayload?.amountToSend ?? 0,
-        ).shiftedBy(tokenInfo.decimals);
-        const feeInfo = unsignedTx.feeInfo;
-        const fee = feeInfo
-          ? new BigNumber(feeInfo.gas?.gasLimit ?? 0)
-              .times(new BigNumber(feeInfo.gas?.gasPrice ?? 0))
-              .shiftedBy(feeInfo.common.feeDecimals)
-          : 0;
-        amount = balance.minus(fee).toFixed();
-      } else {
-        amount = tokenAmount?.toString() ?? '0';
+        if (decodeUnsignedTx.method.name === 'transferAll') {
+          const balance = new BigNumber(
+            params.transferPayload?.amountToSend ?? 0,
+          ).shiftedBy(tokenInfo.decimals);
+          const feeInfo = unsignedTx.feeInfo;
+          const fee = feeInfo
+            ? new BigNumber(feeInfo.gas?.gasLimit ?? 0)
+                .times(new BigNumber(feeInfo.gas?.gasPrice ?? 0))
+                .shiftedBy(feeInfo.common.feeDecimals)
+            : 0;
+          amount = balance.minus(fee).toFixed();
+        } else {
+          amount = tokenAmount?.toString() ?? '0';
+        }
+
+        const transferAction: IDecodedTxTransferInfo = {
+          from,
+          to,
+          amount: new BigNumber(amount)
+            .shiftedBy(-tokenInfo.decimals)
+            .toFixed(),
+          icon: tokenInfo.logoURI ?? '',
+          name: tokenInfo.symbol,
+          symbol: tokenInfo.symbol,
+          tokenIdOnNetwork: tokenInfo.address,
+          isNFT: false,
+          isNative: tokenInfo.symbol === networkInfo.nativeTokenAddress,
+        };
+
+        action = await this.buildTxTransferAssetAction({
+          from,
+          to,
+          transfers: [transferAction],
+        });
       }
+    }
 
-      const transferAction: IDecodedTxTransferInfo = {
-        from,
-        to,
-        amount: new BigNumber(amount).shiftedBy(-tokenInfo.decimals).toFixed(),
-        icon: tokenInfo.logoURI ?? '',
-        name: tokenInfo.symbol,
-        symbol: tokenInfo.symbol,
-        tokenIdOnNetwork: tokenInfo.address,
-        isNFT: false,
-        isNative: tokenInfo.symbol === networkInfo.nativeTokenAddress,
-      };
-
-      action = await this.buildTxTransferAssetAction({
-        from,
-        to,
-        transfers: [transferAction],
-      });
-    } else {
+    if (!action) {
       action = {
         type: EDecodedTxActionType.UNKNOWN,
         direction: EDecodedTxDirection.OTHER,

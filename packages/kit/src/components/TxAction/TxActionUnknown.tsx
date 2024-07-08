@@ -91,7 +91,7 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
       }}
       target={{
         title: intl.formatMessage({
-          id: ETranslations.transaction_to_contract,
+          id: ETranslations.interact_with_contract,
         }),
         content: unknownTo,
         description: {

@@ -34,9 +34,13 @@ import type {
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import {
+  EDecodedTxActionType,
   EDecodedTxStatus,
-  type IDecodedTx,
-  type IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -185,25 +189,35 @@ export default class Vault extends VaultBase {
       accountId: this.accountId,
     });
 
-    const transfer: IDecodedTxTransferInfo = {
-      from: encodedTx.From,
-      to: encodedTx.To,
-      tokenIdOnNetwork: nativeToken.address,
-      icon: nativeToken.logoURI ?? '',
-      name: nativeToken.name,
-      symbol: nativeToken.symbol,
-      amount: new BigNumber(encodedTx.Value)
-        .shiftedBy(-nativeToken.decimals)
-        .toFixed(),
-      isNFT: false,
-      isNative: true,
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: encodedTx.From,
+        to: encodedTx.To,
+      },
     };
 
-    const action = await this.buildTxTransferAssetAction({
-      from: encodedTx.From,
-      to: encodedTx.To,
-      transfers: [transfer],
-    });
+    if (nativeToken) {
+      const transfer: IDecodedTxTransferInfo = {
+        from: encodedTx.From,
+        to: encodedTx.To,
+        tokenIdOnNetwork: nativeToken.address,
+        icon: nativeToken.logoURI ?? '',
+        name: nativeToken.name,
+        symbol: nativeToken.symbol,
+        amount: new BigNumber(encodedTx.Value)
+          .shiftedBy(-nativeToken.decimals)
+          .toFixed(),
+        isNFT: false,
+        isNative: true,
+      };
+
+      action = await this.buildTxTransferAssetAction({
+        from: encodedTx.From,
+        to: encodedTx.To,
+        transfers: [transfer],
+      });
+    }
 
     const decodedTx: IDecodedTx = {
       txid:

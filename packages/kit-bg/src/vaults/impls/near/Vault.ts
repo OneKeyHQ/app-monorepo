@@ -327,10 +327,6 @@ export default class Vault extends VaultBase {
     nativeTx: nearApiJs.transactions.Transaction,
   ) {
     const accountAddress = await this.getAccountAddress();
-    const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
-      networkId: this.networkId,
-      accountId: this.accountId,
-    });
 
     const actions = await Promise.all(
       nativeTx.actions.map(async (nativeAction) => {
@@ -338,28 +334,36 @@ export default class Vault extends VaultBase {
           type: EDecodedTxActionType.UNKNOWN,
         };
         if (nativeAction.enum === 'transfer' && nativeAction.transfer) {
-          const amountValue = nativeAction.transfer.deposit.toString();
-          const amount = new BigNumber(amountValue)
-            .shiftedBy(nativeToken.decimals * -1)
-            .toFixed();
+          const nativeToken =
+            await this.backgroundApi.serviceToken.getNativeToken({
+              networkId: this.networkId,
+              accountId: this.accountId,
+            });
 
-          const transfer: IDecodedTxTransferInfo = {
-            from: nativeTx.signerId,
-            to: nativeTx.receiverId,
-            tokenIdOnNetwork: nativeToken.address,
-            icon: nativeToken.logoURI ?? '',
-            name: nativeToken.name,
-            symbol: nativeToken.symbol,
-            amount,
-            isNFT: false,
-            isNative: true,
-          };
+          if (nativeToken) {
+            const amountValue = nativeAction.transfer.deposit.toString();
+            const amount = new BigNumber(amountValue)
+              .shiftedBy(nativeToken.decimals * -1)
+              .toFixed();
 
-          action = await this.buildTxTransferAssetAction({
-            from: transfer.from,
-            to: transfer.to,
-            transfers: [transfer],
-          });
+            const transfer: IDecodedTxTransferInfo = {
+              from: nativeTx.signerId,
+              to: nativeTx.receiverId,
+              tokenIdOnNetwork: nativeToken.address,
+              icon: nativeToken.logoURI ?? '',
+              name: nativeToken.name,
+              symbol: nativeToken.symbol,
+              amount,
+              isNFT: false,
+              isNative: true,
+            };
+
+            action = await this.buildTxTransferAssetAction({
+              from: transfer.from,
+              to: transfer.to,
+              transfers: [transfer],
+            });
+          }
         }
         if (nativeAction.enum === 'functionCall') {
           if (nativeAction?.functionCall?.methodName === 'ft_transfer') {
