@@ -13,7 +13,7 @@ type IProps = {
 
 function NFTListItem(props: IProps) {
   const { nft, onPress } = props;
-  const [isVideo, setIsVideo] = useState<boolean>(true);
+  const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
 
   return (
     <Stack
@@ -61,6 +61,8 @@ function NFTListItem(props: IProps) {
                 style={{
                   width: '100%',
                   height: '100%',
+                  position: 'absolute',
+                  zIndex: 1,
                 }}
                 autoPlay={false}
               />
