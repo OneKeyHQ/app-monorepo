@@ -137,15 +137,24 @@ const SwapAccountAddressContainer = ({
 
   const handleOnCreateAddress = useCallback(async () => {
     if (!swapAddressInfo.accountInfo) return;
+    const networkId = swapAddressInfo.accountInfo.network?.id;
+    const walletId = swapAddressInfo.accountInfo.wallet?.id;
+    const indexedAccountId = swapAddressInfo.accountInfo.indexedAccount?.id;
+    const deriveType = swapAddressInfo.accountInfo.deriveType;
     const account = {
-      walletId: swapAddressInfo.accountInfo.wallet?.id,
-      indexedAccountId: swapAddressInfo.accountInfo.indexedAccount?.id,
-      deriveType: swapAddressInfo.accountInfo.deriveType,
-      networkId: swapAddressInfo.accountInfo.network?.id,
+      walletId,
+      indexedAccountId,
+      deriveType,
+      networkId,
     };
+    const key =
+      networkId && walletId && (deriveType || indexedAccountId)
+        ? [networkId, deriveType, walletId, indexedAccountId].join('-')
+        : Math.random().toString();
     try {
       setAccountManualCreatingAtom((prev) => ({
         ...prev,
+        key,
         isLoading: true,
       }));
       await createAddress({
