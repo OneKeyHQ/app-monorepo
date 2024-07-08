@@ -1013,7 +1013,7 @@
   "onboarding.import_recovery_phrase_warning": "Alerta de seguridad",
   "onboarding.import_recovery_phrase_warning_help_text": "Para la seguridad de tus activos, evita importar la frase de recuperación de tu cartera de hardware y utiliza \"Conectar Cartera de Hardware\" para una seguridad óptima.",
   "onboarding.install_onekey_bridge": "Instala OneKey Bridge",
-  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge facilita la comunicación fluida entre OneKey y tu navegador para una mejor experiencia.",
+  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge facilita la comunicación fluida entre OneKey y tu navegador para una mejor experiencia.\n\nSi encuentras problemas durante la instalación de OneKey Bridge, por favor consulta el <url>tutorial en línea</url> para obtener asistencia.",
   "onboarding.migrate_from_v4": "Migrar desde OneKey v4",
   "onboarding.onekey_hw": "OneKey Cartera de Hardware",
   "onboarding.onekey_hw_intro_desc": "OneKey Hardware Wallet, una solución segura y fácil de usar para la gestión de criptomonedas. Admite múltiples criptomonedas y garantiza una encriptación robusta para transacciones seguras.",
@@ -1393,7 +1393,7 @@
   "token_selector.title": "Seleccionar Token",
   "token_selector.unverified_token_warning": "Token no verificado a continuación. Proceda con precaución.",
   "transaction.advanced": "Avanzado",
-  "transaction.application": "Aplicación",
+  "transaction.application": "dApp",
   "transaction.cancel": "Cancelar",
   "transaction.confirm": "Confirmar",
   "transaction.current_gwei": "Actual: {amount} Gwei",
@@ -1547,7 +1547,7 @@
   "wallet.ledger_index": "Índice de libro mayor",
   "wallet.no_address": "Sin dirección",
   "wallet.no_address_desc": "{name} aún no tiene una dirección de {chain}. Por favor, crea una para continuar",
-  "wallet.receive_token_instruction": "Enviar desde otra cartera",
+  "wallet.receive_token_instruction": "Depósito desde otras carteras",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Necesitas al menos {0} cuentas en cualquier red única para crear.",
   "word": "Palabra"
 }
