@@ -202,7 +202,6 @@ export default function ScanQrCodeModal() {
           title: intl.formatMessage({
             id: ETranslations.scan_no_recognizable_qr_code_found,
           }),
-          message: uri,
         });
       }
     }
