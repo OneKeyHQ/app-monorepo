@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -8,7 +8,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
-  Image,
   NumberSizeableText,
   Page,
   SizableText,
@@ -489,7 +488,10 @@ function HistoryDetails() {
       title = intl.formatMessage({ id: ETranslations.global_receive });
     }
 
-    if (decodedTx.status !== EDecodedTxStatus.Pending && label) {
+    if (
+      !historyTx.isLocalCreated ||
+      (decodedTx.status !== EDecodedTxStatus.Pending && label)
+    ) {
       title = label;
     }
 
