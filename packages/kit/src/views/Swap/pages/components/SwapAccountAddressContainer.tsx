@@ -195,25 +195,25 @@ const SwapAccountAddressContainer = ({
       return null;
     }
     if (
-      !swapAddressInfo.accountInfo?.wallet ||
-      ((accountUtils.isHdWallet({
-        walletId: swapAddressInfo.accountInfo?.wallet?.id,
-      }) ||
-        accountUtils.isHwWallet({
+      type === ESwapDirectionType.FROM &&
+      (!swapAddressInfo.accountInfo?.wallet ||
+        ((accountUtils.isHdWallet({
           walletId: swapAddressInfo.accountInfo?.wallet?.id,
         }) ||
-        accountUtils.isQrWallet({
-          walletId: swapAddressInfo.accountInfo?.wallet?.id,
-        })) &&
-        !swapAddressInfo.accountInfo?.indexedAccount) ||
-      (type === ESwapDirectionType.FROM &&
-        !swapAddressInfo.address &&
-        !accountUtils.isHdWallet({
-          walletId: swapAddressInfo.accountInfo?.wallet?.id,
-        }) &&
-        !accountUtils.isHwWallet({
-          walletId: swapAddressInfo.accountInfo?.wallet?.id,
-        }))
+          accountUtils.isHwWallet({
+            walletId: swapAddressInfo.accountInfo?.wallet?.id,
+          }) ||
+          accountUtils.isQrWallet({
+            walletId: swapAddressInfo.accountInfo?.wallet?.id,
+          })) &&
+          !swapAddressInfo.accountInfo?.indexedAccount) ||
+        (!swapAddressInfo.address &&
+          !accountUtils.isHdWallet({
+            walletId: swapAddressInfo.accountInfo?.wallet?.id,
+          }) &&
+          !accountUtils.isHwWallet({
+            walletId: swapAddressInfo.accountInfo?.wallet?.id,
+          })))
     ) {
       return null;
     }
@@ -274,7 +274,7 @@ const SwapAccountAddressContainer = ({
       <AddressButton
         onPress={onToAnotherAddressModal}
         address={
-          swapToAnotherAccountSwitchOn
+          swapToAnotherAccountSwitchOn && swapAddressInfo.address
             ? `${accountUtils.shortenAddress({
                 address: swapAddressInfo.address ?? '',
                 leadingLength: 8,

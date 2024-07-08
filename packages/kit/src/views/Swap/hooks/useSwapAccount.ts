@@ -74,17 +74,15 @@ export function useSwapFromAccountNetworkSync() {
         });
       }
       if (
-        (fromTokenRef.current &&
-          toTokenRef.current &&
-          swapToAnotherAccountRef.current?.networkId &&
+        fromTokenRef.current &&
+        toTokenRef.current &&
+        ((swapToAnotherAccountRef.current?.networkId &&
           toTokenRef.current?.networkId !==
             swapToAnotherAccountRef.current?.networkId) ||
-        (fromTokenRef.current &&
-          toTokenRef.current &&
-          !swapToAnotherAccountRef.current?.networkId &&
-          !swapToAccountRef.current?.account &&
-          swapToAccountRef.current?.wallet) ||
-        swapProviderSupportReceiveAddressRef.current === false
+          (!swapToAnotherAccountRef.current?.networkId &&
+            !swapToAccountRef.current?.account &&
+            swapToAccountRef.current?.wallet) ||
+          swapProviderSupportReceiveAddressRef.current === false)
       ) {
         setSettings((v) => ({
           ...v,
