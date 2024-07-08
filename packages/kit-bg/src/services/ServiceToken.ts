@@ -242,7 +242,7 @@ class ServiceToken extends ServiceBase {
       console.log('fetchTokensDetails ERROR:', error);
     }
 
-    throw new Error('getToken ERROR: token not found.');
+    return null;
   }
 
   @backgroundMethod()

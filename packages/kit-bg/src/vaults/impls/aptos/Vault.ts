@@ -201,26 +201,28 @@ export default class VaultAptos extends VaultBase {
         accountId: this.accountId,
         tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
       });
-      const amount = new BigNumber(amountValue)
-        .shiftedBy(-tokenInfo.decimals)
-        .toFixed();
+      if (tokenInfo) {
+        const amount = new BigNumber(amountValue)
+          .shiftedBy(-tokenInfo.decimals)
+          .toFixed();
 
-      action = await this.buildTxTransferAssetAction({
-        from: sender,
-        to,
-        transfers: [
-          {
-            from: sender,
-            to,
-            amount,
-            icon: tokenInfo.logoURI ?? '',
-            name: tokenInfo.symbol,
-            symbol: tokenInfo.symbol,
-            tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
-            isNative: !coinType || coinType === APTOS_NATIVE_COIN,
-          },
-        ],
-      });
+        action = await this.buildTxTransferAssetAction({
+          from: sender,
+          to,
+          transfers: [
+            {
+              from: sender,
+              to,
+              amount,
+              icon: tokenInfo.logoURI ?? '',
+              name: tokenInfo.symbol,
+              symbol: tokenInfo.symbol,
+              tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
+              isNative: !coinType || coinType === APTOS_NATIVE_COIN,
+            },
+          ],
+        });
+      }
     } else if (actionType === EDecodedTxActionType.FUNCTION_CALL) {
       action = {
         type: EDecodedTxActionType.FUNCTION_CALL,
@@ -253,7 +255,9 @@ export default class VaultAptos extends VaultBase {
             }) ?? [],
         },
       };
-    } else {
+    }
+
+    if (!action) {
       action = {
         type: EDecodedTxActionType.UNKNOWN,
         direction: EDecodedTxDirection.OTHER,
