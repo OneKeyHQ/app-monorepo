@@ -28,15 +28,21 @@ import type { IWalletConnectModalShared } from './types';
 function NativeModal() {
   const { open: openNativeModal, isOpen: isNativeModalOpen } =
     useWalletConnectModal();
+  const [isMounted, setIsMounted] = useState(false);
 
   // TODO call ClientCtrl.setProvider first, then render Modal, openNativeModal
   console.log('NativeModal openNativeModal fn: ', openNativeModal);
   console.log('NativeModal isNativeModalOpen : ', isNativeModalOpen);
 
-  if (!isNativeModalOpen) {
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isNativeModalOpen && isMounted) {
     // Avoid waking up the external wallet App twice
     return null;
   }
+
   return (
     <WalletConnectModalNative
       projectId={WALLET_CONNECT_V2_PROJECT_ID}
