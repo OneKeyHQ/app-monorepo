@@ -338,6 +338,7 @@ function BaseDialogContainer(
     showExitButton,
   });
 
+  // If the header properties change, update the headerContext content.
   useEffect(() => {
     setHeaderProps((prev) => ({
       ...prev,
