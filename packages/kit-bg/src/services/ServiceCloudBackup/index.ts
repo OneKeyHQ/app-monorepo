@@ -282,7 +282,7 @@ class ServiceCloudBackup extends ServiceBase {
         isEnabled: false,
         isInProgress: false,
       });
-      await this.logoutFromGoogleDrive(false);
+      await this.logoutFromGoogleDrive(true);
       return false;
     }
     return true;
