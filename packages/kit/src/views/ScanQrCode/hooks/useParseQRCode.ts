@@ -163,6 +163,8 @@ const useParseQRCode = () => {
             }
             content = animationFullData;
             showCopyDialog(content);
+          } else {
+            showCopyDialog(content);
           }
         }
       }
