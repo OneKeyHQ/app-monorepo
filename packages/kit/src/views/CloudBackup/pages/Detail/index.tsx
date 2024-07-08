@@ -370,7 +370,7 @@ export default function Detail() {
                         id: ETranslations.backup_encrypted_backup_contents,
                       }),
                       items: item.infoList.map((infoString) => ({
-                        label: `  •\t${infoString}`,
+                        label: `  •\t\t${infoString}`,
                       })),
                       renderItems: item?.footerDescription
                         ? () => (
