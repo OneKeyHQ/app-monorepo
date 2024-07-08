@@ -34,6 +34,7 @@ import {
   EReasonForNeedPassword,
   type IClearCacheOnAppState,
 } from '@onekeyhq/shared/types/setting';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import {
   settingsLastActivityAtom,
@@ -220,6 +221,10 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async clearPendingTransaction() {
     await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxs();
+    await this.backgroundApi.serviceSwap.cleanSwapHistoryItems([
+      ESwapTxHistoryStatus.CANCELING,
+      ESwapTxHistoryStatus.PENDING,
+    ]);
   }
 
   @backgroundMethod()
