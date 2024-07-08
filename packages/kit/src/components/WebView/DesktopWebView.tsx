@@ -348,7 +348,7 @@ const DesktopWebView = forwardRef(
             ...style,
           }}
           blinkfeatures="false"
-          nodeintegration={false}
+          nodeintegration="false"
           allowpopups={allowpopups}
           webpreferences="contextIsolation=0, nativeWindowOpen=1, sandbox=0"
           // mobile user-agent

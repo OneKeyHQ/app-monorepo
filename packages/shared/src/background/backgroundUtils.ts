@@ -291,7 +291,7 @@ export const scopeNetworks: Record<
   'conflux': [IMPL_CFX],
   'solana': [IMPL_SOL],
   'sollet': [IMPL_SOL],
-  'starcoin': [IMPL_STC],
+  // 'starcoin': [IMPL_STC],
   'aptos': [IMPL_APTOS],
   'martian': [IMPL_APTOS],
   'tron': [IMPL_TRON],
@@ -311,7 +311,7 @@ export const scopeNetworks: Record<
 export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.btc,
   IInjectedProviderNames.ethereum,
-  IInjectedProviderNames.starcoin,
+  // IInjectedProviderNames.starcoin,
   IInjectedProviderNames.near,
   IInjectedProviderNames.solana,
   IInjectedProviderNames.aptos,
