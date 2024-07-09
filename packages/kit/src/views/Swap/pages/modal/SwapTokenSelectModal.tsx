@@ -267,6 +267,7 @@ const SwapTokenSelectPage = () => {
           })
         : rawItem.contractAddress;
       const tokenItem: ITokenListItemProps = {
+        isSearch: !!searchKeywordDebounce,
         tokenImageSrc: rawItem.logoURI,
         tokenName: rawItem.name,
         tokenSymbol: rawItem.symbol,
