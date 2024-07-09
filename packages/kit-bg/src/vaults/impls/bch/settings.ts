@@ -30,6 +30,8 @@ const settings: IVaultSettings = {
   minTransferAmount: '0.00000546',
   hasFrozenBalance: false,
   showAddressType: false,
+
+  dappInteractionEnabled: false,
 };
 
 export default Object.freeze(settings);
