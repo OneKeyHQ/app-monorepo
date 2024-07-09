@@ -239,6 +239,7 @@ function ConnectByUSBOrBLE({
             skipDeviceCancel: true, // createHWWalletWithHidden: skip device cancel as create may call device multiple times
             features,
             isFirmwareVerified,
+            defaultIsTemp: true,
           }),
         ]);
       } catch (error) {
