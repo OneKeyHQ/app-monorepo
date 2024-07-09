@@ -110,6 +110,16 @@ function LocalDBDemo1() {
       >
         demoUpdateCredentialRecord
       </Button>
+
+      <Button
+        onPress={async () => {
+          const ctx =
+            await backgroundApiProxy.serviceDemo.addMultipleWatchingAccounts();
+          demoLog(ctx);
+        }}
+      >
+        demoAddMultipleWatchingAccounts
+      </Button>
     </Stack>
   );
 }
