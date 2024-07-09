@@ -16,6 +16,7 @@ const AppStateUpdaterContentExtOnly = () => {
     if (platformEnv.isExtension && !extSpecialChecked) {
       extSpecialChecked = true;
       void backgroundApiProxy.servicePassword.checkLockStatus();
+      void backgroundApiProxy.serviceSetting.initSystemLocale();
     }
   }, []);
   return null;
