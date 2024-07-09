@@ -3,6 +3,10 @@ import { useRef } from 'react';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
+import type { IDialogInstance } from '@onekeyhq/components';
+import { Dialog, Spinner } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
   IDBCreateHwWalletParamsBase,
@@ -17,8 +21,6 @@ import type {
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -29,6 +31,8 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type {
   IAccountChainSelectorRouteParams,
   IAccountSelectorRouteParamsExtraConfig,
@@ -63,6 +67,7 @@ import type {
   IAccountSelectorRouteParams,
   IAccountSelectorUpdateMeta,
 } from './atoms';
+import { CommonDeviceLoading } from '../../../../components/Hardware/Hardware';
 
 const { serviceAccount } = backgroundApiProxy;
 
@@ -643,6 +648,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         skipDeviceCancel?: boolean;
         hideCheckingDeviceLoading?: boolean;
       },
+      options: {
+        showAddAccountsLoading?: boolean;
+        addDefaultNetworkAccounts?: boolean;
+      } = {},
     ) => {
       const res = await serviceAccount.createHWHiddenWallet({
         walletId,
@@ -654,6 +663,33 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         wallet,
         indexedAccount,
       });
+      if (options?.addDefaultNetworkAccounts) {
+        let dialog: IDialogInstance | undefined;
+        try {
+          if (options?.showAddAccountsLoading) {
+            dialog = Dialog.show({
+              title: appLocale.intl.formatMessage({
+                id: ETranslations.onboarding_finalize_generating_accounts,
+              }),
+              showCancelButton: false,
+              showConfirmButton: false,
+              dismissOnOverlayPress: false,
+              showExitButton: false,
+              showFooter: false,
+              disableDrag: true,
+              renderContent: <CommonDeviceLoading />,
+            });
+          }
+          await this.addDefaultNetworkAccounts.call(set, {
+            wallet,
+            indexedAccount,
+            skipDeviceCancel: true,
+            hideCheckingDeviceLoading: true,
+          });
+        } finally {
+          await dialog?.close();
+        }
+      }
       return res;
     },
   );
