@@ -155,15 +155,16 @@ export type IDBCreateHDWalletParams = {
   walletHash?: string;
   avatar?: IAvatarInfo;
 };
-export type IDBCreateHWWalletParamsBase = {
+export type IDBCreateHwWalletParamsBase = {
   name?: string;
   device: SearchDevice;
   features: IOneKeyDeviceFeatures;
   isFirmwareVerified?: boolean;
   skipDeviceCancel?: boolean;
   hideCheckingDeviceLoading?: boolean;
+  defaultIsTemp?: boolean;
 };
-export type IDBCreateHWWalletParams = IDBCreateHWWalletParamsBase & {
+export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
 };
 export type IDBCreateQRWalletParams = {
