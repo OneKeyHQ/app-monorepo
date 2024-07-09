@@ -154,7 +154,7 @@ const PasswordVerify = ({
         }}
       >
         <Input
-          autoFocus
+          autoFocus={!isEnable}
           selectTextOnFocus
           size="large"
           editable={status.value !== EPasswordVerifyStatus.VERIFYING}
