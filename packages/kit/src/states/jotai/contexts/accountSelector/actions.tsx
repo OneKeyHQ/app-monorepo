@@ -3,11 +3,14 @@ import { useRef } from 'react';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
+import type { IDialogInstance } from '@onekeyhq/components';
+import { Dialog, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
-  IDBCreateHWWalletParamsBase,
+  IDBCreateHwWalletParamsBase,
   IDBCreateQRWalletParams,
   IDBIndexedAccount,
   IDBWallet,
@@ -29,6 +32,8 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type {
   IAccountChainSelectorRouteParams,
   IAccountSelectorRouteParamsExtraConfig,
@@ -610,13 +615,22 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   );
 
   createHWWallet = contextAtomMethod(
-    async (_, set, params: IDBCreateHWWalletParamsBase) => {
+    async (
+      _,
+      set,
+      params: IDBCreateHwWalletParamsBase,
+      options: { disableAutoSelect?: boolean } = {},
+    ) => {
       const res = await serviceAccount.createHWWallet(params);
       const { wallet, indexedAccount } = res;
-      await this.autoSelectToCreatedWallet.call(set, {
-        wallet,
-        indexedAccount,
-      });
+
+      if (!options?.disableAutoSelect) {
+        await this.autoSelectToCreatedWallet.call(set, {
+          wallet,
+          indexedAccount,
+        });
+      }
+
       return res;
     },
   );
@@ -634,6 +648,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         skipDeviceCancel?: boolean;
         hideCheckingDeviceLoading?: boolean;
       },
+      options: {
+        showAddAccountsLoading?: boolean;
+        addDefaultNetworkAccounts?: boolean;
+      } = {},
     ) => {
       const res = await serviceAccount.createHWHiddenWallet({
         walletId,
@@ -645,17 +663,47 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         wallet,
         indexedAccount,
       });
+      if (options?.addDefaultNetworkAccounts) {
+        let dialog: IDialogInstance | undefined;
+        try {
+          if (options?.showAddAccountsLoading) {
+            dialog = Dialog.show({
+              title: appLocale.intl.formatMessage({
+                id: ETranslations.onboarding_finalize_generating_accounts,
+              }),
+              showCancelButton: false,
+              showConfirmButton: false,
+              dismissOnOverlayPress: false,
+              showExitButton: false,
+              showFooter: false,
+              disableDrag: true,
+              renderContent: <CommonDeviceLoading />,
+            });
+          }
+          await this.addDefaultNetworkAccounts.call(set, {
+            wallet,
+            indexedAccount,
+            skipDeviceCancel: true,
+            hideCheckingDeviceLoading: true,
+          });
+        } finally {
+          await dialog?.close();
+        }
+      }
       return res;
     },
   );
 
   createHWWalletWithHidden = contextAtomMethod(
-    async (_, set, params: IDBCreateHWWalletParamsBase) =>
+    async (_, set, params: IDBCreateHwWalletParamsBase) =>
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
           const { wallet, device, indexedAccount } =
-            await this.createHWWallet.call(set, params);
-          let hiddenCreateResult:
+            await this.createHWWallet.call(set, params, {
+              disableAutoSelect: true,
+            });
+
+          let hiddenWalletCreatedResult:
             | {
                 wallet: IDBWallet;
                 indexedAccount: IDBIndexedAccount;
@@ -673,19 +721,33 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }
             await timerUtils.wait(3000);
 
-            hiddenCreateResult = await this.createHWHiddenWallet.call(set, {
-              walletId: wallet.id,
-              skipDeviceCancel: params.skipDeviceCancel,
-              hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+            hiddenWalletCreatedResult = await this.createHWHiddenWallet.call(
+              set,
+              {
+                walletId: wallet.id,
+                skipDeviceCancel: params.skipDeviceCancel,
+                hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+              },
+            );
+          }
+
+          await serviceAccount.restoreTempCreatedWallet({
+            walletId: wallet.id,
+          });
+          if (!hiddenWalletCreatedResult) {
+            await this.autoSelectToCreatedWallet.call(set, {
+              wallet,
+              indexedAccount,
             });
           }
+
           return {
             wallet,
             indexedAccount,
-            hidden: hiddenCreateResult
+            hidden: hiddenWalletCreatedResult
               ? {
-                  wallet: hiddenCreateResult?.wallet,
-                  indexedAccount: hiddenCreateResult?.indexedAccount,
+                  wallet: hiddenWalletCreatedResult?.wallet,
+                  indexedAccount: hiddenWalletCreatedResult?.indexedAccount,
                 }
               : undefined,
           };
