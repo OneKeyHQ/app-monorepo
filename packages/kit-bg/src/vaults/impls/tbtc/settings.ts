@@ -63,6 +63,7 @@ const settings: IVaultSettings = {
   impl: IMPL_TBTC,
   coinTypeDefault: COINTYPE_TBTC,
   estimatedFeePollingInterval: 60,
+  dappInteractionEnabled: false,
 };
 
 export default Object.freeze(settings);

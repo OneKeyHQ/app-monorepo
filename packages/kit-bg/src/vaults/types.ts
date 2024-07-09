@@ -133,6 +133,8 @@ export type IVaultSettings = {
   hardwareAccountEnabled: boolean;
   publicKeyExportEnabled?: boolean;
 
+  dappInteractionEnabled?: boolean;
+
   softwareAccountDisabled?: boolean;
   addressBookDisabled?: boolean;
   copyAddressDisabled?: boolean;

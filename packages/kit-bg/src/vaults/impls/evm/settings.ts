@@ -67,6 +67,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
 
+  dappInteractionEnabled: true,
+
   defaultFeePresetIndex: 1,
 
   isUtxo: false,
