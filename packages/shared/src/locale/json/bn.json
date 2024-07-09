@@ -472,6 +472,7 @@
   "feedback.password_set_failed": "পাসওয়ার্ড সেটআপ ব্যর্থ হয়েছে",
   "feedback.pasted_and_cleared": "পেস্ট করা হয়েছে এবং ক্লিপবোর্ড মুছে ফেলা হয়েছে",
   "feedback.pin_verification_cancelled": "পিন যাচাই বাতিল করা হয়েছে",
+  "feedback.polkadot_supported_recover_phrases_type": "শুধুমাত্র 12/24-শব্দের পুনরুদ্ধার বাক্যাংশ পোল্কাডট ঠিকানা তৈরি করতে পারে",
   "feedback.remove": "অপসারিত",
   "feedback.request_failed": "অনুরোধ ব্যর্থ হয়েছে",
   "feedback.sol_sign_unupported_message": "Solana বার্তা স্বাক্ষর করা এখনও সমর্থিত হয়নি",
