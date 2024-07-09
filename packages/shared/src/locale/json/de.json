@@ -1013,7 +1013,7 @@
   "onboarding.import_recovery_phrase_warning": "Sicherheitswarnung",
   "onboarding.import_recovery_phrase_warning_help_text": "Zum Schutz Ihrer Vermögenswerte sollten Sie vermeiden, den Wiederherstellungssatz Ihres Hardware-Wallets zu importieren und stattdessen \"Hardware-Wallet verbinden\" für optimale Sicherheit verwenden.",
   "onboarding.install_onekey_bridge": "Installieren Sie OneKey Bridge",
-  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge ermöglicht eine nahtlose Kommunikation zwischen OneKey und Ihrem Browser für ein besseres Erlebnis.",
+  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge erleichtert die nahtlose Kommunikation zwischen OneKey und Ihrem Browser für ein besseres Erlebnis.\n\nWenn Sie während der Installation von OneKey Bridge auf Probleme stoßen, beziehen Sie sich bitte auf das <url>Online-Tutorial</url> zur Unterstützung.",
   "onboarding.migrate_from_v4": "Von OneKey v4 migrieren",
   "onboarding.onekey_hw": "OneKey Hardware Wallet",
   "onboarding.onekey_hw_intro_desc": "OneKey Hardware Wallet, eine sichere und benutzerfreundliche Lösung für die Verwaltung von Kryptowährungen. Sie unterstützt mehrere Kryptowährungen und gewährleistet eine robuste Verschlüsselung für sichere Transaktionen.",
@@ -1393,7 +1393,7 @@
   "token_selector.title": "Token auswählen",
   "token_selector.unverified_token_warning": "Unbestätigtes Token unten. Vorsichtshalber fortfahren.",
   "transaction.advanced": "Fortgeschritten",
-  "transaction.application": "Anwendung",
+  "transaction.application": "dApp",
   "transaction.cancel": "Abbrechen",
   "transaction.confirm": "Bestätigen",
   "transaction.current_gwei": "Aktuell: {amount} Gwei",
@@ -1547,7 +1547,7 @@
   "wallet.ledger_index": "Kontenindex",
   "wallet.no_address": "Keine Adresse",
   "wallet.no_address_desc": "{name} hat noch keine {chain}-Adresse. Bitte erstellen Sie eine, um fortzufahren",
-  "wallet.receive_token_instruction": "Von einer anderen Wallet senden",
+  "wallet.receive_token_instruction": "Einlage von anderen Wallets",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Sie benötigen mindestens {0} Konten in einem einzigen Netzwerk, um zu erstellen.",
   "word": "Wort"
 }
