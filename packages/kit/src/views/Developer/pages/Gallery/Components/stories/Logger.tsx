@@ -18,6 +18,19 @@ const LoggerDemo = () => {
       <Button onPress={() => defaultLogger.demo.math.logSensitiveMessage(1, 2)}>
         Log #4
       </Button>
+      <Button
+        onPress={() =>
+          defaultLogger.discovery.browser.tabsData([
+            {
+              id: '1',
+              url: '1',
+              title: 'Tab 1',
+            },
+          ])
+        }
+      >
+        Log Browser Tabs
+      </Button>
       <Button onPress={downloadLog}>Download Log</Button>
     </Stack>
   );
