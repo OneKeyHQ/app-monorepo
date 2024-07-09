@@ -1450,7 +1450,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         updater: (item) => {
           if (passphraseState) {
             item.isTemp = false;
-          } else {
+          } else if (item.isTemp) {
             item.isTemp = defaultIsTemp ?? false;
           }
           return item;
