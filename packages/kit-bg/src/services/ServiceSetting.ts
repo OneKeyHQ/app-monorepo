@@ -58,8 +58,7 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   async refreshLocaleMessages() {
-    const { locale: rawLocale } = await settingsPersistAtom.get();
-    const locale = rawLocale === 'system' ? getDefaultLocale() : rawLocale;
+    const locale = await this.getCurrentLocale();
     const messages = await getLocaleMessages(locale);
     appLocale.setLocale(locale, messages as any);
   }
