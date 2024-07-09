@@ -259,6 +259,7 @@ export function usePromiseResult<T>(
   const runAtRef = useRef(0);
   useEffect(() => {
     const callback = () => {
+      runAtRef.current = Date.now();
       pollingNonceRef.current += 1;
       void runRef.current({
         triggerByDeps: true,
@@ -274,7 +275,6 @@ export function usePromiseResult<T>(
           : optionsRef.current.pollingInterval,
       );
     } else {
-      runAtRef.current = Date.now();
       callback();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
