@@ -91,18 +91,13 @@ function BasicTokenListView(props: IProps) {
     ],
   );
 
-  const [isLoading, setIsLoading] = useState(false);
-
   const listFooterComponent = useMemo(
-    () =>
-      isLoading ? (
-        <Spinner size="small" />
-      ) : (
-        <Stack pb="$5">
-          {withFooter ? <TokenListFooter tableLayout={tableLayout} /> : null}
-        </Stack>
-      ),
-    [isLoading, tableLayout, withFooter],
+    () => (
+      <Stack pb="$5">
+        {withFooter ? <TokenListFooter tableLayout={tableLayout} /> : null}
+      </Stack>
+    ),
+    [tableLayout, withFooter],
   );
 
   const renderItem = useCallback(
@@ -119,44 +114,23 @@ function BasicTokenListView(props: IProps) {
     [onPressToken, tableLayout, withPrice],
   );
 
-  const [listLength, setListLength] = useState(
-    Math.min(20, filteredTokens.length),
-  );
-
-  useEffect(() => {
-    setListLength(Math.min(20, filteredTokens.length));
-  }, [filteredTokens.length]);
-
-  const handleEndReached = useCallback(() => {
-    if (listLength < filteredTokens.length) {
-      setIsLoading(true);
-      setTimeout(() => {
-        const length = listLength + 20;
-        setListLength(
-          length > filteredTokens.length ? filteredTokens.length : length,
-        );
-        setIsLoading(false);
-      }, 200);
-    }
-  }, [filteredTokens.length, listLength]);
-
   if (!tokenListState.initialized && tokenListState.isRefreshing) {
     return <ListLoading onContentSizeChange={onContentSizeChange} />;
   }
 
+  console.log(filteredTokens.length);
   return (
     <ListView
       py={withPresetVerticalPadding ? '$3' : '$0'}
       estimatedItemSize={tableLayout ? 48 : 60}
       scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
       disableScrollViewPanResponder={!!onContentSizeChange}
-      data={filteredTokens.slice(0, listLength)}
+      data={filteredTokens}
       ListHeaderComponent={listHeaderComponent}
-      onContentSizeChange={onContentSizeChange}
+      // onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={listEmptyComponent}
       renderItem={renderItem}
       ListFooterComponent={listFooterComponent}
-      onEndReached={handleEndReached}
       onEndReachedThreshold={0.01}
     />
   );
