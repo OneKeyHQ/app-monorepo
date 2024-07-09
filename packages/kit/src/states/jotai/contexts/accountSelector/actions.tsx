@@ -6,6 +6,7 @@ import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
@@ -67,7 +68,6 @@ import type {
   IAccountSelectorRouteParams,
   IAccountSelectorUpdateMeta,
 } from './atoms';
-import { CommonDeviceLoading } from '../../../../components/Hardware/Hardware';
 
 const { serviceAccount } = backgroundApiProxy;
 
