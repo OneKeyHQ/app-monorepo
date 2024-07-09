@@ -196,6 +196,27 @@ function ConnectByQrCodeComingSoon() {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function BridgeNotInstalledDialogContent(props: { error: NeedOneKeyBridge }) {
+  const intl = useIntl();
+
+  return (
+    <Stack>
+      <Dialog.RichDescription
+        linkList={{
+          url: {
+            url: 'https://help.onekey.so/hc/articles/360004279036',
+          },
+        }}
+      >
+        {intl.formatMessage({
+          id: ETranslations.onboarding_install_onekey_bridge_help_text,
+        })}
+      </Dialog.RichDescription>
+    </Stack>
+  );
+}
+
 enum EConnectionStatus {
   init = 'init',
   searching = 'searching',
@@ -678,9 +699,7 @@ function ConnectByUSBOrBLE({
                 id: ETranslations.onboarding_install_onekey_bridge,
               }),
               // error.message i18n should set NeedOneKeyBridge.defaultKey...
-              description:
-                error.message ||
-                'OneKey Bridge facilitates seamless communication between OneKey and your browser for a better experience.',
+              renderContent: <BridgeNotInstalledDialogContent error={error} />,
               onConfirmText: intl.formatMessage({
                 id: ETranslations.global_download_and_install,
               }),
