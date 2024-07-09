@@ -14,7 +14,7 @@ function useBuyToken({
   accountId: string;
   networkId: string;
 }) {
-  const { result: isSupported } = useSupportNetworkId(networkId, 'buy');
+  const { result: isSupported } = useSupportNetworkId('buy', networkId);
   const navigation = useAppNavigation();
   const handleOnBuy = useCallback(() => {
     navigation.pushModal(EModalRoutes.FiatCryptoModal, {

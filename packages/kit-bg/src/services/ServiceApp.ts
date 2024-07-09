@@ -14,6 +14,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  ERootRoutes,
+  ETabHomeRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
@@ -60,10 +65,22 @@ class ServiceApp extends ServiceBase {
     if (platformEnv.isRuntimeBrowser) {
       try {
         global.localStorage.clear();
-        // reset href
-        global.location.href = '/';
       } catch {
         console.error('window.localStorage.clear() error');
+      }
+    }
+
+    if (platformEnv.isWeb || platformEnv.isDesktop) {
+      // reset route/href
+      try {
+        global.$navigationRef.current?.navigate(ERootRoutes.Main, {
+          screen: ETabRoutes.Home,
+          params: {
+            screen: ETabHomeRoutes.TabHome,
+          },
+        });
+      } catch {
+        console.error('reset route error');
       }
     }
 

@@ -43,10 +43,7 @@ export function WalletActionMore() {
     deriveInfo,
     deriveType,
   });
-  const { result: isSupported } = useSupportNetworkId(
-    network?.id ?? '',
-    'sell',
-  );
+  const { result: isSupported } = useSupportNetworkId('sell', network?.id);
 
   const isSellDisabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
