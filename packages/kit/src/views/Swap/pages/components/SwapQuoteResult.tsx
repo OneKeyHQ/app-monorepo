@@ -55,7 +55,7 @@ const SwapQuoteResult = ({
       if (item.key === ESwapSlippageSegmentKey.CUSTOM) {
         setSwapSlippageCustomValue(item.value);
       }
-      void dialogRef.current?.close();
+      void dialogRef.current?.close({ flag: 'save' });
     },
     [setSwapSlippageCustomValue, setSwapSlippageMode],
   );
@@ -71,10 +71,11 @@ const SwapQuoteResult = ({
         />
       ),
       onOpen: () => {
-        setSwapSlippageDialogOpening(true);
+        setSwapSlippageDialogOpening({ status: true });
       },
-      onClose: () => {
-        setSwapSlippageDialogOpening(false);
+      onClose: (extra) => {
+        console.log('swap__onClose', extra);
+        setSwapSlippageDialogOpening({ status: false, flag: extra?.flag });
       },
     });
   }, [

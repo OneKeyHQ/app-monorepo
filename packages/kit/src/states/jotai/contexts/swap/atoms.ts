@@ -280,7 +280,7 @@ export const {
 export const {
   atom: swapSlippageDialogOpeningAtom,
   use: useSwapSlippageDialogOpeningAtom,
-} = contextAtom<boolean>(false);
+} = contextAtom<{ status: boolean; flag?: string }>({ status: false });
 
 // swap build_tx
 export const {
