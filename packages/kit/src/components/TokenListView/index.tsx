@@ -128,11 +128,16 @@ function BasicTokenListView(props: IProps) {
   }, [filteredTokens.length]);
 
   const handleEndReached = useCallback(() => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setListLength(Math.max(listLength + 20, filteredTokens.length));
-      setIsLoading(false);
-    }, 500);
+    if (listLength < filteredTokens.length) {
+      setIsLoading(true);
+      setTimeout(() => {
+        const length = listLength + 20;
+        setListLength(
+          length > filteredTokens.length ? filteredTokens.length : length,
+        );
+        setIsLoading(false);
+      }, 200);
+    }
   }, [filteredTokens.length, listLength]);
 
   if (!tokenListState.initialized && tokenListState.isRefreshing) {
