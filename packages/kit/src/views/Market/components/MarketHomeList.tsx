@@ -873,6 +873,7 @@ function BasicMarketHomeList({
             height={60}
             justifyContent="space-between"
             userSelect="none"
+            space="$2"
             {...listItemPressStyle}
             {...(platformEnv.isNative ? pressEvents : undefined)}
           >
