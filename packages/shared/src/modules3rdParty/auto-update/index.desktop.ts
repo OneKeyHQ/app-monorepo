@@ -7,6 +7,7 @@ import { defaultLogger } from '../../logger/logger';
 import type {
   IDownloadPackage,
   IInstallPackage,
+  IUpdateDownloadedEvent,
   IUseDownloadProgress,
 } from './type';
 
@@ -57,11 +58,11 @@ window.desktopApi?.on?.(
   },
 );
 
-const updateDownloadedTasks: (() => void)[] = [];
-window.desktopApi.on('update/downloaded', () => {
+const updateDownloadedTasks: ((event: IUpdateDownloadedEvent) => void)[] = [];
+window.desktopApi.on('update/downloaded', (event: IUpdateDownloadedEvent) => {
   defaultLogger.update.app.log('download');
   while (updateDownloadedTasks.length) {
-    updateDownloadedTasks.pop()?.();
+    updateDownloadedTasks.pop()?.(event);
   }
   updateDownloadingTasks = [];
 });
@@ -88,7 +89,7 @@ window.desktopApi?.on?.(
 );
 
 export const downloadPackage: IDownloadPackage = () =>
-  new Promise((resolve, reject) => {
+  new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
     updateAvailableTasks.push(() => {
       window.desktopApi.downloadUpdate();
     });

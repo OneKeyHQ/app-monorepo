@@ -41,14 +41,18 @@ export const downloadPackage: IDownloadPackage = async ({
   }
   await RNFS?.mkdir(DIR_PATH);
   if (!downloadUrl || !latestVersion) {
-    return;
+    throw new Error('Invalid version or downloadUrl');
   }
-  return AutoUpdateModule.downloadAPK({
+  const filePath = buildFilePath(latestVersion);
+  await AutoUpdateModule.downloadAPK({
     url: downloadUrl,
-    filePath: buildFilePath(latestVersion),
-    notificationTitle: `Download OneKey App ${latestVersion}`,
+    filePath,
+    notificationTitle: 'Downloading',
     sha256,
   });
+  return {
+    downloadedFile: filePath,
+  };
 };
 
 export const installPackage: IInstallPackage = ({ latestVersion, sha256 }) => {
