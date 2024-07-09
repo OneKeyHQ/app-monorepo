@@ -28,6 +28,8 @@ const settings: IVaultSettings = {
   addressBookDisabled: true,
   copyAddressDisabled: true,
 
+  dappInteractionEnabled: true,
+
   defaultFeePresetIndex: 0,
 
   isUtxo: false,
