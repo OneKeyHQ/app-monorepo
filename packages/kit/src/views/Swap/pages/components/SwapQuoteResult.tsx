@@ -3,7 +3,7 @@ import { memo, useCallback, useRef } from 'react';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Dialog, NumberSizeableText, YStack } from '@onekeyhq/components';
+import { Dialog, IDialogInstance, NumberSizeableText, YStack } from '@onekeyhq/components';
 import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -50,12 +50,12 @@ const SwapQuoteResult = ({
   const [, setSwapSlippageMode] = useSwapSlippagePercentageModeAtom();
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const slippageOnSave = useCallback(
-    (item: ISwapSlippageSegmentItem) => {
+    (item: ISwapSlippageSegmentItem, close: IDialogInstance['close']) => {
       setSwapSlippageMode(item.key);
       if (item.key === ESwapSlippageSegmentKey.CUSTOM) {
         setSwapSlippageCustomValue(item.value);
       }
-      void dialogRef.current?.close({ flag: 'save' });
+      void close({ flag: 'save' });
     },
     [setSwapSlippageCustomValue, setSwapSlippageMode],
   );
