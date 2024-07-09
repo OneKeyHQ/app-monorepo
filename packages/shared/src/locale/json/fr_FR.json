@@ -1013,7 +1013,7 @@
   "onboarding.import_recovery_phrase_warning": "Alerte de sécurité",
   "onboarding.import_recovery_phrase_warning_help_text": "Pour la sécurité de vos actifs, évitez d'importer la phrase de récupération de votre portefeuille matériel et utilisez \"Connecter le portefeuille matériel\" pour une sécurité optimale.",
   "onboarding.install_onekey_bridge": "Installez OneKey Bridge",
-  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge facilite une communication fluide entre OneKey et votre navigateur pour une meilleure expérience.",
+  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge facilite une communication transparente entre OneKey et votre navigateur pour une meilleure expérience.\n\nSi vous rencontrez des problèmes lors de l'installation de OneKey Bridge, veuillez consulter le <url>tutoriel en ligne</url> pour obtenir de l'aide.",
   "onboarding.migrate_from_v4": "Migrer depuis OneKey v4",
   "onboarding.onekey_hw": "Portefeuille Matériel OneKey",
   "onboarding.onekey_hw_intro_desc": "OneKey Hardware Wallet, une solution sécurisée et conviviale pour la gestion des crypto-monnaies. Elle prend en charge plusieurs crypto-monnaies et assure un chiffrement robuste pour des transactions sûres.",
@@ -1393,7 +1393,7 @@
   "token_selector.title": "Sélectionner le jeton",
   "token_selector.unverified_token_warning": "Token non vérifié ci-dessous. Procédez avec prudence.",
   "transaction.advanced": "Avancé",
-  "transaction.application": "Application",
+  "transaction.application": "dApp",
   "transaction.cancel": "Annuler",
   "transaction.confirm": "Confirmer",
   "transaction.current_gwei": "Actuel : {amount} Gwei",
@@ -1547,7 +1547,7 @@
   "wallet.ledger_index": "Index du grand livre",
   "wallet.no_address": "Aucune adresse",
   "wallet.no_address_desc": "{name} n'a pas encore d'adresse {chain}. Veuillez en créer une pour continuer",
-  "wallet.receive_token_instruction": "Envoyer depuis un autre portefeuille",
+  "wallet.receive_token_instruction": "Dépôt depuis d'autres portefeuilles",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Vous avez besoin d'au moins {0} comptes sur un seul réseau pour créer.",
   "word": "Mot"
 }
