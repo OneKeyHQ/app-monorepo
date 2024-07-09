@@ -472,6 +472,7 @@
   "feedback.password_set_failed": "การตั้งค่ารหัสผ่านล้มเหลว",
   "feedback.pasted_and_cleared": "วางและล้างคลิปบอร์ดแล้ว",
   "feedback.pin_verification_cancelled": "ยกเลิกการตรวจสอบ PIN",
+  "feedback.polkadot_supported_recover_phrases_type": "เฉพาะวลีการกู้คืน 12/24 คำเท่านั้นที่สามารถสร้างที่อยู่ Polkadot",
   "feedback.remove": "ถูกนำออก",
   "feedback.request_failed": "การร้องขอล้มเหลว",
   "feedback.sol_sign_unupported_message": "ยังไม่รองรับการลงชื่อในข้อความ Solana ในขณะนี้",

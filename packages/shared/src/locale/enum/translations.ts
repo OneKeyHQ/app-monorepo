@@ -473,6 +473,7 @@ export enum ETranslations {
   feedback_password_set_failed = 'feedback.password_set_failed',
   feedback_pasted_and_cleared = 'feedback.pasted_and_cleared',
   feedback_pin_verification_cancelled = 'feedback.pin_verification_cancelled',
+  feedback_polkadot_supported_recover_phrases_type = 'feedback.polkadot_supported_recover_phrases_type',
   feedback_remove = 'feedback.remove',
   feedback_request_failed = 'feedback.request_failed',
   feedback_sol_sign_unupported_message = 'feedback.sol_sign_unupported_message',

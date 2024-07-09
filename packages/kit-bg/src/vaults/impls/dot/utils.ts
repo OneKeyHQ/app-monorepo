@@ -45,18 +45,3 @@ export const getTransactionTypeFromTxInfo = (tx: DecodedSignedTx) => {
 
   return getTransactionType(pallet, methodName);
 };
-
-export const derivationHdLedger = (mnemonic: string, path: string) => {
-  try {
-    return hdLedger(mnemonic, path);
-  } catch (e: any) {
-    const { message }: { message: string } = e;
-    if (
-      message ===
-      'Expected a mnemonic with 24 words (or 25 including a password)'
-    ) {
-      throw new OneKeyInternalError(message);
-    }
-    throw e;
-  }
-};

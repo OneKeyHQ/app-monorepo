@@ -132,7 +132,6 @@ function TxFeeContainer(props: IProps) {
           status: ESendFeeStatus.Success,
           errMessage: '',
         });
-        txFeeInit.current = true;
         return {
           r,
           e,
@@ -325,6 +324,7 @@ function TxFeeContainer(props: IProps) {
               feeType: EFeeType.Custom,
               presetIndex: 0,
             });
+            updateCustomFee(customFeeInfo);
           }
 
           feeInTxUpdated.current = true;
@@ -360,6 +360,7 @@ function TxFeeContainer(props: IProps) {
     customFee?.feeSol,
     unsignedTxs,
     updateSendSelectedFee,
+    updateCustomFee,
   ]);
 
   const { selectedFee } = useMemo(() => {
@@ -390,6 +391,8 @@ function TxFeeContainer(props: IProps) {
       txSize: unsignedTxs[0]?.txSize,
       estimateFeeParams,
     });
+
+    txFeeInit.current = true;
 
     return {
       selectedFee: {
