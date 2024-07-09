@@ -18,7 +18,9 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   ISendBitcoinParams,
   ISignMessageParams,
@@ -507,6 +509,9 @@ class ProviderApiBtc extends ProviderApiBase {
         respPsbt.finalizeInput(v.index);
       });
     }
+    if (options.isBtcWalletProvider) {
+      return respPsbt.extractTransaction().toHex();
+    }
     return respPsbt.toHex();
   }
 
@@ -664,11 +669,36 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getBTCTipHeight(request: IJsBridgeMessagePayload) {
-    await this.getAccountsInfo(request);
-    // TODO: get tip height from btc node
-    const blockHeight = 100;
-    return blockHeight;
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { networkId } = {} } = accountsInfo[0];
+    return this._getBlockHeightMemo(networkId);
   }
+
+  private _getBlockHeightMemo = memoizee(
+    async (networkId?: string) => {
+      if (!networkId) return undefined;
+      const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
+        networkId,
+        request: {
+          method: 'get',
+          // @ts-expect-error
+          url: '/api/v2',
+        },
+        skipParseResponse: true,
+      });
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const blockHeight = result?.data?.blockbook?.bestHeight;
+      if (blockHeight) {
+        return Number(blockHeight);
+      }
+      return undefined;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
 }
 
 export default ProviderApiBtc;
