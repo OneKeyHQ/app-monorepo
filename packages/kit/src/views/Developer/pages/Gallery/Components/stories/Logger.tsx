@@ -20,15 +20,13 @@ const LoggerDemo = () => {
       </Button>
       <Button
         onPress={() =>
-          defaultLogger.discovery.browser.logBrowserTabs({
-            data: [
-              {
-                id: '1',
-                url: '1',
-                title: 'Tab 1',
-              },
-            ],
-          })
+          defaultLogger.discovery.browser.tabsData([
+            {
+              id: '1',
+              url: '1',
+              title: 'Tab 1',
+            },
+          ])
         }
       >
         Log Browser Tabs
