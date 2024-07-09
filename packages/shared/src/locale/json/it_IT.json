@@ -1013,7 +1013,7 @@
   "onboarding.import_recovery_phrase_warning": "Allerta di sicurezza",
   "onboarding.import_recovery_phrase_warning_help_text": "Per la sicurezza dei tuoi beni, evita di importare la frase di recupero del tuo portafoglio hardware e usa \"Connetti Portafoglio Hardware\" per una sicurezza ottimale.",
   "onboarding.install_onekey_bridge": "Installa OneKey Bridge",
-  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge facilita la comunicazione senza interruzioni tra OneKey e il tuo browser per una migliore esperienza.",
+  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge facilita la comunicazione senza interruzioni tra OneKey e il tuo browser per una migliore esperienza.\n\nSe incontri problemi durante l'installazione di OneKey Bridge, si prega di fare riferimento al <url>tutorial online</url> per assistenza.",
   "onboarding.migrate_from_v4": "Migra da OneKey v4",
   "onboarding.onekey_hw": "OneKey Portafoglio Hardware",
   "onboarding.onekey_hw_intro_desc": "OneKey Hardware Wallet, una soluzione sicura e user-friendly per la gestione delle criptovalute. Supporta molteplici criptovalute e garantisce una robusta crittografia per transazioni sicure.",
@@ -1393,7 +1393,7 @@
   "token_selector.title": "Seleziona Token",
   "token_selector.unverified_token_warning": "Token non verificato di seguito. Procedere con cautela.",
   "transaction.advanced": "Avanzato",
-  "transaction.application": "Applicazione",
+  "transaction.application": "dApp",
   "transaction.cancel": "Annulla",
   "transaction.confirm": "Conferma",
   "transaction.current_gwei": "Attuale: {amount} Gwei",
@@ -1547,7 +1547,7 @@
   "wallet.ledger_index": "Indice del libro mastro",
   "wallet.no_address": "Nessun indirizzo",
   "wallet.no_address_desc": "{name} non ha ancora un indirizzo {chain}. Per favore, creane uno per continuare",
-  "wallet.receive_token_instruction": "Invia da un altro portafoglio",
+  "wallet.receive_token_instruction": "Deposito da altri portafogli",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Hai bisogno di almeno {0} account su una singola rete per creare.",
   "word": "Parola"
 }

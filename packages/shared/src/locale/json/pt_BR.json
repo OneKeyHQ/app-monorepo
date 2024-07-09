@@ -1013,7 +1013,7 @@
   "onboarding.import_recovery_phrase_warning": "Alerta de segurança",
   "onboarding.import_recovery_phrase_warning_help_text": "Para a segurança do seu ativo, evite importar a frase de recuperação da sua carteira de hardware e use \"Conectar Carteira de Hardware\" para uma segurança ideal.",
   "onboarding.install_onekey_bridge": "Instale o OneKey Bridge",
-  "onboarding.install_onekey_bridge_help_text": "A OneKey Bridge facilita a comunicação perfeita entre a OneKey e o seu navegador para uma melhor experiência.",
+  "onboarding.install_onekey_bridge_help_text": "O OneKey Bridge facilita a comunicação perfeita entre o OneKey e o seu navegador para uma melhor experiência.\n\nSe você encontrar problemas durante a instalação do OneKey Bridge, consulte o <url>tutorial online</url> para obter assistência.",
   "onboarding.migrate_from_v4": "Migrar do OneKey v4",
   "onboarding.onekey_hw": "Carteira de Hardware OneKey",
   "onboarding.onekey_hw_intro_desc": "OneKey Hardware Wallet, uma solução segura e fácil de usar para gerenciamento de criptomoedas. Suporta várias criptomoedas e garante uma criptografia robusta para transações seguras.",
@@ -1393,7 +1393,7 @@
   "token_selector.title": "Selecionar Token",
   "token_selector.unverified_token_warning": "Token não verificado abaixo. Prossiga com cautela.",
   "transaction.advanced": "Avançado",
-  "transaction.application": "Aplicativo",
+  "transaction.application": "dApp",
   "transaction.cancel": "Cancelar",
   "transaction.confirm": "Confirmar",
   "transaction.current_gwei": "Atual: {amount} Gwei",
@@ -1547,7 +1547,7 @@
   "wallet.ledger_index": "Índice do livro-razão",
   "wallet.no_address": "Sem endereço",
   "wallet.no_address_desc": "{name} ainda não tem um endereço {chain}. Por favor, crie um para continuar",
-  "wallet.receive_token_instruction": "Enviar de outra carteira",
+  "wallet.receive_token_instruction": "Depósito de outras carteiras",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Você precisa de pelo menos {0} contas em qualquer rede única para criar.",
   "word": "Palavra"
 }

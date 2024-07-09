@@ -1013,7 +1013,7 @@
   "onboarding.import_recovery_phrase_warning": "Peringatan keamanan",
   "onboarding.import_recovery_phrase_warning_help_text": "Untuk keamanan aset Anda, hindari mengimpor frase pemulihan dari dompet perangkat keras Anda dan gunakan \"Sambungkan Dompet Perangkat Keras\" untuk keamanan optimal.",
   "onboarding.install_onekey_bridge": "Instal OneKey Bridge",
-  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge memfasilitasi komunikasi yang lancar antara OneKey dan browser Anda untuk pengalaman yang lebih baik.",
+  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge memfasilitasi komunikasi yang lancar antara OneKey dan browser Anda untuk pengalaman yang lebih baik.\n\nJika Anda mengalami masalah selama instalasi OneKey Bridge, silakan merujuk ke <url>tutorial online</url> untuk bantuan.",
   "onboarding.migrate_from_v4": "Beralih dari OneKey v4",
   "onboarding.onekey_hw": "Dompet Hardware OneKey",
   "onboarding.onekey_hw_intro_desc": "OneKey Hardware Wallet, solusi aman dan ramah pengguna untuk manajemen kripto. Ini mendukung berbagai mata uang kripto dan menjamin enkripsi yang kuat untuk transaksi yang aman.",
@@ -1393,7 +1393,7 @@
   "token_selector.title": "Pilih Token",
   "token_selector.unverified_token_warning": "Token yang belum diverifikasi di bawah ini. Lanjutkan dengan hati-hati.",
   "transaction.advanced": "Lanjutan",
-  "transaction.application": "Aplikasi",
+  "transaction.application": "dApp",
   "transaction.cancel": "Batalkan",
   "transaction.confirm": "Konfirmasi",
   "transaction.current_gwei": "Saat ini: {amount} Gwei",
@@ -1547,7 +1547,7 @@
   "wallet.ledger_index": "Indeks buku besar",
   "wallet.no_address": "Tidak ada alamat",
   "wallet.no_address_desc": "{name} belum memiliki alamat {chain}. Silakan buat satu untuk melanjutkan",
-  "wallet.receive_token_instruction": "Kirim dari dompet lain",
+  "wallet.receive_token_instruction": "Deposit dari dompet lain",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Anda membutuhkan setidaknya {0} akun di jaringan mana pun untuk membuat.",
   "word": "Kata"
 }

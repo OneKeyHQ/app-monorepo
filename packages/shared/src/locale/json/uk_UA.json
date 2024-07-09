@@ -1013,7 +1013,7 @@
   "onboarding.import_recovery_phrase_warning": "Сигнал безпеки",
   "onboarding.import_recovery_phrase_warning_help_text": "Для безпеки вашого активу, уникайте імпорту фрази відновлення вашого апаратного гаманця та використовуйте \"Підключити апаратний гаманець\" для оптимальної безпеки.",
   "onboarding.install_onekey_bridge": "Встановіть OneKey Bridge",
-  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge сприяє безшовному зв'язку між OneKey та вашим браузером для кращого досвіду користування.",
+  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge сприяє безшовному зв'язку між OneKey та вашим браузером для кращого досвіду користування.\n\nЯкщо у вас виникли проблеми під час встановлення OneKey Bridge, будь ласка, зверніться до <url>онлайн-посібника</url> за допомогою.",
   "onboarding.migrate_from_v4": "Міграція з OneKey v4",
   "onboarding.onekey_hw": "Апаратний гаманець OneKey",
   "onboarding.onekey_hw_intro_desc": "OneKey Hardware Wallet - безпечне та зручне рішення для управління криптовалютою. Він підтримує кілька криптовалют і забезпечує надійне шифрування для безпечних транзакцій.",
@@ -1393,7 +1393,7 @@
   "token_selector.title": "Виберіть токен",
   "token_selector.unverified_token_warning": "Неперевірений токен нижче. Будьте обережні.",
   "transaction.advanced": "Розширений",
-  "transaction.application": "Додаток",
+  "transaction.application": "dApp",
   "transaction.cancel": "Скасувати",
   "transaction.confirm": "Підтвердити",
   "transaction.current_gwei": "Поточний: {amount} Gwei",
@@ -1547,7 +1547,7 @@
   "wallet.ledger_index": "Індекс бухгалтерського журналу",
   "wallet.no_address": "Немає адреси",
   "wallet.no_address_desc": "{name} ще не має адреси {chain}. Будь ласка, створіть її, щоб продовжити",
-  "wallet.receive_token_instruction": "Надіслати з іншого гаманця",
+  "wallet.receive_token_instruction": "Депозит з інших гаманців",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Вам потрібно мати принаймні {0} облікових записів у будь-якій одній мережі, щоб створити.",
   "word": "Слово"
 }

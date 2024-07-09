@@ -1013,7 +1013,7 @@
   "onboarding.import_recovery_phrase_warning": "নিরাপত্তি সতর্কতা",
   "onboarding.import_recovery_phrase_warning_help_text": "আপনার সম্পদের নিরাপত্তার জন্য, আপনার হার্ডওয়্যার ওয়ালেটের পুনরুদ্ধার বাক্যাংশ আমদানি করা এড়িয়ে চলুন এবং সর্বোত্তম নিরাপত্তা পেতে \"হার্ডওয়্যার ওয়ালেট সংযোগ করুন\" ব্যবহার করুন।",
   "onboarding.install_onekey_bridge": "OneKey Bridge ইনস্টল করুন",
-  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge আপনার ব্রাউজার এবং OneKey এর মধ্যে সমন্বিত যোগাযোগ সরবরাহ করে একটি আরও ভাল অভিজ্ঞতা নিশ্চিত করে।",
+  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge আপনার ব্রাউজার এবং OneKey এর মধ্যে সমন্বিত যোগাযোগ সরবরাহ করে একটি আরও ভাল অভিজ্ঞতা নিশ্চিত করে।\n\nযদি আপনি OneKey Bridge ইনস্টলেশনের সময় সমস্যা সম্মুখীন হন, দয়া করে সাহায্যের জন্য <url>অনলাইন টিউটোরিয়াল</url> দেখুন।",
   "onboarding.migrate_from_v4": "OneKey v4 থেকে মাইগ্রেট করুন",
   "onboarding.onekey_hw": "OneKey হার্ডওয়্যার ওয়ালেট",
   "onboarding.onekey_hw_intro_desc": "OneKey হার্ডওয়্যার ওয়ালেট, ক্রিপ্টো ব্যবস্থাপনার জন্য নিরাপদ এবং ব্যবহারকারী-বন্ধুত্বপূর্ণ সমাধান। এটি একাধিক ক্রিপ্টোকারেন্সি সমর্থন করে এবং নিরাপদ লেনদেনের জন্য শক্তিশালী এনক্রিপশন নিশ্চিত করে।",
@@ -1393,7 +1393,7 @@
   "token_selector.title": "টোকেন নির্বাচন করুন",
   "token_selector.unverified_token_warning": "অপরিচেয়িত টোকেন নিচে। সতর্কতার সাথে অগ্রসর হন।",
   "transaction.advanced": "উন্নত",
-  "transaction.application": "অ্যাপ্লিকেশন",
+  "transaction.application": "dApp",
   "transaction.cancel": "বাতিল করুন",
   "transaction.confirm": "নিশ্চিত করুন",
   "transaction.current_gwei": "বর্তমান: {amount} গুয়েই",
@@ -1547,7 +1547,7 @@
   "wallet.ledger_index": "খাতার সূচী",
   "wallet.no_address": "কোন ঠিকানা নেই",
   "wallet.no_address_desc": "{name} এর এখনো কোনো {chain} ঠিকানা নেই। অনুগ্রহ করে একটি তৈরি করুন যাতে আপনি চালিয়ে যেতে পারেন",
-  "wallet.receive_token_instruction": "অন্য একটি ওয়ালেট থেকে পাঠান",
+  "wallet.receive_token_instruction": "অন্যান্য ওয়ালেট থেকে ডিপোজিট",
   "wallet.you_need_str_accounts_on_any_network_to_create": "আপনার কোন একটি নেটওয়ার্কে কমপক্ষে {0} টি অ্যাকাউন্ট থাকা প্রয়োজন তৈরি করার জন্য।",
   "word": "শব্দ"
 }

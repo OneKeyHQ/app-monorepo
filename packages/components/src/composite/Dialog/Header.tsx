@@ -1,9 +1,11 @@
 import { createContext, memo, useContext, useEffect, useMemo } from 'react';
 
 import { IconButton } from '../../actions/IconButton';
+import { RichSizeableText } from '../../content/RichSizeableText';
 import { Heading, Icon, SizableText, Stack } from '../../primitives';
 
 import type { IDialogHeaderContextType, IDialogHeaderProps } from './type';
+import type { IRichSizeableTextProps } from '../../content/RichSizeableText';
 import type { ColorTokens, ISizableTextProps } from '../../primitives';
 
 export const DialogHeaderContext = createContext<IDialogHeaderContextType>(
@@ -71,6 +73,10 @@ export function DialogTitle({ children, ...props }: ISizableTextProps) {
 
 export function DialogDescription(props: ISizableTextProps) {
   return <SizableText size="$bodyLg" mt="$1.5" {...props} />;
+}
+
+export function DialogRichDescription(props: IRichSizeableTextProps) {
+  return <RichSizeableText size="$bodyLg" mt="$1.5" {...props} />;
 }
 
 function BasicDialogHeader({ onClose }: { onClose: () => void }) {

@@ -140,7 +140,7 @@ function SearchModal() {
           }}
           renderItemText={() => (
             <RichSizeableText
-              linkList={{ a: { cursor: 'auto' } }}
+              linkList={{ a: { url: undefined, cursor: 'auto' } }}
               numberOfLines={1}
               size="$bodyLgMedium"
             >

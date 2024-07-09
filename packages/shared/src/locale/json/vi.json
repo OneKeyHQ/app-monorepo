@@ -1013,7 +1013,7 @@
   "onboarding.import_recovery_phrase_warning": "Cảnh báo bảo mật",
   "onboarding.import_recovery_phrase_warning_help_text": "Để đảm bảo an toàn cho tài sản của bạn, hãy tránh nhập cụm từ phục hồi của ví cứng và sử dụng \"Kết nối Ví Cứng\" để đảm bảo an ninh tối ưu.",
   "onboarding.install_onekey_bridge": "Cài đặt OneKey Bridge",
-  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge giúp tạo liên lạc mượt mà giữa OneKey và trình duyệt của bạn để mang lại trải nghiệm tốt hơn.",
+  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge giúp tạo liên kết mượt mà giữa OneKey và trình duyệt của bạn để mang lại trải nghiệm tốt hơn.\n\nNếu bạn gặp vấn đề trong quá trình cài đặt OneKey Bridge, vui lòng tham khảo <url>hướng dẫn trực tuyến</url> để được hỗ trợ.",
   "onboarding.migrate_from_v4": "Chuyển đổi từ OneKey v4",
   "onboarding.onekey_hw": "Ví Cứng OneKey",
   "onboarding.onekey_hw_intro_desc": "Ví cứng OneKey, một giải pháp an toàn và thân thiện với người dùng cho việc quản lý tiền điện tử. Nó hỗ trợ nhiều loại tiền điện tử và đảm bảo mã hóa mạnh mẽ để giao dịch an toàn.",
@@ -1393,7 +1393,7 @@
   "token_selector.title": "Chọn Token",
   "token_selector.unverified_token_warning": "Token chưa được xác minh dưới đây. Tiến hành cẩn thận.",
   "transaction.advanced": "Nâng cao",
-  "transaction.application": "Ứng dụng",
+  "transaction.application": "dApp",
   "transaction.cancel": "Hủy",
   "transaction.confirm": "Xác nhận",
   "transaction.current_gwei": "Hiện tại: {amount} Gwei",
@@ -1547,7 +1547,7 @@
   "wallet.ledger_index": "Chỉ số sổ cái",
   "wallet.no_address": "Không có địa chỉ",
   "wallet.no_address_desc": "{name} chưa có địa chỉ {chain}. Vui lòng tạo một địa chỉ để tiếp tục",
-  "wallet.receive_token_instruction": "Gửi từ ví khác",
+  "wallet.receive_token_instruction": "Nạp từ các ví khác",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Bạn cần ít nhất {0} tài khoản trên bất kỳ mạng lưới nào để tạo.",
   "word": "Từ"
 }

@@ -1013,7 +1013,7 @@
   "onboarding.import_recovery_phrase_warning": "セキュリティアラート",
   "onboarding.import_recovery_phrase_warning_help_text": "あなたの資産の安全のために、ハードウェアウォレットのリカバリーフレーズをインポートするのを避け、最適なセキュリティを確保するために「ハードウェアウォレットを接続する」を使用してください。",
   "onboarding.install_onekey_bridge": "OneKey Bridgeをインストールする",
-  "onboarding.install_onekey_bridge_help_text": "OneKey Bridgeは、OneKeyとあなたのブラウザ間のシームレスな通信を促進し、より良い体験を提供します。",
+  "onboarding.install_onekey_bridge_help_text": "OneKey Bridgeは、OneKeyとブラウザ間のシームレスな通信を促進し、より良い体験を提供します。\n\nOneKey Bridgeのインストール中に問題が発生した場合は、<url>オンラインチュートリアル</url>を参照してください。",
   "onboarding.migrate_from_v4": "OneKey v4からの移行",
   "onboarding.onekey_hw": "OneKey ハードウェアウォレット",
   "onboarding.onekey_hw_intro_desc": "OneKeyハードウェアウォレットは、暗号資産管理のための安全で使いやすいソリューションです。複数の暗号通貨をサポートし、安全な取引のための堅牢な暗号化を保証します。",
@@ -1393,7 +1393,7 @@
   "token_selector.title": "トークンを選択",
   "token_selector.unverified_token_warning": "未確認のトークンが以下にあります。注意して進めてください。",
   "transaction.advanced": "高度な",
-  "transaction.application": "アプリケーション",
+  "transaction.application": "dApp",
   "transaction.cancel": "キャンセル",
   "transaction.confirm": "確認",
   "transaction.current_gwei": "現在: {amount} Gwei",
@@ -1547,7 +1547,7 @@
   "wallet.ledger_index": "元帳インデックス",
   "wallet.no_address": "住所なし",
   "wallet.no_address_desc": "{name}はまだ{chain}アドレスを持っていません。続行するには作成してください",
-  "wallet.receive_token_instruction": "別のウォレットから送信",
+  "wallet.receive_token_instruction": "他のウォレットからのデポジット",
   "wallet.you_need_str_accounts_on_any_network_to_create": "作成するには、任意の単一ネットワーク上に少なくとも{0}のアカウントが必要です。",
   "word": "ワード"
 }

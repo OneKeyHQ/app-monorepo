@@ -1013,7 +1013,7 @@
   "onboarding.import_recovery_phrase_warning": "Security alert",
   "onboarding.import_recovery_phrase_warning_help_text": "For your asset safety, avoid importing the recovery phrase of your hardware wallet and use \"Connect Hardware Wallet\" for optimal security.",
   "onboarding.install_onekey_bridge": "Install OneKey Bridge",
-  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge facilitates seamless communication between OneKey and your browser for a better experience.",
+  "onboarding.install_onekey_bridge_help_text": "OneKey Bridge facilitates seamless communication between OneKey and your browser for a better experience.\n\nIf you encounter issues during the installation of OneKey Bridge, please refer to the <url>online tutorial</url> for assistance.",
   "onboarding.migrate_from_v4": "Migrate from OneKey v4",
   "onboarding.onekey_hw": "OneKey Hardware Wallet",
   "onboarding.onekey_hw_intro_desc": "OneKey Hardware Wallet, a secure and user-friendly solution for crypto management. It supports multiple cryptocurrencies and ensures robust encryption for safe transactions.",
@@ -1393,7 +1393,7 @@
   "token_selector.title": "Select Token",
   "token_selector.unverified_token_warning": "Unverified Token below. Proceed with caution.",
   "transaction.advanced": "Advanced",
-  "transaction.application": "Application",
+  "transaction.application": "dApp",
   "transaction.cancel": "Cancel",
   "transaction.confirm": "Confirm",
   "transaction.current_gwei": "Current: {amount} Gwei",
@@ -1547,7 +1547,7 @@
   "wallet.ledger_index": "Ledger index",
   "wallet.no_address": "No address",
   "wallet.no_address_desc": "{name} does not have a {chain} address yet. Please create one to continue",
-  "wallet.receive_token_instruction": "Send from another wallet",
+  "wallet.receive_token_instruction": "Deposit from other wallets",
   "wallet.you_need_str_accounts_on_any_network_to_create": "You need at least {0} accounts on any single network to create.",
   "word": "Word"
 }
