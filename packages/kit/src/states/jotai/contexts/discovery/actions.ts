@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -44,6 +45,13 @@ import {
 
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebView } from 'react-native-webview';
+
+function loggerForEmptyData(tabs: IWebTab[], fnName: string) {
+  if (!tabs || tabs.length === 0) {
+    defaultLogger.discovery.browser.setTabsDataFunctionName(fnName);
+    defaultLogger.discovery.browser.tabsData(tabs);
+  }
+}
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -109,6 +117,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
 
       set(webTabsMapAtom(), () => result.map);
+      loggerForEmptyData(result.data, 'buildWebTabs->saveToSimpleDB');
       void backgroundApiProxy.simpleDb.browserTabs.setRawData({
         tabs: result.data,
       });
@@ -118,6 +127,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   refreshTabs = contextAtomMethod((get, set) => {
     const { tabs } = get(webTabsAtom());
     const newTabs = [...tabs];
+    loggerForEmptyData(newTabs, 'refreshTabs');
     this.buildWebTabs.call(set, {
       data: newTabs,
       options: { forceUpdate: true },
@@ -135,6 +145,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       tabs.forEach((t) => {
         t.isActive = false;
       });
+      loggerForEmptyData([...tabs], 'setCurrentWebTab');
       this.buildWebTabs.call(set, { data: [...tabs] });
       if (targetIndex !== -1) {
         tabs[targetIndex].isActive = true;
@@ -196,6 +207,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
       });
       tabs[tabIndex] = tabToModify;
+      loggerForEmptyData(tabs, 'setWebTabData');
       this.buildWebTabs.call(set, { data: tabs });
     }
   });
@@ -223,6 +235,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
       }
     }
+    loggerForEmptyData([...tabs], 'closeWebTab');
     this.buildWebTabs.call(set, { data: [...tabs] });
   });
 
@@ -239,6 +252,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         delete webviewRefs[id];
       }
     }
+    loggerForEmptyData(pinnedTabs, 'closeAllWebTabs');
     this.buildWebTabs.call(set, { data: pinnedTabs });
   });
 
