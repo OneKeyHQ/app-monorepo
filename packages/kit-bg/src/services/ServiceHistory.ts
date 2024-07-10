@@ -161,6 +161,27 @@ class ServiceHistory extends ServiceBase {
       confirmedTxsToSave = confirmedTxs;
     }
 
+    const nonceHasBeenUsedTxs: IAccountHistoryTx[] = [];
+    let finalPendingTxs: IAccountHistoryTx[] = [];
+    if (vaultSettings.nonceRequired) {
+      pendingTxs.forEach((tx) => {
+        if (
+          onChainHistoryTxs.find(
+            (onChainHistoryTx) =>
+              !isNil(onChainHistoryTx.decodedTx.nonce) &&
+              !isNil(tx.decodedTx.nonce) &&
+              onChainHistoryTx.decodedTx.nonce === tx.decodedTx.nonce,
+          )
+        ) {
+          nonceHasBeenUsedTxs.push(tx);
+        } else {
+          finalPendingTxs.push(tx);
+        }
+      });
+    } else {
+      finalPendingTxs = pendingTxs;
+    }
+
     await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
       {
         networkId,
@@ -176,19 +197,22 @@ class ServiceHistory extends ServiceBase {
         networkId,
         accountAddress,
         xpub,
-        confirmedTxs,
+        confirmedTxs: [...confirmedTxs, ...nonceHasBeenUsedTxs],
       },
     );
 
     // Merge the locally pending transactions, confirmed transactions, and on-chain history to return
 
     const result = unionBy(
-      [...pendingTxs, ...confirmedTxsToSave, ...onChainHistoryTxs],
+      [
+        ...finalPendingTxs,
+        ...[...confirmedTxsToSave, ...onChainHistoryTxs].sort(
+          (b, a) =>
+            (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+            (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
+        ),
+      ],
       (tx) => tx.id,
-    ).sort(
-      (b, a) =>
-        (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-        (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
     );
 
     return result;
