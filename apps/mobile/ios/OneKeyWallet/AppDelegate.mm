@@ -14,10 +14,10 @@
 {
   #ifdef DEBUG
   #else
-    NSString *version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];
-    if (![version isEqualToString:@"1"]) {
+//    NSString *version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];
+//    if (![version isEqualToString:@"1"]) {
       [FIRApp configure];
-    }
+//    }
   #endif
   self.moduleName = @"main";
 
