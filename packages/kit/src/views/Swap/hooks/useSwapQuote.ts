@@ -58,9 +58,9 @@ export function useSwapQuote() {
   }, [fromToken?.decimals, fromAmountDebounce, setFromTokenAmount]);
 
   useEffect(() => {
-    if (swapSlippageDialogOpening || swapApproveAllowanceSelectOpen) {
+    if (swapSlippageDialogOpening.status || swapApproveAllowanceSelectOpen) {
       cleanQuoteInterval();
-    } else {
+    } else if (swapSlippageDialogOpening.flag !== 'save') {
       void recoverQuoteInterval(
         activeAccountRef.current?.address,
         activeAccountRef.current?.accountInfo?.account?.id,

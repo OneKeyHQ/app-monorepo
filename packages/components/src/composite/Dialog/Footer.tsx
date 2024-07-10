@@ -74,7 +74,10 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
       ? await new Promise<boolean>((resolve) => {
           void Promise.resolve(
             onConfirm?.({
-              close,
+              close: (extra) => {
+                resolve(false);
+                void close(extra);
+              },
               preventClose: () => {
                 resolve(false);
               },
