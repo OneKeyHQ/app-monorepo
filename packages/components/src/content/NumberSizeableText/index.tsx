@@ -46,7 +46,6 @@ export function NumberSizeableText({
             key={index}
             {...props}
             fontSize={scriptFontSize}
-            lineHeight={16}
             {...subTextStyle}
           >
             {r.value}
