@@ -3,12 +3,8 @@ import { memo, useCallback, useRef } from 'react';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  Dialog,
-  IDialogInstance,
-  NumberSizeableText,
-  YStack,
-} from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
+import { Dialog, NumberSizeableText, YStack } from '@onekeyhq/components';
 import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
