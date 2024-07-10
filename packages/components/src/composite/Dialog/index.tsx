@@ -298,12 +298,11 @@ function BaseDialogContainer(
     [onClose],
   );
 
-  const handleContainerClose = useCallback(() => handleClose(), [handleClose]);
 
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
-        close: handleContainerClose,
+        close: handleClose,
         ref: formRef,
       },
       footerRef: {
@@ -311,7 +310,7 @@ function BaseDialogContainer(
         props: undefined,
       },
     }),
-    [handleContainerClose],
+    [handleClose],
   );
 
   const handleOpen = useCallback(() => {
@@ -363,7 +362,7 @@ function BaseDialogContainer(
           open={isOpen}
           onOpen={handleOpen}
           renderContent={renderContent}
-          onClose={handleContainerClose}
+          onClose={handleClose}
           {...props}
         />
       </DialogHeaderContext.Provider>
