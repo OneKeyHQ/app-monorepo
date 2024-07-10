@@ -108,6 +108,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           networkImplMap: {},
           addressMap: {},
           walletConnectTopic,
+          updatedAt: Date.now(),
         };
       } else {
         // If one already exists, create a new copy to maintain immutability.
@@ -119,6 +120,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           addressMap: { ...connectionItem.addressMap },
           walletConnectTopic:
             walletConnectTopic || connectionItem.walletConnectTopic,
+          updatedAt: Date.now(),
         };
       }
 
@@ -221,6 +223,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         connectionMap: updatedConnectionMap,
         networkImplMap,
         addressMap,
+        updatedAt: Date.now(),
       };
 
       const updatedStorage = {
@@ -413,6 +416,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       const updatedConnectionItem = {
         ...connectionItem,
         connectionMap: updatedConnectionMap,
+        updatedAt: Date.now(),
       };
 
       // Return the updated rawData with the updated connection item

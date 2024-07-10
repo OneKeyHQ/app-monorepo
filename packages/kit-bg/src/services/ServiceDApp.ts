@@ -645,7 +645,12 @@ class ServiceDApp extends ServiceBase {
       }
       item.availableNetworksMap = networksMap;
     }
-    return allConnectedList;
+    const sortedList = allConnectedList.sort((a, b) => {
+      const aTime = a.updatedAt ?? 0;
+      const bTime = b.updatedAt ?? 0;
+      return bTime - aTime;
+    });
+    return sortedList;
   }
 
   async disconnectInactiveSessions(
