@@ -85,9 +85,11 @@ export function useSwapInit(params?: ISwapInitParams) {
           ),
         );
     }
-    await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
-      data: networks,
-    });
+    if (networks.length) {
+      await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
+        data: networks,
+      });
+    }
     if (
       !swapNetworksSortList?.data?.length ||
       swapNetworksSortList?.data?.length !== networks.length
@@ -257,7 +259,6 @@ export function useSwapTokenList(
 
   useEffect(() => {
     if (
-      swapAddressInfo.accountInfo?.account &&
       tokenFetchParams.accountNetworkId &&
       tokenFetchParams.networkId !== tokenFetchParams.accountNetworkId
     ) {
@@ -265,15 +266,10 @@ export function useSwapTokenList(
       return;
     }
     void tokenListFetchAction(tokenFetchParams);
-  }, [
-    swapAddressInfo.accountInfo?.account,
-    tokenFetchParams,
-    tokenListFetchAction,
-  ]);
+  }, [tokenFetchParams, tokenListFetchAction]);
 
   useEffect(() => {
     if (
-      swapAddressInfo.accountInfo?.account &&
       tokenFetchParams.accountNetworkId &&
       tokenFetchParams.networkId !== tokenFetchParams.accountNetworkId
     ) {
@@ -286,13 +282,7 @@ export function useSwapTokenList(
         tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
       );
     }
-  }, [
-    tokenCatch,
-    swapAddressInfo.accountInfo?.account,
-    tokenFetchParams,
-    currentNetworkId,
-    keywords,
-  ]);
+  }, [tokenCatch, tokenFetchParams, currentNetworkId, keywords]);
 
   return {
     fetchLoading: swapTokenFetching && currentTokens.length === 0,
