@@ -13,4 +13,5 @@ export type IEncodedTxDot = UnsignedTransaction & {
   specName?: string;
   feeInfo?: IFeeInfoUnit;
   chainName?: string;
+  isFromDapp?: boolean;
 };
