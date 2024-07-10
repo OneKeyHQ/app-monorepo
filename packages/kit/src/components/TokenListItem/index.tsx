@@ -58,16 +58,22 @@ export function TokenListItem({
             networkImageUri={networkImageSrc}
           />
           <ListItem.Text
-            maxWidth={170}
-            $gtMd={{ maxWidth: 200 }}
             primary={tokenSymbol}
             primaryMatch={titleMatchStr}
-            primaryTextProps={{ maxWidth: 170, $gtMd: { maxWidth: 300 } }}
+            primaryTextProps={{
+              maxWidth: 170,
+              $gtMd: { maxWidth: 300 },
+              numberOfLines: 1,
+            }}
             secondary={
               isSearch ? (
-                <Stack space="$0.5" $gtMd={{ flexDirection: 'row' }}>
+                <Stack
+                  space="$0.5"
+                  $gtMd={{ flexDirection: 'row', space: '$1' }}
+                >
                   <SizableText
                     maxWidth={170}
+                    numberOfLines={1}
                     $gtMd={{ maxWidth: 200 }}
                     color="$textSubdued"
                     size="$bodyMd"
