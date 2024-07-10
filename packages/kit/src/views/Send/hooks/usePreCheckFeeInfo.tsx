@@ -64,7 +64,7 @@ function usePreCheckFeeInfo({
       feeSymbol: string;
     }) => {
       const { serviceSend, serviceAccount } = backgroundApiProxy;
-      const account = await serviceAccount.getAccount({
+      const accountAddress = await serviceAccount.getAccountAddressForApi({
         accountId,
         networkId,
       });
@@ -73,7 +73,7 @@ function usePreCheckFeeInfo({
         feeAmount,
         feeTokenSymbol: feeSymbol,
         networkId,
-        accountAddress: account.address,
+        accountAddress,
       });
 
       return isFeeInfoOverflow;
