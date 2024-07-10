@@ -14,6 +14,8 @@ import { b2t, toHumanReadable } from '../libs/utils';
 import type { IDependencies } from '.';
 import type { IUpdateSettings } from '../libs/store';
 
+const isLinux = process.platform === 'linux';
+
 interface ILatestVersion {
   version: string;
   releaseDate: string;
@@ -168,7 +170,9 @@ const init = ({ mainWindow, store }: IDependencies) => {
       `Update checking request (manual: ${b2t(isManualCheck)})`,
     );
 
-    const { free } = await checkDiskSpace(rootPath);
+    // fix the issue where the remaining space inside the read-only image is 0
+    //  after loading AppImage from a read-only partition.
+    const { free } = await checkDiskSpace(isLinux ? '/' : rootPath);
     logger.info('check-free-space', `${free} ${rootPath}`);
     if (free < 1024 * 1024 * 300) {
       mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
