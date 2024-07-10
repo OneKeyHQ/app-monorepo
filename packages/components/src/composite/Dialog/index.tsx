@@ -298,7 +298,6 @@ function BaseDialogContainer(
     [onClose],
   );
 
-
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
