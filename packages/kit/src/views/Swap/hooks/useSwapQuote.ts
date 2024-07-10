@@ -60,13 +60,22 @@ export function useSwapQuote() {
   useEffect(() => {
     if (swapSlippageDialogOpening.status || swapApproveAllowanceSelectOpen) {
       cleanQuoteInterval();
-    } else if (swapSlippageDialogOpening.flag !== 'save') {
+    } else if (
+      !swapSlippageDialogOpening.status &&
+      swapSlippageDialogOpening.flag === 'save'
+    ) {
+      void quoteAction(
+        activeAccountRef.current?.address,
+        activeAccountRef.current?.accountInfo?.account?.id,
+      );
+    } else {
       void recoverQuoteInterval(
         activeAccountRef.current?.address,
         activeAccountRef.current?.accountInfo?.account?.id,
       );
     }
   }, [
+    quoteAction,
     cleanQuoteInterval,
     recoverQuoteInterval,
     swapApproveAllowanceSelectOpen,

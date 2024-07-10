@@ -3,9 +3,11 @@ import {
   SizableText,
   Stack,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { Token } from '../Token';
@@ -20,6 +22,7 @@ export type ITokenListItemProps = {
   isSearch?: boolean;
   valueProps?: { value: string; currency?: string };
   disabled?: boolean;
+  titleMatchStr?: IFuseResultMatch;
 } & IListItemProps;
 
 export function TokenListItem({
@@ -32,14 +35,17 @@ export function TokenListItem({
   balance,
   valueProps,
   disabled,
+  titleMatchStr,
   ...rest
 }: ITokenListItemProps) {
+  const { gtMd } = useMedia();
   return (
     <ListItem
       userSelect="none"
       {...(disabled && {
         opacity: 0.5,
       })}
+      {...rest}
     >
       <XStack flex={1} justifyContent="space-between">
         <XStack
@@ -52,12 +58,20 @@ export function TokenListItem({
             networkImageUri={networkImageSrc}
           />
           <ListItem.Text
+            maxWidth={170}
+            $gtMd={{ maxWidth: 200 }}
             primary={tokenSymbol}
-            primaryMatch={rest.titleMatch}
+            primaryMatch={titleMatchStr}
+            primaryTextProps={{ maxWidth: 170, $gtMd: { maxWidth: 300 } }}
             secondary={
               isSearch ? (
-                <Stack space="$1" $gtMd={{ flexDirection: 'row' }}>
-                  <SizableText color="$textSubdued" size="$bodyMd">
+                <Stack space="$0.5" $gtMd={{ flexDirection: 'row' }}>
+                  <SizableText
+                    maxWidth={170}
+                    $gtMd={{ maxWidth: 200 }}
+                    color="$textSubdued"
+                    size="$bodyMd"
+                  >
                     {tokenName}
                   </SizableText>
                   <SizableText color="$textDisabled" size="$bodyMd">
@@ -75,7 +89,7 @@ export function TokenListItem({
           />
         </XStack>
         <ListItem.Text
-          align="right"
+          align={gtMd ? 'center' : 'left'}
           primary={
             <NumberSizeableText
               textAlign="right"
