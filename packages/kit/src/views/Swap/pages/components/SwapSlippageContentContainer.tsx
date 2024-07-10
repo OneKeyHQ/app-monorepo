@@ -4,7 +4,7 @@ import { BigNumber } from 'bignumber.js';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IInputProps } from '@onekeyhq/components';
+import type { IDialogInstance, IInputProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -89,7 +89,10 @@ const SwapsSlippageContentContainer = ({
 }: {
   swapSlippage: ISwapSlippageSegmentItem;
   autoValue: number;
-  onSave: (slippage: ISwapSlippageSegmentItem) => void;
+  onSave: (
+    slippage: ISwapSlippageSegmentItem,
+    close: IDialogInstance['close'],
+  ) => void;
 }) => {
   const [swapSlippageStatus, setSwapSlippageStatus] = useState(swapSlippage);
   const intl = useIntl();
@@ -251,8 +254,8 @@ const SwapsSlippageContentContainer = ({
             swapSlippageStatus.key === ESwapSlippageSegmentKey.CUSTOM &&
             customValueState.status === ESwapSlippageCustomStatus.ERROR,
         }}
-        onConfirm={() => {
-          onSave(swapSlippageStatus);
+        onConfirm={({ close }) => {
+          onSave(swapSlippageStatus, close);
         }}
       />
     </YStack>
