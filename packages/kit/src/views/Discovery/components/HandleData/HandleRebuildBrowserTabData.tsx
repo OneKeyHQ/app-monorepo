@@ -7,61 +7,39 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
-function HandleRebuildTabData() {
-  const { buildWebTabs, setTabsDataReady } = useBrowserTabActions().current;
+export function HandleRebuildBrowserData() {
+  const { buildWebTabs, setBrowserDataReady } = useBrowserTabActions().current;
+  const { buildBookmarkData } = useBrowserBookmarkAction().current;
+  const { buildHistoryData } = useBrowserHistoryAction().current;
 
   usePromiseResult(async () => {
-    const data = await backgroundApiProxy.simpleDb.browserTabs.getRawData();
-    const tabs = data?.tabs ?? [];
+    // Tabs
+    const [tabsData, bookmarksData, historyData] = await Promise.all([
+      backgroundApiProxy.simpleDb.browserTabs.getRawData(),
+      backgroundApiProxy.simpleDb.browserBookmarks.getRawData(),
+      backgroundApiProxy.simpleDb.browserHistory.getRawData(),
+    ]);
+    const tabs = tabsData?.tabs ?? [];
     defaultLogger.discovery.browser.setTabsDataFunctionName(
       'setTabsInitializeLock-> true',
     );
-    setTabsDataReady(true);
+    setBrowserDataReady();
     buildWebTabs({ data: tabs });
-  }, [buildWebTabs, setTabsDataReady]);
 
-  return null;
-}
-
-function HandleRebuildBookmarksData() {
-  const { buildBookmarkData, setBookmarksDataReady } =
-    useBrowserBookmarkAction().current;
-
-  usePromiseResult(async () => {
-    const data =
-      await backgroundApiProxy.simpleDb.browserBookmarks.getRawData();
-    const bookmarks = data?.data || [];
-    setBookmarksDataReady(true);
+    // Bookmarks
+    const bookmarks = bookmarksData?.data || [];
     if (bookmarks && Array.isArray(bookmarks) && bookmarks.length > 0) {
       buildBookmarkData(bookmarks);
     }
-  }, [buildBookmarkData, setBookmarksDataReady]);
 
-  return null;
-}
-
-function HandleRebuildHistoryData() {
-  const { buildHistoryData, setHistoryDataReady } =
-    useBrowserHistoryAction().current;
-
-  usePromiseResult(async () => {
-    const data = await backgroundApiProxy.simpleDb.browserHistory.getRawData();
-    const histories = data?.data || [];
-    setHistoryDataReady(true);
+    // History
+    const histories = historyData?.data || [];
     if (histories && Array.isArray(histories) && histories.length > 0) {
       buildHistoryData(histories);
     }
-  }, [buildHistoryData, setHistoryDataReady]);
+
+    // History
+  }, [buildWebTabs, buildBookmarkData, buildHistoryData, setBrowserDataReady]);
 
   return null;
-}
-
-export function HandleRebuildBrowserData() {
-  return (
-    <>
-      <HandleRebuildTabData />
-      <HandleRebuildBookmarksData />
-      <HandleRebuildHistoryData />
-    </>
-  );
 }

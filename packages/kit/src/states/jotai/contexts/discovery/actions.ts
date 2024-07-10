@@ -35,13 +35,11 @@ import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import {
   activeTabIdAtom,
-  bookmarksDataReadyAtom,
+  browserDataReadyAtom,
   contextAtomMethod,
   disabledAddedNewTabAtom,
   displayHomePageAtom,
-  historyDataReadyAtom,
   phishingLruCacheAtom,
-  tabsDataReadyAtom,
   webTabsAtom,
   webTabsMapAtom,
 } from './atoms';
@@ -98,8 +96,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     set(displayHomePageAtom(), payload);
   });
 
-  setTabsDataReady = contextAtomMethod((_, set, payload: boolean) => {
-    set(tabsDataReadyAtom(), payload);
+  setBrowserDataReady = contextAtomMethod((_, set) => {
+    set(browserDataReadyAtom(), true);
   });
 
   buildWebTabs = contextAtomMethod(
@@ -108,7 +106,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       set,
       payload: { data: IWebTab[]; options?: { forceUpdate?: boolean } },
     ) => {
-      const isReady = get(tabsDataReadyAtom());
+      const isReady = get(browserDataReadyAtom());
       if (!isReady) {
         return;
       }
@@ -303,13 +301,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     return bookmarks;
   });
 
-  setBookmarksDataReady = contextAtomMethod((_, set, payload: boolean) => {
-    set(bookmarksDataReadyAtom(), payload);
-  });
-
   buildBookmarkData = contextAtomMethod(
     (get, set, payload: IBrowserBookmark[]) => {
-      const isReady = get(bookmarksDataReadyAtom());
+      const isReady = get(browserDataReadyAtom());
       if (!isReady) {
         return;
       }
@@ -366,10 +360,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   /**
    * History actions
    */
-  setHistoryDataReady = contextAtomMethod((_, set, payload: boolean) => {
-    set(historyDataReadyAtom(), payload);
-  });
-
   getHistoryData = contextAtomMethod(async () => {
     const histories =
       (await backgroundApiProxy.simpleDb.browserHistory.getRawData())?.data ??
@@ -379,7 +369,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   buildHistoryData = contextAtomMethod(
     (get, set, payload: IBrowserHistory[]) => {
-      const isReady = get(historyDataReadyAtom());
+      const isReady = get(browserDataReadyAtom());
       if (!isReady) {
         return;
       }
@@ -785,7 +775,7 @@ export function useBrowserTabActions() {
   const setCurrentWebTab = actions.setCurrentWebTab.use();
   const setPinnedTab = actions.setPinnedTab.use();
   const setDisplayHomePage = actions.setDisplayHomePage.use();
-  const setTabsDataReady = actions.setTabsDataReady.use();
+  const setBrowserDataReady = actions.setBrowserDataReady.use();
 
   return useRef({
     addWebTab,
@@ -799,7 +789,7 @@ export function useBrowserTabActions() {
     setCurrentWebTab,
     setPinnedTab,
     setDisplayHomePage,
-    setTabsDataReady,
+    setBrowserDataReady,
   });
 }
 
@@ -810,7 +800,6 @@ export function useBrowserBookmarkAction() {
   const addBrowserBookmark = actions.addBrowserBookmark.use();
   const removeBrowserBookmark = actions.removeBrowserBookmark.use();
   const modifyBrowserBookmark = actions.modifyBrowserBookmark.use();
-  const setBookmarksDataReady = actions.setBookmarksDataReady.use();
 
   return useRef({
     buildBookmarkData,
@@ -818,7 +807,6 @@ export function useBrowserBookmarkAction() {
     addBrowserBookmark,
     removeBrowserBookmark,
     modifyBrowserBookmark,
-    setBookmarksDataReady,
   });
 }
 
@@ -829,7 +817,6 @@ export function useBrowserHistoryAction() {
   const addBrowserHistory = actions.addBrowserHistory.use();
   const removeBrowserHistory = actions.removeBrowserHistory.use();
   const removeAllBrowserHistory = actions.removeAllBrowserHistory.use();
-  const setHistoryDataReady = actions.setHistoryDataReady.use();
 
   return useRef({
     buildHistoryData,
@@ -837,7 +824,6 @@ export function useBrowserHistoryAction() {
     addBrowserHistory,
     removeBrowserHistory,
     removeAllBrowserHistory,
-    setHistoryDataReady,
   });
 }
 

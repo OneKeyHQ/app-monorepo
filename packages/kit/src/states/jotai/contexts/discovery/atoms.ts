@@ -53,11 +53,5 @@ export const { atom: phishingLruCacheAtom, use: usePhishingLruCacheAtom } =
   );
 
 // sync data lock atom
-export const { atom: tabsDataReadyAtom, use: useTabsDataReadyAtom } =
-  contextAtom<boolean>(false);
-
-export const { atom: bookmarksDataReadyAtom, use: useBookmarksDataReadyAtom } =
-  contextAtom<boolean>(false);
-
-export const { atom: historyDataReadyAtom, use: useHistoryDataReadyAtom } =
+export const { atom: browserDataReadyAtom, use: useBrowserDataReadyAtom } =
   contextAtom<boolean>(false);
