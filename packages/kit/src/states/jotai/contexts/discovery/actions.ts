@@ -35,10 +35,13 @@ import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import {
   activeTabIdAtom,
+  bookmarksDataReadyAtom,
   contextAtomMethod,
   disabledAddedNewTabAtom,
   displayHomePageAtom,
+  historyDataReadyAtom,
   phishingLruCacheAtom,
+  tabsDataReadyAtom,
   webTabsAtom,
   webTabsMapAtom,
 } from './atoms';
@@ -95,12 +98,20 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     set(displayHomePageAtom(), payload);
   });
 
+  setTabsDataReady = contextAtomMethod((_, set, payload: boolean) => {
+    set(tabsDataReadyAtom(), payload);
+  });
+
   buildWebTabs = contextAtomMethod(
     (
       get,
       set,
       payload: { data: IWebTab[]; options?: { forceUpdate?: boolean } },
     ) => {
+      const isReady = get(tabsDataReadyAtom());
+      if (!isReady) {
+        return;
+      }
       const webTabs = get(webTabsAtom());
       const { data, options } = payload;
       let newTabs = data;
@@ -292,12 +303,19 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     return bookmarks;
   });
 
+  setBookmarksDataReady = contextAtomMethod((_, set, payload: boolean) => {
+    set(bookmarksDataReadyAtom(), payload);
+  });
+
   buildBookmarkData = contextAtomMethod(
-    (_, set, payload: IBrowserBookmark[]) => {
+    (get, set, payload: IBrowserBookmark[]) => {
+      const isReady = get(bookmarksDataReadyAtom());
+      if (!isReady) {
+        return;
+      }
       if (!Array.isArray(payload)) {
         throw new Error('buildBookmarkData: payload must be an array');
       }
-      // set(browserBookmarkAtom(), payload);
 
       void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks(payload);
     },
@@ -348,6 +366,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   /**
    * History actions
    */
+  setHistoryDataReady = contextAtomMethod((_, set, payload: boolean) => {
+    set(historyDataReadyAtom(), payload);
+  });
+
   getHistoryData = contextAtomMethod(async () => {
     const histories =
       (await backgroundApiProxy.simpleDb.browserHistory.getRawData())?.data ??
@@ -355,14 +377,20 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     return histories;
   });
 
-  buildHistoryData = contextAtomMethod((_, set, payload: IBrowserHistory[]) => {
-    if (!Array.isArray(payload)) {
-      throw new Error('buildHistoryData: payload must be an array');
-    }
-    void backgroundApiProxy.simpleDb.browserHistory.setRawData({
-      data: payload,
-    });
-  });
+  buildHistoryData = contextAtomMethod(
+    (get, set, payload: IBrowserHistory[]) => {
+      const isReady = get(historyDataReadyAtom());
+      if (!isReady) {
+        return;
+      }
+      if (!Array.isArray(payload)) {
+        throw new Error('buildHistoryData: payload must be an array');
+      }
+      void backgroundApiProxy.simpleDb.browserHistory.setRawData({
+        data: payload,
+      });
+    },
+  );
 
   addBrowserHistory = contextAtomMethod(
     async (_, set, payload: Omit<IBrowserHistory, 'id' | 'createdAt'>) => {
@@ -757,6 +785,7 @@ export function useBrowserTabActions() {
   const setCurrentWebTab = actions.setCurrentWebTab.use();
   const setPinnedTab = actions.setPinnedTab.use();
   const setDisplayHomePage = actions.setDisplayHomePage.use();
+  const setTabsDataReady = actions.setTabsDataReady.use();
 
   return useRef({
     addWebTab,
@@ -770,6 +799,7 @@ export function useBrowserTabActions() {
     setCurrentWebTab,
     setPinnedTab,
     setDisplayHomePage,
+    setTabsDataReady,
   });
 }
 
@@ -780,6 +810,7 @@ export function useBrowserBookmarkAction() {
   const addBrowserBookmark = actions.addBrowserBookmark.use();
   const removeBrowserBookmark = actions.removeBrowserBookmark.use();
   const modifyBrowserBookmark = actions.modifyBrowserBookmark.use();
+  const setBookmarksDataReady = actions.setBookmarksDataReady.use();
 
   return useRef({
     buildBookmarkData,
@@ -787,6 +818,7 @@ export function useBrowserBookmarkAction() {
     addBrowserBookmark,
     removeBrowserBookmark,
     modifyBrowserBookmark,
+    setBookmarksDataReady,
   });
 }
 
@@ -797,6 +829,7 @@ export function useBrowserHistoryAction() {
   const addBrowserHistory = actions.addBrowserHistory.use();
   const removeBrowserHistory = actions.removeBrowserHistory.use();
   const removeAllBrowserHistory = actions.removeAllBrowserHistory.use();
+  const setHistoryDataReady = actions.setHistoryDataReady.use();
 
   return useRef({
     buildHistoryData,
@@ -804,6 +837,7 @@ export function useBrowserHistoryAction() {
     addBrowserHistory,
     removeBrowserHistory,
     removeAllBrowserHistory,
+    setHistoryDataReady,
   });
 }
 
