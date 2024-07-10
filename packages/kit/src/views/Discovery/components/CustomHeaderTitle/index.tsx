@@ -4,7 +4,7 @@ import type { IStackProps } from '@onekeyhq/components';
 import { Icon, Shortcut, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { keysMap } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
@@ -75,7 +75,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       </SizableText>
       {platformEnv.isDesktop ? (
         <Shortcut>
-          <Shortcut.Key>{keysMap.CmdOrCtrl}</Shortcut.Key>
+          <Shortcut.Key>{shortcutsKeys.CmdOrCtrl}</Shortcut.Key>
           <Shortcut.Key>T</Shortcut.Key>
         </Shortcut>
       ) : null}
