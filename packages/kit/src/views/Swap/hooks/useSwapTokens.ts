@@ -225,18 +225,9 @@ export function useSwapTokenList(
     () => ({
       networkId: currentNetworkId,
       keywords,
-      accountAddress:
-        selectTokenModalType === ESwapDirectionType.FROM
-          ? swapAddressInfo?.address
-          : undefined,
-      accountNetworkId:
-        selectTokenModalType === ESwapDirectionType.FROM
-          ? swapAddressInfo?.networkId
-          : undefined,
-      accountId:
-        selectTokenModalType === ESwapDirectionType.FROM
-          ? swapAddressInfo?.accountInfo?.account?.id
-          : undefined,
+      accountAddress: swapAddressInfo?.address,
+      accountNetworkId: swapAddressInfo?.networkId,
+      accountId: swapAddressInfo?.accountInfo?.account?.id,
     }),
     [
       currentNetworkId,
