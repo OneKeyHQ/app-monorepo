@@ -1,5 +1,3 @@
-import { Alt } from '@onekeyhq/components/src/primitives/Icon/react/outline';
-
 import platformEnv from '../platformEnv';
 
 export enum EBrowserShortcutEvents {
