@@ -171,7 +171,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     );
 
     // fix the issue where the remaining space inside the read-only image is 0
-    //  after loading AppImage from a read-only partition.
+    //  after loading AppImage from a read-only partition in Linux.
     const { free } = await checkDiskSpace(isLinux ? '/' : rootPath);
     logger.info('check-free-space', `${free} ${rootPath}`);
     if (free < 1024 * 1024 * 300) {
