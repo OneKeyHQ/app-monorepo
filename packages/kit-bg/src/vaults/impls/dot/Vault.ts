@@ -617,7 +617,7 @@ export default class VaultDot extends VaultBase {
       }
     }
 
-    if (!params.nonceInfo) {
+    if (!params.nonceInfo && !encodedTx.isFromDapp) {
       const blockInfo = await this._getBlockInfo();
       const era = getRegistry({
         metadataRpc: encodedTx.metadataRpc,
