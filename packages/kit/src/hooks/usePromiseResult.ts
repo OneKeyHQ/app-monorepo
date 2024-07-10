@@ -256,12 +256,27 @@ export function usePromiseResult<T>(
     () => [...deps, optionsRef.current.pollingInterval],
     [deps],
   );
+  const runAtRef = useRef(0);
   useEffect(() => {
-    pollingNonceRef.current += 1;
-    void runRef.current({
-      triggerByDeps: true,
-      pollingNonce: pollingNonceRef.current,
-    });
+    const callback = () => {
+      runAtRef.current = Date.now();
+      pollingNonceRef.current += 1;
+      void runRef.current({
+        triggerByDeps: true,
+        pollingNonce: pollingNonceRef.current,
+      });
+    };
+    if (runAtRef.current) {
+      setTimeout(
+        callback,
+        Date.now() - runAtRef.current >
+          (optionsRef.current.pollingInterval || 0)
+          ? 0
+          : optionsRef.current.pollingInterval,
+      );
+    } else {
+      callback();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, runnerDeps);
 

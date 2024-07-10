@@ -48,11 +48,10 @@ class ServiceAppUpdate extends ServiceBase {
     if (
       Date.now() - this.updateAt <
         timerUtils.getTimeDurationMs({
-          hour: 1,
+          minute: 5,
         }) &&
       this.cachedUpdateInfo
     ) {
-      void this.fetchConfig();
       return this.cachedUpdateInfo;
     }
     return this.fetchConfig();
