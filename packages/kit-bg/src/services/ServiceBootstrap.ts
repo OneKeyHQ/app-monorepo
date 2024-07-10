@@ -1,5 +1,4 @@
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import systemLocaleUtils from '@onekeyhq/shared/src/locale/systemLocale';
 
 import ServiceBase from './ServiceBase';
 
@@ -10,7 +9,7 @@ class ServiceBootstrap extends ServiceBase {
   }
 
   public async init() {
-    await systemLocaleUtils.initSystemLocale();
+    await this.backgroundApi.serviceSetting.initSystemLocale();
     await Promise.all([
       this.backgroundApi.serviceSetting.refreshLocaleMessages(),
       this.backgroundApi.walletConnect.initializeOnStart(),

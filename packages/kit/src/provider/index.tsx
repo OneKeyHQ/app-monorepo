@@ -7,6 +7,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUti
 
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
+import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 
 import { Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
@@ -43,6 +44,7 @@ export function KitProvider() {
           <PasswordVerifyPromptMount />
           <WebViewWebEmbedProvider />
           <LastActivityTracker />
+          <SystemLocaleTracker />
           <InAppNotification />
         </ThemeProvider>
       </GestureHandlerRootView>
