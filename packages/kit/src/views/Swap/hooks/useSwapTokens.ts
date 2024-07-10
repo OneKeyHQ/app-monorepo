@@ -231,7 +231,6 @@ export function useSwapTokenList(
     }),
     [
       currentNetworkId,
-      selectTokenModalType,
       keywords,
       swapAddressInfo?.address,
       swapAddressInfo?.networkId,
