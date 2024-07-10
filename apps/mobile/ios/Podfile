@@ -66,6 +66,7 @@ elsif podfile_properties.key?('ios.flipper') then
   end
 end
 
+use_modular_headers!
 target 'OneKeyWallet' do
   use_expo_modules!
   config = use_native_modules!
