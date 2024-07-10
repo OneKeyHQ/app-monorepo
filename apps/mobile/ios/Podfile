@@ -55,17 +55,17 @@ $RNFirebaseAsStaticFramework = true
 # }
 # ```
 flipper_config = FlipperConfiguration.disabled
-if ENV['NO_FLIPPER'] == '1' then
-  # Explicitly disabled through environment variables
-  flipper_config = FlipperConfiguration.disabled
-elsif podfile_properties.key?('ios.flipper') then
-  # Configure Flipper in Podfile.properties.json
-  if podfile_properties['ios.flipper'] == 'true' then
-    flipper_config = FlipperConfiguration.enabled(["Debug"])
-  elsif podfile_properties['ios.flipper'] != 'false' then
-    flipper_config = FlipperConfiguration.enabled(["Debug"], { 'Flipper' => podfile_properties['ios.flipper'] })
-  end
-end
+# if ENV['NO_FLIPPER'] == '1' then
+#   # Explicitly disabled through environment variables
+#   flipper_config = FlipperConfiguration.disabled
+# elsif podfile_properties.key?('ios.flipper') then
+#   # Configure Flipper in Podfile.properties.json
+#   if podfile_properties['ios.flipper'] == 'true' then
+#     flipper_config = FlipperConfiguration.enabled(["Debug"])
+#   elsif podfile_properties['ios.flipper'] != 'false' then
+#     flipper_config = FlipperConfiguration.enabled(["Debug"], { 'Flipper' => podfile_properties['ios.flipper'] })
+#   end
+# end
 
 target 'OneKeyWallet' do
   use_expo_modules!

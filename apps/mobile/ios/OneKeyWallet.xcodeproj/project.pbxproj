@@ -19,6 +19,7 @@
 		C274DAC12AE2644400755275 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = C274DAC02AE2644400755275 /* NotificationService.m */; };
 		C274DAC52AE2644400755275 /* ServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C274DABD2AE2644400755275 /* ServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C29B683A2B46F90E0084CE36 /* RCTBundleModule.m in Sources */ = {isa = PBXBuildFile; fileRef = C29B68382B46F90E0084CE36 /* RCTBundleModule.m */; };
+		EA73E1F22C3EAEAD000E9398 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */; };
 		EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */; };
 		EA9FF4ED2BDFFDBB00AC618A /* web-embed in Resources */ = {isa = PBXBuildFile; fileRef = EA9FF4EC2BDFFDBB00AC618A /* web-embed */; };
 /* End PBXBuildFile section */
@@ -75,6 +76,7 @@
 		C29B68392B46F90E0084CE36 /* RCTBundleModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RCTBundleModule.h; path = OneKeyWallet/RCTBundleModule.h; sourceTree = "<group>"; };
 		C2D12C012B32FF2100DB502A /* OneKeyWallet.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = OneKeyWallet.entitlements; path = OneKeyWallet/OneKeyWallet.entitlements; sourceTree = "<group>"; };
 		D7AF803390CE7CF8ECC3DBAB /* Pods_OneKeyWallet.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_OneKeyWallet.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "OneKeyWallet/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		EA9FF4EC2BDFFDBB00AC618A /* web-embed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "web-embed"; path = "OneKeyWallet/web-embed"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -120,6 +122,7 @@
 				C29B68382B46F90E0084CE36 /* RCTBundleModule.m */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
+				EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */,
 				35EE15B32B9A2ACD004C86AC /* InfoPlist.strings */,
 				C2D12C012B32FF2100DB502A /* OneKeyWallet.entitlements */,
 				13B07FB71A68108700A75B9A /* main.m */,
@@ -304,6 +307,7 @@
 				EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				EA9FF4ED2BDFFDBB00AC618A /* web-embed in Resources */,
+				EA73E1F22C3EAEAD000E9398 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -325,17 +329,11 @@
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-frameworks.sh",
 				"${PODS_ROOT}/../../../../node_modules/@onekeyfe/react-native-lite-card/ios/GPChannelSDKCore.framework",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/Flipper-DoubleConversion/double-conversion.framework/double-conversion",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/Flipper-Glog/glog.framework/glog",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/OpenSSL-Universal/OpenSSL.framework/OpenSSL",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GPChannelSDKCore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/double-conversion.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/glog.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/OpenSSL.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -684,10 +682,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;
@@ -759,10 +754,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;
