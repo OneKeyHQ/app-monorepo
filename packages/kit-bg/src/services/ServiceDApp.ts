@@ -898,9 +898,11 @@ class ServiceDApp extends ServiceBase {
   async proxyRPCCall<T>({
     networkId,
     request,
+    skipParseResponse,
   }: {
     networkId: string;
     request: IJsonRpcRequest;
+    skipParseResponse?: boolean;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const results = await client.post<{
@@ -923,7 +925,9 @@ class ServiceDApp extends ServiceBase {
 
     const data = results.data.data.data;
 
-    return data.map((item) => parseRPCResponse(item));
+    return data.map((item) =>
+      skipParseResponse ? item : parseRPCResponse(item),
+    );
   }
 
   @backgroundMethod()

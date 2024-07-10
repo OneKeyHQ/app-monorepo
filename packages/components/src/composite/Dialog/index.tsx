@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogHeaderContext,
   DialogIcon,
+  DialogRichDescription,
   DialogTitle,
   SetDialogHeader,
 } from './Header';
@@ -467,6 +468,7 @@ export const Dialog = {
   Header: SetDialogHeader,
   Title: DialogTitle,
   Description: DialogDescription,
+  RichDescription: DialogRichDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
   Form: DialogForm,

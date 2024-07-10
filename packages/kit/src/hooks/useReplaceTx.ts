@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
@@ -23,6 +24,10 @@ function useReplaceTx({
 
   const canReplaceTx = usePromiseResult(async () => {
     const { accountId, networkId, status, encodedTx } = historyTx.decodedTx;
+
+    // External accounts may modify transaction nonce, so transaction replacement is disabled.
+    // TODO further solution optimization is needed
+    if (accountUtils.isExternalAccount({ accountId })) return false;
 
     if (isConfirmed) return false;
 
