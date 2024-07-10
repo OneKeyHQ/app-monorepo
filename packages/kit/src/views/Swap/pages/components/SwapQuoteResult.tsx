@@ -3,7 +3,12 @@ import { memo, useCallback, useRef } from 'react';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Dialog, IDialogInstance, NumberSizeableText, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  IDialogInstance,
+  NumberSizeableText,
+  YStack,
+} from '@onekeyhq/components';
 import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -74,7 +79,6 @@ const SwapQuoteResult = ({
         setSwapSlippageDialogOpening({ status: true });
       },
       onClose: (extra) => {
-        console.log('swap__onClose', extra);
         setSwapSlippageDialogOpening({ status: false, flag: extra?.flag });
       },
     });

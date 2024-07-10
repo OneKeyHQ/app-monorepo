@@ -50,12 +50,20 @@ const PasswordVerify = ({
     reValidateMode: 'onSubmit',
     defaultValues: { password: '' },
   });
-
+  const isEnableRef = useRef(isEnable);
+  useEffect(() => {
+    // enable first false should wait some logic to get final value
+    setTimeout(() => {
+      if (!isEnableRef.current) {
+        form.setFocus('password');
+      }
+    }, 500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [secureEntry, setSecureEntry] = useState(true);
   const lastTime = useRef(0);
   const passwordInput = form.watch('password');
   const [{ manualLocking }] = usePasswordPersistAtom();
-
   const rightActions = useMemo(() => {
     const actions: IPropsWithTestId<{
       iconName?: IKeyOfIcons;
@@ -154,7 +162,6 @@ const PasswordVerify = ({
         }}
       >
         <Input
-          autoFocus={!isEnable}
           selectTextOnFocus
           size="large"
           editable={status.value !== EPasswordVerifyStatus.VERIFYING}
