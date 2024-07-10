@@ -55,7 +55,7 @@ const isMacOSInBrowser = () => {
 };
 
 const isMacStyleKeyboard =
-  platformEnv.isDesktopMac || platformEnv.isNativeIOSPad || isMacOSInBrowser();
+  platformEnv.isDesktopMac || platformEnv.isNativeIOS || isMacOSInBrowser();
 
 export const keysMap = {
   CmdOrCtrl: isMacStyleKeyboard ? '⌘' : 'Ctrl',
