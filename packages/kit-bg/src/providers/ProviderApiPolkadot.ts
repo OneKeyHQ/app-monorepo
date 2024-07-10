@@ -237,6 +237,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     const encodeTx: IEncodedTxDot = {
       ...params,
       metadataRpc: '' as `0x${string}`,
+      isFromDapp: true,
     };
 
     const result =

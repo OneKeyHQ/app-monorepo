@@ -1,6 +1,3 @@
-import { hdLedger } from '@polkadot/util-crypto';
-
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import type { DecodedSignedTx } from '@substrate/txwrapper-polkadot';
