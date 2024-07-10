@@ -168,6 +168,8 @@ class ServiceHistory extends ServiceBase {
         if (
           onChainHistoryTxs.find(
             (onChainHistoryTx) =>
+              !isNil(onChainHistoryTx.decodedTx.nonce) &&
+              !isNil(tx.decodedTx.nonce) &&
               onChainHistoryTx.decodedTx.nonce === tx.decodedTx.nonce,
           )
         ) {
