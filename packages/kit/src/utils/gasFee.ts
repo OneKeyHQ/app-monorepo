@@ -304,21 +304,3 @@ export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
     return feeInfo.common.baseFee;
   }
 }
-
-export function getMaxSendFeeUpwardAdjustmentFactor({
-  networkId,
-}: {
-  networkId: string;
-}) {
-  const networkIdMap = getNetworkIdsMap();
-  switch (networkId) {
-    case networkIdMap.fevm:
-      return 1.1;
-    case networkIdMap.mantle:
-    case networkIdMap.mantapacific:
-    case networkIdMap.blast:
-      return 1.2;
-    default:
-      return 1;
-  }
-}
