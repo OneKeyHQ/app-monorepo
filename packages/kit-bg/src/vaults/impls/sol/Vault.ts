@@ -258,14 +258,12 @@ export default class Vault extends VaultBase {
               isNFT,
             });
 
-        if (PublicKey.isOnCurve(destination.toString())) {
-          // system account, get token receiver address
-          destinationAta = await this._getAssociatedTokenAddress({
-            mint,
-            owner: destination,
-            isNFT,
-          });
-        }
+        // system account, get token receiver address
+        destinationAta = await this._getAssociatedTokenAddress({
+          mint,
+          owner: destination,
+          isNFT,
+        });
 
         const destinationAtaInfo = await client.getAccountInfo({
           address: destinationAta.toString(),
@@ -392,7 +390,7 @@ export default class Vault extends VaultBase {
       }
     }
 
-    return Promise.resolve(getAssociatedTokenAddressSync(mint, owner));
+    return Promise.resolve(getAssociatedTokenAddressSync(mint, owner, true));
   }
 
   async _checkIsProgrammableNFT(mint: PublicKey) {
