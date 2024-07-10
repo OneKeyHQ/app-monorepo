@@ -23,22 +23,27 @@ export function HandleRebuildBrowserData() {
     defaultLogger.discovery.browser.setTabsDataFunctionName(
       'setTabsInitializeLock-> true',
     );
-    setBrowserDataReady();
-    buildWebTabs({ data: tabs });
+    buildWebTabs({ data: tabs, options: { isInitFromStorage: true } });
 
     // Bookmarks
     const bookmarks = bookmarksData?.data || [];
     if (bookmarks && Array.isArray(bookmarks) && bookmarks.length > 0) {
-      buildBookmarkData(bookmarks);
+      buildBookmarkData({
+        data: bookmarks,
+        options: { isInitFromStorage: true },
+      });
     }
 
     // History
     const histories = historyData?.data || [];
     if (histories && Array.isArray(histories) && histories.length > 0) {
-      buildHistoryData(histories);
+      buildHistoryData({
+        data: histories,
+        options: { isInitFromStorage: true },
+      });
     }
 
-    // History
+    setBrowserDataReady();
   }, [buildWebTabs, buildBookmarkData, buildHistoryData, setBrowserDataReady]);
 
   return null;

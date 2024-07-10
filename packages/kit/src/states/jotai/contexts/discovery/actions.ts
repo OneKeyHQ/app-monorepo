@@ -104,14 +104,17 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     (
       get,
       set,
-      payload: { data: IWebTab[]; options?: { forceUpdate?: boolean } },
+      payload: {
+        data: IWebTab[];
+        options?: { forceUpdate?: boolean; isInitFromStorage?: boolean };
+      },
     ) => {
+      const { data, options } = payload;
       const isReady = get(browserDataReadyAtom());
-      if (!isReady) {
+      if (!isReady && !options?.isInitFromStorage) {
         return;
       }
       const webTabs = get(webTabsAtom());
-      const { data, options } = payload;
       let newTabs = data;
       if (!Array.isArray(data)) {
         throw new Error('setWebTabsWriteAtom: payload must be an array');
@@ -302,16 +305,24 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   buildBookmarkData = contextAtomMethod(
-    (get, set, payload: IBrowserBookmark[]) => {
+    (
+      get,
+      set,
+      payload: {
+        data: IBrowserBookmark[];
+        options?: { isInitFromStorage?: boolean };
+      },
+    ) => {
+      const { data, options } = payload;
       const isReady = get(browserDataReadyAtom());
-      if (!isReady) {
+      if (!isReady && !options?.isInitFromStorage) {
         return;
       }
-      if (!Array.isArray(payload)) {
+      if (!Array.isArray(data)) {
         throw new Error('buildBookmarkData: payload must be an array');
       }
 
-      void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks(payload);
+      void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks(data);
     },
   );
 
@@ -329,7 +340,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       );
       const newBookmark = { url: payload.url, title: payload.title };
       const updatedBookmarks = [...filteredBookmarks, newBookmark];
-      this.buildBookmarkData.call(set, updatedBookmarks);
+      this.buildBookmarkData.call(set, { data: updatedBookmarks });
       this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
       void backgroundApiProxy.serviceCloudBackup.requestAutoBackup();
     },
@@ -340,7 +351,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     const updatedBookmarks = bookmarks.filter(
       (bookmark) => bookmark.url !== payload,
     );
-    this.buildBookmarkData.call(set, updatedBookmarks);
+    this.buildBookmarkData.call(set, { data: updatedBookmarks });
     this.syncBookmark.call(set, { url: payload, isBookmark: false });
   });
 
@@ -353,7 +364,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const updatedBookmark = bookmark.map((item) =>
         item.url === payload.url ? { ...item, ...payload } : item,
       );
-      this.buildBookmarkData.call(set, updatedBookmark);
+      this.buildBookmarkData.call(set, { data: updatedBookmark });
     },
   );
 
@@ -368,16 +379,25 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   buildHistoryData = contextAtomMethod(
-    (get, set, payload: IBrowserHistory[]) => {
+    (
+      get,
+      set,
+
+      payload: {
+        data: IBrowserHistory[];
+        options?: { isInitFromStorage?: boolean };
+      },
+    ) => {
+      const { data, options } = payload;
       const isReady = get(browserDataReadyAtom());
-      if (!isReady) {
+      if (!isReady && !options?.isInitFromStorage) {
         return;
       }
-      if (!Array.isArray(payload)) {
+      if (!Array.isArray(data)) {
         throw new Error('buildHistoryData: payload must be an array');
       }
       void backgroundApiProxy.simpleDb.browserHistory.setRawData({
-        data: payload,
+        data,
       });
     },
   );
@@ -398,7 +418,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         createdAt: Date.now(),
       };
 
-      this.buildHistoryData.call(set, [newHistoryEntry, ...updatedHistory]);
+      this.buildHistoryData.call(set, {
+        data: [newHistoryEntry, ...updatedHistory],
+      });
     },
   );
 
@@ -407,11 +429,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
     const updatedHistory = history.filter((item) => item.id !== payload);
 
-    this.buildHistoryData.call(set, updatedHistory);
+    this.buildHistoryData.call(set, { data: updatedHistory });
   });
 
   removeAllBrowserHistory = contextAtomMethod(async (_, set) => {
-    this.buildHistoryData.call(set, []);
+    this.buildHistoryData.call(set, { data: [] });
   });
 
   /**
