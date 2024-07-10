@@ -69,6 +69,10 @@ const AutoLockDurationDescription = () => {
     text = intl.formatMessage({
       id: ETranslations.settings_set_auto_lock_duration_web,
     });
+  } else if (platformEnv.isNative) {
+    text = intl.formatMessage({
+      id: ETranslations.settings_set_auto_lock_duration_mobile,
+    });
   }
   return (
     <Stack px="$5" pb="$5">
