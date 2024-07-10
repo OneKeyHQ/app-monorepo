@@ -36,7 +36,7 @@ export const getShortcutsMap: () => Record<
   },
 });
 
-const isMacOSInBrowser = () => {
+const isMacOSStyleInBrowser = () => {
   if (typeof navigator !== 'undefined') {
     if ('platform' in navigator) {
       return navigator.platform.toLowerCase().indexOf('mac') > -1;
@@ -55,7 +55,9 @@ const isMacOSInBrowser = () => {
 };
 
 const isMacStyleKeyboard =
-  platformEnv.isDesktopMac || platformEnv.isNativeIOS || isMacOSInBrowser();
+  platformEnv.isDesktopMac ||
+  platformEnv.isNativeIOS ||
+  isMacOSStyleInBrowser();
 
 export const keysMap = {
   CmdOrCtrl: isMacStyleKeyboard ? '⌘' : 'Ctrl',
