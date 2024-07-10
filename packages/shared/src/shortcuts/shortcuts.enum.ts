@@ -1,3 +1,7 @@
+import { Alt } from '@onekeyhq/components/src/primitives/Icon/react/outline';
+
+import platformEnv from '../platformEnv';
+
 export enum EBrowserShortcutEvents {
   GoBackHistory = 'GoBackHistory',
   GoForwardHistory = 'GoForwardHistory',
@@ -32,13 +36,34 @@ export const getShortcutsMap: () => Record<
   },
 });
 
-export const getDisplayKeysMap = (isMac?: boolean) => ({
-  CmdOrCtrl: isMac ? '⌘' : 'Ctrl',
-  Alt: isMac ? '⌥' : 'Alt',
-  Shift: isMac ? '⇧' : 'Shift',
+const isMacOSInBrowser = () => {
+  if (typeof navigator !== 'undefined') {
+    if ('platform' in navigator) {
+      return navigator.platform.toLowerCase().indexOf('mac') > -1;
+    }
+    if ('userAgentData' in navigator) {
+      return (
+        ((
+          navigator as { userAgentData?: { platform: string } }
+        ).userAgentData?.platform
+          .toLowerCase()
+          .indexOf('mac') || -1) > -1
+      );
+    }
+  }
+  return false;
+};
+
+const isMacStyleKeyboard =
+  platformEnv.isDesktopMac || platformEnv.isNativeIOSPad || isMacOSInBrowser();
+
+export const keysMap = {
+  CmdOrCtrl: isMacStyleKeyboard ? '⌘' : 'Ctrl',
+  Alt: isMacStyleKeyboard ? '⌥' : 'Alt',
+  Shift: isMacStyleKeyboard ? '⇧' : 'Shift',
   Left: '←',
   Right: '→',
   Up: '↑',
   Down: '↓',
   Search: '/',
-});
+};

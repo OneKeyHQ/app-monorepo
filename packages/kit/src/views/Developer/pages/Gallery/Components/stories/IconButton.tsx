@@ -5,6 +5,7 @@ import {
   Tooltip,
   XStack,
 } from '@onekeyhq/components';
+import { keysMap } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { Layout } from './utils/Layout';
 
@@ -85,7 +86,7 @@ const IconButtonGallery = () => (
                 <XStack alignItems="center">
                   <Tooltip.Text>Go back</Tooltip.Text>
                   <Shortcut ml="$2">
-                    <Shortcut.Key>⌘</Shortcut.Key>
+                    <Shortcut.Key>{keysMap.CmdOrCtrl}</Shortcut.Key>
                     <Shortcut.Key>t</Shortcut.Key>
                   </Shortcut>
                 </XStack>
