@@ -109,10 +109,10 @@ const useSafeKeyboardAnimationStyle = () => {
   useKeyboardEvent({
     keyboardWillShow: (e) => {
       const keyboardHeight = e.endCoordinates.height;
-      keyboardHeightValue.value = withTiming(keyboardHeight - bottom);
+      keyboardHeightValue.value = keyboardHeight - bottom;
     },
     keyboardWillHide: () => {
-      keyboardHeightValue.value = withTiming(0);
+      keyboardHeightValue.value = 0;
     },
   });
   return platformEnv.isNative ? animatedStyles : undefined;
