@@ -345,7 +345,9 @@ const ListEmptyComponent = () => {
 
 const keyExtractor = (item: unknown) => {
   const hash = (item as ISignedTransaction)?.hash;
-  return hash;
+  const createdAt = (item as ISignedTransaction)?.createdAt;
+  // lighting/ sui tx don't have tx hash
+  return hash || String(createdAt);
 };
 
 export const Transactions = () => {
