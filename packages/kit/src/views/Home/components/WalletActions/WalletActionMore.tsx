@@ -11,7 +11,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useSupportNetworkId } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -24,7 +24,6 @@ import {
   EModalFiatCryptoRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { RawActions } from './RawActions';
 
@@ -103,12 +102,10 @@ export function WalletActionMore() {
           }),
           icon: 'GlobusOutline',
           onPress: () =>
-            openUrl(
-              buildExplorerAddressUrl({
-                network,
-                address: account?.address,
-              }),
-            ),
+            openExplorerAddressUrl({
+              networkId: network?.id,
+              address: account?.address,
+            }),
         },
       ],
     });

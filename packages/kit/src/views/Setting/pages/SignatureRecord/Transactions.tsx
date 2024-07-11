@@ -18,15 +18,14 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import {
+  openExplorerAddressUrl,
+  openTransactionDetailsUrl,
+} from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useEarnLabelFn } from '@onekeyhq/kit/src/views/Staking/hooks/useLabelFn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
-import {
-  buildExplorerAddressUrl,
-  buildTransactionDetailsUrl,
-} from '@onekeyhq/shared/src/utils/uriUtils';
 import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 import type {
   IApproveTransactionData,
@@ -262,14 +261,15 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
   const intl = useIntl();
   const onPress = useCallback(() => {
     if (item.hash) {
-      openUrl(
-        buildTransactionDetailsUrl({
-          network,
-          txid: item.hash,
-        }),
-      );
+      void openTransactionDetailsUrl({
+        networkId: network.id,
+        txid: item.hash,
+      });
     } else {
-      openUrl(buildExplorerAddressUrl({ network, address: item.address }));
+      void openExplorerAddressUrl({
+        networkId: network.id,
+        address: item.address,
+      });
     }
   }, [item, network]);
   return (

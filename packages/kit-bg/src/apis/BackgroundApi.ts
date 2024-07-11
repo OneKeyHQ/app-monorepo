@@ -483,5 +483,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceStaking', { value });
     return value;
   }
+
+  get serviceExplorer() {
+    const ServiceExplorer =
+      require('../services/ServiceExplorer') as typeof import('../services/ServiceExplorer');
+    const value = new ServiceExplorer.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceExplorer', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

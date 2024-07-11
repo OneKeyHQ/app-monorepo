@@ -16,7 +16,6 @@ import {
   XStack,
   YStack,
   getFontToken,
-  getTokenValue,
   useClipboard,
   useThemeValue,
 } from '@onekeyhq/components';
@@ -30,15 +29,12 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
-import {
-  POLLING_INTERVAL_FOR_HISTORY,
-  POLLING_INTERVAL_FOR_TOTAL_VALUE,
-} from '@onekeyhq/shared/src/consts/walletConsts';
+import { POLLING_INTERVAL_FOR_HISTORY } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -51,7 +47,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
-import { buildTokenDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -252,18 +247,17 @@ export function TokenDetails() {
         ],
       });
 
-      const tokenDetailsUrl = buildTokenDetailsUrl({
-        network,
-        address: tokenInfo.address,
-      });
-
-      if (tokenDetailsUrl !== '') {
+      if (network?.id && tokenInfo.address) {
         sections[0].items.push({
           label: intl.formatMessage({
             id: ETranslations.global_view_in_blockchain_explorer,
           }),
           icon: 'ShareOutline',
-          onPress: () => openUrl(tokenDetailsUrl),
+          onPress: () =>
+            openTokenDetailsUrl({
+              networkId: network.id,
+              tokenAddress: tokenInfo.address,
+            }),
         });
       }
     }

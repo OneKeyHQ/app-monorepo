@@ -22,6 +22,7 @@ import type ServiceDemo from '../services/ServiceDemo';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceE2E from '../services/ServiceE2E';
+import type ServiceExplorer from '../services/ServiceExplorer';
 import type ServiceFiatCrypto from '../services/ServiceFiatCrypto';
 import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
 import type ServiceGas from '../services/ServiceGas';
@@ -206,6 +207,10 @@ class BackgroundApiProxy
   ) as ServiceUniversalSearch;
 
   serviceStaking = this._createProxyService('serviceStaking') as ServiceStaking;
+
+  serviceExplorer = this._createProxyService(
+    'serviceExplorer',
+  ) as ServiceExplorer;
 }
 
 export default BackgroundApiProxy;
