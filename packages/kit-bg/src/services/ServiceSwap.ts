@@ -387,6 +387,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     toTokenAddress,
     receivedAddress,
+    orderId,
     ctx,
   }: {
     txId: string;
@@ -395,6 +396,7 @@ export default class ServiceSwap extends ServiceBase {
     networkId: string;
     protocol?: EProtocolOfExchange;
     provider?: string;
+    orderId?: string;
     ctx?: any;
   }): Promise<IFetchSwapTxHistoryStatusResponse> {
     const params = {
@@ -405,6 +407,7 @@ export default class ServiceSwap extends ServiceBase {
       networkId,
       toTokenAddress,
       receivedAddress,
+      orderId,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
 
@@ -639,6 +642,7 @@ export default class ServiceSwap extends ServiceBase {
         ctx: swapTxHistory.ctx,
         toTokenAddress: swapTxHistory.baseInfo.toToken.contractAddress,
         receivedAddress: swapTxHistory.txInfo.receiver,
+        orderId: swapTxHistory.swapInfo.orderId,
       });
       if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
         enableInterval = false;
