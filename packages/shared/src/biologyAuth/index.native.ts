@@ -9,6 +9,8 @@ import { memoizee } from '../utils/cacheUtils';
 
 import type { IBiologyAuth } from './types';
 import type { AuthenticationType } from 'expo-local-authentication';
+import { appLocale } from '../locale/appLocale';
+import { ETranslations } from '../locale';
 
 const isSupportBiologyAuthFn = async () => {
   const supported = await hasHardwareAsync();
@@ -30,7 +32,9 @@ export const biologyAuthenticate = async () => {
     return { success: false, error: 'no supported' };
   }
 
-  return authenticateAsync();
+  return authenticateAsync({
+    promptMessage: appLocale.intl.formatMessage({ id: ETranslations.global_biometric }),
+  });
 };
 
 const biologyAuth: IBiologyAuth = {
