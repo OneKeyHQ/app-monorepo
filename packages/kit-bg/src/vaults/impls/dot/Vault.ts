@@ -4,7 +4,7 @@ import {
   decodeAddress,
   encodeAddress,
 } from '@polkadot/util-crypto';
-import { decode, getRegistry, methods } from '@substrate/txwrapper-polkadot';
+import { decode, methods } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isObject } from 'lodash';
 
@@ -21,8 +21,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
-import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -51,7 +49,15 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { getTransactionTypeFromTxInfo } from './utils';
+import {
+  getBlockInfo,
+  getGenesisHash,
+  getMetadataRpc,
+  getMinAmount,
+  getRegistry,
+  getRuntimeVersion,
+  getTransactionTypeFromTxInfo,
+} from './utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -106,47 +112,6 @@ export default class VaultDot extends VaultBase {
     };
   }
 
-  private async _getBlockInfo(): Promise<{
-    blockHash: `0x${string}`;
-    blockNumber: number;
-  }> {
-    const [blockHash] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
-        {
-          networkId: this.networkId,
-          body: [
-            {
-              route: 'rpc',
-              params: {
-                method: 'chain_getBlockHash',
-                params: [],
-              },
-            },
-          ],
-        },
-      );
-    const [{ block }] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
-        block: { header: { number: number } };
-      }>({
-        networkId: this.networkId,
-        body: [
-          {
-            route: 'rpc',
-            params: {
-              method: 'chain_getBlock',
-              params: [blockHash],
-            },
-          },
-        ],
-      });
-
-    return {
-      blockHash,
-      blockNumber: block.header.number,
-    };
-  }
-
   private async _getTxBaseInfo(): Promise<{
     blockHash: `0x${string}`;
     blockNumber: number;
@@ -158,36 +123,15 @@ export default class VaultDot extends VaultBase {
     registry: TypeRegistry;
   }> {
     const [
-      [{ specName, specVersion, transactionVersion }, genesisHash],
+      { specName, specVersion, transactionVersion },
+      genesisHash,
       metadataRpc,
       { blockHash, blockNumber },
     ] = await Promise.all([
-      this.backgroundApi.serviceAccountProfile.sendProxyRequest({
-        networkId: this.networkId,
-        body: [
-          {
-            route: 'rpc',
-            params: {
-              method: 'state_getRuntimeVersion',
-              params: [],
-            },
-          },
-          {
-            route: 'rpc',
-            params: {
-              method: 'chain_getBlockHash',
-              params: [0],
-            },
-          },
-        ],
-      }) as Promise<
-        [
-          { specName: string; specVersion: number; transactionVersion: number },
-          `0x${string}`,
-        ]
-      >,
-      this._getMetadataRpc(this.networkId),
-      this._getBlockInfo(),
+      getRuntimeVersion(this.networkId, this.backgroundApi),
+      getGenesisHash(this.networkId, this.backgroundApi),
+      getMetadataRpc(this.networkId, this.backgroundApi),
+      getBlockInfo(this.networkId, this.backgroundApi),
     ]);
     const info = {
       metadataRpc,
@@ -195,7 +139,10 @@ export default class VaultDot extends VaultBase {
       specVersion,
       chainName: await this.getNetworkChainId(),
     };
-    const registry = getRegistry(info);
+    const registry = await getRegistry(
+      { ...info, networkId: this.networkId },
+      this.backgroundApi,
+    );
     return {
       ...info,
       blockNumber,
@@ -236,18 +183,11 @@ export default class VaultDot extends VaultBase {
     const network = await this.getNetwork();
     const txBaseInfo = await this._getTxBaseInfo();
 
-    const account =
-      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-        accountId: this.accountId,
-        networkId: this.networkId,
-        withNonce: true,
-      });
-
     const info = {
       ...txBaseInfo,
       address: from,
       eraPeriod: 64,
-      nonce: account.nonce ?? 0,
+      nonce: 0,
       tip: 0,
     };
 
@@ -320,96 +260,25 @@ export default class VaultDot extends VaultBase {
       ...unsigned,
       specName: txBaseInfo.specName,
       chainName: network.name,
+      metadataRpc: '' as unknown as `0x${string}`,
     };
   }
 
-  private _getMetadataRpc = memoizee(
-    async (networkId: string): Promise<`0x${string}`> => {
-      const [res] =
-        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
-          {
-            networkId,
-            body: [
-              {
-                route: 'rpc',
-                params: {
-                  method: 'state_getMetadata',
-                  params: [],
-                },
-              },
-            ],
-          },
-        );
-      return res;
-    },
-    {
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
-      promise: true,
-    },
-  );
-
-  private async _getRegistry(params: {
-    metadataRpc?: `0x${string}`;
-    specVersion?: string;
-    specName?: string;
-  }): Promise<TypeRegistry> {
-    const network = await this.getNetwork();
-
-    let metadataRpcHex: `0x${string}`;
-    if (isNil(params.metadataRpc) || isEmpty(params.metadataRpc)) {
-      metadataRpcHex = await this._getMetadataRpc(this.networkId);
-    } else {
-      metadataRpcHex = params.metadataRpc;
-    }
-
-    let specVersion: number;
-    let specName: string;
-    if (
-      !params.specVersion ||
-      isEmpty(params.specVersion) ||
-      !params.specName ||
-      isEmpty(params.specName)
-    ) {
-      const [res] =
-        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
-          specName: string;
-          specVersion: number;
-        }>({
-          networkId: this.networkId,
-          body: [
-            {
-              route: 'rpc',
-              params: {
-                method: 'state_getRuntimeVersion',
-                params: [],
-              },
-            },
-          ],
-        });
-      specVersion = res.specVersion;
-      specName = res.specName;
-    } else {
-      specVersion = +numberUtils.hexToDecimal(
-        hexUtils.addHexPrefix(params.specVersion),
-      );
-      specName = params.specName;
-    }
-
-    return getRegistry({
-      chainName: network.name,
-      specName: specName as 'polkadot',
-      specVersion,
-      metadataRpc: metadataRpcHex,
-    });
-  }
-
   private async _decodeUnsignedTx(unsigned: IEncodedTxDot) {
-    const registry = await this._getRegistry(unsigned);
-
     let { metadataRpc } = unsigned;
     if (!metadataRpc) {
-      metadataRpc = await this._getMetadataRpc(this.networkId);
+      metadataRpc = await getMetadataRpc(this.networkId, this.backgroundApi);
     }
+    const registry = await getRegistry(
+      {
+        specName: unsigned.specName,
+        specVersion: unsigned.specVersion,
+        metadataRpc,
+        networkId: this.networkId,
+      },
+      this.backgroundApi,
+    );
+
     const decodedUnsigned = decode(unsigned, {
       metadataRpc,
       registry,
@@ -538,9 +407,6 @@ export default class VaultDot extends VaultBase {
     const encodedTx = (params.encodedTx ??
       (await this.buildEncodedTx(params))) as IEncodedTxDot;
     if (encodedTx) {
-      if (!encodedTx.metadataRpc) {
-        encodedTx.metadataRpc = await this._getMetadataRpc(this.networkId);
-      }
       return {
         encodedTx,
       };
@@ -613,18 +479,23 @@ export default class VaultDot extends VaultBase {
           ...tx,
           specName: txBaseInfo.specName,
           chainName: network.name,
+          metadataRpc: '' as `0x${string}`,
         };
       }
     }
 
     if (!params.nonceInfo && !encodedTx.isFromDapp) {
-      const blockInfo = await this._getBlockInfo();
-      const era = getRegistry({
-        metadataRpc: encodedTx.metadataRpc,
-        specName: (encodedTx.specName ?? '') as 'polkadot',
-        specVersion: +encodedTx.specVersion,
-        chainName: encodedTx.chainName ?? '',
-      }).createType('ExtrinsicEra', {
+      const blockInfo = await getBlockInfo(this.networkId, this.backgroundApi);
+      const registry = await getRegistry(
+        {
+          networkId: this.networkId,
+          metadataRpc: encodedTx.metadataRpc,
+          specName: (encodedTx.specName ?? '') as 'polkadot',
+          specVersion: +encodedTx.specVersion,
+        },
+        this.backgroundApi,
+      );
+      const era = registry.createType('ExtrinsicEra', {
         current: blockInfo.blockNumber,
         period: 64,
       });
@@ -703,7 +574,10 @@ export default class VaultDot extends VaultBase {
       Buffer.alloc(64).fill(0x42),
     ]);
     const tx = await serializeSignedTransaction(
-      encodedTx,
+      {
+        ...encodedTx,
+        metadataRpc: await getMetadataRpc(this.networkId, this.backgroundApi),
+      },
       fakeSignature.toString('hex'),
     );
     return {
@@ -713,49 +587,18 @@ export default class VaultDot extends VaultBase {
     };
   }
 
-  private _getMinAmount = memoizee(
-    async ({
-      accountAddress,
-      withBalance,
-    }: {
-      accountAddress: string;
-      withBalance?: boolean;
-    }) => {
-      const [minAmountStr] =
-        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<string>(
-          {
-            networkId: this.networkId,
-            body: [
-              {
-                route: 'consts',
-                params: {
-                  method: 'balances.existentialDeposit',
-                  params: [],
-                },
-              },
-            ],
-          },
-        );
-      const minAmount = new BigNumber(minAmountStr);
-      const account = withBalance
-        ? await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-            networkId: this.networkId,
-            accountId: this.accountId,
-            withNonce: false,
-            withNetWorth: true,
-          })
-        : {
-            balance: '0',
-          };
-      const balance = new BigNumber(account.balance ?? 0);
-      return {
-        minAmount,
-        balance,
-      };
+  private _getBalance = memoizee(
+    async (address: string) => {
+      const account =
+        await this.backgroundApi.serviceAccountProfile.fetchAccountInfo({
+          accountId: this.accountId,
+          networkId: this.networkId,
+          accountAddress: address,
+          withNetWorth: true,
+        });
+      return new BigNumber(account.balance ?? 0);
     },
-    {
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
-    },
+    { promise: true, maxAge: 10000 },
   );
 
   override async validateSendAmount({
@@ -765,16 +608,21 @@ export default class VaultDot extends VaultBase {
     to: string;
     amount: string;
   }): Promise<boolean> {
+    // preload registry
+    void getRegistry(
+      {
+        networkId: this.networkId,
+      },
+      this.backgroundApi,
+    );
     if (isNil(amount) || isEmpty(amount) || isEmpty(to)) {
       return true;
     }
     const network = await this.getNetwork();
 
     const sendAmount = new BigNumber(amount).shiftedBy(network.decimals);
-    const { minAmount, balance } = await this._getMinAmount({
-      accountAddress: to,
-      withBalance: true,
-    });
+    const minAmount = await getMinAmount(this.networkId, this.backgroundApi);
+    const balance = await this._getBalance(to);
 
     if (balance.plus(sendAmount).lt(minAmount)) {
       throw new InvalidTransferValue({
@@ -815,10 +663,10 @@ export default class VaultDot extends VaultBase {
         return true;
       }
 
-      const { minAmount, balance } = await this._getMinAmount({
-        accountAddress: encodedTx.address,
-        withBalance: !params.nativeAmountInfo?.maxSendAmount,
-      });
+      const minAmount = await getMinAmount(this.networkId, this.backgroundApi);
+      const balance = !params.nativeAmountInfo?.maxSendAmount
+        ? await this._getBalance(encodedTx.address)
+        : new BigNumber(0);
       const tokenAmount = new BigNumber(args.value);
       const gasLimit = new BigNumber(feeInfo?.gas?.gasLimit ?? '0');
       const gasPrice = new BigNumber(feeInfo?.gas?.gasPrice ?? '0');
