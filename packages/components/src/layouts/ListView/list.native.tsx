@@ -37,7 +37,7 @@ type IListViewProps<T> = Omit<
       Average height of your cell
       See https://shopify.github.io/flash-list/docs/estimated-item-size/#how-to-calculate
     */
-    estimatedItemSize: number | `$${keyof Tokens['size']}`;
+    estimatedItemSize?: number | `$${keyof Tokens['size']}`;
   };
 
 function BaseListView<T>(
@@ -76,13 +76,14 @@ function BaseListView<T>(
       resolveValues: 'auto',
     },
   );
-  const itemSize = useMemo(
-    () =>
-      typeof estimatedItemSize === 'number'
-        ? estimatedItemSize
-        : (getTokenValue(estimatedItemSize) as number),
-    [estimatedItemSize],
-  );
+  const itemSize = useMemo<number | undefined>(() => {
+    if (typeof estimatedItemSize === 'undefined') {
+      return undefined;
+    }
+    return typeof estimatedItemSize === 'number'
+      ? estimatedItemSize
+      : (getTokenValue(estimatedItemSize) as number);
+  }, [estimatedItemSize]);
   return (
     // FlashList doesn't support the style, so we have to wrap it,
     // and we set default flex = 1 just like FlatList

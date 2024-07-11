@@ -20,6 +20,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 
 import type { IAddressItem, IAddressNetworkItem } from '../type';
@@ -316,6 +317,13 @@ export const AddressBookListContent = ({
 
   const media = useMedia();
 
+  const estimatedItemSize = useMemo(() => {
+    if (platformEnv.isNative) {
+      return media.md ? 80 : 60;
+    }
+    return undefined;
+  }, [media.md]);
+
   return (
     <Stack flex={1}>
       <Stack px="$5" pb="$2">
@@ -328,7 +336,7 @@ export const AddressBookListContent = ({
       <SectionList
         showsVerticalScrollIndicator={false}
         onContentSizeChange={onContentSizeChange}
-        estimatedItemSize={media.md ? 80 : 60}
+        estimatedItemSize={estimatedItemSize}
         sections={memoSections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}
