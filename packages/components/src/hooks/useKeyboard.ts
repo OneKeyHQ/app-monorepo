@@ -2,6 +2,7 @@ import type { DependencyList } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { Keyboard } from 'react-native';
+import { withTiming } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -70,3 +71,13 @@ export const useKeyboardEvent = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 };
+
+export const updateHeightWhenKeyboardShown = (height: number) =>
+  withTiming(height, {
+    duration: platformEnv.isNativeIOS ? 200 : 30,
+  });
+
+export const updateHeightWhenKeyboardHide = (height = 0) =>
+  withTiming(height, {
+    duration: 250,
+  });
