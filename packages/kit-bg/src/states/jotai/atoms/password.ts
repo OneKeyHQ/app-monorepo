@@ -85,10 +85,10 @@ export const {
     isSupport: boolean;
     isEnable: boolean;
   }>
->( (async (get) => {
+>(async (get) => {
   // TODO: remove webAuth in Native App
   // handling webAuthCredentialId in suspense causes the parent container to re-render and flicker.
-  if (platformEnv.isNative) { 
+  if (platformEnv.isNative) {
     return {
       isSupport: false,
       isEnable: false,
@@ -98,7 +98,7 @@ export const {
   const isSupport = await isSupportWebAuth();
   const isEnable = isSupport && webAuthCredentialId?.length > 0;
   return { isSupport, isEnable };
-}));
+});
 
 export const {
   target: passwordBiologyAuthInfoAtom,

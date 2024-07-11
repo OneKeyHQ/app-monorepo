@@ -45,10 +45,11 @@ const useSafeKeyboardAnimationStyle = platformEnv.isNative
       }));
       useKeyboardEvent({
         keyboardWillShow: () => {
-          keyboardHeightValue.value = updateHeightWhenKeyboardShown(safeKeyboardHeight)
+          keyboardHeightValue.value =
+            updateHeightWhenKeyboardShown(safeKeyboardHeight);
         },
         keyboardWillHide: () => {
-          keyboardHeightValue.value = updateHeightWhenKeyboardHide()
+          keyboardHeightValue.value = updateHeightWhenKeyboardHide();
         },
       });
       return animatedStyles;

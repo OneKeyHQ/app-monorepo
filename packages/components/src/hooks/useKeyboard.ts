@@ -2,11 +2,11 @@ import type { DependencyList } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { Keyboard } from 'react-native';
+import { withTiming } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { KeyboardEventListener } from 'react-native';
-import { withTiming } from 'react-native-reanimated';
 
 export { default as useIsKeyboardShown } from '@react-navigation/bottom-tabs/src/utils/useIsKeyboardShown';
 
@@ -72,18 +72,12 @@ export const useKeyboardEvent = (
   }, deps);
 };
 
-export const updateHeightWhenKeyboardShown = (height: number) => {
-  return withTiming(
-    height, {
-      duration: platformEnv.isNativeIOS ? 200 : 30,
-    }
-  );
-}
+export const updateHeightWhenKeyboardShown = (height: number) =>
+  withTiming(height, {
+    duration: platformEnv.isNativeIOS ? 200 : 30,
+  });
 
-export const updateHeightWhenKeyboardHide = (height = 0) => {
-  return withTiming(
-    height, {
-      duration: 250,
-    }
-  );
-}
+export const updateHeightWhenKeyboardHide = (height = 0) =>
+  withTiming(height, {
+    duration: 250,
+  });
