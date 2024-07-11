@@ -117,7 +117,10 @@ export function HeaderRight({
     sceneName,
   ]);
   return (
-    <HeaderButtonGroup testID="Wallet-Page-Header-Right">
+    <HeaderButtonGroup
+      testID="Wallet-Page-Header-Right"
+      className="app-region-no-drag"
+    >
       {items}
     </HeaderButtonGroup>
   );

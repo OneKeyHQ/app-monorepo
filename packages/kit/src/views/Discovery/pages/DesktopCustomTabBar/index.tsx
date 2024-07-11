@@ -3,7 +3,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Divider,
   Icon,
   ScrollView,
@@ -241,42 +240,44 @@ function DesktopCustomTabBar() {
       </Stack>
       <XStack group="sidebarBrowserDivider" alignItems="center" p="$1.5">
         <Divider testID="pin-tab-divider" />
-        <XStack
-          position="absolute"
-          px="1"
-          group="sidebarClearButton"
-          alignItems="center"
-          userSelect="none"
-          right="$0"
-          top="50%"
-          bg="$bgSidebar"
-          opacity={0}
-          $group-sidebarBrowserDivider-hover={{
-            opacity: 1,
-          }}
-          style={{
-            containerType: 'normal',
-            transform: 'translateY(-50%)',
-          }}
-          onPress={closeAllWebTabs}
-        >
-          <Icon
-            flexShrink={0}
-            color="$iconSubdued"
-            name="ArrowBottomOutline"
-            size="$3"
-          />
-          <SizableText
-            pl="$1"
-            color="$textSubdued"
-            size="$bodySmMedium"
-            $group-sidebarClearButton-hover={{
-              color: '$text',
+        {tabs.filter((x) => !x.isPinned).length > 0 ? (
+          <XStack
+            position="absolute"
+            px="1"
+            group="sidebarClearButton"
+            alignItems="center"
+            userSelect="none"
+            right="$0"
+            top="50%"
+            bg="$bgSidebar"
+            opacity={0}
+            $group-sidebarBrowserDivider-hover={{
+              opacity: 1,
             }}
+            style={{
+              containerType: 'normal',
+              transform: 'translateY(-50%)',
+            }}
+            onPress={closeAllWebTabs}
           >
-            {intl.formatMessage({ id: ETranslations.global_clear })}
-          </SizableText>
-        </XStack>
+            <Icon
+              flexShrink={0}
+              color="$iconSubdued"
+              name="ArrowBottomOutline"
+              size="$3"
+            />
+            <SizableText
+              pl="$1"
+              color="$textSubdued"
+              size="$bodySmMedium"
+              $group-sidebarClearButton-hover={{
+                color: '$text',
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_clear })}
+            </SizableText>
+          </XStack>
+        ) : null}
       </XStack>
       {/* New Tab */}
       <DesktopTabItem

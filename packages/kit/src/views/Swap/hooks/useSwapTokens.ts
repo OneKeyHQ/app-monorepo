@@ -89,13 +89,13 @@ export function useSwapInit(params?: ISwapInitParams) {
       await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
         data: networks,
       });
-    }
-    if (
-      !swapNetworksSortList?.data?.length ||
-      swapNetworksSortList?.data?.length !== networks.length
-    ) {
-      setSwapNetworks(networks);
-      setNetworkListFetching(false);
+      if (
+        !swapNetworksSortList?.data?.length ||
+        swapNetworksSortList?.data?.length !== networks.length
+      ) {
+        setSwapNetworks(networks);
+        setNetworkListFetching(false);
+      }
     }
   }, [setSwapNetworks, swapNetworks.length]);
 
