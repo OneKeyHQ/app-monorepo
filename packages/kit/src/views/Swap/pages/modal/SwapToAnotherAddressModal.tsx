@@ -53,12 +53,15 @@ const SwapToAnotherAddressPage = () => {
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
-
   useEffect(() => {
-    if (address && address !== paramAddress) {
+    if (
+      address &&
+      address !== paramAddress &&
+      accountInfo?.account?.address === address
+    ) {
       form.setValue('address', { raw: address });
     }
-  }, [address, form, paramAddress]);
+  }, [accountInfo?.account?.address, address, form, paramAddress]);
 
   const handleOnOpenAccountSelector = useCallback(() => {
     setSettings((v) => ({
