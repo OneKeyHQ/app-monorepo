@@ -156,9 +156,15 @@ export function RecoveryPhrase() {
     () => (
       <ActionList
         title={intl.formatMessage({ id: ETranslations.global_more })}
-        renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
+        renderTrigger={
+          <HeaderIconButton
+            icon="DotHorOutline"
+            testID="copy-recovery-phrase-icon"
+          />
+        }
         items={[
           {
+            testID: 'copy-recovery-phrase-button',
             label: intl.formatMessage({
               id: ETranslations.global_copy_recovery_phrase,
             }),
@@ -183,12 +189,14 @@ export function RecoveryPhrase() {
                   copyText(mnemonic);
                 },
                 confirmButtonProps: {
+                  testID: 'copy-recovery-phrase-confirm',
                   variant: 'secondary',
                 },
                 onCancelText: intl.formatMessage({
                   id: ETranslations.global_cancel_copy,
                 }),
                 cancelButtonProps: {
+                  testID: 'copy-recovery-phrase-cancel',
                   variant: 'primary',
                 },
               });
