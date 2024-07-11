@@ -124,7 +124,12 @@ const FaceIdItem = () => {
       authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
       authType.includes(AuthenticationType.IRIS)
     ) {
-      title = intl.formatMessage({ id: ETranslations.global_face_id });
+      title = intl.formatMessage({
+        id:
+          authType.length > 1
+            ? ETranslations.global_biometric
+            : ETranslations.global_face_id,
+      });
       icon = 'FaceIdSolid';
     }
   }
