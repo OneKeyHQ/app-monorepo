@@ -323,7 +323,7 @@ function HardwareUiStateContainerCmp() {
   const hasOperationAction = useCallback(
     (currentState: IHardwareUiState | undefined) => {
       if (!currentState?.action) return false;
-      if (!hasToastAction(currentState)) return false;
+      if (hasToastAction(currentState)) return false;
 
       if (
         currentState &&
