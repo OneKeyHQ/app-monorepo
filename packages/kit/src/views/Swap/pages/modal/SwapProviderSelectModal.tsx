@@ -4,13 +4,18 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { IKeyOfIcons, IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
+  Icon,
+  IconButton,
   Page,
+  Popover,
   SectionList,
   Select,
   SizableText,
+  Stack,
+  XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -25,6 +30,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -41,6 +47,21 @@ enum ESwapProviderStatus {
   AVAILABLE = 'Available',
   UNAVAILABLE = 'Unavailable',
 }
+
+const InformationItem = ({
+  icon,
+  content,
+}: {
+  icon: IKeyOfIcons;
+  content: string;
+}) => (
+  <XStack alignItems="flex-start" space="$2">
+    <Icon flexShrink={0} color="$iconSubdued" size="$5" name={icon} />
+    <SizableText size="$bodyMd" color="$textSubdued">
+      {content}
+    </SizableText>
+  </XStack>
+);
 
 const SwapProviderSelectModal = () => {
   const navigation =
@@ -65,7 +86,6 @@ const SwapProviderSelectModal = () => {
     [setProviderSort],
   );
 
-  // todo i18n
   const swapProviderSortSelectItems = useMemo(
     () => [
       {
@@ -174,9 +194,66 @@ const SwapProviderSelectModal = () => {
       toToken,
     ],
   );
-
+  const rightInfoComponent = useCallback(() => {
+    if (platformEnv.isNative) {
+      return (
+        <Popover
+          title={intl.formatMessage({
+            id: ETranslations.provider_ios_popover_title,
+          })}
+          renderTrigger={
+            <IconButton
+              variant="tertiary"
+              size="medium"
+              icon="InfoCircleOutline"
+            />
+          }
+          renderContent={
+            <Stack px="$4" pb="$4" space="$2">
+              <SizableText size="$bodyMdMedium" color="$text">
+                {intl.formatMessage({
+                  id: ETranslations.provider_ios_popover_approval_require_title,
+                })}
+              </SizableText>
+              <InformationItem
+                icon="LockOutline"
+                content={intl.formatMessage({
+                  id: ETranslations.provider_ios_popover_approval_require_msg,
+                })}
+              />
+              <SizableText size="$bodyMdMedium" color="$text">
+                {intl.formatMessage({
+                  id: ETranslations.provider_ios_popover_order_info_title,
+                })}
+              </SizableText>
+              <InformationItem
+                icon="GasOutline"
+                content={intl.formatMessage({
+                  id: ETranslations.provider_network_fee,
+                })}
+              />
+              <InformationItem
+                icon="ClockTimeHistoryOutline"
+                content={intl.formatMessage({
+                  id: ETranslations.provider_swap_duration,
+                })}
+              />
+              <InformationItem
+                icon="HandCoinsOutline"
+                content={intl.formatMessage({
+                  id: ETranslations.provider_protocol_fee,
+                })}
+              />
+            </Stack>
+          }
+        />
+      );
+    }
+    return null;
+  }, [intl]);
   return (
     <Page>
+      <Page.Header headerRight={rightInfoComponent} />
       <SectionList
         px="$5"
         pt="$2"
