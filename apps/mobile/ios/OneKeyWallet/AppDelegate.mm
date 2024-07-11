@@ -3,10 +3,22 @@
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTLinkingManager.h>
 
+#ifdef DEBUG
+#else
+#import <Firebase/Firebase.h>
+#endif
+
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
+  #ifdef DEBUG
+  #else
+//    NSString *version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];
+//    if (![version isEqualToString:@"1"]) {
+      [FIRApp configure];
+//    }
+  #endif
   self.moduleName = @"main";
 
   // You can add your custom initial props in the dictionary below.

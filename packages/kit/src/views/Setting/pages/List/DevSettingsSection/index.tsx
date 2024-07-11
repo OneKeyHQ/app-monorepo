@@ -37,6 +37,7 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { Section } from '../Section';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
+import { CrashDevSettings } from './CrasshDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
@@ -420,6 +421,7 @@ export const DevSettingsSection = () => {
       ) : null}
 
       <AddressBookDevSetting />
+      <CrashDevSettings />
     </Section>
   );
 };
