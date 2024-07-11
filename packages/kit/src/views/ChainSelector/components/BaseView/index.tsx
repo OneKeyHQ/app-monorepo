@@ -55,15 +55,7 @@ export const BaseListView = ({
         onPress={() => onPressItem?.(item)}
         testID={`select-item-${item.id}`}
       >
-        {networkId === item.id ? (
-          <ListItem.CheckMark
-            key="checkmark"
-            enterStyle={{
-              opacity: 0,
-              scale: 0,
-            }}
-          />
-        ) : null}
+        {networkId === item.id ? <ListItem.CheckMark key="checkmark" /> : null}
       </ListItem>
     )}
   />

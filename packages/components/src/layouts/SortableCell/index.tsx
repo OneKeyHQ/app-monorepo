@@ -7,6 +7,8 @@ import {
 } from 'react-native-draggable-flatlist';
 import { AnimatePresence } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { IconButton } from '../../actions/IconButton';
 import { Stack, XStack } from '../../primitives/Stack';
 
@@ -49,10 +51,14 @@ function BaseSortableCell(
                 icon="MinusCircleSolid"
                 variant="destructive"
                 animation="quick"
-                enterStyle={{
-                  opacity: 0,
-                  scale: 0,
-                }}
+                enterStyle={
+                  platformEnv.isNativeAndroid
+                    ? undefined
+                    : {
+                        opacity: 0,
+                        scale: 0,
+                      }
+                }
               />
             ) : null}
           </AnimatePresence>
@@ -66,10 +72,14 @@ function BaseSortableCell(
                 icon="MenuOutline"
                 onPressIn={drag}
                 animation="quick"
-                enterStyle={{
-                  opacity: 0,
-                  scale: 0,
-                }}
+                enterStyle={
+                  platformEnv.isNativeAndroid
+                    ? undefined
+                    : {
+                        opacity: 0,
+                        scale: 0,
+                      }
+                }
               />
             ) : null}
           </AnimatePresence>
