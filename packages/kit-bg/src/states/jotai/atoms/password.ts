@@ -86,6 +86,8 @@ export const {
     isEnable: boolean;
   }>
 >( (async (get) => {
+  // TODO: remove webAuth in Native App
+  // handling webAuthCredentialId in suspense causes the parent container to re-render and flicker.
   if (platformEnv.isNative) { 
     return {
       isSupport: false,
