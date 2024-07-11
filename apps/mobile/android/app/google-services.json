@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "117481276073",
+    "project_id": "test-aa6e3",
+    "storage_bucket": "test-aa6e3.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:117481276073:android:bdffdba4b36cd239b5dfb8",
+        "android_client_info": {
+          "package_name": "so.onekey.app.wallet.dev"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "117481276073-f3s78ljijap43crv50qvk21h5m7k5mbq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "so.onekey.app.wallet.dev",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "117481276073-fs7omuqsmvgtg6bci3ja1gvo03g0d984.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZE4y0ffcHVo8i0BRHHENkok-U8Vq9Pr8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "117481276073-fs7omuqsmvgtg6bci3ja1gvo03g0d984.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "117481276073-kh208l1jusgcqcpd52a2vg6juhu8sb4a.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "so.onekey.wallet"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
