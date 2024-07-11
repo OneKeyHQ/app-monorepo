@@ -268,7 +268,16 @@ export function EnterPin({
                 outlineWidth: 2,
                 outlineStyle: 'solid',
               }}
-              onPress={() => setVal((v) => v + num)}
+              onPress={() =>
+                setVal((v) => {
+                  // classic only supports 9 digits
+                  // pro only on device input pin
+                  if (v.length >= 9) {
+                    return v;
+                  }
+                  return v + num;
+                })
+              }
             >
               <Stack w="$2.5" h="$2.5" borderRadius="$full" bg="$text" />
             </Stack>
