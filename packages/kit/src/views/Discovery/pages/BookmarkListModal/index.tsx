@@ -134,7 +134,7 @@ function BookmarkListModal() {
 
   const onSortBookmarks = useCallback(
     (data: IBrowserBookmark[]) => {
-      buildBookmarkData(data);
+      buildBookmarkData({ data });
       setDataSource(data);
     },
     [buildBookmarkData],

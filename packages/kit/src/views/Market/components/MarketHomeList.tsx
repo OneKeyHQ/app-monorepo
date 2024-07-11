@@ -877,10 +877,15 @@ function BasicMarketHomeList({
             {...listItemPressStyle}
             {...(platformEnv.isNative ? pressEvents : undefined)}
           >
-            <XStack space="$3" ai="center">
+            <XStack space="$3" ai="center" flexShrink={1}>
               <MarketTokenIcon uri={item.image} size="$10" />
-              <YStack>
-                <SizableText size="$bodyLgMedium" selectable={false}>
+              <YStack flexShrink={1}>
+                <SizableText
+                  size="$bodyLgMedium"
+                  selectable={false}
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
                   {item.symbol.toUpperCase()}
                 </SizableText>
                 <SizableText
@@ -901,7 +906,7 @@ function BasicMarketHomeList({
                 </SizableText>
               </YStack>
             </XStack>
-            <XStack ai="center" space="$5" flexShrink={1}>
+            <XStack ai="center" space="$5">
               <NumberSizeableText
                 selectable={false}
                 flexShrink={1}
