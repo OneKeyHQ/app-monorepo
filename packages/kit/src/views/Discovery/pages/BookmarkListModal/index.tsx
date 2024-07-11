@@ -198,15 +198,11 @@ function BookmarkListModal() {
             >
               {isEditing ? (
                 <ListItem.IconButton
+                  {...ListItem.EnterAnimationStyle}
                   title={intl.formatMessage({
                     id: ETranslations.global_remove,
                   })}
                   key="remove"
-                  animation="quick"
-                  enterStyle={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
                   icon="MinusCircleSolid"
                   iconProps={{
                     color: '$iconCritical',
@@ -241,26 +237,18 @@ function BookmarkListModal() {
               {isEditing ? (
                 <XStack space="$6">
                   <ListItem.IconButton
+                    {...ListItem.EnterAnimationStyle}
                     title={intl.formatMessage({
                       id: ETranslations.explore_rename,
                     })}
                     key="rename"
-                    animation="quick"
-                    enterStyle={{
-                      opacity: 0,
-                      scale: 0,
-                    }}
                     icon="PencilOutline"
                     onPress={() => onRename(item)}
                     testID="action-list-item-rename"
                   />
                   <ListItem.IconButton
+                    {...ListItem.EnterAnimationStyle}
                     key="darg"
-                    animation="quick"
-                    enterStyle={{
-                      opacity: 0,
-                      scale: 0,
-                    }}
                     cursor="move"
                     icon="DragOutline"
                     onPressIn={drag}

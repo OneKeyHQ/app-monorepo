@@ -19,6 +19,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EOnboardingPages,
@@ -146,10 +147,14 @@ function FinalizeWalletSetupPage({
               <Stack
                 key="CheckRadioSolid"
                 animation="quick"
-                enterStyle={{
-                  opacity: 0,
-                  scale: 0,
-                }}
+                enterStyle={
+                  platformEnv.isNativeAndroid
+                    ? undefined
+                    : {
+                        opacity: 0,
+                        scale: 0,
+                      }
+                }
               >
                 <Icon name="CheckRadioSolid" color="$iconSuccess" size="$16" />
               </Stack>
@@ -158,10 +163,14 @@ function FinalizeWalletSetupPage({
                 key="spinner"
                 size="large"
                 animation="quick"
-                exitStyle={{
-                  opacity: 0,
-                  scale: 0,
-                }}
+                exitStyle={
+                  platformEnv.isNativeAndroid
+                    ? undefined
+                    : {
+                        opacity: 0,
+                        scale: 0,
+                      }
+                }
               />
             )}
           </AnimatePresence>
