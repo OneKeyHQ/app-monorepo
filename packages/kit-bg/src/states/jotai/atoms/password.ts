@@ -85,12 +85,18 @@ export const {
     isSupport: boolean;
     isEnable: boolean;
   }>
->(async (get) => {
+>( (async (get) => {
+  if (platformEnv.isNative) { 
+    return {
+      isSupport: false,
+      isEnable: false,
+    };
+  }
   const { webAuthCredentialId } = get(passwordPersistAtom.atom());
   const isSupport = await isSupportWebAuth();
   const isEnable = isSupport && webAuthCredentialId?.length > 0;
   return { isSupport, isEnable };
-});
+}));
 
 export const {
   target: passwordBiologyAuthInfoAtom,
