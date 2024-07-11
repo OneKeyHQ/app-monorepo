@@ -23,8 +23,7 @@ class ContextJotaiActionsRecentSearch extends ContextJotaiActionsBase {
     (get, set, payload: IIUniversalRecentSearchItem) => {
       const prev = get(universalSearchAtom());
       const newItems = prev.recentSearch.filter(
-        (recentSearchItem) =>
-          !!prev.recentSearch.find((i) => i.text === recentSearchItem.text),
+        (recentSearchItem) => recentSearchItem.text !== payload.text,
       );
       const list = [payload, ...newItems].slice(0, MAX_RECENT_SEARCH_SIZE);
       this.syncToDb.call(set, {
