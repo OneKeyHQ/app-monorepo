@@ -29,7 +29,7 @@ export default function WebViewModal() {
     () => (
       <ActionList
         renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
-        title="Options"
+        title={intl.formatMessage({ id: ETranslations.explore_options })}
         sections={[
           {
             items: [

@@ -34,23 +34,28 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
 
   const renderNetworkIcon = useCallback(() => {
     if (isLoading) {
-      return <Skeleton w="$6" h="$6" />;
+      return <Skeleton w="$5" h="$5" />;
     }
     if (network?.logoURI) {
-      return <NetworkAvatar networkId={network?.id} size="$6" />;
+      return <NetworkAvatar networkId={network?.id} size="$5" />;
     }
 
-    return <Icon size="$6" name="QuestionmarkOutline" color="$iconSubdued" />;
+    return <Icon size="$5" name="QuestionmarkOutline" color="$iconSubdued" />;
   }, [isLoading, network?.logoURI, network?.id]);
+
+  const renderNetworkName = useCallback(() => {
+    if (isLoading) {
+      return <Skeleton w="$14" h="$5" />;
+    }
+    return <SizableText size="$bodyMd">{network?.name}</SizableText>;
+  }, [isLoading, network?.name]);
 
   return (
     <XStack
       alignItems="center"
       onPress={handlePress}
-      pl="$3"
-      pr="$1.5"
-      bg="$bgSubdued"
-      w="$16"
+      h="$10"
+      px="$3"
       hoverStyle={
         triggerDisabled
           ? undefined
@@ -77,11 +82,18 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
       }
       borderCurve="continuous"
       disabled={triggerDisabled}
+      space="$2"
       {...rest}
     >
       {renderNetworkIcon()}
+      {renderNetworkName()}
       {triggerDisabled ? null : (
-        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+        <Icon
+          ml="$-2"
+          name="ChevronDownSmallOutline"
+          color="$iconSubdued"
+          size="$5"
+        />
       )}
     </XStack>
   );
