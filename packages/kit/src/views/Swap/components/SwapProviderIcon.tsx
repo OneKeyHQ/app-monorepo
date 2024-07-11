@@ -1,5 +1,8 @@
+import { useIntl } from 'react-intl';
+
 import type { IImageProps } from '@onekeyhq/components';
-import { Icon, Image, Stack } from '@onekeyhq/components';
+import { Icon, Image, SizableText, Stack, Tooltip } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type ISwapProviderIconProps = {
   providerLogo?: string;
@@ -11,6 +14,7 @@ export function SwapProviderIcon({
   lock,
   ...props
 }: ISwapProviderIconProps) {
+  const intl = useIntl();
   return (
     <>
       <Image size="$10" borderRadius="$2" delayMs={1000} {...props}>
@@ -28,16 +32,28 @@ export function SwapProviderIcon({
         </Image.Fallback>
       </Image>
       {lock ? (
-        <Stack
-          p="$0.5"
-          borderRadius="$full"
-          bg="$bgSubdued"
-          position="absolute"
-          right="$-1"
-          bottom="$-1"
-        >
-          <Icon size="$4" name="LockOutline" />
-        </Stack>
+        <Tooltip
+          renderTrigger={
+            <Stack
+              p="$0.5"
+              borderRadius="$full"
+              bg="$bgSubdued"
+              position="absolute"
+              right="$-1"
+              bottom="$-1"
+            >
+              <Icon size="$4" name="LockOutline" />
+            </Stack>
+          }
+          renderContent={
+            <SizableText>
+              {intl.formatMessage({
+                id: ETranslations.provider_approval_require,
+              })}
+            </SizableText>
+          }
+          placement="bottom-start"
+        />
       ) : null}
     </>
   );

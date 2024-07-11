@@ -70,6 +70,7 @@ export function useSwapTxHistoryActions() {
               swapTxInfo.swapBuildResData.result.fee?.percentageFee ?? 0,
             protocolFee:
               swapTxInfo.swapBuildResData.result.fee?.protocolFees ?? 0,
+            orderId: swapTxInfo.swapBuildResData.orderId,
           },
           ctx: swapTxInfo.swapBuildResData.ctx,
         };

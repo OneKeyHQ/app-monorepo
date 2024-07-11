@@ -298,6 +298,7 @@ export interface IFetchBuildTxResponse {
   swftOrder?: IFetchBuildTxOrderResponse;
   ctx?: any;
   socketBridgeScanUrl?: string;
+  orderId?: string;
 }
 
 export interface ISwapInfoSide {
@@ -366,7 +367,7 @@ export interface ISwapTxHistory {
   };
   txInfo: {
     txId: string;
-    orderId?: string;
+    orderId?: string; // swft orderId
     sender: string;
     receiver: string;
     gasFeeInNative?: string;
@@ -379,6 +380,7 @@ export interface ISwapTxHistory {
     instantRate: string;
     protocolFee?: number;
     oneKeyFee?: number;
+    orderId?: string;
   };
   date: {
     created: number;

@@ -42,7 +42,12 @@ const BiologyAuthContainer = ({
     ) {
       return intl.formatMessage(
         { id: ETranslations.auth_with_biometric },
-        { biometric: 'FaceID' },
+        {
+          biometric:
+            authType.length > 1
+              ? intl.formatMessage({ id: ETranslations.global_biometric })
+              : 'FaceID',
+        },
       );
     }
     return intl.formatMessage(
