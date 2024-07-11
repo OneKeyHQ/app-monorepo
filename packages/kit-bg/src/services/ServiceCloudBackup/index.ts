@@ -601,14 +601,10 @@ class ServiceCloudBackup extends ServiceBase {
         });
       }
 
-      for (const contactUUID of Object.keys(notOnDevice.contacts)) {
-        const { name, address, networkId } = privateData.contacts[contactUUID];
-        await serviceAddressBook.addItem({
-          name,
-          address,
-          networkId,
-        });
-      }
+      await serviceAddressBook.bulkSetItemsWithUniq(
+        Object.values(privateData.contacts),
+        localPassword,
+      );
 
       if (notOnDevice.discoverBookmarks) {
         const existBookmarks =
