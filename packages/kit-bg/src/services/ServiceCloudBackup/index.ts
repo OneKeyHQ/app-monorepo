@@ -19,6 +19,8 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -216,6 +218,26 @@ class ServiceCloudBackup extends ServiceBase {
       deviceInfo: this.deviceInfo,
       ...(await this.getDataForBackup(password)),
     };
+    const accountCount =
+      Object.values(cloudData.publicData.HDWallets).reduce(
+        (count, wallet) => count + wallet.indexedAccountUUIDs.length,
+        0,
+      ) +
+      Object.keys(cloudData.publicData.importedAccounts).length +
+      Object.keys(cloudData.publicData.watchingAccounts).length;
+    if (
+      Object.keys(cloudData.publicData.HDWallets).length +
+        accountCount +
+        Object.keys(cloudData.publicData.contacts).length +
+        (cloudData?.publicData?.discoverBookmarks?.length ?? 0) <=
+      0
+    ) {
+      throw new Error(
+        appLocale.intl.formatMessage({
+          id: ETranslations.backup_no_content_available_for_backup,
+        }),
+      );
+    }
     const filename = generateUUID();
     try {
       if (!RNFS) return;
@@ -240,13 +262,7 @@ class ServiceCloudBackup extends ServiceBase {
         backupTime: cloudData.backupTime,
         appVersion: cloudData.appVersion,
         walletCount: Object.keys(cloudData.publicData.HDWallets).length,
-        accountCount:
-          Object.values(cloudData.publicData.HDWallets).reduce(
-            (count, wallet) => count + wallet.indexedAccountUUIDs.length,
-            0,
-          ) +
-          Object.keys(cloudData.publicData.importedAccounts).length +
-          Object.keys(cloudData.publicData.watchingAccounts).length,
+        accountCount,
       });
       const newMetaData = JSON.stringify(existMetaData);
       JSON.parse(newMetaData);

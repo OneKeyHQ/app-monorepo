@@ -64,6 +64,8 @@ export const FIX_SHEET_PROPS: IStackProps = {
   display: 'block',
 };
 
+import { Animated } from 'react-native';
+
 function DialogFrame({
   open,
   onClose,
