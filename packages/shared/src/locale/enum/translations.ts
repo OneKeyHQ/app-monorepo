@@ -541,6 +541,7 @@ export enum ETranslations {
   global_backed_up = 'global.backed_up',
   global_backup = 'global.backup',
   global_balance = 'global.balance',
+  global_biometric = 'global.biometric',
   global_block_height = 'global.block_height',
   global_bluetooth = 'global.bluetooth',
   global_bluetooth_firmware = 'global.bluetooth_firmware',
