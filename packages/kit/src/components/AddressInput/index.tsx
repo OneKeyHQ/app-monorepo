@@ -140,7 +140,11 @@ type IAddressInputProps = Omit<
   clipboard?: boolean;
   scan?: { sceneName: EAccountSelectorSceneName };
   contacts?: boolean;
-  accountSelector?: { num: number; onBeforeAccountSelectorOpen?: () => void };
+  accountSelector?: {
+    num: number;
+    onBeforeAccountSelectorOpen?: () => void;
+    clearNotMatch?: boolean;
+  };
 
   // query options for control query behavior
   enableNameResolve?: boolean;
@@ -410,6 +414,7 @@ export function AddressInput(props: IAddressInputProps) {
               accountId={accountId}
               num={accountSelector?.num}
               currentAddress={inputText}
+              clearNotMatch={accountSelector?.clearNotMatch}
               onBeforeAccountSelectorOpen={
                 accountSelector?.onBeforeAccountSelectorOpen
               }
