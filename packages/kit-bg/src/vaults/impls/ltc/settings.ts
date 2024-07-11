@@ -68,6 +68,8 @@ const settings: IVaultSettings = {
   hasFrozenBalance: false,
   showAddressType: false,
   estimatedFeePollingInterval: 60,
+
+  dappInteractionEnabled: false,
 };
 
 export default Object.freeze(settings);

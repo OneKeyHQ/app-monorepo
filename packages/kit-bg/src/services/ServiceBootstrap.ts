@@ -9,6 +9,7 @@ class ServiceBootstrap extends ServiceBase {
   }
 
   public async init() {
+    await this.backgroundApi.serviceSetting.initSystemLocale();
     await Promise.all([
       this.backgroundApi.serviceSetting.refreshLocaleMessages(),
       this.backgroundApi.walletConnect.initializeOnStart(),

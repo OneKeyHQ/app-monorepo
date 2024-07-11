@@ -108,6 +108,8 @@ const settings: IVaultSettings = {
   },
   hasFrozenBalance: true,
   showAddressType: true,
+
+  dappInteractionEnabled: true,
 };
 
 export default Object.freeze(settings);

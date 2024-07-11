@@ -157,11 +157,10 @@ const SwapHistoryDetailModal = () => {
           size="$bodyMd"
           color="$textSubdued"
           formatter="balance"
-          mr="$0.5"
         >
           {gasFeeDisplay}
         </NumberSizeableText>
-        {txHistory.baseInfo.fromNetwork?.symbol ?? ''}(
+        {` ${txHistory.baseInfo.fromNetwork?.symbol ?? ''}`}(
         <NumberSizeableText
           color="$textSubdued"
           size="$bodyMd"
@@ -258,7 +257,6 @@ const SwapHistoryDetailModal = () => {
           <InfoItemGroup>
             {txHistory.txInfo.orderId ? (
               <InfoItem
-                disabledCopy
                 label="Order ID"
                 renderContent={txHistory.txInfo.orderId}
                 showCopy

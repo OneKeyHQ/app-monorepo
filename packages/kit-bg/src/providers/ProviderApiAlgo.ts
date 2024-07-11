@@ -53,9 +53,15 @@ class ProviderApiAlgo extends ProviderApiBase {
   public async getChainId(request: IJsBridgeMessagePayload) {
     console.log('algo getChainId');
 
-    const { accountInfo: { networkId } = {} } = (
-      await this.getAccountsInfo(request)
-    )[0];
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
+
+    if (!accountsInfo || !accountsInfo.length) {
+      return undefined;
+    }
+    const { accountInfo: { networkId } = {} } = accountsInfo[0];
 
     if (networkId) {
       return networkId.split(SEPERATOR)[1];

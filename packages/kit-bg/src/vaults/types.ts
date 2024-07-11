@@ -133,6 +133,8 @@ export type IVaultSettings = {
   hardwareAccountEnabled: boolean;
   publicKeyExportEnabled?: boolean;
 
+  dappInteractionEnabled?: boolean;
+
   softwareAccountDisabled?: boolean;
   addressBookDisabled?: boolean;
   copyAddressDisabled?: boolean;
@@ -203,6 +205,10 @@ export type IVaultSettings = {
   showAddressType?: boolean;
 
   hideTxUtxoListWhenPending?: boolean;
+
+  maxSendFeeUpRatio?: {
+    [networkId: string]: number;
+  };
 };
 
 export type IVaultFactoryOptions = {

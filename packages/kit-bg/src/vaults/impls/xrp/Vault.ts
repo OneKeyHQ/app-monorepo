@@ -29,7 +29,10 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -176,30 +179,38 @@ export default class Vault extends VaultBase {
         tokenIdOnNetwork: '',
       });
 
-      if (!nativeToken) {
-        throw new OneKeyInternalError('Native token not found');
-      }
-
-      const transfer = {
-        from: encodedTx.Account,
-        to: encodedTx.Destination,
-        amount: new BigNumber(encodedTx.Amount)
-          .shiftedBy(-network.decimals)
-          .toFixed(),
-        tokenIdOnNetwork: nativeToken.address,
-        icon: nativeToken.logoURI ?? '',
-        name: nativeToken.name,
-        symbol: nativeToken.symbol,
-        isNFT: false,
-        isNative: true,
-      };
-      actions = [
-        await this.buildTxTransferAssetAction({
+      if (nativeToken) {
+        const transfer = {
           from: encodedTx.Account,
           to: encodedTx.Destination,
-          transfers: [transfer],
-        }),
-      ];
+          amount: new BigNumber(encodedTx.Amount)
+            .shiftedBy(-network.decimals)
+            .toFixed(),
+          tokenIdOnNetwork: nativeToken.address,
+          icon: nativeToken.logoURI ?? '',
+          name: nativeToken.name,
+          symbol: nativeToken.symbol,
+          isNFT: false,
+          isNative: true,
+        };
+        actions = [
+          await this.buildTxTransferAssetAction({
+            from: encodedTx.Account,
+            to: encodedTx.Destination,
+            transfers: [transfer],
+          }),
+        ];
+      }
+    }
+
+    if (actions.length === 0) {
+      actions.push({
+        type: EDecodedTxActionType.UNKNOWN,
+        unknownAction: {
+          from: encodedTx.Account,
+          to: encodedTx.Destination,
+        },
+      });
     }
 
     const decodedTx: IDecodedTx = {
