@@ -53,6 +53,7 @@ function TxExtraInfoContainer() {
               shouldShowData ? (
                 <ScrollView
                   maxHeight="$48"
+                  nestedScrollEnabled
                   showsVerticalScrollIndicator={false}
                   pb="$5" // for spacing between the text and the border while haven't scroll behavior
                   borderBottomWidth={StyleSheet.hairlineWidth}
