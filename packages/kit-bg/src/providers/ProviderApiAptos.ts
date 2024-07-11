@@ -147,16 +147,23 @@ class ProviderApiAptos extends ProviderApiBase {
       }
     | undefined
   > {
-    const accounts = await this.getAccountsInfo(request);
-    if (!accounts || accounts.length === 0) {
+    try {
+      const accounts =
+        await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+          request,
+        );
+      if (!accounts || accounts.length === 0) {
+        return undefined;
+      }
+      const { account } = accounts[0];
+
+      return {
+        publicKey: account.pub ?? '',
+        address: account.address,
+      };
+    } catch {
       return undefined;
     }
-    const { account } = accounts[0];
-
-    return {
-      publicKey: account.pub ?? '',
-      address: account.address,
-    };
   }
 
   @providerApiMethod()
@@ -181,7 +188,10 @@ class ProviderApiAptos extends ProviderApiBase {
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: encodeTx,
+        encodedTx: {
+          ...encodeTx,
+          ...encodeTx.payload,
+        },
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
       });
@@ -529,6 +539,7 @@ class ProviderApiAptos extends ProviderApiBase {
         rawTx: bufferUtils.bytesToHex(bcsTxn),
       },
       accountAddress: account.address,
+      accountId: accountInfo?.accountId ?? '',
       networkId: accountInfo?.networkId ?? '',
     });
     return res;

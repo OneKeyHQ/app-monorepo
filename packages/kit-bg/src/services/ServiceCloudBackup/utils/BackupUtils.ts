@@ -4,7 +4,7 @@ import {
   differenceInWeeks,
 } from 'date-fns';
 
-import type { IMetaDataObject } from '../types';
+import type { IMetaDataObject, IPublicBackupData } from '../types';
 
 export function filterWillRemoveBackupList(metaData: IMetaDataObject[]) {
   const currentDate = new Date();
@@ -35,4 +35,26 @@ export function filterWillRemoveBackupList(metaData: IMetaDataObject[]) {
     (current) => differenceInHours(currentDate, current.backupTime) > 24,
   );
   return willRemoveList;
+}
+
+export function accountCountWithBackup(publicData: IPublicBackupData) {
+  return (
+    Object.values(publicData.HDWallets).reduce(
+      (count, wallet) => count + wallet.indexedAccountUUIDs.length,
+      0,
+    ) +
+    Object.keys(publicData.importedAccounts).length +
+    Object.keys(publicData.watchingAccounts).length
+  );
+}
+
+export function isAvailableBackupWithBackup(publicData: IPublicBackupData) {
+  return (
+    Object.keys(publicData.HDWallets).length +
+      Object.keys(publicData.importedAccounts).length +
+      Object.keys(publicData.watchingAccounts).length +
+      Object.keys(publicData.contacts).length +
+      (publicData?.discoverBookmarks?.length ?? 0) >
+    0
+  );
 }

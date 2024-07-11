@@ -31,14 +31,3 @@ export const getShortcutsMap: () => Record<
     desc: 'Close Tab',
   },
 });
-
-export const getDisplayKeysMap = (isMac?: boolean) => ({
-  CmdOrCtrl: isMac ? '⌘' : 'Ctrl',
-  Alt: isMac ? '⌥' : 'Alt',
-  Shift: isMac ? '⇧' : 'Shift',
-  Left: '←',
-  Right: '→',
-  Up: '↑',
-  Down: '↓',
-  Search: '/',
-});

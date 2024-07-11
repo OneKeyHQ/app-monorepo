@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerBrowserSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -85,7 +86,14 @@ function AvatarStackTrigger({
         accountId: accountInfo.accountId,
         networkId: accountInfo.networkId || '',
       });
-      return { account, networkId: accountInfo.networkId };
+      let indexedAccount: IDBIndexedAccount | undefined;
+      if (account.indexedAccountId) {
+        indexedAccount =
+          await backgroundApiProxy.serviceAccount.getIndexedAccount({
+            id: account.indexedAccountId,
+          });
+      }
+      return { account, networkId: accountInfo.networkId, indexedAccount };
     });
     return Promise.all(promises);
   }, [accountsInfo]);
@@ -100,6 +108,7 @@ function AvatarStackTrigger({
             size="small"
             zIndex={-index}
             networkId={account?.networkId}
+            indexedAccount={account.indexedAccount}
           />
         </Stack>
       ))}

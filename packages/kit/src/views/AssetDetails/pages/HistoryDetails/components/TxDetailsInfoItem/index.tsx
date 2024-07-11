@@ -10,7 +10,6 @@ import {
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function InfoItemGroup({ children, ...rest }: IXStackProps) {
@@ -27,7 +26,7 @@ export function InfoItem({
   description,
   compact = false,
   showCopy = false,
-  showOpenWithUrl = undefined,
+  openWithUrl,
   disabledCopy = false,
   ...rest
 }: {
@@ -37,7 +36,7 @@ export function InfoItem({
   compact?: boolean;
   disabledCopy?: boolean;
   showCopy?: boolean;
-  showOpenWithUrl?: string;
+  openWithUrl?: () => void;
 } & IStackProps) {
   const intl = useIntl();
   const { copyText } = useClipboard();
@@ -80,9 +79,9 @@ export function InfoItem({
             </SizableText>
             {description || null}
           </Stack>
-          {showCopy || showOpenWithUrl ? (
+          {showCopy || openWithUrl ? (
             <XStack space="$3" ml="$5">
-              {showOpenWithUrl ? (
+              {openWithUrl ? (
                 <IconButton
                   title={intl.formatMessage({
                     id: ETranslations.global_view_in_blockchain_explorer,
@@ -90,7 +89,7 @@ export function InfoItem({
                   variant="tertiary"
                   icon="OpenOutline"
                   size="small"
-                  onPress={() => openUrl(showOpenWithUrl)}
+                  onPress={openWithUrl}
                 />
               ) : null}
               {showCopy ? (

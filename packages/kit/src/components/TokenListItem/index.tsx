@@ -1,6 +1,8 @@
-import { NumberSizeableText } from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { Token } from '../Token';
 
@@ -11,19 +13,23 @@ export type ITokenListItemProps = {
   tokenSymbol?: string;
   tokenContrastAddress?: string;
   balance?: string;
+  isSearch?: boolean;
   valueProps?: { value: string; currency?: string };
   disabled?: boolean;
+  titleMatchStr?: IFuseResultMatch;
 } & IListItemProps;
 
 export function TokenListItem({
   tokenImageSrc,
   networkImageSrc,
   tokenName,
+  isSearch,
   tokenSymbol,
   tokenContrastAddress,
   balance,
   valueProps,
   disabled,
+  titleMatchStr,
   ...rest
 }: ITokenListItemProps) {
   return (
@@ -32,16 +38,44 @@ export function TokenListItem({
       {...(disabled && {
         opacity: 0.5,
       })}
-      title={tokenSymbol}
-      subtitle={tokenContrastAddress || tokenName}
-      renderAvatar={
-        <Token
-          tokenImageUri={tokenImageSrc}
-          networkImageUri={networkImageSrc}
-        />
-      }
+      {...(isSearch && {
+        $md: {
+          alignItems: 'flex-start',
+        },
+      })}
       {...rest}
     >
+      <Token tokenImageUri={tokenImageSrc} networkImageUri={networkImageSrc} />
+      <ListItem.Text
+        flex={1}
+        primary={tokenSymbol}
+        primaryMatch={titleMatchStr}
+        primaryTextProps={{
+          numberOfLines: 1,
+        }}
+        secondary={
+          isSearch ? (
+            <Stack space="$0.5" $gtMd={{ flexDirection: 'row', space: '$1' }}>
+              <SizableText
+                numberOfLines={1}
+                color="$textSubdued"
+                size="$bodyMd"
+              >
+                {tokenName}
+              </SizableText>
+              <SizableText color="$textDisabled" size="$bodyMd">
+                {accountUtils.shortenAddress({
+                  address: tokenContrastAddress,
+                  leadingLength: 8,
+                  trailingLength: 6,
+                })}
+              </SizableText>
+            </Stack>
+          ) : (
+            tokenName ?? ''
+          )
+        }
+      />
       <ListItem.Text
         align="right"
         primary={
@@ -49,6 +83,7 @@ export function TokenListItem({
             textAlign="right"
             color="$text"
             formatter="balance"
+            size="$bodyLgMedium"
           >
             {balance}
           </NumberSizeableText>
@@ -57,6 +92,7 @@ export function TokenListItem({
           valueProps?.value ? (
             <NumberSizeableText
               textAlign="right"
+              size="$bodyMd"
               formatter="value"
               color="$textSubdued"
               formatterOptions={{ currency: valueProps?.currency ?? '$' }}

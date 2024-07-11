@@ -42,20 +42,17 @@ const SwapRoutePaths = ({ routeContent }: ISwapRoutePathProps) => (
               space="$1"
             >
               {/* generate a array with 40 empty fill */}
-              {new Array(40).fill(null).map((_, index) => (
-                <Stack key={index} h="$0.5" bg="$borderSubdued" flex={1} />
-              ))}
+              <XStack px="$4" flex={1} space="$1" alignItems="center">
+                {new Array(40).fill(null).map((_, index) => (
+                  <Stack key={index} h="$0.5" bg="$borderSubdued" flex={1} />
+                ))}
+              </XStack>
             </XStack>
             {row.map((item, itemIndex) => {
-              const maxWidth = `$${5 + 4 * item.images.length}`;
+              const maxWidth = `$${4 + 4 * item.images.length}`;
               return (
-                <Stack
-                  key={itemIndex}
-                  bg="$bgApp"
-                  alignItems="center"
-                  maxWidth={maxWidth}
-                >
-                  <XStack>
+                <Stack key={itemIndex} alignItems="center">
+                  <XStack bg="$bgApp" maxWidth={maxWidth}>
                     {item.images.map((image, index) => (
                       <Token
                         key={index}

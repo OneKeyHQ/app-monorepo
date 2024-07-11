@@ -29,6 +29,8 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: false,
   addressBookDisabled: true,
 
+  dappInteractionEnabled: true,
+
   disabledSendAction: true,
   disabledSwapAction: true,
 
@@ -41,6 +43,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  estimatedFeePollingInterval: 600,
 
   accountDeriveInfo,
   networkInfo: {

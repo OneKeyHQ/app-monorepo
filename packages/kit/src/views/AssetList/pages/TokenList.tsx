@@ -49,6 +49,8 @@ function TokenList() {
     helpText,
     onPressToken,
     isBlocked,
+    deriveInfo,
+    deriveType,
   } = route.params;
   const { tokens, map: tokenMap, keys } = tokenList;
 
@@ -83,9 +85,19 @@ function TokenList() {
         walletId,
         tokenInfo: token,
         isBlocked,
+        deriveInfo,
+        deriveType,
       });
     },
-    [accountId, isBlocked, navigation, networkId, walletId],
+    [
+      accountId,
+      deriveInfo,
+      deriveType,
+      isBlocked,
+      navigation,
+      networkId,
+      walletId,
+    ],
   );
 
   useEffect(() => {

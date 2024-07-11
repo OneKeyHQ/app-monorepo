@@ -59,6 +59,7 @@ export type ITxActionCommonListViewProps = {
 };
 
 export type ITxActionCommonDetailViewProps = {
+  networkId: string;
   overview: {
     avatar?: {
       isNFT?: boolean;
@@ -77,6 +78,14 @@ export type ITxActionCommonDetailViewProps = {
     };
   };
   source?: {
+    title?: string;
+    content: string;
+    description?: {
+      content?: React.ReactNode;
+      icon?: IKeyOfIcons;
+    };
+  };
+  applyFor?: {
     title?: string;
     content: string;
     description?: {

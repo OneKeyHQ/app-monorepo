@@ -190,7 +190,7 @@ class ServiceSend extends ServiceBase {
           console.log('signTx@vault.signTransaction', signedTx);
           return signedTx;
         },
-        { deviceParams },
+        { deviceParams, debugMethodName: 'serviceSend.signTransaction' },
       );
 
     console.log('signTx@serviceSend.signTransaction', tx);
@@ -239,6 +239,7 @@ class ServiceSend extends ServiceBase {
         accountId,
       });
       const { txid } = await vault.broadcastTransaction({
+        accountId,
         networkId,
         accountAddress,
         signedTx,
@@ -297,6 +298,7 @@ class ServiceSend extends ServiceBase {
       sourceInfo,
       feeInfo: sendSelectedFeeInfo,
       replaceTxInfo,
+      transferPayload,
     } = params;
 
     const result: ISendTxOnSuccessData[] = [];
@@ -320,6 +322,7 @@ class ServiceSend extends ServiceBase {
         accountId,
         unsignedTx,
         feeInfo: sendSelectedFeeInfo,
+        transferPayload,
       });
 
       const data = {
@@ -516,7 +519,7 @@ class ServiceSend extends ServiceBase {
           });
           return _signedMessage;
         },
-        { deviceParams },
+        { deviceParams, debugMethodName: 'serviceSend.signMessage' },
       );
 
     return signedMessage;

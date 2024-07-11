@@ -141,6 +141,7 @@ class ServiceHistory extends ServiceBase {
 
     // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
     let confirmedTxsToSave: IAccountHistoryTx[] = [];
+    let confirmedTxsToRemove: IAccountHistoryTx[] = [];
     if (!vaultSettings.saveConfirmedTxsEnabled) {
       confirmedTxsToSave = mergedConfirmedTxs.filter(
         (tx) =>
@@ -148,10 +149,37 @@ class ServiceHistory extends ServiceBase {
             (onChainHistoryTx) => onChainHistoryTx.id === tx.id,
           ),
       );
+
+      confirmedTxsToRemove = mergedConfirmedTxs.filter((tx) =>
+        onChainHistoryTxs.find(
+          (onChainHistoryTx) => onChainHistoryTx.id === tx.id,
+        ),
+      );
     }
     // If some chains require saving all confirmed transactions, save all confirmed transactions without filtering
     else {
-      confirmedTxsToSave = mergedConfirmedTxs;
+      confirmedTxsToSave = confirmedTxs;
+    }
+
+    const nonceHasBeenUsedTxs: IAccountHistoryTx[] = [];
+    let finalPendingTxs: IAccountHistoryTx[] = [];
+    if (vaultSettings.nonceRequired) {
+      pendingTxs.forEach((tx) => {
+        if (
+          onChainHistoryTxs.find(
+            (onChainHistoryTx) =>
+              !isNil(onChainHistoryTx.decodedTx.nonce) &&
+              !isNil(tx.decodedTx.nonce) &&
+              onChainHistoryTx.decodedTx.nonce === tx.decodedTx.nonce,
+          )
+        ) {
+          nonceHasBeenUsedTxs.push(tx);
+        } else {
+          finalPendingTxs.push(tx);
+        }
+      });
+    } else {
+      finalPendingTxs = pendingTxs;
     }
 
     await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
@@ -159,7 +187,8 @@ class ServiceHistory extends ServiceBase {
         networkId,
         accountAddress,
         xpub,
-        txs: confirmedTxsToSave,
+        confirmedTxsToSave,
+        confirmedTxsToRemove,
       },
     );
 
@@ -168,16 +197,25 @@ class ServiceHistory extends ServiceBase {
         networkId,
         accountAddress,
         xpub,
-        pendingTxs,
+        confirmedTxs: [...confirmedTxs, ...nonceHasBeenUsedTxs],
       },
     );
 
     // Merge the locally pending transactions, confirmed transactions, and on-chain history to return
 
-    return unionBy(
-      [...pendingTxs, ...confirmedTxsToSave, ...onChainHistoryTxs],
+    const result = unionBy(
+      [
+        ...finalPendingTxs,
+        ...[...confirmedTxsToSave, ...onChainHistoryTxs].sort(
+          (b, a) =>
+            (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+            (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
+        ),
+      ],
       (tx) => tx.id,
     );
+
+    return result;
   }
 
   @backgroundMethod()
@@ -217,6 +255,14 @@ class ServiceHistory extends ServiceBase {
           tokenAddress: tokenIdOnNetwork,
           ...extraParams,
         },
+        {
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId: params.accountId,
+              },
+            ),
+        },
       );
     } catch (e) {
       const error = e as OneKeyServerApiError;
@@ -254,7 +300,7 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
-      const { networkId, txid, accountAddress, xpub } = params;
+      const { accountId, networkId, txid, accountAddress, xpub } = params;
       const extraParams = await this.buildFetchHistoryListParams({
         ...params,
         accountAddress: accountAddress || '',
@@ -270,6 +316,12 @@ class ServiceHistory extends ServiceBase {
             accountAddress,
             ...extraParams,
           },
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
         },
       );
       return resp.data.data;
@@ -318,6 +370,32 @@ class ServiceHistory extends ServiceBase {
       );
 
     return localHistoryPendingTxs;
+  }
+
+  @backgroundMethod()
+  public async getLocalHistoryTxById(params: {
+    accountId: string;
+    networkId: string;
+    historyId: string;
+  }) {
+    const { accountId, networkId, historyId } = params;
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    return this.backgroundApi.simpleDb.localHistory.getLocalHistoryTxById({
+      networkId,
+      accountAddress,
+      xpub,
+      historyId,
+    });
   }
 
   @backgroundMethod()

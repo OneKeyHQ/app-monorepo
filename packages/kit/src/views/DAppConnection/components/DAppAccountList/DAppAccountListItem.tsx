@@ -10,6 +10,7 @@ import {
   SizableText,
   Stack,
   XGroup,
+  YGroup,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -96,31 +97,31 @@ function DAppAccountListItem({
   });
   return (
     <>
-      <XGroup
+      <YGroup
         bg="$bg"
         borderRadius="$3"
         borderColor="$borderSubdued"
         borderWidth={StyleSheet.hairlineWidth}
-        separator={<Divider vertical />}
+        separator={<Divider />}
         disabled={readonly}
       >
-        <Group.Item>
+        <YGroup.Item>
           <NetworkSelectorTriggerDappConnection
             num={num}
             beforeShowTrigger={beforeShowTrigger}
             disabled={networkReadonly || readonly}
             loadingDuration={loadingDuration}
           />
-        </Group.Item>
-        <Group.Item>
+        </YGroup.Item>
+        <YGroup.Item>
           <AccountSelectorTriggerDappConnection
             num={num}
             compressionUiMode={compressionUiMode}
             beforeShowTrigger={beforeShowTrigger}
             loadingDuration={loadingDuration}
           />
-        </Group.Item>
-      </XGroup>
+        </YGroup.Item>
+      </YGroup>
       {shouldSyncFromHome ? <DAppAccountListInitFromHome num={num} /> : null}
     </>
   );

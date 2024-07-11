@@ -167,17 +167,20 @@ export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
   utxoFrom?: IUtxoAddressInfo[];
   utxoTo?: IUtxoAddressInfo[];
   label?: string;
-  data?: string;
   application?: {
     name: string;
     icon: string;
   };
+  isInternalSwap?: boolean;
+  swapReceivedAddress?: string;
+  swapReceivedNetworkId?: string;
 };
 
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amount: string;
   symbol: string;
   name: string;
+  spender: string;
   isInfiniteAmount: boolean;
   tokenIdOnNetwork: string;
   label?: string;
@@ -194,7 +197,7 @@ export type IDecodedTxAction = {
   type: EDecodedTxActionType;
   direction?: EDecodedTxDirection;
   hidden?: boolean;
-
+  data?: string;
   assetTransfer?: IDecodedTxActionAssetTransfer;
   tokenApprove?: IDecodedTxActionTokenApprove;
   tokenActivate?: IDecodedTxActionTokenActivate;

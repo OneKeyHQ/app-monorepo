@@ -25,7 +25,6 @@ function useReceiveToken({
 }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
-
   const handleOnReceive = useCallback(() => {
     if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
       navigation.pushModal(EModalRoutes.ReceiveModal, {

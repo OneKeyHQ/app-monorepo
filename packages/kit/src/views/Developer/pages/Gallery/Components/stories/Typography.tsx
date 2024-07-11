@@ -100,6 +100,7 @@ const TypographyGallery = () => (
                   color: 'pink',
                 },
                 url2: {
+                  url: undefined,
                   color: 'green',
                   size: '$heading4xl',
                   onPress: () => {

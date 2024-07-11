@@ -51,6 +51,7 @@ import type {
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import type {
   EReplaceTxType,
@@ -608,7 +609,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
         from: tx.from,
-        to: tokenApprove.spender,
+        to: tx.to,
+        spender: tokenApprove.spender,
         icon,
         name,
         symbol,
@@ -631,8 +633,20 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       name: string;
       icon: string;
     };
+    isInternalSwap?: boolean;
+    swapReceivedAddress?: string;
+    swapReceivedNetworkId?: string;
   }): Promise<IDecodedTxAction> {
-    const { from, to, transfers, data, application } = params;
+    const {
+      from,
+      to,
+      transfers,
+      data,
+      application,
+      isInternalSwap,
+      swapReceivedAddress,
+      swapReceivedNetworkId,
+    } = params;
     const [accountAddress, network] = await Promise.all([
       this.getAccountAddress(),
       this.getNetwork(),
@@ -645,8 +659,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       to,
       sends: [],
       receives: [],
-      data,
       application,
+      isInternalSwap,
+      swapReceivedAddress,
+      swapReceivedNetworkId,
     };
 
     transfers.forEach((transfer) => {
@@ -678,8 +694,57 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     return {
       type: EDecodedTxActionType.ASSET_TRANSFER,
+      data,
       assetTransfer,
     };
+  }
+
+  async buildInternalSwapAction(params: {
+    swapInfo: ISwapTxInfo;
+    swapData?: string;
+    swapToAddress?: string;
+  }) {
+    const { swapData, swapInfo, swapToAddress } = params;
+    const swapSendToken = swapInfo.sender.token;
+    const swapReceiveToken = swapInfo.receiver.token;
+    const providerInfo = swapInfo.swapBuildResData.result.info;
+    const action = await this.buildTxTransferAssetAction({
+      from: swapInfo.accountAddress,
+      to: swapToAddress ?? '',
+      data: swapData,
+      application: {
+        name: providerInfo.providerName,
+        icon: providerInfo.providerLogo ?? '',
+      },
+      isInternalSwap: true,
+      swapReceivedAddress: swapInfo.receivingAddress,
+      swapReceivedNetworkId: swapInfo.receiver.token.networkId,
+      transfers: [
+        {
+          from: swapInfo.accountAddress,
+          to: '',
+          tokenIdOnNetwork: swapSendToken.contractAddress,
+          icon: swapSendToken.logoURI ?? '',
+          name: swapSendToken.name ?? '',
+          symbol: swapSendToken.symbol,
+          amount: swapInfo.sender.amount,
+          isNFT: false,
+          isNative: swapSendToken.isNative,
+        },
+        {
+          from: '',
+          to: swapInfo.receivingAddress,
+          tokenIdOnNetwork: swapReceiveToken.contractAddress,
+          icon: swapReceiveToken.logoURI ?? '',
+          name: swapReceiveToken.name ?? '',
+          symbol: swapReceiveToken.symbol,
+          amount: swapInfo.receiver.amount,
+          isNFT: false,
+          isNative: swapReceiveToken.isNative,
+        },
+      ],
+    });
+    return action;
   }
 
   // DO NOT override this method

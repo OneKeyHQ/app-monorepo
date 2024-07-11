@@ -29,6 +29,9 @@ class ServiceValidator extends ServiceBase {
   }): Promise<IAddressValidateBaseStatus> {
     // Both server and local validation are required. If server-level validation fails due to a network issue, we will fall back to local validation."
     const { networkId, address } = params;
+    if (!networkId) {
+      return 'invalid';
+    }
     try {
       const resp = await this.serverValidateAddress(params);
       const serverValid = resp.data.data.isValid;

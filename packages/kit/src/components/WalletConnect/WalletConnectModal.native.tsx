@@ -1,7 +1,7 @@
 /* eslint-disable import/order */
 import '@walletconnect/react-native-compat';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { AccountCtrl } from '@walletconnect/modal-react-native/lib/module/controllers/AccountCtrl';
 import { ClientCtrl } from '@walletconnect/modal-react-native/lib/module/controllers/ClientCtrl';
@@ -26,10 +26,23 @@ import type { IWalletConnectModalShared } from './types';
 // https://docs.walletconnect.com/advanced/walletconnectmodal/usage
 // https://github.com/WalletConnect/react-native-examples/blob/main/dapps/ModalUProvider/src/App.tsx
 function NativeModal() {
-  const { open: openNativeModal } = useWalletConnectModal();
+  const { open: openNativeModal, isOpen: isNativeModalOpen } =
+    useWalletConnectModal();
+  const [isMounted, setIsMounted] = useState(false);
 
   // TODO call ClientCtrl.setProvider first, then render Modal, openNativeModal
-  console.log('NativeModal openNativeModal: ', openNativeModal);
+  console.log('NativeModal openNativeModal fn: ', openNativeModal);
+  console.log('NativeModal isNativeModalOpen : ', isNativeModalOpen);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isNativeModalOpen && isMounted) {
+    // Avoid waking up the external wallet App twice
+    return null;
+  }
+
   return (
     <WalletConnectModalNative
       projectId={WALLET_CONNECT_V2_PROJECT_ID}
@@ -37,6 +50,8 @@ function NativeModal() {
     />
   );
 }
+
+const NativeModalMemo = memo(NativeModal);
 
 const modal: IWalletConnectModalShared = {
   useModal() {
@@ -118,7 +133,7 @@ const modal: IWalletConnectModalShared = {
     }, [isNativeModalOpen]);
 
     return {
-      modal: shouldRenderNativeModal ? <NativeModal /> : null,
+      modal: shouldRenderNativeModal ? <NativeModalMemo /> : null,
       openModal,
       closeModal,
     };

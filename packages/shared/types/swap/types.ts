@@ -184,6 +184,7 @@ export interface IQuoteRoutePath {
 export interface IFetchQuoteResult {
   info: IFetchQuoteInfo;
   errorMessage?: string;
+  fromAmount?: string;
   toAmount?: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
   fee?: IFetchQuoteFee;
   instantRate?: string;
@@ -201,6 +202,7 @@ export interface IFetchQuoteResult {
   unSupportSlippage?: boolean;
   fromTokenInfo: ISwapTokenBase;
   toTokenInfo: ISwapTokenBase;
+  quoteResultCtx?: any;
 }
 
 export interface IAllowanceResult {
@@ -271,6 +273,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   slippagePercentage: number;
   toTokenAmount: string;
   provider: string;
+  quoteResultCtx?: any;
 }
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
@@ -295,6 +298,7 @@ export interface IFetchBuildTxResponse {
   swftOrder?: IFetchBuildTxOrderResponse;
   ctx?: any;
   socketBridgeScanUrl?: string;
+  orderId?: string;
 }
 
 export interface ISwapInfoSide {
@@ -363,7 +367,7 @@ export interface ISwapTxHistory {
   };
   txInfo: {
     txId: string;
-    orderId?: string;
+    orderId?: string; // swft orderId
     sender: string;
     receiver: string;
     gasFeeInNative?: string;
@@ -376,6 +380,7 @@ export interface ISwapTxHistory {
     instantRate: string;
     protocolFee?: number;
     oneKeyFee?: number;
+    orderId?: string;
   };
   date: {
     created: number;
