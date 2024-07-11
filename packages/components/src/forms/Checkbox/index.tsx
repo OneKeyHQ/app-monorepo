@@ -41,7 +41,6 @@ function RawCheckbox({
     <XStack
       // alignItems="center"
       py="$2"
-      bg="red"
       opacity={checkboxProps.disabled ? 0.5 : 1}
       userSelect="none"
       onPress={onPress}
