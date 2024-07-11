@@ -42,6 +42,7 @@ export type IFirmwareUpdateDevSettings = {
   forceUpdateFirmware: boolean;
   forceUpdateBle: boolean;
   forceUpdateBootloader: boolean;
+  showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
@@ -62,6 +63,7 @@ export const {
     forceUpdateFirmware: false,
     forceUpdateBle: false,
     forceUpdateBootloader: false,
+    showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
   },
 });
