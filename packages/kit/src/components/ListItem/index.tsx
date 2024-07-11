@@ -34,6 +34,7 @@ import type {
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AccountAvatar } from '../AccountAvatar';
 
@@ -222,17 +223,18 @@ const ListItemIconButton = (props: IIconButtonProps) => (
   <IconButton variant="tertiary" size="medium" {...props} />
 );
 
+const listItemEnterAnimationStyle = platformEnv.isNativeAndroid
+  ? undefined
+  : {
+      animation: 'quick' as IStackProps['animation'],
+      enterStyle: {
+        opacity: 0,
+        scale: 0,
+      },
+    };
 // CheckMark
 const ListItemCheckMark = (props: IStackProps) => (
-  <Stack
-    key="checkMarkIndicator"
-    animation="quick"
-    enterStyle={{
-      opacity: 0,
-      scale: 0,
-    }}
-    {...props}
-  >
+  <Stack key="checkMarkIndicator" {...listItemEnterAnimationStyle} {...props}>
     <Icon name="CheckRadioSolid" color="$iconActive" />
   </Stack>
 );
@@ -405,4 +407,5 @@ export const ListItem = withStaticProperties(ListItemComponent, {
   CheckMark: ListItemCheckMark,
   Separator: ListItemSeparator,
   DrillIn: ListItemDrillIn,
+  EnterAnimationStyle: listItemEnterAnimationStyle,
 });

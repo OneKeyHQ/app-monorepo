@@ -85,6 +85,7 @@ const EditableViewListItem = ({
     >
       {sectionIndex !== 0 && isEditMode ? (
         <ListItem.IconButton
+          {...ListItem.EnterAnimationStyle}
           onPress={() => {
             if (topNetworkIds.has(item.id)) {
               setTopNetworks?.([
@@ -96,11 +97,6 @@ const EditableViewListItem = ({
           }}
           title={topNetworkIds.has(item.id) ? unpinText : pinText}
           key="moveToTop"
-          animation="quick"
-          enterStyle={{
-            opacity: 0,
-            scale: 0,
-          }}
           icon={
             topNetworkIds.has(item.id) ? 'ThumbtackSolid' : 'ThumbtackOutline'
           }
@@ -113,22 +109,12 @@ const EditableViewListItem = ({
         />
       ) : null}
       {networkId === item.id && !isEditMode ? (
-        <ListItem.CheckMark
-          key="checkmark"
-          enterStyle={{
-            opacity: 0,
-            scale: 0,
-          }}
-        />
+        <ListItem.CheckMark key="checkmark" />
       ) : null}
       {isEditMode && sectionIndex === 0 ? (
         <ListItem.IconButton
           key="darg"
-          animation="quick"
-          enterStyle={{
-            opacity: 0,
-            scale: 0,
-          }}
+          {...ListItem.EnterAnimationStyle}
           cursor="move"
           icon="DragOutline"
           onPressIn={drag}
