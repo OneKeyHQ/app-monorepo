@@ -38,7 +38,11 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import ServiceBase from '../ServiceBase';
 
 import { ERestoreResult } from './types';
-import { filterWillRemoveBackupList } from './utils/BackupTimeStrategyUtils';
+import {
+  accountCountWithBackup,
+  filterWillRemoveBackupList,
+  isAvailableBackupWithBackup,
+} from './utils/BackupUtils';
 
 import type {
   IBackupData,
@@ -218,20 +222,8 @@ class ServiceCloudBackup extends ServiceBase {
       deviceInfo: this.deviceInfo,
       ...(await this.getDataForBackup(password)),
     };
-    const accountCount =
-      Object.values(cloudData.publicData.HDWallets).reduce(
-        (count, wallet) => count + wallet.indexedAccountUUIDs.length,
-        0,
-      ) +
-      Object.keys(cloudData.publicData.importedAccounts).length +
-      Object.keys(cloudData.publicData.watchingAccounts).length;
-    if (
-      Object.keys(cloudData.publicData.HDWallets).length +
-        accountCount +
-        Object.keys(cloudData.publicData.contacts).length +
-        (cloudData?.publicData?.discoverBookmarks?.length ?? 0) <=
-      0
-    ) {
+    const accountCount = accountCountWithBackup(cloudData.publicData);
+    if (!isAvailableBackupWithBackup(cloudData.publicData)) {
       throw new Error(
         appLocale.intl.formatMessage({
           id: ETranslations.backup_no_content_available_for_backup,
