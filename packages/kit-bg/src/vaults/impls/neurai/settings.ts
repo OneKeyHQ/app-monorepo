@@ -25,10 +25,12 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
 const settings: IVaultSettings = {
   ...settingsBtc,
 
-  importedAccountEnabled: false,
+  importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
-  watchingAccountEnabled: false,
+  watchingAccountEnabled: true,
+
+  dappInteractionEnabled: false,
 
   accountDeriveInfo,
   impl: IMPL_NEURAI,
@@ -36,6 +38,7 @@ const settings: IVaultSettings = {
   minTransferAmount: '0.00000546',
   hasFrozenBalance: false,
   showAddressType: false,
+  estimatedFeePollingInterval: 60,
 };
 
 export default Object.freeze(settings);

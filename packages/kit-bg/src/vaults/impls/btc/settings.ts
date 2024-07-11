@@ -94,6 +94,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: true,
   editFeeEnabled: true,
   replaceTxEnabled: false,
+  estimatedFeePollingInterval: 120,
 
   minTransferAmount: '0.00000546',
   defaultFeePresetIndex: 1,
@@ -107,6 +108,8 @@ const settings: IVaultSettings = {
   },
   hasFrozenBalance: true,
   showAddressType: true,
+
+  dappInteractionEnabled: true,
 };
 
 export default Object.freeze(settings);

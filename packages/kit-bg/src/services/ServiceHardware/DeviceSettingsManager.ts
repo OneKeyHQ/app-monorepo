@@ -1,6 +1,9 @@
 import { isNil } from 'lodash';
 
-import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  backgroundMethod,
+  toastIfError,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { FirmwareVersionTooLow } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { generateConnectSrc } from '@onekeyhq/shared/src/hardware/instance';
@@ -92,6 +95,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           dbDevice,
         },
         hideCheckingDeviceLoading: true,
+        debugMethodName: 'deviceSettings.getDeviceSupportFeatures',
       },
     );
   }
@@ -111,6 +115,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         deviceParams: {
           dbDevice: device,
         },
+        debugMethodName: 'deviceSettings.applySettingsToDevice',
       },
     );
   }

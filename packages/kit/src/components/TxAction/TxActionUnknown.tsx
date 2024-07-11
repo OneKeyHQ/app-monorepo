@@ -79,6 +79,7 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
 
   return (
     <TxActionCommonDetailView
+      networkId={decodedTx.networkId}
       overview={{
         content: intl.formatMessage({
           id: ETranslations.transaction__contract_interaction,
@@ -90,7 +91,7 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
       }}
       target={{
         title: intl.formatMessage({
-          id: ETranslations.transaction_to_contract,
+          id: ETranslations.interact_with_contract,
         }),
         content: unknownTo,
         description: {

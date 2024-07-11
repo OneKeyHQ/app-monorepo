@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function DeleteBackupDialogFooter({
   filename,
@@ -51,7 +52,9 @@ export function useDeleteBackupDialog() {
           }),
           icon: 'DeleteOutline',
           description: intl.formatMessage({
-            id: ETranslations.backup_file_permanently_deleted,
+            id: platformEnv.isNativeAndroid
+              ? ETranslations.backup_file_permanently_deleted_android
+              : ETranslations.backup_file_permanently_deleted,
           }),
           tone: 'destructive',
           renderContent: (

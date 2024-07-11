@@ -181,6 +181,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
         deviceParams: { dbDevice: device as any },
         hideCheckingDeviceLoading: true,
         skipDeviceCancel,
+        debugMethodName: 'firmwareAuthenticate.verify',
       },
     );
   }

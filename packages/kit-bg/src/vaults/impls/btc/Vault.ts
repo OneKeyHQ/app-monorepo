@@ -118,12 +118,6 @@ export default class VaultBtc extends VaultBase {
       tokenIdOnNetwork: '',
     });
 
-    if (!nativeToken) {
-      throw new OneKeyInternalError('Native token not found');
-    }
-
-    let actions: IDecodedTxAction[] = [];
-
     const utxoFrom = inputs.map((input) => ({
       address: input.address,
       balance: new BigNumber(input.value)
@@ -159,8 +153,19 @@ export default class VaultBtc extends VaultBase {
     let sendNativeTokenAmountBN = new BigNumber(0);
     let sendNativeTokenAmountValueBN = new BigNumber(0);
 
+    let actions: IDecodedTxAction[] = [
+      {
+        type: EDecodedTxActionType.UNKNOWN,
+        unknownAction: {
+          from: account.address,
+          to: utxoTo[0].address,
+        },
+      },
+    ];
+
     if (swapInfo) {
       const swapSendToken = swapInfo.sender.token;
+      const swapReceiveToken = swapInfo.receiver.token;
       const providerInfo = swapInfo.swapBuildResData.result.info;
       const action = await this.buildTxTransferAssetAction({
         from: swapInfo.accountAddress,
@@ -172,7 +177,7 @@ export default class VaultBtc extends VaultBase {
         transfers: [
           {
             from: swapInfo.accountAddress,
-            to: utxoTo[0].address,
+            to: '',
             tokenIdOnNetwork: swapSendToken.contractAddress,
             icon: swapSendToken.logoURI ?? '',
             name: swapSendToken.name ?? '',
@@ -181,7 +186,21 @@ export default class VaultBtc extends VaultBase {
             isNFT: false,
             isNative: swapSendToken.isNative,
           },
+          {
+            from: '',
+            to: swapInfo.receivingAddress,
+            tokenIdOnNetwork: swapReceiveToken.contractAddress,
+            icon: swapReceiveToken.logoURI ?? '',
+            name: swapReceiveToken.name ?? '',
+            symbol: swapReceiveToken.symbol,
+            amount: swapInfo.receiver.amount,
+            isNFT: false,
+            isNative: swapReceiveToken.isNative,
+          },
         ],
+        isInternalSwap: true,
+        swapReceivedAddress: swapInfo.receivingAddress,
+        swapReceivedNetworkId: swapInfo.receiver.token.networkId,
       });
       if (swapSendToken.isNative) {
         sendNativeTokenAmountBN = new BigNumber(swapInfo.sender.amount);
@@ -194,7 +213,7 @@ export default class VaultBtc extends VaultBase {
         action.assetTransfer.utxoTo = originalUtxoTo;
       }
       actions = [action];
-    } else {
+    } else if (nativeToken) {
       actions = [
         {
           type: EDecodedTxActionType.ASSET_TRANSFER,
@@ -706,6 +725,7 @@ export default class VaultBtc extends VaultBase {
     async () => {
       try {
         const feeInfo = await this.backgroundApi.serviceGas.estimateFee({
+          accountId: this.accountId,
           networkId: this.networkId,
           accountAddress: await this.getAccountAddress(),
         });

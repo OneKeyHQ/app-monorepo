@@ -7,6 +7,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 import { MinimumTransferBalanceRequiredError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -258,7 +259,7 @@ class ServiceDemo extends ServiceBase {
 
   @backgroundMethod()
   public async demoBuildDecodedTx(): Promise<IDecodedTx> {
-    const networkId = 'evm--5';
+    const networkId = 'evm--1';
     const accountId = "hd-1--m/44'/60'/0'/0/0";
     return Promise.resolve({
       txid: '0x1234567890',
@@ -456,6 +457,38 @@ class ServiceDemo extends ServiceBase {
   @backgroundMethod()
   async clearQrWalletAirGapAccountKeys({ walletId }: { walletId: string }) {
     await localDb.clearQrWalletAirGapAccountKeys({ walletId });
+  }
+
+  @backgroundMethod()
+  async addMultipleWatchingAccounts() {
+    const { serviceAccount } = this.backgroundApi;
+    const now = Date.now();
+    void serviceAccount.addWatchingAccount({
+      input: '0x519643f1732ac6444ab271e459b777f65a39c711',
+      networkId: getNetworkIdsMap().eth,
+      deriveType: 'default',
+    });
+    void serviceAccount.addWatchingAccount({
+      input: '0x830e7d1a54acf4cde587884bb8169ad12dad63a5',
+      networkId: getNetworkIdsMap().polygon,
+      deriveType: 'default',
+    });
+    void serviceAccount.addWatchingAccount({
+      input: '0xe74e378a4243064b2c5118c1a0ae4e834dad757b',
+      networkId: getNetworkIdsMap().bsc,
+      deriveType: 'default',
+    });
+    void serviceAccount.addWatchingAccount({
+      input: '0xe3be49e36b5dda6f603fa2d69ab3d10bdaf52cd2',
+      networkId: getNetworkIdsMap().arbitrum,
+      deriveType: 'default',
+    });
+    void serviceAccount.addWatchingAccount({
+      input: '0x96cfe53279c127044584e49bd63da73c513bf656',
+      networkId: getNetworkIdsMap().avalanche,
+      deriveType: 'default',
+    });
+    return Date.now() - now;
   }
 }
 

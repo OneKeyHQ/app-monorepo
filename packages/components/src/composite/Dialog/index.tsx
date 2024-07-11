@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -33,6 +34,7 @@ import {
   DialogHeader,
   DialogHeaderContext,
   DialogIcon,
+  DialogRichDescription,
   DialogTitle,
   SetDialogHeader,
 } from './Header';
@@ -296,12 +298,10 @@ function BaseDialogContainer(
     [onClose],
   );
 
-  const handleContainerClose = useCallback(() => handleClose(), [handleClose]);
-
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
-        close: handleContainerClose,
+        close: handleClose,
         ref: formRef,
       },
       footerRef: {
@@ -309,7 +309,7 @@ function BaseDialogContainer(
         props: undefined,
       },
     }),
-    [handleContainerClose],
+    [handleClose],
   );
 
   const handleOpen = useCallback(() => {
@@ -337,6 +337,18 @@ function BaseDialogContainer(
     icon,
     showExitButton,
   });
+
+  // If the header properties change, update the headerContext content.
+  useLayoutEffect(() => {
+    setHeaderProps((prev) => ({
+      ...prev,
+      title,
+      tone,
+      description,
+      icon,
+      showExitButton,
+    }));
+  }, [description, icon, showExitButton, title, tone]);
   const headerContextValue = useMemo(
     () => ({ headerProps, setHeaderProps }),
     [headerProps],
@@ -349,7 +361,7 @@ function BaseDialogContainer(
           open={isOpen}
           onOpen={handleOpen}
           renderContent={renderContent}
-          onClose={handleContainerClose}
+          onClose={handleClose}
           {...props}
         />
       </DialogHeaderContext.Provider>
@@ -455,6 +467,7 @@ export const Dialog = {
   Header: SetDialogHeader,
   Title: DialogTitle,
   Description: DialogDescription,
+  RichDescription: DialogRichDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
   Form: DialogForm,

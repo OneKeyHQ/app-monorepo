@@ -2,11 +2,13 @@ import { useCallback, useState } from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 import { Share } from 'react-native';
 
 import { ActionList, Page, useClipboard } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import WebView from '@onekeyhq/kit/src/components/WebView';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalWebViewRoutes,
@@ -22,23 +24,24 @@ export default function WebViewModal() {
     useRoute<RouteProp<IModalWebViewParamList, EModalWebViewRoutes.WebView>>();
   const { url, title } = route.params;
   const { copyText } = useClipboard();
+  const intl = useIntl();
   const headerRight = useCallback(
     () => (
       <ActionList
         renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
-        title="Options"
+        title={intl.formatMessage({ id: ETranslations.explore_options })}
         sections={[
           {
             items: [
               {
-                label: 'Refresh',
+                label: intl.formatMessage({ id: ETranslations.global_refresh }),
                 icon: 'RefreshCwOutline',
                 onPress: async () => {
                   webviewRef?.current?.reload?.();
                 },
               },
               {
-                label: 'Share',
+                label: intl.formatMessage({ id: ETranslations.explore_share }),
                 icon: 'ShareOutline',
                 onPress: () => {
                   Share.share(
@@ -53,14 +56,19 @@ export default function WebViewModal() {
                 },
               },
               {
-                label: 'Copy URL',
+                // 'Copy URL'
+                label: intl.formatMessage({
+                  id: ETranslations.global_copy_url,
+                }),
                 icon: 'LinkOutline',
                 onPress: async () => {
                   copyText(url);
                 },
               },
               {
-                label: 'Open in Browser',
+                label: intl.formatMessage({
+                  id: ETranslations.explore_open_in_browser,
+                }),
                 icon: 'GlobusOutline',
                 onPress: async () => {
                   openUrlExternal(url);
@@ -71,7 +79,7 @@ export default function WebViewModal() {
         ]}
       />
     ),
-    [webviewRef, url, copyText],
+    [webviewRef, url, copyText, intl],
   );
 
   const [navigationTitle, setNavigationTitle] = useState(title);

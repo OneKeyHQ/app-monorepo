@@ -1,3 +1,7 @@
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 export enum EModalAssetListRoutes {
@@ -18,5 +22,7 @@ export type IModalAssetListParamList = {
     helpText?: string;
     isBlocked?: boolean;
     onPressToken?: (token: IAccountToken) => void;
+    deriveInfo?: IAccountDeriveInfo;
+    deriveType?: IAccountDeriveTypes;
   };
 };

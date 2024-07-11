@@ -35,6 +35,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  dappInteractionEnabled: true,
+
   isUtxo: false,
   isSingleToken: false,
   NFTEnabled: false,
@@ -43,6 +45,7 @@ const settings: IVaultSettings = {
   editFeeEnabled: true,
   replaceTxEnabled: false,
   onChainHistoryDisabled: true,
+  estimatedFeePollingInterval: 120,
 
   minTransferAmount: '0.0000001',
 

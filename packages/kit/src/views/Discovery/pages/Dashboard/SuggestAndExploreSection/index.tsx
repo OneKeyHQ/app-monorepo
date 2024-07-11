@@ -40,11 +40,9 @@ export function SuggestedAndExploreSection({
       backgroundApiProxy.serviceNetwork.getNetwork({
         networkId: getNetworkIdsMap().eth,
       }),
-      backgroundApiProxy.serviceNetwork.getAllNetworks(),
+      backgroundApiProxy.serviceNetwork.getDappInteractionEnabledNetworks(),
     ]);
-    const networkList = allNetworks.networks
-      .filter((n) => !n.isTestnet)
-      .map((n) => n.id);
+    const networkList = allNetworks.map((n) => n.id);
     setSelectedCategory(categoryList[0].categoryId);
     setSelectedNetwork(defaultNetwork);
     return {

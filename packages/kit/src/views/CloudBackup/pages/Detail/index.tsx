@@ -22,6 +22,7 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import type { IIconProps } from '@onekeyhq/components/src/primitives';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -57,6 +58,7 @@ export default function Detail() {
   const title = formatDate(new Date(backupTime));
   const [segmentValue, setSegmentValue] = useState(0);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const appUpdateInfo = useAppUpdateInfo();
 
   const createSectionListFromPublicData = useCallback(
     (publicData: IPublicBackupData) =>
@@ -249,6 +251,9 @@ export default function Detail() {
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_upgrade,
         }),
+        onConfirm: () => {
+          appUpdateInfo.toUpdatePreviewPage();
+        },
       });
       return;
     }
@@ -299,6 +304,7 @@ export default function Detail() {
     restorePasswordVerifyDialog,
     diffData,
     navigation,
+    appUpdateInfo,
     handlerImportFromPassword,
   ]);
 
@@ -370,10 +376,11 @@ export default function Detail() {
                         id: ETranslations.backup_encrypted_backup_contents,
                       }),
                       items: item.infoList.map((infoString) => ({
-                        label: `  •\t${infoString}`,
+                        label: `  •\t\t${infoString}`,
                       })),
                       renderItems: item?.footerDescription
-                        ? () => (
+                        ? // eslint-disable-next-line react/no-unstable-nested-components
+                          () => (
                             <SizableText
                               mx="$3"
                               my="$3"
