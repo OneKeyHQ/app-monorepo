@@ -36,7 +36,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   ) => {
     const { isLoading } = useMockAccountSelectorLoading(loadingDuration);
     const {
-      activeAccount: { account, network, indexedAccount },
+      activeAccount: { account, wallet, indexedAccount },
       showAccountSelector,
     } = useAccountSelectorTrigger({ num, linkNetwork: true });
 
@@ -61,68 +61,46 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
     }
 
     const accountName = account?.name ? account.name : 'No Account';
-
-    const media = useMedia();
-    const isCompressionUiMode = media.md || compressionUiMode;
+    const walletName = wallet?.name ? wallet.name : 'No Wallet';
 
     const renderAvatar = useCallback(() => {
       if (isLoading) {
-        return <Skeleton w="$6" h="$6" />;
+        return <Skeleton w="$8" h="$8" />;
       }
       if (account?.address || account?.addressDetail.isValid) {
         return (
           <AccountAvatar
-            size="small"
-            borderRadius="$1"
+            size="$8"
+            borderRadius="$2"
             account={account}
-            networkId={network?.id}
             indexedAccount={indexedAccount}
           />
         );
       }
-      return <Icon size="$6" name="XSquareOutline" color="$iconSubdued" />;
-    }, [isLoading, account, network?.id, indexedAccount]);
+      return <Icon size="$8" name="XSquareOutline" color="$iconSubdued" />;
+    }, [isLoading, account, indexedAccount]);
 
-    const renderAccountName = useCallback(() => {
+    const renderWalletAndAccountName = useCallback(() => {
       if (isLoading) {
-        if (isCompressionUiMode) {
-          return (
-            <YStack flex={1} space="$2">
-              <Skeleton w={196} h="$4" />
-              <Skeleton w={196} h="$4" />
-            </YStack>
-          );
-        }
-        return <Skeleton w={118} h="$5" />;
-      }
-      if (isCompressionUiMode) {
         return (
-          <YStack flex={1}>
-            <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-              {accountName}
-            </SizableText>
-            <SizableText size="$bodyMdMedium" numberOfLines={1} color="$text">
-              {addressText}
-            </SizableText>
-          </YStack>
+          <XStack alignItems="center" h="$5">
+            <Skeleton w={118} h={14} />
+          </XStack>
         );
       }
       return (
         <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-          {accountName}
+          {`${walletName} / ${accountName}`}
         </SizableText>
       );
-    }, [isLoading, accountName, addressText, isCompressionUiMode]);
+    }, [isLoading, accountName, walletName]);
     const renderAddressText = useCallback(() => {
-      if (isLoading && !isCompressionUiMode) {
+      if (isLoading) {
         return (
-          <YStack flex={1}>
-            <Skeleton w={196} h="$5" />
-          </YStack>
+          <XStack alignItems="center" h="$5">
+            <Skeleton w={196} h={14} />
+          </XStack>
         );
-      }
-      if (isCompressionUiMode) {
-        return null;
       }
       return (
         <SizableText
@@ -134,7 +112,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
           {addressText}
         </SizableText>
       );
-    }, [isLoading, addressText, isCompressionUiMode]);
+    }, [isLoading, addressText]);
     return (
       <XStack
         flex={1}
@@ -174,10 +152,16 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
         {...rest}
       >
         {renderAvatar()}
-        {renderAccountName()}
-        {renderAddressText()}
+        <YStack flex={1}>
+          {renderWalletAndAccountName()}
+          {renderAddressText()}
+        </YStack>
         {disabled ? null : (
-          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+          <Icon
+            name="ChevronGrabberVerOutline"
+            color="$iconSubdued"
+            size="$5"
+          />
         )}
       </XStack>
     );
