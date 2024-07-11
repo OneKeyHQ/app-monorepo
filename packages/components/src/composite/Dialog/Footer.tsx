@@ -12,7 +12,6 @@ import { useIntl } from 'react-intl';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';

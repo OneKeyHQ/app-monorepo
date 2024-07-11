@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 
 import type { IThemeableStackProps } from '@onekeyhq/components';
@@ -44,10 +43,10 @@ const useSafeKeyboardAnimationStyle = platformEnv.isNative
       }));
       useKeyboardEvent({
         keyboardWillShow: () => {
-          keyboardHeightValue.value = withTiming(safeKeyboardHeight);
+          keyboardHeightValue.value = safeKeyboardHeight;
         },
         keyboardWillHide: () => {
-          keyboardHeightValue.value = withTiming(0);
+          keyboardHeightValue.value = 0;
         },
       });
       return animatedStyles;

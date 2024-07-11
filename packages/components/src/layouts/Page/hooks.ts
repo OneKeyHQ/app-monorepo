@@ -4,7 +4,6 @@ import { useNavigation } from '@react-navigation/core';
 import {
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -134,12 +133,10 @@ export const useSafeKeyboardAnimationStyle = () => {
   useKeyboardEvent({
     keyboardWillShow: (e) => {
       const keyboardHeight = e.endCoordinates.height;
-      keyboardHeightValue.value = withTiming(
-        keyboardHeight - safeBottomHeight - tabBarHeight,
-      );
+      keyboardHeightValue.value = keyboardHeight - safeBottomHeight - tabBarHeight;
     },
     keyboardWillHide: () => {
-      keyboardHeightValue.value = withTiming(0);
+      keyboardHeightValue.value = 0;
     },
   });
   return platformEnv.isNative ? animatedStyles : undefined;
