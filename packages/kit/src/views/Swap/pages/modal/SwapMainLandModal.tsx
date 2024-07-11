@@ -1,8 +1,10 @@
+import { useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { EPageType, Page } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -14,8 +16,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import SwapMainLandWithPageType from '../components/SwapMainLand';
 
 import type { RouteProp } from '@react-navigation/core';
-import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useEffect } from 'react';
 
 const SwapMainLandModalPage = () => {
   const intl = useIntl();
@@ -30,7 +30,7 @@ const SwapMainLandModalPage = () => {
       ...v,
       swapToAnotherAccountSwitchOn: false,
     }));
-  }, []);
+  }, [setSettings]);
   return (
     <Page skipLoading={platformEnv.isNativeIOS}>
       <Page.Header
