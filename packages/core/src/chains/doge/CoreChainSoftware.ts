@@ -25,7 +25,7 @@ export default class CoreChainSoftware extends CoreChainSoftwareBtc {
     return '^[d]gub';
   }
 
-  override async getXprvRegex() {
+  override async getXprvtRegex() {
     return '^[d]gpv';
   }
 

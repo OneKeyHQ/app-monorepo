@@ -666,7 +666,6 @@ function FeeEditor(props: IProps) {
           {feeTitle}
         </SizableText> */}
         <SegmentControl
-          mb="$5"
           fullWidth
           value={currentFeeIndex}
           onChange={(v) => {
@@ -856,7 +855,7 @@ function FeeEditor(props: IProps) {
     if (customFee.gas) {
       return (
         <Form form={form}>
-          <YStack space="$5" pt="$5">
+          <YStack space="$5">
             <Form.Field
               label={intl.formatMessage(
                 {
@@ -918,7 +917,7 @@ function FeeEditor(props: IProps) {
     if (customFee.feeUTXO) {
       return (
         <Form form={form}>
-          <YStack pt="$5">
+          <YStack>
             <Form.Field
               name="feeRate"
               rules={{
@@ -947,7 +946,7 @@ function FeeEditor(props: IProps) {
     if (customFee.feeSol) {
       return (
         <Form form={form}>
-          <YStack pt="$5">
+          <YStack>
             <Form.Field
               label={intl.formatMessage({
                 id: ETranslations.form__priority_fee,
@@ -1015,7 +1014,9 @@ function FeeEditor(props: IProps) {
           watchAllFields.priorityFee || 0,
         );
       } else {
-        limit = new BigNumber(fee.gasEIP1559.gasLimitForDisplay);
+        limit = new BigNumber(
+          fee.gasEIP1559.gasLimitForDisplay || fee.gasEIP1559.gasLimit,
+        );
         priorityFee = new BigNumber(fee.gasEIP1559.maxPriorityFeePerGas);
         maxFee = new BigNumber(fee.gasEIP1559.maxFeePerGas);
       }
@@ -1063,8 +1064,8 @@ function FeeEditor(props: IProps) {
         limit = new BigNumber(watchAllFields.gasLimit || 0);
         gasPrice = new BigNumber(watchAllFields.gasPrice || 0);
       } else {
-        limit = new BigNumber(fee.gas.gasLimitForDisplay || 0);
-        gasPrice = new BigNumber(fee.gas.gasPrice || 0);
+        limit = new BigNumber(fee.gas.gasLimitForDisplay || fee.gas.gasLimit);
+        gasPrice = new BigNumber(fee.gas.gasPrice);
       }
 
       const maxFeeInNative = calculateTotalFeeNative({
@@ -1300,8 +1301,10 @@ function FeeEditor(props: IProps) {
   return (
     <>
       <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$72">
-        {renderFeeTypeSelector()}
-        {renderFeeEditorForm()}
+        <Stack space="$5">
+          {renderFeeTypeSelector()}
+          {renderFeeEditorForm()}
+        </Stack>
       </ScrollView>
       <Stack
         pt="$4"

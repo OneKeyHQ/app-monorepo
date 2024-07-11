@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
@@ -66,6 +67,7 @@ export function NFTDetails() {
       ] = [
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         backgroundApiProxy.serviceNFT.fetchNFTDetails({
+          accountId,
           networkId,
           accountAddress,
           nfts: [{ collectionAddress, itemId }],
@@ -83,7 +85,7 @@ export function NFTDetails() {
         device,
       };
     },
-    [accountAddress, collectionAddress, itemId, networkId, walletId],
+    [accountAddress, collectionAddress, itemId, networkId, walletId, accountId],
     {
       watchLoading: true,
     },
@@ -177,9 +179,15 @@ export function NFTDetails() {
         accountId,
         isNFT: true,
         nfts: [nft],
+        onSuccess: () => navigation.popStack(),
       },
     });
   }, [accountId, navigation, networkId, nft]);
+
+  const isOwnNFT = useMemo(
+    () => new BigNumber(nft?.amount ?? 0).gt(0),
+    [nft?.amount],
+  );
 
   useEffect(
     () => () => {
@@ -203,7 +211,7 @@ export function NFTDetails() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title={nft.metadata?.name} />
+      <Page.Header title={nft.metadata?.name || ''} />
       <Page.Body>
         <Stack
           $gtMd={{
@@ -228,6 +236,7 @@ export function NFTDetails() {
               mt="$5"
               variant="primary"
               onPress={handleSendPress}
+              disabled={!isOwnNFT}
             >
               {intl.formatMessage({ id: ETranslations.global_send })}
             </Button>

@@ -434,6 +434,7 @@ class ClientLightning {
         const newRawTx = { ...rawTx, sign };
         const newSignedTx = { ...signedTx, rawTx: JSON.stringify(newRawTx) };
         await this.backgroundApi.serviceSend.broadcastTransaction({
+          accountId,
           networkId,
           accountAddress,
           signedTx: newSignedTx,

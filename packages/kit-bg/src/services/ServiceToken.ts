@@ -45,7 +45,7 @@ class ServiceToken extends ServiceBase {
   public async fetchAccountTokens(
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
-    const { mergeTokens, flag, ...rest } = params;
+    const { mergeTokens, flag, accountId, ...rest } = params;
     const { networkId, contractList = [] } = rest;
     if (
       [getNetworkIdsMap().eth, getNetworkIdsMap().sepolia].includes(networkId)
@@ -55,21 +55,34 @@ class ServiceToken extends ServiceBase {
         networkId === getNetworkIdsMap().eth ? EthereumMatic : SepoliaMatic;
       rest.contractList = ['', maticAddress, ...contractList];
     }
-    const vault = await vaultFactory.getChainOnlyVault({
-      networkId: rest.networkId,
-    });
-    const { normalizedAddress } = await vault.validateAddress(
-      rest.accountAddress,
-    );
-    rest.accountAddress = normalizedAddress;
+
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+    ]);
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
     this._fetchAccountTokensController = controller;
     const resp = await client.post<{ data: IFetchAccountTokensResp }>(
       `/wallet/v1/account/token/list?flag=${flag || ''}`,
-      rest,
+      {
+        ...rest,
+        accountAddress,
+        xpub,
+      },
       {
         signal: controller.signal,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
       },
     );
     this._fetchAccountTokensController = null;
@@ -121,6 +134,12 @@ class ServiceToken extends ServiceBase {
         contractList,
         withCheckInscription,
         withFrozenBalance,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
       },
     );
 
@@ -223,7 +242,7 @@ class ServiceToken extends ServiceBase {
       console.log('fetchTokensDetails ERROR:', error);
     }
 
-    throw new Error('getToken ERROR: token not found.');
+    return null;
   }
 
   @backgroundMethod()

@@ -6,6 +6,7 @@ import { forOwn, groupBy, isEmpty, isNil, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   Image,
   NumberSizeableText,
   SizableText,
@@ -31,6 +32,7 @@ import {
   InfoItemGroup,
 } from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import { AddressInfo } from '../AddressInfo';
+import { ListItem } from '../ListItem';
 import { Token } from '../Token';
 
 import { TxActionCommonListView } from './TxActionCommon';
@@ -41,6 +43,7 @@ import type { IntlShape } from 'react-intl';
 type ITransferBlock = {
   target: string;
   transfersInfo: IDecodedTxTransferInfo[];
+  direction: EDecodedTxDirection;
 };
 
 function getTxActionTransferInfo(
@@ -48,7 +51,7 @@ function getTxActionTransferInfo(
 ) {
   const { action, decodedTx, isUTXO, intl } = props;
 
-  const { from, to, sends, receives, label } =
+  const { from, to, sends, receives, label, application } =
     action.assetTransfer as IDecodedTxActionAssetTransfer;
 
   const { type } = decodedTx.payload ?? {};
@@ -60,7 +63,12 @@ function getTxActionTransferInfo(
   const receivesWithToken = receives.filter((receive) => !receive.isNFT);
   const receivesWithNFT = receives.filter((receive) => receive.isNFT);
 
-  const isSendToSelf = from && to && from === to && !isEmpty(sends);
+  const isSendToSelf =
+    from &&
+    to &&
+    from === to &&
+    !isEmpty(sends) &&
+    sends[0]?.tokenIdOnNetwork === receives[0]?.tokenIdOnNetwork;
 
   if (!isEmpty(sends) && isEmpty(receives)) {
     const targets = uniq(map(sends, 'to'));
@@ -115,6 +123,7 @@ function getTxActionTransferInfo(
     receiveNFTIcon: receivesWithNFT[0]?.icon,
     sendTokenIcon: sendsWithToken[0]?.icon,
     receiveTokenIcon: receivesWithToken[0]?.icon,
+    application,
   };
 }
 
@@ -242,7 +251,7 @@ function buildTransferChangeInfo({
 function TxActionTransferListView(props: ITxActionProps) {
   const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
     props;
-  const { networkId, payload, nativeAmount } = decodedTx;
+  const { networkId, payload, nativeAmount, actions } = decodedTx;
   const { type } = payload ?? {};
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -405,6 +414,10 @@ function TxActionTransferListView(props: ITxActionProps) {
     title = label;
   }
 
+  if (!label && actions[0]?.assetTransfer?.isInternalSwap) {
+    title = intl.formatMessage({ id: ETranslations.global_swap });
+  }
+
   return (
     <TxActionCommonListView
       title={title}
@@ -428,6 +441,7 @@ function TxActionTransferListView(props: ITxActionProps) {
 
 function buildTransfersBlock(
   transferGroup: Record<string, IDecodedTxTransferInfo[]>,
+  direction: EDecodedTxDirection,
 ) {
   const transfersBlock: ITransferBlock[] = [];
   forOwn(transferGroup, (transfers, target) => {
@@ -447,6 +461,7 @@ function buildTransfersBlock(
     transfersBlock.push({
       target,
       transfersInfo,
+      direction,
     });
   });
 
@@ -455,68 +470,142 @@ function buildTransfersBlock(
 
 function TxActionTransferDetailView(props: ITxActionProps) {
   const intl = useIntl();
-  const { decodedTx, nativeTokenTransferAmountToUpdate, isSendNativeToken } =
-    props;
+  const {
+    decodedTx,
+    nativeTokenTransferAmountToUpdate,
+    isSendNativeToken,
+    swapInfo,
+  } = props;
 
-  const { sends, receives, from } = getTxActionTransferInfo({
+  const { sends, receives, from, to, application } = getTxActionTransferInfo({
     ...props,
     intl,
   });
 
-  const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
-  const receivesBlock = buildTransfersBlock(groupBy(receives, 'from'));
+  const { network: swapReceiveNetwork } = useAccountData({
+    networkId: swapInfo?.receiver?.token?.networkId,
+  });
+
+  const sendsBlock = buildTransfersBlock(
+    groupBy(sends, 'to'),
+    EDecodedTxDirection.OUT,
+  );
+  const receivesBlock = buildTransfersBlock(
+    groupBy(receives, 'from'),
+    EDecodedTxDirection.IN,
+  );
 
   const { network } = useAccountData({
     networkId: decodedTx.networkId,
   });
 
   const renderTransferBlock = useCallback(
-    (transfersBlock: ITransferBlock[], direction: EDecodedTxDirection) => {
+    (transfersBlock: ITransferBlock[]) => {
       if (isEmpty(transfersBlock)) return null;
 
-      const transferElements: React.ReactElement[] = [];
+      const transferOverviewElements: React.ReactElement[] = [];
 
-      transfersBlock.forEach((block, index) => {
-        const { target, transfersInfo } = block;
-        const transfersContent = (
-          <YStack space="$2">
-            {transfersInfo.map((transfer) => (
-              <XStack
-                alignItems="center"
-                space="$3"
-                key={transfer.tokenIdOnNetwork}
-              >
-                <Token isNFT={transfer.isNFT} tokenImageUri={transfer.icon} />
-                <Stack>
-                  <SizableText size="$bodyLgMedium">{`${
-                    direction === EDecodedTxDirection.OUT ? '-' : '+'
-                  }${
-                    isSendNativeToken &&
-                    !isNil(nativeTokenTransferAmountToUpdate) &&
-                    transfer.isNative &&
-                    direction === EDecodedTxDirection.OUT
-                      ? nativeTokenTransferAmountToUpdate
-                      : transfer.amount
-                  } ${
-                    transfer.isNFT ? transfer.name : transfer.symbol
-                  }`}</SizableText>
-                  {/* <SizableText size="$bodyMd" color="$textSubdued">
-                    TODO: Fiat value
-                  </SizableText> */}
-                </Stack>
-              </XStack>
-            ))}
-          </YStack>
+      const transferChangeElements: React.ReactElement[] = [];
+
+      const transferExtraElements: React.ReactElement[] = [];
+
+      transfersBlock.forEach((block) => {
+        const { transfersInfo } = block;
+        transfersInfo.forEach((transfer) =>
+          transferChangeElements.push(
+            <ListItem key={transfer.tokenIdOnNetwork}>
+              <Token isNFT={transfer.isNFT} tokenImageUri={transfer.icon} />
+              <Stack flex={1}>
+                <SizableText size="$bodyLgMedium">{`${
+                  block.direction === EDecodedTxDirection.OUT ? '-' : '+'
+                }${
+                  isSendNativeToken &&
+                  !isNil(nativeTokenTransferAmountToUpdate) &&
+                  transfer.isNative &&
+                  block.direction === EDecodedTxDirection.OUT
+                    ? nativeTokenTransferAmountToUpdate
+                    : transfer.amount
+                } ${
+                  transfer.isNFT ? transfer.name : transfer.symbol
+                }`}</SizableText>
+                {/* <SizableText size="$bodyMd" color="$textSubdued">
+              TODO: Fiat value
+            </SizableText> */}
+              </Stack>
+            </ListItem>,
+          ),
         );
-        transferElements.push(
-          <InfoItem
-            key={`${index}-amount`}
-            label={intl.formatMessage({ id: ETranslations.content__amount })}
-            renderContent={transfersContent}
-          />,
+      });
+
+      const transfersContent = (
+        <YStack py="$2.5">
+          <XStack px="$5" pb="$2">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({ id: ETranslations.send_amount })}
+            </SizableText>
+            {swapInfo ? (
+              <SizableText size="$bodyMd" color="$textSubdued" pl="$1.5">
+                ({intl.formatMessage({ id: ETranslations.for_reference_only })})
+              </SizableText>
+            ) : null}
+          </XStack>
+          {transferChangeElements}
+        </YStack>
+      );
+      transferOverviewElements.push(transfersContent);
+
+      if (swapInfo) {
+        transferExtraElements.push(
+          ...[
+            to ? (
+              <InfoItem
+                key="to"
+                label={intl.formatMessage({
+                  id: ETranslations.interact_with_contract,
+                })}
+                renderContent={to}
+                description={
+                  <AddressInfo
+                    address={to}
+                    networkId={decodedTx.networkId}
+                    accountId={decodedTx.accountId}
+                  />
+                }
+              />
+            ) : null,
+            <InfoItem
+              key="pay-address"
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_pay_address,
+              })}
+              renderContent={swapInfo.accountAddress}
+              description={
+                <AddressInfo
+                  address={swapInfo.accountAddress}
+                  networkId={decodedTx.networkId}
+                  accountId={decodedTx.accountId}
+                />
+              }
+            />,
+            <InfoItem
+              key="received-address"
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_received_address,
+              })}
+              renderContent={swapInfo.receivingAddress}
+              description={
+                <AddressInfo
+                  address={swapInfo.receivingAddress}
+                  networkId={swapInfo.receiver.token.networkId}
+                  accountId={decodedTx.accountId}
+                />
+              }
+            />,
+          ].filter(Boolean),
         );
-        if (direction === EDecodedTxDirection.OUT) {
-          transferElements.push(
+      } else {
+        transferExtraElements.push(
+          ...[
             <InfoItem
               key="from"
               label={intl.formatMessage({ id: ETranslations.global_from })}
@@ -529,69 +618,141 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 />
               }
             />,
-          );
-        }
-        transferElements.push(
+            <InfoItem
+              key="target"
+              label={
+                application
+                  ? intl.formatMessage({
+                      id: ETranslations.interact_with_contract,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.global_to,
+                    })
+              }
+              renderContent={
+                to || intl.formatMessage({ id: ETranslations.global_unknown })
+              }
+              description={
+                <AddressInfo
+                  address={to}
+                  networkId={decodedTx.networkId}
+                  accountId={decodedTx.accountId}
+                />
+              }
+            />,
+          ],
+        );
+      }
+
+      let networkInfo: React.ReactElement | null = null;
+
+      if (
+        swapInfo &&
+        swapReceiveNetwork?.id &&
+        swapReceiveNetwork?.id !== network?.id
+      ) {
+        networkInfo = (
           <InfoItem
-            key={`${index}-target`}
+            compact
+            label={intl.formatMessage({ id: ETranslations.network__network })}
+            renderContent={
+              <XStack alignItems="center" space="$2">
+                <XStack alignItems="center">
+                  <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+                  <Stack
+                    p="$0.5"
+                    m="$-0.5"
+                    ml="$-1"
+                    borderRadius="$full"
+                    bg="$bgApp"
+                  >
+                    <Image
+                      w="$5"
+                      h="$5"
+                      source={{ uri: swapReceiveNetwork?.logoURI }}
+                    />
+                  </Stack>
+                </XStack>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {network?.name} → {swapReceiveNetwork?.name}
+                </SizableText>
+              </XStack>
+            }
+          />
+        );
+      } else {
+        networkInfo = (
+          <InfoItem
+            compact
+            label={intl.formatMessage({ id: ETranslations.network__network })}
+            renderContent={
+              <XStack alignItems="center" space="$2">
+                <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {network?.name}
+                </SizableText>
+              </XStack>
+            }
+          />
+        );
+      }
+
+      transferExtraElements.push(networkInfo);
+
+      if (application) {
+        transferExtraElements.push(
+          <InfoItem
+            compact
             label={intl.formatMessage({
-              id:
-                direction === EDecodedTxDirection.OUT
-                  ? ETranslations.global_to
-                  : ETranslations.global_from,
+              id: ETranslations.transaction_application,
             })}
-            renderContent={target}
-            description={
-              <AddressInfo
-                address={target}
-                networkId={decodedTx.networkId}
-                accountId={decodedTx.accountId}
-              />
+            renderContent={
+              <XStack alignItems="center" space="$2">
+                <Image
+                  borderRadius="$1"
+                  w="$5"
+                  h="$5"
+                  source={{ uri: application.icon }}
+                />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {application.name}
+                </SizableText>
+              </XStack>
             }
           />,
         );
-      });
-
-      transferElements.push(
-        <InfoItem
-          label={intl.formatMessage({ id: ETranslations.network__network })}
-          renderContent={
-            <XStack alignItems="center" space="$2">
-              <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {network?.name}
-              </SizableText>
-            </XStack>
-          }
-        />,
-      );
+      }
 
       return (
         <>
+          <Stack testID="transfer-tx-amount">{transferOverviewElements}</Stack>
+          <Divider mx="$5" />
           <InfoItemGroup testID="transfer-tx-action">
-            {transferElements}
+            {transferExtraElements}
           </InfoItemGroup>
         </>
       );
     },
     [
+      application,
       decodedTx.accountId,
       decodedTx.networkId,
       from,
       intl,
       isSendNativeToken,
       nativeTokenTransferAmountToUpdate,
+      network?.id,
       network?.logoURI,
       network?.name,
+      swapInfo,
+      swapReceiveNetwork?.id,
+      swapReceiveNetwork?.logoURI,
+      swapReceiveNetwork?.name,
+      to,
     ],
   );
 
-  return (
-    <>
-      {renderTransferBlock(sendsBlock, EDecodedTxDirection.OUT)}
-      {renderTransferBlock(receivesBlock, EDecodedTxDirection.IN)}
-    </>
-  );
+  return <>{renderTransferBlock([...sendsBlock, ...receivesBlock])}</>;
 }
 
 export { TxActionTransferListView, TxActionTransferDetailView };

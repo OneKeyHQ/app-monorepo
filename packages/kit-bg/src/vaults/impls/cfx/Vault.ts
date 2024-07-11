@@ -331,7 +331,6 @@ export default class Vault extends VaultBase {
   async _buildTxActionFromContract(params: { encodedTx: IEncodedTxCfx }) {
     const { encodedTx } = params;
     const client = await this.getConfluxClient();
-    const accountAddress = await this.getAccountAddress();
     let action: IDecodedTxAction | undefined;
     try {
       const crc20: ISdkCfxContract = await client.CRC20(
@@ -416,7 +415,8 @@ export default class Vault extends VaultBase {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
         from: encodedTx.from ?? accountAddress,
-        to: spender,
+        to: encodedTx.to,
+        spender,
         amount: chainValueUtils.convertTokenChainValueToAmount({
           value: amount,
           token: tokenInfo,

@@ -17,11 +17,14 @@ const PasswordVerifyPromptMount = () => {
 
   const [{ passwordPromptPromiseTriggerData }] =
     usePasswordPromptPromiseTriggerAtom();
-  const onClose = useCallback((id: number) => {
-    void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id, {
-      message: 'User Cancelled Password Verify',
-    });
-  }, []);
+  const onClose = useCallback(
+    (id: number) => {
+      void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id, {
+        message: intl.formatMessage({ id: ETranslations.global_close }),
+      });
+    },
+    [intl],
+  );
 
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
 
@@ -79,6 +82,15 @@ const PasswordVerifyPromptMount = () => {
     },
     [intl, onClose],
   );
+
+  const showPasswordSetupPromptRef = useRef(showPasswordSetupPrompt);
+  const showPasswordVerifyPromptRef = useRef(showPasswordVerifyPrompt);
+  if (showPasswordSetupPromptRef.current !== showPasswordSetupPrompt) {
+    showPasswordSetupPromptRef.current = showPasswordSetupPrompt;
+  }
+  if (showPasswordVerifyPromptRef.current !== showPasswordVerifyPrompt) {
+    showPasswordVerifyPromptRef.current = showPasswordVerifyPrompt;
+  }
   useEffect(() => {
     if (
       passwordPromptPromiseTriggerData &&
@@ -88,18 +100,18 @@ const PasswordVerifyPromptMount = () => {
         passwordPromptPromiseTriggerData.type ===
         EPasswordPromptType.PASSWORD_VERIFY
       ) {
-        showPasswordVerifyPrompt(passwordPromptPromiseTriggerData.idNumber);
+        showPasswordVerifyPromptRef.current?.(
+          passwordPromptPromiseTriggerData.idNumber,
+        );
       } else {
-        showPasswordSetupPrompt(passwordPromptPromiseTriggerData.idNumber);
+        showPasswordSetupPromptRef.current?.(
+          passwordPromptPromiseTriggerData.idNumber,
+        );
       }
     } else {
       void dialogRef.current?.close();
     }
-  }, [
-    passwordPromptPromiseTriggerData,
-    showPasswordSetupPrompt,
-    showPasswordVerifyPrompt,
-  ]);
+  }, [passwordPromptPromiseTriggerData]);
 
   return null;
 };

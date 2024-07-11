@@ -217,9 +217,10 @@ export default class Vault extends VaultBase {
     let extraNativeTransferAction: IDecodedTxAction | undefined;
 
     if (swapInfo) {
-      action = await this._buildTxActionFromSwap({
-        encodedTx,
+      action = await this.buildInternalSwapAction({
         swapInfo,
+        swapData: encodedTx.data,
+        swapToAddress: encodedTx.to,
       });
     } else {
       if (encodedTx.value) {
@@ -765,7 +766,8 @@ export default class Vault extends VaultBase {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
         from: encodedTx.from ?? accountAddress,
-        to: spender,
+        to: encodedTx.to,
+        spender,
         amount,
         icon: token.logoURI ?? '',
         name: token.name,
@@ -775,32 +777,6 @@ export default class Vault extends VaultBase {
       },
     };
 
-    return action;
-  }
-
-  async _buildTxActionFromSwap(params: {
-    encodedTx: IEncodedTxEvm;
-    swapInfo: ISwapTxInfo;
-  }) {
-    const { encodedTx, swapInfo } = params;
-    const swapSendToken = swapInfo.sender.token;
-    const action = await this.buildTxTransferAssetAction({
-      from: swapInfo.accountAddress,
-      to: encodedTx.to,
-      transfers: [
-        {
-          from: swapInfo.accountAddress,
-          to: encodedTx.to,
-          tokenIdOnNetwork: swapSendToken.contractAddress,
-          icon: swapSendToken.logoURI ?? '',
-          name: swapSendToken.name ?? '',
-          symbol: swapSendToken.symbol,
-          amount: swapInfo.sender.amount,
-          isNFT: false,
-          isNative: swapSendToken.isNative,
-        },
-      ],
-    });
     return action;
   }
 
@@ -857,6 +833,7 @@ export default class Vault extends VaultBase {
       txDesc?.args.map((arg) => String(arg)) || [];
 
     const nft = await this.backgroundApi.serviceNFT.getNFT({
+      accountId: this.accountId,
       networkId: this.networkId,
       collectionAddress: encodedTx.to,
       nftId,

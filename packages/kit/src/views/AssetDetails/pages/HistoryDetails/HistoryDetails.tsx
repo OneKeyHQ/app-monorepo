@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -8,7 +8,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
-  Image,
   NumberSizeableText,
   Page,
   SizableText,
@@ -300,12 +299,14 @@ function HistoryDetails() {
   );
 
   const handleReplaceTxSuccess = useCallback(() => {
-    navigation.pop();
+    navigation.popStack();
   }, [navigation]);
 
-  const { handleReplaceTx, canReplaceTx } = useReplaceTx({
+  const { handleReplaceTx, canReplaceTx, canCancelTx } = useReplaceTx({
     historyTx,
     onSuccess: handleReplaceTxSuccess,
+    isConfirmed:
+      txDetails && txDetails.status !== EOnChainHistoryTxStatus.Pending,
   });
 
   const handleViewUTXOsOnPress = useCallback(() => {
@@ -453,7 +454,11 @@ function HistoryDetails() {
         txAddresses.from &&
         txAddresses.to &&
         txAddresses.from === txAddresses.to &&
-        !isEmpty(historyTx.decodedTx.actions[0]?.assetTransfer?.sends)
+        !isEmpty(historyTx.decodedTx.actions[0]?.assetTransfer?.sends) &&
+        historyTx.decodedTx.actions[0]?.assetTransfer?.sends[0]
+          ?.tokenIdOnNetwork ===
+          historyTx.decodedTx.actions[0]?.assetTransfer?.receives[0]
+            ?.tokenIdOnNetwork
       ),
     [
       historyTx.decodedTx.actions,
@@ -483,8 +488,17 @@ function HistoryDetails() {
       title = intl.formatMessage({ id: ETranslations.global_receive });
     }
 
-    if (decodedTx.status !== EDecodedTxStatus.Pending && label) {
+    if (
+      !historyTx.isLocalCreated ||
+      (decodedTx.status !== EDecodedTxStatus.Pending && label)
+    ) {
       title = label;
+    }
+
+    if (!title && decodedTx.actions[0]?.assetTransfer?.isInternalSwap) {
+      title = intl.formatMessage({
+        id: ETranslations.global_swap,
+      });
     }
 
     return title;
@@ -586,17 +600,13 @@ function HistoryDetails() {
     vaultSettings?.isUtxo,
   ]);
 
-  const renderTxStatus = useCallback(() => {
-    const { key, color } = getTxStatusTextProps(
-      txDetails?.status ?? historyTx.decodedTx.status,
-    );
+  const renderReplaceTxActions = useCallback(() => {
+    if (!canReplaceTx) return null;
+
     return (
-      <XStack minHeight="$5" alignItems="center">
-        <SizableText size="$bodyMdMedium" color={color}>
-          {intl.formatMessage({ id: key })}
-        </SizableText>
-        {canReplaceTx ? (
-          <XStack ml="$5" space="$2">
+      <XStack ml="$5">
+        {canCancelTx ? (
+          <XStack space="$2">
             <Button
               size="small"
               variant="primary"
@@ -616,18 +626,96 @@ function HistoryDetails() {
               {intl.formatMessage({ id: ETranslations.global_cancel })}
             </Button>
           </XStack>
-        ) : null}
+        ) : (
+          <Button
+            size="small"
+            variant="primary"
+            onPress={() =>
+              handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.speed_up_cancellation })}
+          </Button>
+        )}
+      </XStack>
+    );
+  }, [canCancelTx, canReplaceTx, handleReplaceTx, intl]);
+
+  const renderTxStatus = useCallback(() => {
+    const { key, color } = getTxStatusTextProps(
+      txDetails?.status ?? historyTx.decodedTx.status,
+    );
+    return (
+      <XStack minHeight="$5" alignItems="center">
+        <SizableText size="$bodyMdMedium" color={color}>
+          {intl.formatMessage({ id: key })}
+        </SizableText>
+        {renderReplaceTxActions()}
       </XStack>
     );
   }, [
-    canReplaceTx,
-    handleReplaceTx,
     historyTx.decodedTx.status,
     intl,
+    renderReplaceTxActions,
     txDetails?.status,
   ]);
 
   const renderTxFlow = useCallback(() => {
+    const action = historyTx.decodedTx.actions[0];
+
+    if (action.assetTransfer?.isInternalSwap) {
+      const { from, to, swapReceivedAddress, swapReceivedNetworkId } =
+        action.assetTransfer;
+      return (
+        <>
+          {to ? (
+            <InfoItem
+              label={intl.formatMessage({
+                id: ETranslations.interact_with_contract,
+              })}
+              renderContent={to}
+              showCopy
+              description={
+                <AddressInfo
+                  address={to}
+                  networkId={networkId}
+                  accountId={accountId}
+                />
+              }
+            />
+          ) : null}
+          <InfoItem
+            label={intl.formatMessage({
+              id: ETranslations.swap_history_detail_pay_address,
+            })}
+            renderContent={from}
+            showCopy
+            description={
+              <AddressInfo
+                address={from}
+                networkId={networkId}
+                accountId={accountId}
+              />
+            }
+          />
+          <InfoItem
+            label={intl.formatMessage({
+              id: ETranslations.swap_history_detail_received_address,
+            })}
+            renderContent={swapReceivedAddress}
+            showCopy
+            description={
+              <AddressInfo
+                address={swapReceivedAddress ?? ''}
+                networkId={swapReceivedNetworkId ?? ''}
+                accountId={accountId}
+              />
+            }
+          />
+        </>
+      );
+    }
+
     if (vaultSettings?.isUtxo && !txAddresses.isSingleTransfer) return null;
 
     if (txAddresses.from && txAddresses.to && txAddresses.isSingleTransfer) {
@@ -673,6 +761,7 @@ function HistoryDetails() {
       );
     }
   }, [
+    historyTx.decodedTx.actions,
     vaultSettings?.isUtxo,
     txAddresses.isSingleTransfer,
     txAddresses.from,
@@ -682,6 +771,22 @@ function HistoryDetails() {
     accountId,
   ]);
 
+  const renderTxApproveFor = useCallback(() => {
+    const approve = historyTx.decodedTx.actions[0]?.tokenApprove;
+
+    if (approve) {
+      return (
+        <InfoItem
+          label={intl.formatMessage({
+            id: ETranslations.global_for,
+          })}
+          renderContent={approve.spender}
+          showCopy
+        />
+      );
+    }
+  }, [historyTx.decodedTx.actions, intl]);
+
   const renderTxMetaInfo = useCallback(() => {
     const components = getHistoryTxMeta({ impl: network?.impl ?? '' });
     const TxFlow = components?.[EHistoryTxDetailsBlock.Flow];
@@ -690,12 +795,19 @@ function HistoryDetails() {
     return (
       <>
         {TxFlow ? <TxFlow decodedTx={historyTx.decodedTx} /> : renderTxFlow()}
+        {renderTxApproveFor()}
         {TxAttributes ? (
           <TxAttributes decodedTx={historyTx.decodedTx} txDetails={txDetails} />
         ) : null}
       </>
     );
-  }, [historyTx.decodedTx, network?.impl, renderTxFlow, txDetails]);
+  }, [
+    historyTx.decodedTx,
+    network?.impl,
+    renderTxApproveFor,
+    renderTxFlow,
+    txDetails,
+  ]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,
@@ -715,18 +827,20 @@ function HistoryDetails() {
         >
           {txInfo?.gasFee}
         </NumberSizeableText>
-        <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
-          (
-          <NumberSizeableText
-            formatter="value"
-            formatterOptions={{ currency: settings.currencyInfo.symbol }}
-            size="$bodyMd"
-            color="$textSubdued"
-          >
-            {txInfo?.gasFeeFiatValue ?? '0'}
-          </NumberSizeableText>
-          )
-        </SizableText>
+        {!isNil(txInfo?.gasFeeFiatValue) ? (
+          <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
+            (
+            <NumberSizeableText
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              size="$bodyMd"
+              color="$textSubdued"
+            >
+              {txInfo?.gasFeeFiatValue ?? '0'}
+            </NumberSizeableText>
+            )
+          </SizableText>
+        ) : null}
       </XStack>
     ),
     [
@@ -845,45 +959,6 @@ function HistoryDetails() {
               />
             ) : null}
           </InfoItemGroup>
-          {/* Tertiary */}
-          {txInfo.swapInfo ? (
-            <>
-              <Divider mx="$5" />
-              <InfoItemGroup>
-                <InfoItem
-                  label="Rate"
-                  renderContent="1 ETH = 2229.259 USDC"
-                  compact
-                />
-                <InfoItem
-                  label="Application"
-                  renderContent={
-                    <XStack>
-                      <Image
-                        src="https://cdn.1inch.io/logo.png"
-                        w="$5"
-                        h="$5"
-                      />
-                      <SizableText
-                        size="$bodyMd"
-                        color="$textSubdued"
-                        pl="$1.5"
-                      >
-                        1inch
-                      </SizableText>
-                    </XStack>
-                  }
-                  compact
-                />
-                <InfoItem label="Protocol Fee" renderContent="$0.12" compact />
-                <InfoItem
-                  label="OneKey Fee"
-                  renderContent="0.3% (0.002 ETH)"
-                  compact
-                />
-              </InfoItemGroup>
-            </>
-          ) : null}
         </Stack>
       </>
     );
@@ -897,7 +972,6 @@ function HistoryDetails() {
     txInfo.blockHeight,
     txInfo.nonce,
     txInfo.confirmations,
-    txInfo.swapInfo,
     renderTxMetaInfo,
     network,
     renderFeeInfo,

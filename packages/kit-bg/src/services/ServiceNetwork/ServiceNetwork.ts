@@ -8,8 +8,10 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { vaultFactory } from '../../vaults/factory';
 import {
   getVaultSettings,
   getVaultSettingsAccountDeriveInfo,
@@ -263,6 +265,20 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async isDeriveTypeAvailableForNetwork({
+    networkId,
+    deriveType,
+  }: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }): Promise<boolean> {
+    const deriveInfoItems = await this.getDeriveInfoItemsOfNetwork({
+      networkId,
+    });
+    return Boolean(deriveInfoItems.find((item) => item.value === deriveType));
+  }
+
+  @backgroundMethod()
   async getDeriveInfoItemsOfNetwork({
     networkId,
     enabledItems,
@@ -445,6 +461,84 @@ class ServiceNetwork extends ServiceBase {
     }
     deriveTypes = uniq(deriveTypes);
     return deriveTypes;
+  }
+
+  private _getNetworkVaultSettings = memoizee(
+    async () => {
+      const { networks } = await this.getAllNetworks();
+      const result = await Promise.all(
+        networks.map(async (network) => {
+          const vault = await vaultFactory.getChainOnlyVault({
+            networkId: network.id,
+          });
+          const vaultSetting = await vault.getVaultSettings();
+          return {
+            network,
+            vaultSetting,
+          };
+        }),
+      );
+      return result;
+    },
+    { max: 1 },
+  );
+
+  @backgroundMethod()
+  async getImportedAccountEnabledNetworks() {
+    const settings = await this._getNetworkVaultSettings();
+    return settings
+      .filter((o) => o.vaultSetting.importedAccountEnabled)
+      .map((o) => o.network);
+  }
+
+  @backgroundMethod()
+  async getWatchingAccountEnabledNetworks() {
+    const settings = await this._getNetworkVaultSettings();
+    return settings
+      .filter((o) => o.vaultSetting.watchingAccountEnabled)
+      .map((o) => o.network);
+  }
+
+  @backgroundMethod()
+  async getPublicKeyExportEnabledNetworks() {
+    const settings = await this._getNetworkVaultSettings();
+    return settings
+      .filter((o) => o.vaultSetting.publicKeyExportEnabled)
+      .map((o) => o.network);
+  }
+
+  @backgroundMethod()
+  async getPublicKeyExportOrWatchingAccountEnabledNetworks() {
+    const settings = await this._getNetworkVaultSettings();
+    return settings
+      .filter(
+        (o) =>
+          o.vaultSetting.publicKeyExportEnabled ||
+          o.vaultSetting.watchingAccountEnabled,
+      )
+      .map((o) => ({
+        network: o.network,
+        publicKeyExportEnabled: o.vaultSetting.publicKeyExportEnabled,
+        watchingAccountEnabled: o.vaultSetting.watchingAccountEnabled,
+      }));
+  }
+
+  @backgroundMethod()
+  async getAddressBookEnabledNetworks() {
+    const settings = await this._getNetworkVaultSettings();
+    return settings
+      .filter((o) => !o.vaultSetting.addressBookDisabled)
+      .map((o) => o.network);
+  }
+
+  @backgroundMethod()
+  async getDappInteractionEnabledNetworks() {
+    const settings = await this._getNetworkVaultSettings();
+    return settings
+      .filter(
+        (o) => o.vaultSetting.dappInteractionEnabled && !o.network.isTestnet,
+      )
+      .map((o) => o.network);
   }
 }
 

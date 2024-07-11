@@ -19,7 +19,9 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
-import * as OneKeyError from '@onekeyhq/shared/src/errors';
+import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -166,7 +168,8 @@ export default class ServicePassword extends ServiceBase {
     const now = Date.now();
     if (
       !this.cachedPassword ||
-      now - this.cachedPasswordActivityTimeStep > this.cachedPasswordTTL
+      now - this.cachedPasswordActivityTimeStep > this.cachedPasswordTTL ||
+      now < this.cachedPasswordActivityTimeStep
     ) {
       await this.clearCachedPassword();
       return undefined;
@@ -227,7 +230,7 @@ export default class ServicePassword extends ServiceBase {
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
     if (!authRes.success) {
-      throw new OneKeyError.BiologyAuthFailed();
+      throw new OneKeyErrors.BiologyAuthFailed();
     }
     try {
       const pwd = await biologyAuthUtils.getPassword();
@@ -235,7 +238,7 @@ export default class ServicePassword extends ServiceBase {
       return pwd;
     } catch (e) {
       await this.setBiologyAuthEnable(false);
-      throw new OneKeyError.BiologyAuthFailed();
+      throw new OneKeyErrors.BiologyAuthFailed();
     }
   }
 
@@ -247,7 +250,7 @@ export default class ServicePassword extends ServiceBase {
     if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
-        throw new OneKeyError.BiologyAuthFailed();
+        throw new OneKeyErrors.BiologyAuthFailed();
       }
       const catchPassword = await this.getCachedPassword();
       if (catchPassword) {
@@ -267,7 +270,7 @@ export default class ServicePassword extends ServiceBase {
     const realPassword = decodePassword({ password });
     // **** length matched
     if (realPassword.length < 8 || realPassword.length > 128) {
-      throw new OneKeyError.PasswordStrengthValidationFailed();
+      throw new OneKeyErrors.PasswordStrengthValidationFailed();
     }
     // **** other rules ....
   }
@@ -279,7 +282,7 @@ export default class ServicePassword extends ServiceBase {
     const realPassword = decodePassword({ password });
     const realNewPassword = decodePassword({ password: newPassword });
     if (realPassword === realNewPassword) {
-      throw new OneKeyError.PasswordUpdateSameFailed();
+      throw new OneKeyErrors.PasswordUpdateSameFailed();
     }
   }
 
@@ -418,7 +421,7 @@ export default class ServicePassword extends ServiceBase {
       this.backgroundApi.bridgeExtBg &&
       !checkExtUIOpen(this.backgroundApi.bridgeExtBg)
     ) {
-      throw new OneKeyError.OneKeyInternalError();
+      throw new OneKeyErrors.OneKeyInternalError();
     }
 
     const needReenterPassword = await this.isAlwaysReenterPassword(reason);
@@ -503,7 +506,11 @@ export default class ServicePassword extends ServiceBase {
       passwordPromptPromiseTriggerData: params,
     }));
     this.passwordPromptTimeout = setTimeout(() => {
-      void this.rejectPasswordPromptDialog(params.idNumber);
+      void this.rejectPasswordPromptDialog(params.idNumber, {
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.global_close,
+        }),
+      });
     }, this.passwordPromptTTL);
   }
 
@@ -526,8 +533,11 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async rejectPasswordPromptDialog(
     promiseId: number,
-    error?: { message: string },
+    errorInfo: { message: string },
   ) {
+    const error = new OneKeyErrors.OneKeyError({
+      message: errorInfo.message,
+    });
     this.clearPasswordPromptTimeout();
     void this.backgroundApi.servicePromise.rejectCallback({
       id: promiseId,
@@ -617,7 +627,8 @@ export default class ServicePassword extends ServiceBase {
     if (
       !result ||
       !this.securitySession ||
-      now - this.securitySession.startAt > this.securitySession.timeout
+      now - this.securitySession.startAt > this.securitySession.timeout ||
+      now < this.securitySession.startAt
       // return result immediately if result is false or last visit is timeout/ not exist
     ) {
       return result;

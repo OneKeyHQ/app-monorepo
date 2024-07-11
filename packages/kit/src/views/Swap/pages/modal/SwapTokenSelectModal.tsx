@@ -214,12 +214,10 @@ const SwapTokenSelectPage = () => {
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
       setCurrentSelectNetwork(network);
-      if (type === ESwapDirectionType.FROM) {
-        void updateSelectedAccountNetwork({
-          num: 0,
-          networkId: network.networkId,
-        });
-      }
+      void updateSelectedAccountNetwork({
+        num: type === ESwapDirectionType.FROM ? 0 : 1,
+        networkId: network.networkId,
+      });
     },
     [type, updateSelectedAccountNetwork],
   );
@@ -267,6 +265,7 @@ const SwapTokenSelectPage = () => {
           })
         : rawItem.contractAddress;
       const tokenItem: ITokenListItemProps = {
+        isSearch: !!searchKeywordDebounce,
         tokenImageSrc: rawItem.logoURI,
         tokenName: rawItem.name,
         tokenSymbol: rawItem.symbol,
@@ -286,7 +285,7 @@ const SwapTokenSelectPage = () => {
           ? () => onSelectToken(rawItem)
           : undefined,
         disabled: sameTokenDisabled(rawItem),
-        titleMatch: (item as IFuseResult<ISwapToken>).matches?.find(
+        titleMatchStr: (item as IFuseResult<ISwapToken>).matches?.find(
           (v) => v.key === 'symbol',
         ),
       };

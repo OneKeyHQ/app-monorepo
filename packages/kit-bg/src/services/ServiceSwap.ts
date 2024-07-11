@@ -9,7 +9,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import { swapHistoryStateFetchInterval } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  swapHistoryStateFetchInterval,
+  swapHistoryStateFetchRiceIntervalCount,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
@@ -20,6 +23,7 @@ import type {
   IFetchTokenDetailParams,
   IFetchTokenListParams,
   IFetchTokensParams,
+  ISwapApproveTransaction,
   ISwapNetwork,
   ISwapNetworkBase,
   ISwapToken,
@@ -27,6 +31,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapApproveTransactionStatus,
   ESwapFetchCancelCause,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -43,6 +48,8 @@ export default class ServiceSwap extends ServiceBase {
 
   private historyStateIntervals: Record<string, ReturnType<typeof setTimeout>> =
     {};
+
+  private historyStateIntervalCountMap: Record<string, number> = {};
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -147,6 +154,12 @@ export default class ServiceSwap extends ServiceBase {
         {
           params,
           signal: this._tokenListAbortController.signal,
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
         },
       );
       return data?.data ?? [];
@@ -206,7 +219,13 @@ export default class ServiceSwap extends ServiceBase {
     }
     const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
       '/swap/v1/token/detail',
-      { params },
+      {
+        params,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
     );
     return data?.data;
   }
@@ -220,6 +239,7 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage,
     autoSlippage,
     blockNumber,
+    accountId,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -228,6 +248,7 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage: number;
     autoSlippage?: boolean;
     blockNumber?: number;
+    accountId?: string;
   }): Promise<IFetchQuoteResult[]> {
     await this.cancelFetchQuotes();
     const params: IFetchQuotesParams = {
@@ -251,6 +272,12 @@ export default class ServiceSwap extends ServiceBase {
         {
           params,
           signal: this._quoteAbortController.signal,
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
         },
       );
       this._quoteAbortController = undefined;
@@ -285,6 +312,8 @@ export default class ServiceSwap extends ServiceBase {
     provider,
     receivingAddress,
     slippagePercentage,
+    quoteResultCtx,
+    accountId,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -294,6 +323,8 @@ export default class ServiceSwap extends ServiceBase {
     userAddress: string;
     receivingAddress: string;
     slippagePercentage: number;
+    accountId?: string;
+    quoteResultCtx?: any;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
@@ -307,12 +338,21 @@ export default class ServiceSwap extends ServiceBase {
       userAddress,
       receivingAddress,
       slippagePercentage,
+      quoteResultCtx,
     };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
-      const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
+      const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
         '/swap/v1/build-tx',
-        { params },
+        params,
+        {
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
+        },
       );
       return data?.data;
     } catch (e) {
@@ -367,11 +407,13 @@ export default class ServiceSwap extends ServiceBase {
     tokenAddress,
     spenderAddress,
     walletAddress,
+    accountId,
   }: {
     networkId: string;
     tokenAddress: string;
     spenderAddress: string;
     walletAddress: string;
+    accountId?: string;
   }) {
     const params = {
       networkId,
@@ -383,9 +425,30 @@ export default class ServiceSwap extends ServiceBase {
 
     const { data } = await client.get<IFetchResponse<string>>(
       '/swap/v1/allowance',
-      { params },
+      {
+        params,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
     );
     return data?.data;
+  }
+
+  // swap approving transaction
+  @backgroundMethod()
+  async getApprovingTransaction() {
+    const { swapApprovingTransaction } = await inAppNotificationAtom.get();
+    return swapApprovingTransaction;
+  }
+
+  @backgroundMethod()
+  async setApprovingTransaction(item?: ISwapApproveTransaction) {
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapApprovingTransaction: item,
+    }));
   }
 
   // --- swap history
@@ -402,7 +465,7 @@ export default class ServiceSwap extends ServiceBase {
     const pendingHistories = histories.filter(
       (history) =>
         history.status === ESwapTxHistoryStatus.PENDING ||
-        history.status === ESwapTxHistoryStatus.DISCARD,
+        history.status === ESwapTxHistoryStatus.CANCELING,
     );
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
@@ -429,20 +492,66 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateSwapHistoryTx({
+    oldTxId,
+    newTxId,
+    status,
+  }: {
+    oldTxId: string;
+    newTxId: string;
+    status: ESwapTxHistoryStatus;
+  }) {
+    const { swapHistoryPendingList } = await inAppNotificationAtom.get();
+    const oldHistoryItemIndex = swapHistoryPendingList.findIndex(
+      (item) => item.txInfo.txId === oldTxId,
+    );
+    if (oldHistoryItemIndex !== -1) {
+      const newHistoryItem = swapHistoryPendingList[oldHistoryItemIndex];
+      const updated = Date.now();
+      newHistoryItem.date = { ...newHistoryItem.date, updated };
+      newHistoryItem.txInfo.txId = newTxId;
+      newHistoryItem.status = status;
+      await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+        newHistoryItem,
+        oldTxId,
+      );
+      await inAppNotificationAtom.set((pre) => {
+        const newPendingList = [...pre.swapHistoryPendingList];
+        newPendingList[oldHistoryItemIndex] = newHistoryItem;
+        return {
+          ...pre,
+          swapHistoryPendingList: [...newPendingList],
+        };
+      });
+      return;
+    }
+    const approvingTransaction = await this.getApprovingTransaction();
+    if (
+      approvingTransaction &&
+      approvingTransaction.status === ESwapApproveTransactionStatus.PENDING &&
+      approvingTransaction.txId === oldTxId
+    ) {
+      approvingTransaction.txId = newTxId;
+      await this.setApprovingTransaction(approvingTransaction);
+    }
+  }
+
+  @backgroundMethod()
   async updateSwapHistoryItem(item: ISwapTxHistory) {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const index = swapHistoryPendingList.findIndex(
       (i) => i.txInfo.txId === item.txInfo.txId,
     );
-    if (
-      item.status === ESwapTxHistoryStatus.DISCARD &&
-      swapHistoryPendingList[index]?.status === ESwapTxHistoryStatus.DISCARD
-    ) {
-      return;
-    }
     if (index !== -1) {
       const updated = Date.now();
       item.date = { ...item.date, updated };
+      const oldItem = swapHistoryPendingList[index];
+      if (
+        oldItem.status === ESwapTxHistoryStatus.CANCELING &&
+        item.status === ESwapTxHistoryStatus.SUCCESS
+      ) {
+        item.status = ESwapTxHistoryStatus.CANCELED;
+      }
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
       await inAppNotificationAtom.set((pre) => {
         const newPendingList = [...pre.swapHistoryPendingList];
@@ -452,7 +561,7 @@ export default class ServiceSwap extends ServiceBase {
           swapHistoryPendingList: [...newPendingList],
         };
       });
-      if (item.status !== ESwapTxHistoryStatus.DISCARD) {
+      if (item.status !== ESwapTxHistoryStatus.PENDING) {
         void this.backgroundApi.serviceApp.showToast({
           method:
             item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
@@ -477,23 +586,32 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cleanSwapHistoryItems() {
-    await this.backgroundApi.simpleDb.swapHistory.setRawData({ histories: [] });
+  async cleanSwapHistoryItems(statuses?: ESwapTxHistoryStatus[]) {
+    await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
+      statuses,
+    );
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
-      swapHistoryPendingList: [],
+      swapHistoryPendingList: statuses
+        ? pre.swapHistoryPendingList.filter(
+            (item) => !statuses?.includes(item.status),
+          )
+        : [],
     }));
   }
 
+  @backgroundMethod()
   async cleanHistoryStateIntervals(historyId?: string) {
     if (!historyId) {
       Object.values(this.historyStateIntervals).forEach((interval) => {
         clearInterval(interval);
       });
       this.historyStateIntervals = {};
+      this.historyStateIntervalCountMap = {};
     } else if (this.historyStateIntervals[historyId]) {
       clearInterval(this.historyStateIntervals[historyId]);
       delete this.historyStateIntervals[historyId];
+      delete this.historyStateIntervalCountMap[historyId];
     }
   }
 
@@ -532,20 +650,25 @@ export default class ServiceSwap extends ServiceBase {
           },
         });
         await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
-        if (txStatusRes?.state === ESwapTxHistoryStatus.DISCARD) {
-          enableInterval = true;
-        }
       }
     } catch (e) {
       const error = e as { message?: string };
       console.error('Swap History Status Fetch Error', error?.message);
     } finally {
       if (enableInterval) {
+        this.historyStateIntervalCountMap[swapTxHistory.txInfo.txId] =
+          (this.historyStateIntervalCountMap[swapTxHistory.txInfo.txId] ?? 0) +
+          1;
         this.historyStateIntervals[swapTxHistory.txInfo.txId] = setTimeout(
           () => {
             void this.swapHistoryStatusRunFetch(swapTxHistory);
           },
-          swapHistoryStateFetchInterval,
+          swapHistoryStateFetchInterval *
+            (Math.floor(
+              (this.historyStateIntervalCountMap[swapTxHistory.txInfo.txId] ??
+                0) / swapHistoryStateFetchRiceIntervalCount,
+            ) +
+              1),
         );
       }
     }
@@ -557,7 +680,7 @@ export default class ServiceSwap extends ServiceBase {
     const statusPendingList = swapHistoryPendingList.filter(
       (item) =>
         item.status === ESwapTxHistoryStatus.PENDING ||
-        item.status === ESwapTxHistoryStatus.DISCARD,
+        item.status === ESwapTxHistoryStatus.CANCELING,
     );
     await this.cleanHistoryStateIntervals();
     if (!statusPendingList.length) return;

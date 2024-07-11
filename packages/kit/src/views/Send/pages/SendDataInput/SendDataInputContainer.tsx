@@ -84,6 +84,9 @@ function SendDataInputContainer() {
     nfts,
     address,
     amount: sendAmount = '',
+    onSuccess,
+    onFail,
+    onCancel,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -133,6 +136,7 @@ function SendDataInputContainer() {
         });
       if (isNFT && nft) {
         nftResp = await serviceNFT.fetchNFTDetails({
+          accountId,
           networkId,
           accountAddress,
           nfts: [
@@ -196,6 +200,16 @@ function SendDataInputContainer() {
       settings.inscriptionProtection,
     ],
     { watchLoading: true, alwaysSetState: true },
+  );
+
+  const { result: addressBookEnabledNetworkIds } = usePromiseResult(
+    async () => {
+      const networks =
+        await backgroundApiProxy.serviceNetwork.getAddressBookEnabledNetworks();
+      return networks.map((o) => o.id);
+    },
+    [],
+    { initResult: [] },
   );
 
   if (tokenDetails && isNil(tokenDetails?.balanceParsed)) {
@@ -357,6 +371,9 @@ function SendDataInputContainer() {
       await sendConfirm.navigationToSendConfirm({
         transfersInfo,
         sameModal: true,
+        onSuccess,
+        onFail,
+        onCancel,
         transferPayload: {
           amountToSend: realAmount,
           isMaxSend,
@@ -392,6 +409,9 @@ function SendDataInputContainer() {
     linkedAmount.originalAmount,
     nftAmount,
     nftDetails,
+    onCancel,
+    onFail,
+    onSuccess,
     sendConfirm,
     tokenDetails,
   ]);
@@ -519,12 +539,15 @@ function SendDataInputContainer() {
     displayAmountFormItem,
   ]);
 
-  const maxAmount = useMemo(() => {
-    if (isUseFiat) {
-      return tokenDetails?.fiatValue ?? '0';
-    }
-    return tokenDetails?.balanceParsed ?? '0';
-  }, [isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue]);
+  const maxBalance = useMemo(
+    () => tokenDetails?.balanceParsed ?? '0',
+    [tokenDetails?.balanceParsed],
+  );
+
+  const maxBalanceFiat = useMemo(
+    () => tokenDetails?.fiatValue ?? '0',
+    [tokenDetails?.fiatValue],
+  );
 
   const renderTokenDataInputForm = useCallback(
     () => (
@@ -561,9 +584,9 @@ function SendDataInputContainer() {
           enableMaxAmount
           balanceProps={{
             loading: isLoadingAssets,
-            value: maxAmount,
+            value: maxBalance,
             onPress: () => {
-              form.setValue('amount', maxAmount);
+              form.setValue('amount', isUseFiat ? maxBalanceFiat : maxBalance);
               void form.trigger('amount');
               setIsMaxSend(true);
             },
@@ -623,7 +646,8 @@ function SendDataInputContainer() {
       isSelectTokenDisabled,
       isUseFiat,
       linkedAmount.amount,
-      maxAmount,
+      maxBalance,
+      maxBalanceFiat,
       network?.logoURI,
       networkId,
       nft?.metadata?.image,
@@ -792,6 +816,12 @@ function SendDataInputContainer() {
     renderPaymentIdForm,
   ]);
 
+  const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
+    () =>
+      addressBookEnabledNetworkIds.includes(networkId) ? { num: 0 } : undefined,
+    [addressBookEnabledNetworkIds, networkId],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -878,8 +908,8 @@ function SendDataInputContainer() {
                 enableWalletName
                 enableVerifySendFundToSelf
                 enableAddressInteractionStatus
-                contacts
-                accountSelector={{ num: 0 }}
+                contacts={addressBookEnabledNetworkIds.includes(networkId)}
+                accountSelector={addressInputAccountSelectorArgs}
               />
             </Form.Field>
             {renderDataInput()}

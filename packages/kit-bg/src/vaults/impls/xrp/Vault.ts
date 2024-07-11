@@ -29,8 +29,11 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
+import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -159,42 +162,63 @@ export default class Vault extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxXrp;
     const network = await this.getNetwork();
-    const account = await this.getAccount();
 
-    const nativeToken = await this.backgroundApi.serviceToken.getToken({
-      accountId: this.accountId,
-      networkId: this.networkId,
-      tokenIdOnNetwork: '',
-    });
+    let actions: IDecodedTxAction[] = [];
 
-    if (!nativeToken) {
-      throw new OneKeyInternalError('Native token not found');
+    if (unsignedTx.swapInfo) {
+      actions = [
+        await this.buildInternalSwapAction({
+          swapInfo: unsignedTx.swapInfo,
+          swapToAddress: encodedTx.Destination,
+        }),
+      ];
+    } else {
+      const nativeToken = await this.backgroundApi.serviceToken.getToken({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        tokenIdOnNetwork: '',
+      });
+
+      if (nativeToken) {
+        const transfer = {
+          from: encodedTx.Account,
+          to: encodedTx.Destination,
+          amount: new BigNumber(encodedTx.Amount)
+            .shiftedBy(-network.decimals)
+            .toFixed(),
+          tokenIdOnNetwork: nativeToken.address,
+          icon: nativeToken.logoURI ?? '',
+          name: nativeToken.name,
+          symbol: nativeToken.symbol,
+          isNFT: false,
+          isNative: true,
+        };
+        actions = [
+          await this.buildTxTransferAssetAction({
+            from: encodedTx.Account,
+            to: encodedTx.Destination,
+            transfers: [transfer],
+          }),
+        ];
+      }
     }
 
-    const transfer = {
-      from: encodedTx.Account,
-      to: encodedTx.Destination,
-      amount: new BigNumber(encodedTx.Amount)
-        .shiftedBy(-network.decimals)
-        .toFixed(),
-      tokenIdOnNetwork: nativeToken.address,
-      icon: nativeToken.logoURI ?? '',
-      name: nativeToken.name,
-      symbol: nativeToken.symbol,
-      isNFT: false,
-      isNative: true,
-    };
-    const action = await this.buildTxTransferAssetAction({
-      from: encodedTx.Account,
-      to: encodedTx.Destination,
-      transfers: [transfer],
-    });
+    if (actions.length === 0) {
+      actions.push({
+        type: EDecodedTxActionType.UNKNOWN,
+        unknownAction: {
+          from: encodedTx.Account,
+          to: encodedTx.Destination,
+        },
+      });
+    }
+
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: encodedTx.Account,
       signer: encodedTx.Account,
       nonce: 0,
-      actions: [action],
+      actions,
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,

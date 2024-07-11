@@ -7,6 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
+import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 
 interface ICustomHeaderTitleProps {
   handleSearchBarPress: (url: string) => void;
@@ -29,6 +30,9 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
   const displayUrl = activeTabId && tab?.url;
+  const { isHttpsUrl, hiddenHttpsUrl } = formatHiddenHttpsUrl(
+    displayUrl ? tab?.url : undefined,
+  );
 
   return (
     <XStack
@@ -50,7 +54,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       borderCurve="continuous"
     >
       <Icon
-        name={displayUrl ? 'LockOutline' : 'SearchOutline'}
+        name={isHttpsUrl ? 'LockOutline' : 'SearchOutline'}
         size="$5"
         color="$iconSubdued"
       />
@@ -63,7 +67,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
         testID="explore-index-search"
       >
         {displayUrl
-          ? tab?.url
+          ? hiddenHttpsUrl
           : intl.formatMessage({
               id: ETranslations.explore_search_placeholder,
             })}

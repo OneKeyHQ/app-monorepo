@@ -14,7 +14,6 @@ import type {
   ESwapRateDifferenceUnit,
   IFetchQuoteResult,
   ISwapAlertState,
-  ISwapApproveTransaction,
   ISwapNetwork,
   ISwapSlippageSegmentItem,
   ISwapToken,
@@ -86,12 +85,12 @@ export const {
 export const {
   atom: swapSelectedFromTokenBalanceAtom,
   use: useSwapSelectedFromTokenBalanceAtom,
-} = contextAtom('0');
+} = contextAtom('');
 
 export const {
   atom: swapSelectedToTokenBalanceAtom,
   use: useSwapSelectedToTokenBalanceAtom,
-} = contextAtom('0');
+} = contextAtom('');
 
 // swap quote
 export const {
@@ -238,11 +237,6 @@ export const {
   use: useSwapApproveAllowanceSelectOpenAtom,
 } = contextAtom<boolean>(false);
 
-export const {
-  atom: swapApprovingTransactionAtom,
-  use: useSwapApprovingTransactionAtom,
-} = contextAtom<ISwapApproveTransaction | undefined>(undefined);
-
 // swap slippage
 
 export const {
@@ -286,7 +280,7 @@ export const {
 export const {
   atom: swapSlippageDialogOpeningAtom,
   use: useSwapSlippageDialogOpeningAtom,
-} = contextAtom<boolean>(false);
+} = contextAtom<{ status: boolean; flag?: string }>({ status: false });
 
 // swap build_tx
 export const {

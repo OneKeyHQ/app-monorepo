@@ -8,6 +8,8 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
   IAddressInteractionStatus,
   IFetchAccountDetailsParams,
@@ -39,7 +41,6 @@ class ServiceAccountProfile extends ServiceBase {
     params: IFetchAccountDetailsParams,
   ): Promise<IFetchAccountDetailsResp> {
     const { accountId, networkId } = params;
-
     const [accountAddress, xpub] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
@@ -64,6 +65,9 @@ class ServiceAccountProfile extends ServiceBase {
       `/wallet/v1/account/get-account?${qs.stringify(
         omitBy(queryParams, isNil),
       )}`,
+      {
+        headers: await this._getWalletTypeHeader({ accountId }),
+      },
     );
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
@@ -71,10 +75,12 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   private async getAddressInteractionStatus({
+    accountId,
     networkId,
     fromAddress,
     toAddress,
   }: {
+    accountId: string;
     networkId: string;
     fromAddress: string;
     toAddress: string;
@@ -91,6 +97,7 @@ class ServiceAccountProfile extends ServiceBase {
           accountAddress: fromAddress,
           toAccountAddress: toAddress,
         },
+        headers: await this._getWalletTypeHeader({ accountId }),
       });
       const statusMap: Record<
         EServerInteractedStatus,
@@ -121,6 +128,7 @@ class ServiceAccountProfile extends ServiceBase {
     });
     if (acc.address.toLowerCase() !== toAddress.toLowerCase()) {
       return this.getAddressInteractionStatus({
+        accountId,
         networkId,
         fromAddress: acc.address,
         toAddress,
@@ -220,20 +228,25 @@ class ServiceAccountProfile extends ServiceBase {
 
       if (walletAccountItems.length > 0) {
         let item = walletAccountItems[0];
-        if (accountId) {
-          const account = await this.backgroundApi.serviceAccount.getAccount({
-            accountId,
-            networkId,
-          });
-          const accountItem = walletAccountItems.find(
-            (a) =>
-              account.indexedAccountId === a.accountId ||
-              account.id === a.accountId,
-          );
+        try {
+          if (accountId) {
+            const account = await this.backgroundApi.serviceAccount.getAccount({
+              accountId,
+              networkId,
+            });
+            const accountItem = walletAccountItems.find(
+              (a) =>
+                account.indexedAccountId === a.accountId ||
+                account.id === a.accountId,
+            );
 
-          if (accountItem) {
-            item = accountItem;
+            if (accountItem) {
+              item = accountItem;
+            }
           }
+        } catch (e) {
+          console.error(e);
+          // pass
         }
 
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
@@ -327,6 +340,84 @@ class ServiceAccountProfile extends ServiceBase {
     const data = resp.data.data.data;
 
     return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
+  }
+
+  // Get wallet type
+  // hd
+  // private-key
+  // watched-only
+  // hw-classic
+  // hw-classic1s
+  // hw-mini
+  // hw-touch
+  // hw-pro
+  // url
+  // third-party
+  async _getWalletTypeHeader(params: {
+    walletId?: string;
+    otherWalletId?: string;
+    accountId?: string;
+  }) {
+    return {
+      'X-OneKey-Wallet-Type': await this._getRequestWalletType(params),
+    };
+  }
+
+  async _getRequestWalletType({
+    walletId,
+    accountId,
+  }: {
+    walletId?: string;
+    otherWalletId?: string;
+    accountId?: string;
+  }) {
+    if (walletId) {
+      if (accountUtils.isHdWallet({ walletId })) {
+        return ERequestWalletTypeEnum.HD;
+      }
+      if (accountUtils.isImportedWallet({ walletId })) {
+        return ERequestWalletTypeEnum.PRIVATE_KEY;
+      }
+      if (accountUtils.isWatchingWallet({ walletId })) {
+        return ERequestWalletTypeEnum.WATCHED_ONLY;
+      }
+      if (accountUtils.isExternalWallet({ walletId })) {
+        return ERequestWalletTypeEnum.THIRD_PARTY;
+      }
+      if (accountUtils.isHwWallet({ walletId })) {
+        // TODO: fetch device type
+        return ERequestWalletTypeEnum.HW;
+      }
+      if (accountUtils.isQrWallet({ walletId })) {
+        return ERequestWalletTypeEnum.HW_QRCODE;
+      }
+    }
+    if (accountId) {
+      if (accountUtils.isHdAccount({ accountId })) {
+        return ERequestWalletTypeEnum.HD;
+      }
+      // urlAccount must be checked before watchAccount
+      if (accountUtils.isUrlAccountFn({ accountId })) {
+        return ERequestWalletTypeEnum.URL;
+      }
+      if (accountUtils.isImportedAccount({ accountId })) {
+        return ERequestWalletTypeEnum.PRIVATE_KEY;
+      }
+      if (accountUtils.isWatchingAccount({ accountId })) {
+        return ERequestWalletTypeEnum.WATCHED_ONLY;
+      }
+      if (accountUtils.isExternalAccount({ accountId })) {
+        return ERequestWalletTypeEnum.THIRD_PARTY;
+      }
+      if (accountUtils.isHwAccount({ accountId })) {
+        // TODO: fetch device type
+        return ERequestWalletTypeEnum.HW;
+      }
+      if (accountUtils.isQrAccount({ accountId })) {
+        return ERequestWalletTypeEnum.HW_QRCODE;
+      }
+    }
+    return ERequestWalletTypeEnum.UNKNOWN;
   }
 }
 

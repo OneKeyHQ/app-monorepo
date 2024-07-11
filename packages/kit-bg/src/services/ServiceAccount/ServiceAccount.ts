@@ -63,8 +63,8 @@ import { buildDefaultAddAccountNetworks } from './defaultNetworkAccountsConfig';
 
 import type {
   IDBAccount,
-  IDBCreateHWWalletParams,
-  IDBCreateHWWalletParamsBase,
+  IDBCreateHwWalletParams,
+  IDBCreateHwWalletParamsBase,
   IDBCreateQRWalletParams,
   IDBDevice,
   IDBExternalAccount,
@@ -468,6 +468,7 @@ class ServiceAccount extends ServiceBase {
         deviceParams,
         skipDeviceCancel,
         hideCheckingDeviceLoading,
+        debugMethodName: 'keyring.prepareAccounts',
       },
     );
   }
@@ -1285,6 +1286,7 @@ class ServiceAccount extends ServiceBase {
         },
         skipDeviceCancel,
         hideCheckingDeviceLoading,
+        debugMethodName: 'createHWHiddenWallet.getPassphraseState',
       },
     );
   }
@@ -1300,7 +1302,7 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async createHWWallet(params: IDBCreateHWWalletParamsBase) {
+  async createHWWallet(params: IDBCreateHwWalletParamsBase) {
     // createHWWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () => this.createHWWalletBase(params),
@@ -1310,17 +1312,23 @@ class ServiceAccount extends ServiceBase {
         },
         skipDeviceCancel: params.skipDeviceCancel,
         hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+        debugMethodName: 'createHWWalletBase',
       },
     );
   }
 
   @backgroundMethod()
-  async createHWWalletBase(params: IDBCreateHWWalletParams) {
+  async restoreTempCreatedWallet({ walletId }: { walletId: string }) {
+    await localDb.restoreTempCreatedWallet({ walletId });
+  }
+
+  @backgroundMethod()
+  async createHWWalletBase(params: IDBCreateHwWalletParams) {
     const { features, passphraseState } = params;
     if (!features) {
       throw new Error('createHWWalletBase ERROR: features is required');
     }
-    const result = await localDb.createHWWallet({
+    const result = await localDb.createHwWallet({
       ...params,
       passphraseState: passphraseState || '',
     });
@@ -1657,6 +1665,8 @@ class ServiceAccount extends ServiceBase {
       },
       {
         deviceParams,
+        skipDeviceCancelAtFirst: true,
+        debugMethodName: 'verifyHWAccountAddresses.prepareAccounts',
       },
     );
   }

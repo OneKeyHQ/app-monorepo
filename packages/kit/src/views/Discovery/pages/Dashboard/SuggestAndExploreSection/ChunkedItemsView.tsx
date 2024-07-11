@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import memoizee from 'memoizee';
-import { useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { opacity } from 'react-native-reanimated/lib/typescript/reanimated2/Colors';
 
 import {
@@ -181,6 +181,9 @@ export function ChunkedItemsView({
                 $group-card-hover={{
                   opacity: 0.75,
                 }}
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$borderSubdued"
+                borderCurve="continuous"
               >
                 <Image.Source
                   source={{

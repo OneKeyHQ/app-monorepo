@@ -1,5 +1,5 @@
 import { BarCodeScanner } from 'expo-barcode-scanner';
-import { CameraView } from 'expo-camera';
+import { Camera } from 'expo-camera';
 
 import type { IScanCameraProps } from './types';
 
@@ -13,22 +13,23 @@ export function ScanCamera({
   ...rest
 }: IScanCameraProps) {
   if (!isActive) {
-    // navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+    // void navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+    //   stream.getVideoTracks().forEach((track) => track.stop());
     //   stream.getTracks().forEach((track) => track.stop());
     // });
     return null;
   }
   return (
-    <CameraView
+    <Camera
       style={style}
-      onBarcodeScanned={({ data }) => handleScanResult?.(data)}
-      barcodeScannerSettings={{
+      onBarCodeScanned={({ data }) => handleScanResult?.(data)}
+      barCodeScannerSettings={{
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        barcodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
+        barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
       }}
       {...rest}
     >
       {children}
-    </CameraView>
+    </Camera>
   );
 }

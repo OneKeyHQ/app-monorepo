@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { Keyboard } from 'react-native';
+import { Keyboard, StyleSheet } from 'react-native';
 
 import {
   Icon,
@@ -135,10 +135,12 @@ function SearchModal() {
               alignItems: 'center',
               children: <Icon name="GlobusOutline" />,
             },
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: '$borderSubdued',
           }}
           renderItemText={() => (
             <RichSizeableText
-              linkList={{ a: { cursor: 'auto' } }}
+              linkList={{ a: { url: undefined, cursor: 'auto' } }}
               numberOfLines={1}
               size="$bodyLgMedium"
             >
@@ -298,6 +300,8 @@ function SearchModal() {
                       alignItems: 'center',
                       children: <Icon name="GlobusOutline" />,
                     },
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: '$borderSubdued',
                   }}
                   title={item.title}
                   titleMatch={item.titleMatch}

@@ -32,7 +32,9 @@ function NFTListContainer(props: ITabPageProps) {
   const { result, run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
+      await backgroundApiProxy.serviceNFT.abortFetchAccountNFTs();
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
+        accountId: account.id,
         networkId: network.id,
         accountAddress: account.address,
         xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({

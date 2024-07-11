@@ -6,7 +6,6 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -86,6 +85,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  publicKeyExportEnabled: true,
+
   isUtxo: true,
   isSingleToken: true,
   NFTEnabled: false,
@@ -93,6 +94,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: true,
   editFeeEnabled: true,
   replaceTxEnabled: false,
+  estimatedFeePollingInterval: 120,
 
   minTransferAmount: '0.00000546',
   defaultFeePresetIndex: 1,
@@ -106,6 +108,8 @@ const settings: IVaultSettings = {
   },
   hasFrozenBalance: true,
   showAddressType: true,
+
+  dappInteractionEnabled: true,
 };
 
 export default Object.freeze(settings);

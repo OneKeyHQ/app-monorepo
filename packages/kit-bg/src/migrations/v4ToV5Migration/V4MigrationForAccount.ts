@@ -69,7 +69,7 @@ import type {
 } from './v4local/v4localDBTypes';
 import type {
   IDBAccount,
-  IDBCreateHWWalletParams,
+  IDBCreateHwWalletParams,
   IDBDevice,
   IDBDeviceSettings,
   IDBUtxoAccount,
@@ -807,6 +807,13 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             if (networkId) {
               const v4accountUtxo = v4account as IV4DBUtxoAccount;
 
+              // if (
+              //   v4accountUtxo.address ===
+              //   '====bc1pmxftvl44gfdeu0w2qhksz0nj296lsd4keafh32097tc8kkaeeues6wklpg'
+              // ) {
+              //   debugger;
+              // }
+
               const addWatchingAccountByInput = async (
                 input: string,
                 type: string,
@@ -836,34 +843,43 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               let addedV5Accounts: IDBAccount[] = [];
 
               if (v4account?.pub) {
-                addedV5Accounts = await addWatchingAccountByInput(
-                  v4account.pub,
-                  'pub',
-                );
+                addedV5Accounts = [
+                  ...addedV5Accounts,
+                  ...(await addWatchingAccountByInput(v4account.pub, 'pub')),
+                ];
               }
 
               if (v4accountUtxo?.xpub) {
-                addedV5Accounts = await addWatchingAccountByInput(
-                  v4accountUtxo.xpub,
-                  'xpub',
-                );
+                addedV5Accounts = [
+                  ...addedV5Accounts,
+                  ...(await addWatchingAccountByInput(
+                    v4accountUtxo.xpub,
+                    'xpub',
+                  )),
+                ];
               }
 
               if (v4accountUtxo?.xpubSegwit) {
-                addedV5Accounts = await addWatchingAccountByInput(
-                  v4accountUtxo.xpubSegwit,
-                  'xpubSegwit',
-                );
+                addedV5Accounts = [
+                  ...addedV5Accounts,
+                  ...(await addWatchingAccountByInput(
+                    v4accountUtxo.xpubSegwit,
+                    'xpubSegwit',
+                  )),
+                ];
               }
 
               if (
                 v4account?.address &&
                 !addedV5Accounts?.filter?.(Boolean)?.length
               ) {
-                addedV5Accounts = await addWatchingAccountByInput(
-                  v4account.address,
-                  'address',
-                );
+                addedV5Accounts = [
+                  ...addedV5Accounts,
+                  ...(await addWatchingAccountByInput(
+                    v4account.address,
+                    'address',
+                  )),
+                ];
               }
 
               const networkToAddress = Object.entries(
@@ -873,6 +889,24 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                 for (const [mapNetworkId, mapAddress] of networkToAddress) {
                   await v4dbHubs.logger.runAsyncWithCatch(
                     async () => {
+                      // if (
+                      //   mapAddress ===
+                      //   '====bc1pmxftvl44gfdeu0w2qhksz0nj296lsd4keafh32097tc8kkaeeues6wklpg'
+                      // ) {
+                      //   debugger;
+                      // }
+
+                      // skip add address watching if xpub watching is added with same address
+                      if (
+                        addedV5Accounts?.find(
+                          (item) =>
+                            (item as IDBUtxoAccount)?.xpub &&
+                            item.address === mapAddress,
+                        )
+                      ) {
+                        return;
+                      }
+
                       v4account.address = mapAddress;
                       await this.addV5WatchingAccount({
                         input: mapAddress,
@@ -966,6 +1000,16 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               );
 
             if (networkId) {
+              // if (
+              //   v4account.address ===
+              // eslint-disable-next-line spellcheck/spell-checker
+              //   '====bc1qjclx3t2ykepvcqegx8tmn3nwd5ahsswenrvd90'
+              // ) {
+              //   debugger;
+              // }
+              const v4accountTemplate = await this.fixV4AccountTemplate({
+                v4account,
+              });
               const deriveTypes =
                 await serviceNetwork.getAccountImportingDeriveTypes({
                   networkId,
@@ -974,9 +1018,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                   }),
                   validatePrivateKey: true,
                   validateXprvt: true,
-                  template: await this.fixV4AccountTemplate({
-                    v4account,
-                  }),
+                  template: v4accountTemplate,
                 });
               for (const deriveType of deriveTypes) {
                 v4dbHubs.logger.log({
@@ -1218,7 +1260,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           if (v4wallet?.passphraseState) {
             v5wallet = await v4dbHubs.logger.runAsyncWithCatch(
               async () => {
-                const params: IDBCreateHWWalletParams = {
+                const params: IDBCreateHwWalletParams = {
                   name: v4wallet.name,
                   device: deviceUtils.dbDeviceToSearchDevice(v5dbDevice),
                   features: v5dbDevice.featuresInfo || ({} as any),

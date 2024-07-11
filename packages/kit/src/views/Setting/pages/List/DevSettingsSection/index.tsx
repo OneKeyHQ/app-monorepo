@@ -16,6 +16,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -89,7 +90,8 @@ function showDevOnlyPasswordDialog({
 }
 
 export const DevSettingsSection = () => {
-  const [settings] = useDevSettingsPersistAtom();
+  const [settings] = useSettingsPersistAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
@@ -107,7 +109,7 @@ export const DevSettingsSection = () => {
     window?.desktopApi.openDevTools();
   }, []);
 
-  if (!settings.enabled) {
+  if (!devSettings.enabled) {
     return null;
   }
 
@@ -124,7 +126,7 @@ export const DevSettingsSection = () => {
         <>
           <SectionPressItem
             title="Open Chrome DevTools in Desktop"
-            subtitle="重启后会在导航栏的菜单栏中出现相关按钮"
+            subtitle="重启后会使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
             onPress={handleOpenDevTools}
           />
           <SectionPressItem
@@ -141,17 +143,24 @@ export const DevSettingsSection = () => {
           />
         </>
       ) : null}
+
+      <SectionPressItem
+        copyable
+        title={settings.instanceId}
+        subtitle="InstanceId"
+      />
       {platformEnv.githubSHA ? (
         <SectionPressItem
           copyable
-          title={`BuildHash: ${platformEnv.githubSHA}`}
+          title={platformEnv.githubSHA}
+          subtitle="BuildHash"
         />
       ) : null}
       <SectionFieldItem
         name="enableTestEndpoint"
         title="启用 OneKey 测试网络节点"
         subtitle={
-          settings.settings?.enableTestEndpoint
+          devSettings.settings?.enableTestEndpoint
             ? ONEKEY_TEST_API_HOST
             : ONEKEY_API_HOST
         }

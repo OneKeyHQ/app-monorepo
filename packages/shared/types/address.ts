@@ -102,10 +102,10 @@ export type IAddressInteractionStatus =
   | 'not-interacted'
   | 'unknown';
 
+export type IAddressValidateBaseStatus = 'valid' | 'invalid' | 'unknown';
+
 export type IAddressValidateStatus =
-  | 'valid'
-  | 'invalid'
-  | 'unknown'
+  | IAddressValidateBaseStatus
   | 'prohibit-send-to-self';
 
 export type IQueryCheckAddressArgs = {

@@ -270,7 +270,7 @@ class ServiceDApp extends ServiceBase {
         networkId,
         sceneName,
       },
-      fullScreen: true,
+      fullScreen: !platformEnv.isNativeIOS,
     });
   }
 
@@ -453,7 +453,14 @@ class ServiceDApp extends ServiceBase {
       const walletConnectTopic =
         rawData?.data?.walletConnect?.[origin].walletConnectTopic;
       if (walletConnectTopic) {
-        await serviceWalletConnect.walletConnectDisconnect(walletConnectTopic);
+        try {
+          await serviceWalletConnect.walletConnectDisconnect(
+            walletConnectTopic,
+          );
+        } catch (e) {
+          // ignore error
+          console.error('wallet connect disconnect error: ', e);
+        }
       }
     }
     await simpleDb.dappConnection.deleteConnection(origin, storageType);
@@ -638,7 +645,12 @@ class ServiceDApp extends ServiceBase {
       }
       item.availableNetworksMap = networksMap;
     }
-    return allConnectedList;
+    const sortedList = allConnectedList.sort((a, b) => {
+      const aTime = a.updatedAt ?? 0;
+      const bTime = b.updatedAt ?? 0;
+      return bTime - aTime;
+    });
+    return sortedList;
   }
 
   async disconnectInactiveSessions(
@@ -891,9 +903,11 @@ class ServiceDApp extends ServiceBase {
   async proxyRPCCall<T>({
     networkId,
     request,
+    skipParseResponse,
   }: {
     networkId: string;
     request: IJsonRpcRequest;
+    skipParseResponse?: boolean;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const results = await client.post<{
@@ -916,7 +930,9 @@ class ServiceDApp extends ServiceBase {
 
     const data = results.data.data.data;
 
-    return data.map((item) => parseRPCResponse(item));
+    return data.map((item) =>
+      skipParseResponse ? item : parseRPCResponse(item),
+    );
   }
 
   @backgroundMethod()

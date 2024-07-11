@@ -15,11 +15,9 @@ import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   BalanceLowerMinimum,
   InvalidTransferValue,
-  NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -34,12 +32,6 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import {
-  EOnChainHistoryTransferType,
-  type IOnChainHistoryTx,
-  type IOnChainHistoryTxToken,
-} from '@onekeyhq/shared/types/history';
-import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EDecodedTxActionType,
@@ -114,10 +106,51 @@ export default class VaultDot extends VaultBase {
     };
   }
 
-  private async _getTxBaseInfo(): Promise<{
-    blockHash: string;
+  private async _getBlockInfo(): Promise<{
+    blockHash: `0x${string}`;
     blockNumber: number;
-    genesisHash: string;
+  }> {
+    const [blockHash] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
+        {
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: 'chain_getBlockHash',
+                params: [],
+              },
+            },
+          ],
+        },
+      );
+    const [{ block }] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        block: { header: { number: number } };
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: 'chain_getBlock',
+              params: [blockHash],
+            },
+          },
+        ],
+      });
+
+    return {
+      blockHash,
+      blockNumber: block.header.number,
+    };
+  }
+
+  private async _getTxBaseInfo(): Promise<{
+    blockHash: `0x${string}`;
+    blockNumber: number;
+    genesisHash: `0x${string}`;
     metadataRpc: `0x${string}`;
     specName: string;
     specVersion: number;
@@ -125,57 +158,37 @@ export default class VaultDot extends VaultBase {
     registry: TypeRegistry;
   }> {
     const [
-      { specName, specVersion, transactionVersion },
-      blockHash,
-      genesisHash,
-      { block },
+      [{ specName, specVersion, transactionVersion }, genesisHash],
       metadataRpc,
-    ] = (await this.backgroundApi.serviceAccountProfile.sendProxyRequest({
-      networkId: this.networkId,
-      body: [
-        {
-          route: 'rpc',
-          params: {
-            method: 'state_getRuntimeVersion',
-            params: [],
+      { blockHash, blockNumber },
+    ] = await Promise.all([
+      this.backgroundApi.serviceAccountProfile.sendProxyRequest({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: 'state_getRuntimeVersion',
+              params: [],
+            },
           },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'chain_getBlockHash',
-            params: [],
+          {
+            route: 'rpc',
+            params: {
+              method: 'chain_getBlockHash',
+              params: [0],
+            },
           },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'chain_getBlockHash',
-            params: [0],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'chain_getBlock',
-            params: [],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'state_getMetadata',
-            params: [],
-          },
-        },
-      ],
-    })) as [
-      { specName: string; specVersion: number; transactionVersion: number },
-      string,
-      string,
-      { block: { header: { number: number } } },
-      `0x${string}`,
-    ];
+        ],
+      }) as Promise<
+        [
+          { specName: string; specVersion: number; transactionVersion: number },
+          `0x${string}`,
+        ]
+      >,
+      this._getMetadataRpc(this.networkId),
+      this._getBlockInfo(),
+    ]);
     const info = {
       metadataRpc,
       specName: specName as 'polkadot',
@@ -185,7 +198,7 @@ export default class VaultDot extends VaultBase {
     const registry = getRegistry(info);
     return {
       ...info,
-      blockNumber: block.header.number,
+      blockNumber,
       transactionVersion,
       blockHash,
       genesisHash,
@@ -310,24 +323,30 @@ export default class VaultDot extends VaultBase {
     };
   }
 
-  private async _getMetadataRpc(): Promise<`0x${string}`> {
-    const [res] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
-        {
-          networkId: this.networkId,
-          body: [
-            {
-              route: 'rpc',
-              params: {
-                method: 'state_getMetadata',
-                params: [],
+  private _getMetadataRpc = memoizee(
+    async (networkId: string): Promise<`0x${string}`> => {
+      const [res] =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
+          {
+            networkId,
+            body: [
+              {
+                route: 'rpc',
+                params: {
+                  method: 'state_getMetadata',
+                  params: [],
+                },
               },
-            },
-          ],
-        },
-      );
-    return res;
-  }
+            ],
+          },
+        );
+      return res;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
 
   private async _getRegistry(params: {
     metadataRpc?: `0x${string}`;
@@ -338,7 +357,7 @@ export default class VaultDot extends VaultBase {
 
     let metadataRpcHex: `0x${string}`;
     if (isNil(params.metadataRpc) || isEmpty(params.metadataRpc)) {
-      metadataRpcHex = await this._getMetadataRpc();
+      metadataRpcHex = await this._getMetadataRpc(this.networkId);
     } else {
       metadataRpcHex = params.metadataRpc;
     }
@@ -389,7 +408,7 @@ export default class VaultDot extends VaultBase {
 
     let { metadataRpc } = unsigned;
     if (!metadataRpc) {
-      metadataRpc = await this._getMetadataRpc();
+      metadataRpc = await this._getMetadataRpc(this.networkId);
     }
     const decodedUnsigned = decode(unsigned, {
       metadataRpc,
@@ -444,47 +463,48 @@ export default class VaultDot extends VaultBase {
         tokenIdOnNetwork: assetId || (networkInfo.nativeTokenAddress ?? ''),
       });
 
-      const { value: tokenAmount } = decodeUnsignedTx.method.args;
-      to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
+      if (tokenInfo) {
+        const { value: tokenAmount } = decodeUnsignedTx.method.args;
+        to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
 
-      if (decodeUnsignedTx.method.name === 'transferAll') {
-        const accountDetail =
-          await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-            networkId: this.networkId,
-            accountId: this.accountId,
-            withNonce: false,
-            withNetWorth: true,
-          });
-        const balance = new BigNumber(accountDetail.balance ?? 0);
-        const feeInfo = unsignedTx.feeInfo;
-        const fee = feeInfo
-          ? new BigNumber(feeInfo.gas?.gasLimit ?? 0)
-              .times(new BigNumber(feeInfo.gas?.gasPrice ?? 0))
-              .shiftedBy(feeInfo.common.feeDecimals)
-          : 0;
-        amount = balance.minus(fee).toFixed();
-      } else {
-        amount = tokenAmount?.toString() ?? '0';
+        if (decodeUnsignedTx.method.name === 'transferAll') {
+          const balance = new BigNumber(
+            params.transferPayload?.amountToSend ?? 0,
+          ).shiftedBy(tokenInfo.decimals);
+          const feeInfo = unsignedTx.feeInfo;
+          const fee = feeInfo
+            ? new BigNumber(feeInfo.gas?.gasLimit ?? 0)
+                .times(new BigNumber(feeInfo.gas?.gasPrice ?? 0))
+                .shiftedBy(feeInfo.common.feeDecimals)
+            : 0;
+          amount = balance.minus(fee).toFixed();
+        } else {
+          amount = tokenAmount?.toString() ?? '0';
+        }
+
+        const transferAction: IDecodedTxTransferInfo = {
+          from,
+          to,
+          amount: new BigNumber(amount)
+            .shiftedBy(-tokenInfo.decimals)
+            .toFixed(),
+          icon: tokenInfo.logoURI ?? '',
+          name: tokenInfo.symbol,
+          symbol: tokenInfo.symbol,
+          tokenIdOnNetwork: tokenInfo.address,
+          isNFT: false,
+          isNative: tokenInfo.symbol === networkInfo.nativeTokenAddress,
+        };
+
+        action = await this.buildTxTransferAssetAction({
+          from,
+          to,
+          transfers: [transferAction],
+        });
       }
+    }
 
-      const transferAction: IDecodedTxTransferInfo = {
-        from,
-        to,
-        amount: new BigNumber(amount).shiftedBy(-tokenInfo.decimals).toFixed(),
-        icon: tokenInfo.logoURI ?? '',
-        name: tokenInfo.symbol,
-        symbol: tokenInfo.symbol,
-        tokenIdOnNetwork: tokenInfo.address,
-        isNFT: false,
-        isNative: tokenInfo.symbol === networkInfo.nativeTokenAddress,
-      };
-
-      action = await this.buildTxTransferAssetAction({
-        from,
-        to,
-        transfers: [transferAction],
-      });
-    } else {
+    if (!action) {
       action = {
         type: EDecodedTxActionType.UNKNOWN,
         direction: EDecodedTxDirection.OTHER,
@@ -519,7 +539,7 @@ export default class VaultDot extends VaultBase {
       (await this.buildEncodedTx(params))) as IEncodedTxDot;
     if (encodedTx) {
       if (!encodedTx.metadataRpc) {
-        encodedTx.metadataRpc = await this._getMetadataRpc();
+        encodedTx.metadataRpc = await this._getMetadataRpc(this.networkId);
       }
       return {
         encodedTx,
@@ -595,6 +615,25 @@ export default class VaultDot extends VaultBase {
           chainName: network.name,
         };
       }
+    }
+
+    if (!params.nonceInfo && !encodedTx.isFromDapp) {
+      const blockInfo = await this._getBlockInfo();
+      const era = getRegistry({
+        metadataRpc: encodedTx.metadataRpc,
+        specName: (encodedTx.specName ?? '') as 'polkadot',
+        specVersion: +encodedTx.specVersion,
+        chainName: encodedTx.chainName ?? '',
+      }).createType('ExtrinsicEra', {
+        current: blockInfo.blockNumber,
+        period: 64,
+      });
+      encodedTx = {
+        ...encodedTx,
+        blockHash: blockInfo.blockHash,
+        blockNumber: blockInfo.blockNumber as unknown as `0x${string}`,
+        era: era.toHex(),
+      };
     }
 
     return {

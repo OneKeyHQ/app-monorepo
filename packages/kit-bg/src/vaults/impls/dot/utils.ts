@@ -1,6 +1,3 @@
-import { hdLedger } from '@polkadot/util-crypto';
-
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import type { DecodedSignedTx } from '@substrate/txwrapper-polkadot';
@@ -44,19 +41,4 @@ export const getTransactionTypeFromTxInfo = (tx: DecodedSignedTx) => {
   const { name: methodName, pallet } = tx.method;
 
   return getTransactionType(pallet, methodName);
-};
-
-export const derivationHdLedger = (mnemonic: string, path: string) => {
-  try {
-    return hdLedger(mnemonic, path);
-  } catch (e: any) {
-    const { message }: { message: string } = e;
-    if (
-      message ===
-      'Expected a mnemonic with 24 words (or 25 including a password)'
-    ) {
-      throw new OneKeyInternalError(message);
-    }
-    throw e;
-  }
 };

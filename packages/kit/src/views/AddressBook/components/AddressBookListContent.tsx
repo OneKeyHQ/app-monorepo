@@ -13,6 +13,7 @@ import {
   SizableText,
   Stack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -313,6 +314,8 @@ export const AddressBookListContent = ({
     });
   }, [foldItems, items, searchKey]);
 
+  const media = useMedia();
+
   return (
     <Stack flex={1}>
       <Stack px="$5" pb="$2">
@@ -325,7 +328,7 @@ export const AddressBookListContent = ({
       <SectionList
         showsVerticalScrollIndicator={false}
         onContentSizeChange={onContentSizeChange}
-        estimatedItemSize="$6"
+        estimatedItemSize={media.md ? 80 : 60}
         sections={memoSections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}

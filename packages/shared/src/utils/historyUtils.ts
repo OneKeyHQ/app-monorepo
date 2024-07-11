@@ -139,7 +139,7 @@ export function getHistoryTxDetailInfo({
   let swapInfo;
   let nonce = txDetails?.nonce;
 
-  if (isNil(nonce) || nonce === 0) {
+  if (isNil(nonce) && !isNil(decodedTx.nonce)) {
     nonce = decodedTx.nonce;
   }
 
@@ -155,9 +155,9 @@ export function getHistoryTxDetailInfo({
 
   const txid = decodedTx.txid;
 
-  const gasFee = txDetails?.gasFee ?? decodedTx.totalFeeInNative ?? '0';
+  const gasFee = txDetails?.gasFee ?? decodedTx.totalFeeInNative;
   const gasFeeFiatValue =
-    txDetails?.gasFeeFiatValue ?? decodedTx.totalFeeFiatValue ?? '0';
+    txDetails?.gasFeeFiatValue ?? decodedTx.totalFeeFiatValue;
   const confirmations = txDetails?.confirmations;
   const blockHeight = txDetails?.block;
 
@@ -186,5 +186,5 @@ export function buildLocalHistoryKey({
     throw new OneKeyInternalError('accountAddress or xpub is required');
   }
 
-  return `${networkId}_${accountAddress ?? xpub ?? ''}`;
+  return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
 }

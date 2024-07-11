@@ -49,7 +49,7 @@ interface ISwapHistoryListModalProps {
 
 const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
   const intl = useIntl();
-  const [swapPendingList] = useInAppNotificationAtom();
+  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
     async () => {
       const histories =
@@ -57,7 +57,7 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
       return histories;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swapPendingList],
+    [swapHistoryPendingList],
     { watchLoading: true },
   );
 
@@ -69,13 +69,13 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
       swapTxHistoryList?.filter(
         (item) =>
           item.status === ESwapTxHistoryStatus.PENDING ||
-          item.status === ESwapTxHistoryStatus.DISCARD,
+          item.status === ESwapTxHistoryStatus.CANCELING,
       ) ?? [];
     const otherData =
       swapTxHistoryList?.filter(
         (item) =>
           item.status !== ESwapTxHistoryStatus.PENDING &&
-          item.status !== ESwapTxHistoryStatus.DISCARD,
+          item.status !== ESwapTxHistoryStatus.CANCELING,
       ) ?? [];
     const groupByDay = otherData.reduce<Record<string, ISwapTxHistory[]>>(
       (acc, item) => {

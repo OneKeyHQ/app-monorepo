@@ -1074,7 +1074,7 @@ PODS:
     - React-Core
   - react-native-slider (4.4.3):
     - React-Core
-  - react-native-tab-page-view (1.0.4):
+  - react-native-tab-page-view (1.0.5):
     - React
   - react-native-tcp-socket (6.0.6):
     - CocoaAsyncSocket
@@ -1814,7 +1814,7 @@ SPEC CHECKSUMS:
   react-native-restart: 7595693413fe3ca15893702f2c8306c62a708162
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
-  react-native-tab-page-view: 62da73b71f8cb952eb06ee5a1e6390601a7ded1b
+  react-native-tab-page-view: f51a8899ee03805b8959cdf739e03f1e6e9fb54e
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
   react-native-video: dc3118548cf8864a83f57df4345cf6c692402e8f
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
@@ -1864,7 +1864,7 @@ SPEC CHECKSUMS:
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
-  Yoga: 47d399a73c0c0caa9ff824e5c657eae31215bfee
+  Yoga: c716aea2ee01df6258550c7505fa61b248145ced
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: 298a1388b666936b828a2f5d33454d73ba90ff07

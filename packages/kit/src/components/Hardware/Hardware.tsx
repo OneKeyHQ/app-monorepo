@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 import { isPassphraseValid } from '../../utils/passphraseUtils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -28,11 +29,13 @@ import type { IDeviceType } from '@onekeyfe/hd-core';
 export interface IConfirmOnDeviceToastContentProps {
   deviceType: IDeviceType;
 }
+
 export function ConfirmOnDeviceToastContent({
   deviceType,
 }: IConfirmOnDeviceToastContentProps) {
   const intl = useIntl();
   const [animationData, setAnimationData] = useState<any>(null);
+  const [showErrorButton, setShowErrorButton] = useState(false);
 
   const requireResource = useCallback(() => {
     switch (deviceType) {
@@ -72,6 +75,16 @@ export function ConfirmOnDeviceToastContent({
       });
   }, [requireResource]);
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setShowErrorButton(true);
+    }, SHOW_CLOSE_ACTION_MIN_DURATION);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, []);
+
   return (
     <XStack alignItems="center">
       <Stack bg="$bgStrong" btlr="$2" bblr="$2">
@@ -81,9 +94,13 @@ export function ConfirmOnDeviceToastContent({
         <SizableText flex={1} size="$bodyLgMedium">
           {intl.formatMessage({ id: ETranslations.global_confirm_on_device })}
         </SizableText>
-        <Toast.Close>
-          <IconButton size="small" icon="CrossedSmallOutline" />
-        </Toast.Close>
+        <Stack minWidth="$8">
+          {showErrorButton ? (
+            <Toast.Close>
+              <IconButton size="small" icon="CrossedSmallOutline" />
+            </Toast.Close>
+          ) : null}
+        </Stack>
       </XStack>
     </XStack>
   );

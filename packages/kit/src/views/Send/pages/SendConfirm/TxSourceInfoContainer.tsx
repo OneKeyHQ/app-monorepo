@@ -20,7 +20,7 @@ function TxSourceInfoContainer(props: IProps) {
   }
 
   return (
-    <Stack px="$5">
+    <Stack px="$5" pt="$2">
       <DAppSiteMark
         origin={sourceInfo.origin}
         urlSecurityInfo={urlSecurityInfo}

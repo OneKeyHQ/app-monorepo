@@ -122,12 +122,19 @@ export function useSwapActionState() {
       toToken?.networkId,
     ],
   );
-  const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 300);
+  const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 10);
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
       label: intl.formatMessage({ id: ETranslations.swap_page_swap_button }),
     };
+    if (
+      !swapFromAddressInfo.address ||
+      !swapToAddressInfo.address ||
+      quoteCurrentSelect?.fromAmount !== fromTokenAmount
+    ) {
+      infoRes.disable = true;
+    }
     if (quoteLoading) {
       infoRes.label = intl.formatMessage({
         id: ETranslations.swap_page_button_fetching_quotes,

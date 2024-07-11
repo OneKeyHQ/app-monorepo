@@ -17,6 +17,7 @@ import {
   useSendTxStatusAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -24,6 +25,8 @@ import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
+
+import TxFeeContainer from './TxFeeContainer';
 
 type IProps = {
   accountId: string;
@@ -33,6 +36,8 @@ type IProps = {
   onCancel?: () => void;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
+  transferPayload: ITransferPayload | undefined;
+  useFeeInTx?: boolean;
 };
 
 function SendConfirmActionsContainer(props: IProps) {
@@ -44,6 +49,8 @@ function SendConfirmActionsContainer(props: IProps) {
     onCancel,
     sourceInfo,
     signOnly,
+    transferPayload,
+    useFeeInTx,
   } = props;
   const intl = useIntl();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -146,6 +153,7 @@ function SendConfirmActionsContainer(props: IProps) {
           feeInfo: sendSelectedFeeInfo,
           signOnly,
           sourceInfo,
+          transferPayload,
         });
       onSuccess?.(result);
       setIsSubmitting(false);
@@ -173,17 +181,18 @@ function SendConfirmActionsContainer(props: IProps) {
     }
   }, [
     sendSelectedFeeInfo,
-    checkFeeInfoIsOverflow,
-    unsignedTxs,
-    showFeeInfoOverflowConfirm,
     networkId,
     accountId,
+    unsignedTxs,
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     onFail,
     dappApprove,
+    checkFeeInfoIsOverflow,
+    showFeeInfoOverflowConfirm,
     signOnly,
     sourceInfo,
+    transferPayload,
     onSuccess,
     intl,
     navigation,
@@ -225,22 +234,30 @@ function SendConfirmActionsContainer(props: IProps) {
   });
 
   return (
-    <Page.Footer
-      confirmButtonProps={{
-        disabled: isSubmitDisabled,
-        loading: isSubmitting,
-      }}
-      cancelButtonProps={{
-        disabled: isSubmitting,
-      }}
-      onConfirmText={
-        signOnly
-          ? intl.formatMessage({ id: ETranslations.global_sign })
-          : intl.formatMessage({ id: ETranslations.global_confirm })
-      }
-      onConfirm={handleOnConfirm}
-      onCancel={handleOnCancel}
-    />
+    <Page.Footer>
+      <Page.FooterActions
+        confirmButtonProps={{
+          disabled: isSubmitDisabled,
+          loading: isSubmitting,
+        }}
+        cancelButtonProps={{
+          disabled: isSubmitting,
+        }}
+        onConfirmText={
+          signOnly
+            ? intl.formatMessage({ id: ETranslations.global_sign })
+            : intl.formatMessage({ id: ETranslations.global_confirm })
+        }
+        onConfirm={handleOnConfirm}
+        onCancel={handleOnCancel}
+      >
+        <TxFeeContainer
+          accountId={accountId}
+          networkId={networkId}
+          useFeeInTx={useFeeInTx}
+        />
+      </Page.FooterActions>
+    </Page.Footer>
   );
 }
 

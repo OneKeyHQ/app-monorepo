@@ -1,12 +1,10 @@
 import { StyleSheet } from 'react-native';
 
 import {
-  Button,
   Dialog,
   ESwitchSize,
   Icon,
   IconButton,
-  NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
@@ -86,20 +84,13 @@ function BalanceDetailsContent({
   return (
     <>
       <Dialog.Header>
-        <Dialog.Icon icon="CryptoCoinOutline" />
         <Dialog.Title>
           {isLoading ? (
             <Skeleton w="$40" h="$9" />
           ) : (
-            <NumberSizeableText
-              size="$heading3xl"
-              formatter="balance"
-              formatterOptions={{
-                tokenSymbol: network.symbol,
-              }}
-            >
-              {overview?.balanceParsed ?? '-'}
-            </NumberSizeableText>
+            <SizableText size="$heading3xl">
+              {`${overview?.balanceParsed ?? '-'} ${network.symbol}`}
+            </SizableText>
           )}
         </Dialog.Title>
         <Dialog.Description>
@@ -118,16 +109,9 @@ function BalanceDetailsContent({
           {isLoading ? (
             <Skeleton w="$24" h="$6" />
           ) : (
-            <NumberSizeableText
-              textAlign="right"
-              size="$bodyLg"
-              formatter="balance"
-              formatterOptions={{
-                tokenSymbol: network.symbol,
-              }}
-            >
-              {overview?.totalBalanceParsed ?? '-'}
-            </NumberSizeableText>
+            <SizableText textAlign="right" size="$bodyLg">
+              {`${overview?.totalBalanceParsed ?? '-'} ${network.symbol}`}
+            </SizableText>
           )}
         </XStack>
         <XStack
@@ -155,17 +139,9 @@ function BalanceDetailsContent({
           {isLoading ? (
             <Skeleton w="$24" h="$6" />
           ) : (
-            <NumberSizeableText
-              textAlign="right"
-              size="$bodyLg"
-              formatter="balance"
-              formatterOptions={{
-                tokenSymbol: network.symbol,
-              }}
-              minWidth={125}
-            >
-              {overview?.frozenBalanceParsed ?? '-'}
-            </NumberSizeableText>
+            <SizableText textAlign="right" size="$bodyLg" minWidth={125}>
+              {`${overview?.frozenBalanceParsed ?? '-'} ${network.symbol}`}
+            </SizableText>
           )}
         </XStack>
         {inscriptionEnabled ? (

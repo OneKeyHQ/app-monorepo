@@ -12,6 +12,7 @@ import {
 import { useIntl } from 'react-intl';
 
 import {
+  Empty,
   SearchBar,
   SectionList,
   SortableSectionList,
@@ -19,7 +20,7 @@ import {
 } from '@onekeyhq/components';
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -79,7 +80,7 @@ const EditableViewListItem = ({
       title={item.name}
       titleMatch={item.titleMatch}
       h={CELL_HEIGHT}
-      renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
+      renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
       {sectionIndex !== 0 && isEditMode ? (
@@ -134,6 +135,18 @@ const EditableViewListItem = ({
         />
       ) : null}
     </ListItem>
+  );
+};
+
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+  return (
+    <Empty
+      icon="SearchOutline"
+      title={intl.formatMessage({
+        id: ETranslations.global_no_results,
+      })}
+    />
   );
 };
 
@@ -289,23 +302,27 @@ export const EditableView: FC<IEditableViewProps> = ({
           />
         </Stack>
         <Stack flex={1}>
-          <SortableSectionList
-            // @ts-ignore
-            ref={scrollView}
-            enabled={isEditMode}
-            stickySectionHeadersEnabled
-            sections={sections}
-            renderItem={renderItem}
-            keyExtractor={(item) => (item as IServerNetwork).id}
-            onDragEnd={(result) => setTopNetworks(result.sections[0].data)}
-            getItemLayout={(_, index) => ({
-              length: CELL_HEIGHT,
-              offset: index * CELL_HEIGHT,
-              index,
-            })}
-            renderSectionHeader={renderSectionHeader}
-            ListFooterComponent={<Stack h="$2" />} // Act as padding bottom
-          />
+          {sections.length > 0 ? (
+            <SortableSectionList
+              // @ts-ignore
+              ref={scrollView}
+              enabled={isEditMode}
+              stickySectionHeadersEnabled
+              sections={sections}
+              renderItem={renderItem}
+              keyExtractor={(item) => (item as IServerNetwork).id}
+              onDragEnd={(result) => setTopNetworks(result.sections[0].data)}
+              getItemLayout={(_, index) => ({
+                length: CELL_HEIGHT,
+                offset: index * CELL_HEIGHT,
+                index,
+              })}
+              renderSectionHeader={renderSectionHeader}
+              ListFooterComponent={<Stack h="$2" />} // Act as padding bottom
+            />
+          ) : (
+            <ListEmptyComponent />
+          )}
         </Stack>
       </Stack>
     </EditableViewContext.Provider>

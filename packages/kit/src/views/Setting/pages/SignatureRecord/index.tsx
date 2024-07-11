@@ -1,8 +1,8 @@
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { memo, useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Page, SearchBar, Stack, Tab } from '@onekeyhq/components';
+import { Page, SearchBar, Stack, Tab, XStack } from '@onekeyhq/components';
 import {
   AllNetworksAvatar,
   NetworkAvatar,
@@ -34,12 +34,50 @@ const ListHeaderComponent = () => {
   );
 };
 
+const ChainSelectorCmp = ({
+  networkId,
+  onPress,
+}: {
+  networkId: string;
+  onPress: () => void;
+}) => (
+  <XStack
+    role="button"
+    flexShrink={1}
+    alignItems="center"
+    p="$1"
+    borderRadius="$2"
+    hoverStyle={{
+      bg: '$bgHover',
+    }}
+    pressStyle={{
+      bg: '$bgActive',
+    }}
+    focusable
+    focusStyle={{
+      outlineWidth: 2,
+      outlineColor: '$focusRing',
+      outlineStyle: 'solid',
+    }}
+    userSelect="none"
+    onPress={onPress}
+  >
+    {networkId ? (
+      <NetworkAvatar size={24} networkId={networkId} />
+    ) : (
+      <AllNetworksAvatar size={24} />
+    )}
+  </XStack>
+);
+
+const ChainSelector = memo(ChainSelectorCmp);
+
 const PageView = () => {
   const intl = useIntl();
   const [networkId, setNetworkId] = useState<string>('');
   const [searchContent, setSearchContent] = useState<string>('');
 
-  const memo = useMemo(
+  const values = useMemo(
     () => ({ networkId, searchContent, setNetworkId, setSearchContent }),
     [networkId, searchContent, setNetworkId, setSearchContent],
   );
@@ -59,15 +97,7 @@ const PageView = () => {
     });
   }, [onShowChainSelector, networkId, setNetworkId]);
   const headerRight = useCallback(
-    () => (
-      <Button onPress={onPress} variant="tertiary">
-        {networkId ? (
-          <NetworkAvatar size={24} networkId={networkId} />
-        ) : (
-          <AllNetworksAvatar size={24} />
-        )}
-      </Button>
-    ),
+    () => <ChainSelector networkId={networkId} onPress={onPress} />,
     [onPress, networkId],
   );
 
@@ -83,7 +113,7 @@ const PageView = () => {
       },
       {
         title: intl.formatMessage({
-          id: ETranslations.settings_connected_sites,
+          id: ETranslations.explore_dapp_connections,
         }),
         page: ConnectedSites,
       },
@@ -99,7 +129,7 @@ const PageView = () => {
         })}
         headerRight={headerRight}
       />
-      <SignatureContext.Provider value={memo}>
+      <SignatureContext.Provider value={values}>
         <Page.Body>
           <Tab.Page
             ListHeaderComponent={<ListHeaderComponent />}

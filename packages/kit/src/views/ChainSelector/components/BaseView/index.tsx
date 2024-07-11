@@ -4,7 +4,7 @@ import { Empty, ListView, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   AllNetworksAvatar,
-  NetworkAvatar,
+  NetworkAvatarBase,
 } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -47,7 +47,7 @@ export const BaseListView = ({
           item.id === dangerAllNetworkRepresent.id ? (
             <AllNetworksAvatar size="$8" />
           ) : (
-            <NetworkAvatar networkId={item?.id} size="$8" />
+            <NetworkAvatarBase logoURI={item.logoURI} size="$8" />
           )
         }
         title={item.name}

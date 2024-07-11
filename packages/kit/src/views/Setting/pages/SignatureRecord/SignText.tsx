@@ -43,64 +43,62 @@ const SignTextItem = ({ item }: { item: ISignedMessage }) => {
     [item.message, copyText],
   );
   return (
-    <YStack
-      borderWidth={StyleSheet.hairlineWidth}
-      mx="$5"
-      borderRadius="$3"
-      borderColor="$borderSubdued"
-      overflow="hidden"
-      mb="$3"
-    >
-      <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
-        <SizableText size="$bodyMd">
-          {formatTime(new Date(item.createdAt), { hideSeconds: true })} •{' '}
-          {item.title}
-        </SizableText>
-        <IconButton
-          variant="tertiary"
-          icon="Copy1Outline"
-          size="small"
-          onPress={onPress}
-        />
-      </XStack>
-      <XStack justifyContent="space-between" p="$3">
-        {item.contentType === 'json' ? (
+    <Stack px="$5" pb="$3">
+      <YStack
+        borderWidth={StyleSheet.hairlineWidth}
+        borderRadius="$3"
+        borderColor="$borderSubdued"
+        overflow="hidden"
+      >
+        <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
+          <SizableText size="$bodyMd">
+            {formatTime(new Date(item.createdAt), { hideSeconds: true })} •{' '}
+            {item.title}
+          </SizableText>
+          <IconButton
+            variant="tertiary"
+            icon="Copy1Outline"
+            size="small"
+            onPress={onPress}
+          />
+        </XStack>
+        <XStack justifyContent="space-between" p="$3">
           <TextArea
             maxHeight="$24"
             disabled
-            value={JSON.stringify(JSON.parse(item.message), null, 2)}
+            value={
+              item.contentType === 'json'
+                ? JSON.stringify(JSON.parse(item.message), null, 2)
+                : item.message
+            }
             backgroundColor="transparent"
             width="100%"
             borderWidth={0}
           />
-        ) : (
-          <SizableText
-            maxWidth="100%"
-            color="$textDisabled"
-            maxHeight="$24"
-            size="$bodyLg"
-          >
-            {item.message}
+        </XStack>
+        <XStack p="$3" backgroundColor="$bgSubdued" alignItems="center">
+          <Stack mr="$2">
+            <NetworkAvatar size={16} networkId={item.networkId} />
+          </Stack>
+          <SizableText color="$textSubdued" size="$bodySmMedium">
+            {item.network.name}
+            {' • '}
+            {utils.shortenAddress({ address: item.address })}
           </SizableText>
-        )}
-      </XStack>
-      <XStack p="$3" backgroundColor="$bgSubdued" alignItems="center">
-        <Stack mr="$2">
-          <NetworkAvatar size={16} networkId={item.networkId} />
-        </Stack>
-        <SizableText color="$textSubdued">
-          {item.network.name}
-          {' • '}
-          {utils.shortenAddress({ address: item.address })}
-        </SizableText>
-      </XStack>
-    </YStack>
+        </XStack>
+      </YStack>
+    </Stack>
   );
 };
 
 type ISectionListData = {
   title: string;
   data: ISignedMessage[];
+};
+
+const keyExtractor = (item: unknown) => {
+  const createdAt = (item as ISignedMessage)?.createdAt;
+  return String(createdAt);
 };
 
 export const SignText = () => {
@@ -111,7 +109,8 @@ export const SignText = () => {
   return (
     <SectionList
       sections={sections}
-      estimatedItemSize="$36"
+      keyExtractor={keyExtractor}
+      estimatedItemSize={191}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (
