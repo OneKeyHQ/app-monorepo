@@ -2,6 +2,8 @@ import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Divider } from '../../content';
 import { ListView } from '../../layouts';
 import { Icon, Label, XStack, YStack } from '../../primitives';
@@ -39,6 +41,7 @@ function RawCheckbox({
     <XStack
       // alignItems="center"
       py="$2"
+      bg="red"
       opacity={checkboxProps.disabled ? 0.5 : 1}
       userSelect="none"
       onPress={onPress}
@@ -82,6 +85,8 @@ function RawCheckbox({
           pl="$2"
           py="$2"
           my="$-2"
+          onPress={platformEnv.isNativeAndroid ? onPress : undefined}
+          selectable={false}
           {...labelProps}
         >
           {label}
