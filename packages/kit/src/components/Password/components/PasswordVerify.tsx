@@ -50,14 +50,23 @@ const PasswordVerify = ({
     reValidateMode: 'onSubmit',
     defaultValues: { password: '' },
   });
+  const timeOutRef = useRef<NodeJS.Timeout | null>(null);
   const isEnableRef = useRef(isEnable);
+  if (isEnableRef.current !== isEnable) {
+    isEnableRef.current = isEnable;
+  }
   useEffect(() => {
     // enable first false should wait some logic to get final value
-    setTimeout(() => {
+    timeOutRef.current = setTimeout(() => {
       if (!isEnableRef.current) {
         form.setFocus('password');
       }
     }, 500);
+    return () => {
+      if (timeOutRef.current) {
+        clearTimeout(timeOutRef.current);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [secureEntry, setSecureEntry] = useState(true);
