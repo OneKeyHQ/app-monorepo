@@ -2,7 +2,14 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Divider, Page, Stack, Switch } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  Page,
+  Stack,
+  Switch,
+  Toast,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -28,6 +35,11 @@ export default function Home() {
       await backgroundApiProxy.serviceCloudBackup.backupNow();
     } catch (e) {
       setSubmitError('Sync failed, please retry.');
+      Toast.error({
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        title: `${e?.message ?? e}`,
+      });
     }
   }, [backupToggleDialog]);
 

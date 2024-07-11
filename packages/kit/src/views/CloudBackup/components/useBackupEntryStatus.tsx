@@ -6,7 +6,7 @@ import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 export function useBackupEntryStatus() {
   const intl = useIntl();
@@ -30,7 +30,9 @@ export function useBackupEntryStatus() {
             : ETranslations.backup_go_system_settings,
         }),
         onConfirm: () =>
-          platformEnv.isNativeIOS ? openSettings('default') : undefined,
+          platformEnv.isNativeIOS
+            ? openUrlExternal('App-prefs:CASTLE')
+            : undefined,
       });
       throw new Error('cloud service is not available');
     }
