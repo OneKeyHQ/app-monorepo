@@ -23,6 +23,8 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
+import { getMetadataRpc } from './utils';
+
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IPrepareHardwareAccountsParams,
@@ -104,7 +106,14 @@ export class KeyringHardware extends KeyringHardwareBase {
     const account = await this.vault.getAccount();
     const network = await this.getNetwork();
     encodedTx.chainName = network.name;
-    const tx = await serializeUnsignedTransaction(encodedTx);
+    const metadataRpc = await getMetadataRpc(
+      this.networkId,
+      this.backgroundApi,
+    );
+    const tx = await serializeUnsignedTransaction({
+      ...encodedTx,
+      metadataRpc,
+    });
     const { signature } = await convertDeviceResponse(async () =>
       sdk.polkadotSignTransaction(connectId, deviceId, {
         path: account.path,
@@ -118,7 +127,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       bufferUtils.hexToBytes(signature),
     );
     const signedTx = await serializeSignedTransaction(
-      encodedTx,
+      { ...encodedTx, metadataRpc },
       bufferUtils.bytesToHex(txSignature),
     );
     return {
