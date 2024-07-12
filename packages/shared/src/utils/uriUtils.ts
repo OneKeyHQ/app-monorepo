@@ -48,7 +48,7 @@ function safeParseURL(url: string): URL | null {
 
 function isProtocolSupportedOpenInApp(dappUrl: string) {
   return PROTOCOLS_SUPPORTED_TO_OPEN.some((protocol) =>
-    dappUrl.toLowerCase().startsWith(`${protocol.toLowerCase()}//`),
+    dappUrl.toLowerCase().startsWith(`${protocol.toLowerCase()}`),
   );
 }
 
