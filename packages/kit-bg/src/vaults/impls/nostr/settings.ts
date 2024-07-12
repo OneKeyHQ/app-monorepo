@@ -29,6 +29,8 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: false,
   addressBookDisabled: true,
 
+  dappInteractionEnabled: true,
+
   disabledSendAction: true,
   disabledSwapAction: true,
 

@@ -147,16 +147,23 @@ class ProviderApiAptos extends ProviderApiBase {
       }
     | undefined
   > {
-    const accounts = await this.getAccountsInfo(request);
-    if (!accounts || accounts.length === 0) {
+    try {
+      const accounts =
+        await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+          request,
+        );
+      if (!accounts || accounts.length === 0) {
+        return undefined;
+      }
+      const { account } = accounts[0];
+
+      return {
+        publicKey: account.pub ?? '',
+        address: account.address,
+      };
+    } catch {
       return undefined;
     }
-    const { account } = accounts[0];
-
-    return {
-      publicKey: account.pub ?? '',
-      address: account.address,
-    };
   }
 
   @providerApiMethod()

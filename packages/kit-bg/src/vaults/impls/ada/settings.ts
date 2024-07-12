@@ -29,6 +29,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  dappInteractionEnabled: true,
+
   minTransferAmount: '1',
   defaultFeePresetIndex: 0,
 

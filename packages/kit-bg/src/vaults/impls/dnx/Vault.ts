@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/shared/types/tx';
 import type {
   IDecodedTx,
+  IDecodedTxAction,
   IDecodedTxExtraInfo,
   IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
@@ -250,28 +251,39 @@ export default class Vault extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDnx;
     const account = await this.getAccount();
+
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: encodedTx.from,
+        to: encodedTx.to,
+      },
+    };
+
     const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
       networkId: this.networkId,
       accountId: this.accountId,
     });
 
-    const transfer: IDecodedTxTransferInfo = {
-      from: encodedTx.from,
-      to: encodedTx.to,
-      tokenIdOnNetwork: nativeToken.address,
-      icon: nativeToken.logoURI ?? '',
-      name: nativeToken.name,
-      symbol: nativeToken.symbol,
-      amount: encodedTx.amount,
-      isNFT: false,
-      isNative: true,
-    };
+    if (nativeToken) {
+      const transfer: IDecodedTxTransferInfo = {
+        from: encodedTx.from,
+        to: encodedTx.to,
+        tokenIdOnNetwork: nativeToken.address,
+        icon: nativeToken.logoURI ?? '',
+        name: nativeToken.name,
+        symbol: nativeToken.symbol,
+        amount: encodedTx.amount,
+        isNFT: false,
+        isNative: true,
+      };
 
-    const action = await this.buildTxTransferAssetAction({
-      from: transfer.from,
-      to: transfer.to,
-      transfers: [transfer],
-    });
+      action = await this.buildTxTransferAssetAction({
+        from: transfer.from,
+        to: transfer.to,
+        transfers: [transfer],
+      });
+    }
 
     const decodedTx: IDecodedTx = {
       txid: '',

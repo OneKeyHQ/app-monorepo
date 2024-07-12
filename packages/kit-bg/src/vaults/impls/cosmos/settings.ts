@@ -35,6 +35,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  dappInteractionEnabled: true,
+
   isUtxo: false,
   isSingleToken: false,
   NFTEnabled: false,

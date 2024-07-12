@@ -186,7 +186,9 @@ export default class Vault extends VaultBase {
               inputs,
               payments: gasConfig.payment,
             });
-            actions.push(action);
+            if (action) {
+              actions.push(action);
+            }
             break;
           }
           case 'MoveCall': {
@@ -261,6 +263,17 @@ export default class Vault extends VaultBase {
       }
     } catch (e) {
       // ignore parse error
+    }
+
+    if (actions.length === 0) {
+      actions.push({
+        type: EDecodedTxActionType.UNKNOWN,
+        unknownAction: {
+          from: account.address,
+          to: '',
+          icon: network.logoURI ?? '',
+        },
+      });
     }
 
     const result: IDecodedTx = {
@@ -448,7 +461,7 @@ export default class Vault extends VaultBase {
     transactions: TransactionBlock['blockData']['transactions'];
     inputs: TransactionBlockInput[];
     payments?: SuiGasData['payment'] | undefined;
-  }): Promise<IDecodedTxAction> {
+  }): Promise<IDecodedTxAction | undefined> {
     if (transaction.kind !== 'TransferObjects') {
       throw new Error('Invalid transaction kind');
     }
@@ -586,6 +599,8 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       tokenIdOnNetwork: coinType,
     });
+
+    if (!token) return;
 
     const transfer = {
       from: sender,

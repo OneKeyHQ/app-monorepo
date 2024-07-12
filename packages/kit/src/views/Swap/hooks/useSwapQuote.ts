@@ -58,8 +58,16 @@ export function useSwapQuote() {
   }, [fromToken?.decimals, fromAmountDebounce, setFromTokenAmount]);
 
   useEffect(() => {
-    if (swapSlippageDialogOpening || swapApproveAllowanceSelectOpen) {
+    if (swapSlippageDialogOpening.status || swapApproveAllowanceSelectOpen) {
       cleanQuoteInterval();
+    } else if (
+      !swapSlippageDialogOpening.status &&
+      swapSlippageDialogOpening.flag === 'save'
+    ) {
+      void quoteAction(
+        activeAccountRef.current?.address,
+        activeAccountRef.current?.accountInfo?.account?.id,
+      );
     } else {
       void recoverQuoteInterval(
         activeAccountRef.current?.address,
@@ -67,6 +75,7 @@ export function useSwapQuote() {
       );
     }
   }, [
+    quoteAction,
     cleanQuoteInterval,
     recoverQuoteInterval,
     swapApproveAllowanceSelectOpen,

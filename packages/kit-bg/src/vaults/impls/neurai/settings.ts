@@ -30,6 +30,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  dappInteractionEnabled: false,
+
   accountDeriveInfo,
   impl: IMPL_NEURAI,
   coinTypeDefault: COINTYPE_NEURAI,

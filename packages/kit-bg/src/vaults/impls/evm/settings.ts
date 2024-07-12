@@ -1,6 +1,5 @@
-import { NETWORK_ID_ETC } from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
-  COINTYPE_ETC,
   COINTYPE_ETH,
   IMPL_EVM,
   INDEX_PLACEHOLDER,
@@ -21,6 +20,8 @@ export type IAccountDeriveInfoMapEvm = IAccountDeriveInfoMapBase & {
   ledgerLive: IAccountDeriveInfo;
 };
 export type IAccountDeriveTypesEvm = keyof IAccountDeriveInfoMapEvm;
+
+const networkIdMap = getNetworkIdsMap();
 
 const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
   default: {
@@ -67,6 +68,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
 
+  dappInteractionEnabled: true,
+
   defaultFeePresetIndex: 1,
 
   isUtxo: false,
@@ -87,6 +90,13 @@ const settings: IVaultSettings = {
       curve: 'secp256k1',
       addressPrefix: '',
     },
+  },
+
+  maxSendFeeUpRatio: {
+    [networkIdMap.fevm]: 1.1,
+    [networkIdMap.mantle]: 1.2,
+    [networkIdMap.mantapacific]: 1.2,
+    [networkIdMap.blast]: 1.2,
   },
 };
 

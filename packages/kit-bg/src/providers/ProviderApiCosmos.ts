@@ -79,13 +79,22 @@ class ProviderApiCosmos extends ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ) {
     const data = async () => {
-      const accounts = await this.getAccountsInfo({
-        origin: info.targetOrigin,
-        scope: this.providerName,
-      });
+      const accounts =
+        await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo({
+          origin: info.targetOrigin,
+          scope: this.providerName,
+        });
+      let params;
+      try {
+        if (accounts && accounts.length > 0) {
+          params = this._getKeyFromAccount(accounts[0].account);
+        }
+      } catch {
+        // ignore
+      }
       const result = {
         method: 'wallet_events_accountChanged',
-        params: this._getKeyFromAccount(accounts[0].account),
+        params,
       };
       return result;
     };
@@ -96,15 +105,19 @@ class ProviderApiCosmos extends ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ) {
     const data = async () => {
-      const accounts = await this.getAccountsInfo({
-        origin: info.targetOrigin,
-        scope: this.providerName,
-      });
-      const chainId = accounts[0].accountInfo?.networkId
-        ? networkUtils.getNetworkChainId({
-            networkId: accounts[0].accountInfo?.networkId,
-          })
-        : '';
+      const accounts =
+        await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo({
+          origin: info.targetOrigin,
+          scope: this.providerName,
+        });
+      let chainId;
+      if (accounts && accounts.length > 0) {
+        chainId = accounts[0].accountInfo?.networkId
+          ? networkUtils.getNetworkChainId({
+              networkId: accounts[0].accountInfo?.networkId,
+            })
+          : '';
+      }
       const result = {
         method: 'wallet_events_networkChange',
         params: chainId,

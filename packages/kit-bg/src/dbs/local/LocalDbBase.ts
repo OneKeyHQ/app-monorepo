@@ -66,7 +66,7 @@ import type {
   IDBApiGetContextOptions,
   IDBContext,
   IDBCreateHDWalletParams,
-  IDBCreateHWWalletParams,
+  IDBCreateHwWalletParams,
   IDBCreateQRWalletParams,
   IDBCredentialBase,
   IDBDevice,
@@ -1277,7 +1277,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async buildHwWalletId(params: IDBCreateHWWalletParams) {
+  async buildHwWalletId(params: IDBCreateHwWalletParams) {
     const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
 
     const { name, device, features, passphraseState, isFirmwareVerified } =
@@ -1302,17 +1302,37 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
   }
 
-  // TODO remove unused hidden wallet first
-  async createHWWallet(params: IDBCreateHWWalletParams) {
+  async restoreTempCreatedWallet({ walletId }: { walletId: string }) {
     const db = await this.readyDb;
-    const { name, device, features, passphraseState, isFirmwareVerified } =
-      params;
-    console.log('createHWWallet', features);
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateWallet({
+        tx,
+        walletId,
+        updater: (item) => {
+          item.isTemp = false;
+          return item;
+        },
+      });
+    });
+  }
+
+  // TODO remove unused hidden wallet first
+  async createHwWallet(params: IDBCreateHwWalletParams) {
+    const db = await this.readyDb;
+    const {
+      name,
+      device,
+      features,
+      passphraseState,
+      isFirmwareVerified,
+      defaultIsTemp,
+    } = params;
+    console.log('createHwWallet', features);
     // TODO check features if exists
     const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
     const { connectId } = device;
     if (!connectId) {
-      throw new Error('createHWWallet ERROR: connectId is required');
+      throw new Error('createHwWallet ERROR: connectId is required');
     }
     const context = await this.getContext();
     // const serialNo = features.onekey_serial ?? features.serial_no ?? '';
@@ -1413,7 +1433,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             type: WALLET_TYPE_HW,
             backuped: true,
             associatedDevice: dbDeviceId,
-            isTemp: false,
+            isTemp: defaultIsTemp ?? false,
             passphraseState,
             nextIds: {
               accountHdIndex: firstAccountIndex,
@@ -1428,7 +1448,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         tx,
         walletId: dbWalletId,
         updater: (item) => {
-          item.isTemp = false;
+          if (passphraseState) {
+            item.isTemp = false;
+          } else if (item.isTemp) {
+            item.isTemp = defaultIsTemp ?? false;
+          }
           return item;
         },
       });

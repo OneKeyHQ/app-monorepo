@@ -360,7 +360,7 @@ function buildLocalHistoryId(params: {
   xpub?: string;
 }) {
   const { networkId, txid, accountAddress, xpub } = params;
-  const historyId = `${networkId}_${txid}_${xpub ?? accountAddress}`;
+  const historyId = `${networkId}_${txid}_${xpub || accountAddress}`;
   return historyId;
 }
 

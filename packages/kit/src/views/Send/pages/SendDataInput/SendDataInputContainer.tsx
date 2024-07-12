@@ -818,7 +818,9 @@ function SendDataInputContainer() {
 
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>
-      addressBookEnabledNetworkIds.includes(networkId) ? { num: 0 } : undefined,
+      addressBookEnabledNetworkIds.includes(networkId)
+        ? { num: 0, clearNotMatch: true }
+        : undefined,
     [addressBookEnabledNetworkIds, networkId],
   );
 

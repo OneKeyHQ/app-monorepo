@@ -11,7 +11,6 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import type {
   IModalSendParamList,
   IModalSwapParamList,
@@ -34,7 +33,7 @@ function WalletActionSend() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
 
   const [allTokens] = useAllTokenListAtom();

@@ -18,6 +18,7 @@ type ISelectorPluginProps = IAddressPluginProps & {
   num?: number;
   onBeforeAccountSelectorOpen?: () => void;
   currentAddress?: string;
+  clearNotMatch?: boolean;
 };
 
 const AddressBookPlugin: FC<ISelectorPluginProps> = ({
@@ -70,6 +71,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   num,
   onBeforeAccountSelectorOpen,
   currentAddress,
+  clearNotMatch,
 }) => {
   const intl = useIntl();
   const accountSelectorNum = num ?? 0;
@@ -101,7 +103,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
     let activeAccount = actions.current.getActiveAccount({
       num: accountSelectorNum,
     });
-    if (activeAccount?.account?.address !== currentAddress) {
+    if (clearNotMatch && activeAccount?.account?.address !== currentAddress) {
       await actions.current.clearSelectedAccount({
         num: accountSelectorNum,
         clearAccount: true,
@@ -147,6 +149,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
     onBeforeAccountSelectorOpen,
     showAccountSelector,
     accountId,
+    clearNotMatch,
   ]);
 
   return (
@@ -192,6 +195,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
   num,
   onBeforeAccountSelectorOpen,
   currentAddress,
+  clearNotMatch,
 }) => {
   if (num !== undefined) {
     return (
@@ -203,6 +207,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
         onBeforeAccountSelectorOpen={onBeforeAccountSelectorOpen}
         testID={testID}
         currentAddress={currentAddress}
+        clearNotMatch={clearNotMatch}
       />
     );
   }

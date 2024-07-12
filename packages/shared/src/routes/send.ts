@@ -35,7 +35,7 @@ export type IModalSendParamList = {
     accountId: string;
     isNFT: boolean;
     nfts?: IAccountNFT[];
-    token?: IToken;
+    token?: IToken | null;
     address?: string;
     amount?: string;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
@@ -49,6 +49,7 @@ export type IModalSendParamList = {
     sourceInfo?: IDappSourceInfo;
     signOnly?: boolean;
     useFeeInTx?: boolean;
+    feeInfoEditable?: boolean;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;

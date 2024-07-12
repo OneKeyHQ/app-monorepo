@@ -530,6 +530,16 @@ class ServiceNetwork extends ServiceBase {
       .filter((o) => !o.vaultSetting.addressBookDisabled)
       .map((o) => o.network);
   }
+
+  @backgroundMethod()
+  async getDappInteractionEnabledNetworks() {
+    const settings = await this._getNetworkVaultSettings();
+    return settings
+      .filter(
+        (o) => o.vaultSetting.dappInteractionEnabled && !o.network.isTestnet,
+      )
+      .map((o) => o.network);
+  }
 }
 
 export default ServiceNetwork;

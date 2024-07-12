@@ -1,68 +1,50 @@
-import { useEffect } from 'react';
-
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useBrowserBookmarkAction,
   useBrowserHistoryAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-
-import {
-  useBrowserBookmarksDataFromSimpleDb,
-  useBrowserHistoryDataFromSimpleDb,
-  useBrowserTabDataFromSimpleDb,
-} from '../../hooks/useBrowserDataFromSimpleDb';
-
-function HandleRebuildTabData() {
-  const result = useBrowserTabDataFromSimpleDb();
-  const { buildWebTabs } = useBrowserTabActions().current;
-
-  useEffect(() => {
-    if (!result.result) return;
-    const data = result.result;
-    if (data && Array.isArray(data) && data.length > 0) {
-      buildWebTabs({ data });
-    }
-  }, [result.result, buildWebTabs]);
-
-  return null;
-}
-
-function HandleRebuildBookmarksData() {
-  const result = useBrowserBookmarksDataFromSimpleDb();
-  const { buildBookmarkData } = useBrowserBookmarkAction().current;
-
-  useEffect(() => {
-    if (!result.result) return;
-    const data = result.result;
-    if (data && Array.isArray(data) && data.length > 0) {
-      buildBookmarkData(data);
-    }
-  }, [result.result, buildBookmarkData]);
-
-  return null;
-}
-
-function HandleRebuildHistoryData() {
-  const result = useBrowserHistoryDataFromSimpleDb();
-  const { buildHistoryData } = useBrowserHistoryAction().current;
-
-  useEffect(() => {
-    if (!result.result) return;
-    const data = result.result;
-    if (data && Array.isArray(data) && data.length > 0) {
-      buildHistoryData(data);
-    }
-  }, [result.result, buildHistoryData]);
-
-  return null;
-}
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function HandleRebuildBrowserData() {
-  return (
-    <>
-      <HandleRebuildTabData />
-      <HandleRebuildBookmarksData />
-      <HandleRebuildHistoryData />
-    </>
-  );
+  const { buildWebTabs, setBrowserDataReady } = useBrowserTabActions().current;
+  const { buildBookmarkData } = useBrowserBookmarkAction().current;
+  const { buildHistoryData } = useBrowserHistoryAction().current;
+
+  usePromiseResult(async () => {
+    // Tabs
+    const [tabsData, bookmarksData, historyData] = await Promise.all([
+      backgroundApiProxy.simpleDb.browserTabs.getRawData(),
+      backgroundApiProxy.simpleDb.browserBookmarks.getRawData(),
+      backgroundApiProxy.simpleDb.browserHistory.getRawData(),
+    ]);
+    const tabs = tabsData?.tabs ?? [];
+    defaultLogger.discovery.browser.setTabsDataFunctionName(
+      'setTabsInitializeLock-> true',
+    );
+    buildWebTabs({ data: tabs, options: { isInitFromStorage: true } });
+
+    // Bookmarks
+    const bookmarks = bookmarksData?.data || [];
+    if (bookmarks && Array.isArray(bookmarks) && bookmarks.length > 0) {
+      buildBookmarkData({
+        data: bookmarks,
+        options: { isInitFromStorage: true },
+      });
+    }
+
+    // History
+    const histories = historyData?.data || [];
+    if (histories && Array.isArray(histories) && histories.length > 0) {
+      buildHistoryData({
+        data: histories,
+        options: { isInitFromStorage: true },
+      });
+    }
+
+    setBrowserDataReady();
+  }, [buildWebTabs, buildBookmarkData, buildHistoryData, setBrowserDataReady]);
+
+  return null;
 }

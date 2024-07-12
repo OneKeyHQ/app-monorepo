@@ -84,10 +84,12 @@ import ClientSol from './sdkSol/ClientSol';
 import {
   BASE_FEE,
   COMPUTE_UNIT_PRICE_DECIMALS,
+  MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
   masterEditionAddress,
   metadataAddress,
   parseComputeUnitLimit,
+  parseComputeUnitPrice,
   parseNativeTxDetail,
   parseToNativeTx,
   tokenRecordAddress,
@@ -258,14 +260,12 @@ export default class Vault extends VaultBase {
               isNFT,
             });
 
-        if (PublicKey.isOnCurve(destination.toString())) {
-          // system account, get token receiver address
-          destinationAta = await this._getAssociatedTokenAddress({
-            mint,
-            owner: destination,
-            isNFT,
-          });
-        }
+        // system account, get token receiver address
+        destinationAta = await this._getAssociatedTokenAddress({
+          mint,
+          owner: destination,
+          isNFT,
+        });
 
         const destinationAtaInfo = await client.getAccountInfo({
           address: destinationAta.toString(),
@@ -392,7 +392,7 @@ export default class Vault extends VaultBase {
       }
     }
 
-    return Promise.resolve(getAssociatedTokenAddressSync(mint, owner));
+    return Promise.resolve(getAssociatedTokenAddressSync(mint, owner, true));
   }
 
   async _checkIsProgrammableNFT(mint: PublicKey) {
@@ -718,32 +718,34 @@ export default class Vault extends VaultBase {
                 accountId: this.accountId,
                 networkId: this.networkId,
               });
-            const { fromPubkey, toPubkey, lamports } =
-              SystemInstruction.decodeTransfer(instruction);
-            const nativeAmount = new BigNumber(lamports.toString());
-            const from = fromPubkey.toString();
-            const to = toPubkey.toString();
-            const transfer: IDecodedTxTransferInfo = {
-              from,
-              to,
-              tokenIdOnNetwork: nativeToken.address,
-              icon: nativeToken.logoURI ?? '',
-              name: nativeToken.name,
-              symbol: nativeToken.symbol,
-              amount: new BigNumber(nativeAmount)
-                .shiftedBy(-nativeToken.decimals)
-                .toFixed(),
-              isNFT: false,
-              isNative: true,
-            };
-
-            actions.push(
-              await this.buildTxTransferAssetAction({
+            if (nativeToken) {
+              const { fromPubkey, toPubkey, lamports } =
+                SystemInstruction.decodeTransfer(instruction);
+              const nativeAmount = new BigNumber(lamports.toString());
+              const from = fromPubkey.toString();
+              const to = toPubkey.toString();
+              const transfer: IDecodedTxTransferInfo = {
                 from,
                 to,
-                transfers: [transfer],
-              }),
-            );
+                tokenIdOnNetwork: nativeToken.address,
+                icon: nativeToken.logoURI ?? '',
+                name: nativeToken.name,
+                symbol: nativeToken.symbol,
+                amount: new BigNumber(nativeAmount)
+                  .shiftedBy(-nativeToken.decimals)
+                  .toFixed(),
+                isNFT: false,
+                isNative: true,
+              };
+
+              actions.push(
+                await this.buildTxTransferAssetAction({
+                  from,
+                  to,
+                  transfers: [transfer],
+                }),
+              );
+            }
           }
         } catch {
           // pass
@@ -1124,5 +1126,61 @@ export default class Vault extends VaultBase {
         },
       },
     };
+  }
+
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTxSol;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTxSol> {
+    const { encodedTx, feeInfo } = params;
+    const client = await this.getClient();
+    const accountAddress = await this.getAccountAddress();
+    let computeUnitPrice = '0';
+
+    const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client: await this.getClient(),
+    });
+
+    const computeUnitPriceFromInstructions =
+      parseComputeUnitPrice(instructions);
+
+    if (new BigNumber(computeUnitPriceFromInstructions).gte(MIN_PRIORITY_FEE)) {
+      // If the DApp tx  includes prioritization fee,
+      // try replacing it with another one to see if that works.
+
+      const encodedTxWithFee = await this._attachFeeInfoToEncodedTx({
+        encodedTx,
+        feeInfo: {
+          ...feeInfo,
+          feeSol: {
+            computeUnitPrice: '1',
+          },
+        },
+      });
+
+      return encodedTxWithFee === '' ? encodedTxWithFee : encodedTx;
+    }
+
+    if (isNil(feeInfo.feeSol?.computeUnitPrice)) {
+      const prioritizationFee = await client.getRecentMaxPrioritizationFees([
+        accountAddress,
+      ]);
+      computeUnitPrice = String(prioritizationFee);
+    } else {
+      computeUnitPrice = feeInfo.feeSol.computeUnitPrice;
+    }
+
+    return this._attachFeeInfoToEncodedTx({
+      encodedTx,
+      feeInfo: {
+        ...feeInfo,
+        feeSol: {
+          computeUnitPrice,
+        },
+      },
+    });
   }
 }

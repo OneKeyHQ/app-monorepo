@@ -93,12 +93,8 @@ const SortableSectionListGallery = () => {
             >
               {isEditing ? (
                 <ListItem.IconButton
+                  {...ListItem.EnterAnimationStyle}
                   key="darg"
-                  animation="quick"
-                  enterStyle={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
                   cursor="move"
                   icon="DragOutline"
                   onPressIn={drag}

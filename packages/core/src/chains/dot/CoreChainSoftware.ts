@@ -2,7 +2,10 @@ import { bufferToU8a, u8aConcat } from '@polkadot/util';
 import { encodeAddress, hdLedger } from '@polkadot/util-crypto';
 import { merge } from 'lodash';
 
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  Expect24WordsMnemonicError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -46,9 +49,7 @@ const derivationHdLedger = (mnemonic: string, path: string) => {
       message ===
       'Expected a mnemonic with 24 words (or 25 including a password)'
     ) {
-      throw new OneKeyInternalError({
-        message,
-      });
+      throw new Expect24WordsMnemonicError();
     }
     throw e;
   }

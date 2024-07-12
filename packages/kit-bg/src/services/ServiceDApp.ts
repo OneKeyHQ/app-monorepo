@@ -645,7 +645,12 @@ class ServiceDApp extends ServiceBase {
       }
       item.availableNetworksMap = networksMap;
     }
-    return allConnectedList;
+    const sortedList = allConnectedList.sort((a, b) => {
+      const aTime = a.updatedAt ?? 0;
+      const bTime = b.updatedAt ?? 0;
+      return bTime - aTime;
+    });
+    return sortedList;
   }
 
   async disconnectInactiveSessions(
@@ -898,9 +903,11 @@ class ServiceDApp extends ServiceBase {
   async proxyRPCCall<T>({
     networkId,
     request,
+    skipParseResponse,
   }: {
     networkId: string;
     request: IJsonRpcRequest;
+    skipParseResponse?: boolean;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const results = await client.post<{
@@ -923,7 +930,9 @@ class ServiceDApp extends ServiceBase {
 
     const data = results.data.data.data;
 
-    return data.map((item) => parseRPCResponse(item));
+    return data.map((item) =>
+      skipParseResponse ? item : parseRPCResponse(item),
+    );
   }
 
   @backgroundMethod()

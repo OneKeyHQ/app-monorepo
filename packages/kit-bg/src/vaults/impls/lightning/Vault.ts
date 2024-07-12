@@ -47,19 +47,17 @@ import type {
   IFetchAccountHistoryParams,
   IOnChainHistoryTx,
 } from '@onekeyhq/shared/types/history';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type {
   IEncodedTxLightning,
   IInvoiceDecodedResponse,
-  ILNURLAuthServiceResponse,
   ILnurlAuthParams,
 } from '@onekeyhq/shared/types/lightning';
 import { ELnPaymentStatusEnum } from '@onekeyhq/shared/types/lightning/payments';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
-  type IDecodedTx,
 } from '@onekeyhq/shared/types/tx';
+import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -207,10 +205,6 @@ export default class Vault extends VaultBase {
       tokenIdOnNetwork: '',
     });
 
-    if (!nativeToken) {
-      throw new OneKeyInternalError('Native token not found');
-    }
-
     let formattedTo = '';
     if (encodedTx.lightningAddress) {
       formattedTo = encodedTx.lightningAddress;
@@ -221,36 +215,47 @@ export default class Vault extends VaultBase {
         trailingLength: 33,
       });
     }
-    const amount = new BigNumber(encodedTx.amount).toFixed();
+
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: account.name,
+        to: formattedTo,
+      },
+    };
+
+    if (nativeToken) {
+      const amount = new BigNumber(encodedTx.amount).toFixed();
+      action = {
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from: account.name,
+          to: formattedTo,
+          sends: [
+            {
+              from: account.name,
+              to: formattedTo,
+              isNative: true,
+              tokenIdOnNetwork: '',
+              name: nativeToken.name,
+              icon: nativeToken.logoURI ?? '',
+              amount,
+              symbol: network.symbol,
+            },
+          ],
+          receives: [],
+          nativeAmount: amount,
+          nativeAmountValue: amount,
+        },
+      };
+    }
+
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: account.name,
       signer: '',
       nonce: 0,
-      actions: [
-        {
-          type: EDecodedTxActionType.ASSET_TRANSFER,
-          assetTransfer: {
-            from: account.name,
-            to: formattedTo,
-            sends: [
-              {
-                from: account.name,
-                to: formattedTo,
-                isNative: true,
-                tokenIdOnNetwork: '',
-                name: nativeToken.name,
-                icon: nativeToken.logoURI ?? '',
-                amount,
-                symbol: network.symbol,
-              },
-            ],
-            receives: [],
-            nativeAmount: amount,
-            nativeAmountValue: amount,
-          },
-        },
-      ],
+      actions: [action],
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,

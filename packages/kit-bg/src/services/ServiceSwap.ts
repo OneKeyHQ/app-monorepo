@@ -129,12 +129,18 @@ export default class ServiceSwap extends ServiceBase {
     this._tokenListAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     if (accountId && accountAddress && networkId) {
-      params.accountXpub =
-        await this.backgroundApi.serviceAccount.getAccountXpub({
+      const accountAddressForAccountId =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
           accountId,
           networkId,
         });
-
+      if (accountAddressForAccountId === accountAddress) {
+        params.accountXpub =
+          await this.backgroundApi.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          });
+      }
       const inscriptionProtection =
         await this.backgroundApi.serviceSetting.getInscriptionProtection();
       const checkInscriptionProtectionEnabled =
@@ -200,10 +206,17 @@ export default class ServiceSwap extends ServiceBase {
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     if (accountId && accountAddress && networkId) {
-      params.xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
-        accountId,
-        networkId,
-      });
+      const accountAddressForAccountId =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
+      if (accountAddressForAccountId === accountAddress) {
+        params.xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        });
+      }
       const inscriptionProtection =
         await this.backgroundApi.serviceSetting.getInscriptionProtection();
       const checkInscriptionProtectionEnabled =
@@ -374,6 +387,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     toTokenAddress,
     receivedAddress,
+    orderId,
     ctx,
   }: {
     txId: string;
@@ -382,6 +396,7 @@ export default class ServiceSwap extends ServiceBase {
     networkId: string;
     protocol?: EProtocolOfExchange;
     provider?: string;
+    orderId?: string;
     ctx?: any;
   }): Promise<IFetchSwapTxHistoryStatusResponse> {
     const params = {
@@ -392,6 +407,7 @@ export default class ServiceSwap extends ServiceBase {
       networkId,
       toTokenAddress,
       receivedAddress,
+      orderId,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
 
@@ -626,6 +642,7 @@ export default class ServiceSwap extends ServiceBase {
         ctx: swapTxHistory.ctx,
         toTokenAddress: swapTxHistory.baseInfo.toToken.contractAddress,
         receivedAddress: swapTxHistory.txInfo.receiver,
+        orderId: swapTxHistory.swapInfo.orderId,
       });
       if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
         enableInterval = false;

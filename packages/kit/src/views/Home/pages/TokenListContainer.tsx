@@ -79,11 +79,6 @@ function TokenListContainer({
         if (!account || !network) return;
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
-        const accountAddress =
-          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-            accountId: account.id,
-            networkId: network.id,
-          });
         const blockedTokens =
           await backgroundApiProxy.serviceToken.getBlockedTokens({
             networkId: network.id,
@@ -92,12 +87,7 @@ function TokenListContainer({
           accountId: account.id,
           mergeTokens: true,
           networkId: network.id,
-          accountAddress,
           flag: 'home-token-list',
-          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId: account.id,
-            networkId: network.id,
-          }),
           blockedTokens: Object.keys(blockedTokens),
         });
 

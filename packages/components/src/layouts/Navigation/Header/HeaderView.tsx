@@ -72,7 +72,7 @@ function HeaderView({
 
   const headerLeftView = useCallback(
     (props: HeaderBackButtonProps): ReactNode => (
-      <XStack>
+      <XStack className="app-region-no-drag">
         <HeaderBackButton
           canGoBack={!topStack}
           onPress={onBackCallback}

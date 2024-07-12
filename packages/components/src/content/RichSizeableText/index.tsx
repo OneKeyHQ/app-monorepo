@@ -11,12 +11,12 @@ import type { ISizableTextProps } from '../../primitives';
 
 export type IRichSizeableTextProps = Omit<ISizableTextProps, 'children'> & {
   children?: string | ETranslations;
-  linkList?: Record<string, ILinkItemType>;
+  linkList?: { [key: string]: ILinkItemType };
   i18NValues?: Record<string, string | ((value: any) => React.JSX.Element)>;
 };
 
 type ILinkItemType = ISizableTextProps & {
-  url?: string;
+  url: string | undefined;
 };
 
 export function RichSizeableText({

@@ -36,6 +36,7 @@ const SwapApproveAllowanceSelectContainer = ({
       {
         label: (
           <NumberSizeableText
+            size="$bodyMdMedium"
             formatter="balance"
             formatterOptions={{ tokenSymbol: fromTokenSymbol }}
           >

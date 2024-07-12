@@ -122,7 +122,7 @@ export function useSwapActionState() {
       toToken?.networkId,
     ],
   );
-  const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 100);
+  const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 10);
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
@@ -152,20 +152,26 @@ export function useSwapActionState() {
       }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
         infoRes.label = swapQuoteApproveAllowanceUnLimit
-          ? `${intl.formatMessage({
-              id: ETranslations.swap_page_button_approve_unlimited,
-            })} ${fromToken?.symbol ?? ''} to ${
-              quoteCurrentSelect?.info.providerName ?? ''
-            }`
-          : `${intl.formatMessage({
-              id: ETranslations.swap_page_provider_approve,
-            })}  ${
-              numberFormat(fromTokenAmount, {
-                formatter: 'balance',
-              }) as string
-            } ${fromToken?.symbol ?? ''} to ${
-              quoteCurrentSelect?.info.providerName ?? ''
-            }`;
+          ? `${intl.formatMessage(
+              { id: ETranslations.swap_page_approve_button },
+              {
+                token: intl.formatMessage({
+                  id: ETranslations.swap_page_provider_approve_amount_un_limit,
+                }),
+                target: quoteCurrentSelect?.info.providerName ?? '',
+              },
+            )}`
+          : `${intl.formatMessage(
+              { id: ETranslations.swap_page_approve_button },
+              {
+                token: `${
+                  numberFormat(fromTokenAmount, {
+                    formatter: 'balance',
+                  }) as string
+                } ${fromToken?.symbol ?? ''}`,
+                target: quoteCurrentSelect?.info.providerName ?? '',
+              },
+            )}`;
       }
       if (
         quoteCurrentSelect &&
