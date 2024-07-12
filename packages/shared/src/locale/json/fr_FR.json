@@ -1323,6 +1323,7 @@
   "swap_page.alert.not_best_rate": "Le fournisseur actuel n'offre pas le meilleur taux pour ce commerce.",
   "swap_page.alert.value_drop": "{number} baisse de valeur. Un impact élevé sur le prix peut entraîner une perte de votre actif.",
   "swap_page.amount ": "{number}",
+  "swap_page.approve_button": "approuver {token} à {target}",
   "swap_page.balance": "Solde : {number}",
   "swap_page.button_approve_amount": "Approuver {number}",
   "swap_page.button_approve_unlimited": "Approuver sans limite",

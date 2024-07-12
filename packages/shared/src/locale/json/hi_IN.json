@@ -1323,6 +1323,7 @@
   "swap_page.alert.not_best_rate": "वर्तमान प्रदाता इस व्यापार के लिए सर्वश्रेष्ठ दर प्रदान नहीं करता है।",
   "swap_page.alert.value_drop": "{number} मूल्य में गिरावट। उच्च मूल्य प्रभाव आपकी संपत्ति की हानि का कारण बन सकता है।",
   "swap_page.amount ": "{number}",
+  "swap_page.approve_button": "{token} को {target} के लिए मंजूर करें",
   "swap_page.balance": "बैलेंस: {number}",
   "swap_page.button_approve_amount": "{number} को मंजूरी दें",
   "swap_page.button_approve_unlimited": "असीमित अनुमोदन करें",

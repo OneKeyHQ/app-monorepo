@@ -1323,6 +1323,7 @@
   "swap_page.alert.not_best_rate": "Поточний постачальник не пропонує найкращий курс для цієї угоди.",
   "swap_page.alert.value_drop": "{number} впадіння вартості. Висока впливовість ціни може спричинити втрату вашого активу.",
   "swap_page.amount ": "{number}",
+  "swap_page.approve_button": "затвердити {token} до {target}",
   "swap_page.balance": "Баланс: {number}",
   "swap_page.button_approve_amount": "Підтвердити {number}",
   "swap_page.button_approve_unlimited": "Підтвердити без обмежень",
