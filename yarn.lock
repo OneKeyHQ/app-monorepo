@@ -6075,7 +6075,7 @@ __metadata:
     react-native-bundle-visualizer: "npm:^3.1.3"
     react-native-camera-kit: "npm:14.0.0-beta2"
     react-native-canvas: "npm:^0.1.39"
-    react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.1"
+    react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.2"
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:10.11.0"
     react-native-fast-image: "npm:8.6.3"
@@ -28900,10 +28900,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@2.6.1":
-  version: 2.6.1
-  resolution: "@onekeyfe/react-native-cloud-fs@npm:2.6.1"
-  checksum: 10/1e04b810d40e3cbd4cd058cd393a41c79a4a68184aad029cb3882ef73a253ebd68117ac666f1e8f97ea4b4f0b2eb8d526cabd570dbabdc6ccf8b95190b37349e
+"react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@2.6.2":
+  version: 2.6.2
+  resolution: "@onekeyfe/react-native-cloud-fs@npm:2.6.2"
+  checksum: 10/7ed4a4b968859aeaeb264a8504b68b8f0b44e04550e303ce0e1d76295fb4ec75e5063991776658edde42f18108d185d71f9225fa27bc9e854a1f8524d42e152e
   languageName: node
   linkType: hard
 
