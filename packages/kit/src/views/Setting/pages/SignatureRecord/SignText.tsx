@@ -66,6 +66,8 @@ const SignTextItem = ({ item }: { item: ISignedMessage }) => {
           <TextArea
             maxHeight="$24"
             disabled
+            editable={false}
+            selectable={false}
             value={
               item.contentType === 'json'
                 ? JSON.stringify(JSON.parse(item.message), null, 2)
