@@ -887,4 +887,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }) {
     return Promise.resolve(decodedTx.encodedTx);
   }
+
+  async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    return Promise.resolve(params.encodedTx);
+  }
 }
