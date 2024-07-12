@@ -57,7 +57,7 @@ const SwapProviderListItem = ({
               <Icon name="GasOutline" size="$4" color="$iconSubdued" />
             }
             renderContent={
-              <SizableText>
+              <SizableText size="$bodySm" color="$text">
                 {intl.formatMessage({
                   id: ETranslations.provider_network_fee,
                 })}
@@ -107,7 +107,7 @@ const SwapProviderListItem = ({
               />
             }
             renderContent={
-              <SizableText>
+              <SizableText size="$bodySm" color="$text">
                 {intl.formatMessage({
                   id: ETranslations.provider_swap_duration,
                 })}
@@ -132,7 +132,7 @@ const SwapProviderListItem = ({
             <Icon name="HandCoinsOutline" size="$4" color="$iconSubdued" />
           }
           renderContent={
-            <SizableText>
+            <SizableText size="$bodySm" color="$text">
               {intl.formatMessage({
                 id: ETranslations.provider_protocol_fee,
               })}
