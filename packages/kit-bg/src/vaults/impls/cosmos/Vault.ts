@@ -391,7 +391,8 @@ export default class VaultCosmos extends VaultBase {
     const amount = gasLimitNum
       .multipliedBy(gasPriceNum)
       .shiftedBy(common.feeDecimals)
-      .toFixed(0);
+      .integerValue(BigNumber.ROUND_CEIL)
+      .toString();
     const newAmount = [
       {
         denom: common.feeSymbol,
