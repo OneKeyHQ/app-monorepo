@@ -55,7 +55,7 @@ module.exports = {
         'type': 'file',
       },
     ],
-    'icon': 'build/static/images/icons/icon.icns',
+    'icon': 'build/static/images/icons/dmg.icns',
     'background': 'build/static/images/icons/background.png',
   },
   'nsis': {
