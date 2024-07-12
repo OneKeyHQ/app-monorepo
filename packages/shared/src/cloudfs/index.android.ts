@@ -42,7 +42,7 @@ export async function loginIfNeeded(
   } else if (showSignInDialog) {
     GoogleSignin.configure(GoogleSignInConfigure);
     await GoogleSignin.signIn();
-    return await RNCloudFs.loginIfNeeded();
+    return RNCloudFs.loginIfNeeded();
   }
   return Promise.resolve(false);
 }
