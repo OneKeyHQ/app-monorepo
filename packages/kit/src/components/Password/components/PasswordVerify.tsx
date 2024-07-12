@@ -162,7 +162,8 @@ const PasswordVerify = ({
             id: ETranslations.auth_enter_your_password,
           })}
           flex={1}
-          onChangeText={(text) => text.replace(PasswordRegex, '')}
+          // onChangeText={(text) => text.replace(PasswordRegex, '')}
+          onChangeText={(text) => text}
           keyboardType={getPasswordKeyboardType(!secureEntry)}
           secureTextEntry={secureEntry}
           // fix Keyboard Flickering on TextInput with secureTextEntry #39411
