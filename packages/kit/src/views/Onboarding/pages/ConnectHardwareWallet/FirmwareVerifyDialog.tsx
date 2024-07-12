@@ -93,7 +93,7 @@ function useFirmwareVerifyBase({
         );
       } else {
         setResult('unofficial');
-        setErrorObj({ code: authResult.result?.code || 0 });
+        setErrorObj({ code: authResult.result?.code || -99999 });
         setContentType(
           EFirmwareAuthenticationDialogContentType.unofficial_device_detected,
         );
