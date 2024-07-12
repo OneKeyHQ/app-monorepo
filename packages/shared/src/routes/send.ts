@@ -49,6 +49,7 @@ export type IModalSendParamList = {
     sourceInfo?: IDappSourceInfo;
     signOnly?: boolean;
     useFeeInTx?: boolean;
+    feeInfoEditable?: boolean;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;

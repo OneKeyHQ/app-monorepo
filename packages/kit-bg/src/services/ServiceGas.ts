@@ -106,6 +106,30 @@ class ServiceGas extends ServiceBase {
       presetIndex,
     });
   }
+
+  @backgroundMethod()
+  async preCheckDappTxFeeInfo(params: {
+    accountId: string;
+    networkId: string;
+    encodedTx: IEncodedTx;
+  }) {
+    const { networkId, accountId, encodedTx } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const network = await vault.getNetwork();
+    const encodedTxWithFee = await vault.attachFeeInfoToDAppEncodedTx({
+      encodedTx,
+      feeInfo: {
+        common: {
+          feeDecimals: network.feeMeta.decimals,
+          feeSymbol: network.feeMeta.symbol,
+          nativeDecimals: network.decimals,
+          nativeSymbol: network.symbol,
+        },
+      },
+    });
+
+    return encodedTxWithFee;
+  }
 }
 
 export default ServiceGas;
