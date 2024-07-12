@@ -1323,6 +1323,7 @@
   "swap_page.alert.not_best_rate": "Текущий провайдер не предлагает лучший курс для этой сделки.",
   "swap_page.alert.value_drop": "{number} падение значения. Высокое влияние цены может привести к потере вашего активов.",
   "swap_page.amount ": "{number}",
+  "swap_page.approve_button": "утвердить {token} для {target}",
   "swap_page.balance": "Баланс: {number}",
   "swap_page.button_approve_amount": "Утвердить {number}",
   "swap_page.button_approve_unlimited": "Одобрить без ограничений",

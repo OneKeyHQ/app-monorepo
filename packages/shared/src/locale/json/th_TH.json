@@ -1323,6 +1323,7 @@
   "swap_page.alert.not_best_rate": "ผู้ให้บริการปัจจุบันไม่ได้เสนออัตราที่ดีที่สุดสำหรับการซื้อขายนี้",
   "swap_page.alert.value_drop": "{number} การลดค่า ผลกระทบจากราคาสูงอาจทำให้สินทรัพย์ของคุณเสียหาย",
   "swap_page.amount ": "{number}",
+  "swap_page.approve_button": "อนุมัติ {token} ไปยัง {target}",
   "swap_page.balance": "ยอดเงินคงเหลือ: {number}",
   "swap_page.button_approve_amount": "อนุมัติ {number}",
   "swap_page.button_approve_unlimited": "อนุมัติไม่จำกัด",
