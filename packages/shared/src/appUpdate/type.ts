@@ -34,6 +34,7 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
 export enum EAppUpdateStatus {
   notify = 'notify',
   downloading = 'downloading',
+  verifying = 'verifying',
   ready = 'ready',
   failed = 'failed',
   done = 'done',

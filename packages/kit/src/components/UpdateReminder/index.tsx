@@ -50,8 +50,17 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           iconColor: '$iconInfo',
           renderText: DownloadProgress,
         },
+        [EAppUpdateStatus.verifying]: {
+          iconName: 'RefreshCcwSolid',
+          iconColor: '$iconInfo',
+          renderText() {
+            return platformEnv.isNativeAndroid
+              ? 'Verifying SHA256 and package name…'
+              : 'Verify File Signature...';
+          },
+        },
         [EAppUpdateStatus.ready]: {
-          iconName: 'DownloadOutline',
+          iconName: 'Shield2CheckOutline',
           iconColor: '$iconSuccess',
           renderText({
             updateInfo: appUpdateInfo,

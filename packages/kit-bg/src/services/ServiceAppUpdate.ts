@@ -115,6 +115,14 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async readyToInstall() {
     clearTimeout(downloadTimeoutId);
+
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      status: EAppUpdateStatus.verifying,
+    }));
+
+    await timerUtils.wait(3000);
+
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.ready,

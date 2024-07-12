@@ -30,6 +30,8 @@ const { AutoUpdateModule } = NativeModules as {
   };
 };
 
+// SHA256 and package name were verified on downloadAPK func in native module
+// apps/mobile/android/app/src/main/java/so/onekey/app/wallet/AutoUpdateModule.java 250L checkFilePackage
 export const downloadPackage: IDownloadPackage = async ({
   downloadUrl,
   latestVersion,
