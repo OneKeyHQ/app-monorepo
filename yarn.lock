@@ -5666,13 +5666,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@npm:1.0.6":
-  version: 1.0.6
-  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.6"
+"@onekeyfe/react-native-lite-card@npm:1.0.7":
+  version: 1.0.7
+  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.7"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/b9a2f6517700101f29348ab678e24b35f81008c8f6501762796108c7fbb5edd0285e1aeac9693acb8085105be7b11118891387aa6ead29e2ce813ba28a13a057
+  checksum: 10/eed006ff9cc45724ca8953fcc1bef96a532ea2dd95ee9ca7cd9944819aecd4ee71a74cfb43a70749c0a6ef9ba1cae2f5bd270132df6c47664eafdf22d53db9a2
   languageName: node
   linkType: hard
 
@@ -6027,7 +6027,7 @@ __metadata:
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
-    "@onekeyfe/react-native-lite-card": "npm:1.0.6"
+    "@onekeyfe/react-native-lite-card": "npm:1.0.7"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.5"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
@@ -6094,7 +6094,7 @@ __metadata:
     react-native-restart: "npm:0.0.27"
     react-native-safe-area-context: "npm:4.7.2"
     react-native-screens: "npm:3.28.0"
-    react-native-share: "npm:^9.4.1"
+    react-native-share: "npm:^10.2.1"
     react-native-spotlight-tour: "npm:^3.0.1"
     react-native-svg: "npm:^13.9.0"
     react-native-tcp-socket: "npm:^6.0.6"
@@ -29277,10 +29277,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-share@npm:^9.4.1":
-  version: 9.4.1
-  resolution: "react-native-share@npm:9.4.1"
-  checksum: 10/659235e4bf873b5be19eec73d1933abf5a477aec68c7c7134f5b9ead9fd562d6e9956f8695e96d3af0baa1427191d3217ac75376fb320de304e70a0213d42f8f
+"react-native-share@npm:^10.2.1":
+  version: 10.2.1
+  resolution: "react-native-share@npm:10.2.1"
+  checksum: 10/6b579233f521a9c2e47181b80992f5e8da730b7711b7108111b2be13f202b6ce2845799fba2a44e15810c12e0240fc540772e16b3e98aafe3f7baa17130d3c06
   languageName: node
   linkType: hard
 
