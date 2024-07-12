@@ -51,11 +51,12 @@ type IProps = {
   accountId: string;
   networkId: string;
   useFeeInTx?: boolean;
+  feeInfoEditable?: boolean;
   tableLayout?: boolean;
 };
 
 function TxFeeContainer(props: IProps) {
-  const { accountId, networkId, useFeeInTx } = props;
+  const { accountId, networkId, useFeeInTx, feeInfoEditable = true } = props;
   const intl = useIntl();
   const txFeeInit = useRef(false);
   const feeInTxUpdated = useRef(false);
@@ -225,7 +226,7 @@ function TxFeeContainer(props: IProps) {
 
       updateIsSinglePreset(items.length === 1);
 
-      if (vaultSettings?.editFeeEnabled) {
+      if (vaultSettings?.editFeeEnabled && feeInfoEditable) {
         const customFeeInfo: IFeeInfoUnit = {
           common: txFee.common,
         };
@@ -349,6 +350,7 @@ function TxFeeContainer(props: IProps) {
     txFee,
     updateIsSinglePreset,
     vaultSettings?.editFeeEnabled,
+    feeInfoEditable,
     intl,
     isSinglePreset,
     useFeeInTx,
@@ -537,7 +539,7 @@ function TxFeeContainer(props: IProps) {
   ]);
 
   const renderFeeEditor = useCallback(() => {
-    if (!vaultSettings?.editFeeEnabled) {
+    if (!vaultSettings?.editFeeEnabled || !feeInfoEditable) {
       return null;
     }
 
@@ -574,6 +576,7 @@ function TxFeeContainer(props: IProps) {
       />
     );
   }, [
+    feeInfoEditable,
     handlePress,
     intl,
     isSinglePreset,
@@ -598,7 +601,9 @@ function TxFeeContainer(props: IProps) {
             id: ETranslations.global_est_network_fee,
           })}
         </SizableText>
-        {vaultSettings?.editFeeEnabled && !sendFeeStatus.errMessage ? (
+        {vaultSettings?.editFeeEnabled &&
+        feeInfoEditable &&
+        !sendFeeStatus.errMessage ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             •
           </SizableText>

@@ -16,6 +16,7 @@ import {
   SearchBar,
   SectionList,
   SortableSectionList,
+  Spinner,
   Stack,
 } from '@onekeyhq/components';
 import type { ISortableSectionListRef } from '@onekeyhq/components';
@@ -83,6 +84,7 @@ const EditableViewListItem = ({
     >
       {sectionIndex !== 0 && isEditMode ? (
         <ListItem.IconButton
+          {...ListItem.EnterAnimationStyle}
           onPress={() => {
             if (topNetworkIds.has(item.id)) {
               setTopNetworks?.([
@@ -94,11 +96,6 @@ const EditableViewListItem = ({
           }}
           title={topNetworkIds.has(item.id) ? unpinText : pinText}
           key="moveToTop"
-          animation="quick"
-          enterStyle={{
-            opacity: 0,
-            scale: 0,
-          }}
           icon={
             topNetworkIds.has(item.id) ? 'ThumbtackSolid' : 'ThumbtackOutline'
           }
@@ -108,22 +105,12 @@ const EditableViewListItem = ({
         />
       ) : null}
       {networkId === item.id && !isEditMode ? (
-        <ListItem.CheckMark
-          key="checkmark"
-          enterStyle={{
-            opacity: 0,
-            scale: 0,
-          }}
-        />
+        <ListItem.CheckMark key="checkmark" />
       ) : null}
       {isEditMode && sectionIndex === 0 ? (
         <ListItem.IconButton
           key="darg"
-          animation="quick"
-          enterStyle={{
-            opacity: 0,
-            scale: 0,
-          }}
+          {...ListItem.EnterAnimationStyle}
           cursor="move"
           icon="DragOutline"
           onPressIn={drag}
@@ -163,6 +150,7 @@ export const EditableView: FC<IEditableViewProps> = ({
   onTopNetworksChange,
 }) => {
   const [searchText, setSearchText] = useState('');
+  const [showLoading, setIsShowLoading] = useState(true);
   const [topNetworks, setTopNetworks] = useState(defaultTopNetworks ?? []);
   const intl = useIntl();
   const lastIsEditMode = usePrevious(isEditMode);
@@ -223,6 +211,9 @@ export const EditableView: FC<IEditableViewProps> = ({
             animated: false,
           });
           hasScrollToSelectedCell.current = true;
+          setTimeout(() => {
+            setIsShowLoading(false);
+          }, 50);
         });
         break;
       }
@@ -318,6 +309,20 @@ export const EditableView: FC<IEditableViewProps> = ({
             <ListEmptyComponent />
           )}
         </Stack>
+        {showLoading ? (
+          <Stack
+            bg="$bgApp"
+            position="absolute"
+            left={0}
+            right={0}
+            top={0}
+            bottom={0}
+            ai="center"
+            jc="center"
+          >
+            <Spinner size="large" />
+          </Stack>
+        ) : null}
       </Stack>
     </EditableViewContext.Provider>
   );

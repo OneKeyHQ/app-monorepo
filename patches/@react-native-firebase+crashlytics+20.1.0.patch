@@ -1,0 +1,16 @@
+diff --git a/node_modules/@react-native-firebase/crashlytics/lib/index.js b/node_modules/@react-native-firebase/crashlytics/lib/index.js
+index 67751bc..ee8615c 100644
+--- a/node_modules/@react-native-firebase/crashlytics/lib/index.js
++++ b/node_modules/@react-native-firebase/crashlytics/lib/index.js
+@@ -40,7 +40,10 @@ class FirebaseCrashlyticsModule extends FirebaseModule {
+   constructor(...args) {
+     super(...args);
+     setGlobalErrorHandler(this.native);
+-    setOnUnhandledPromiseRejectionHandler(this.native);
++    // conflict with tracking in the kit layer
++    //  packages/shared/src/errors/nativePromiseRejectionTracker.native.ts L72.
++    // executing the code below will prevent the business layer from catching unhandled Promise rejections.
++    // setOnUnhandledPromiseRejectionHandler(this.native);
+     this._isCrashlyticsCollectionEnabled = this.native.isCrashlyticsCollectionEnabled;
+   }
+ 

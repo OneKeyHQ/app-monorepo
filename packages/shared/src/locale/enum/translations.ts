@@ -1324,6 +1324,7 @@ export enum ETranslations {
   swap_page_alert_not_best_rate = 'swap_page.alert.not_best_rate',
   swap_page_alert_value_drop = 'swap_page.alert.value_drop',
   swap_page_amount = 'swap_page.amount ',
+  swap_page_approve_button = 'swap_page.approve_button',
   swap_page_balance = 'swap_page.balance',
   swap_page_button_approve_amount = 'swap_page.button_approve_amount',
   swap_page_button_approve_unlimited = 'swap_page.button_approve_unlimited',

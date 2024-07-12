@@ -15,6 +15,7 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { HdWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 
 export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
@@ -54,14 +55,22 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
                   p="$px"
                   bg="$bg"
                   borderRadius="$full"
-                  enterStyle={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
-                  exitStyle={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
+                  enterStyle={
+                    platformEnv.isNativeAndroid
+                      ? undefined
+                      : {
+                          opacity: 0,
+                          scale: 0,
+                        }
+                  }
+                  exitStyle={
+                    platformEnv.isNativeAndroid
+                      ? undefined
+                      : {
+                          opacity: 0,
+                          scale: 0,
+                        }
+                  }
                 >
                   <Icon size="$5" color="$iconActive" name="CheckRadioSolid" />
                 </Stack>

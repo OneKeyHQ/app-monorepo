@@ -1323,6 +1323,7 @@
   "swap_page.alert.not_best_rate": "Nhà cung cấp hiện tại không cung cấp mức giá tốt nhất cho giao dịch này.",
   "swap_page.alert.value_drop": "{number} giá trị giảm. Ảnh hưởng lớn về giá có thể gây mất tài sản của bạn.",
   "swap_page.amount ": "{number}",
+  "swap_page.approve_button": "chấp nhận {token} đến {target}",
   "swap_page.balance": "Số dư: {number}",
   "swap_page.button_approve_amount": "Chấp nhận {number}",
   "swap_page.button_approve_unlimited": "Chấp nhận không giới hạn",
