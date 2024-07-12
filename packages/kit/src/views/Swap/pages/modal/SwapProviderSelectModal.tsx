@@ -57,7 +57,7 @@ const InformationItem = ({
 }) => (
   <XStack alignItems="flex-start" space="$2">
     <Icon flexShrink={0} color="$iconSubdued" size="$5" name={icon} />
-    <SizableText size="$bodyMd" color="$textSubdued">
+    <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
       {content}
     </SizableText>
   </XStack>

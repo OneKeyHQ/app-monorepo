@@ -46,7 +46,7 @@ export function SwapProviderIcon({
             </Stack>
           }
           renderContent={
-            <SizableText>
+            <SizableText size="$bodySm" color="$text">
               {intl.formatMessage({
                 id: ETranslations.provider_approval_require,
               })}
