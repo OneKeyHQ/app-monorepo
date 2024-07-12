@@ -6,7 +6,7 @@ import type {
   ShareSingleOptions,
 } from 'react-native-share';
 import type RNShare from 'react-native-share';
-import type { ShareSingleResult } from 'react-native-share/lib/typescript/src/types';
+import type { ShareSingleResult } from 'react-native-share/lib/typescript/types';
 
 const mock: typeof RNShare = {
   open(o: any) {
