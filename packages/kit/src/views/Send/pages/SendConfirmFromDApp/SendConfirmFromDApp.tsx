@@ -85,13 +85,33 @@ function SendConfirmFromDApp() {
 
     const navigationToSendConfirm = async () => {
       let action: any;
+      let newEncodedTx = encodedTx;
+      let feeInfoEditable = true;
+      if (newEncodedTx) {
+        const vaultSettings =
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          });
+        if (vaultSettings?.preCheckDappTxFeeInfoRequired) {
+          const encodedTxWithFee =
+            await backgroundApiProxy.serviceGas.preCheckDappTxFeeInfo({
+              accountId,
+              networkId,
+              encodedTx: newEncodedTx,
+            });
+          if (encodedTxWithFee === '') {
+            feeInfoEditable = false;
+          } else {
+            feeInfoEditable = true;
+            newEncodedTx = encodedTxWithFee;
+          }
+        }
 
-      if (encodedTx) {
         const unsignedTx =
           await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
             accountId,
             networkId,
-            encodedTx,
+            encodedTx: newEncodedTx,
             transfersInfo,
           });
         const params: IModalSendParamList[EModalSendRoutes.SendConfirm] = {
@@ -101,6 +121,7 @@ function SendConfirmFromDApp() {
           sourceInfo: $sourceInfo,
           signOnly,
           useFeeInTx,
+          feeInfoEditable,
           // @ts-ignore
           _disabledAnimationOfNavigate: true,
           _$t,
