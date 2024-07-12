@@ -1,4 +1,3 @@
-import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   backgroundClass,
   backgroundMethod,

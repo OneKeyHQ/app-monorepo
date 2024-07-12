@@ -12,6 +12,7 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -51,7 +52,19 @@ const SwapProviderListItem = ({
     if (providerResult.fee?.estimatedFeeFiatValue) {
       return (
         <XStack space="$1" alignItems="center">
-          <Icon name="GasOutline" size="$4" color="$iconSubdued" />
+          <Tooltip
+            renderTrigger={
+              <Icon name="GasOutline" size="$4" color="$iconSubdued" />
+            }
+            renderContent={
+              <SizableText>
+                {intl.formatMessage({
+                  id: ETranslations.provider_network_fee,
+                })}
+              </SizableText>
+            }
+            placement="bottom-start"
+          />
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
@@ -66,7 +79,7 @@ const SwapProviderListItem = ({
       );
     }
     return null;
-  }, [currencySymbol, providerResult.fee?.estimatedFeeFiatValue]);
+  }, [currencySymbol, intl, providerResult.fee?.estimatedFeeFiatValue]);
 
   const estimatedTimeComponent = useMemo(() => {
     if (providerResult.estimatedTime) {
@@ -85,7 +98,23 @@ const SwapProviderListItem = ({
       }
       return (
         <XStack space="$1" alignItems="center">
-          <Icon name="ClockTimeHistoryOutline" size="$4" color="$iconSubdued" />
+          <Tooltip
+            renderTrigger={
+              <Icon
+                name="ClockTimeHistoryOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+            }
+            renderContent={
+              <SizableText>
+                {intl.formatMessage({
+                  id: ETranslations.provider_swap_duration,
+                })}
+              </SizableText>
+            }
+            placement="bottom-start"
+          />
           <SizableText size="$bodyMd" color="$textSubdued">
             {displayTime}
           </SizableText>
@@ -93,12 +122,25 @@ const SwapProviderListItem = ({
       );
     }
     return null;
-  }, [providerResult.estimatedTime]);
+  }, [intl, providerResult.estimatedTime]);
 
   const protocolFeeComponent = useMemo(
     () => (
       <XStack space="$1" alignItems="center">
-        <Icon name="HandCoinsOutline" size="$4" color="$iconSubdued" />
+        <Tooltip
+          renderTrigger={
+            <Icon name="HandCoinsOutline" size="$4" color="$iconSubdued" />
+          }
+          renderContent={
+            <SizableText>
+              {intl.formatMessage({
+                id: ETranslations.provider_protocol_fee,
+              })}
+            </SizableText>
+          }
+          placement="bottom-start"
+        />
+
         <NumberSizeableText
           size="$bodyMd"
           color="$textSubdued"
@@ -111,7 +153,7 @@ const SwapProviderListItem = ({
         </NumberSizeableText>
       </XStack>
     ),
-    [currencySymbol, providerResult.fee?.protocolFees],
+    [currencySymbol, intl, providerResult.fee?.protocolFees],
   );
 
   const leftMainLabel = useMemo(() => {
