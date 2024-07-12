@@ -1,7 +1,11 @@
 import type { Ref } from 'react';
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 
-import { TextArea as TMTextArea, getFontSize } from 'tamagui';
+import {
+  TextArea as TMTextArea,
+  getFontSize,
+  getTokenValue,
+} from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -17,6 +21,24 @@ export type ITextAreaProps = Pick<
 > &
   Omit<TextAreaProps, 'size'>;
 
+const useHeight = platformEnv.isNativeIOS
+  ? ({
+      fontSize,
+      numberOfLines,
+      py,
+    }: {
+      fontSize: ITextAreaProps['fontSize'];
+      py: ITextAreaProps['py'];
+      numberOfLines: ITextAreaProps['numberOfLines'];
+    }) =>
+      useMemo(() => {
+        const size =
+          typeof fontSize !== 'number' ? getFontSize(fontSize) : fontSize;
+        const pySize = getTokenValue(py, 'size') as number;
+        return numberOfLines ? size * numberOfLines + pySize * 2 : undefined;
+      }, [fontSize, numberOfLines, py])
+  : () => undefined;
+
 const defaultTextAlignVertical = platformEnv.isNative ? 'top' : undefined;
 function BaseTextArea(
   {
@@ -25,6 +47,8 @@ function BaseTextArea(
     error,
     size,
     textAlignVertical,
+    numberOfLines = 3,
+    fontSize = getFontSize('$bodyLg'),
     ...props
   }: ITextAreaProps,
   ref: Ref<any>,
@@ -35,17 +59,19 @@ function BaseTextArea(
     error,
     size,
   });
+  const py = size === 'large' ? '$3.5' : '$2.5';
 
   const selectionColor = useSelectionColor();
-
+  const height = useHeight({ fontSize, numberOfLines, py });
   return (
     <TMTextArea
       unstyled
       ref={ref}
-      fontSize={getFontSize('$bodyLg')}
+      fontSize={fontSize}
+      height={height}
       px={sharedStyles.px}
-      py={size === 'large' ? '$3.5' : '$2.5'}
-      numberOfLines={3}
+      py={py}
+      numberOfLines={numberOfLines}
       bg={sharedStyles.backgroundColor}
       color={sharedStyles.color}
       borderRadius={sharedStyles.borderRadius}
