@@ -236,7 +236,7 @@ function SendConfirmActionsContainer(props: IProps) {
   });
 
   return (
-    <Page.Footer>
+    <Page.Footer disableKeyboardAnimation>
       <Page.FooterActions
         confirmButtonProps={{
           disabled: isSubmitDisabled,
