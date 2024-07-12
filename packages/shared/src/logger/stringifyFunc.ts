@@ -37,7 +37,6 @@ function countObjectDepth(source: unknown, maxDepth = 5, depth = 0): number {
 }
 
 function convertErrorObject(...args: any[]): any[] {
-  console.log('Expect24WordsMnemonicError---convertErrorObject---start', Date.now());
   return args.map((arg) => {
     if (arg instanceof Error) {
       const error = toPlainErrorObject(arg as any);
@@ -52,7 +51,6 @@ function convertErrorObject(...args: any[]): any[] {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return convertErrorObject(...arg);
     }
-  console.log('Expect24WordsMnemonicError---convertErrorObject---start', Date.now());
     return arg as unknown;
   });
 }
@@ -61,24 +59,24 @@ const LOG_STRING_LIMIT = 3000;
 
 export function stringifyFunc(...args: any[]): string {
   const argsNew = convertErrorObject(...args);
-  // if (platformEnv.isDev) {
-  //   const maxDepth = 6;
-  //   try {
-  //     argsNew.forEach((arg) => {
-  //       if (countObjectDepth(arg, maxDepth) > maxDepth) {
-  //         console.warn(
-  //           `Arg nesting too deep. This will affect the performance of logging. Try reducing the level of nesting for the parameter objects.`,
-  //           arg,
-  //         );
-  //       }
-  //     });
-  //   } catch (error) {
-  //     console.warn(
-  //       `Arg nesting too deep. This will affect the performance of logging. Try reducing the level of nesting for the parameter objects.`,
-  //       argsNew,
-  //     );
-  //   }
-  // }
+  if (platformEnv.isDev) {
+    const maxDepth = 6;
+    try {
+      argsNew.forEach((arg) => {
+        if (countObjectDepth(arg, maxDepth) > maxDepth) {
+          console.warn(
+            `Arg nesting too deep. This will affect the performance of logging. Try reducing the level of nesting for the parameter objects.`,
+            arg,
+          );
+        }
+      });
+    } catch (error) {
+      console.warn(
+        `Arg nesting too deep. This will affect the performance of logging. Try reducing the level of nesting for the parameter objects.`,
+        argsNew,
+      );
+    }
+  }
   const stringifiedLog = stableStringify(argsNew);
 
   return stringifiedLog.length > LOG_STRING_LIMIT

@@ -35,8 +35,7 @@ export abstract class BaseScope implements IScope {
           const result = instance[prop].call(instance, ...args);
           const obj = isPromiseObject(result) ? await result : result;
           if (obj && obj instanceof Metadata) {
-            // const rawMsg = stringifyFunc(...obj.args);
-            const rawMsg = '';
+            const rawMsg = stringifyFunc(...obj.args);
             const level = obj.metadata.level;
             if (obj.metadata.type === 'local') {
               const extensionName = `${this.scopeName}`;

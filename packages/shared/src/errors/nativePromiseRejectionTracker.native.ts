@@ -11,10 +11,6 @@ const RNErrorUtils = ErrorUtils;
 const defaultErrorHandler = RNErrorUtils.getGlobalHandler();
 
 const defaultPromiseRejectionHandler = (id: string, error: Error) => {
-  console.log(
-    'Expect24WordsMnemonicError---toast---defaultPromiseRejectionHandler',
-    Date.now(),
-  );
   // eslint-disable-next-line no-param-reassign
   error = error === undefined ? ({} as unknown as any) : error;
   let message: string | undefined;
@@ -46,10 +42,6 @@ const getUnhandledPromiseRejectionTracker = () => promiseRejectionHandler;
 
 const setErrorTracker = (tracker: (error: Error) => void) => {
   promiseRejectionHandler = (id: string, error: Error) => {
-    console.log(
-      'Expect24WordsMnemonicError---toast---promiseRejectionHandler',
-      Date.now(),
-    );
     defaultPromiseRejectionHandler(id, error);
     tracker(error);
   };
