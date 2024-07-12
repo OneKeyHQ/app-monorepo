@@ -29,7 +29,8 @@ export function useSwapFromAccountNetworkSync() {
   const { activeAccount: toActiveAccount } = useActiveAccount({
     num: 1,
   });
-  const [swapToAnotherAccount] = useSwapToAnotherAccountAddressAtom();
+  const [swapToAnotherAccount, setSwapToAnotherAccount] =
+    useSwapToAnotherAccountAddressAtom();
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
   const [, setSettings] = useSettingsAtom();
@@ -88,6 +89,7 @@ export function useSwapFromAccountNetworkSync() {
           ...v,
           swapToAnotherAccountSwitchOn: false,
         }));
+        setSwapToAnotherAccount((v) => ({ ...v, address: undefined }));
         // should wait account async finish
         setTimeout(() => {
           if (toTokenRef.current) {

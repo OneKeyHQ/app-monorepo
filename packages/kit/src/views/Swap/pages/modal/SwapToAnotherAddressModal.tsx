@@ -94,6 +94,7 @@ const SwapToAnotherAddressPage = () => {
       ...v,
       swapToAnotherAccountSwitchOn: false,
     }));
+    setSwapToAddress((v) => ({ ...v, address: undefined }));
   }, [setSettings]);
 
   return accountInfo && accountInfo?.network?.id ? (

@@ -17,6 +17,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import SwapMainLandWithPageType from '../components/SwapMainLand';
 
 import type { RouteProp } from '@react-navigation/core';
+import { useSwapToAnotherAccountAddressAtom } from '../../../../states/jotai/contexts/swap';
 
 const SwapMainLandModalPage = () => {
   const intl = useIntl();
@@ -25,13 +26,15 @@ const SwapMainLandModalPage = () => {
   const { importFromToken, importNetworkId, importToToken } =
     route.params ?? {};
   const [, setSettings] = useSettingsAtom();
+  const [, setSwapToAnotherAccount] = useSwapToAnotherAccountAddressAtom();
   useEffect(() => {
     // when modal swap open, reset swapToAnotherAccountSwitchOn
     setSettings((v) => ({
       ...v,
       swapToAnotherAccountSwitchOn: false,
     }));
-  }, [setSettings]);
+    setSwapToAnotherAccount((v) => ({ ...v, address: undefined }));
+  }, [setSettings, setSwapToAnotherAccount]);
   return (
     <Page skipLoading={platformEnv.isNativeIOS}>
       <Page.Header
