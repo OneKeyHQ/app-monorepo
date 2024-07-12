@@ -1,0 +1,5 @@
+{
+  "react-native": {
+    "crashlytics_is_error_generation_on_js_crash_enabled": false
+  }
+}
