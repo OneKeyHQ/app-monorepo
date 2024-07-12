@@ -40,13 +40,9 @@ export async function loginIfNeeded(
       return Promise.resolve(false);
     }
   } else if (showSignInDialog) {
-    try {
-      GoogleSignin.configure(GoogleSignInConfigure);
-      await GoogleSignin.signIn();
-      return await RNCloudFs.loginIfNeeded();
-    } catch (error) {
-      return Promise.resolve(false);
-    }
+    GoogleSignin.configure(GoogleSignInConfigure);
+    await GoogleSignin.signIn();
+    return await RNCloudFs.loginIfNeeded();
   }
   return Promise.resolve(false);
 }
