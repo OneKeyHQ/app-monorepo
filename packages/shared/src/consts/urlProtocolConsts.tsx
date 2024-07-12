@@ -22,6 +22,4 @@ export const PROTOCOLS_SUPPORTED_TO_OPEN = [
 
   // lightning network
   // 'lightning:' as const,
-  'keplrwallet:' as const,
-  'leapcosmos' as const,
 ];
