@@ -238,7 +238,7 @@ function DesktopCustomTabBar() {
           ))}
         </ScrollView>
       </Stack>
-      <XStack group="sidebarBrowserDivider" alignItems="center" p="$1.5">
+      <XStack group="sidebarBrowserDivider" alignItems="center" p="$2">
         <Divider testID="pin-tab-divider" />
         {tabs.filter((x) => !x.isPinned).length > 0 ? (
           <XStack
