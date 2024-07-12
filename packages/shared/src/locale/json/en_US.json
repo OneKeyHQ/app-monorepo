@@ -1323,6 +1323,7 @@
   "swap_page.alert.not_best_rate": "The current provider does not offer the best rate for this trade.",
   "swap_page.alert.value_drop": "{number} value drop. High price impact may cause your asset loss.",
   "swap_page.amount ": "{number}",
+  "swap_page.approve_button": "approve {token} to {target}",
   "swap_page.balance": "Balance: {number}",
   "swap_page.button_approve_amount": "Approve {number}",
   "swap_page.button_approve_unlimited": "Approve unlimited",

@@ -1323,6 +1323,7 @@
   "swap_page.alert.not_best_rate": "Penyedia saat ini tidak menawarkan tarif terbaik untuk perdagangan ini.",
   "swap_page.alert.value_drop": "{number} nilai turun. Dampak harga tinggi dapat menyebabkan kerugian aset Anda.",
   "swap_page.amount ": "{number}",
+  "swap_page.approve_button": "setujui {token} ke {target}",
   "swap_page.balance": "Saldo: {number}",
   "swap_page.button_approve_amount": "Setujui {number}",
   "swap_page.button_approve_unlimited": "Setujui tanpa batas",

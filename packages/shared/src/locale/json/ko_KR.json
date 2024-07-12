@@ -1323,6 +1323,7 @@
   "swap_page.alert.not_best_rate": "현재 공급자는 이 거래에 대해 최고의 요금을 제공하지 않습니다.",
   "swap_page.alert.value_drop": "{number} 값 하락. 높은 가격 충격은 당신의 자산 손실을 초래할 수 있습니다.",
   "swap_page.amount ": "{number}",
+  "swap_page.approve_button": "{token}을(를) {target}에 승인하다",
   "swap_page.balance": "잔액: {number}",
   "swap_page.button_approve_amount": "{number} 승인",
   "swap_page.button_approve_unlimited": "무제한 승인",
