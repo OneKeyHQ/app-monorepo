@@ -184,7 +184,7 @@ class ClientSol {
 
   async getRecentMaxPrioritizationFees(accountAddress: string[]) {
     const resp = await this.getRecentPrioritizationFees(accountAddress);
-    return max([...map(resp, 'prioritizationFee'), MIN_PRIORITY_FEE]) || 0;
+    return max(map(resp, 'prioritizationFee')) || 0;
   }
 }
 
