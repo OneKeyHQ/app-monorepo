@@ -115,14 +115,22 @@ export function AccountSelectorCreateAddressButton({
         console.log({ wallet });
       }
       await createAddress({ num, selectAfterCreate, account });
-      await timerUtils.wait(300);
+      // await timerUtils.wait(300);
     } finally {
+      console.log(
+        'Expect24WordsMnemonicError---toast---AccountSelectorCreateAddressButton.tsx-finally1',
+        Date.now(),
+      );
       setAccountManualCreatingAtom((prev) => ({
         ...prev,
         key: undefined,
         isLoading: false,
       }));
       setAccountIsAutoCreating(undefined);
+      console.log(
+        'Expect24WordsMnemonicError---toast---AccountSelectorCreateAddressButton.tsx-finally2',
+        Date.now(),
+      );
     }
   }, [
     account,

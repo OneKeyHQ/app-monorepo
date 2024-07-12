@@ -203,6 +203,10 @@ export function toastIfError() {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
         return await originalMethod.apply(this, args);
       } catch (error: unknown) {
+        console.log(
+          'Expect24WordsMnemonicError---toast--backgroundDecorators.ts.ts',
+          Date.now(),
+        );
         errorUtils.toastIfError(error);
         throw error;
       }

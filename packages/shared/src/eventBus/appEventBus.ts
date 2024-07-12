@@ -195,8 +195,10 @@ class AppEventBus extends CrossEventEmitter {
     payload: IAppEventBusPayload[T],
   ): boolean {
     if (this.shouldEmitToSelf) {
+      console.log('emitToSelf', type, payload);
       this.emitToSelf(type, payload);
     }
+    console.log('emitToRemote', type, payload);
     void this.emitToRemote(type, payload);
     return true;
   }

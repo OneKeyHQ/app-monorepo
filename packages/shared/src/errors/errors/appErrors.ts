@@ -736,12 +736,20 @@ export class LowerTransactionAmountError extends OneKeyError {
 
 export class Expect24WordsMnemonicError extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
+    console.log(
+      'Expect24WordsMnemonicError---toast---Expect24WordsMnemonicError-super1',
+      Date.now(),
+    );
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'Expect24WordsMnemonicError',
         defaultKey:
           ETranslations.feedback_polkadot_supported_recover_phrases_type,
       }),
+    );
+    console.log(
+      'Expect24WordsMnemonicError---toast---Expect24WordsMnemonicError-super2',
+      Date.now(),
     );
   }
 }

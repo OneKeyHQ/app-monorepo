@@ -49,6 +49,7 @@ const derivationHdLedger = (mnemonic: string, path: string) => {
       message ===
       'Expected a mnemonic with 24 words (or 25 including a password)'
     ) {
+      console.log('Expect24WordsMnemonicError---toast---start', Date.now());
       throw new Expect24WordsMnemonicError();
     }
     throw e;

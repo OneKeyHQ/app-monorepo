@@ -78,6 +78,10 @@ export function useAccountSelectorCreateAddress() {
       try {
         await addAccounts();
       } catch (error1) {
+        console.log(
+          'Expect24WordsMnemonicError---toast---useAccountSelectorCreateAddress.tsx-start',
+          Date.now(),
+        );
         if (isAirGapAccountNotFound(error1)) {
           let byDevice: IDBDevice | undefined;
           const byWallet = await serviceAccount.getWallet({
@@ -134,12 +138,21 @@ export function useAccountSelectorCreateAddress() {
                 ),
               });
             } else {
+              console.log(
+                'Expect24WordsMnemonicError---toast---useAccountSelectorCreateAddress.tsx-error2',
+                Date.now(),
+              );
               throw error2;
             }
           }
         } else {
           throw error1;
         }
+
+        console.log(
+          'Expect24WordsMnemonicError---toast---useAccountSelectorCreateAddress.tsx-end',
+          Date.now(),
+        );
       }
     },
     [actions, createQrWalletByUr, serviceAccount, serviceQrWallet],

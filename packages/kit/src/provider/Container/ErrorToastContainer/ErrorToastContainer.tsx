@@ -24,6 +24,11 @@ export function ErrorToastContainer() {
       const toastId = isFilterErrorCode(p.errorCode)
         ? String(p.errorCode)
         : undefined;
+
+      console.log(
+        'Expect24WordsMnemonicError---toast---ErrorToastContainer',
+        Date.now(),
+      );
       const actionsProps = isRequestIdMessage(message)
         ? ({
             children: intl.formatMessage({ id: ETranslations.global_copy }),

@@ -72,6 +72,10 @@ export class BackgroundApiProxyBase
       }
       // TODO log error to file if developer mode on
       if (error && error?.autoToast) {
+        console.log(
+          'Expect24WordsMnemonicError---toast---BackgroundApiProxyBase.ts',
+          Date.now(),
+        );
         appEventBus.emit(EAppEventBusNames.ShowToast, {
           errorCode: error.code,
           method: 'error',
