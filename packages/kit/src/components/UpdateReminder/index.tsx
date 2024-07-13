@@ -160,6 +160,9 @@ function UpdateAction({
         [EAppUpdateStatus.downloading]: {
           label: intl.formatMessage({ id: ETranslations.global_view }),
         },
+        [EAppUpdateStatus.verifying]: {
+          label: intl.formatMessage({ id: ETranslations.global_view }),
+        },
         [EAppUpdateStatus.ready]: {
           label: intl.formatMessage({
             id: platformEnv.isNativeAndroid
@@ -216,6 +219,10 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
     borderColor: '$borderInfoSubdued',
   },
   [EAppUpdateStatus.downloading]: {
+    bg: '$bgInfoSubdued',
+    borderColor: '$borderInfoSubdued',
+  },
+  [EAppUpdateStatus.verifying]: {
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
   },
