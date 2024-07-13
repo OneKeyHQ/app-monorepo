@@ -9,7 +9,6 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorTrigger,
@@ -17,6 +16,7 @@ import {
 import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import type { IAccountManagerStacksParamList } from '@onekeyhq/shared/src/routes';

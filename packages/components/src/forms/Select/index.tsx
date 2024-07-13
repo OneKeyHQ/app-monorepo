@@ -10,7 +10,6 @@ import { Input } from '../Input';
 
 import { SelectContext } from './context';
 
-import type { IListViewProps, ISectionListProps } from '../../layouts';
 import type { IContextType } from './context';
 import type {
   ISelectItem,
@@ -20,6 +19,7 @@ import type {
   ISelectSection,
   ISelectTriggerProps,
 } from './type';
+import type { IListViewProps, ISectionListProps } from '../../layouts';
 
 const useTriggerLabel = (value: string) => {
   const { sections, items } = useContext(SelectContext);

@@ -11,13 +11,12 @@ import {
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 type IProps = { createAddressDisabled?: boolean } & IXStackProps;
 

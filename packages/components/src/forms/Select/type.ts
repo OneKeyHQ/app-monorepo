@@ -1,8 +1,8 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 
 import type { IPopoverProps } from '../../actions';
+import type { IInputProps } from '../Input';
 import type { ListItemProps, SheetProps } from 'tamagui';
-import { IInputProps } from '../Input';
 
 export interface ISelectRenderTriggerProps {
   value?: string;
