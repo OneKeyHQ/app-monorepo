@@ -14,7 +14,6 @@ import {
   installPackage,
   useDownloadProgress,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { IUpdatePreviewActionButton } from './type';
