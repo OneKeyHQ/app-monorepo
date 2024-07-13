@@ -35,7 +35,8 @@ export function useSwapQuote() {
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
+  const [{ swapApprovingTransaction }, setInAppNotificationAtom] =
+    useInAppNotificationAtom();
   const activeAccountRef = useRef<
     ReturnType<typeof useSwapAddressInfo> | undefined
   >();
@@ -95,8 +96,17 @@ export function useSwapQuote() {
         activeAccountRef.current?.accountInfo?.account?.id,
         swapApprovingTransaction.blockNumber,
       );
+      setInAppNotificationAtom((prev) => ({
+        ...prev,
+        swapApprovingTransaction: undefined,
+      }));
     }
-  }, [cleanQuoteInterval, quoteAction, swapApprovingTransaction]);
+  }, [
+    cleanQuoteInterval,
+    quoteAction,
+    swapApprovingTransaction,
+    setInAppNotificationAtom,
+  ]);
 
   useEffect(() => {
     if (fromToken?.networkId !== activeAccountRef.current?.networkId) {

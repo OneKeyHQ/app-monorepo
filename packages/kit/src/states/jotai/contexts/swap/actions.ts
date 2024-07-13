@@ -719,6 +719,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 accountAddress,
                 accountId,
                 contractAddress: token.contractAddress,
+                direction: type,
               });
             if (detailInfo?.[0]) {
               const balanceParsedBN = new BigNumber(
@@ -761,8 +762,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 }
               }
             }
-          } catch (e) {
-            balanceDisplay = '0.0';
+          } catch (e: any) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
+              balanceDisplay = '0.0';
+            }
           } finally {
             set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
               ...pre,
