@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -16,6 +18,7 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOTAL_VALUE,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -39,11 +42,18 @@ function HomeOverviewContainer() {
     isRefreshing: false,
   });
 
+  const allNetworkId = useRef('');
+
+  const allNetWorthInit = useRef(false);
+
+  const [allNetWorth, setAllNetWorth] = useState<string | undefined>();
+
   const [settings] = useSettingsPersistAtom();
 
   const { result: overview } = usePromiseResult(
     async () => {
       if (!account || !network) return;
+      if (account.impl === IMPL_ALLNETWORKS) return;
       const r =
         await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
           networkId: network.id,
@@ -64,6 +74,71 @@ function HomeOverviewContainer() {
     },
   );
 
+  usePromiseResult(async () => {
+    if (!account || !network || !wallet) return;
+    if (account.impl !== IMPL_ALLNETWORKS) return;
+
+    const allAccounts = (
+      await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
+        {
+          indexedAccountId: account.indexedAccountId ?? '',
+        },
+      )
+    ).filter((a) => a.impl !== IMPL_ALLNETWORKS);
+
+    if (!allAccounts || isEmpty(allAccounts)) {
+      setOverviewState({
+        initialized: true,
+        isRefreshing: false,
+      });
+    }
+    let netWorthBN = new BigNumber(0);
+
+    if (allNetWorthInit.current) {
+      setOverviewState({
+        initialized: true,
+        isRefreshing: false,
+      });
+    }
+    const currentAllNetworkId = `${account.id}_${network.id}_${wallet.id}`;
+    for (const a of allAccounts) {
+      if (currentAllNetworkId !== allNetworkId.current) break;
+      const resp = await backgroundApiProxy.serviceNetwork.getNetworkIdsByImpls(
+        {
+          impls: [a.impl],
+        },
+      );
+
+      for (const networkId of resp.networkIds) {
+        if (currentAllNetworkId !== allNetworkId.current) break;
+        const r =
+          await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
+            networkId,
+            accountId: a.id,
+            withNetWorth: true,
+            withNonce: false,
+          });
+        if (allNetWorthInit.current) {
+          netWorthBN = netWorthBN.plus(r.netWorth ?? 0);
+        } else {
+          setAllNetWorth((prev) =>
+            new BigNumber(prev ?? '0').plus(r.netWorth ?? 0).toString(),
+          );
+          setOverviewState({
+            initialized: true,
+            isRefreshing: false,
+          });
+        }
+      }
+    }
+
+    if (allNetWorthInit.current) {
+      setAllNetWorth(netWorthBN.toString());
+    }
+
+    allNetWorthInit.current = true;
+  }, [account, network, wallet]);
+
   const { result: vaultSettings } = usePromiseResult(async () => {
     if (!network) return;
     const s = backgroundApiProxy.serviceNetwork.getVaultSettings({
@@ -78,6 +153,9 @@ function HomeOverviewContainer() {
         initialized: false,
         isRefreshing: true,
       });
+      allNetworkId.current = `${account.id}_${network.id}_${wallet.id}`;
+      allNetWorthInit.current = false;
+      setAllNetWorth('0');
     }
   }, [account?.id, network?.id, wallet?.id]);
   const { md } = useMedia();
@@ -90,7 +168,10 @@ function HomeOverviewContainer() {
       </Stack>
     );
 
-  const balanceString = overview?.netWorth ?? '0';
+  const balanceString =
+    account?.impl === IMPL_ALLNETWORKS
+      ? allNetWorth ?? '0'
+      : overview?.netWorth ?? '0';
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
     { length: 25, size: '$headingXl' },
     { length: 13, size: '$heading4xl' },

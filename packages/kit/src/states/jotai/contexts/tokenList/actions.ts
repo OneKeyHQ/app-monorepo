@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-import { isEqual } from 'lodash';
+import { isEqual, uniqBy } from 'lodash';
 
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -30,11 +30,20 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       payload: {
         tokens: IAccountToken[];
         keys: string;
+        merge?: boolean;
       },
     ) => {
       const { keys, tokens } = payload;
 
-      if (!isEqual(get(allTokenListAtom()).keys, keys)) {
+      const allTokenList = get(allTokenListAtom());
+
+      if (payload.merge) {
+        const newTokens = allTokenList.tokens.concat(tokens);
+        set(allTokenListAtom(), {
+          tokens: newTokens,
+          keys: `${allTokenList.keys}_${keys}`,
+        });
+      } else if (!isEqual(allTokenList.keys, keys)) {
         set(allTokenListAtom(), { tokens, keys });
       }
     },
@@ -45,10 +54,21 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
-        [key: string]: ITokenFiat;
+        tokens: {
+          [key: string]: ITokenFiat;
+        };
+        merge?: boolean;
       },
     ) => {
-      set(allTokenListMapAtom(), payload);
+      if (payload.merge) {
+        set(allTokenListMapAtom(), {
+          ...get(allTokenListMapAtom()),
+          ...payload.tokens,
+        });
+        return;
+      }
+
+      set(allTokenListMapAtom(), payload.tokens);
     },
   );
 
@@ -59,11 +79,24 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       payload: {
         tokens: IAccountToken[];
         keys: string;
+        merge?: boolean;
+        networkId?: string;
       },
     ) => {
-      const { keys, tokens } = payload;
+      const { keys, tokens, networkId } = payload;
 
-      if (!isEqual(get(tokenListAtom()).keys, keys)) {
+      if (payload.merge) {
+        if (tokens.length) {
+          const newTokens = get(tokenListAtom()).tokens.concat(tokens);
+          set(tokenListAtom(), {
+            tokens: uniqBy(
+              newTokens,
+              (item) => `${item.$key}_${networkId ?? ''}`,
+            ),
+            keys: `${get(tokenListAtom()).keys}_${keys}`,
+          });
+        }
+      } else if (!isEqual(get(tokenListAtom()).keys, keys)) {
         set(tokenListAtom(), { tokens, keys });
       }
     },
@@ -74,10 +107,21 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
-        [key: string]: ITokenFiat;
+        tokens: {
+          [key: string]: ITokenFiat;
+        };
+        merge?: boolean;
       },
     ) => {
-      set(tokenListMapAtom(), payload);
+      if (payload.merge) {
+        set(tokenListMapAtom(), {
+          ...get(tokenListMapAtom()),
+          ...payload.tokens,
+        });
+        return;
+      }
+
+      set(tokenListMapAtom(), payload.tokens);
     },
   );
 
@@ -88,11 +132,26 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       payload: {
         riskyTokens: IAccountToken[];
         keys: string;
+        merge?: boolean;
+        networkId?: string;
       },
     ) => {
-      const { keys, riskyTokens } = payload;
+      const { keys, riskyTokens, networkId } = payload;
 
-      if (!isEqual(get(riskyTokenListAtom()).keys, keys)) {
+      if (payload.merge) {
+        if (riskyTokens.length) {
+          const newTokens = get(riskyTokenListAtom()).riskyTokens.concat(
+            riskyTokens,
+          );
+          set(riskyTokenListAtom(), {
+            riskyTokens: uniqBy(
+              newTokens,
+              (item) => `${item.$key}_${networkId ?? ''}`,
+            ),
+            keys: `${get(riskyTokenListAtom()).keys}_${keys}`,
+          });
+        }
+      } else if (!isEqual(get(riskyTokenListAtom()).keys, keys)) {
         set(riskyTokenListAtom(), { riskyTokens, keys });
       }
     },
@@ -103,10 +162,21 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
-        [key: string]: ITokenFiat;
+        tokens: {
+          [key: string]: ITokenFiat;
+        };
+        merge?: boolean;
       },
     ) => {
-      set(riskyTokenListMapAtom(), payload);
+      if (payload.merge) {
+        set(riskyTokenListMapAtom(), {
+          ...get(riskyTokenListMapAtom()),
+          ...payload.tokens,
+        });
+        return;
+      }
+
+      set(riskyTokenListMapAtom(), payload.tokens);
     },
   );
 
@@ -117,11 +187,26 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       payload: {
         smallBalanceTokens: IAccountToken[];
         keys: string;
+        merge?: boolean;
+        networkId?: string;
       },
     ) => {
-      const { keys, smallBalanceTokens } = payload;
+      const { keys, smallBalanceTokens, networkId } = payload;
 
-      if (!isEqual(get(smallBalanceTokenListAtom()).keys, keys)) {
+      if (payload.merge) {
+        if (smallBalanceTokens.length) {
+          const newTokens = get(
+            smallBalanceTokenListAtom(),
+          ).smallBalanceTokens.concat(smallBalanceTokens);
+          set(smallBalanceTokenListAtom(), {
+            smallBalanceTokens: uniqBy(
+              newTokens,
+              (item) => `${item.$key}_${networkId ?? ''}`,
+            ),
+            keys: `${get(smallBalanceTokenListAtom()).keys}_${keys}`,
+          });
+        }
+      } else if (!isEqual(get(smallBalanceTokenListAtom()).keys, keys)) {
         set(smallBalanceTokenListAtom(), { smallBalanceTokens, keys });
       }
     },
@@ -132,10 +217,21 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
-        [key: string]: ITokenFiat;
+        tokens: {
+          [key: string]: ITokenFiat;
+        };
+        merge?: boolean;
       },
     ) => {
-      set(smallBalanceTokenListMapAtom(), payload);
+      if (payload.merge) {
+        set(smallBalanceTokenListMapAtom(), {
+          ...get(smallBalanceTokenListMapAtom()),
+          ...payload.tokens,
+        });
+        return;
+      }
+
+      set(smallBalanceTokenListMapAtom(), payload.tokens);
     },
   );
 

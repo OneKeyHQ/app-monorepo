@@ -3091,6 +3091,7 @@ export const presetNetworksMap = {
 };
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => [
+  dangerAllNetworkRepresent,
   // btc & btc fork
   btc,
   doge,

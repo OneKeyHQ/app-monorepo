@@ -5,6 +5,7 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useTabListScroll } from '../../hooks/useTabListScroll';
 import {
+  useAllTokenListAtom,
   useSearchKeyAtom,
   useTokenListAtom,
   useTokenListStateAtom,
@@ -48,6 +49,7 @@ function TokenListView(props: IProps) {
   } = props;
 
   const [tokenList] = useTokenListAtom();
+  const [allTokenList] = useAllTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
   const { tokens } = tokenList;

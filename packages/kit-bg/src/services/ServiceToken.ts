@@ -102,6 +102,20 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async fetchAllNetworkTokens({
+    indexedAccountId,
+  }: {
+    indexedAccountId: string;
+  }) {
+    const accounts =
+      await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+        { indexedAccountId },
+      );
+
+    console.log('accounts:', accounts);
+  }
+
+  @backgroundMethod()
   public async fetchTokensDetails(
     params: IFetchTokenDetailParams,
   ): Promise<IFetchTokenDetailItem[]> {
