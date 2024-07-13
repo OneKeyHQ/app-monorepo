@@ -451,6 +451,9 @@ export default class ServicePassword extends ServiceBase {
     });
     const result = await (res as Promise<IPasswordRes>);
     ensureSensitiveTextEncoded(result.password);
+
+    // wait PromptPasswordDialog close animation
+    await timerUtils.wait(600);
     return result;
   }
 

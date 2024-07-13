@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Dialog, SizableText, Stack } from '@onekeyhq/components';
+import { Dialog, SizableText, Stack, Toast } from '@onekeyhq/components';
 import type {
   IDBDevice,
   IDBWalletId,
@@ -43,6 +43,10 @@ export function useAccountSelectorCreateAddress() {
         !account.indexedAccountId ||
         !account.deriveType
       ) {
+        Toast.error({
+          title: 'Create address failed',
+          message: 'Please select a valid account',
+        });
         return;
       }
 

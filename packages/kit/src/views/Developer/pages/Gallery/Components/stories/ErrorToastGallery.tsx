@@ -110,8 +110,13 @@ function Demo1() {
 
       <Button
         onPress={async () => {
-          const ctx = await backgroundApiProxy.serviceDemo.demoError3();
-          console.log(ctx);
+          try {
+            const ctx = await backgroundApiProxy.serviceDemo.demoError3();
+            console.log(ctx);
+          } catch (error) {
+            console.log('调用 background 显示 toast3', error);
+            throw error;
+          }
         }}
       >
         调用 background 显示 toast3

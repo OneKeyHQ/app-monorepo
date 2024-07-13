@@ -1,5 +1,5 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { isEmpty } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
@@ -47,7 +47,10 @@ import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type {
+  IBatchCreateAccount,
+  INetworkAccount,
+} from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
@@ -423,10 +426,7 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
-  @backgroundMethod()
-  async addHDOrHWAccountsFn(
-    params: IAddHDOrHWAccountsParams,
-  ): Promise<IAddHDOrHWAccountsResult | undefined> {
+  async prepareHdOrHwAccounts(params: IAddHDOrHWAccountsParams) {
     // addHDOrHWAccounts
     const {
       indexes,
@@ -448,20 +448,11 @@ class ServiceAccount extends ServiceBase {
       async () => {
         // addHDOrHWAccounts
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
-        await localDb.addAccountsToWallet({
-          allAccountsBelongToNetworkId: networkId,
-          walletId,
-          accounts,
-        });
-        appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
-        void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
         return {
+          vault,
+          accounts,
           networkId,
           walletId,
-          indexedAccountId,
-          accounts,
-          indexes,
-          deriveType,
         };
       },
       {
@@ -471,6 +462,68 @@ class ServiceAccount extends ServiceBase {
         debugMethodName: 'keyring.prepareAccounts',
       },
     );
+  }
+
+  @backgroundMethod()
+  async addBatchCreatedHdOrHwAccount({
+    walletId,
+    networkId,
+    account,
+  }: {
+    walletId: string;
+    networkId: string;
+    account: IBatchCreateAccount;
+  }) {
+    const { addressDetail, existsInDb, ...dbAccount } = account;
+    if (isNil(dbAccount.pathIndex)) {
+      throw new Error(
+        'addBatchCreatedHdOrHwAccount ERROR: pathIndex is required',
+      );
+    }
+    await this.addIndexedAccount({
+      walletId,
+      indexes: [dbAccount.pathIndex],
+      skipIfExists: true,
+    });
+    await localDb.addAccountsToWallet({
+      allAccountsBelongToNetworkId: networkId,
+      walletId,
+      accounts: [dbAccount],
+    });
+  }
+
+  @backgroundMethod()
+  async addHDOrHWAccountsFn(
+    params: IAddHDOrHWAccountsParams,
+  ): Promise<IAddHDOrHWAccountsResult | undefined> {
+    // addHDOrHWAccounts
+    const {
+      indexes,
+      indexedAccountId,
+      deriveType,
+      skipDeviceCancel,
+      hideCheckingDeviceLoading,
+    } = params;
+
+    const { accounts, networkId, walletId } = await this.prepareHdOrHwAccounts(
+      params,
+    );
+
+    await localDb.addAccountsToWallet({
+      allAccountsBelongToNetworkId: networkId,
+      walletId,
+      accounts,
+    });
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
+    return {
+      networkId,
+      walletId,
+      indexedAccountId,
+      accounts,
+      indexes,
+      deriveType,
+    };
   }
 
   @backgroundMethod()

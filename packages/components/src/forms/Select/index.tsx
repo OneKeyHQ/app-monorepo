@@ -10,6 +10,7 @@ import { Input } from '../Input';
 
 import { SelectContext } from './context';
 
+import type { IListViewProps, ISectionListProps } from '../../layouts';
 import type { IContextType } from './context';
 import type {
   ISelectItem,
@@ -19,7 +20,6 @@ import type {
   ISelectSection,
   ISelectTriggerProps,
 } from './type';
-import type { IListViewProps, ISectionListProps } from '../../layouts';
 
 const useTriggerLabel = (value: string) => {
   const { sections, items } = useContext(SelectContext);
@@ -372,6 +372,7 @@ function SelectFrame<T extends string | ISelectItem>({
 function BasicSelect<T extends string | ISelectItem>({
   renderTrigger,
   testID = '',
+  defaultTriggerInputProps,
   ...props
 }: ISelectProps<T>) {
   const defaultRenderTrigger = useCallback(
@@ -384,9 +385,17 @@ function BasicSelect<T extends string | ISelectItem>({
           readonly
           flex={1}
           testID={`${testID}-input`}
+          {...defaultTriggerInputProps}
         />
-        <Icon
+        {/* <Icon
           name="ChevronBottomSolid"
+          position="absolute"
+          right="$3"
+          top="$2"
+        /> */}
+        <Icon
+          name="ChevronDownSmallOutline"
+          color="$iconSubdued"
           position="absolute"
           right="$3"
           top="$2"

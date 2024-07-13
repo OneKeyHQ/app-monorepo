@@ -11,6 +11,7 @@ import type { OFFSCREEN_API_MESSAGE_TYPE } from '../offscreens/types';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
+import type ServiceCreateBatchAccount from '../services/ServiceCreateBatchAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
@@ -127,6 +128,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceNetwork: ServiceNetwork;
   serviceAccount: ServiceAccount;
   serviceAccountSelector: ServiceAccountSelector;
+  serviceCreateBatchAccount: ServiceCreateBatchAccount;
   serviceToken: ServiceToken;
   serviceNFT: ServiceNFT;
   serviceHistory: ServiceHistory;
