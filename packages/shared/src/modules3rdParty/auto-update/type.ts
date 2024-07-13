@@ -1,5 +1,7 @@
 export type IUpdateDownloadedEvent = {
   downloadedFile: string;
+  sha256?: string;
+  latestVersion?: string;
 };
 
 export type IDownloadPackage = (params: {
@@ -7,6 +9,9 @@ export type IDownloadPackage = (params: {
   latestVersion?: string;
   sha256?: string;
 }) => Promise<IUpdateDownloadedEvent>;
+
+export type IVerifyPackage = (params: IUpdateDownloadedEvent) => Promise<void>;
+
 export type IInstallPackage = (params: {
   latestVersion?: string;
   sha256?: string;

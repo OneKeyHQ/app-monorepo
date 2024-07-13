@@ -93,7 +93,9 @@ export const downloadPackage: IDownloadPackage = () =>
     updateAvailableTasks.push(() => {
       window.desktopApi.downloadUpdate();
     });
-    updateDownloadedTasks.push(resolve);
+    updateDownloadedTasks.push((event: IUpdateDownloadedEvent) => {
+      resolve(event);
+    });
     updateErrorTasks.push(reject);
     window.desktopApi.checkForUpdates();
   });

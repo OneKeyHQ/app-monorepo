@@ -4,12 +4,13 @@ import { useIntl } from 'react-intl';
 
 import type { IPageFooterProps } from '@onekeyhq/components';
 import { Page, Toast, YStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+import {
+  useAppUpdateInfo,
+  useDownloadPackage,
+} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  downloadPackage,
   installPackage,
   useDownloadProgress,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -25,6 +26,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
 }) => {
   const intl = useIntl();
   const appUpdateInfo = useAppUpdateInfo();
+  const downloadPackage = useDownloadPackage();
   const downloadSuccess = useCallback(() => {}, []);
   const downloadFailed = useCallback(() => {}, []);
   const progress = useDownloadProgress(downloadSuccess, downloadFailed);
@@ -34,26 +36,14 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
         if (appUpdateInfo.data.storeUrl) {
           openUrlExternal(appUpdateInfo.data.storeUrl);
         } else if (appUpdateInfo.data.downloadUrl) {
-          void backgroundApiProxy.serviceAppUpdate.startDownloading();
-          void downloadPackage(appUpdateInfo.data)
-            .then(() => {
-              void backgroundApiProxy.serviceAppUpdate.readyToInstall();
-            })
-            .catch((e: { message: string }) => {
-              Toast.error({
-                title: intl.formatMessage({
-                  id: ETranslations.global_update_failed,
-                }),
-              });
-              void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
-            });
+          void downloadPackage(appUpdateInfo.data);
           if (autoClose) {
             close();
           }
         }
       }
     },
-    [appUpdateInfo.data, autoClose, intl],
+    [appUpdateInfo.data, autoClose, downloadPackage],
   );
 
   const handleToInstall = useCallback(async () => {

@@ -10,6 +10,7 @@ import type {
   IDownloadPackage,
   IInstallPackage,
   IUseDownloadProgress,
+  IVerifyPackage,
 } from './type';
 
 const DIR_PATH = `file://${RNFS?.CachesDirectoryPath || ''}/apk`;
@@ -17,21 +18,22 @@ const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
 
 const { AutoUpdateModule } = NativeModules as {
   AutoUpdateModule: {
-    installAPK: (params: {
-      filePath: string;
-      sha256?: string;
-    }) => Promise<void>;
     downloadAPK: (params: {
       url: string;
       filePath: string;
       notificationTitle: string;
       sha256?: string;
     }) => Promise<void>;
+    // an exception will be thrown when validation fails.
+    verifyAPK: (params: { filePath: string; sha256?: string }) => Promise<void>;
+    // verifyAPK will be called by default in the native module when calling to install the APK
+    installAPK: (params: {
+      filePath: string;
+      sha256?: string;
+    }) => Promise<void>;
   };
 };
 
-// SHA256 and package name were verified on downloadAPK func in native module
-// apps/mobile/android/app/src/main/java/so/onekey/app/wallet/AutoUpdateModule.java 250L checkFilePackage
 export const downloadPackage: IDownloadPackage = async ({
   downloadUrl,
   latestVersion,
@@ -55,6 +57,13 @@ export const downloadPackage: IDownloadPackage = async ({
   return {
     downloadedFile: filePath,
   };
+};
+
+export const verifyPackage: IVerifyPackage = async (params) => {
+  await AutoUpdateModule.verifyAPK({
+    filePath: params.downloadedFile,
+    sha256: params.sha256,
+  });
 };
 
 export const installPackage: IInstallPackage = ({ latestVersion, sha256 }) => {
