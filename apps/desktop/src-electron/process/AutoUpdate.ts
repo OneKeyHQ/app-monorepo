@@ -77,6 +77,8 @@ const init = ({ mainWindow, store }: IDependencies) => {
   const verifyFile = async (downloadedFile: string) => {
     const filename = path.basename(downloadedFile);
     const signatureFile = await getSignatureFile(filename);
+
+    logger.info('auto-updater', `signatureFile: ${signatureFile}`);
     const file = await fs.promises.readFile(downloadedFile);
     const message = await createMessage({ binary: file });
 
