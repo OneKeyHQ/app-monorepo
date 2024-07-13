@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { ipcRenderer } from 'electron';
+import { verify } from 'openpgp';
 
 import type {
   IDesktopAppState,
@@ -45,7 +46,8 @@ export type IDesktopAPI = {
   // Updater
   checkForUpdates: (isManual?: boolean) => void;
   downloadUpdate: () => void;
-  installUpdate: () => void;
+  verifyUpdate: (event?: { downloadedFile: string }) => void;
+  installUpdate: (event?: { downloadedFile: string }) => void;
   setAutoUpdateSettings: (settings: IUpdateSettings) => void;
   touchUpdateResource: (params: {
     resourceUrl: string;
@@ -209,7 +211,10 @@ const desktopApi = {
   checkForUpdates: (isManual?: boolean) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_CHECK, isManual),
   downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
-  installUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL),
+  verifyUpdate: (params: { downloadedFile: string }) =>
+    ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY, params),
+  installUpdate: (params: { downloadedFile: string }) =>
+    ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL, params),
   setAutoUpdateSettings: (settings: IUpdateSettings) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_SETTINGS, settings),
   clearAutoUpdateSettings: () =>

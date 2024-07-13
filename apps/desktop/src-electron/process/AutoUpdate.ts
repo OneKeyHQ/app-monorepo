@@ -1,9 +1,13 @@
+import fs from 'fs';
+import path from 'path';
+
 import checkDiskSpace from 'check-disk-space';
 import { BrowserWindow, app, dialog, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
+import { createMessage, readKey, readSignature, verify } from 'openpgp';
 
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -18,6 +22,11 @@ interface ILatestVersion {
   version: string;
   releaseDate: string;
   isManualCheck: boolean;
+}
+
+const signingKey = process.env.APP_GPG_PUBKEY;
+if (signingKey === undefined) {
+  throw new Error('APP_PUBKEY is undefined.');
 }
 
 function isNetworkError(errorObject: Error) {
@@ -56,6 +65,47 @@ const init = ({ mainWindow, store }: IDependencies) => {
   const setUseTestFeedUrl = (useTestFeedUrl: boolean) => {
     updateSettings.useTestFeedUrl = useTestFeedUrl;
     store.setUpdateSettings(updateSettings);
+  };
+
+  const getSignatureFile = async (filename: string) => {
+    const feedUrl = updateSettings.useTestFeedUrl ? 'testCdn' : 'cdn';
+    const signatureFileURL = `${feedUrl}/${filename}}.asc`;
+    const signatureFile = await fetch(signatureFileURL);
+    return signatureFile.text();
+  };
+
+  const verifyFile = async (downloadedFile: string) => {
+    const filename = path.basename(downloadedFile);
+    const signatureFile = await getSignatureFile(filename);
+    const file = await fs.promises.readFile(downloadedFile);
+    const message = await createMessage({ binary: file });
+
+    // Load publicKey and signature
+    const publicKey = await readKey({ armoredKey: signingKey });
+    const signature = await readSignature({
+      armoredSignature: signatureFile,
+    });
+
+    // Check file against signature
+    const verified = await verify({
+      message,
+      signature,
+      verificationKeys: publicKey,
+      format: 'binary',
+    });
+
+    // Get result (validity of the signature)
+    const valid = await verified.signatures[0].verified;
+    if (!valid) {
+      mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
+        err: {
+          message: 'Installation package possibly compromised',
+        },
+        isNetworkError: false,
+      });
+    }
+    logger.info('auto-updater', `valid result: ${String(valid)}`);
+    return valid;
   };
 
   autoUpdater.on('checking-for-update', () => {
@@ -233,29 +283,48 @@ const init = ({ mainWindow, store }: IDependencies) => {
       });
   });
 
-  ipcMain.on(ipcMessageKeys.UPDATE_INSTALL, () => {
-    logger.info('auto-updater', 'Installation request');
-    void dialog
-      .showMessageBox({
-        type: 'question',
-        buttons: ['Install and Restart', 'Later'],
-        defaultId: 0,
-        message:
-          'A new update has been downloaded. Would you like to install and restart the app now?',
-      })
-      .then((selection) => {
-        if (selection.response === 0) {
-          logger.info('auto-update', "User clicked 'Install and Restart'");
-          app.removeAllListeners('window-all-closed');
-          mainWindow.removeAllListeners('close');
-          for (const window of BrowserWindow.getAllWindows()) {
-            window.close();
-            window.destroy();
+  ipcMain.on(
+    ipcMessageKeys.UPDATE_VERIFY,
+    async (_, { downloadedFile }: { downloadedFile: string }) => {
+      logger.info('auto-updater', `verify ${downloadedFile}`);
+      const verified = await verifyFile(downloadedFile);
+      if (verified) {
+        mainWindow.webContents.send(ipcMessageKeys.UPDATE_VERIFIED);
+      }
+    },
+  );
+
+  ipcMain.on(
+    ipcMessageKeys.UPDATE_INSTALL,
+    async (_, { downloadedFile }: { downloadedFile: string }) => {
+      logger.info('auto-updater', `install ${downloadedFile}`);
+      const verified = await verifyFile(downloadedFile);
+      if (!verified) {
+        return;
+      }
+      logger.info('auto-updater', 'Installation request');
+      void dialog
+        .showMessageBox({
+          type: 'question',
+          buttons: ['Install and Restart', 'Later'],
+          defaultId: 0,
+          message:
+            'A new update has been downloaded. Would you like to install and restart the app now?',
+        })
+        .then((selection) => {
+          if (selection.response === 0) {
+            logger.info('auto-update', "User clicked 'Install and Restart'");
+            app.removeAllListeners('window-all-closed');
+            mainWindow.removeAllListeners('close');
+            for (const window of BrowserWindow.getAllWindows()) {
+              window.close();
+              window.destroy();
+            }
+            autoUpdater.quitAndInstall(false);
           }
-          autoUpdater.quitAndInstall(false);
-        }
-      });
-  });
+        });
+    },
+  );
 
   ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: IUpdateSettings) => {
     logger.info('auto-update', 'Set setting: ', JSON.stringify(settings));

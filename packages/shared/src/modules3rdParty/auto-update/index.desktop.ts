@@ -9,6 +9,7 @@ import type {
   IInstallPackage,
   IUpdateDownloadedEvent,
   IUseDownloadProgress,
+  IVerifyPackage,
 } from './type';
 
 const updateCheckingTasks: (() => void)[] = [];
@@ -34,6 +35,14 @@ window.desktopApi?.on?.('update/not-available', (params) => {
 
 window.desktopApi?.on?.('update/download', ({ version }) => {
   defaultLogger.update.app.log('download', version);
+});
+
+const updateVerifyTasks: (() => void)[] = [];
+window.desktopApi.on('update/verified', () => {
+  defaultLogger.update.app.log('update/verified');
+  while (updateVerifyTasks.length) {
+    updateVerifyTasks.pop()?.();
+  }
 });
 
 let updateDownloadingTasks: ((params: {
@@ -100,9 +109,15 @@ export const downloadPackage: IDownloadPackage = () =>
     window.desktopApi.checkForUpdates();
   });
 
-export const installPackage: IInstallPackage = async () => {
+export const verifyPackage: IVerifyPackage = async (params) =>
+  new Promise((resolve) => {
+    updateVerifyTasks.push(resolve);
+    window.desktopApi.verifyUpdate(params);
+  });
+
+export const installPackage: IInstallPackage = async ({ downloadedEvent }) => {
   defaultLogger.update.app.log('install');
-  window.desktopApi.installUpdate();
+  window.desktopApi.installUpdate(downloadedEvent);
 };
 
 export const useDownloadProgress: IUseDownloadProgress = (

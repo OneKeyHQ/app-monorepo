@@ -8,6 +8,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -113,10 +114,11 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async verifyPackage() {
+  public async verifyPackage(downloadedEvent: IUpdateDownloadedEvent) {
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
+      downloadedEvent,
       status: EAppUpdateStatus.verifying,
     }));
   }

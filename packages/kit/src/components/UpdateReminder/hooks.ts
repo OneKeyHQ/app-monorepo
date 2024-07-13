@@ -44,7 +44,7 @@ export const useDownloadPackage = () => {
       try {
         await backgroundApiProxy.serviceAppUpdate.startDownloading();
         const result = await NativeDownloadPackage(params);
-        await backgroundApiProxy.serviceAppUpdate.verifyPackage();
+        await backgroundApiProxy.serviceAppUpdate.verifyPackage(result);
         // The UI verification must display for at least 3 seconds.
         await Promise.all([verifyPackage(result), timerUtils.wait(3000)]);
         await backgroundApiProxy.serviceAppUpdate.readyToInstall();
