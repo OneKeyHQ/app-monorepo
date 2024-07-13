@@ -66,12 +66,6 @@ export function useSwapApproving() {
           swapApprovingTransaction?.resetApproveValue,
           !!swapApprovingTransaction?.resetApproveIsMax,
         );
-      } else {
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.swap_page_toast_approve_successful,
-          }),
-        });
       }
     }
     if (
