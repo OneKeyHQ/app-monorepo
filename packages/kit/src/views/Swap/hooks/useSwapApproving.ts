@@ -19,7 +19,8 @@ export function useSwapApproving() {
   const intl = useIntl();
   const { approvingStateAction, cleanApprovingInterval } =
     useSwapActions().current;
-  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
+  const [{ swapApprovingTransaction }, setInAppNotificationAtom] =
+    useInAppNotificationAtom();
   const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>();
   if (swapApprovingTxRef.current !== swapApprovingTransaction) {
     swapApprovingTxRef.current = swapApprovingTransaction;
@@ -73,6 +74,16 @@ export function useSwapApproving() {
         });
       }
     }
+    if (
+      swapApprovingTransaction?.status ===
+        ESwapApproveTransactionStatus.FAILED ||
+      swapApprovingTransaction?.status === ESwapApproveTransactionStatus.CANCEL
+    ) {
+      setInAppNotificationAtom((prev) => ({
+        ...prev,
+        swapApprovingTransaction: undefined,
+      }));
+    }
     return () => {
       cleanApprovingInterval();
     };
@@ -80,6 +91,7 @@ export function useSwapApproving() {
     approvingStateAction,
     cleanApprovingInterval,
     intl,
+    setInAppNotificationAtom,
     swapApprovingTransaction?.resetApproveIsMax,
     swapApprovingTransaction?.resetApproveValue,
     swapApprovingTransaction?.status,
