@@ -57,42 +57,43 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
     }
   }, [appUpdateInfo.data]);
 
-  const isDownloading =
-    EAppUpdateStatus.downloading === appUpdateInfo.data?.status;
+  const isDisabledButton = [
+    EAppUpdateStatus.downloading,
+    EAppUpdateStatus.verifying,
+  ].includes(appUpdateInfo.data?.status);
 
   const isReadyToInstall =
     EAppUpdateStatus.ready === appUpdateInfo.data?.status;
 
   const renderButtonText = useCallback(() => {
-    if (isDownloading) {
-      return intl.formatMessage(
-        {
-          id: ETranslations.update_progress_downloading,
-        },
-        {
-          progress,
-        },
-      );
+    switch (appUpdateInfo.data?.status) {
+      case EAppUpdateStatus.downloading: {
+        return intl.formatMessage(
+          {
+            id: ETranslations.update_progress_downloading,
+          },
+          {
+            progress,
+          },
+        );
+      }
+      case EAppUpdateStatus.verifying: {
+        return 'Verifying...';
+      }
+      default: {
+        return intl.formatMessage({
+          id: ETranslations.update_update_now,
+        });
+      }
     }
-
-    if (isReadyToInstall) {
-      return intl.formatMessage({
-        id: platformEnv.isNativeAndroid
-          ? ETranslations.update_install_now
-          : ETranslations.update_restart_to_update,
-      });
-    }
-    return intl.formatMessage({
-      id: ETranslations.update_update_now,
-    });
-  }, [intl, isDownloading, isReadyToInstall, progress]);
+  }, [appUpdateInfo.data?.status, intl, progress]);
   return (
     <Page.Footer>
       <YStack>
         <Page.FooterActions
           confirmButtonProps={{
-            disabled: isDownloading,
-            loading: isDownloading,
+            disabled: isDisabledButton,
+            loading: isDisabledButton,
           }}
           onConfirmText={renderButtonText()}
           onConfirm={isReadyToInstall ? handleToInstall : handleToUpdate}
