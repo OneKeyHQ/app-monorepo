@@ -56,6 +56,7 @@ export const downloadPackage: IDownloadPackage = async ({
   });
   return {
     downloadedFile: filePath,
+    sha256,
   };
 };
 
