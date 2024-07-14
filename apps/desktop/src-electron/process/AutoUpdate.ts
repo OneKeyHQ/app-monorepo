@@ -10,6 +10,9 @@ import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 import { readCleartextMessage, readKey } from 'openpgp';
 
+import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+
 import { ipcMessageKeys } from '../config';
 import { b2t, toHumanReadable } from '../libs/utils';
 
@@ -284,7 +287,10 @@ const init = ({ mainWindow, store }: IDependencies) => {
       });
       return;
     }
-    const feedUrl = 'http://127.0.0.1:8081/';
+    const feedUrl = `${buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Utility,
+      env: updateSettings.useTestFeedUrl ? 'test' : 'prod',
+    })}/utility/v1/app-update/electron-feed-url`;
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
     if (isDev) {
