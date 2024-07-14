@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
+import { ETranslations } from '../../locale';
+import { appLocale } from '../../locale/appLocale';
 import { defaultLogger } from '../../logger/logger';
 
 import type {
@@ -124,9 +126,17 @@ export const installPackage: IInstallPackage = async ({ downloadedEvent }) =>
     window.desktopApi.installUpdate({
       ...downloadedEvent,
       dialog: {
-        message:
-          'A new update has been downloaded. Would you like to install and restart the app now?',
-        buttons: ['Install and Restart', 'Later'],
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.update_new_update_downloaded,
+        }),
+        buttons: [
+          appLocale.intl.formatMessage({
+            id: ETranslations.update_install_and_restart,
+          }),
+          appLocale.intl.formatMessage({
+            id: ETranslations.global_later,
+          }),
+        ],
       },
     });
   });
