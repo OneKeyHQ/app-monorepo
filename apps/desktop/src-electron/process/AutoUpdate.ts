@@ -18,6 +18,7 @@ import { b2t, toHumanReadable } from '../libs/utils';
 
 import type { IDependencies } from '.';
 import type { IUpdateSettings } from '../libs/store';
+import type { IVerifyUpdateParams } from '../preload';
 
 interface ILatestVersion {
   version: string;
@@ -68,10 +69,9 @@ const init = ({ mainWindow, store }: IDependencies) => {
     store.setUpdateSettings(updateSettings);
   };
 
-  const getSha256 = async (filename: string) => {
+  const getSha256 = async (downloadUrl: string) => {
     try {
-      const feedUrl = updateSettings.useTestFeedUrl ? 'testCdn' : 'cdn';
-      const signatureFileURL = `${feedUrl}/${filename}-SHA256SUMS.asc`;
+      const signatureFileURL = `${downloadUrl}.SHA@256SUMS.asc`;
       const signatureFile = await fetch(signatureFileURL);
       const signatureFileContent = await signatureFile.text();
       logger.info(
@@ -79,7 +79,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
         `signatureFileContent: ${signatureFileContent}`,
       );
 
-      const sha256FileURL = `${feedUrl}/${filename}-SHA256SUMS`;
+      const sha256FileURL = `${downloadUrl}.SHA@256SUMS`;
       const sha256File = await fetch(sha256FileURL);
       const sha256FileContent = await sha256File.text();
       logger.info('auto-updater', `sha256FileContent: ${sha256FileContent}`);
@@ -138,9 +138,16 @@ const init = ({ mainWindow, store }: IDependencies) => {
     });
   };
 
-  const verifyFile = async (downloadedFile: string) => {
-    const filename = path.basename(downloadedFile);
-    const sha256 = await getSha256(filename);
+  const verifyFile = async ({
+    downloadedFile = '',
+    downloadUrl = '',
+  }: IVerifyUpdateParams) => {
+    logger.info('auto-updater', `verifyFile ${downloadedFile} ${downloadUrl}`);
+    if (!downloadedFile || !downloadUrl) {
+      sendValidError();
+      return false;
+    }
+    const sha256 = await getSha256(downloadUrl);
     if (!sha256) {
       sendValidError();
       return false;
@@ -241,17 +248,22 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   autoUpdater.on(
     'update-downloaded',
-    ({ version, releaseDate, downloadedFile }) => {
+    ({ version, releaseDate, downloadedFile, files }) => {
       logger.info('auto-updater', [
         'Update downloaded:',
         `- Last version: ${version}`,
         `- Last release date: ${releaseDate}`,
         `- Downloaded file: ${downloadedFile}`,
       ]);
+
+      const downloadUrl = files.find((file) =>
+        file.url.endsWith(downloadedFile),
+      )?.url;
       mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADED, {
         version,
         releaseDate,
         downloadedFile,
+        downloadUrl,
       });
     },
   );
@@ -332,9 +344,8 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   ipcMain.on(
     ipcMessageKeys.UPDATE_VERIFY,
-    async (_, { downloadedFile }: { downloadedFile: string }) => {
-      logger.info('auto-updater', `verify ${downloadedFile}`);
-      const verified = await verifyFile(downloadedFile);
+    async (_, verifyParams: IVerifyUpdateParams) => {
+      const verified = await verifyFile(verifyParams);
       if (verified) {
         mainWindow.webContents.send(ipcMessageKeys.UPDATE_VERIFIED);
       }
@@ -343,9 +354,8 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   ipcMain.on(
     ipcMessageKeys.UPDATE_INSTALL,
-    async (_, { downloadedFile }: { downloadedFile: string }) => {
-      logger.info('auto-updater', `install ${downloadedFile}`);
-      const verified = await verifyFile(downloadedFile);
+    async (_, verifyParams: IVerifyUpdateParams) => {
+      const verified = await verifyFile(verifyParams);
       if (!verified) {
         return;
       }

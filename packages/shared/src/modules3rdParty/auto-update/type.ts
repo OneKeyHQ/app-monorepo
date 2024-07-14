@@ -4,6 +4,7 @@ export type IUpdateDownloadedEvent = {
   downloadedFile: string;
   sha256?: string;
   latestVersion?: string;
+  downloadUrl?: string;
 };
 
 export type IDownloadPackage = (params: {

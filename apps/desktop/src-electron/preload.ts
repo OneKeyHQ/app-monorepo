@@ -12,6 +12,11 @@ import { ipcMessageKeys } from './config';
 
 import type { IUpdateSettings } from './libs/store';
 
+export interface IVerifyUpdateParams {
+  downloadedFile?: string;
+  downloadUrl?: string;
+}
+
 export type IDesktopAPI = {
   on: (channel: string, func: (...args: any[]) => any) => void;
   hello: string;
@@ -46,8 +51,8 @@ export type IDesktopAPI = {
   // Updater
   checkForUpdates: (isManual?: boolean) => void;
   downloadUpdate: () => void;
-  verifyUpdate: (event?: { downloadedFile: string }) => void;
-  installUpdate: (event?: { downloadedFile: string }) => void;
+  verifyUpdate: (event?: IVerifyUpdateParams) => void;
+  installUpdate: (event?: IVerifyUpdateParams) => void;
   setAutoUpdateSettings: (settings: IUpdateSettings) => void;
   touchUpdateResource: (params: {
     resourceUrl: string;
@@ -211,9 +216,9 @@ const desktopApi = {
   checkForUpdates: (isManual?: boolean) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_CHECK, isManual),
   downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
-  verifyUpdate: (params: { downloadedFile: string }) =>
+  verifyUpdate: (params: IVerifyUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY, params),
-  installUpdate: (params: { downloadedFile: string }) =>
+  installUpdate: (params: IVerifyUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL, params),
   setAutoUpdateSettings: (settings: IUpdateSettings) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_SETTINGS, settings),
