@@ -17,10 +17,6 @@ export interface IIconButtonProps
   iconSize?: IIconProps['size'];
   iconProps?: IIconProps;
   title?: ITooltipProps['renderContent'];
-  tooltipProps?: Omit<
-    ITooltipProps,
-    'renderTrigger' | 'renderContent' | 'placement'
-  >;
 }
 
 const getSizeStyles = (size: IButtonProps['size']) => {
@@ -52,7 +48,6 @@ export const IconButton = (props: IIconButtonProps) => {
     iconProps,
     size,
     variant = 'secondary',
-    tooltipProps,
     ...rest
   } = props;
 
@@ -111,7 +106,6 @@ export const IconButton = (props: IIconButtonProps) => {
         renderContent={title}
         placement="top"
         {...(variant === 'tertiary' && { offset: 12 })}
-        {...tooltipProps}
       />
     );
   }
