@@ -120,6 +120,7 @@ export const installPackage: IInstallPackage = async ({ downloadedEvent }) =>
   new Promise((_, reject) => {
     defaultLogger.update.app.log('install');
     updateErrorTasks.push(reject);
+    // verifyUpdate will be called by default in the electron module when calling to installUpdate
     window.desktopApi.installUpdate({
       ...downloadedEvent,
       dialog: {
