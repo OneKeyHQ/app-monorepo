@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import fs from 'fs';
-
+import path from 'path';
 import checkDiskSpace from 'check-disk-space';
 import { BrowserWindow, app, dialog, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
@@ -8,9 +8,6 @@ import logger from 'electron-log';
 import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 import { createMessage, readKey, readSignature, verify } from 'openpgp';
-
-import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { ipcMessageKeys } from '../config';
 import { b2t, toHumanReadable } from '../libs/utils';
@@ -83,11 +80,11 @@ const init = ({ mainWindow, store }: IDependencies) => {
       const sha256FileContent = await sha256File.text();
       logger.info('auto-updater', `sha256FileContent: ${sha256FileContent}`);
 
-      const message = await createMessage({ text: signatureFileContent });
+      const message = await createMessage({ text: sha256FileContent });
       // Load pubkey and signature
       const publicKey = await readKey({ armoredKey: signingKey });
       const signature = await readSignature({
-        armoredSignature: sha256FileContent,
+        armoredSignature: signatureFileContent,
       });
 
       // Check file against signature
@@ -256,11 +253,15 @@ const init = ({ mainWindow, store }: IDependencies) => {
       ]);
 
       const downloadUrl = files.find((file) =>
-        file.url.endsWith(downloadedFile),
+        file.url.endsWith(path.basename(downloadedFile)),
       )?.url;
+
+      logger.info('auto-updater', [
+        'Update downloaded:',
+        `- Downloaded url: ${downloadUrl || ''}`,
+      ]);
       mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADED, {
         version,
-        releaseDate,
         downloadedFile,
         downloadUrl,
       });
@@ -287,10 +288,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
       });
       return;
     }
-    const feedUrl = `${buildServiceEndpoint({
-      serviceName: EServiceEndpointEnum.Utility,
-      env: updateSettings.useTestFeedUrl ? 'test' : 'prod',
-    })}/utility/v1/app-update/electron-feed-url`;
+    const feedUrl = 'http://127.0.0.1:8081/';
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
     if (isDev) {
@@ -346,6 +344,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     async (_, verifyParams: IVerifyUpdateParams) => {
       const verified = await verifyFile(verifyParams);
       if (verified) {
+        logger.info('auto-updater', 'update verified successfully');
         mainWindow.webContents.send(ipcMessageKeys.UPDATE_VERIFIED);
       }
     },
