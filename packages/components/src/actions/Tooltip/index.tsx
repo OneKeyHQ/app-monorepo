@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Tooltip as TMTooltip } from 'tamagui';
 
