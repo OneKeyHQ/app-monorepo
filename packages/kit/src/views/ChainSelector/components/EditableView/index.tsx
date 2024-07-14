@@ -155,7 +155,6 @@ export const EditableView: FC<IEditableViewProps> = ({
   onTopNetworksChange,
 }) => {
   const [searchText, setSearchText] = useState('');
-  const [showLoading, setIsShowLoading] = useState(true);
   const [topNetworks, setTopNetworks] = useState(defaultTopNetworks ?? []);
   const intl = useIntl();
   const lastIsEditMode = usePrevious(isEditMode);
@@ -216,9 +215,6 @@ export const EditableView: FC<IEditableViewProps> = ({
             animated: false,
           });
           hasScrollToSelectedCell.current = true;
-          setTimeout(() => {
-            setIsShowLoading(false);
-          }, 50);
         });
         break;
       }
@@ -315,20 +311,6 @@ export const EditableView: FC<IEditableViewProps> = ({
             <ListEmptyComponent />
           )}
         </Stack>
-        {showLoading ? (
-          <Stack
-            bg="$bgApp"
-            position="absolute"
-            left={0}
-            right={0}
-            top={0}
-            bottom={0}
-            ai="center"
-            jc="center"
-          >
-            <Spinner size="large" />
-          </Stack>
-        ) : null}
       </Stack>
     </EditableViewContext.Provider>
   );
