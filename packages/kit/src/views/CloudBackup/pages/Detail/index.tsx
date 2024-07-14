@@ -29,6 +29,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IPublicBackupData } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 import { ERestoreResult } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ECloudBackupRoutes,
   ICloudBackupParamList,
@@ -271,10 +272,11 @@ export default function Detail() {
           }),
         );
       }
-      if (
-        result === ERestoreResult.UNKNOWN_ERROR ||
-        result === ERestoreResult.WRONG_PASSWORD
-      ) {
+      if (result === ERestoreResult.WRONG_PASSWORD) {
+        Toast.error({
+          title: ETranslations.auth_error_password_incorrect,
+        });
+      } else if (result === ERestoreResult.UNKNOWN_ERROR) {
         Toast.error({
           title: result,
         });
@@ -376,7 +378,9 @@ export default function Detail() {
                         id: ETranslations.backup_encrypted_backup_contents,
                       }),
                       items: item.infoList.map((infoString) => ({
-                        label: `  •\t\t${infoString}`,
+                        label: `  •${
+                          platformEnv.isNativeAndroid ? '\t\t' : '\t'
+                        }${infoString}`,
                       })),
                       renderItems: item?.footerDescription
                         ? // eslint-disable-next-line react/no-unstable-nested-components
