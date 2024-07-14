@@ -1,5 +1,5 @@
 import type { ForwardedRef, MutableRefObject } from 'react';
-import { forwardRef, useCallback, useMemo } from 'react';
+import { forwardRef, useMemo } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { FlatList } from 'react-native';
