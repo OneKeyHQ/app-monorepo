@@ -5,12 +5,12 @@ import {
   supportedAuthenticationTypesAsync,
 } from 'expo-local-authentication';
 
+import { ETranslations } from '../locale';
+import { appLocale } from '../locale/appLocale';
 import { memoizee } from '../utils/cacheUtils';
 
 import type { IBiologyAuth } from './types';
 import type { AuthenticationType } from 'expo-local-authentication';
-import { appLocale } from '../locale/appLocale';
-import { ETranslations } from '../locale';
 
 const isSupportBiologyAuthFn = async () => {
   const supported = await hasHardwareAsync();
@@ -33,7 +33,9 @@ export const biologyAuthenticate = async () => {
   }
 
   return authenticateAsync({
-    promptMessage: appLocale.intl.formatMessage({ id: ETranslations.global_biometric }),
+    promptMessage: appLocale.intl.formatMessage({
+      id: ETranslations.global_biometric,
+    }),
   });
 };
 
