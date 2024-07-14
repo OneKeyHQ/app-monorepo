@@ -125,6 +125,11 @@ const init = ({ mainWindow, store }: IDependencies) => {
       sendValidError();
       return false;
     }
+    if (!fs.existsSync(downloadedFile)) {
+      logger.info('auto-updater', 'no such file');
+      sendValidError();
+      return false;
+    }
     const sha256 = await getSha256(downloadUrl);
     if (!sha256) {
       sendValidError();
