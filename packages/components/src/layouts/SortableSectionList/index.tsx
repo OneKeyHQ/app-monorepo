@@ -224,7 +224,7 @@ function BaseSortableSectionList(
 
   return (
     <NestableScrollContainer
-      ref={ref as any}
+      ref={ref}
       style={style as StyleProp<ViewStyle>}
       contentContainerStyle={rawContentContainerStyle}
       stickyHeaderIndices={reloadStickyHeaderIndices}
