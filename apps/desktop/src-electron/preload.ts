@@ -123,6 +123,7 @@ const validChannels = [
   ipcMessageKeys.UPDATE_CHECKING,
   ipcMessageKeys.UPDATE_AVAILABLE,
   ipcMessageKeys.UPDATE_NOT_AVAILABLE,
+  ipcMessageKeys.UPDATE_VERIFIED,
   ipcMessageKeys.UPDATE_ERROR,
   ipcMessageKeys.UPDATE_DOWNLOADING,
   ipcMessageKeys.UPDATE_DOWNLOADED,
