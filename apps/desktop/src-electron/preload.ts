@@ -58,8 +58,8 @@ export type IDesktopAPI = {
   // Updater
   checkForUpdates: (isManual?: boolean) => void;
   downloadUpdate: () => void;
-  verifyUpdate: (event?: IVerifyUpdateParams) => void;
-  installUpdate: (event?: IInstallUpdateParams) => void;
+  verifyUpdate: (event: IVerifyUpdateParams) => void;
+  installUpdate: (event: IInstallUpdateParams) => void;
   setAutoUpdateSettings: (settings: IUpdateSettings) => void;
   touchUpdateResource: (params: {
     resourceUrl: string;

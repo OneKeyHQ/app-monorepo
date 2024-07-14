@@ -65,6 +65,9 @@ const init = ({ mainWindow, store }: IDependencies) => {
   };
 
   const getSha256 = async (downloadUrl: string) => {
+    if (!signingKey) {
+      return undefined;
+    }
     try {
       const ascFileUrl = `${downloadUrl}.SHA256SUMS.asc`;
       const ascFile = await fetch(ascFileUrl);
