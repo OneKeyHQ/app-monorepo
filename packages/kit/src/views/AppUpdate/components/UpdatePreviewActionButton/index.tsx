@@ -77,7 +77,9 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
         );
       }
       case EAppUpdateStatus.verifying: {
-        return 'Verifying...';
+        return intl.formatMessage({
+          id: ETranslations.update_verifying,
+        });
       }
       default: {
         return intl.formatMessage({

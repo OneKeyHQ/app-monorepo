@@ -54,9 +54,11 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           iconName: 'RefreshCcwSolid',
           iconColor: '$iconInfo',
           renderText() {
-            return platformEnv.isNativeAndroid
-              ? 'Verifying SHA256 and package name…'
-              : 'Verify File Signature...';
+            return intl.formatMessage({
+              id: platformEnv.isNativeAndroid
+                ? ETranslations.update_verifying_sha256_and_package_name
+                : ETranslations.update_verify_file_signature,
+            });
           },
         },
         [EAppUpdateStatus.ready]: {
