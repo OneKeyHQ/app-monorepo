@@ -9,6 +9,7 @@ import {
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectTokenDetailFetchingAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedToTokenBalanceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -37,6 +38,7 @@ const SwapQuoteInput = ({
   const swapQuoteLoading = useSwapQuoteLoading();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [swapTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
   const { alternationToken } = useSwapActions().current;
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
@@ -84,6 +86,7 @@ const SwapQuoteInput = ({
           alignSelf="flex-end"
           icon="SwitchVerOutline"
           size="small"
+          disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
           onPress={alternationToken}
           mb="$-3"
         />

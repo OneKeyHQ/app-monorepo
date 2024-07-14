@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
-import { EPageType, usePageType } from '@onekeyhq/components';
+import { EPageType, Toast, usePageType } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ESwapApproveTransactionStatus,
@@ -26,6 +28,7 @@ import { truncateDecimalPlaces } from '../utils/utils';
 import { useSwapAddressInfo } from './useSwapAccount';
 
 export function useSwapQuote() {
+  const intl = useIntl();
   const { quoteAction, cleanQuoteInterval, recoverQuoteInterval } =
     useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -35,7 +38,12 @@ export function useSwapQuote() {
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
+  const [{ swapApprovingTransaction }, setInAppNotificationAtom] =
+    useInAppNotificationAtom();
+  const fromAmountRef = useRef(fromTokenAmount);
+  if (fromAmountRef.current !== fromTokenAmount) {
+    fromAmountRef.current = fromTokenAmount;
+  }
   const activeAccountRef = useRef<
     ReturnType<typeof useSwapAddressInfo> | undefined
   >();
@@ -88,15 +96,27 @@ export function useSwapQuote() {
       swapApprovingTransaction.txId &&
       swapApprovingTransaction.status ===
         ESwapApproveTransactionStatus.SUCCESS &&
-      !swapApprovingTransaction.resetApproveValue
+      !swapApprovingTransaction.resetApproveValue &&
+      fromAmountRef?.current
     ) {
       void quoteAction(
         activeAccountRef.current?.address,
         activeAccountRef.current?.accountInfo?.account?.id,
         swapApprovingTransaction.blockNumber,
       );
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_toast_approve_successful,
+        }),
+      });
     }
-  }, [cleanQuoteInterval, quoteAction, swapApprovingTransaction]);
+  }, [
+    intl,
+    cleanQuoteInterval,
+    quoteAction,
+    swapApprovingTransaction,
+    setInAppNotificationAtom,
+  ]);
 
   useEffect(() => {
     if (fromToken?.networkId !== activeAccountRef.current?.networkId) {
