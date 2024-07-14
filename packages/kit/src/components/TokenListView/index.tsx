@@ -61,40 +61,48 @@ function TokenListView(props: IProps) {
 
   useEffect(() => {
     if (!platformEnv.isNative) {
+      let lastScrollTop = 0;
+      let isBindListViewEvent = false;
+      let listView: HTMLDivElement | undefined;
+      const scrollView = scrollViewRef?.current as unknown as HTMLElement;
+      const onListViewScroll = () => {
+        // If lastScrollTop >= scrollTop, it means the listview is scrolling up.
+        if (!listView) {
+          return;
+        }
+        const { scrollTop } = listView;
+        if (lastScrollTop >= scrollTop && scrollTop === 0) {
+          listView.style.overflowY = 'hidden';
+        }
+        lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
+      };
       const onScroll = () => {
-        const { scrollTop, scrollHeight, clientHeight } = scrollViewRef.current;
+        if (!isBindListViewEvent) {
+          isBindListViewEvent = true;
+          listView = (
+            listViewRef.current as unknown as {
+              _listRef?: { _scrollRef: HTMLDivElement };
+            }
+          )?._listRef?._scrollRef;
+          if (listView) {
+            listView?.addEventListener('scroll', onListViewScroll);
+          }
+        }
+        const { scrollTop, scrollHeight, clientHeight } = scrollView;
         const isNearBottom = scrollTop + clientHeight >= scrollHeight;
-        if (isNearBottom) {
-          listViewRef.current._listRef.getScrollRef().style.overflowY =
-            'scroll';
+        if (listView) {
+          if (isNearBottom) {
+            listView.style.overflowY = 'scroll';
+          } else {
+            listView.style.overflowY = 'hidden';
+          }
         }
       };
 
-      let lastScrollTop = 0;
-      const onListViewScroll = () => {
-        const { scrollTop } = listViewRef.current?._listRef._scrollRef;
-        if (lastScrollTop > scrollTop && scrollTop === 0) {
-          listViewRef.current._listRef.getScrollRef().style.overflowY =
-            'hidden';
-        }
-        console.log(lastScrollTop, scrollTop);
-        lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
-      };
-      const scrollView = scrollViewRef?.current as unknown as HTMLElement;
-      if (scrollView) {
-        scrollView?.addEventListener('scroll', onScroll);
-      }
-      console.log(listViewRef);
-      setTimeout(() => {
-        console.log(listViewRef.current?._listRef._scrollRef);
-        const listView = listViewRef.current?._listRef
-          ._scrollRef as unknown as HTMLElement;
-        if (listView) {
-          listView?.addEventListener('scroll', onListViewScroll);
-        }
-      }, 3500);
+      scrollView?.addEventListener('scroll', onScroll);
       return () => {
         scrollView?.removeEventListener('scroll', onScroll);
+        listView?.removeEventListener('scroll', onListViewScroll);
       };
     }
   }, [scrollViewRef]);
