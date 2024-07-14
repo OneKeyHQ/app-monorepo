@@ -171,7 +171,9 @@ function UpdateAction({
               ? ETranslations.global_install
               : ETranslations.update_restart_to_update,
           }),
-          icon: 'RestartToUpdateCustom',
+          icon: platformEnv.isNativeAndroid
+            ? undefined
+            : 'RestartToUpdateCustom',
           variant: 'primary',
         },
         [EAppUpdateStatus.failed]: {
