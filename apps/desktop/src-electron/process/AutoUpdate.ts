@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import fs from 'fs';
-import path from 'path';
 
 import checkDiskSpace from 'check-disk-space';
 import { BrowserWindow, app, dialog, ipcMain } from 'electron';
