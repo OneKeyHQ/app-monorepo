@@ -26,10 +26,6 @@ interface ILatestVersion {
 }
 
 const signingKey = process.env.APP_GPG_PUBKEY;
-if (signingKey === undefined) {
-  throw new Error('APP_PUBKEY is undefined.');
-}
-
 function isNetworkError(errorObject: Error) {
   return (
     errorObject.message === 'net::ERR_NETWORK_CHANGED' ||
@@ -122,6 +118,12 @@ const init = ({ mainWindow, store }: IDependencies) => {
     downloadedFile = '',
     downloadUrl = '',
   }: IVerifyUpdateParams) => {
+    if (!signingKey) {
+      logger.info('auto-updater', 'PP_PUBKEY is undefined');
+      sendValidError();
+      return false;
+    }
+
     logger.info('auto-updater', `verifyFile ${downloadedFile} ${downloadUrl}`);
     if (!downloadedFile || !downloadUrl) {
       sendValidError();
