@@ -84,7 +84,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
       if (valid) {
         const texts = signedMessage.getText().split(' ');
         const sha256 = texts[0];
-        logger.info('auto-updater', `sha256FileContent sha256: ${sha256}`);
+        logger.info('auto-updater', `getSha256 from asc file: ${sha256}`);
         return sha256;
       }
     } catch (error) {
