@@ -168,7 +168,7 @@ function UpdateAction({
         [EAppUpdateStatus.ready]: {
           label: intl.formatMessage({
             id: platformEnv.isNativeAndroid
-              ? ETranslations.update_install_now
+              ? ETranslations.global_install
               : ETranslations.update_restart_to_update,
           }),
           icon: 'RestartToUpdateCustom',
