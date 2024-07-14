@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react';
 
-import type { IListViewRef } from '@onekeyhq/components';
+import type {
+  IListViewProps,
+  IListViewRef,
+  IStackProps,
+} from '@onekeyhq/components';
 import { ListView, Stack, useTabScrollViewRef } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -110,12 +114,12 @@ function TokenListView(props: IProps) {
   const listViewProps = useMemo(
     () =>
       platformEnv.isNative
-        ? { onContentSizeChange }
-        : {
+        ? ({ onContentSizeChange } as IListViewProps<IAccountToken>)
+        : ({
             style: {
               overflowY: 'hidden',
-            },
-          },
+            } as IStackProps['style'],
+          } as IListViewProps<IAccountToken>),
     [onContentSizeChange],
   );
 
