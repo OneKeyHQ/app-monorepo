@@ -16,7 +16,6 @@ import {
   IconButton,
   Image,
   LinearGradient,
-  NavCloseButton,
   Page,
   SizableText,
   Spinner,
@@ -25,6 +24,7 @@ import {
   View,
   XStack,
 } from '@onekeyhq/components';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -204,11 +204,17 @@ export function GetStarted({
             alignItems="center"
             justifyContent="center"
           >
-            <Image
-              w={360}
-              h={360}
-              source={require('@onekeyhq/kit/assets/logo-press.png')}
-            />
+            <MultipleClickStack
+              onPress={() => {
+                void navigation.popStack();
+              }}
+            >
+              <Image
+                w={360}
+                h={360}
+                source={require('@onekeyhq/kit/assets/logo-press.png')}
+              />
+            </MultipleClickStack>
           </ThemeableStack>
 
           <Stack px="$5" pt="$10" mt="auto">

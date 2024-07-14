@@ -51,3 +51,7 @@ export const { atom: phishingLruCacheAtom, use: usePhishingLruCacheAtom } =
       max: 100,
     }),
   );
+
+// sync data lock atom
+export const { atom: browserDataReadyAtom, use: useBrowserDataReadyAtom } =
+  contextAtom<boolean>(false);

@@ -40,7 +40,7 @@ export type IListViewProps<T> = Omit<
       Average height of your cell
       See https://shopify.github.io/flash-list/docs/estimated-item-size/#how-to-calculate
     */
-    estimatedItemSize: number | `$${keyof Tokens['size']}`;
+    estimatedItemSize?: number | `$${keyof Tokens['size']}`;
     getItemType?: (item: T) => string | undefined;
     onBlankArea?: (blankAreaEvent: {
       offsetStart: number;
@@ -92,21 +92,26 @@ function BaseListView<T>(
       resolveValues: 'auto',
     },
   );
-  const itemSize = useMemo(
-    () =>
-      typeof estimatedItemSize === 'number'
-        ? estimatedItemSize
-        : (getTokenValue(estimatedItemSize) as number),
-    [estimatedItemSize],
-  );
-  const getItemLayout = useCallback(
-    (_: ArrayLike<T> | null | undefined, index: number) => ({
+  const itemSize = useMemo<number | undefined>(() => {
+    if (typeof estimatedItemSize === 'undefined') {
+      return undefined;
+    }
+    return typeof estimatedItemSize === 'number'
+      ? estimatedItemSize
+      : (getTokenValue(estimatedItemSize) as number);
+  }, [estimatedItemSize]);
+
+  const getItemLayout = useMemo(() => {
+    if (!itemSize) {
+      return;
+    }
+    return (_: ArrayLike<T> | null | undefined, index: number) => ({
       length: itemSize,
       offset: itemSize * index,
       index,
-    }),
-    [itemSize],
-  );
+    });
+  }, [itemSize]);
+
   return (
     <FlatList<T>
       ref={ref}

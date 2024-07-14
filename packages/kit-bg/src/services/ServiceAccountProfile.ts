@@ -37,6 +37,34 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async fetchAccountInfo(
+    params: IFetchAccountDetailsParams & {
+      accountAddress: string;
+      xpub?: string;
+    },
+  ): Promise<IFetchAccountDetailsResp> {
+    const queryParams = {
+      ...omit(params, ['accountId']),
+    };
+
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.get<{
+      data: IFetchAccountDetailsResp;
+    }>(
+      `/wallet/v1/account/get-account?${qs.stringify(
+        omitBy(queryParams, isNil),
+      )}`,
+      {
+        headers: await this._getWalletTypeHeader({
+          accountId: params.accountId,
+        }),
+      },
+    );
+
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
   public async fetchAccountDetails(
     params: IFetchAccountDetailsParams,
   ): Promise<IFetchAccountDetailsResp> {
@@ -52,26 +80,14 @@ class ServiceAccountProfile extends ServiceBase {
       }),
     ]);
 
-    const queryParams = {
-      ...omit(params, ['accountId']),
+    const accountDetails = await this.fetchAccountInfo({
+      ...params,
       accountAddress,
       xpub,
-    };
-
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.get<{
-      data: IFetchAccountDetailsResp;
-    }>(
-      `/wallet/v1/account/get-account?${qs.stringify(
-        omitBy(queryParams, isNil),
-      )}`,
-      {
-        headers: await this._getWalletTypeHeader({ accountId }),
-      },
-    );
+    });
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    return vault.fillAccountDetails({ accountDetails: resp.data.data });
+    return vault.fillAccountDetails({ accountDetails });
   }
 
   private async getAddressInteractionStatus({

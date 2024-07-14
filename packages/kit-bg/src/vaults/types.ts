@@ -205,6 +205,12 @@ export type IVaultSettings = {
   showAddressType?: boolean;
 
   hideTxUtxoListWhenPending?: boolean;
+
+  maxSendFeeUpRatio?: {
+    [networkId: string]: number;
+  };
+
+  preCheckDappTxFeeInfoRequired?: boolean;
 };
 
 export type IVaultFactoryOptions = {

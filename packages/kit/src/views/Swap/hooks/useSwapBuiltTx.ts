@@ -326,6 +326,7 @@ export function useSwapBuildTx() {
             receivingAddress: swapToAddressInfo.address,
             swapBuildResData: res,
           };
+
           await navigationToSendConfirm({
             transfersInfo: transferInfo ? [transferInfo] : undefined,
             encodedTx,

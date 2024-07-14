@@ -733,3 +733,15 @@ export class LowerTransactionAmountError extends OneKeyError {
     );
   }
 }
+
+export class Expect24WordsMnemonicError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'Expect24WordsMnemonicError',
+        defaultKey:
+          ETranslations.feedback_polkadot_supported_recover_phrases_type,
+      }),
+    );
+  }
+}

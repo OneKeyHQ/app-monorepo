@@ -23,6 +23,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
+import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { POLLING_INTERVAL_FOR_HISTORY } from '@onekeyhq/shared/src/consts/walletConsts';
 import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -34,7 +35,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
-import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   EHistoryTxDetailsBlock,
   EOnChainHistoryTxStatus,
@@ -898,10 +898,12 @@ function HistoryDetails() {
               })}
               renderContent={txInfo.txid}
               showCopy
-              showOpenWithUrl={buildTransactionDetailsUrl({
-                network,
-                txid: txInfo.txid,
-              })}
+              openWithUrl={() => {
+                void openTransactionDetailsUrl({
+                  networkId: network?.id,
+                  txid: txInfo.txid,
+                });
+              }}
             />
             <InfoItem
               label={intl.formatMessage({

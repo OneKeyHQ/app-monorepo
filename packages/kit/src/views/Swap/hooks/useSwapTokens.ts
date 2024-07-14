@@ -11,7 +11,10 @@ import type {
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
@@ -85,15 +88,17 @@ export function useSwapInit(params?: ISwapInitParams) {
           ),
         );
     }
-    await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
-      data: networks,
-    });
-    if (
-      !swapNetworksSortList?.data?.length ||
-      swapNetworksSortList?.data?.length !== networks.length
-    ) {
-      setSwapNetworks(networks);
-      setNetworkListFetching(false);
+    if (networks.length) {
+      await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
+        data: networks,
+      });
+      if (
+        !swapNetworksSortList?.data?.length ||
+        swapNetworksSortList?.data?.length !== networks.length
+      ) {
+        setSwapNetworks(networks);
+        setNetworkListFetching(false);
+      }
     }
   }, [setSwapNetworks, swapNetworks.length]);
 
@@ -225,22 +230,12 @@ export function useSwapTokenList(
     () => ({
       networkId: currentNetworkId,
       keywords,
-      accountAddress:
-        selectTokenModalType === ESwapDirectionType.FROM
-          ? swapAddressInfo?.address
-          : undefined,
-      accountNetworkId:
-        selectTokenModalType === ESwapDirectionType.FROM
-          ? swapAddressInfo?.networkId
-          : undefined,
-      accountId:
-        selectTokenModalType === ESwapDirectionType.FROM
-          ? swapAddressInfo?.accountInfo?.account?.id
-          : undefined,
+      accountAddress: swapAddressInfo?.address,
+      accountNetworkId: swapAddressInfo?.networkId,
+      accountId: swapAddressInfo?.accountInfo?.account?.id,
     }),
     [
       currentNetworkId,
-      selectTokenModalType,
       keywords,
       swapAddressInfo?.address,
       swapAddressInfo?.networkId,
@@ -267,7 +262,6 @@ export function useSwapTokenList(
 
   useEffect(() => {
     if (
-      swapAddressInfo.accountInfo?.account &&
       tokenFetchParams.accountNetworkId &&
       tokenFetchParams.networkId !== tokenFetchParams.accountNetworkId
     ) {
@@ -275,15 +269,10 @@ export function useSwapTokenList(
       return;
     }
     void tokenListFetchAction(tokenFetchParams);
-  }, [
-    swapAddressInfo.accountInfo?.account,
-    tokenFetchParams,
-    tokenListFetchAction,
-  ]);
+  }, [tokenFetchParams, tokenListFetchAction]);
 
   useEffect(() => {
     if (
-      swapAddressInfo.accountInfo?.account &&
       tokenFetchParams.accountNetworkId &&
       tokenFetchParams.networkId !== tokenFetchParams.accountNetworkId
     ) {
@@ -296,13 +285,7 @@ export function useSwapTokenList(
         tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
       );
     }
-  }, [
-    tokenCatch,
-    swapAddressInfo.accountInfo?.account,
-    tokenFetchParams,
-    currentNetworkId,
-    keywords,
-  ]);
+  }, [tokenCatch, tokenFetchParams, currentNetworkId, keywords]);
 
   return {
     fetchLoading: swapTokenFetching && currentTokens.length === 0,
@@ -327,9 +310,19 @@ export function useSwapSelectedTokenInfo({
   }
 
   useEffect(() => {
+    if (
+      swapHistoryPendingList.length &&
+      swapHistoryPendingList.some(
+        (item) => item.status === ESwapTxHistoryStatus.SUCCESS,
+      )
+    ) {
+      void loadSwapSelectTokenDetail(type, swapAddressInfoRef.current, true);
+    }
+  }, [loadSwapSelectTokenDetail, swapHistoryPendingList, type]);
+
+  useEffect(() => {
     void loadSwapSelectTokenDetail(type, swapAddressInfoRef.current);
   }, [
-    swapHistoryPendingList,
     type,
     swapAddressInfo,
     token?.networkId,

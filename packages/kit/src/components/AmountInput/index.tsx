@@ -339,6 +339,7 @@ export function AmountInput({
           alignItems="center"
           px="$3.5"
           pb="$2"
+          flex={1}
           disabled={balanceProps?.loading}
           onPress={valueProps?.onPress}
           {...(reversible && {

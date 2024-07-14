@@ -1,16 +1,17 @@
 import { useCallback, useContext, useEffect, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EPageType, usePageType } from '../../hocs';
-import { useKeyboardEvent, useSafeAreaInsets } from '../../hooks';
+import {
+  updateHeightWhenKeyboardHide,
+  updateHeightWhenKeyboardShown,
+  useKeyboardEvent,
+  useSafeAreaInsets,
+} from '../../hooks';
 
 import { PageContext } from './PageContext';
 
@@ -134,12 +135,12 @@ export const useSafeKeyboardAnimationStyle = () => {
   useKeyboardEvent({
     keyboardWillShow: (e) => {
       const keyboardHeight = e.endCoordinates.height;
-      keyboardHeightValue.value = withTiming(
+      keyboardHeightValue.value = updateHeightWhenKeyboardShown(
         keyboardHeight - safeBottomHeight - tabBarHeight,
       );
     },
     keyboardWillHide: () => {
-      keyboardHeightValue.value = withTiming(0);
+      keyboardHeightValue.value = updateHeightWhenKeyboardHide();
     },
   });
   return platformEnv.isNative ? animatedStyles : undefined;
