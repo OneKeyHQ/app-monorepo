@@ -104,9 +104,6 @@ const EditableViewListItem = ({
           iconProps={{
             color: topNetworkIds.has(item.id) ? '$iconActive' : '$iconSubdued',
           }}
-          tooltipProps={{
-            scrollViewRef,
-          }}
         />
       ) : null}
       {networkId === item.id && !isEditMode ? (
