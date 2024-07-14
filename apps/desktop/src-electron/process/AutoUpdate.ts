@@ -71,7 +71,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   const getSha256 = async (downloadUrl: string) => {
     try {
-      const signatureFileURL = `${downloadUrl}.SHA@256SUMS.asc`;
+      const signatureFileURL = `${downloadUrl}.SHA256SUMS.asc`;
       const signatureFile = await fetch(signatureFileURL);
       const signatureFileContent = await signatureFile.text();
       logger.info(
@@ -79,7 +79,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
         `signatureFileContent: ${signatureFileContent}`,
       );
 
-      const sha256FileURL = `${downloadUrl}.SHA@256SUMS`;
+      const sha256FileURL = `${downloadUrl}.SHA256SUMS`;
       const sha256File = await fetch(sha256FileURL);
       const sha256FileContent = await sha256File.text();
       logger.info('auto-updater', `sha256FileContent: ${sha256FileContent}`);
