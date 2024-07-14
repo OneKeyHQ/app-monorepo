@@ -15,7 +15,7 @@ import { b2t, toHumanReadable } from '../libs/utils';
 
 import type { IDependencies } from '.';
 import type { IUpdateSettings } from '../libs/store';
-import type { IVerifyUpdateParams } from '../preload';
+import type { IInstallUpdateParams, IVerifyUpdateParams } from '../preload';
 
 interface ILatestVersion {
   version: string;
@@ -334,7 +334,10 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   ipcMain.on(
     ipcMessageKeys.UPDATE_INSTALL,
-    async (_, verifyParams: IVerifyUpdateParams) => {
+    async (
+      _,
+      { dialog: { message, buttons }, ...verifyParams }: IInstallUpdateParams,
+    ) => {
       const verified = await verifyFile(verifyParams);
       if (!verified) {
         return;
@@ -343,14 +346,13 @@ const init = ({ mainWindow, store }: IDependencies) => {
       void dialog
         .showMessageBox({
           type: 'question',
-          buttons: ['Install and Restart', 'Later'],
+          buttons,
           defaultId: 0,
-          message:
-            'A new update has been downloaded. Would you like to install and restart the app now?',
+          message,
         })
         .then((selection) => {
           if (selection.response === 0) {
-            logger.info('auto-update', "User clicked 'Install and Restart'");
+            logger.info('auto-update', 'button[0] was clicked');
             app.removeAllListeners('window-all-closed');
             mainWindow.removeAllListeners('close');
             for (const window of BrowserWindow.getAllWindows()) {
@@ -359,6 +361,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
             }
             autoUpdater.quitAndInstall(false);
           }
+          logger.info('auto-update', 'button[1] was clicked');
         });
     },
   );
