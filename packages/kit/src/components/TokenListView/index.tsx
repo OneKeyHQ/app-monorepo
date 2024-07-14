@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import type { IListViewRef } from '@onekeyhq/components';
 import { ListView, Stack, useTabScrollViewRef } from '@onekeyhq/components';
@@ -107,12 +107,25 @@ function TokenListView(props: IProps) {
     }
   }, [scrollViewRef]);
 
+  const listViewProps = useMemo(
+    () =>
+      platformEnv.isNative
+        ? { onContentSizeChange }
+        : {
+            style: {
+              overflowY: 'hidden',
+            },
+          },
+    [onContentSizeChange],
+  );
+
   if (!tokenListState.initialized && tokenListState.isRefreshing) {
     return <ListLoading onContentSizeChange={onContentSizeChange} />;
   }
 
   return (
     <ListView
+      {...listViewProps}
       py={withPresetVerticalPadding ? '$3' : '$0'}
       estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef}
