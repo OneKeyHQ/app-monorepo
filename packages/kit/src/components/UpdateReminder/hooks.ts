@@ -131,6 +131,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     switch (appUpdateInfo.status) {
       case EAppUpdateStatus.notify:
       case EAppUpdateStatus.downloading:
+      case EAppUpdateStatus.verifying:
         toUpdatePreviewPage(isFullModal);
         break;
       case EAppUpdateStatus.ready:
