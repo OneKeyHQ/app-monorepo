@@ -1,4 +1,4 @@
-import type { FC, RefObject } from 'react';
+import type { FC } from 'react';
 import {
   createContext,
   useCallback,
@@ -29,7 +29,6 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { networkFuseSearch } from '../../utils';
 
 import type { IServerNetworkMatch } from '../../types';
-import type { ScrollView } from 'react-native';
 
 type IEditableViewContext = {
   isEditMode?: boolean;
