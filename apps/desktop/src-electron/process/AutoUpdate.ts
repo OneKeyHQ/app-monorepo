@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -67,47 +68,91 @@ const init = ({ mainWindow, store }: IDependencies) => {
     store.setUpdateSettings(updateSettings);
   };
 
-  const getSignatureFile = async (filename: string) => {
-    const feedUrl = updateSettings.useTestFeedUrl ? 'testCdn' : 'cdn';
-    const signatureFileURL = `${feedUrl}/${filename}}.asc`;
-    const signatureFile = await fetch(signatureFileURL);
-    return signatureFile.text();
+  const getSha256 = async (filename: string) => {
+    try {
+      const feedUrl = updateSettings.useTestFeedUrl ? 'testCdn' : 'cdn';
+      const signatureFileURL = `${feedUrl}/${filename}-SHA256SUMS.asc`;
+      const signatureFile = await fetch(signatureFileURL);
+      const signatureFileContent = await signatureFile.text();
+      logger.info(
+        'auto-updater',
+        `signatureFileContent: ${signatureFileContent}`,
+      );
+
+      const sha256FileURL = `${feedUrl}/${filename}-SHA256SUMS`;
+      const sha256File = await fetch(sha256FileURL);
+      const sha256FileContent = await sha256File.text();
+      logger.info('auto-updater', `sha256FileContent: ${sha256FileContent}`);
+
+      const message = await createMessage({ text: signatureFileContent });
+      // Load pubkey and signature
+      const publicKey = await readKey({ armoredKey: signingKey });
+      const signature = await readSignature({
+        armoredSignature: sha256FileContent,
+      });
+
+      // Check file against signature
+      const verified = await verify({
+        message,
+        signature,
+        verificationKeys: publicKey,
+        format: 'binary',
+      });
+
+      // Get result (validity of the signature)
+      const valid = await verified.signatures[0].verified;
+
+      logger.info('auto-updater', `file valid: ${String(valid)}`);
+      if (valid) {
+        const texts = sha256FileContent.split(' ');
+        const sha256 = texts[0];
+        logger.info('auto-updater', `sha256FileContent sha256: ${sha256}`);
+        return sha256;
+      }
+    } catch (error) {
+      logger.error(
+        'auto-updater',
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        `getSha256 Error: ${(error as any).toString()}`,
+      );
+      return undefined;
+    }
+  };
+
+  const verifySha256 = (downloadedFile: string, sha256: string) => {
+    logger.info('auto-updater', `sha256: ${sha256}`);
+    const hash = crypto.createHash('sha256');
+    const fileContent = fs.readFileSync(downloadedFile);
+    hash.update(fileContent);
+    const fileSha256 = hash.digest('hex');
+    logger.info('auto-updater', `file sha256: ${fileSha256}`);
+    return fileSha256 === sha256;
+  };
+
+  const sendValidError = () => {
+    mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
+      err: {
+        message: 'Installation package possibly compromised',
+      },
+      isNetworkError: false,
+    });
   };
 
   const verifyFile = async (downloadedFile: string) => {
     const filename = path.basename(downloadedFile);
-    const signatureFile = await getSignatureFile(filename);
-
-    logger.info('auto-updater', `signatureFile: ${signatureFile}`);
-    const file = await fs.promises.readFile(downloadedFile);
-    const message = await createMessage({ binary: file });
-
-    // Load publicKey and signature
-    const publicKey = await readKey({ armoredKey: signingKey });
-    const signature = await readSignature({
-      armoredSignature: signatureFile,
-    });
-
-    // Check file against signature
-    const verified = await verify({
-      message,
-      signature,
-      verificationKeys: publicKey,
-      format: 'binary',
-    });
-
-    // Get result (validity of the signature)
-    const valid = await verified.signatures[0].verified;
-    if (!valid) {
-      mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
-        err: {
-          message: 'Installation package possibly compromised',
-        },
-        isNetworkError: false,
-      });
+    const sha256 = await getSha256(filename);
+    if (!sha256) {
+      sendValidError();
+      return false;
     }
-    logger.info('auto-updater', `valid result: ${String(valid)}`);
-    return valid;
+
+    const verified = verifySha256(downloadedFile, sha256);
+    if (!verified) {
+      sendValidError();
+      return false;
+    }
+
+    return true;
   };
 
   autoUpdater.on('checking-for-update', () => {
