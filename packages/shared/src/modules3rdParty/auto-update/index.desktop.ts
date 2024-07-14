@@ -110,22 +110,25 @@ export const downloadPackage: IDownloadPackage = () =>
   });
 
 export const verifyPackage: IVerifyPackage = async (params) =>
-  new Promise((resolve) => {
+  new Promise((resolve, reject) => {
     updateVerifyTasks.push(resolve);
+    updateErrorTasks.push(reject);
     window.desktopApi.verifyUpdate(params);
   });
 
-export const installPackage: IInstallPackage = async ({ downloadedEvent }) => {
-  defaultLogger.update.app.log('install');
-  window.desktopApi.installUpdate({
-    ...downloadedEvent,
-    dialog: {
-      message:
-        'A new update has been downloaded. Would you like to install and restart the app now?',
-      buttons: ['Install and Restart', 'Later'],
-    },
+export const installPackage: IInstallPackage = async ({ downloadedEvent }) =>
+  new Promise((_, reject) => {
+    defaultLogger.update.app.log('install');
+    updateErrorTasks.push(reject);
+    window.desktopApi.installUpdate({
+      ...downloadedEvent,
+      dialog: {
+        message:
+          'A new update has been downloaded. Would you like to install and restart the app now?',
+        buttons: ['Install and Restart', 'Later'],
+      },
+    });
   });
-};
 
 export const useDownloadProgress: IUseDownloadProgress = (
   onSuccess,
