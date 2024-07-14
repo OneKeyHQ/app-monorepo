@@ -15,6 +15,7 @@ import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 import type {
   IActionListItemProps,
+  IElement,
   IListViewRef,
   IStackProps,
 } from '@onekeyhq/components';
@@ -1039,13 +1040,14 @@ function BasicMarketHomeList({
     }
   }, []);
 
-  const [currentTabIndex, setCurrentTabIndex] = useState(tabIndex);
+  const containerRef = useRef<IElement>(null);
   const onSwitchMarketHomeTabCallback = useCallback(
     ({ tabIndex: index }: { tabIndex: number }) => {
       setTimeout(
         () => {
-          if (!platformEnv.isNative) {
-            setCurrentTabIndex(index);
+          if (!platformEnv.isNative && containerRef) {
+            (containerRef.current as HTMLElement).style.contentVisibility =
+              index === tabIndex ? 'visible' : 'hidden';
           }
           if (index !== tabIndex) {
             if (md) {
@@ -1124,14 +1126,7 @@ function BasicMarketHomeList({
         </YStack>
       )}
 
-      <YStack
-        flex={1}
-        $gtMd={{ pt: '$3' }}
-        style={{
-          contentVisibility:
-            currentTabIndex === tabIndex ? 'visible' : 'hidden',
-        }}
-      >
+      <YStack flex={1} ref={containerRef} $gtMd={{ pt: '$3' }}>
         {gtMd ? HeaderColumns : undefined}
         <ListView
           ref={listViewRef}
