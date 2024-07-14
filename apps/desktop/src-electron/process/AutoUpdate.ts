@@ -119,7 +119,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     downloadUrl = '',
   }: IVerifyUpdateParams) => {
     if (!signingKey) {
-      logger.info('auto-updater', 'PP_PUBKEY is undefined');
+      logger.info('auto-updater', 'APP_GPG_PUBKEY is undefined');
       sendValidError();
       return false;
     }
