@@ -17,6 +17,13 @@ export interface IVerifyUpdateParams {
   downloadUrl?: string;
 }
 
+export interface IInstallUpdateParams extends IVerifyUpdateParams {
+  dialog: {
+    message: string;
+    buttons: string[];
+  };
+}
+
 export type IDesktopAPI = {
   on: (channel: string, func: (...args: any[]) => any) => void;
   hello: string;
@@ -52,7 +59,7 @@ export type IDesktopAPI = {
   checkForUpdates: (isManual?: boolean) => void;
   downloadUpdate: () => void;
   verifyUpdate: (event?: IVerifyUpdateParams) => void;
-  installUpdate: (event?: IVerifyUpdateParams) => void;
+  installUpdate: (event?: IInstallUpdateParams) => void;
   setAutoUpdateSettings: (settings: IUpdateSettings) => void;
   touchUpdateResource: (params: {
     resourceUrl: string;
@@ -219,7 +226,7 @@ const desktopApi = {
   downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
   verifyUpdate: (params: IVerifyUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY, params),
-  installUpdate: (params: IVerifyUpdateParams) =>
+  installUpdate: (params: IInstallUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL, params),
   setAutoUpdateSettings: (settings: IUpdateSettings) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_SETTINGS, settings),

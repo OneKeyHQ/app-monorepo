@@ -117,7 +117,14 @@ export const verifyPackage: IVerifyPackage = async (params) =>
 
 export const installPackage: IInstallPackage = async ({ downloadedEvent }) => {
   defaultLogger.update.app.log('install');
-  window.desktopApi.installUpdate(downloadedEvent);
+  window.desktopApi.installUpdate({
+    ...downloadedEvent,
+    dialog: {
+      message:
+        'A new update has been downloaded. Would you like to install and restart the app now?',
+      buttons: ['Install and Restart', 'Later'],
+    },
+  });
 };
 
 export const useDownloadProgress: IUseDownloadProgress = (
