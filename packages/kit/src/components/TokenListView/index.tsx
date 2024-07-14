@@ -66,7 +66,7 @@ function TokenListView(props: IProps) {
       let listView: HTMLDivElement | undefined;
       const scrollView = scrollViewRef?.current as unknown as HTMLElement;
       const onListViewScroll = () => {
-        // If lastScrollTop >= scrollTop, it means the listview is scrolling up.
+        // If lastScrollTop >= scrollTop, it means the listView is scrolling up.
         if (!listView) {
           return;
         }
