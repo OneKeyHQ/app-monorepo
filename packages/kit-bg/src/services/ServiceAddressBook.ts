@@ -267,12 +267,14 @@ class ServiceAddressBook extends ServiceBase {
     const result: string[] = [];
     for (let i = 0; i < rawItems.length; i += 1) {
       const item = rawItems[i];
-      const network = await serviceNetwork.getNetwork({
+      const network = await serviceNetwork.getNetworkSafe({
         networkId: item.networkId,
       });
-      const title = network.id.startsWith('evm--') ? 'EVM' : network.name;
-      const text = `${title} ${item.name} ${item.address}`;
-      result.push(text);
+      if (network) {
+        const title = network.id.startsWith('evm--') ? 'EVM' : network.name;
+        const text = `${title} ${item.name} ${item.address}`;
+        result.push(text);
+      }
     }
     return result.join('\n');
   }
@@ -333,7 +335,7 @@ class ServiceAddressBook extends ServiceBase {
         }
         itemsUniq.push(o);
         currentAddressSet.add(lowerCaseAddress);
-        currentNameSet.add(lowerCaseName);
+        currentNameSet.add(o.name.toLowerCase());
       }
     }
     const itemsToAdd = currentItems.concat(itemsUniq);
