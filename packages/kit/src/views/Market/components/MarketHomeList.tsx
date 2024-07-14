@@ -1039,17 +1039,24 @@ function BasicMarketHomeList({
     }
   }, []);
 
+  const [currentTabIndex, setCurrentTabIndex] = useState(tabIndex);
   const onSwitchMarketHomeTabCallback = useCallback(
-    ({ tabIndex: currentTabIndex }: { tabIndex: number }) => {
-      setTimeout(() => {
-        if (currentTabIndex !== tabIndex) {
-          if (md) {
-            handleMdSortByTypeChange('Default');
+    ({ tabIndex: index }: { tabIndex: number }) => {
+      setTimeout(
+        () => {
+          if (!platformEnv.isNative) {
+            setCurrentTabIndex(index);
           }
-        } else {
-          void fetchCategory();
-        }
-      }, 10);
+          if (index !== tabIndex) {
+            if (md) {
+              handleMdSortByTypeChange('Default');
+            }
+          } else {
+            void fetchCategory();
+          }
+        },
+        platformEnv.isNative ? 10 : 0,
+      );
     },
     [fetchCategory, handleMdSortByTypeChange, md, tabIndex],
   );
@@ -1117,7 +1124,14 @@ function BasicMarketHomeList({
         </YStack>
       )}
 
-      <YStack flex={1} $gtMd={{ pt: '$3' }}>
+      <YStack
+        flex={1}
+        $gtMd={{ pt: '$3' }}
+        style={{
+          contentVisibility:
+            currentTabIndex === tabIndex ? 'visible' : 'hidden',
+        }}
+      >
         {gtMd ? HeaderColumns : undefined}
         <ListView
           ref={listViewRef}
