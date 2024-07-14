@@ -1,13 +1,14 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+
 import checkDiskSpace from 'check-disk-space';
 import { BrowserWindow, app, dialog, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
-import { createMessage, readKey, readSignature, verify } from 'openpgp';
+import { readCleartextMessage, readKey } from 'openpgp';
 
 import { ipcMessageKeys } from '../config';
 import { b2t, toHumanReadable } from '../libs/utils';
@@ -67,40 +68,21 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   const getSha256 = async (downloadUrl: string) => {
     try {
-      const signatureFileURL = `${downloadUrl}.SHA256SUMS.asc`;
-      const signatureFile = await fetch(signatureFileURL);
-      const signatureFileContent = await signatureFile.text();
-      logger.info(
-        'auto-updater',
-        `signatureFileContent: ${signatureFileContent}`,
-      );
+      const ascFileUrl = `${downloadUrl}.SHA256SUMS.asc`;
+      const ascFile = await fetch(ascFileUrl);
+      const ascFileMessage = await ascFile.text();
+      logger.info('auto-updater', `signatureFileContent: ${ascFileMessage}`);
 
-      const sha256FileURL = `${downloadUrl}.SHA256SUMS`;
-      const sha256File = await fetch(sha256FileURL);
-      const sha256FileContent = await sha256File.text();
-      logger.info('auto-updater', `sha256FileContent: ${sha256FileContent}`);
-
-      const message = await createMessage({ text: sha256FileContent });
-      // Load pubkey and signature
+      const signedMessage = await readCleartextMessage({
+        cleartextMessage: ascFileMessage,
+      });
       const publicKey = await readKey({ armoredKey: signingKey });
-      const signature = await readSignature({
-        armoredSignature: signatureFileContent,
-      });
-
-      // Check file against signature
-      const verified = await verify({
-        message,
-        signature,
-        verificationKeys: publicKey,
-        format: 'binary',
-      });
-
+      const result = await signedMessage.verify([publicKey]);
       // Get result (validity of the signature)
-      const valid = await verified.signatures[0].verified;
-
+      const valid = await result[0].verified;
       logger.info('auto-updater', `file valid: ${String(valid)}`);
       if (valid) {
-        const texts = sha256FileContent.split(' ');
+        const texts = signedMessage.getText().split(' ');
         const sha256 = texts[0];
         logger.info('auto-updater', `sha256FileContent sha256: ${sha256}`);
         return sha256;
