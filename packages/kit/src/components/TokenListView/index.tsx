@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import type { IListViewRef } from '@onekeyhq/components';
-import { ListView, Stack, useScrollViewRef } from '@onekeyhq/components';
+import { ListView, Stack, useTabScrollViewRef } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
@@ -56,7 +56,7 @@ function TokenListView(props: IProps) {
 
   const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
 
-  const scrollViewRef = useScrollViewRef();
+  const scrollViewRef = useTabScrollViewRef();
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
 
   useEffect(() => {
