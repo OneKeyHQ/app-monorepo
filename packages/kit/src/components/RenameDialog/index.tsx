@@ -94,11 +94,13 @@ function RenameInputWithNameSelector({
   onChange,
   maxLength = 24,
   indexedAccount,
+  disabledMaxLengthLabel = false,
 }: {
   maxLength?: number;
   value?: string;
   onChange?: (val: string) => void;
   indexedAccount?: IDBIndexedAccount;
+  disabledMaxLengthLabel: boolean;
 }) {
   const { result: shouldShowV4AccountNameSelector } =
     usePromiseResult(async () => {
@@ -127,6 +129,11 @@ function RenameInputWithNameSelector({
           onChange={onChange}
         />
       ) : null}
+      {!disabledMaxLengthLabel && value?.length ? (
+        <SizableText color="$textSubdued" textAlign="right" pt="$1">
+          {value?.length}/{maxLength}
+        </SizableText>
+      ) : null}
     </Stack>
   );
 }
@@ -137,11 +144,13 @@ export const showRenameDialog = (
     onSubmit,
     maxLength = 24,
     indexedAccount,
+    disabledMaxLengthLabel = false,
     ...dialogProps
   }: IDialogShowProps & {
     indexedAccount?: IDBIndexedAccount;
     maxLength?: number;
     onSubmit: (name: string) => Promise<void>;
+    disabledMaxLengthLabel?: boolean;
   },
 ) =>
   Dialog.show({
@@ -157,6 +166,7 @@ export const showRenameDialog = (
           <RenameInputWithNameSelector
             maxLength={maxLength}
             indexedAccount={indexedAccount}
+            disabledMaxLengthLabel={disabledMaxLengthLabel}
           />
         </Dialog.FormField>
       </Dialog.Form>
