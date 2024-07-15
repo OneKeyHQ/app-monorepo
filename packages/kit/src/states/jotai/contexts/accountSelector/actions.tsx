@@ -94,18 +94,24 @@ export type IFinalizeWalletSetupCreateWalletResult = {
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
-    this.setSelectedAccountsAtom(set, (v) => ({
-      ...v,
-      [num]: {
-        ...v[num],
-      } as any,
-    }));
+    this.setSelectedAccountsAtom(
+      set,
+      (v) => ({
+        ...v,
+        [num]: {
+          ...v[num],
+        } as any,
+      }),
+      'refresh',
+    );
   });
 
   setSelectedAccountsAtom(
     set: IJotaiSetter,
     fn: (currentValue: ISelectedAccountsAtomMap) => ISelectedAccountsAtomMap,
+    reason?: string,
   ) {
+    console.log('AccountSelectorAtomChanged  setSelectedAccountsAtom', reason);
     set(selectedAccountsAtom(), (currentValue) => {
       const newValue = fn(currentValue);
       if (isEqual(currentValue, newValue)) {
@@ -360,10 +366,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           newSelectedAccount.othersWalletAccountId = undefined;
         }
       }
-      this.setSelectedAccountsAtom(set, (v) => ({
-        ...v,
-        [num]: newSelectedAccount,
-      }));
+      this.setSelectedAccountsAtom(
+        set,
+        (v) => ({
+          ...v,
+          [num]: newSelectedAccount,
+        }),
+        'updateSelectedAccount',
+      );
       set(accountSelectorUpdateMetaAtom(), (v) => ({
         ...v,
         [num]: {
@@ -1094,7 +1104,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         selectedAccountsMapInDB &&
         !isEqual(selectedAccountsMapInDB, selectedAccountsMap)
       ) {
-        this.setSelectedAccountsAtom(set, (v) => selectedAccountsMapInDB || v);
+        this.setSelectedAccountsAtom(
+          set,
+          (v) => selectedAccountsMapInDB || v,
+          'initFromStorage',
+        );
       }
       set(accountSelectorStorageReadyAtom(), () => true);
     },

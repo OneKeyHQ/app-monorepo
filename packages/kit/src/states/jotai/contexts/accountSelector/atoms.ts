@@ -57,14 +57,39 @@ export const { atom: selectedAccountsAtom, use: useSelectedAccountsAtom } =
   contextAtom<ISelectedAccountsAtomMap>({
     0: defaultSelectedAccount(),
   });
-export function useSelectedAccount({ num }: { num: number }): {
+
+// const atomInstance = selectedAccountsAtom();
+// const oldWrite = atomInstance.write;
+// atomInstance.write = (get, set, update) => {
+//   console.log('AccountSelectorAtomChanged selectedAccountsAtom write');
+//   oldWrite.call(atomInstance, get, set, update);
+// };
+
+export function useSelectedAccount({
+  num,
+  debugName,
+}: {
+  num: number;
+  debugName?: string;
+}): {
   selectedAccount: IAccountSelectorSelectedAccount;
   isSelectedAccountDefaultValue: boolean;
 } {
   checkIsDefined(num);
   const [selectedAccounts] = useSelectedAccountsAtom();
+  const selectedAccountOfNum = useMemo(
+    () => selectedAccounts[num],
+    [num, selectedAccounts],
+  );
+
+  if (debugName === 'HomePage') {
+    console.log(
+      'AccountSelectorAtomChanged useSelectedAccount selectedAccountOfNum: ',
+      selectedAccountOfNum,
+    );
+  }
   return useMemo(() => {
-    let selectedAccount = selectedAccounts[num];
+    let selectedAccount = selectedAccountOfNum;
     let isSelectedAccountDefaultValue = false;
     if (!selectedAccount) {
       selectedAccount = defaultSelectedAccount();
@@ -74,7 +99,7 @@ export function useSelectedAccount({ num }: { num: number }): {
       selectedAccount,
       isSelectedAccountDefaultValue,
     };
-  }, [num, selectedAccounts]);
+  }, [selectedAccountOfNum]);
 }
 
 export const {
