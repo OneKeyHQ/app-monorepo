@@ -17,7 +17,7 @@ import { getFilteredHistoryBySearchKey } from '@onekeyhq/shared/src/utils/histor
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
-import { useTabListProps } from '../../hooks/useTabListScroll';
+import { useTabListScroll } from '../../hooks/useTabListScroll';
 import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
@@ -155,7 +155,7 @@ function TxHistoryListView(props: IProps) {
     [data, intl, onPressHistory, showIcon, tableLayout],
   );
 
-  const { listViewProps, listViewRef } = useTabListProps<IAccountHistoryTx>({
+  const { listViewProps, listViewRef } = useTabListScroll<IAccountHistoryTx>({
     onContentSizeChange,
   });
 

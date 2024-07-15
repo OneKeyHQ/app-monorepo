@@ -3,7 +3,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { useTabListProps } from '../../hooks/useTabListScroll';
+import { useTabListScroll } from '../../hooks/useTabListScroll';
 import {
   useSearchKeyAtom,
   useTokenListAtom,
@@ -54,7 +54,7 @@ function TokenListView(props: IProps) {
 
   const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
 
-  const { listViewProps, listViewRef } = useTabListProps<IAccountToken>({
+  const { listViewProps, listViewRef } = useTabListScroll<IAccountToken>({
     onContentSizeChange,
   });
 

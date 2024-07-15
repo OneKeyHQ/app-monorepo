@@ -8,7 +8,7 @@ import type {
 import { useTabScrollViewRef } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export function useTabListProps<T>({
+export function useTabListScroll<T>({
   onContentSizeChange,
 }: {
   onContentSizeChange: IListViewProps<T>['onContentSizeChange'];
