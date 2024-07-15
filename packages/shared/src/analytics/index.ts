@@ -9,7 +9,7 @@ const basicInfo = {} as {
 };
 
 export enum ETrackEventNames {
-  PageView = 'page_view',
+  PageView = 'pageView',
   AppStart = 'AppStart',
   EnterDapp = 'EnterDapp',
   DeleteWallet = 'DeleteWallet',
