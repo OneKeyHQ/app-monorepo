@@ -13,6 +13,7 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   EAccountSelectorSceneName,
   IServerNetwork,
@@ -20,7 +21,6 @@ import type {
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
-import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
 // TODO save sceneName and sceneUrl to atom, so actions can get it
 export interface IAccountSelectorContextData {
