@@ -1055,6 +1055,8 @@
   "provider.protocol_fee": "Protokollgebühr vom Anbieter",
   "provider.recommend": "Empfehlen",
   "provider.route": "Route",
+  "provider.route_changelly_fix": "Bitte beachten Sie, dass bei dem Festpreis der erwartete Empfangsbetrag (abzüglich Gebühren) dem auf dem Bildschirm angezeigten Betrag entspricht.",
+  "provider.route_changelly_float": "Bitte beachten Sie, dass der variable Zinssatz aufgrund von Marktbedingungen jederzeit ändern kann, sodass Sie möglicherweise mehr oder weniger Krypto erhalten als erwartet.",
   "provider.route_no_information": "Der Anbieter hat vorübergehend keine Routeninformationen bereitgestellt.",
   "provider.route_swft": "Bitte beachten Sie, dass diese Transaktion eine SWFT_BRIDGE Cross-Chain-Brücke eines Drittanbieters nutzt, die eine zentralisierte Ausführung beinhaltet und damit verbundene Risiken mit sich bringt.",
   "provider.route_unable_fetch_price": "Preis konnte nicht abgerufen werden",
