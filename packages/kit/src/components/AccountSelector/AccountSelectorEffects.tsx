@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import type { IDBExternalAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
@@ -22,6 +22,7 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import { useAutoSelectAccount } from './hooks/useAutoSelectAccount';
 import { useAutoSelectDeriveType } from './hooks/useAutoSelectDeriveType';
 import { useAutoSelectNetwork } from './hooks/useAutoSelectNetwork';
@@ -72,6 +73,9 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   const { selectedAccount, isSelectedAccountDefaultValue } = useSelectedAccount(
     { num },
   );
+  const selectedAccountRef = useRef(selectedAccount);
+  selectedAccountRef.current = selectedAccount;
+
   const [, setContextData] = useAccountSelectorContextDataAtom();
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
 
@@ -99,13 +103,30 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   useAutoSelectDeriveType({ num });
   useExternalAccountActivate({ num });
 
+  const activeAccountReloadDeps = useMemo(
+    () => [
+      selectedAccount.walletId,
+      selectedAccount.indexedAccountId,
+      selectedAccount.othersWalletAccountId,
+      selectedAccount.networkId,
+      selectedAccount.deriveType,
+    ],
+    [
+      selectedAccount.deriveType,
+      selectedAccount.indexedAccountId,
+      selectedAccount.networkId,
+      selectedAccount.othersWalletAccountId,
+      selectedAccount.walletId,
+    ],
+  );
   const reloadActiveAccountInfo = useCallback(async () => {
+    noopObject(activeAccountReloadDeps);
     if (!isReady) {
       return;
     }
     const activeAccount = await actions.current.reloadActiveAccountInfo({
       num,
-      selectedAccount,
+      selectedAccount: selectedAccountRef.current,
     });
     if (activeAccount.account && activeAccount.network?.id) {
       void backgroundApiProxy.serviceAccount.saveAccountAddresses({
@@ -113,7 +134,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
         networkId: activeAccount.network?.id,
       });
     }
-  }, [actions, isReady, num, selectedAccount]);
+  }, [actions, isReady, num, activeAccountReloadDeps]);
 
   useEffect(() => {
     void (async () => {

@@ -147,8 +147,9 @@ export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
 export function useActiveAccount({ num }: { num: number }): {
   activeAccount: IAccountSelectorActiveAccountInfo;
 } {
-  const [selectedAccounts] = useSelectedAccountsAtom();
-  noopObject(selectedAccounts);
+  // TODO add this deps for cosmos?
+  // const [selectedAccounts] = useSelectedAccountsAtom();
+  // noopObject(selectedAccounts);
   const [accounts] = useActiveAccountsAtom();
   const accountInfo = accounts[num];
   const activeAccount = accountInfo || defaultActiveAccountInfo();
