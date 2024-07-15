@@ -1,12 +1,15 @@
 import {
+  createContext,
   createRef,
   forwardRef,
+  memo,
   useCallback,
+  useContext,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import type { ComponentType, ReactElement } from 'react';
+import type { ComponentType, ReactElement, RefObject } from 'react';
 
 import {
   PageContentView,
@@ -53,6 +56,22 @@ export interface ITabProps extends IScrollViewProps {
   onSelectedPageIndex?: (pageIndex: number) => void;
   shouldSelectedPageIndex?: (pageIndex: number) => boolean;
 }
+
+const TabScrollViewRefContext = createContext<RefObject<IScrollViewRef | null>>(
+  {
+    get current() {
+      if (platformEnv.isDev) {
+        console.warn(
+          'Warning: tried to use a ScrollView ref from outside a scrollable context',
+        );
+      }
+      return null;
+    },
+  },
+);
+const TabScrollViewRefProvider = memo(TabScrollViewRefContext.Provider);
+
+export const useTabScrollViewRef = () => useContext(TabScrollViewRefContext);
 
 const TabComponent = (
   {
@@ -216,61 +235,63 @@ const TabComponent = (
     ].refreshingFocusedRef.current?.setIsRefreshing(true, true);
   }, [pageManager.pageIndex, stickyConfig.data]);
   return (
-    <ScrollView
-      key={data.map((item) => item.title).join('')}
-      ref={scrollViewRef}
-      onLayout={(event) => {
-        stickyConfig.scrollViewHeight = event.nativeEvent.layout.height;
-        reloadContentHeight(pageManager.pageIndex);
-      }}
-      scrollEventThrottle={16}
-      onScroll={(event) => {
-        // This variable might be null when swiping to dismiss on iOS,
-        //  so it needs to be checked.
-        if (stickyConfig.data[pageManager.pageIndex]) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          stickyConfig.data[pageManager.pageIndex].contentOffsetY = (
-            event as any
-          ).nativeEvent.contentOffset.y;
-        }
-      }}
-      stickyHeaderIndices={[1]}
-      nestedScrollEnabled
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-      }
-      {...props}
-    >
-      <>{ListHeaderComponent}</>
-      <Header
-        ref={pageManager.headerView}
-        {...pageManagerProps}
-        {...headerProps}
-        shouldSelectedPageIndex={shouldSelectedPageIndex}
+    <TabScrollViewRefProvider value={scrollViewRef}>
+      <ScrollView
+        key={data.map((item) => item.title).join('')}
+        ref={scrollViewRef}
         onLayout={(event) => {
-          stickyConfig.headerViewHeight = event.nativeEvent.layout.height;
+          stickyConfig.scrollViewHeight = event.nativeEvent.layout.height;
+          reloadContentHeight(pageManager.pageIndex);
         }}
-        onSelectedPageIndex={(pageIndex: number) => {
-          pageManager?.contentView?.current?.scrollPageIndex(pageIndex);
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          // This variable might be null when swiping to dismiss on iOS,
+          //  so it needs to be checked.
+          if (stickyConfig.data[pageManager.pageIndex]) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            stickyConfig.data[pageManager.pageIndex].contentOffsetY = (
+              event as any
+            ).nativeEvent.contentOffset.y;
+          }
         }}
-      />
-      <Stack
-        ref={pageContainerRef}
-        onLayout={(event: LayoutChangeEvent) => {
-          stickyConfig.headerViewY =
-            event.nativeEvent.layout.y - stickyConfig.headerViewHeight;
-        }}
-        w={contentWidth}
-        h={contentHeight}
+        stickyHeaderIndices={[1]}
+        nestedScrollEnabled
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        }
+        {...props}
       >
-        <Content
-          windowSize={5}
-          scrollEnabled={platformEnv.isNative}
-          shouldSelectedPageAnimation={platformEnv.isNative}
-          renderItem={renderContentItem}
+        <>{ListHeaderComponent}</>
+        <Header
+          ref={pageManager.headerView}
+          {...pageManagerProps}
+          {...headerProps}
+          shouldSelectedPageIndex={shouldSelectedPageIndex}
+          onLayout={(event) => {
+            stickyConfig.headerViewHeight = event.nativeEvent.layout.height;
+          }}
+          onSelectedPageIndex={(pageIndex: number) => {
+            pageManager?.contentView?.current?.scrollPageIndex(pageIndex);
+          }}
         />
-      </Stack>
-    </ScrollView>
+        <Stack
+          ref={pageContainerRef}
+          onLayout={(event: LayoutChangeEvent) => {
+            stickyConfig.headerViewY =
+              event.nativeEvent.layout.y - stickyConfig.headerViewHeight;
+          }}
+          w={contentWidth}
+          h={contentHeight}
+        >
+          <Content
+            windowSize={5}
+            scrollEnabled={platformEnv.isNative}
+            shouldSelectedPageAnimation={platformEnv.isNative}
+            renderItem={renderContentItem}
+          />
+        </Stack>
+      </ScrollView>
+    </TabScrollViewRefProvider>
   );
 };
 

@@ -1,4 +1,4 @@
-import type { FC, RefObject } from 'react';
+import type { FC } from 'react';
 import {
   createContext,
   useCallback,
@@ -31,7 +31,6 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { networkFuseSearch } from '../../utils';
 
 import type { IServerNetworkMatch } from '../../types';
-import type { ScrollView } from 'react-native';
 
 type IEditableViewContext = {
   isEditMode?: boolean;
@@ -54,12 +53,10 @@ const EditableViewListItem = ({
   item,
   sectionIndex,
   drag,
-  scrollViewRef,
 }: {
   item: IServerNetworkMatch;
   sectionIndex: number;
   drag: () => void;
-  scrollViewRef: RefObject<ScrollView>;
 }) => {
   const intl = useIntl();
   const {
@@ -86,7 +83,7 @@ const EditableViewListItem = ({
       renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
-      {/* {sectionIndex !== 0 && isEditMode ? (
+      {sectionIndex !== 0 && isEditMode ? (
         <ListItem.IconButton
           {...ListItem.EnterAnimationStyle}
           onPress={() => {
@@ -119,7 +116,7 @@ const EditableViewListItem = ({
           icon="DragOutline"
           onPressIn={drag}
         />
-      ) : null} */}
+      ) : null}
     </ListItem>
   );
 };
@@ -256,7 +253,6 @@ export const EditableView: FC<IEditableViewProps> = ({
       drag: () => void;
     }) => (
       <EditableViewListItem
-        scrollViewRef={scrollView}
         item={item}
         sectionIndex={
           searchText.length > 0

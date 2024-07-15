@@ -119,6 +119,7 @@ class ServiceApp extends ServiceBase {
         await this.backgroundApi.serviceV4Migration.checkIfV4DbExist();
       if (isV4DbExist) {
         await v4dbHubs.v4localDb.reset();
+        await timerUtils.wait(600);
       }
     } catch (error) {
       //

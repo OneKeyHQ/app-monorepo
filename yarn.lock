@@ -5655,13 +5655,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@npm:1.0.7":
-  version: 1.0.7
-  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.7"
+"@onekeyfe/react-native-lite-card@npm:1.0.9":
+  version: 1.0.9
+  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.9"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/eed006ff9cc45724ca8953fcc1bef96a532ea2dd95ee9ca7cd9944819aecd4ee71a74cfb43a70749c0a6ef9ba1cae2f5bd270132df6c47664eafdf22d53db9a2
+  checksum: 10/d45ab7e4f1b6549e15ec4d2b01b96e9287787c80d03094baba4c5daea1ec6ab7be7f4637def45a2f4bfb3f32056f04657dbabf1b1c420a299def297a066f507e
   languageName: node
   linkType: hard
 
@@ -5724,6 +5724,7 @@ __metadata:
     "@types/punycode": "npm:^2"
     "@types/react": "npm:^18.2.29"
     "@types/react-dom": "npm:~18.3.0"
+    "@types/web": "npm:0.0.151"
     "@typescript-eslint/eslint-plugin": "npm:^5.46.1"
     "@typescript-eslint/parser": "npm:^5.46.1"
     "@ungap/structured-clone": "npm:^1.2.0"
@@ -6016,7 +6017,7 @@ __metadata:
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
-    "@onekeyfe/react-native-lite-card": "npm:1.0.7"
+    "@onekeyfe/react-native-lite-card": "npm:1.0.9"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.5"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
@@ -11780,6 +11781,13 @@ __metadata:
   version: 1.10.9
   resolution: "@types/verror@npm:1.10.9"
   checksum: 10/4415df08299191ad8f1308dc610df51b2339932cb311f68c93972de78e7a6e5d20e1b0157da0694422d3fe84abd3bb82c6b5f4b0686df5963effbf73e19340d9
+  languageName: node
+  linkType: hard
+
+"@types/web@npm:0.0.151":
+  version: 0.0.151
+  resolution: "@types/web@npm:0.0.151"
+  checksum: 10/ea330b718e3c75f65d2015dd88f07feea431b58aa860e0ba20eed5ca62da0aa51e40b7d873af9070640296db79a6b79e64877001067a7c185679317c66a99edb
   languageName: node
   linkType: hard
 
