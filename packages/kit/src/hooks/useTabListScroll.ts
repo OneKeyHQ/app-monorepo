@@ -52,6 +52,11 @@ export function useTabListScroll<T>({
             listView.style.overflowY = 'scroll';
           } else {
             listView.style.overflowY = 'hidden';
+            setTimeout(() => {
+              if (listView) {
+                listView.scrollTop = 0;
+              }
+            }, 10);
           }
         }
       };
