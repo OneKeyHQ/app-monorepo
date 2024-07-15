@@ -77,7 +77,6 @@ function TxFeeContainer(props: IProps) {
     updateSendSelectedFee,
     updateIsSinglePreset,
   } = useSendConfirmActions().current;
-
   const { result: [vaultSettings, network] = [] } =
     usePromiseResult(async () => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -93,6 +92,10 @@ function TxFeeContainer(props: IProps) {
       ]);
     }, [accountId, networkId]);
 
+  console.log(
+    'vaultSettings?.estimatedFeePollingInterval',
+    vaultSettings?.estimatedFeePollingInterval,
+  );
   const { result, run } = usePromiseResult(
     async () => {
       try {
