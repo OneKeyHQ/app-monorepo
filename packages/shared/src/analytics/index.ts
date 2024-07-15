@@ -1,6 +1,8 @@
-import platformEnv from '../../platformEnv';
+import Axios from 'axios';
 
-import { getMixpanel } from './mixpanel';
+import platformEnv from '../platformEnv';
+
+import type { AxiosInstance } from 'axios';
 
 const basicInfo = {} as {
   screen_name: string;
@@ -32,12 +34,39 @@ export interface ITrackPayload {
   };
 }
 
-const asyncTrackEvent = async (
+let distinctId = '';
+let request: AxiosInstance | null = null;
+const lazyAxios = () => {
+  if (!request) {
+    request = Axios.create({
+      baseURL: 'https://api.mintscan.io',
+      timeout: 30 * 1000,
+    });
+  }
+  return request;
+};
+
+const requestEvent = async (
   eventName: string,
   eventProps?: Record<string, any>,
 ) => {
-  const mixpanel = await getMixpanel();
-  mixpanel?.track(eventName, eventProps);
+  const axios = lazyAxios();
+  await axios.post('/api/track-event', {
+    eventName,
+    eventProps,
+  });
+};
+
+const requestUpdateAttributes = async (attributes?: Record<string, any>) => {
+  const axios = lazyAxios();
+  await axios.post('/api/update-attributes', {
+    distinctId,
+    attributes,
+  });
+};
+
+export const updateUserAttributes = (attributes?: Record<string, any>) => {
+  void requestUpdateAttributes(attributes);
 };
 
 export function trackEvent<T extends ETrackEventNames>(
@@ -47,7 +76,7 @@ export function trackEvent<T extends ETrackEventNames>(
   if (platformEnv.isDev) {
     return;
   }
-  void asyncTrackEvent(eventName, {
+  void requestEvent(eventName, {
     ...basicInfo,
     eventProps,
   });
@@ -58,11 +87,6 @@ export const trackPage = (pageName: string) => {
   trackEvent(ETrackEventNames.PageView, { pageName });
 };
 
-const asyncIdentify = async (distinctId: string) => {
-  const mixpanel = await getMixpanel();
-  mixpanel?.identify(distinctId);
-};
-
-export const identify = (distinctId: string) => {
-  void asyncIdentify(distinctId);
+export const identify = (instanceId: string) => {
+  distinctId = instanceId;
 };

@@ -28,7 +28,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   ETrackEventNames,
   trackEvent,
-} from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
+} from '@onekeyhq/shared/src/analytics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';

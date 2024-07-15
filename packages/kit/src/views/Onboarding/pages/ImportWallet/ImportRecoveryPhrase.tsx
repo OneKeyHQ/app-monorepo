@@ -8,7 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ETrackEventNames,
   trackEvent,
-} from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
+} from '@onekeyhq/shared/src/analytics';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';

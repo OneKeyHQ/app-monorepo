@@ -12,7 +12,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ETrackEventNames,
   trackEvent,
-} from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
+} from '@onekeyhq/shared/src/analytics';
 
 export function WalletRemoveDialog({
   defaultValue,

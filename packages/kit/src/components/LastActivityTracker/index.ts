@@ -14,7 +14,7 @@ import {
   ETrackEventNames,
   identify,
   trackEvent,
-} from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
+} from '@onekeyhq/shared/src/analytics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const LastActivityTracker = () => {
