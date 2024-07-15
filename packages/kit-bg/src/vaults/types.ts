@@ -209,6 +209,8 @@ export type IVaultSettings = {
   maxSendFeeUpRatio?: {
     [networkId: string]: number;
   };
+
+  preCheckDappTxFeeInfoRequired?: boolean;
 };
 
 export type IVaultFactoryOptions = {

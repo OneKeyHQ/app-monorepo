@@ -267,12 +267,14 @@ class ServiceAddressBook extends ServiceBase {
     const result: string[] = [];
     for (let i = 0; i < rawItems.length; i += 1) {
       const item = rawItems[i];
-      const network = await serviceNetwork.getNetwork({
+      const network = await serviceNetwork.getNetworkSafe({
         networkId: item.networkId,
       });
-      const title = network.id.startsWith('evm--') ? 'EVM' : network.name;
-      const text = `${title} ${item.name} ${item.address}`;
-      result.push(text);
+      if (network) {
+        const title = network.id.startsWith('evm--') ? 'EVM' : network.name;
+        const text = `${title} ${item.name} ${item.address}`;
+        result.push(text);
+      }
     }
     return result.join('\n');
   }
@@ -315,11 +317,27 @@ class ServiceAddressBook extends ServiceBase {
   @backgroundMethod()
   async bulkSetItemsWithUniq(items: IAddressItem[], password: string) {
     const currentItems = await this.getItems();
-    const currentNames = new Set(currentItems.map((i) => i.name));
-    const currentAddresses = new Set(currentItems.map((i) => i.address));
-    const itemsUniq = items.filter(
-      (i) => !currentNames.has(i.name) && !currentAddresses.has(i.address),
+    const currentAddressSet = new Set(
+      currentItems.map((i) => i.address.toLowerCase()),
     );
+    const currentNameSet = new Set(
+      currentItems.map((i) => i.name.toLowerCase()),
+    );
+    const itemsUniq: IAddressItem[] = [];
+    for (let i = 0; i < items.length; i += 1) {
+      const o = items[i];
+      const lowerCaseAddress = o.address.toLowerCase();
+      const lowerCaseName = o.name.toLowerCase();
+      if (!currentAddressSet.has(lowerCaseAddress)) {
+        if (currentNameSet.has(lowerCaseName)) {
+          await timerUtils.wait(5);
+          o.name = `${o.name} (${Date.now()})`;
+        }
+        itemsUniq.push(o);
+        currentAddressSet.add(lowerCaseAddress);
+        currentNameSet.add(o.name.toLowerCase());
+      }
+    }
     const itemsToAdd = currentItems.concat(itemsUniq);
     await this.setItems(itemsToAdd, password);
   }

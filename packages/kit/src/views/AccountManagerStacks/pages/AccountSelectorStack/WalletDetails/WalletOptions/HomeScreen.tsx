@@ -10,6 +10,7 @@ import {
   getThemeTokens,
 } from '@onekeyhq/components';
 import type { ColorTokens } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { WalletOptionItem } from './WalletOptionItem';
 
@@ -65,14 +66,22 @@ export function HomeScreen() {
                               .val as ColorTokens
                           }
                           animation="quick"
-                          enterStyle={{
-                            opacity: 0,
-                            scale: 0,
-                          }}
-                          exitStyle={{
-                            opacity: 0,
-                            scale: 0,
-                          }}
+                          enterStyle={
+                            platformEnv.isNativeAndroid
+                              ? undefined
+                              : {
+                                  opacity: 0,
+                                  scale: 0,
+                                }
+                          }
+                          exitStyle={
+                            platformEnv.isNativeAndroid
+                              ? undefined
+                              : {
+                                  opacity: 0,
+                                  scale: 0,
+                                }
+                          }
                         />
                       ) : null}
                     </AnimatePresence>

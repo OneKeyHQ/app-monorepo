@@ -6,6 +6,8 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
+import { getMetadataRpc } from './utils';
+
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IExportAccountSecretKeysParams,
@@ -43,11 +45,22 @@ export class KeyringHd extends KeyringHdBase {
   ): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
-    const rawTxUnsigned = await serializeUnsignedTransaction(encodedTx);
+    const metadataRpc = await getMetadataRpc(
+      this.networkId,
+      this.backgroundApi,
+    );
+    const rawTxUnsigned = await serializeUnsignedTransaction({
+      ...encodedTx,
+      metadataRpc,
+    });
     return this.baseSignTransaction({
       ...params,
       unsignedTx: {
         ...unsignedTx,
+        encodedTx: {
+          ...encodedTx,
+          metadataRpc,
+        },
         rawTxUnsigned: bufferUtils.bytesToHex(rawTxUnsigned.rawTx),
       },
     });

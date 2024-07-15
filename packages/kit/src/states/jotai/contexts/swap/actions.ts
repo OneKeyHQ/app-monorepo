@@ -6,7 +6,6 @@ import { debounce } from 'lodash';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
-import { inAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -672,8 +671,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       type: ESwapDirectionType,
       swapAddressInfo: ReturnType<typeof useSwapAddressInfo>,
+      fetchBalance?: boolean,
     ) => {
-      const { swapHistoryPendingList } = await inAppNotificationAtom.get();
       const token =
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
@@ -692,10 +691,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
           token.balanceParsed &&
-          (!swapHistoryPendingList.length ||
-            swapHistoryPendingList.every(
-              (item) => item.status !== ESwapTxHistoryStatus.SUCCESS,
-            ))
+          !fetchBalance
         ) {
           const balanceParsedBN = new BigNumber(token.balanceParsed ?? 0);
           balanceDisplay = balanceParsedBN.isNaN()
@@ -719,6 +715,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 accountAddress,
                 accountId,
                 contractAddress: token.contractAddress,
+                direction: type,
               });
             if (detailInfo?.[0]) {
               const balanceParsedBN = new BigNumber(
@@ -761,8 +758,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 }
               }
             }
-          } catch (e) {
-            balanceDisplay = '0.0';
+          } catch (e: any) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
+              balanceDisplay = '0.0';
+            }
           } finally {
             set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
               ...pre,

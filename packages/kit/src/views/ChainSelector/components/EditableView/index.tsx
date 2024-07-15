@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -16,6 +17,7 @@ import {
   SearchBar,
   SectionList,
   SortableSectionList,
+  Spinner,
   Stack,
 } from '@onekeyhq/components';
 import type { ISortableSectionListRef } from '@onekeyhq/components';
@@ -23,6 +25,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { networkFuseSearch } from '../../utils';
@@ -83,8 +86,9 @@ const EditableViewListItem = ({
       renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
-      {sectionIndex !== 0 && isEditMode ? (
+      {/* {sectionIndex !== 0 && isEditMode ? (
         <ListItem.IconButton
+          {...ListItem.EnterAnimationStyle}
           onPress={() => {
             if (topNetworkIds.has(item.id)) {
               setTopNetworks?.([
@@ -96,44 +100,26 @@ const EditableViewListItem = ({
           }}
           title={topNetworkIds.has(item.id) ? unpinText : pinText}
           key="moveToTop"
-          animation="quick"
-          enterStyle={{
-            opacity: 0,
-            scale: 0,
-          }}
           icon={
             topNetworkIds.has(item.id) ? 'ThumbtackSolid' : 'ThumbtackOutline'
           }
           iconProps={{
             color: topNetworkIds.has(item.id) ? '$iconActive' : '$iconSubdued',
           }}
-          tooltipProps={{
-            scrollViewRef,
-          }}
         />
       ) : null}
       {networkId === item.id && !isEditMode ? (
-        <ListItem.CheckMark
-          key="checkmark"
-          enterStyle={{
-            opacity: 0,
-            scale: 0,
-          }}
-        />
+        <ListItem.CheckMark key="checkmark" />
       ) : null}
       {isEditMode && sectionIndex === 0 ? (
         <ListItem.IconButton
           key="darg"
-          animation="quick"
-          enterStyle={{
-            opacity: 0,
-            scale: 0,
-          }}
+          {...ListItem.EnterAnimationStyle}
           cursor="move"
           icon="DragOutline"
           onPressIn={drag}
         />
-      ) : null}
+      ) : null} */}
     </ListItem>
   );
 };
@@ -174,13 +160,13 @@ export const EditableView: FC<IEditableViewProps> = ({
   const trimSearchText = searchText.trim();
   const scrollView = useRef<ISortableSectionListRef>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isEditMode && lastIsEditMode) {
       onTopNetworksChange?.(topNetworks);
     }
   }, [isEditMode, lastIsEditMode, topNetworks, onTopNetworksChange]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setTopNetworks(defaultTopNetworks);
   }, [defaultTopNetworks]);
 
@@ -211,7 +197,7 @@ export const EditableView: FC<IEditableViewProps> = ({
   }, [allNetworks, trimSearchText, topNetworks]);
 
   const hasScrollToSelectedCell = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (sections.length <= 1 || hasScrollToSelectedCell.current) {
       return;
     }
@@ -219,16 +205,20 @@ export const EditableView: FC<IEditableViewProps> = ({
     for (const section of sections) {
       const index = section.data.findIndex((item) => item.id === networkId);
       if (index !== -1) {
-        // eslint-disable-next-line @typescript-eslint/no-loop-func, no-loop-func
-        setTimeout(() => {
-          y += index * CELL_HEIGHT;
-          y -= section.title ? 20 : 0;
-          scrollView?.current?.scrollTo?.({
-            y,
-            animated: false,
-          });
-          hasScrollToSelectedCell.current = true;
-        });
+        setTimeout(
+          // Scrolling animations need to be enabled on Android devices to prevent the list from flickering.
+          // eslint-disable-next-line no-loop-func, @typescript-eslint/no-loop-func
+          () => {
+            y += index * CELL_HEIGHT;
+            y -= section.title ? 20 : 0;
+            scrollView?.current?.scrollTo?.({
+              y,
+              animated: platformEnv.isNativeAndroid,
+            });
+            hasScrollToSelectedCell.current = true;
+          },
+          platformEnv.isNativeAndroid ? 100 : 0,
+        );
         break;
       }
       y += 36 + 20;

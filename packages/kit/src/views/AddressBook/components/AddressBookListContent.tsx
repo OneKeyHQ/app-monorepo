@@ -5,14 +5,12 @@ import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  ActionList,
   Empty,
   IconButton,
   SearchBar,
   SectionList,
   SizableText,
   Stack,
-  useClipboard,
   useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -20,7 +18,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
+
+import { AddressBookSectionList } from './AddressBookSectionList';
+import { ListItemIconButton } from './ListItemIconButton';
 
 import type { IAddressItem, IAddressNetworkItem } from '../type';
 
@@ -68,9 +70,6 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
   onPress,
   showActions,
 }) => {
-  const intl = useIntl();
-  const { copyText } = useClipboard();
-  const appNavigation = useAppNavigation();
   const renderAvatar = useCallback(
     () => (
       <Stack
@@ -99,44 +98,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
       onPress={() => onPress?.(item)}
       testID={`address-item-${item.address || ''}`}
     >
-      {showActions ? (
-        <ActionList
-          title={intl.formatMessage({
-            id: ETranslations.address_book_menu_title,
-          })}
-          items={[
-            {
-              label: intl.formatMessage({ id: ETranslations.global_copy }),
-              icon: 'Copy1Outline',
-              onPress: async () => {
-                copyText(item.address);
-              },
-              testID: `address-menu-copy-${item.address ?? ''}`,
-            },
-            {
-              label: intl.formatMessage({ id: ETranslations.global_edit }),
-              icon: 'PencilOutline',
-              onPress: () => {
-                if (item.id) {
-                  appNavigation.push(EModalAddressBookRoutes.EditItemModal, {
-                    id: item.id,
-                    name: item.name,
-                    address: item.address,
-                    networkId: item.networkId,
-                  });
-                }
-              },
-              testID: `address-menu-edit-${item.address ?? ''}`,
-            },
-          ]}
-          renderTrigger={
-            <ListItem.IconButton
-              icon="DotVerSolid"
-              testID={`address-menu-${item.address || ''}`}
-            />
-          }
-        />
-      ) : null}
+      {showActions ? <ListItemIconButton item={item} /> : null}
     </ListItem>
   );
 };
@@ -194,7 +156,6 @@ const RenderNoSearchResult = () => {
 
 type IAddressBookListContentProps = {
   items: IAddressNetworkItem[];
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   showActions?: boolean;
   onPressItem?: (item: IAddressItem) => void;
   hideEmptyAddButton?: boolean;
@@ -202,7 +163,6 @@ type IAddressBookListContentProps = {
 
 export const AddressBookListContent = ({
   items,
-  onContentSizeChange,
   showActions,
   onPressItem,
   hideEmptyAddButton,
@@ -232,7 +192,6 @@ export const AddressBookListContent = ({
       section: {
         title: string;
         data: IAddressNetworkExtendMatch[];
-        index: number;
         isFold?: boolean;
       };
     }) =>
@@ -316,6 +275,13 @@ export const AddressBookListContent = ({
 
   const media = useMedia();
 
+  const estimatedItemSize = useMemo(() => {
+    if (platformEnv.isNative) {
+      return media.md ? 80 : 60;
+    }
+    return undefined;
+  }, [media.md]);
+
   return (
     <Stack flex={1}>
       <Stack px="$5" pb="$2">
@@ -325,14 +291,12 @@ export const AddressBookListContent = ({
           onChangeText={(text) => setSearchKey(text)}
         />
       </Stack>
-      <SectionList
+      <AddressBookSectionList
         showsVerticalScrollIndicator={false}
-        onContentSizeChange={onContentSizeChange}
-        estimatedItemSize={media.md ? 80 : 60}
+        estimatedItemSize={estimatedItemSize}
         sections={memoSections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}
-        SectionSeparatorComponent={null}
         ListEmptyComponent={
           items.length ? (
             RenderNoSearchResult

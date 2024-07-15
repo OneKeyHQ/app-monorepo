@@ -16,10 +16,17 @@ const Placeholder = () => {
   return bottom > 0 ? <OptimizationView style={{ height: bottom }} /> : null;
 };
 
-const PageFooterContainer = ({ children }: PropsWithChildren) => {
+const PageFooterContainer = ({
+  children,
+  disableKeyboardAnimation,
+}: PropsWithChildren & { disableKeyboardAnimation: boolean }) => {
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
   return (
-    <Animated.View style={safeKeyboardAnimationStyle}>{children}</Animated.View>
+    <Animated.View
+      style={disableKeyboardAnimation ? null : safeKeyboardAnimationStyle}
+    >
+      {children}
+    </Animated.View>
   );
 };
 
@@ -59,7 +66,9 @@ export function BasicPageFooter() {
   }, [footerRef]);
 
   return footerProps ? (
-    <PageFooterContainer>
+    <PageFooterContainer
+      disableKeyboardAnimation={footerProps?.disableKeyboardAnimation ?? false}
+    >
       {footerProps.children ? (
         footerProps.children
       ) : (

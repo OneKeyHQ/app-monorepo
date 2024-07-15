@@ -80,12 +80,10 @@ function buildWebTabData(tabs: IWebTab[]) {
   };
 }
 
-const ABOUT_PROTOCOL = 'about:';
-const BLANK_PAGE_URL = 'about:blank';
 export const homeTab: IWebTab = {
   id: 'home',
   // current url in webview
-  url: BLANK_PAGE_URL,
+  url: 'about:blank',
   title: 'OneKey',
   canGoBack: false,
   loading: false,
@@ -770,7 +768,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   validateWebviewSrc = contextAtomMethod((get, _, url: string) => {
     if (!url) return EValidateUrlEnum.InvalidUrl;
-    if (new URL(url).protocol === ABOUT_PROTOCOL) return EValidateUrlEnum.Valid;
     const cache = get(phishingLruCacheAtom());
     const { action } = uriUtils.parseDappRedirect(
       url,

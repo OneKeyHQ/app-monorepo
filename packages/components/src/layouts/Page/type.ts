@@ -29,6 +29,8 @@ export type IBasicPageProps = PropsWithChildren<
   } & IPageLifeCycle
 >;
 
-export type IPageFooterProps = PropsWithChildren<IFooterActionsProps>;
+export type IPageFooterProps = PropsWithChildren<
+  IFooterActionsProps & { disableKeyboardAnimation?: boolean }
+>;
 
 export type IPageProps = IBasicPageProps;

@@ -8,7 +8,6 @@ import {
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
 
-import type { IServerNetwork } from '../../types';
 import type {
   EOneKeyDeepLinkPath,
   IEOneKeyDeepLinkParams,
@@ -49,7 +48,7 @@ function safeParseURL(url: string): URL | null {
 
 function isProtocolSupportedOpenInApp(dappUrl: string) {
   return PROTOCOLS_SUPPORTED_TO_OPEN.some((protocol) =>
-    dappUrl.toLowerCase().startsWith(`${protocol.toLowerCase()}//`),
+    dappUrl.toLowerCase().startsWith(`${protocol.toLowerCase()}`),
   );
 }
 
@@ -139,59 +138,6 @@ export const addressIsEnsFormat = (address: string) => {
   return parts.length > 1 && parts.every((o) => Boolean(o) && o === o.trim());
 };
 
-export function buildExplorerAddressUrl({
-  network,
-  address,
-}: {
-  network: IServerNetwork | undefined;
-  address: string | undefined;
-}) {
-  if (!network || !address) return '';
-
-  const addressUrl = network.explorers[0]?.address;
-
-  if (!addressUrl) return '';
-
-  return addressUrl.replace('{address}', address);
-}
-
-export function buildTokenDetailsUrl({
-  network,
-  address,
-}: {
-  network: IServerNetwork | undefined;
-  address: string | undefined;
-}) {
-  if (!network || !address) return '';
-
-  const tokenUrl = network.explorers[0]?.token;
-
-  if (tokenUrl) {
-    return tokenUrl.replace('{token}', address);
-  }
-
-  const addressUrl = network.explorers[0]?.address;
-
-  if (!addressUrl) return '';
-
-  return addressUrl.replace('{address}', address);
-}
-
-export function buildTransactionDetailsUrl({
-  network,
-  txid,
-}: {
-  network: IServerNetwork | undefined;
-  txid: string | undefined;
-}) {
-  if (!network || !txid) return '';
-
-  const transactionUrl = network.explorers[0]?.transaction;
-
-  if (!transactionUrl) return '';
-
-  return transactionUrl.replace('{transaction}', txid);
-}
 export function isValidDeepLink(url: string) {
   return VALID_DEEP_LINK.some((protocol) =>
     url.toLowerCase().startsWith(`${protocol.toLowerCase()}//`),
