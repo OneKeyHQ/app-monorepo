@@ -1,3 +1,4 @@
+import { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
@@ -30,6 +31,7 @@ export type IPasswordPromptPromiseTriggerAtom = {
     | {
         idNumber: number;
         type: EPasswordPromptType;
+        dialogProps?: { description?: string };
       }
     | undefined;
 };
