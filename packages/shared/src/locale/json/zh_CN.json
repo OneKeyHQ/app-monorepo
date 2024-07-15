@@ -1055,6 +1055,8 @@
   "provider.protocol_fee": "渠道商的协议费用",
   "provider.recommend": "推荐排序",
   "provider.route": "路径",
+  "provider.route_changelly_fix": "请注意，按固定汇率，预期收到的金额（不包括手续费）将与屏幕上显示的金额一致。",
+  "provider.route_changelly_float": "请注意，由于市场条件的变化，浮动汇率可能会随时变动，因此您收到的加密货币可能会多于或少于预期。",
   "provider.route_no_information": "供应商暂时未提供路径信息",
   "provider.route_swft": "请注意，此交易正在使用第三方SWFT_BRIDGE跨链桥，该桥涉及集中执行并带有相关风险。",
   "provider.route_unable_fetch_price": "无法获取价格",
