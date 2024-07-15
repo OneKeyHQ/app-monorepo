@@ -272,7 +272,7 @@ export function usePromiseResult<T>(
     if (prevPollingInterval === optionsRef.current.pollingInterval) {
       callback();
       // the interval duration of the call needs to be readjusted after the polling interval duration changes。
-    } else if (runAtRef.current) {
+    } else {
       setTimeout(
         callback,
         Date.now() - runAtRef.current >
@@ -280,8 +280,6 @@ export function usePromiseResult<T>(
           ? 0
           : optionsRef.current.pollingInterval,
       );
-    } else {
-      callback();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, runnerDeps);
