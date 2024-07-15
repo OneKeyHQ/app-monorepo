@@ -2,11 +2,9 @@ import Axios from 'axios';
 
 import platformEnv from '../platformEnv';
 
-import type { AxiosInstance } from 'axios';
+import { getDeviceInfo } from './deviceInfo';
 
-const basicInfo = {} as {
-  screenName: string;
-};
+import type { AxiosInstance } from 'axios';
 
 export enum ETrackEventNames {
   PageView = 'pageView',
@@ -34,6 +32,21 @@ export interface ITrackPayload {
   };
 }
 
+const basicInfo = {} as {
+  screenName: string;
+};
+
+let deviceInfo: Record<string, any> | null = null;
+const lazyDeviceInfo = async () => {
+  if (!deviceInfo) {
+    deviceInfo = await getDeviceInfo();
+    deviceInfo.appBuildNumber = platformEnv.buildNumber;
+    deviceInfo.appVersion = platformEnv.version;
+  }
+  deviceInfo.screenName = basicInfo.screenName;
+  return deviceInfo;
+};
+
 let distinctId = '';
 let request: AxiosInstance | null = null;
 const lazyAxios = () => {
@@ -50,10 +63,18 @@ const requestEvent = async (
   eventName: string,
   eventProps?: Record<string, any>,
 ) => {
+  const event = {
+    ...eventProps,
+    ...(await lazyDeviceInfo()),
+  };
+  if (platformEnv.isDev) {
+    console.log('trackEvent', event);
+    return;
+  }
   const axios = lazyAxios();
   await axios.post('/api/track-event', {
     eventName,
-    eventProps,
+    event,
   });
 };
 
@@ -73,11 +94,8 @@ export function trackEvent<T extends ETrackEventNames>(
   eventName: T,
   eventProps?: ITrackPayload[T],
 ) {
-  if (platformEnv.isDev) {
-    return;
-  }
   void requestEvent(eventName, {
-    ...basicInfo,
+    distinctId,
     eventProps,
   });
 }

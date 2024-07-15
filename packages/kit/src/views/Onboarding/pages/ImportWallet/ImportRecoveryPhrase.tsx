@@ -4,11 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETrackEventNames, trackEvent } from '@onekeyhq/shared/src/analytics';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  ETrackEventNames,
-  trackEvent,
-} from '@onekeyhq/shared/src/analytics';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';

@@ -23,12 +23,9 @@ import {
   injectToResumeWebsocket,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
+import { ETrackEventNames, trackEvent } from '@onekeyhq/shared/src/analytics';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import {
-  ETrackEventNames,
-  trackEvent,
-} from '@onekeyhq/shared/src/analytics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
