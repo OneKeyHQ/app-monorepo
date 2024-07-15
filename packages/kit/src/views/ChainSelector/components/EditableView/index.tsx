@@ -1,9 +1,10 @@
-import type { FC, RefObject } from 'react';
+import type { FC } from 'react';
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -24,12 +25,12 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { networkFuseSearch } from '../../utils';
 
 import type { IServerNetworkMatch } from '../../types';
-import type { ScrollView } from 'react-native';
 
 type IEditableViewContext = {
   isEditMode?: boolean;
@@ -52,12 +53,10 @@ const EditableViewListItem = ({
   item,
   sectionIndex,
   drag,
-  scrollViewRef,
 }: {
   item: IServerNetworkMatch;
   sectionIndex: number;
   drag: () => void;
-  scrollViewRef: RefObject<ScrollView>;
 }) => {
   const intl = useIntl();
   const {
@@ -84,7 +83,7 @@ const EditableViewListItem = ({
       renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
-      {sectionIndex !== 0 && isEditMode ? (
+      {/* {sectionIndex !== 0 && isEditMode ? (
         <ListItem.IconButton
           {...ListItem.EnterAnimationStyle}
           onPress={() => {
@@ -104,9 +103,6 @@ const EditableViewListItem = ({
           iconProps={{
             color: topNetworkIds.has(item.id) ? '$iconActive' : '$iconSubdued',
           }}
-          tooltipProps={{
-            scrollViewRef,
-          }}
         />
       ) : null}
       {networkId === item.id && !isEditMode ? (
@@ -120,7 +116,7 @@ const EditableViewListItem = ({
           icon="DragOutline"
           onPressIn={drag}
         />
-      ) : null}
+      ) : null} */}
     </ListItem>
   );
 };
@@ -155,20 +151,19 @@ export const EditableView: FC<IEditableViewProps> = ({
   onTopNetworksChange,
 }) => {
   const [searchText, setSearchText] = useState('');
-  const [showLoading, setIsShowLoading] = useState(true);
   const [topNetworks, setTopNetworks] = useState(defaultTopNetworks ?? []);
   const intl = useIntl();
   const lastIsEditMode = usePrevious(isEditMode);
   const trimSearchText = searchText.trim();
   const scrollView = useRef<ISortableSectionListRef>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isEditMode && lastIsEditMode) {
       onTopNetworksChange?.(topNetworks);
     }
   }, [isEditMode, lastIsEditMode, topNetworks, onTopNetworksChange]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setTopNetworks(defaultTopNetworks);
   }, [defaultTopNetworks]);
 
@@ -199,7 +194,7 @@ export const EditableView: FC<IEditableViewProps> = ({
   }, [allNetworks, trimSearchText, topNetworks]);
 
   const hasScrollToSelectedCell = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (sections.length <= 1 || hasScrollToSelectedCell.current) {
       return;
     }
@@ -207,19 +202,20 @@ export const EditableView: FC<IEditableViewProps> = ({
     for (const section of sections) {
       const index = section.data.findIndex((item) => item.id === networkId);
       if (index !== -1) {
-        // eslint-disable-next-line @typescript-eslint/no-loop-func, no-loop-func
-        setTimeout(() => {
-          y += index * CELL_HEIGHT;
-          y -= section.title ? 20 : 0;
-          scrollView?.current?.scrollTo?.({
-            y,
-            animated: false,
-          });
-          hasScrollToSelectedCell.current = true;
-          setTimeout(() => {
-            setIsShowLoading(false);
-          }, 50);
-        });
+        setTimeout(
+          // Scrolling animations need to be enabled on Android devices to prevent the list from flickering.
+          // eslint-disable-next-line no-loop-func, @typescript-eslint/no-loop-func
+          () => {
+            y += index * CELL_HEIGHT;
+            y -= section.title ? 20 : 0;
+            scrollView?.current?.scrollTo?.({
+              y,
+              animated: platformEnv.isNativeAndroid,
+            });
+            hasScrollToSelectedCell.current = true;
+          },
+          platformEnv.isNativeAndroid ? 100 : 0,
+        );
         break;
       }
       y += 36 + 20;
@@ -257,7 +253,6 @@ export const EditableView: FC<IEditableViewProps> = ({
       drag: () => void;
     }) => (
       <EditableViewListItem
-        scrollViewRef={scrollView}
         item={item}
         sectionIndex={
           searchText.length > 0
@@ -315,20 +310,6 @@ export const EditableView: FC<IEditableViewProps> = ({
             <ListEmptyComponent />
           )}
         </Stack>
-        {showLoading ? (
-          <Stack
-            bg="$bgApp"
-            position="absolute"
-            left={0}
-            right={0}
-            top={0}
-            bottom={0}
-            ai="center"
-            jc="center"
-          >
-            <Spinner size="large" />
-          </Stack>
-        ) : null}
       </Stack>
     </EditableViewContext.Provider>
   );
