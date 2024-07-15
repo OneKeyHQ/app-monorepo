@@ -160,7 +160,12 @@ export const showRenameDialog = (
         <Dialog.FormField
           name="name"
           rules={{
-            required: { value: true, message: 'Name is required.' },
+            required: {
+              value: true,
+              message: appLocale.intl.formatMessage({
+                id: ETranslations.form_rename_error_empty,
+              }),
+            },
           }}
         >
           <RenameInputWithNameSelector
