@@ -92,11 +92,11 @@ function PortalRender(props: {
         !isReactMemoElement(_owner?.child) &&
         !isReactMemoElement(_owner?.sibling)
       ) {
-        // throw new Error(
-        //   `use React.memo or React.useMemo with a Component contains children in Portal.Body ${
-        //     container || ''
-        //   }`,
-        // );
+        console.error(
+          `use React.memo or React.useMemo with a Component contains children in Portal.Body ${
+            container || ''
+          }`,
+        );
       }
     }
   }
