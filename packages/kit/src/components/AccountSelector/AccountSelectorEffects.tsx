@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { throttle } from 'lodash';
+
 import type { IDBExternalAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -9,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -22,7 +25,6 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 
-import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import { useAutoSelectAccount } from './hooks/useAutoSelectAccount';
 import { useAutoSelectDeriveType } from './hooks/useAutoSelectDeriveType';
 import { useAutoSelectNetwork } from './hooks/useAutoSelectNetwork';
@@ -112,29 +114,39 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
       selectedAccount.deriveType,
     ],
     [
-      selectedAccount.deriveType,
-      selectedAccount.indexedAccountId,
-      selectedAccount.networkId,
-      selectedAccount.othersWalletAccountId,
       selectedAccount.walletId,
+      selectedAccount.indexedAccountId,
+      selectedAccount.othersWalletAccountId,
+      selectedAccount.networkId,
+      selectedAccount.deriveType,
     ],
   );
-  const reloadActiveAccountInfo = useCallback(async () => {
-    noopObject(activeAccountReloadDeps);
-    if (!isReady) {
-      return;
-    }
-    const activeAccount = await actions.current.reloadActiveAccountInfo({
-      num,
-      selectedAccount: selectedAccountRef.current,
-    });
-    if (activeAccount.account && activeAccount.network?.id) {
-      void backgroundApiProxy.serviceAccount.saveAccountAddresses({
-        account: activeAccount.account,
-        networkId: activeAccount.network?.id,
-      });
-    }
-  }, [actions, isReady, num, activeAccountReloadDeps]);
+  const reloadActiveAccountInfo = useMemo(
+    () =>
+      throttle(
+        async () => {
+          if (!isReady) {
+            return;
+          }
+          const activeAccount = await actions.current.reloadActiveAccountInfo({
+            num,
+            selectedAccount: selectedAccountRef.current,
+          });
+          if (activeAccount.account && activeAccount.network?.id) {
+            void backgroundApiProxy.serviceAccount.saveAccountAddresses({
+              account: activeAccount.account,
+              networkId: activeAccount.network?.id,
+            });
+          }
+        },
+        100,
+        {
+          leading: false,
+          trailing: true,
+        },
+      ),
+    [actions, isReady, num],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -163,8 +175,9 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   ]);
 
   useEffect(() => {
+    noopObject(activeAccountReloadDeps);
     void reloadActiveAccountInfo();
-  }, [reloadActiveAccountInfo]);
+  }, [activeAccountReloadDeps, reloadActiveAccountInfo]);
 
   useEffect(() => {
     const updateNetwork = (params: {

@@ -13,7 +13,6 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   EAccountSelectorSceneName,
   IServerNetwork,
@@ -51,8 +50,11 @@ export const defaultSelectedAccount: () => IAccountSelectorSelectedAccount =
     deriveType: 'default',
     focusedWallet: undefined,
   });
+export type ISelectedAccountsAtomMap = Partial<{
+  [num: number]: IAccountSelectorSelectedAccount;
+}>;
 export const { atom: selectedAccountsAtom, use: useSelectedAccountsAtom } =
-  contextAtom<Partial<{ [num: number]: IAccountSelectorSelectedAccount }>>({
+  contextAtom<ISelectedAccountsAtomMap>({
     0: defaultSelectedAccount(),
   });
 export function useSelectedAccount({ num }: { num: number }): {
