@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
@@ -22,8 +22,10 @@ import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
@@ -42,8 +44,6 @@ function HomeOverviewContainer() {
     isRefreshing: false,
   });
 
-  const allNetworkId = useRef('');
-
   const allNetWorthInit = useRef(false);
 
   const [allNetWorth, setAllNetWorth] = useState<string | undefined>();
@@ -54,6 +54,7 @@ function HomeOverviewContainer() {
     async () => {
       if (!account || !network) return;
       if (account.impl === IMPL_ALLNETWORKS) return;
+      await backgroundApiProxy.serviceAccountProfile.abortFetchAccountDetails();
       const r =
         await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
           networkId: network.id,
@@ -74,70 +75,43 @@ function HomeOverviewContainer() {
     },
   );
 
-  usePromiseResult(async () => {
-    if (!account || !network || !wallet) return;
-    if (account.impl !== IMPL_ALLNETWORKS) return;
+  const handleAllNetworkRequests = useCallback(
+    async ({
+      networkId,
+      accountId,
+    }: {
+      networkId: string;
+      accountId: string;
+    }) => {
+      const r =
+        await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
+          networkId,
+          accountId,
+          withNetWorth: true,
+          withNonce: false,
+        });
 
-    const allAccounts = (
-      await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
-        {
-          indexedAccountId: account.indexedAccountId ?? '',
-        },
-      )
-    ).filter((a) => a.impl !== IMPL_ALLNETWORKS);
-
-    if (!allAccounts || isEmpty(allAccounts)) {
-      setOverviewState({
-        initialized: true,
-        isRefreshing: false,
-      });
-    }
-    let netWorthBN = new BigNumber(0);
-
-    if (allNetWorthInit.current) {
-      setOverviewState({
-        initialized: true,
-        isRefreshing: false,
-      });
-    }
-    const currentAllNetworkId = `${account.id}_${network.id}_${wallet.id}`;
-    for (const a of allAccounts) {
-      if (currentAllNetworkId !== allNetworkId.current) break;
-      const resp = await backgroundApiProxy.serviceNetwork.getNetworkIdsByImpls(
-        {
-          impls: [a.impl],
-        },
+      setAllNetWorth((prev) =>
+        new BigNumber(prev ?? '0').plus(r.netWorth ?? 0).toString(),
       );
 
-      for (const networkId of resp.networkIds) {
-        if (currentAllNetworkId !== allNetworkId.current) break;
-        const r =
-          await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
-            networkId,
-            accountId: a.id,
-            withNetWorth: true,
-            withNonce: false,
-          });
-        if (allNetWorthInit.current) {
-          netWorthBN = netWorthBN.plus(r.netWorth ?? 0);
-        } else {
-          setAllNetWorth((prev) =>
-            new BigNumber(prev ?? '0').plus(r.netWorth ?? 0).toString(),
-          );
-          setOverviewState({
-            initialized: true,
-            isRefreshing: false,
-          });
-        }
-      }
-    }
+      setOverviewState({
+        initialized: true,
+        isRefreshing: false,
+      });
 
-    if (allNetWorthInit.current) {
-      setAllNetWorth(netWorthBN.toString());
-    }
+      return r;
+    },
+    [],
+  );
 
-    allNetWorthInit.current = true;
-  }, [account, network, wallet]);
+  const { allNetworkInit, result: allNetworksResult } =
+    useAllNetworkRequests<IFetchAccountDetailsResp>({
+      account,
+      network,
+      wallet,
+      allNetworkRequests: handleAllNetworkRequests,
+    });
 
   const { result: vaultSettings } = usePromiseResult(async () => {
     if (!network) return;
@@ -153,11 +127,25 @@ function HomeOverviewContainer() {
         initialized: false,
         isRefreshing: true,
       });
-      allNetworkId.current = `${account.id}_${network.id}_${wallet.id}`;
       allNetWorthInit.current = false;
       setAllNetWorth('0');
     }
   }, [account?.id, network?.id, wallet?.id]);
+
+  useEffect(() => {
+    let allNetworksWorth = new BigNumber('0');
+    if (
+      allNetworkInit.current &&
+      allNetworksResult &&
+      !isEmpty(allNetworksResult)
+    ) {
+      for (const r of allNetworksResult) {
+        allNetworksWorth = allNetworksWorth.plus(r.netWorth ?? 0);
+      }
+      setAllNetWorth(allNetworksWorth.toString());
+    }
+  }, [allNetworkInit, allNetworksResult]);
+
   const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
 

@@ -80,19 +80,15 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         tokens: IAccountToken[];
         keys: string;
         merge?: boolean;
-        networkId?: string;
       },
     ) => {
-      const { keys, tokens, networkId } = payload;
+      const { keys, tokens } = payload;
 
       if (payload.merge) {
         if (tokens.length) {
           const newTokens = get(tokenListAtom()).tokens.concat(tokens);
           set(tokenListAtom(), {
-            tokens: uniqBy(
-              newTokens,
-              (item) => `${item.$key}_${networkId ?? ''}`,
-            ),
+            tokens: uniqBy(newTokens, (item) => item.$key),
             keys: `${get(tokenListAtom()).keys}_${keys}`,
           });
         }
@@ -133,10 +129,9 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         riskyTokens: IAccountToken[];
         keys: string;
         merge?: boolean;
-        networkId?: string;
       },
     ) => {
-      const { keys, riskyTokens, networkId } = payload;
+      const { keys, riskyTokens } = payload;
 
       if (payload.merge) {
         if (riskyTokens.length) {
@@ -144,10 +139,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             riskyTokens,
           );
           set(riskyTokenListAtom(), {
-            riskyTokens: uniqBy(
-              newTokens,
-              (item) => `${item.$key}_${networkId ?? ''}`,
-            ),
+            riskyTokens: uniqBy(newTokens, (item) => item.$key),
             keys: `${get(riskyTokenListAtom()).keys}_${keys}`,
           });
         }
@@ -188,10 +180,9 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         smallBalanceTokens: IAccountToken[];
         keys: string;
         merge?: boolean;
-        networkId?: string;
       },
     ) => {
-      const { keys, smallBalanceTokens, networkId } = payload;
+      const { keys, smallBalanceTokens } = payload;
 
       if (payload.merge) {
         if (smallBalanceTokens.length) {
@@ -199,10 +190,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             smallBalanceTokenListAtom(),
           ).smallBalanceTokens.concat(smallBalanceTokens);
           set(smallBalanceTokenListAtom(), {
-            smallBalanceTokens: uniqBy(
-              newTokens,
-              (item) => `${item.$key}_${networkId ?? ''}`,
-            ),
+            smallBalanceTokens: uniqBy(newTokens, (item) => item.$key),
             keys: `${get(smallBalanceTokenListAtom()).keys}_${keys}`,
           });
         }

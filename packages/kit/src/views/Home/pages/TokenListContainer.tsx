@@ -179,7 +179,7 @@ function TokenListContainer({
 
   usePromiseResult(async () => {
     if (!account || !network || !wallet) return;
-    if (account.impl !== IMPL_ALLNETWORKS) return;
+    if (account.impl === IMPL_ALLNETWORKS) return;
 
     const allAccounts = (
       await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
@@ -279,7 +279,6 @@ function TokenListContainer({
             keys: r.tokens.keys,
             tokens: r.tokens.data,
             merge: true,
-            networkId,
           });
           refreshTokenListMap({
             tokens: r.tokens.map,
@@ -290,7 +289,6 @@ function TokenListContainer({
             keys: r.smallBalanceTokens.keys,
             smallBalanceTokens: r.smallBalanceTokens.data,
             merge: true,
-            networkId,
           });
           refreshSmallBalanceTokenListMap({
             tokens: r.smallBalanceTokens.map,
@@ -306,7 +304,6 @@ function TokenListContainer({
           refreshRiskyTokenListMap({
             tokens: r.riskTokens.map,
             merge: true,
-            networkId,
           });
 
           updateTokenListState({
