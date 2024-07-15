@@ -7,6 +7,7 @@ import {
   PROTOCOLS_SUPPORTED_TO_OPEN,
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
+import { defaultLogger } from '../logger/logger';
 
 import type {
   EOneKeyDeepLinkPath,
@@ -68,6 +69,7 @@ function parseDappRedirect(
       !allowedUrls.includes(parsedUrl.origin))
   ) {
     console.log('====>>>>>>>reject navigate: ', url);
+    defaultLogger.discovery.browser.logRejectUrl(url);
     return { action: EDAppOpenActionEnum.DENY };
   }
 

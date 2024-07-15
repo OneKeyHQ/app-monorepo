@@ -13,4 +13,9 @@ export class BrowserScene extends BaseScene {
   public setTabsDataFunctionName(fnName: string) {
     return fnName;
   }
+
+  @LogToLocal({ level: 'info' })
+  public logRejectUrl(url: string) {
+    return url;
+  }
 }
