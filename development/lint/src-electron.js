@@ -6,7 +6,7 @@ const { exit } = require('process');
 
 const projectPath = path.join(__dirname, '..', '..');
 const desktopPath = path.join(projectPath, 'apps', 'desktop');
-console.log(desktopPath);
+
 try {
   const result = execSync(`cd ${desktopPath} && yarn build:main`).toString(
     'utf-8',
