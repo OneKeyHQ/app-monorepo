@@ -83,7 +83,7 @@ const EditableViewListItem = ({
       renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
-      {/* {sectionIndex !== 0 && isEditMode ? (
+      {sectionIndex !== 0 && isEditMode ? (
         <ListItem.IconButton
           {...ListItem.EnterAnimationStyle}
           onPress={() => {
@@ -116,7 +116,7 @@ const EditableViewListItem = ({
           icon="DragOutline"
           onPressIn={drag}
         />
-      ) : null} */}
+      ) : null}
     </ListItem>
   );
 };
