@@ -402,6 +402,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async promptPasswordVerify(options?: {
     reason?: EReasonForNeedPassword;
+    dialogProps?: { description?: string };
   }): Promise<IPasswordRes> {
     const v4migrationData = await v4migrationAtom.get();
     if (v4migrationData?.isProcessing) {
@@ -447,6 +448,7 @@ export default class ServicePassword extends ServiceBase {
         type: isPasswordSet
           ? EPasswordPromptType.PASSWORD_VERIFY
           : EPasswordPromptType.PASSWORD_SETUP,
+        dialogProps: options?.dialogProps,
       });
     });
     const result = await (res as Promise<IPasswordRes>);
@@ -500,6 +502,7 @@ export default class ServicePassword extends ServiceBase {
   async showPasswordPromptDialog(params: {
     idNumber: number;
     type: EPasswordPromptType;
+    dialogProps?: { description?: string };
   }) {
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
