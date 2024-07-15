@@ -5,7 +5,7 @@ import platformEnv from '../platformEnv';
 import type { AxiosInstance } from 'axios';
 
 const basicInfo = {} as {
-  screen_name: string;
+  screenName: string;
 };
 
 export enum ETrackEventNames {
@@ -83,7 +83,7 @@ export function trackEvent<T extends ETrackEventNames>(
 }
 
 export const trackPage = (pageName: string) => {
-  basicInfo.screen_name = pageName;
+  basicInfo.screenName = pageName;
   trackEvent(ETrackEventNames.PageView, { pageName });
 };
 
