@@ -17,6 +17,7 @@ import { getFilteredHistoryBySearchKey } from '@onekeyhq/shared/src/utils/histor
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { useTabListProps } from '../../hooks/useTabListScroll';
 import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
@@ -154,6 +155,10 @@ function TxHistoryListView(props: IProps) {
     [data, intl, onPressHistory, showIcon, tableLayout],
   );
 
+  const { listViewProps, listViewRef } = useTabListProps<IAccountHistoryTx>({
+    onContentSizeChange,
+  });
+
   if (!initialized && isLoading) {
     return (
       <Stack py="$3">
@@ -168,11 +173,12 @@ function TxHistoryListView(props: IProps) {
 
   return (
     <ListView
+      {...listViewProps}
+      ref={listViewRef}
       py="$3"
       h="100%"
       scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
       disableScrollViewPanResponder={!!onContentSizeChange}
-      onContentSizeChange={onContentSizeChange}
       data={filteredHistory}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
       estimatedItemSize={60}
