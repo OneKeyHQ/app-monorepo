@@ -20,6 +20,7 @@ import type {
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
 // TODO save sceneName and sceneUrl to atom, so actions can get it
 export interface IAccountSelectorContextData {
@@ -186,15 +187,19 @@ export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
 export function useActiveAccount({ num }: { num: number }): {
   activeAccount: IAccountSelectorActiveAccountInfo;
 } {
-  // TODO add this deps for cosmos?
+  // TODO why add this deps for cosmos account model?
   // const [selectedAccounts] = useSelectedAccountsAtom();
   // noopObject(selectedAccounts);
+
   const [accounts] = useActiveAccountsAtom();
-  const accountInfo = accounts[num];
-  const activeAccount = accountInfo || defaultActiveAccountInfo();
-  return {
-    activeAccount,
-  };
+
+  return useMemo(() => {
+    const accountInfo = accounts[num];
+    const activeAccount = accountInfo || defaultActiveAccountInfo();
+    return {
+      activeAccount,
+    };
+  }, [accounts, num]);
 }
 
 export function useAccountSelectorSceneInfo() {
