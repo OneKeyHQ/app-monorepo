@@ -1055,6 +1055,8 @@
   "provider.protocol_fee": "Costo del protocollo da parte del fornitore",
   "provider.recommend": "Raccomanda",
   "provider.route": "Percorso",
+  "provider.route_changelly_fix": "Si prega di notare che con il tasso fisso, l'importo previsto da ricevere (esclusi i costi) corrisponderà all'importo mostrato sullo schermo.",
+  "provider.route_changelly_float": "Si prega di notare che il tasso fluttuante può cambiare in qualsiasi momento a causa delle condizioni di mercato, quindi potresti ricevere più o meno cripto di quanto previsto.",
   "provider.route_no_information": "Il fornitore ha temporaneamente non fornito informazioni sul percorso.",
   "provider.route_swft": "Si prega di essere consapevoli che questa transazione utilizza un ponte cross-chain di terze parti SWFT_BRIDGE, che comporta un'esecuzione centralizzata e porta con sé rischi associati.",
   "provider.route_unable_fetch_price": "Impossibile recuperare il prezzo",

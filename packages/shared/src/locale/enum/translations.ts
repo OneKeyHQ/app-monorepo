@@ -1056,6 +1056,8 @@ export enum ETranslations {
   provider_protocol_fee = 'provider.protocol_fee',
   provider_recommend = 'provider.recommend',
   provider_route = 'provider.route',
+  provider_route_changelly_fix = 'provider.route_changelly_fix',
+  provider_route_changelly_float = 'provider.route_changelly_float',
   provider_route_no_information = 'provider.route_no_information',
   provider_route_swft = 'provider.route_swft',
   provider_route_unable_fetch_price = 'provider.route_unable_fetch_price',

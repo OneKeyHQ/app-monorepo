@@ -1055,6 +1055,8 @@
   "provider.protocol_fee": "Biaya protokol oleh penyedia",
   "provider.recommend": "Rekomendasikan",
   "provider.route": "Rute",
+  "provider.route_changelly_fix": "Harap dicatat bahwa dengan tarif tetap, jumlah yang diharapkan diterima (tidak termasuk biaya) akan sesuai dengan jumlah yang ditampilkan di layar.",
+  "provider.route_changelly_float": "Harap diperhatikan bahwa tingkat mengambang dapat berubah kapan saja karena kondisi pasar, sehingga Anda mungkin menerima lebih banyak atau lebih sedikit crypto dari yang diharapkan.",
   "provider.route_no_information": "Penyedia sementara ini tidak menyediakan informasi rute.",
   "provider.route_swft": "Harap diketahui bahwa transaksi ini menggunakan jembatan lintas rantai pihak ketiga SWFT_BRIDGE, yang melibatkan eksekusi terpusat dan membawa risiko terkait.",
   "provider.route_unable_fetch_price": "Tidak dapat mengambil harga",

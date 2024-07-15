@@ -1055,6 +1055,8 @@
   "provider.protocol_fee": "Taxa de protocolo pelo provedor",
   "provider.recommend": "Recomendar",
   "provider.route": "Rota",
+  "provider.route_changelly_fix": "Observe que, com a taxa fixa, o valor esperado a ser recebido (excluindo taxas) corresponderá ao valor mostrado na tela.",
+  "provider.route_changelly_float": "Por favor, esteja ciente de que a taxa flutuante pode mudar a qualquer momento devido às condições de mercado, então você pode receber mais ou menos cripto do que o esperado.",
   "provider.route_no_information": "O provedor temporariamente não forneceu informações de rota.",
   "provider.route_swft": "Por favor, esteja ciente de que esta transação está utilizando uma ponte cross-chain SWFT_BRIDGE de terceiros, que envolve execução centralizada e carrega riscos associados.",
   "provider.route_unable_fetch_price": "Incapaz de buscar o preço",
