@@ -11,6 +11,7 @@ import {
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
 import {
   useAccountSelectorTrigger,
   useMockAccountSelectorLoading,
@@ -34,11 +35,17 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _: any,
   ) => {
-    const { isLoading } = useMockAccountSelectorLoading(loadingDuration);
+    const { isLoading: mockIsLoading } =
+      useMockAccountSelectorLoading(loadingDuration);
+    const [syncLoading] = useAccountSelectorSyncLoadingAtom();
+    const isLoading = syncLoading?.[num]?.isLoading || mockIsLoading;
+
     const {
       activeAccount: { account, wallet, indexedAccount },
       showAccountSelector,
     } = useAccountSelectorTrigger({ num, linkNetwork: true });
+
+    const triggerDisabled = isLoading || disabled;
 
     const handlePress = useCallback(async () => {
       await beforeShowTrigger?.();
@@ -123,22 +130,22 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
         alignItems="center"
         userSelect="none"
         hoverStyle={
-          disabled
+          triggerDisabled
             ? undefined
             : {
                 bg: '$bgHover',
               }
         }
         pressStyle={
-          disabled
+          triggerDisabled
             ? undefined
             : {
                 bg: '$bgActive',
               }
         }
-        focusable={!disabled}
+        focusable={!triggerDisabled}
         focusStyle={
-          disabled
+          triggerDisabled
             ? undefined
             : {
                 outlineWidth: 2,
@@ -148,7 +155,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
         }
         borderCurve="continuous"
         onPress={handlePress}
-        disabled={disabled}
+        disabled={triggerDisabled}
         {...rest}
       >
         {renderAvatar()}
@@ -156,7 +163,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
           {renderWalletAndAccountName()}
           {renderAddressText()}
         </YStack>
-        {disabled ? null : (
+        {triggerDisabled ? null : (
           <Icon
             name="ChevronGrabberVerOutline"
             color="$iconSubdued"

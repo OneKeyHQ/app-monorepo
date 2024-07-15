@@ -137,6 +137,18 @@ export const {
   }>
 >({});
 
+export type IAccountSelectorSyncLoadingMeta = {
+  isLoading: boolean;
+};
+export const {
+  atom: accountSelectorSyncLoadingAtom,
+  use: useAccountSelectorSyncLoadingAtom,
+} = contextAtom<
+  Partial<{
+    [num: number]: IAccountSelectorSyncLoadingMeta;
+  }>
+>({});
+
 export interface IAccountSelectorActiveAccountInfo {
   ready: boolean;
   isOthersWallet?: boolean;
