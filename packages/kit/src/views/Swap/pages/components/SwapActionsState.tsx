@@ -125,7 +125,7 @@ const SwapActionsState = ({
             : {})}
         >
           <Popover
-            title="Approve"
+            title={intl.formatMessage({ id: ETranslations.global_approve })}
             placement="top-start"
             renderContent={
               <SizableText
@@ -133,7 +133,8 @@ const SwapActionsState = ({
                 $gtMd={{
                   size: '$bodyMd',
                 }}
-                p="$5"
+                pb="$5"
+                px="$5"
               >
                 {intl.formatMessage({
                   id: ETranslations.swap_page_swap_steps_1_approve_dialog,

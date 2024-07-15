@@ -1055,6 +1055,8 @@
   "provider.protocol_fee": "Phí giao thức do nhà cung cấp",
   "provider.recommend": "Đề xuất",
   "provider.route": "Tuyến đường",
+  "provider.route_changelly_fix": "Xin lưu ý rằng với tỷ lệ cố định, số tiền dự kiến nhận được (không bao gồm phí) sẽ khớp với số tiền hiển thị trên màn hình.",
+  "provider.route_changelly_float": "Xin hãy lưu ý rằng tỷ lệ nổi có thể thay đổi bất cứ lúc nào do điều kiện thị trường, vì vậy bạn có thể nhận được nhiều hoặc ít tiền điện tử hơn dự kiến.",
   "provider.route_no_information": "Nhà cung cấp tạm thời không cung cấp thông tin về tuyến đường.",
   "provider.route_swft": "Xin lưu ý rằng giao dịch này đang sử dụng cầu liên chuỗi của bên thứ ba SWFT_BRIDGE, điều này liên quan đến việc thực thi tập trung và mang theo các rủi ro liên quan.",
   "provider.route_unable_fetch_price": "Không thể lấy được giá",

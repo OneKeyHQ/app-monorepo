@@ -1055,6 +1055,8 @@
   "provider.protocol_fee": "제공자에 의한 프로토콜 수수료",
   "provider.recommend": "추천",
   "provider.route": "경로",
+  "provider.route_changelly_fix": "고정 환율을 사용하면, 수수료를 제외한 예상 수령액이 화면에 표시된 금액과 일치하게 됨을 유의하십시오.",
+  "provider.route_changelly_float": "시장 상황에 따라 부동 이율이 언제든지 변경될 수 있으므로, 예상보다 더 많거나 적은 암호화폐를 받을 수 있음을 유의하십시오.",
   "provider.route_no_information": "제공자가 일시적으로 경로 정보를 제공하지 않았습니다.",
   "provider.route_swft": "이 거래는 중앙 집중식 실행을 포함하고 관련 위험을 수반하는 제3자 SWFT_BRIDGE 크로스 체인 브리지를 사용하고 있음을 유의하십시오.",
   "provider.route_unable_fetch_price": "가격을 가져올 수 없습니다",

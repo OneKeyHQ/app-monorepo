@@ -1055,6 +1055,8 @@
   "provider.protocol_fee": "プロバイダーによるプロトコル料金",
   "provider.recommend": "推奨",
   "provider.route": "ルート",
+  "provider.route_changelly_fix": "固定レートを使用すると、予想される受け取り額（手数料を除く）が画面に表示される額と一致することに注意してください。",
+  "provider.route_changelly_float": "市場の状況により、浮動レートはいつでも変更される可能性があるため、予想以上に多く、または少ない暗号通貨を受け取る可能性がありますので、ご注意ください。",
   "provider.route_no_information": "プロバイダーは一時的にルート情報を提供していません。",
   "provider.route_swft": "この取引は、中央集権的な実行を伴い、関連するリスクを伴う第三者のSWFT_BRIDGEクロスチェーンブリッジを利用していることにご注意ください。",
   "provider.route_unable_fetch_price": "価格を取得できません",

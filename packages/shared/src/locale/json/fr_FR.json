@@ -1055,6 +1055,8 @@
   "provider.protocol_fee": "Frais de protocole par fournisseur",
   "provider.recommend": "Recommander",
   "provider.route": "Itinéraire",
+  "provider.route_changelly_fix": "Veuillez noter qu'avec le taux fixe, le montant reçu prévu (hors frais) correspondra au montant affiché à l'écran.",
+  "provider.route_changelly_float": "Veuillez noter que le taux flottant peut changer à tout moment en raison des conditions du marché, vous pourriez donc recevoir plus ou moins de crypto que prévu.",
   "provider.route_no_information": "Le fournisseur n'a temporairement pas fourni d'informations sur l'itinéraire.",
   "provider.route_swft": "Veuillez noter que cette transaction utilise un pont inter-chaînes SWFT_BRIDGE tiers, qui implique une exécution centralisée et comporte des risques associés.",
   "provider.route_unable_fetch_price": "Impossible de récupérer le prix",
