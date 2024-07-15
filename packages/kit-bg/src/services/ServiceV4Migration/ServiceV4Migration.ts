@@ -416,11 +416,6 @@ class ServiceV4Migration extends ServiceBase {
         const passwordRes =
           await this.backgroundApi.servicePassword.promptPasswordVerify({
             reason: EReasonForNeedPassword.Security,
-            dialogProps: {
-              description: appLocale.intl.formatMessage({
-                id: ETranslations.v4_migration_confirm_password_description,
-              }),
-            },
           });
 
         if (!passwordRes?.password) {
