@@ -9,6 +9,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useDeferredPromise } from './useDeferredPromise';
 import { useIsMounted } from './useIsMounted';
+import { usePrevious } from './usePrevious';
 
 type IRunnerConfig = {
   triggerByDeps?: boolean; // true when trigger by deps changed, do not set it when manually trigger
@@ -212,9 +213,8 @@ export function usePromiseResult<T>(
             pollingInterval &&
             pollingNonceRef.current === config?.pollingNonce
           ) {
-            await defer.promise;
             await timerUtils.wait(pollingInterval);
-
+            await defer.promise;
             if (pollingNonceRef.current === config?.pollingNonce) {
               if (shouldSetState(config)) {
                 void run({
@@ -256,7 +256,9 @@ export function usePromiseResult<T>(
     () => [...deps, optionsRef.current.pollingInterval],
     [deps],
   );
+
   const runAtRef = useRef(0);
+  const prevPollingInterval = usePrevious(optionsRef.current.pollingInterval);
   useEffect(() => {
     const callback = () => {
       runAtRef.current = Date.now();
@@ -266,7 +268,11 @@ export function usePromiseResult<T>(
         pollingNonce: pollingNonceRef.current,
       });
     };
-    if (runAtRef.current) {
+    // execute immediately when the timer has not changed.
+    if (prevPollingInterval === optionsRef.current.pollingInterval) {
+      callback();
+      // the interval duration of the call needs to be readjusted after the polling interval duration changes。
+    } else {
       setTimeout(
         callback,
         Date.now() - runAtRef.current >
@@ -274,8 +280,6 @@ export function usePromiseResult<T>(
           ? 0
           : optionsRef.current.pollingInterval,
       );
-    } else {
-      callback();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, runnerDeps);
