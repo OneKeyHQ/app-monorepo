@@ -10,6 +10,7 @@ import type {
   IDownloadPackage,
   IInstallPackage,
   IUseDownloadProgress,
+  IVerifyPackage,
 } from './type';
 
 const DIR_PATH = `file://${RNFS?.CachesDirectoryPath || ''}/apk`;
@@ -17,14 +18,17 @@ const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
 
 const { AutoUpdateModule } = NativeModules as {
   AutoUpdateModule: {
-    installAPK: (params: {
-      filePath: string;
-      sha256?: string;
-    }) => Promise<void>;
     downloadAPK: (params: {
       url: string;
       filePath: string;
       notificationTitle: string;
+      sha256?: string;
+    }) => Promise<void>;
+    // an exception will be thrown when validation fails.
+    verifyAPK: (params: { filePath: string; sha256?: string }) => Promise<void>;
+    // verifyAPK will be called by default in the native module when calling to install the APK
+    installAPK: (params: {
+      filePath: string;
       sha256?: string;
     }) => Promise<void>;
   };
@@ -41,13 +45,25 @@ export const downloadPackage: IDownloadPackage = async ({
   }
   await RNFS?.mkdir(DIR_PATH);
   if (!downloadUrl || !latestVersion) {
-    return;
+    throw new Error('Invalid version or downloadUrl');
   }
-  return AutoUpdateModule.downloadAPK({
+  const filePath = buildFilePath(latestVersion);
+  await AutoUpdateModule.downloadAPK({
     url: downloadUrl,
-    filePath: buildFilePath(latestVersion),
-    notificationTitle: `Download OneKey App ${latestVersion}`,
+    filePath,
+    notificationTitle: 'Downloading',
     sha256,
+  });
+  return {
+    downloadedFile: filePath,
+    sha256,
+  };
+};
+
+export const verifyPackage: IVerifyPackage = async (params) => {
+  await AutoUpdateModule.verifyAPK({
+    filePath: params.downloadedFile,
+    sha256: params.sha256,
   });
 };
 

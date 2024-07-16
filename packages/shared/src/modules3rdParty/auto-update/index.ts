@@ -1,10 +1,15 @@
 import type {
   IDownloadPackage,
   IInstallPackage,
+  IUpdateDownloadedEvent,
   IUseDownloadProgress,
+  IVerifyPackage,
 } from './type';
 
-export const downloadPackage: IDownloadPackage = async () => {};
+export const downloadPackage: IDownloadPackage = async () =>
+  ({} as IUpdateDownloadedEvent);
+
+export const verifyPackage: IVerifyPackage = async () => {};
 
 export const installPackage: IInstallPackage = async () => {};
 
