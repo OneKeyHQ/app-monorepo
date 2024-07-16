@@ -33,6 +33,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
   PasswordNotSet,
+  RenameDuplicateNameError,
   WrongPassword,
 } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -1640,6 +1641,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const { walletId } = params;
     let wallet = await this.getWallet({ walletId });
 
+    if (params.shouldCheckDuplicate && params.name) {
+      const { wallets } = await this.getAllWallets();
+      const duplicateWallet = wallets.find(
+        (item) =>
+          !accountUtils.isOthersWallet({ walletId: item.id }) &&
+          item.id !== walletId &&
+          item.name === params.name,
+      );
+      if (duplicateWallet) {
+        throw new RenameDuplicateNameError();
+      }
+    }
+
     await db.withTransaction(async (tx) => {
       // update wallet name
       await this.txUpdateWallet({
@@ -2270,6 +2284,49 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
     const db = await this.readyDb;
+
+    if (params.name && params.shouldCheckDuplicate) {
+      const id = params.indexedAccountId ?? params.accountId;
+      if (params.indexedAccountId && params.accountId) {
+        throw new Error(
+          'setAccountName ERROR: indexedAccountId and accountId should not be set at the same time',
+        );
+      }
+      if (id) {
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId: id,
+        });
+        if (walletId) {
+          let currentAccounts: IDBIndexedAccount[] | IDBAccount[] = [];
+
+          if (params.indexedAccountId) {
+            try {
+              ({ accounts: currentAccounts } = await this.getIndexedAccounts({
+                walletId,
+              }));
+            } catch (error) {
+              //
+            }
+          }
+          if (params.accountId) {
+            try {
+              ({ accounts: currentAccounts } =
+                await this.getSingletonAccountsOfWallet({
+                  walletId: walletId as IDBWalletIdSingleton,
+                }));
+            } catch (error) {
+              //
+            }
+          }
+          const duplicatedNameAccount = currentAccounts.find(
+            (item) => item.name === params.name && item.id !== id,
+          );
+          if (duplicatedNameAccount) {
+            throw new RenameDuplicateNameError();
+          }
+        }
+      }
+    }
 
     await db.withTransaction(async (tx) => {
       if (params.indexedAccountId) {

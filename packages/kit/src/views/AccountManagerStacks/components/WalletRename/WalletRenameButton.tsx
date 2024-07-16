@@ -33,6 +33,7 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
               await serviceAccount.setWalletNameAndAvatar({
                 walletId: wallet?.id,
                 name,
+                shouldCheckDuplicate: true,
               });
             }
           },

@@ -175,6 +175,7 @@ export type IDBSetWalletNameAndAvatarParams = {
   walletId: IDBWalletId;
   name?: string;
   avatar?: IAvatarInfo;
+  shouldCheckDuplicate?: boolean;
 };
 export type IDBRemoveWalletParams = {
   walletId: string;
@@ -183,6 +184,7 @@ export type IDBSetAccountNameParams = {
   accountId?: string;
   indexedAccountId?: string;
   name: string;
+  shouldCheckDuplicate?: boolean;
 };
 export type IDBGetWalletsParams = {
   nestedHiddenWallets?: boolean | undefined;

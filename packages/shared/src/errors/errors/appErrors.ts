@@ -1,6 +1,6 @@
 /* eslint max-classes-per-file: "off" */
 
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 // import type { LocaleKeyInfoMap } from '@onekeyhq/shared/src/localeKeyInfoMap';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
@@ -107,6 +107,17 @@ export class FailedToTransfer extends OneKeyError {
       normalizeErrorProps(props, {
         defaultMessage: 'FailedToTransfer',
         defaultKey: ETranslations.send_engine_failed_to_transfer,
+      }),
+    );
+  }
+}
+
+export class RenameDuplicateNameError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'RenameNameDuplicate',
+        defaultKey: ETranslationsMock.rename_duplicate_name,
       }),
     );
   }
