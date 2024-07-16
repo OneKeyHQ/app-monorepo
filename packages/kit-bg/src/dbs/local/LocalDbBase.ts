@@ -1641,6 +1641,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const { walletId } = params;
     let wallet = await this.getWallet({ walletId });
 
+    if (params.shouldCheckDuplicate && params.name) {
+      const { wallets } = await this.getAllWallets();
+      const duplicateWallet = wallets.find(
+        (item) =>
+          !accountUtils.isOthersWallet({ walletId: item.id }) &&
+          item.id !== walletId &&
+          item.name === params.name,
+      );
+      if (duplicateWallet) {
+        throw new RenameDuplicateNameError();
+      }
+    }
+
     await db.withTransaction(async (tx) => {
       // update wallet name
       await this.txUpdateWallet({
@@ -2306,9 +2319,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
           }
           const duplicatedNameAccount = currentAccounts.find(
-            (item) => item.name === params.name,
+            (item) => item.name === params.name && item.id !== id,
           );
-          if (duplicatedNameAccount && duplicatedNameAccount.id !== id) {
+          if (duplicatedNameAccount) {
             throw new RenameDuplicateNameError();
           }
         }
