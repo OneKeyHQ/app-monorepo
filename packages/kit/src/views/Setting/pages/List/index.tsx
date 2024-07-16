@@ -74,7 +74,7 @@ const SocialButtonGroup = () => {
     },
   );
   const handlePress = useCallback(() => {
-    handleOpenDevMode(() =>
+    void handleOpenDevMode(() =>
       copyText(`${versionString}-${platformEnv.githubSHA || ''}`),
     );
   }, [copyText, versionString]);
