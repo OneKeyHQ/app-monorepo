@@ -4,6 +4,8 @@ import { isFunction, isNil, isString } from 'lodash';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
+import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
+
 const SIMPLE_DB_KEY_PREFIX = 'simple_db_v5';
 
 type ISimpleDbEntitySavedData<T> = {
@@ -11,6 +13,8 @@ type ISimpleDbEntitySavedData<T> = {
   updatedAt: number;
 };
 abstract class SimpleDbEntityBase<T> {
+  appStorage: AsyncStorageStatic = appStorage;
+
   mutex = new Semaphore(1);
 
   abstract readonly entityName: string;
@@ -36,7 +40,7 @@ abstract class SimpleDbEntityBase<T> {
     if (this.enableCache && !isNil(this.cachedRawData)) {
       return Promise.resolve(this.cachedRawData);
     }
-    const savedDataStr = await appStorage.getItem(this.entityKey);
+    const savedDataStr = await this.appStorage.getItem(this.entityKey);
     let updatedAt = 0;
     // @ts-ignore
     let data: T | undefined | null;
@@ -87,7 +91,7 @@ abstract class SimpleDbEntityBase<T> {
         updatedAt,
       };
       // TODO JSON.stringify only for native?
-      await appStorage.setItem(this.entityKey, JSON.stringify(savedData));
+      await this.appStorage.setItem(this.entityKey, JSON.stringify(savedData));
       this.updatedAt = updatedAt;
       return data;
     });
@@ -98,7 +102,7 @@ abstract class SimpleDbEntityBase<T> {
     if (this.enableCache) {
       this.clearRawDataCache();
     }
-    return appStorage.removeItem(this.entityKey);
+    return this.appStorage.removeItem(this.entityKey);
   }
 }
 export { SimpleDbEntityBase };
