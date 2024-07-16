@@ -1,6 +1,9 @@
 import { isObject, isPlainObject, isString, isUndefined, omitBy } from 'lodash';
 
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ETranslations,
+  ETranslationsMock,
+} from '@onekeyhq/shared/src/locale';
 
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { appLocale } from '../../locale/appLocale';
@@ -107,7 +110,7 @@ export function normalizeErrorProps(
   props?: IOneKeyError | string,
   config?: {
     defaultMessage?: string | ETranslations;
-    defaultKey?: ETranslations;
+    defaultKey?: ETranslations | ETranslationsMock;
     defaultAutoToast?: boolean;
     alwaysAppendDefaultMessage?: boolean;
   },

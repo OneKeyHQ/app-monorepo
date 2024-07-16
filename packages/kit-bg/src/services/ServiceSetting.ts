@@ -335,9 +335,8 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async fetchReviewControl() {
-    const { reviewControl } = await settingsPersistAtom.get();
     const isReviewControlEnv = platformEnv.isAppleStoreEnv || platformEnv.isMas;
-    if (!reviewControl && isReviewControlEnv) {
+    if (isReviewControlEnv) {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const key = platformEnv.isAppleStoreEnv
         ? 'Intelligent_Diligent_Resourceful_Capable'
@@ -350,18 +349,18 @@ class ServiceSetting extends ServiceBase {
         },
       });
       const data = response.data.data;
-      if (data.length !== 1 && data[0].key !== key) {
-        return;
-      }
-      const reviewControlValue = data[0].value;
-      if (reviewControlValue && platformEnv.version) {
-        if (semver.lte(platformEnv.version, reviewControlValue)) {
-          await settingsPersistAtom.set((prev) => ({
-            ...prev,
-            reviewControl: true,
-          }));
+      let show = true;
+      if (data.length === 1 && data[0].key === key) {
+        const reviewVersion = data[0].value;
+        const clientVersion = platformEnv.version;
+        if (reviewVersion && clientVersion) {
+          show = semver.lte(clientVersion, reviewVersion);
         }
       }
+      await settingsPersistAtom.set((prev) => ({
+        ...prev,
+        reviewControl: show,
+      }));
     }
   }
 
