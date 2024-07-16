@@ -27,7 +27,7 @@ const retryFetchImage = async (
   } catch (error) {
     setTimeout(() => {
       void retryFetchImage(imageSource, onLoadSuccess, times + 1);
-    }, timerUtils.getTimeDurationMs({ seconds: 10 }) * Math.random());
+    }, timerUtils.getTimeDurationMs({ seconds: 30 }) * Math.random());
   }
 };
 
