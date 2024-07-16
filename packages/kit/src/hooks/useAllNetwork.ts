@@ -32,6 +32,8 @@ function useAllNetworkRequests<T>(params: {
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
   isNFTRequests?: boolean;
+  disabled?: boolean;
+  interval?: number;
 }) {
   const {
     account,
@@ -41,12 +43,15 @@ function useAllNetworkRequests<T>(params: {
     abortAllNetworkRequests,
     clearAllNetworkData,
     isNFTRequests,
+    disabled,
+    interval = 0,
   } = params;
   const allNetworkId = useRef('');
   const allNetworkDataInit = useRef(false);
   const [isEmptyAccount, setIsEmptyAccount] = useState(false);
 
   const { run, result } = usePromiseResult(async () => {
+    if (disabled) return;
     if (!account || !network || !wallet) return;
     if (account.impl !== IMPL_ALLNETWORKS) return;
 
@@ -121,7 +126,7 @@ function useAllNetworkRequests<T>(params: {
           accountId: p.accountId,
           networkId: p.networkId,
         });
-        await waitAsync(0);
+        await waitAsync(interval);
       }
     }
 
@@ -129,6 +134,7 @@ function useAllNetworkRequests<T>(params: {
 
     return resp;
   }, [
+    disabled,
     account,
     network,
     wallet,
@@ -136,6 +142,7 @@ function useAllNetworkRequests<T>(params: {
     clearAllNetworkData,
     isNFTRequests,
     allNetworkRequests,
+    interval,
   ]);
 
   useEffect(() => {

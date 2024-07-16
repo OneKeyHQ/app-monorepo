@@ -300,11 +300,24 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
-      const { accountId, networkId, txid, accountAddress, xpub } = params;
+      const { accountId, networkId, txid } = params;
+
+      const [accountAddress, xpub] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+      ]);
+
       const extraParams = await this.buildFetchHistoryListParams({
         ...params,
         accountAddress: accountAddress || '',
       });
+
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
         '/wallet/v1/account/history/detail',

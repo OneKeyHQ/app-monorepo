@@ -295,6 +295,7 @@ function TokenListContainer({
       wallet,
       allNetworkRequests: handleAllNetworkRequests,
       clearAllNetworkData: handleClearAllNetworkData,
+      disabled: true,
     });
 
   useEffect(() => {

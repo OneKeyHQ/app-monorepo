@@ -434,6 +434,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       showIcon={showIcon}
       replaceType={replaceType}
       status={decodedTx.status}
+      networkId={networkId}
       {...componentProps}
     />
   );

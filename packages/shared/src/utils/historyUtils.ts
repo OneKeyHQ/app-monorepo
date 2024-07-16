@@ -188,3 +188,12 @@ export function buildLocalHistoryKey({
 
   return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
 }
+
+// sort history
+export function sortHistoryTxsByTime({ txs }: { txs: IAccountHistoryTx[] }) {
+  return txs.sort(
+    (b, a) =>
+      (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+      (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
+  );
+}

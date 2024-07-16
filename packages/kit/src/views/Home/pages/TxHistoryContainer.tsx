@@ -7,6 +7,7 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -15,10 +16,12 @@ import {
   EModalAssetDetailRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { sortHistoryTxsByTime } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
+import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -41,6 +44,8 @@ function TxHistoryListContainer(props: ITabPageProps) {
     isRefreshing: false,
   });
 
+  const refreshAllNetworksHistory = useRef(false);
+
   const media = useMedia();
   const navigation = useAppNavigation();
   const {
@@ -57,8 +62,8 @@ function TxHistoryListContainer(props: ITabPageProps) {
       ) {
         const localTx =
           await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
-            accountId: account.id,
-            networkId: network.id,
+            accountId: history.decodedTx.accountId,
+            networkId: history.decodedTx.networkId,
             historyId: history.id,
           });
 
@@ -71,18 +76,9 @@ function TxHistoryListContainer(props: ITabPageProps) {
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.HistoryDetails,
         params: {
-          networkId: network.id,
-          accountId: account.id,
-          accountAddress:
-            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-              accountId: account.id,
-              networkId: network.id,
-            }),
+          networkId: history.decodedTx.networkId,
+          accountId: history.decodedTx.accountId,
           historyTx: history,
-          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId: account.id,
-            networkId: network.id,
-          }),
         },
       });
     },
@@ -92,6 +88,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
   const { run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
+      if (account.impl === IMPL_ALLNETWORKS) return;
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
         networkId: network.id,
@@ -111,6 +108,71 @@ function TxHistoryListContainer(props: ITabPageProps) {
     },
   );
 
+  const handleAllNetworkRequests = useCallback(
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId: string;
+      networkId: string;
+    }) => {
+      const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+        accountId,
+        networkId,
+      });
+
+      if (!refreshAllNetworksHistory.current) {
+        setHistoryData((prev) => {
+          const prevPendingTxs = prev.filter(
+            (item) => item.decodedTx.status === EDecodedTxStatus.Pending,
+          );
+          const newPendingTxs = r.filter(
+            (item) => item.decodedTx.status === EDecodedTxStatus.Pending,
+          );
+
+          const prevConfirmedTxs = prev.filter(
+            (item) => item.decodedTx.status !== EDecodedTxStatus.Pending,
+          );
+
+          const newConfirmedTxs = r.filter(
+            (item) => item.decodedTx.status !== EDecodedTxStatus.Pending,
+          );
+
+          // merge pending txs and sort by time
+
+          const mergedPendingTxs = sortHistoryTxsByTime({
+            txs: [...prevPendingTxs, ...newPendingTxs],
+          });
+
+          // merge confirmed txs and sort by time
+          const mergedConfirmedTxs = sortHistoryTxsByTime({
+            txs: [...prevConfirmedTxs, ...newConfirmedTxs],
+          });
+
+          return [...mergedPendingTxs, ...mergedConfirmedTxs];
+        });
+        setHistoryState({
+          initialized: true,
+          isRefreshing: false,
+        });
+      }
+
+      return r;
+    },
+    [],
+  );
+  const handleClearAllNetworkData = useCallback(() => {
+    setHistoryData([]);
+  }, []);
+
+  const { result: allNetworksResult } = useAllNetworkRequests({
+    account,
+    network,
+    wallet,
+    allNetworkRequests: handleAllNetworkRequests,
+    clearAllNetworkData: handleClearAllNetworkData,
+  });
+
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
       setHistoryState({
@@ -118,6 +180,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
         isRefreshing: true,
       });
       updateSearchKey('');
+      refreshAllNetworksHistory.current = false;
     }
   }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 
