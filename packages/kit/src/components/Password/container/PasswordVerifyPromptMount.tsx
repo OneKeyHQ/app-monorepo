@@ -56,7 +56,7 @@ const PasswordVerifyPromptMount = () => {
     [intl, onClose],
   );
   const showPasswordVerifyPrompt = useCallback(
-    (id: number, dialogProps: IDialogShowProps) => {
+    (id: number, dialogProps?: IDialogShowProps) => {
       dialogRef.current = Dialog.show({
         ...dialogProps,
         title: intl.formatMessage({
