@@ -290,6 +290,8 @@ function TxActionCommonListView(
         </XStack>
         {/* changes */}
         <Stack
+          flex={1}
+          maxWidth="50%"
           alignItems="flex-end"
           {...(tableLayout && {
             alignItems: 'unset',
