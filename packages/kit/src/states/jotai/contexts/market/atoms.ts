@@ -25,7 +25,7 @@ export const marketWatchListAtom = memoizee(() =>
   atom(
     (get) => ({
       ...get(basicMarketWatchListAtom()),
-      loading: !get(marketStorageReadyAtom()),
+      isMounted: !get(marketStorageReadyAtom()),
     }),
     (get, set, arg: any) => {
       if (arg === INIT) {
