@@ -20,7 +20,7 @@ export const { atom: basicMarketWatchListAtom, useContextAtom } =
 export const { atom: marketStorageReadyAtom, use: useMarketStorageReadyAtom } =
   contextAtom<boolean>(false);
 
-const INIT = 'INIT';
+const INIT = Symbol('INIT');
 export const marketWatchListAtom = memoizee(() =>
   atom(
     (get) => ({
