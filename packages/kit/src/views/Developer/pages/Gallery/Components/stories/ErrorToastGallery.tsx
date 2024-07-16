@@ -5,6 +5,7 @@ import {
   InvoiceExpiredError,
   OneKeyError,
 } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -40,6 +41,15 @@ function error12() {
 
 async function error20() {
   await timerUtils.wait(1000);
+  throw new InvoiceExpiredError({
+    autoToast: true,
+  });
+}
+
+type IError21Result = {
+  hello: 'world';
+};
+async function error21(): Promise<IError21Result> {
   throw new InvoiceExpiredError({
     autoToast: true,
   });
@@ -88,7 +98,25 @@ function Demo1() {
           await error20();
         }}
       >
+        异步函数显示 toast （1s 后）
+      </Button>
+      <Button
+        onPress={async () => {
+          const r: IError21Result = await error21();
+          console.log(r);
+        }}
+      >
         异步函数显示 toast
+      </Button>
+      <Button
+        onPress={async () => {
+          const r: IError21Result = await errorUtils.withErrorAutoToast(() =>
+            error21(),
+          );
+          console.log(r);
+        }}
+      >
+        异步函数显示 toast (2)
       </Button>
       <Button
         onPress={async () => {

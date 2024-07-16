@@ -2,13 +2,15 @@ import { isObject, isPlainObject, isString, isUndefined, omitBy } from 'lodash';
 
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
-
-import type {
-  IOneKeyError,
-  IOneKeyHardwareErrorPayload,
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+  type IOneKeyHardwareErrorPayload,
 } from '../types/errorTypes';
+
 import type { MessageDescriptor } from 'react-intl';
 
 // TODO also update JsBridgeBase.toPlainError
@@ -186,6 +188,42 @@ function toastIfErrorDisable(error: unknown) {
   }
 }
 
+let lastToastErrorInstance: IOneKeyError | undefined;
+function showToastOfError(error: IOneKeyError | unknown | undefined) {
+  const err = error as IOneKeyError | undefined;
+  if (
+    err?.className &&
+    [EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel].includes(
+      err?.className,
+    )
+  ) {
+    return;
+  }
+  const isTriggered = err?.$$autoToastErrorTriggered;
+  const isSameError = lastToastErrorInstance === err;
+  // TODO log error to file if developer mode on
+  if (err && err?.autoToast && !isTriggered && !isSameError) {
+    err.$$autoToastErrorTriggered = true;
+    lastToastErrorInstance = err;
+    appEventBus.emit(EAppEventBusNames.ShowToast, {
+      errorCode: err?.code,
+      method: 'error',
+      title: err?.message ?? 'Error',
+      message: err?.requestId,
+    });
+  }
+}
+
+async function withErrorAutoToast<T>(fn: () => Promise<T>) {
+  try {
+    const result = await fn();
+    return result;
+  } catch (error: unknown) {
+    showToastOfError(error);
+    throw error;
+  }
+}
+
 export default {
   autoPrintErrorIgnore,
   normalizeErrorProps,
@@ -196,4 +234,6 @@ export default {
   getDeviceErrorPayloadMessage,
   toastIfError,
   toastIfErrorDisable,
+  showToastOfError,
+  withErrorAutoToast,
 };
