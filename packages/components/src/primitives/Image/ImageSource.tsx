@@ -27,7 +27,7 @@ const retryFetchImage = async (
   } catch (error) {
     setTimeout(() => {
       void retryFetchImage(imageSource, onLoadSuccess, times + 1);
-    }, timerUtils.getTimeDurationMs({ seconds: 10 }) * Math.random());
+    }, timerUtils.getTimeDurationMs({ seconds: 30 }) * Math.random());
   }
 };
 
@@ -103,6 +103,10 @@ export function ImageSource({
 
   return isVisible ? (
     <ImageComponent
+      // Browser-level image lazy loading for the web
+      // https://developer.mozilla.org/en-US/docs/Web/Performance/Lazy_loading
+      // @ts-expect-error
+      loading="lazy"
       source={imageSource}
       {...restProps}
       borderRadius={style.borderRadius as number}
