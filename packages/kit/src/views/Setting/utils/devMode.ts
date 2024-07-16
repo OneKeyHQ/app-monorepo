@@ -1,3 +1,4 @@
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 // for open dev mode
@@ -5,6 +6,20 @@ let clickCount = 0;
 let startTime: Date | undefined;
 
 let isPasswordVerifying = false;
+
+const showPromoteDialog = async () =>
+  new Promise((resolve, reject) => {
+    Dialog.show({
+      title: 'Danger Zone',
+      tone: 'warning',
+      description:
+        'Are you sure you want to enable developer-related features?',
+      dismissOnOverlayPress: false,
+      onConfirm: resolve,
+      onCancel: reject,
+    });
+  });
+
 export const handleOpenDevMode = async (callback: () => void) => {
   const nowTime = new Date();
   if (clickCount === 0) {
@@ -25,6 +40,7 @@ export const handleOpenDevMode = async (callback: () => void) => {
   if (clickCount >= 9) {
     isPasswordVerifying = true;
     try {
+      await showPromoteDialog();
       await backgroundApiProxy.servicePassword.promptPasswordVerify({
         dialogProps: {
           description:
