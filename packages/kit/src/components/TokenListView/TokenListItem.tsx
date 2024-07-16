@@ -3,9 +3,8 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { Token } from '../Token';
-
 import { TokenBalanceView } from './TokenBalanceView';
+import { TokenIconView } from './TokenIconView';
 import { TokenNameView } from './TokenNameView';
 import { TokenPriceChangeView } from './TokenPriceChangeView';
 import { TokenPriceView } from './TokenPriceView';
@@ -35,7 +34,11 @@ function TokenListItem(props: ITokenListItemProps) {
       //   })}
       {...rest}
     >
-      <Token size={tableLayout ? 'md' : 'lg'} tokenImageUri={token.logoURI} />
+      <TokenIconView
+        tableLayout={tableLayout}
+        networkId={token.networkId}
+        icon={token.logoURI}
+      />
       <Stack
         flexGrow={1}
         flexBasis={0}

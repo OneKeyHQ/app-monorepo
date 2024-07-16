@@ -29,7 +29,6 @@ export type IModalAssetDetailsParamList = {
     networkId: string;
     accountId: string;
     walletId: string;
-    accountAddress: string;
     collectionAddress: string;
     itemId: string;
   };

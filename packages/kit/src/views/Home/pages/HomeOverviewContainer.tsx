@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -44,7 +43,7 @@ function HomeOverviewContainer() {
     isRefreshing: false,
   });
 
-  const allNetWorthInit = useRef(false);
+  const refreshAllNetworksWorth = useRef(false);
 
   const [allNetWorth, setAllNetWorth] = useState<string | undefined>();
 
@@ -91,26 +90,33 @@ function HomeOverviewContainer() {
           withNonce: false,
         });
 
-      setAllNetWorth((prev) =>
-        new BigNumber(prev ?? '0').plus(r.netWorth ?? 0).toString(),
-      );
+      if (!refreshAllNetworksWorth.current) {
+        setAllNetWorth((prev) =>
+          new BigNumber(prev ?? '0').plus(r.netWorth ?? 0).toString(),
+        );
 
-      setOverviewState({
-        initialized: true,
-        isRefreshing: false,
-      });
+        setOverviewState({
+          initialized: true,
+          isRefreshing: false,
+        });
+      }
 
       return r;
     },
     [],
   );
 
-  const { allNetworkInit, result: allNetworksResult } =
+  const handleClearAllNetworkData = useCallback(() => {
+    setAllNetWorth('0');
+  }, []);
+
+  const { result: allNetworksResult } =
     useAllNetworkRequests<IFetchAccountDetailsResp>({
       account,
       network,
       wallet,
       allNetworkRequests: handleAllNetworkRequests,
+      clearAllNetworkData: handleClearAllNetworkData,
     });
 
   const { result: vaultSettings } = usePromiseResult(async () => {
@@ -127,24 +133,19 @@ function HomeOverviewContainer() {
         initialized: false,
         isRefreshing: true,
       });
-      allNetWorthInit.current = false;
-      setAllNetWorth('0');
+      refreshAllNetworksWorth.current = false;
     }
   }, [account?.id, network?.id, wallet?.id]);
 
   useEffect(() => {
     let allNetworksWorth = new BigNumber('0');
-    if (
-      allNetworkInit.current &&
-      allNetworksResult &&
-      !isEmpty(allNetworksResult)
-    ) {
+    if (refreshAllNetworksWorth.current && allNetworksResult) {
       for (const r of allNetworksResult) {
         allNetworksWorth = allNetworksWorth.plus(r.netWorth ?? 0);
       }
       setAllNetWorth(allNetworksWorth.toString());
     }
-  }, [allNetworkInit, allNetworksResult]);
+  }, [allNetworksResult]);
 
   const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
