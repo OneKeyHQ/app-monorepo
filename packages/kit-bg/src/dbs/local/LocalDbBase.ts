@@ -33,6 +33,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
   PasswordNotSet,
+  RenameDuplicateNameError,
   WrongPassword,
 } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -2270,6 +2271,44 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
     const db = await this.readyDb;
+
+    if (params.name && params.shouldCheckDuplicate) {
+      const id = params.indexedAccountId ?? params.accountId;
+      if (id) {
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId: id,
+        });
+        if (walletId) {
+          let currentAccounts: IDBIndexedAccount[] | IDBAccount[] = [];
+
+          if (params.indexedAccountId) {
+            try {
+              ({ accounts: currentAccounts } = await this.getIndexedAccounts({
+                walletId,
+              }));
+            } catch (error) {
+              //
+            }
+          }
+          if (params.accountId) {
+            try {
+              ({ accounts: currentAccounts } =
+                await this.getSingletonAccountsOfWallet({
+                  walletId: walletId as IDBWalletIdSingleton,
+                }));
+            } catch (error) {
+              //
+            }
+          }
+          const duplicatedNameAccount = currentAccounts.find(
+            (item) => item.name === params.name,
+          );
+          if (duplicatedNameAccount && duplicatedNameAccount.id !== id) {
+            throw new RenameDuplicateNameError()
+          }
+        }
+      }
+    }
 
     await db.withTransaction(async (tx) => {
       if (params.indexedAccountId) {
