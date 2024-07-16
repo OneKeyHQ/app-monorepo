@@ -515,6 +515,7 @@
   "form__priority_fee": "우선 순위 요금",
   "form__sats__units": "sats",
   "global.404_message": "죄송합니다, 문제가 발생했습니다!",
+  "global.Note": "Note",
   "global.about": "소개",
   "global.account_name": "계정 이름",
   "global.accounts": "계정",

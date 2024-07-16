@@ -515,6 +515,7 @@
   "form__priority_fee": "Priority fee",
   "form__sats__units": "sats",
   "global.404_message": "Sorry, something went wrong!",
+  "global.Note": "Note",
   "global.about": "About",
   "global.account_name": "Account name",
   "global.accounts": "Accounts",

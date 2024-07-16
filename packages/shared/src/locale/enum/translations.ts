@@ -516,6 +516,7 @@ export enum ETranslations {
   form__priority_fee = 'form__priority_fee',
   form__sats__units = 'form__sats__units',
   global_404_message = 'global.404_message',
+  global_Note = 'global.Note',
   global_about = 'global.about',
   global_account_name = 'global.account_name',
   global_accounts = 'global.accounts',
