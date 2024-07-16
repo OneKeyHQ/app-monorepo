@@ -80,16 +80,20 @@ function showDevOnlyPasswordDialog({
       </Stack>
     ),
     onConfirm: async ({ getForm }) => {
-      const { password } = (getForm()?.getValues() || {}) as {
-        password: string;
-      };
-      if (!isCorrectDevOnlyPassword(password)) {
-        return;
+      const form = getForm();
+      if (form) {
+        await form.trigger();
+        const { password } = (form.getValues() || {}) as {
+          password: string;
+        };
+        if (!isCorrectDevOnlyPassword(password)) {
+          return;
+        }
+        const params: IBackgroundMethodWithDevOnlyPassword = {
+          $$devOnlyPassword: password,
+        };
+        await onConfirm(params);
       }
-      const params: IBackgroundMethodWithDevOnlyPassword = {
-        $$devOnlyPassword: password,
-      };
-      await onConfirm(params);
     },
   });
 }
