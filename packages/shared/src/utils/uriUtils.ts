@@ -224,18 +224,23 @@ function buildDeepLinkUrl<T extends EOneKeyDeepLinkPath>({
 }
 
 const NameToUrlMapForInvalidDapp: Record<string, string> = {
-  'Algorand Governance': 'https://governance.algorand.foundation',
+  'Algorand Governance@Governance platform for Algorand':
+    'https://governance.algorand.foundation',
 };
 function safeGetWalletConnectOrigin(proposal: Web3WalletTypes.SessionProposal) {
   try {
     const { origin } = new URL(proposal.params.proposer.metadata.url);
     return origin;
   } catch (err) {
-    const nameToUrl =
-      NameToUrlMapForInvalidDapp[proposal.params.proposer.metadata.name];
-    if (nameToUrl) {
-      const { origin } = new URL(nameToUrl);
-      return origin;
+    try {
+      const key = `${proposal.params.proposer.metadata.name}@${proposal.params.proposer.metadata.description}`;
+      const nameToUrl = NameToUrlMapForInvalidDapp[key];
+      if (nameToUrl) {
+        const { origin } = new URL(nameToUrl);
+        return origin;
+      }
+    } catch {
+      return null;
     }
     return null;
   }
