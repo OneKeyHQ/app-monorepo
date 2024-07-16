@@ -34,7 +34,13 @@ import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountCh
 
 import type { IHandleAccountChanged } from '../../hooks/useHandleAccountChanged';
 
-function DAppAccountListInitFromHome({ num }: { num: number }) {
+function DAppAccountListInitFromHome({
+  num,
+  shouldSyncFromHome,
+}: {
+  num: number;
+  shouldSyncFromHome: boolean;
+}) {
   const [, setSyncLoading] = useAccountSelectorSyncLoadingAtom();
   const actions = useAccountSelectorActions();
   useEffect(() => {
@@ -48,15 +54,19 @@ function DAppAccountListInitFromHome({ num }: { num: number }) {
         }));
         // required delay here, should be called after AccountSelectEffects AutoSelect
         await timerUtils.wait(600);
-        await actions.current.syncFromScene({
-          from: {
-            sceneName: EAccountSelectorSceneName.home,
-            sceneNum: 0,
-          },
-          num, // TODO multiple account selector of wallet connect
-        });
+        if (shouldSyncFromHome) {
+          await actions.current.syncFromScene({
+            from: {
+              sceneName: EAccountSelectorSceneName.home,
+              sceneNum: 0,
+            },
+            num, // TODO multiple account selector of wallet connect
+          });
+        }
       } finally {
-        await timerUtils.wait(300);
+        if (shouldSyncFromHome) {
+          await timerUtils.wait(300);
+        }
         setSyncLoading((v) => ({
           ...v,
           [num]: {
@@ -65,7 +75,16 @@ function DAppAccountListInitFromHome({ num }: { num: number }) {
         }));
       }
     })();
-  }, [actions, num, setSyncLoading]);
+
+    return () => {
+      setSyncLoading((v) => ({
+        ...v,
+        [num]: {
+          isLoading: false,
+        },
+      }));
+    };
+  }, [actions, num, setSyncLoading, shouldSyncFromHome]);
   return null;
 }
 
@@ -110,7 +129,7 @@ function DAppAccountListItem({
     handleAccountChanged,
   });
 
-  const shouldSyncFromHome = initFromHome && !readonly;
+  const shouldSyncFromHome = Boolean(initFromHome && !readonly);
 
   // const loadingDuration = getLoadingDuration({
   // skeletonRenderDuration,
@@ -145,7 +164,10 @@ function DAppAccountListItem({
           />
         </YGroup.Item>
       </YGroup>
-      {shouldSyncFromHome ? <DAppAccountListInitFromHome num={num} /> : null}
+      <DAppAccountListInitFromHome
+        num={num}
+        shouldSyncFromHome={shouldSyncFromHome}
+      />
     </>
   );
 }
