@@ -18,15 +18,14 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import {
+  openExplorerAddressUrl,
+  openTransactionDetailsUrl,
+} from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useEarnLabelFn } from '@onekeyhq/kit/src/views/Staking/hooks/useLabelFn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
-import {
-  buildExplorerAddressUrl,
-  buildTransactionDetailsUrl,
-} from '@onekeyhq/shared/src/utils/uriUtils';
 import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 import type {
   IApproveTransactionData,
@@ -258,63 +257,69 @@ const TransactionData = ({ data }: { data: ISignedTransaction['data'] }) => {
 
 const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
   const network = item.network;
+  const vaultSettings = item.vaultSettings;
   const intl = useIntl();
   const onPress = useCallback(() => {
     if (item.hash) {
-      openUrl(
-        buildTransactionDetailsUrl({
-          network,
-          txid: item.hash,
-        }),
-      );
+      void openTransactionDetailsUrl({
+        networkId: network.id,
+        txid: item.hash,
+      });
     } else {
-      openUrl(buildExplorerAddressUrl({ network, address: item.address }));
+      void openExplorerAddressUrl({
+        networkId: network.id,
+        address: item.address,
+      });
     }
   }, [item, network]);
   return (
-    <YStack
-      borderWidth={StyleSheet.hairlineWidth}
-      mx="$5"
-      borderRadius="$3"
-      borderColor="$borderSubdued"
-      overflow="hidden"
-      mb="$3"
-    >
-      <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
-        <SizableText size="$bodyMd">
-          {formatTime(new Date(item.createdAt), { hideSeconds: true })}
-          {' • '}
-          {item.title}
-        </SizableText>
-        <IconButton
-          variant="tertiary"
-          title={
-            item.hash
-              ? intl.formatMessage({
-                  id: ETranslations.settings_view_transaction_in_explorer,
-                })
-              : intl.formatMessage({
-                  id: ETranslations.settings_view_address_in_explorer,
-                })
-          }
-          icon={item.hash ? 'OpenOutline' : 'GlobusOutline'}
-          size="small"
-          onPress={onPress}
-        />
-      </XStack>
-      <XStack p="$3">
-        <TransactionData data={item.data} />
-      </XStack>
-      <XStack p="$3" backgroundColor="$bgSubdued" alignItems="center">
-        <Stack mr="$2">
-          <NetworkAvatar size={16} networkId={item.networkId} />
-        </Stack>
-        <SizableText color="$textSubdued" size="$bodySmMedium">
-          {item.network.name} •{' '}
-          {utils.shortenAddress({ address: item.address })}
-        </SizableText>
-      </XStack>
-    </YStack>
+    <Stack px="$5" pb="$3">
+      <YStack
+        borderWidth={StyleSheet.hairlineWidth}
+        borderRadius="$3"
+        borderColor="$borderSubdued"
+        overflow="hidden"
+      >
+        <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
+          <SizableText size="$bodyMd">
+            {formatTime(new Date(item.createdAt), { hideSeconds: true })}
+            {' • '}
+            {item.title}
+          </SizableText>
+          {!vaultSettings.hideBlockExplorer ? (
+            <IconButton
+              variant="tertiary"
+              title={
+                item.hash
+                  ? intl.formatMessage({
+                      id: ETranslations.settings_view_transaction_in_explorer,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.settings_view_address_in_explorer,
+                    })
+              }
+              icon={item.hash ? 'OpenOutline' : 'GlobusOutline'}
+              size="small"
+              onPress={onPress}
+            />
+          ) : null}
+        </XStack>
+        <XStack p="$3">
+          <XStack h={44} width="100%" alignItems="center">
+            <TransactionData data={item.data} />
+          </XStack>
+        </XStack>
+        <XStack p="$3" backgroundColor="$bgSubdued" alignItems="center">
+          <Stack mr="$2">
+            <NetworkAvatar size={16} networkId={item.networkId} />
+          </Stack>
+          <SizableText color="$textSubdued" size="$bodySmMedium">
+            {item.network.name} •{' '}
+            {utils.shortenAddress({ address: item.address })}
+          </SizableText>
+        </XStack>
+      </YStack>
+    </Stack>
   );
 };
 
@@ -338,6 +343,13 @@ const ListEmptyComponent = () => {
   );
 };
 
+const keyExtractor = (item: unknown) => {
+  const hash = (item as ISignedTransaction)?.hash;
+  const createdAt = (item as ISignedTransaction)?.createdAt;
+  // lighting/ sui tx don't have tx hash
+  return hash || String(createdAt);
+};
+
 export const Transactions = () => {
   const { sections, onEndReached } = useGetSignatureSections(async (params) =>
     backgroundApiProxy.serviceSignature.getSignedTransactions(params),
@@ -346,7 +358,7 @@ export const Transactions = () => {
   return (
     <SectionList
       sections={sections}
-      estimatedItemSize="$36"
+      estimatedItemSize={158}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (
@@ -354,6 +366,7 @@ export const Transactions = () => {
           title={(section as ISectionListData).title}
         />
       )}
+      keyExtractor={keyExtractor}
       renderItem={({ item }) => <TransactionItem item={item} />}
       ListEmptyComponent={ListEmptyComponent}
       onEndReached={onEndReached}

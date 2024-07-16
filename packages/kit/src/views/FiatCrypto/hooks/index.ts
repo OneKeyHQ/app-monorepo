@@ -6,13 +6,18 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
-export const useSupportNetworkId = (networkId: string, type: IFiatCryptoType) =>
+export const useSupportNetworkId = (
+  type: IFiatCryptoType,
+  networkId: string | undefined,
+) =>
   usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceFiatCrypto.isNetworkSupported({
+    async () => {
+      if (!networkId) return false;
+      return backgroundApiProxy.serviceFiatCrypto.isNetworkSupported({
         networkId,
         type,
-      }),
+      });
+    },
     [networkId, type],
     {
       initResult: false,

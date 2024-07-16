@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ISectionListRef } from '@onekeyhq/components';
+import type {
+  IButtonProps,
+  IIconButtonProps,
+  ISectionListRef,
+} from '@onekeyhq/components';
 import {
   ActionList,
   Empty,
@@ -56,6 +60,20 @@ export interface IWalletDetailsProps {
   num: number;
   wallet?: IDBWallet;
   device?: IDBDevice | undefined;
+}
+
+function PlusButton({ onPress, loading }: IButtonProps) {
+  return (
+    <IconButton
+      borderWidth={0}
+      borderRadius="$2"
+      variant="tertiary"
+      size="medium"
+      loading={loading}
+      onPress={onPress}
+      icon="PlusSmallOutline"
+    />
+  );
 }
 
 export function WalletDetails({ num }: IWalletDetailsProps) {
@@ -299,12 +317,8 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     if (isOthers) {
       return 'Others';
     }
-    return focusedWalletInfo?.wallet?.name
-      ? intl.formatMessage({
-          id: focusedWalletInfo?.wallet?.name as ETranslations,
-        })
-      : '';
-  }, [focusedWalletInfo, intl, isOthers]);
+    return focusedWalletInfo?.wallet?.name || '';
+  }, [focusedWalletInfo, isOthers]);
   return (
     <Stack flex={1} pb={bottom} testID="account-selector-accountList">
       <WalletDetailsHeader
@@ -469,13 +483,13 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 <AccountSelectorCreateAddressButton
                   num={num}
                   selectAfterCreate
-                  icon="PlusSmallOutline"
                   account={{
                     walletId: focusedWalletInfo?.wallet?.id,
                     networkId: linkedNetworkId,
                     indexedAccountId: indexedAccount?.id,
                     deriveType: selectedAccount.deriveType,
                   }}
+                  buttonRender={PlusButton}
                 />
               );
             }

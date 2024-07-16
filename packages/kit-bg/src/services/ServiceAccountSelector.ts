@@ -321,11 +321,31 @@ class ServiceAccountSelector extends ServiceBase {
   }
 
   @backgroundMethod()
+  async shouldUseGlobalDeriveType({
+    sceneName,
+  }: {
+    sceneName: EAccountSelectorSceneName;
+  }) {
+    if ([EAccountSelectorSceneName.discover].includes(sceneName)) {
+      // return true;
+      return false;
+    }
+    return true;
+  }
+
+  @backgroundMethod()
   async getGlobalDeriveType({
     selectedAccount,
+    sceneName,
   }: {
     selectedAccount: IAccountSelectorSelectedAccount;
-  }) {
+    sceneName: EAccountSelectorSceneName | undefined;
+  }): Promise<IAccountDeriveTypes | undefined> {
+    if (sceneName) {
+      if (!(await this.shouldUseGlobalDeriveType({ sceneName }))) {
+        return undefined;
+      }
+    }
     const { networkId, walletId } = selectedAccount;
     if (!networkId) {
       return undefined;
@@ -351,7 +371,10 @@ class ServiceAccountSelector extends ServiceBase {
     sceneUrl?: string;
     num: number;
     eventEmitDisabled?: boolean;
-  }) {
+  }): Promise<void> {
+    if (!(await this.shouldUseGlobalDeriveType({ sceneName }))) {
+      return;
+    }
     const { serviceNetwork } = this.backgroundApi;
     // TODO add whitelist
     const { networkId, deriveType, walletId } = selectedAccount;
@@ -368,8 +391,9 @@ class ServiceAccountSelector extends ServiceBase {
     if (networkId && deriveType) {
       const currentGlobalDeriveType = await this.getGlobalDeriveType({
         selectedAccount,
+        sceneName,
       });
-      if (currentGlobalDeriveType !== deriveType) {
+      if (deriveType && currentGlobalDeriveType !== deriveType) {
         await this.backgroundApi.serviceNetwork.saveGlobalDeriveTypeForNetwork({
           networkId,
           deriveType,
@@ -402,6 +426,7 @@ class ServiceAccountSelector extends ServiceBase {
           if (v && v.networkId) {
             const globalDeriveType = await this.getGlobalDeriveType({
               selectedAccount: v,
+              sceneName,
             });
             const deriveType: IAccountDeriveTypes =
               globalDeriveType || v.deriveType || 'default';

@@ -6,6 +6,12 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  COINTYPE_CFX,
+  COINTYPE_COSMOS,
+  COINTYPE_DOT,
+  COINTYPE_NEXA,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { IncorrectPassword } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -34,6 +40,7 @@ import {
   v4migrationAtom,
   v4migrationPersistAtom,
 } from '../../states/jotai/atoms/v4migration';
+import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 
 import type { IDBIndexedAccount } from '../../dbs/local/types';
@@ -44,8 +51,10 @@ import type {
   IV4OnAccountMigrated,
   IV4OnWalletMigrated,
 } from '../../migrations/v4ToV5Migration/types';
+import type { IV4DBVariantAccount } from '../../migrations/v4ToV5Migration/v4local/v4localDBTypesSchema';
 import type { V4LocalDbRealm } from '../../migrations/v4ToV5Migration/v4local/v4realm/V4LocalDbRealm';
 import type { IV4MigrationAtom } from '../../states/jotai/atoms/v4migration';
+import type { VaultBase } from '../../vaults/base/VaultBase';
 
 @backgroundClass()
 class ServiceV4Migration extends ServiceBase {
@@ -581,7 +590,7 @@ class ServiceV4Migration extends ServiceBase {
             });
             await v4dbHubs.logger.runAsyncWithCatch(
               async () => {
-                const account = await v4dbHubs.v4localDb.getRecordById({
+                const v4account = await v4dbHubs.v4localDb.getRecordById({
                   name: EV4LocalDBStoreNames.Account,
                   id: accountId,
                 });
@@ -591,18 +600,52 @@ class ServiceV4Migration extends ServiceBase {
                 //   coinType: account?.coinType,
                 // });
                 if (isAccountSupport) {
-                  const networkId = v4CoinTypeToNetworkId[account?.coinType];
+                  const networkId = v4CoinTypeToNetworkId[v4account?.coinType];
                   const network =
                     await this.backgroundApi.serviceNetwork.getNetworkSafe({
                       networkId,
                     });
-                  const addressOrPub = account.address || account.pub || '--';
+                  let addressOrPub = v4account.address || v4account.pub || '--';
+
+                  try {
+                    if (
+                      [
+                        COINTYPE_CFX,
+                        COINTYPE_DOT,
+                        COINTYPE_COSMOS,
+                        COINTYPE_NEXA,
+                      ].includes(v4account.coinType)
+                    ) {
+                      const realAddress = Object.values(
+                        (v4account as IV4DBVariantAccount)?.addresses || {},
+                      )?.[0];
+                      addressOrPub = realAddress || addressOrPub || '--';
+
+                      if (networkId) {
+                        const vault = (await vaultFactory?.getChainOnlyVault({
+                          networkId,
+                        })) as VaultBase;
+                        const addressDetail =
+                          await vault?.buildAccountAddressDetail({
+                            account: v4account as any,
+                            networkId,
+                            networkInfo: await vault.getNetworkInfo(),
+                          });
+                        if (addressDetail.address) {
+                          addressOrPub = addressDetail.address;
+                        }
+                      }
+                    }
+                  } catch (error) {
+                    //
+                  }
+
                   importedAccountsSectionData.data.push({
-                    importedAccount: account,
+                    importedAccount: v4account,
                     network,
                     networkId,
-                    backupId: `v4-imported-backup:${account.id}`,
-                    title: account.name || '--',
+                    backupId: `v4-imported-backup:${v4account.id}`,
+                    title: v4account.name || '--',
                     subTitle: accountUtils.shortenAddress({
                       // TODO regenerate address of certain network
                       address: addressOrPub,
@@ -610,7 +653,7 @@ class ServiceV4Migration extends ServiceBase {
                   });
                   return {
                     accountId,
-                    account,
+                    account: v4account,
                     networkId,
                     network,
                     addressOrPub,

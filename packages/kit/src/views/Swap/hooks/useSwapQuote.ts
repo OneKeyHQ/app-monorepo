@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
-import { EPageType, usePageType } from '@onekeyhq/components';
+import { EPageType, Toast, usePageType } from '@onekeyhq/components';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ESwapApproveTransactionStatus,
@@ -15,7 +18,6 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import {
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,
-  useSwapApprovingTransactionAtom,
   useSwapFromTokenAmountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -26,6 +28,7 @@ import { truncateDecimalPlaces } from '../utils/utils';
 import { useSwapAddressInfo } from './useSwapAccount';
 
 export function useSwapQuote() {
+  const intl = useIntl();
   const { quoteAction, cleanQuoteInterval, recoverQuoteInterval } =
     useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -35,18 +38,21 @@ export function useSwapQuote() {
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [swapApprovingTransactionAtom] = useSwapApprovingTransactionAtom();
-  const activeAccountAddressRef = useRef<string | undefined>();
-  const activeAccountNetworkIdRef = useRef<string | undefined>();
-  if (activeAccountAddressRef.current !== swapAddressInfo?.address) {
-    activeAccountAddressRef.current = swapAddressInfo?.address;
+  const [{ swapApprovingTransaction }, setInAppNotificationAtom] =
+    useInAppNotificationAtom();
+  const fromAmountRef = useRef(fromTokenAmount);
+  if (fromAmountRef.current !== fromTokenAmount) {
+    fromAmountRef.current = fromTokenAmount;
   }
-  if (activeAccountNetworkIdRef.current !== swapAddressInfo.networkId) {
-    activeAccountNetworkIdRef.current = swapAddressInfo.networkId;
+  const activeAccountRef = useRef<
+    ReturnType<typeof useSwapAddressInfo> | undefined
+  >();
+  if (activeAccountRef.current !== swapAddressInfo) {
+    activeAccountRef.current = swapAddressInfo;
   }
   const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>();
-  if (swapApprovingTxRef.current !== swapApprovingTransactionAtom) {
-    swapApprovingTxRef.current = swapApprovingTransactionAtom;
+  if (swapApprovingTxRef.current !== swapApprovingTransaction) {
+    swapApprovingTxRef.current = swapApprovingTransaction;
   }
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500);
   const alignmentDecimal = useCallback(() => {
@@ -60,12 +66,24 @@ export function useSwapQuote() {
   }, [fromToken?.decimals, fromAmountDebounce, setFromTokenAmount]);
 
   useEffect(() => {
-    if (swapSlippageDialogOpening || swapApproveAllowanceSelectOpen) {
+    if (swapSlippageDialogOpening.status || swapApproveAllowanceSelectOpen) {
       cleanQuoteInterval();
+    } else if (
+      !swapSlippageDialogOpening.status &&
+      swapSlippageDialogOpening.flag === 'save'
+    ) {
+      void quoteAction(
+        activeAccountRef.current?.address,
+        activeAccountRef.current?.accountInfo?.account?.id,
+      );
     } else {
-      void recoverQuoteInterval(activeAccountAddressRef.current);
+      void recoverQuoteInterval(
+        activeAccountRef.current?.address,
+        activeAccountRef.current?.accountInfo?.account?.id,
+      );
     }
   }, [
+    quoteAction,
     cleanQuoteInterval,
     recoverQuoteInterval,
     swapApproveAllowanceSelectOpen,
@@ -74,25 +92,41 @@ export function useSwapQuote() {
 
   useEffect(() => {
     if (
-      swapApprovingTransactionAtom &&
-      swapApprovingTransactionAtom.txId &&
-      swapApprovingTransactionAtom.status ===
+      swapApprovingTransaction &&
+      swapApprovingTransaction.txId &&
+      swapApprovingTransaction.status ===
         ESwapApproveTransactionStatus.SUCCESS &&
-      !swapApprovingTransactionAtom.resetApproveValue
+      !swapApprovingTransaction.resetApproveValue &&
+      fromAmountRef?.current
     ) {
       void quoteAction(
-        activeAccountAddressRef.current,
-        swapApprovingTransactionAtom.blockNumber,
+        activeAccountRef.current?.address,
+        activeAccountRef.current?.accountInfo?.account?.id,
+        swapApprovingTransaction.blockNumber,
       );
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_toast_approve_successful,
+        }),
+      });
     }
-  }, [cleanQuoteInterval, quoteAction, swapApprovingTransactionAtom]);
+  }, [
+    intl,
+    cleanQuoteInterval,
+    quoteAction,
+    swapApprovingTransaction,
+    setInAppNotificationAtom,
+  ]);
 
   useEffect(() => {
-    if (fromToken?.networkId !== activeAccountNetworkIdRef.current) {
+    if (fromToken?.networkId !== activeAccountRef.current?.networkId) {
       return;
     }
     alignmentDecimal();
-    void quoteAction(activeAccountAddressRef.current);
+    void quoteAction(
+      activeAccountRef.current?.address,
+      activeAccountRef.current?.accountInfo?.account?.id,
+    );
     return () => {
       cleanQuoteInterval();
     };
@@ -113,7 +147,10 @@ export function useSwapQuote() {
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (pageType !== EPageType.modal) {
         if (isFocus && !isHiddenModel && !swapApprovingTxRef.current?.txId) {
-          void recoverQuoteInterval(activeAccountAddressRef.current);
+          void recoverQuoteInterval(
+            activeAccountRef.current?.address,
+            activeAccountRef.current?.accountInfo?.account?.id,
+          );
         } else {
           cleanQuoteInterval();
         }
@@ -125,7 +162,10 @@ export function useSwapQuote() {
   useEffect(() => {
     if (pageType === EPageType.modal) {
       if (isFocused && !swapApprovingTxRef.current?.txId) {
-        void recoverQuoteInterval(activeAccountAddressRef.current);
+        void recoverQuoteInterval(
+          activeAccountRef.current?.address,
+          activeAccountRef.current?.accountInfo?.account?.id,
+        );
       } else {
         cleanQuoteInterval();
       }

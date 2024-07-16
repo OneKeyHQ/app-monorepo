@@ -333,7 +333,9 @@ class ServiceWalletConnect extends ServiceBase {
 
   @backgroundMethod()
   async getActiveSessions() {
-    return this.backgroundApi.walletConnect.web3Wallet?.getActiveSessions();
+    const activeSessions =
+      this.backgroundApi.walletConnect.web3Wallet?.getActiveSessions();
+    return activeSessions;
   }
 
   @backgroundMethod()

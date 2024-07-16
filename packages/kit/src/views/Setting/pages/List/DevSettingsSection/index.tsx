@@ -16,6 +16,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -36,6 +37,7 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { Section } from '../Section';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
+import { CrashDevSettings } from './CrasshDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
@@ -95,7 +97,8 @@ function showDevOnlyPasswordDialog({
 }
 
 export const DevSettingsSection = () => {
-  const [settings] = useDevSettingsPersistAtom();
+  const [settings] = useSettingsPersistAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
@@ -113,7 +116,7 @@ export const DevSettingsSection = () => {
     window?.desktopApi.openDevTools();
   }, []);
 
-  if (!settings.enabled) {
+  if (!devSettings.enabled) {
     return null;
   }
 
@@ -147,17 +150,24 @@ export const DevSettingsSection = () => {
           />
         </>
       ) : null}
+
+      <SectionPressItem
+        copyable
+        title={settings.instanceId}
+        subtitle="InstanceId"
+      />
       {platformEnv.githubSHA ? (
         <SectionPressItem
           copyable
-          title={`BuildHash: ${platformEnv.githubSHA}`}
+          title={platformEnv.githubSHA}
+          subtitle="BuildHash"
         />
       ) : null}
       <SectionFieldItem
         name="enableTestEndpoint"
         title="启用 OneKey 测试网络节点"
         subtitle={
-          settings.settings?.enableTestEndpoint
+          devSettings.settings?.enableTestEndpoint
             ? ONEKEY_TEST_API_HOST
             : ONEKEY_API_HOST
         }
@@ -421,6 +431,7 @@ export const DevSettingsSection = () => {
       ) : null}
 
       <AddressBookDevSetting />
+      <CrashDevSettings />
     </Section>
   );
 };

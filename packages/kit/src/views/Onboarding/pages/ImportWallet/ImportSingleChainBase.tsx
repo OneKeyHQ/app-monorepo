@@ -49,7 +49,7 @@ export function ImportSingleChainBase({
   invalidMessage,
   children,
   onConfirm,
-  excludedNetworkIds,
+  networkIds,
 }: {
   validationParams: IValidateGeneralInputParams;
   title: string;
@@ -62,7 +62,7 @@ export function ImportSingleChainBase({
   onConfirm: (
     form: UseFormReturn<IFormValues, any, undefined>,
   ) => Promise<void>;
-  excludedNetworkIds?: string[];
+  networkIds?: string[];
 }) {
   const intl = useIntl();
   const media = useMedia();
@@ -150,9 +150,7 @@ export function ImportSingleChainBase({
             label={intl.formatMessage({ id: ETranslations.global_network })}
             name="networkId"
           >
-            <ControlledNetworkSelectorTrigger
-              excludedNetworkIds={excludedNetworkIds}
-            />
+            <ControlledNetworkSelectorTrigger networkIds={networkIds} />
           </Form.Field>
           <Form.Field label={inputLabel} name="input">
             <Input

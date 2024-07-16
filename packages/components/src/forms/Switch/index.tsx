@@ -26,6 +26,7 @@ export function Switch({
 
   return (
     <TMSwitch
+      tag="span"
       unstyled
       checked={value}
       onCheckedChange={onChange}

@@ -187,9 +187,10 @@ export default function ScanQrCodeModal() {
     });
 
     if (!result.canceled) {
+      const uri = result.assets[0].uri;
       let data: string | null = null;
       try {
-        data = await scanFromURLAsync(result.assets[0].uri);
+        data = await scanFromURLAsync(uri);
       } catch {
         data = null;
       }

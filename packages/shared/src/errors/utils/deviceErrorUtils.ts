@@ -153,6 +153,7 @@ export function convertDeviceError(
       return new HardwareErrors.DeviceNotOpenedPassphrase({ payload });
     case HardwareErrorCode.PinCancelled:
       return new HardwareErrors.PinCancelled({ payload });
+    case HardwareErrorCode.UnexpectPassphrase:
     case HardwareErrorCode.ActionCancelled:
       return new HardwareErrors.UserCancel({ payload });
     case HardwareErrorCode.BridgeNotInstalled:

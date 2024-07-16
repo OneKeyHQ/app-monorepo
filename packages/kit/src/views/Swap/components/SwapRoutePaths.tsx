@@ -42,33 +42,41 @@ const SwapRoutePaths = ({ routeContent }: ISwapRoutePathProps) => (
               space="$1"
             >
               {/* generate a array with 40 empty fill */}
-              {new Array(40).fill(null).map((_, index) => (
-                <Stack key={index} h="$0.5" bg="$borderSubdued" flex={1} />
-              ))}
+              <XStack px="$4" flex={1} space="$1" alignItems="center">
+                {new Array(40).fill(null).map((_, index) => (
+                  <Stack key={index} h="$0.5" bg="$borderSubdued" flex={1} />
+                ))}
+              </XStack>
             </XStack>
-            {row.map((item, itemIndex) => (
-              <Stack key={itemIndex} bg="$bgApp" alignItems="center">
-                <XStack>
-                  {item.images.map((image, index) => (
-                    <Token
-                      key={index}
-                      size="sm"
-                      tokenImageUri={image.logoImageUri}
-                      {...(index !== 0 && {
-                        ml: '$-2.5',
-                      })}
-                    />
-                  ))}
-                </XStack>
-                <SizableText
-                  pt="$1.5"
-                  size="$bodySmMedium"
-                  color="$textSubdued"
-                >
-                  {item.label}
-                </SizableText>
-              </Stack>
-            ))}
+            {row.map((item, itemIndex) => {
+              const maxWidth = `$${4 + 4 * item.images.length}`;
+              return (
+                <Stack key={itemIndex} alignItems="center">
+                  <XStack bg="$bgApp" maxWidth={maxWidth}>
+                    {item.images.map((image, index) => (
+                      <Token
+                        key={index}
+                        size="sm"
+                        tokenImageUri={image.logoImageUri}
+                        {...(index !== 0 && {
+                          ml: '$-2.5',
+                        })}
+                      />
+                    ))}
+                  </XStack>
+                  <Stack maxWidth="$16" $gtMd={{ maxWidth: '$24' }}>
+                    <SizableText
+                      pt="$1.5"
+                      size="$bodySmMedium"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                    >
+                      {item.label}
+                    </SizableText>
+                  </Stack>
+                </Stack>
+              );
+            })}
           </XStack>
         ))}
       </>

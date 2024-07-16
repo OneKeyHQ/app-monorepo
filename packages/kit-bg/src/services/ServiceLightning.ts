@@ -139,7 +139,7 @@ class ServiceLightning extends ServiceBase {
         })) as LightningVault;
         await vault.exchangeToken();
       },
-      { deviceParams },
+      { deviceParams, debugMethodName: 'lightning.exchangeToken' },
     );
   }
 
@@ -358,7 +358,7 @@ class ServiceLightning extends ServiceBase {
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () =>
           vault.getLnurlAuthUrl({ lnurlDetail, password, deviceParams }),
-        { deviceParams },
+        { deviceParams, debugMethodName: 'lightning.getLnurlAuthUrl' },
       );
     try {
       const response = await axios.get<{

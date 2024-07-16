@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useV4MigrationActions } from '../hooks/useV4MigrationActions';
@@ -13,20 +13,16 @@ export function V4MigrationLogCopy({
   children?: ReactNode;
 } & ComponentProps<typeof Stack>) {
   const actions = useV4MigrationActions();
-  const [clickCount, setClickCount] = useState(0);
 
   return (
-    <Stack
+    <MultipleClickStack
       {...others}
       onPress={() => {
-        if (clickCount > 10) {
-          void actions.copyV4MigrationLogs();
-        }
-        setClickCount((prev) => prev + 1);
+        void actions.copyV4MigrationLogs();
       }}
     >
       {children}
-    </Stack>
+    </MultipleClickStack>
   );
 }
 export function V4MigrationLogCopyHeaderRight() {

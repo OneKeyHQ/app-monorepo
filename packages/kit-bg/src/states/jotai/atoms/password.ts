@@ -1,3 +1,4 @@
+import { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
@@ -30,6 +31,7 @@ export type IPasswordPromptPromiseTriggerAtom = {
     | {
         idNumber: number;
         type: EPasswordPromptType;
+        dialogProps?: { description?: string };
       }
     | undefined;
 };
@@ -86,6 +88,14 @@ export const {
     isEnable: boolean;
   }>
 >(async (get) => {
+  // TODO: remove webAuth in Native App
+  // handling webAuthCredentialId in suspense causes the parent container to re-render and flicker.
+  if (platformEnv.isNative) {
+    return {
+      isSupport: false,
+      isEnable: false,
+    };
+  }
   const { webAuthCredentialId } = get(passwordPersistAtom.atom());
   const isSupport = await isSupportWebAuth();
   const isEnable = isSupport && webAuthCredentialId?.length > 0;

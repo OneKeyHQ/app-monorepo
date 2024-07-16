@@ -115,7 +115,8 @@ export function HomePageView({
           page: memo(TxHistoryListContainerWithProvider, () => true),
         },
       ].filter(Boolean),
-    [intl, isNFTEnabled],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [intl, account?.id, network?.id, isNFTEnabled],
   );
 
   const renderTabs = useCallback(

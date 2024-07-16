@@ -31,7 +31,7 @@ const SwapHeaderRightActionContainer = ({
       swapHistoryPendingList.filter(
         (i) =>
           i.status === ESwapTxHistoryStatus.PENDING ||
-          i.status === ESwapTxHistoryStatus.DISCARD,
+          i.status === ESwapTxHistoryStatus.CANCELING,
       ),
     [swapHistoryPendingList],
   );

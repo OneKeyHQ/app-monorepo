@@ -35,9 +35,12 @@ export type IModalSendParamList = {
     accountId: string;
     isNFT: boolean;
     nfts?: IAccountNFT[];
-    token?: IToken;
+    token?: IToken | null;
     address?: string;
     amount?: string;
+    onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
+    onFail?: (error: Error) => void;
+    onCancel?: () => void;
   };
   [EModalSendRoutes.SendConfirm]: {
     networkId: string;
@@ -46,6 +49,7 @@ export type IModalSendParamList = {
     sourceInfo?: IDappSourceInfo;
     signOnly?: boolean;
     useFeeInTx?: boolean;
+    feeInfoEditable?: boolean;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
@@ -58,7 +62,7 @@ export type IModalSendParamList = {
     replaceType: EReplaceTxType;
     replaceEncodedTx: IEncodedTx;
     historyTx: IAccountHistoryTx;
-    onSuccess?: () => void;
+    onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   };
 
   // Lightning Network

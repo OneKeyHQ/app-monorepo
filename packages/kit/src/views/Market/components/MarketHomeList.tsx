@@ -15,6 +15,7 @@ import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 import type {
   IActionListItemProps,
+  IElement,
   IListViewRef,
   IStackProps,
 } from '@onekeyhq/components';
@@ -251,7 +252,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
           formatter="marketCap"
           formatterOptions={{ currency }}
         >
-          {item.totalVolume}
+          {item.totalVolume || '-'}
         </NumberSizeableText>
       ),
       'marketCap': (item) => (
@@ -261,7 +262,7 @@ const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
           formatter="marketCap"
           formatterOptions={{ currency }}
         >
-          {item.marketCap}
+          {item.marketCap || '-'}
         </NumberSizeableText>
       ),
       'sparkline': (item) => (
@@ -873,13 +874,19 @@ function BasicMarketHomeList({
             height={60}
             justifyContent="space-between"
             userSelect="none"
+            space="$2"
             {...listItemPressStyle}
             {...(platformEnv.isNative ? pressEvents : undefined)}
           >
-            <XStack space="$3" ai="center">
+            <XStack space="$3" ai="center" flexShrink={1}>
               <MarketTokenIcon uri={item.image} size="$10" />
-              <YStack>
-                <SizableText size="$bodyLgMedium" selectable={false}>
+              <YStack flexShrink={1}>
+                <SizableText
+                  size="$bodyLgMedium"
+                  selectable={false}
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
                   {item.symbol.toUpperCase()}
                 </SizableText>
                 <SizableText
@@ -900,7 +907,7 @@ function BasicMarketHomeList({
                 </SizableText>
               </YStack>
             </XStack>
-            <XStack ai="center" space="$5" flexShrink={1}>
+            <XStack ai="center" space="$5">
               <NumberSizeableText
                 selectable={false}
                 flexShrink={1}
@@ -1033,17 +1040,25 @@ function BasicMarketHomeList({
     }
   }, []);
 
+  const containerRef = useRef<IElement>(null);
   const onSwitchMarketHomeTabCallback = useCallback(
-    ({ tabIndex: currentTabIndex }: { tabIndex: number }) => {
-      setTimeout(() => {
-        if (currentTabIndex !== tabIndex) {
-          if (md) {
-            handleMdSortByTypeChange('Default');
+    ({ tabIndex: index }: { tabIndex: number }) => {
+      setTimeout(
+        () => {
+          if (!platformEnv.isNative && containerRef) {
+            (containerRef.current as HTMLElement).style.contentVisibility =
+              index === tabIndex ? 'visible' : 'hidden';
           }
-        } else {
-          void fetchCategory();
-        }
-      }, 10);
+          if (index !== tabIndex) {
+            if (md) {
+              handleMdSortByTypeChange('Default');
+            }
+          } else {
+            void fetchCategory();
+          }
+        },
+        platformEnv.isNative ? 10 : 0,
+      );
     },
     [fetchCategory, handleMdSortByTypeChange, md, tabIndex],
   );
@@ -1111,7 +1126,7 @@ function BasicMarketHomeList({
         </YStack>
       )}
 
-      <YStack flex={1} $gtMd={{ py: '$3' }}>
+      <YStack flex={1} ref={containerRef} $gtMd={{ pt: '$3' }}>
         {gtMd ? HeaderColumns : undefined}
         <ListView
           ref={listViewRef}

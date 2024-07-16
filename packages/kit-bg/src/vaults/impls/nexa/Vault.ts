@@ -31,6 +31,7 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import {
+  EDecodedTxActionType,
   EDecodedTxStatus,
   type IDecodedTx,
   type IDecodedTxAction,
@@ -166,10 +167,6 @@ export default class VaultNexa extends VaultBase {
       tokenIdOnNetwork: '',
     });
 
-    if (!nativeToken) {
-      throw new OneKeyInternalError('Native token not found');
-    }
-
     const utxoFrom = (inputs ?? []).map((input) => ({
       address: input.address,
       balance: new BigNumber(input.satoshis)
@@ -192,31 +189,41 @@ export default class VaultNexa extends VaultBase {
     let sendNativeTokenAmountBN = new BigNumber(0);
     let sendNativeTokenAmountValueBN = new BigNumber(0);
 
-    const transfers = utxoTo.map((utxo) => {
-      sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(utxo.balance);
-      sendNativeTokenAmountValueBN = sendNativeTokenAmountValueBN.plus(
-        utxo.balanceValue,
-      );
-      return {
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
         from: account.address,
-        to: utxo.address,
-        utxoFrom,
-        utxoTo,
-        amount: utxo.balance,
-        amountValue: utxo.balanceValue,
-        tokenIdOnNetwork: nativeToken.address,
-        name: nativeToken.name,
-        icon: nativeToken.logoURI ?? '',
-        symbol: network.symbol,
-        isNFT: false,
-        isNative: true,
-      };
-    });
-    const action = await this.buildTxTransferAssetAction({
-      from: account.address,
-      to: utxoTo[0].address,
-      transfers,
-    });
+        to: utxoTo[0].address,
+      },
+    };
+
+    if (nativeToken) {
+      const transfers = utxoTo.map((utxo) => {
+        sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(utxo.balance);
+        sendNativeTokenAmountValueBN = sendNativeTokenAmountValueBN.plus(
+          utxo.balanceValue,
+        );
+        return {
+          from: account.address,
+          to: utxo.address,
+          utxoFrom,
+          utxoTo,
+          amount: utxo.balance,
+          amountValue: utxo.balanceValue,
+          tokenIdOnNetwork: nativeToken.address,
+          name: nativeToken.name,
+          icon: nativeToken.logoURI ?? '',
+          symbol: network.symbol,
+          isNFT: false,
+          isNative: true,
+        };
+      });
+      action = await this.buildTxTransferAssetAction({
+        from: account.address,
+        to: utxoTo[0].address,
+        transfers,
+      });
+    }
     const actions: IDecodedTxAction[] = [action];
 
     return {

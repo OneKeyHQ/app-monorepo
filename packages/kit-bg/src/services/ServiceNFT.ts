@@ -37,13 +37,18 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountNFTs(params: IFetchAccountNFTsParams) {
+    const { accountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
     this._fetchAccountNFTsController = controller;
     const resp = await client.get<{
       data: IFetchAccountNFTsResp;
-    }>(`/wallet/v1/account/nft/list?${qs.stringify(omitBy(params, isNil))}`, {
+    }>(`/wallet/v1/account/nft/list?${qs.stringify(omitBy(rest, isNil))}`, {
       signal: controller.signal,
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId: params.accountId,
+        }),
     });
     this._fetchAccountNFTsController = null;
     return resp.data.data;
@@ -52,7 +57,7 @@ class ServiceNFT extends ServiceBase {
   @backgroundMethod()
   public async fetchNFTDetails(params: IFetchNFTDetailsParams) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const { nfts, ...rest } = params;
+    const { nfts, accountId, ...rest } = params;
     const resp = await client.post<IFetchNFTDetailsResp>(
       '/wallet/v1/account/nft/detail',
       {
@@ -62,6 +67,12 @@ class ServiceNFT extends ServiceBase {
             ? nft.collectionAddress
             : `${nft.collectionAddress}:${nft.itemId}`,
         ),
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
       },
     );
     const result = resp.data.data;
@@ -97,6 +108,7 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async getNFT(params: {
+    accountId: string;
     networkId: string;
     nftId: string;
     collectionAddress: string;
@@ -113,17 +125,20 @@ class ServiceNFT extends ServiceBase {
 
   _getNFTMemo = memoizee(
     async ({
+      accountId,
       networkId,
       nftId,
       collectionAddress,
       accountAddress,
     }: {
+      accountId: string;
       networkId: string;
       nftId: string;
       collectionAddress: string;
       accountAddress: string;
     }) => {
       const nftDetails = await this.fetchNFTDetails({
+        accountId,
         networkId,
         nfts: [{ collectionAddress, itemId: nftId }],
         accountAddress,

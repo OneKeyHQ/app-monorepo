@@ -129,11 +129,11 @@ export const NetworkSelectorTriggerHome = memo(NetworkSelectorTriggerHomeCmp);
 export function ControlledNetworkSelectorTrigger({
   value,
   onChange,
-  excludedNetworkIds,
+  networkIds,
 }: {
   value?: string;
   onChange?: (networkId: string) => void;
-  excludedNetworkIds?: string[];
+  networkIds?: string[];
 }) {
   const intl = useIntl();
   return (
@@ -142,7 +142,7 @@ export function ControlledNetworkSelectorTrigger({
       title={intl.formatMessage({ id: ETranslations.network__network })}
       value={value}
       onChange={onChange}
-      excludedNetworkIds={excludedNetworkIds}
+      networkIds={networkIds}
       borderRadius="$3"
       borderWidth={1}
       borderCurve="continuous"

@@ -50,12 +50,29 @@ const PasswordVerify = ({
     reValidateMode: 'onSubmit',
     defaultValues: { password: '' },
   });
-
+  const timeOutRef = useRef<NodeJS.Timeout | null>(null);
+  const isEnableRef = useRef(isEnable);
+  if (isEnableRef.current !== isEnable) {
+    isEnableRef.current = isEnable;
+  }
+  useEffect(() => {
+    // enable first false should wait some logic to get final value
+    timeOutRef.current = setTimeout(() => {
+      if (!isEnableRef.current) {
+        form.setFocus('password');
+      }
+    }, 500);
+    return () => {
+      if (timeOutRef.current) {
+        clearTimeout(timeOutRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [secureEntry, setSecureEntry] = useState(true);
   const lastTime = useRef(0);
   const passwordInput = form.watch('password');
   const [{ manualLocking }] = usePasswordPersistAtom();
-
   const rightActions = useMemo(() => {
     const actions: IPropsWithTestId<{
       iconName?: IKeyOfIcons;
@@ -154,7 +171,6 @@ const PasswordVerify = ({
         }}
       >
         <Input
-          autoFocus
           selectTextOnFocus
           size="large"
           editable={status.value !== EPasswordVerifyStatus.VERIFYING}
@@ -162,7 +178,8 @@ const PasswordVerify = ({
             id: ETranslations.auth_enter_your_password,
           })}
           flex={1}
-          onChangeText={(text) => text.replace(PasswordRegex, '')}
+          // onChangeText={(text) => text.replace(PasswordRegex, '')}
+          onChangeText={(text) => text}
           keyboardType={getPasswordKeyboardType(!secureEntry)}
           secureTextEntry={secureEntry}
           // fix Keyboard Flickering on TextInput with secureTextEntry #39411

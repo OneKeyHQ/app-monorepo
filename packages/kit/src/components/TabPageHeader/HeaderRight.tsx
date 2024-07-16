@@ -78,7 +78,7 @@ export function HeaderRight({
       <HeaderIconButton
         key="expandExtView"
         title={intl.formatMessage({ id: ETranslations.global_expand_view })}
-        icon="CameraExposureSquareOutline"
+        icon="ExpandOutline"
         onPress={openExtensionExpandTab}
       />
     );
@@ -117,7 +117,10 @@ export function HeaderRight({
     sceneName,
   ]);
   return (
-    <HeaderButtonGroup testID="Wallet-Page-Header-Right">
+    <HeaderButtonGroup
+      testID="Wallet-Page-Header-Right"
+      className="app-region-no-drag"
+    >
       {items}
     </HeaderButtonGroup>
   );

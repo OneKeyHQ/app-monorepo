@@ -1,4 +1,3 @@
-import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   backgroundClass,
   backgroundMethod,
@@ -26,11 +25,10 @@ class ServiceFiatCrypto extends ServiceBase {
   _buildUriForFiatToken = memoizee(
     async (params: IGenerateWidgetUrl) => {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const { enabled: isDev } = await devSettingsPersistAtom.get();
       const resp = await client.get<{
         data: { url: string; build: boolean };
       }>('/wallet/v1/fiat-pay/url', {
-        params: { ...params, mode: isDev ? 'test' : 'live' },
+        params,
       });
       return resp.data.data;
     },
@@ -66,7 +64,9 @@ class ServiceFiatCrypto extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{
         data: IFiatCryptoToken[];
-      }>('/wallet/v1/fiat-pay/list', { params });
+      }>('/wallet/v1/fiat-pay/list', {
+        params,
+      });
       return resp.data.data;
     },
     {

@@ -3,6 +3,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import { useTabListScroll } from '../../hooks/useTabListScroll';
 import {
   useSearchKeyAtom,
   useTokenListAtom,
@@ -53,14 +54,20 @@ function TokenListView(props: IProps) {
 
   const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
 
+  const { listViewProps, listViewRef } = useTabListScroll<IAccountToken>({
+    onContentSizeChange,
+  });
+
   if (!tokenListState.initialized && tokenListState.isRefreshing) {
     return <ListLoading onContentSizeChange={onContentSizeChange} />;
   }
 
   return (
     <ListView
+      {...listViewProps}
       py={withPresetVerticalPadding ? '$3' : '$0'}
       estimatedItemSize={tableLayout ? 48 : 60}
+      ref={listViewRef}
       scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
       disableScrollViewPanResponder={!!onContentSizeChange}
       data={filteredTokens}
@@ -73,7 +80,6 @@ function TokenListView(props: IProps) {
           />
         ) : null
       }
-      onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={
         searchKey ? (
           EmptySearch

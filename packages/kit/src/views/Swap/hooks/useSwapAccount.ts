@@ -29,7 +29,8 @@ export function useSwapFromAccountNetworkSync() {
   const { activeAccount: toActiveAccount } = useActiveAccount({
     num: 1,
   });
-  const [swapToAnotherAccount] = useSwapToAnotherAccountAddressAtom();
+  const [swapToAnotherAccount, setSwapToAnotherAccount] =
+    useSwapToAnotherAccountAddressAtom();
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
   const [, setSettings] = useSettingsAtom();
@@ -74,22 +75,21 @@ export function useSwapFromAccountNetworkSync() {
         });
       }
       if (
-        (fromTokenRef.current &&
-          toTokenRef.current &&
-          swapToAnotherAccountRef.current?.networkId &&
+        fromTokenRef.current &&
+        toTokenRef.current &&
+        ((swapToAnotherAccountRef.current?.networkId &&
           toTokenRef.current?.networkId !==
             swapToAnotherAccountRef.current?.networkId) ||
-        (fromTokenRef.current &&
-          toTokenRef.current &&
-          !swapToAnotherAccountRef.current?.networkId &&
-          !swapToAccountRef.current?.account &&
-          swapToAccountRef.current?.wallet) ||
-        swapProviderSupportReceiveAddressRef.current === false
+          (!swapToAnotherAccountRef.current?.networkId &&
+            !swapToAccountRef.current?.account &&
+            swapToAccountRef.current?.wallet) ||
+          swapProviderSupportReceiveAddressRef.current === false)
       ) {
         setSettings((v) => ({
           ...v,
           swapToAnotherAccountSwitchOn: false,
         }));
+        setSwapToAnotherAccount((v) => ({ ...v, address: undefined }));
         // should wait account async finish
         setTimeout(() => {
           if (toTokenRef.current) {
@@ -118,14 +118,17 @@ export function useSwapFromAccountNetworkSync() {
   );
 
   useEffect(() => {
-    void (async () => {
-      await checkTokenForAccountNetworkDebounce();
-    })();
+    if (pageType !== EPageType.modal) {
+      void (async () => {
+        await checkTokenForAccountNetworkDebounce();
+      })();
+    }
   }, [
     checkTokenForAccountNetworkDebounce,
     fromToken,
     toToken,
     swapProviderSupportReceiveAddress,
+    pageType,
   ]);
 
   const isFocused = useIsFocused();
@@ -137,7 +140,14 @@ export function useSwapFromAccountNetworkSync() {
         })();
       }
     }
-  }, [checkTokenForAccountNetworkDebounce, isFocused, pageType]);
+  }, [
+    checkTokenForAccountNetworkDebounce,
+    isFocused,
+    pageType,
+    fromToken,
+    toToken,
+    swapProviderSupportReceiveAddress,
+  ]);
 }
 
 export function useSwapAddressInfo(type: ESwapDirectionType) {

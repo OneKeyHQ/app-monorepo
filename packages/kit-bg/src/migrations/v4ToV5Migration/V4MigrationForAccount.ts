@@ -69,7 +69,7 @@ import type {
 } from './v4local/v4localDBTypes';
 import type {
   IDBAccount,
-  IDBCreateHWWalletParams,
+  IDBCreateHwWalletParams,
   IDBDevice,
   IDBDeviceSettings,
   IDBUtxoAccount,
@@ -1260,7 +1260,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           if (v4wallet?.passphraseState) {
             v5wallet = await v4dbHubs.logger.runAsyncWithCatch(
               async () => {
-                const params: IDBCreateHWWalletParams = {
+                const params: IDBCreateHwWalletParams = {
                   name: v4wallet.name,
                   device: deviceUtils.dbDeviceToSearchDevice(v5dbDevice),
                   features: v5dbDevice.featuresInfo || ({} as any),

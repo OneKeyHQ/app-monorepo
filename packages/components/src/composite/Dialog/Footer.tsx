@@ -12,7 +12,6 @@ import { useIntl } from 'react-intl';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -74,7 +73,10 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
       ? await new Promise<boolean>((resolve) => {
           void Promise.resolve(
             onConfirm?.({
-              close,
+              close: (extra) => {
+                resolve(false);
+                void close(extra);
+              },
               preventClose: () => {
                 resolve(false);
               },
@@ -106,10 +108,10 @@ const useSafeKeyboardAnimationStyle = () => {
   useKeyboardEvent({
     keyboardWillShow: (e) => {
       const keyboardHeight = e.endCoordinates.height;
-      keyboardHeightValue.value = withTiming(keyboardHeight - bottom);
+      keyboardHeightValue.value = keyboardHeight - bottom;
     },
     keyboardWillHide: () => {
-      keyboardHeightValue.value = withTiming(0);
+      keyboardHeightValue.value = 0;
     },
   });
   return platformEnv.isNative ? animatedStyles : undefined;

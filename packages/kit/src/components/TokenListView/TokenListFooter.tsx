@@ -32,7 +32,7 @@ function TokenListFooter(props: IProps) {
   const { tableLayout } = props;
   const navigation = useAppNavigation();
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network, wallet, deriveType, deriveInfo },
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
@@ -73,10 +73,14 @@ function TokenListFooter(props: IProps) {
           keys: smallBalanceTokenKeys,
           map: smallBalanceTokenListMap,
         },
+        deriveType,
+        deriveInfo,
       },
     });
   }, [
     account,
+    deriveInfo,
+    deriveType,
     intl,
     navigation,
     network,
@@ -101,10 +105,14 @@ function TokenListFooter(props: IProps) {
           map: riskyTokenListMap,
         },
         isBlocked: true,
+        deriveType,
+        deriveInfo,
       },
     });
   }, [
     account,
+    deriveInfo,
+    deriveType,
     intl,
     navigation,
     network,

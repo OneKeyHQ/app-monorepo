@@ -26,6 +26,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: false,
 
+  addressBookDisabled: true,
+
   defaultFeePresetIndex: 0,
 
   isUtxo: false,
@@ -35,6 +37,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  estimatedFeePollingInterval: 600,
 
   accountDeriveInfo,
   networkInfo: {

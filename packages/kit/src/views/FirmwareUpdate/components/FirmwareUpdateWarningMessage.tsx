@@ -15,6 +15,7 @@ export function FirmwareUpdateWarningMessage() {
           : ETranslations.update_keep_usb_connected_and_app_active,
       })}
       fullBleed
+      mx="$-5"
     />
   );
 }

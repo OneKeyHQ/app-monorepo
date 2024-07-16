@@ -1,0 +1,13 @@
+diff --git a/node_modules/@tamagui/switch/dist/esm/createSwitch.js b/node_modules/@tamagui/switch/dist/esm/createSwitch.js
+index 331276c..efe4906 100644
+--- a/node_modules/@tamagui/switch/dist/esm/createSwitch.js
++++ b/node_modules/@tamagui/switch/dist/esm/createSwitch.js
+@@ -113,7 +113,7 @@ function createSwitch({
+       /* @__PURE__ */ jsx(ButtonNestingContext.Provider, { value: !0, children: /* @__PURE__ */ jsx(
+         Frame,
+         {
+-          tag: isInsideButton ? "span" : "button",
++          tag: propsIn.tag ? propsIn.tag : isInsideButton ? 'span' : 'button',
+           unstyled,
+           size,
+           checked,

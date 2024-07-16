@@ -14,6 +14,7 @@ export type IAccountIsAutoCreatingAtom =
   | undefined;
 export type IAccountManualCreatingAtom = {
   isLoading: boolean;
+  key?: string;
 };
 export const {
   target: accountIsAutoCreatingAtom,

@@ -23,10 +23,10 @@ const settings: IVaultSettings = {
   coinTypeDefault: COINTYPE_CKB,
   accountType: EDBAccountType.SIMPLE,
 
-  importedAccountEnabled: false,
+  importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
-  watchingAccountEnabled: false,
+  watchingAccountEnabled: true,
 
   defaultFeePresetIndex: 0,
 
@@ -37,6 +37,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  estimatedFeePollingInterval: 6,
 
   minTransferAmount: '0.00000546',
 

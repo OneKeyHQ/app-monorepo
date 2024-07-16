@@ -23,6 +23,7 @@ import {
   getDefaultLocale,
   getLocaleMessages,
 } from '@onekeyhq/shared/src/locale/getDefaultLocale';
+import systemLocaleUtils from '@onekeyhq/shared/src/locale/systemLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -34,6 +35,7 @@ import {
   EReasonForNeedPassword,
   type IClearCacheOnAppState,
 } from '@onekeyhq/shared/types/setting';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import {
   settingsLastActivityAtom,
@@ -57,8 +59,7 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   async refreshLocaleMessages() {
-    const { locale: rawLocale } = await settingsPersistAtom.get();
-    const locale = rawLocale === 'system' ? getDefaultLocale() : rawLocale;
+    const locale = await this.getCurrentLocale();
     const messages = await getLocaleMessages(locale);
     appLocale.setLocale(locale, messages as any);
   }
@@ -169,6 +170,13 @@ class ServiceSetting extends ServiceBase {
   );
 
   @backgroundMethod()
+  public async initSystemLocale() {
+    if (!platformEnv.isExtensionBackground) return;
+    await systemLocaleUtils.initSystemLocale();
+    getDefaultLocale.clear();
+  }
+
+  @backgroundMethod()
   public async getCurrencyList(): Promise<ICurrencyItem[]> {
     return this._getCurrencyList();
   }
@@ -220,6 +228,10 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async clearPendingTransaction() {
     await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxs();
+    await this.backgroundApi.serviceSwap.cleanSwapHistoryItems([
+      ESwapTxHistoryStatus.CANCELING,
+      ESwapTxHistoryStatus.PENDING,
+    ]);
   }
 
   @backgroundMethod()

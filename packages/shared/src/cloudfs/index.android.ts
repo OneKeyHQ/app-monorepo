@@ -1,5 +1,4 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import axios from 'axios';
 import RNCloudFs from 'react-native-cloud-fs';
 
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -29,15 +28,6 @@ export async function isAvailable(): Promise<boolean> {
   }
 }
 
-async function checkInternet() {
-  const result = await axios
-    .head('https://www.googleapis.com/auth/drive.file', {
-      timeout: 1000,
-    })
-    .then(() => true)
-    .catch(() => false);
-  return result;
-}
 export async function loginIfNeeded(
   showSignInDialog: boolean,
 ): Promise<boolean> {
@@ -50,9 +40,6 @@ export async function loginIfNeeded(
       return Promise.resolve(false);
     }
   } else if (showSignInDialog) {
-    if ((await checkInternet()) === false) {
-      throw new Error('NETWORK');
-    }
     GoogleSignin.configure(GoogleSignInConfigure);
     await GoogleSignin.signIn();
     return RNCloudFs.loginIfNeeded();
@@ -78,9 +65,6 @@ export function sync(): Promise<boolean> {
 }
 
 export async function listFiles(target: string) {
-  // if ((await checkInternet()) === false) {
-  //   return [];
-  // }
   await loginIfNeeded(false);
   const { files }: { files: Array<{ isFile: boolean; name: string }> } =
     await RNCloudFs.listFiles({ scope: 'hidden', targetPath: target });
@@ -90,9 +74,6 @@ export async function listFiles(target: string) {
 async function getFileObject(
   target: string,
 ): Promise<{ id: string; name: string } | undefined> {
-  // if ((await checkInternet()) === false) {
-  //   return undefined;
-  // }
   const { files }: { files: Array<{ id: string; name: string }> } =
     await RNCloudFs.listFiles({
       scope: 'hidden',
@@ -102,9 +83,6 @@ async function getFileObject(
 }
 
 export async function deleteFile(target: string): Promise<boolean> {
-  if ((await checkInternet()) === false) {
-    return Promise.resolve(false);
-  }
   await loginIfNeeded(false);
   const file = await getFileObject(target);
   if (file) {
@@ -115,9 +93,6 @@ export async function deleteFile(target: string): Promise<boolean> {
 }
 
 export async function downloadFromCloud(target: string): Promise<string> {
-  // if ((await checkInternet()) === false) {
-  //   return Promise.resolve('');
-  // }
   await loginIfNeeded(false);
   const file = await getFileObject(target);
   if (file) {
@@ -130,9 +105,6 @@ export async function uploadToCloud(
   source: string,
   target: string,
 ): Promise<void> {
-  if ((await checkInternet()) === false) {
-    throw new Error('NETWORK');
-  }
   await loginIfNeeded(false);
   await RNCloudFs.copyToCloud({
     mimeType: null,

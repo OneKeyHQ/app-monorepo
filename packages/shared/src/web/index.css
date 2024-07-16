@@ -164,3 +164,7 @@ textarea {
 [data-sonner-toast] {
   max-width: calc(100vw - 32px);
 }
+
+.app-region-no-drag {
+  -webkit-app-region: no-drag;
+}

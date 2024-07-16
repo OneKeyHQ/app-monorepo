@@ -4,7 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { Page, SectionList } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -45,7 +45,6 @@ function TokenSelector() {
     networkId,
     accountId,
     tokens,
-    networkName,
     closeAfterSelect = true,
     onSelect,
   } = route.params;
@@ -62,15 +61,10 @@ function TokenSelector() {
 
   const fetchAccountTokens = useCallback(async () => {
     updateTokenListState({ initialized: false, isRefreshing: true });
-    const accountAddress =
-      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      });
 
     const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+      accountId,
       networkId,
-      accountAddress,
       mergeTokens: true,
       flag: 'token-selector',
     });

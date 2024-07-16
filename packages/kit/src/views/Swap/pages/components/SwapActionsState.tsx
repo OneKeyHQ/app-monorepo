@@ -84,7 +84,10 @@ const SwapActionsState = ({
 
   const onActionHandler = useCallback(() => {
     if (swapActionState.isRefreshQuote) {
-      void quoteAction(swapFromAddressInfo.address);
+      void quoteAction(
+        swapFromAddressInfo?.address,
+        swapFromAddressInfo?.accountInfo?.account?.id,
+      );
     } else {
       cleanQuoteInterval();
       if (swapActionState.isApprove) {
@@ -107,7 +110,8 @@ const SwapActionsState = ({
     swapActionState.isApprove,
     swapActionState.isRefreshQuote,
     swapActionState.isWrapped,
-    swapFromAddressInfo.address,
+    swapFromAddressInfo?.accountInfo?.account?.id,
+    swapFromAddressInfo?.address,
   ]);
 
   const approveStepComponent = useMemo(
@@ -121,15 +125,17 @@ const SwapActionsState = ({
             : {})}
         >
           <Popover
-            title="Approve"
+            title={intl.formatMessage({ id: ETranslations.global_approve })}
             placement="top-start"
             renderContent={
               <SizableText
                 size="$bodyLg"
                 $gtMd={{
                   size: '$bodyMd',
+                  pt: '$5',
                 }}
-                p="$5"
+                pb="$5"
+                px="$5"
               >
                 {intl.formatMessage({
                   id: ETranslations.swap_page_swap_steps_1_approve_dialog,

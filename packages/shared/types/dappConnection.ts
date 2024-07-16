@@ -27,6 +27,7 @@ export interface IConnectionItem {
     [address in string]: number[];
   };
   walletConnectTopic?: string;
+  updatedAt?: number;
 }
 
 export type IConnectionItemWithAccountSelectorNum = IConnectionItem & {

@@ -1,6 +1,10 @@
 import { isString } from 'lodash';
 
-import { IMPL_CKB } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_CKB,
+  IMPL_TBTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { CoreChainApiHub } from '../base/CoreChainApiHub';
 import { CoreChainScopeBase } from '../base/CoreChainScopeBase';
@@ -31,7 +35,12 @@ Object.keys(coreChainApi).forEach((key) => {
 });
 
 export function getCoreChainApiScopeByImpl({ impl }: { impl: string }) {
-  const scope = implToScopeMap[impl];
+  let scope = implToScopeMap[impl];
+  if (!scope) {
+    if (impl === IMPL_TBTC) {
+      scope = implToScopeMap[IMPL_BTC];
+    }
+  }
   if (!scope) {
     throw new Error(`No coreApi found for impl ${impl}`);
   }

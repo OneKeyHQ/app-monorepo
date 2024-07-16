@@ -17,9 +17,14 @@ const PasswordVerifyPromptMount = () => {
 
   const [{ passwordPromptPromiseTriggerData }] =
     usePasswordPromptPromiseTriggerAtom();
-  const onClose = useCallback((id: number) => {
-    void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id);
-  }, []);
+  const onClose = useCallback(
+    (id: number) => {
+      void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id, {
+        message: intl.formatMessage({ id: ETranslations.global_close }),
+      });
+    },
+    [intl],
+  );
 
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
 
@@ -50,11 +55,13 @@ const PasswordVerifyPromptMount = () => {
     [intl, onClose],
   );
   const showPasswordVerifyPrompt = useCallback(
-    (id: number) => {
+    (id: number, dialogProps: { description?: string } = {}) => {
+      const { description } = dialogProps;
       dialogRef.current = Dialog.show({
         title: intl.formatMessage({
-          id: ETranslations.auth_confirm_password_form_label,
+          id: ETranslations.enter_password,
         }),
+        description,
         onClose() {
           onClose(id);
         },
@@ -97,6 +104,7 @@ const PasswordVerifyPromptMount = () => {
       ) {
         showPasswordVerifyPromptRef.current?.(
           passwordPromptPromiseTriggerData.idNumber,
+          passwordPromptPromiseTriggerData.dialogProps,
         );
       } else {
         showPasswordSetupPromptRef.current?.(

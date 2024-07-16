@@ -124,6 +124,7 @@ class ProviderApiEthereum extends ProviderApiBase {
         return accounts;
       }
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      void this._getConnectedNetworkName(request);
       return this.eth_accounts(request);
     });
   }
@@ -180,6 +181,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       };
     });
 
+    void this._getConnectedNetworkName(request);
     return result;
   }
 
@@ -506,9 +508,11 @@ class ProviderApiEthereum extends ProviderApiBase {
     await this._switchEthereumChainMemo(request, params);
 
     this.notifyNetworkChangedToDappSite(request.origin ?? '');
-    void this.backgroundApi.serviceDApp.notifyDAppChainChanged(
-      request.origin ?? '',
-    );
+    setTimeout(() => {
+      void this.backgroundApi.serviceDApp.notifyDAppChainChanged(
+        request.origin ?? '',
+      );
+    }, 500);
     // Metamask return null
     return null;
   }

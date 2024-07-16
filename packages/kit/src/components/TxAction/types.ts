@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import type { ETxActionComponentType } from '@onekeyhq/shared/types';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   EDecodedTxStatus,
   EReplaceTxType,
@@ -20,6 +21,7 @@ export type ITxActionProps = {
   nativeTokenTransferAmountToUpdate?: string;
   showIcon?: boolean;
   replaceType?: EReplaceTxType;
+  swapInfo?: ISwapTxInfo;
 };
 
 export type ITxActionComponents = {
@@ -57,6 +59,7 @@ export type ITxActionCommonListViewProps = {
 };
 
 export type ITxActionCommonDetailViewProps = {
+  networkId: string;
   overview: {
     avatar?: {
       isNFT?: boolean;
@@ -75,6 +78,14 @@ export type ITxActionCommonDetailViewProps = {
     };
   };
   source?: {
+    title?: string;
+    content: string;
+    description?: {
+      content?: React.ReactNode;
+      icon?: IKeyOfIcons;
+    };
+  };
+  applyFor?: {
     title?: string;
     content: string;
     description?: {

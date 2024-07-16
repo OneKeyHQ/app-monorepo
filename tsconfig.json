@@ -20,7 +20,7 @@
     "noUnusedLocals": false,
     "experimentalDecorators": true,
     "useDefineForClassFields": true,
-    "types": ["node", "chrome", "jest"],
+    "types": ["node", "chrome", "jest", "web"],
     "typeRoots": ["node_modules/@types", "./@types"]
   },
   "include": ["**/*.ts", "**/*.tsx", "apps/web-embed/index.js", "apps/web-embed/src/views/WebEmbedWebviewAgentCardano/index.tsx"],

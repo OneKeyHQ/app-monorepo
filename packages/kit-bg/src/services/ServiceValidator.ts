@@ -7,7 +7,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
-  IAddressValidateStatus,
+  IAddressValidateBaseStatus,
   IAddressValidation,
 } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -26,9 +26,12 @@ class ServiceValidator extends ServiceBase {
   public async validateAddress(params: {
     networkId: string;
     address: string;
-  }): Promise<IAddressValidateStatus> {
+  }): Promise<IAddressValidateBaseStatus> {
     // Both server and local validation are required. If server-level validation fails due to a network issue, we will fall back to local validation."
     const { networkId, address } = params;
+    if (!networkId) {
+      return 'invalid';
+    }
     try {
       const resp = await this.serverValidateAddress(params);
       const serverValid = resp.data.data.isValid;
@@ -73,6 +76,36 @@ class ServiceValidator extends ServiceBase {
     },
     {
       maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+    },
+  );
+
+  public serverBatchValidateAddress = memoizee(
+    async (params: {
+      networkIdList: string[];
+      accountAddress: string;
+    }): Promise<{ isValid: boolean; networkIds: string[] }> => {
+      const { networkIdList, accountAddress } = params;
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.post<{
+        data: Record<string, IAddressValidation>;
+      }>('/wallet/v1/account/validate-address-batch', {
+        networkIdList,
+        accountAddress,
+      });
+      const validateResult = resp.data.data || {};
+      const validItems = Object.entries(validateResult)
+        .map(([networkId, validation]) => ({
+          networkId,
+          validation,
+        }))
+        .filter(({ validation }) => validation.isValid);
+      return {
+        isValid: validItems.length > 0,
+        networkIds: validItems.map(({ networkId }) => networkId),
+      };
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
     },
   );
 

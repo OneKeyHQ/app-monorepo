@@ -17,12 +17,12 @@ const unSupportedImage = ['data:image/svg+xml;'];
 
 function CommonAssetImage(props: IProps) {
   const { nft } = props;
-  const [isVideo, setIsVideo] = useState<boolean>(true);
+  const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
 
   const isUnSupportedImageInNative = useMemo(
     () =>
       platformEnv.isNative &&
-      !!unSupportedImage.find((i) => nft.metadata?.image.includes(i)),
+      !!unSupportedImage.find((i) => nft.metadata?.image?.includes(i)),
     [nft.metadata?.image],
   );
   if (isUnSupportedImageInNative) {
@@ -49,6 +49,8 @@ function CommonAssetImage(props: IProps) {
             style={{
               width: '100%',
               height: '100%',
+              position: 'absolute',
+              zIndex: 1,
             }}
           />
         ) : (
@@ -76,6 +78,7 @@ function CommonAssetImage(props: IProps) {
           borderColor="$bgApp"
         >
           <SizableText color="$textInverse" size="$bodyLgMedium">
+            x
             {new BigNumber(nft.amount).gt(SHOW_NFT_AMOUNT_MAX)
               ? `${SHOW_NFT_AMOUNT_MAX}+`
               : nft.amount}

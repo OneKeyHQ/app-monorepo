@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
+import bs58 from 'bs58';
 
 import type {
   IEncodedTxSol,
@@ -148,8 +149,9 @@ export class KeyringHardware extends KeyringHardwareBase {
         feePayerPublicKey,
         Buffer.from(signature, 'hex'),
       );
+
       return {
-        txid: signature,
+        txid: bs58.encode(Buffer.from(signature, 'hex')),
         encodedTx,
         rawTx: Buffer.from(
           transaction.serialize({ requireAllSignatures: false }),

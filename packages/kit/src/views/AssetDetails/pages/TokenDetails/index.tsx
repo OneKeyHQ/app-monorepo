@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -16,7 +16,6 @@ import {
   XStack,
   YStack,
   getFontToken,
-  getTokenValue,
   useClipboard,
   useThemeValue,
 } from '@onekeyhq/components';
@@ -28,23 +27,28 @@ import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListVie
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { POLLING_INTERVAL_FOR_HISTORY } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  EModalReceiveRoutes,
   EModalRoutes,
   EModalSendRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
-import { buildTokenDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import ActionBuy from './ActionBuy';
 import ActionSell from './ActionSell';
@@ -86,6 +90,14 @@ export function TokenDetails() {
     walletId,
   });
 
+  const { handleOnReceive } = useReceiveToken({
+    accountId,
+    networkId,
+    walletId,
+    deriveInfo,
+    deriveType,
+  });
+
   const { result: tokenDetails, isLoading: isLoadingTokenDetails } =
     usePromiseResult(
       async () => {
@@ -108,20 +120,23 @@ export function TokenDetails() {
    * they are loaded separately from the token details
    * so as not to block the display of the top details.
    */
-  const { result: tokenHistory, isLoading: isLoadingTokenHistory } =
-    usePromiseResult(
-      async () => {
-        const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-          accountId,
-          networkId,
-          tokenIdOnNetwork: tokenInfo.address,
-        });
-        setInitialized(true);
-        return r;
-      },
-      [accountId, networkId, tokenInfo.address],
-      { watchLoading: true },
-    );
+  const {
+    result: tokenHistory,
+    isLoading: isLoadingTokenHistory,
+    run,
+  } = usePromiseResult(
+    async () => {
+      const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+        accountId,
+        networkId,
+        tokenIdOnNetwork: tokenInfo.address,
+      });
+      setInitialized(true);
+      return r;
+    },
+    [accountId, networkId, tokenInfo.address],
+    { watchLoading: true, pollingInterval: POLLING_INTERVAL_FOR_HISTORY },
+  );
 
   const handleOnSwap = useCallback(async () => {
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -152,21 +167,25 @@ export function TokenDetails() {
     tokenInfo.symbol,
   ]);
 
-  const handleReceivePress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveToken,
-      params: {
-        networkId,
-        accountId,
-        walletId,
-        deriveInfo,
-        deriveType,
-      },
-    });
-  }, [accountId, deriveInfo, deriveType, navigation, networkId, walletId]);
-
   const handleHistoryItemPress = useCallback(
     async (tx: IAccountHistoryTx) => {
+      if (
+        tx.decodedTx.status === EDecodedTxStatus.Pending &&
+        tx.isLocalCreated
+      ) {
+        const localTx =
+          await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
+            accountId,
+            networkId,
+            historyId: tx.id,
+          });
+
+        // tx has been replaced by another tx
+        if (!localTx || localTx.replacedNextId) {
+          return;
+        }
+      }
+
       navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
         accountId,
         networkId,
@@ -228,18 +247,17 @@ export function TokenDetails() {
         ],
       });
 
-      const tokenDetailsUrl = buildTokenDetailsUrl({
-        network,
-        address: tokenInfo.address,
-      });
-
-      if (tokenDetailsUrl !== '') {
+      if (network?.id && tokenInfo.address) {
         sections[0].items.push({
           label: intl.formatMessage({
             id: ETranslations.global_view_in_blockchain_explorer,
           }),
           icon: 'ShareOutline',
-          onPress: () => openUrl(tokenDetailsUrl),
+          onPress: () =>
+            openTokenDetailsUrl({
+              networkId: network.id,
+              tokenAddress: tokenInfo.address,
+            }),
         });
       }
     }
@@ -274,8 +292,6 @@ export function TokenDetails() {
     tokenInfo.address,
     tokenInfo.isNative,
   ]);
-
-  // const renderTokenAddress = useCallback(() => {
   //   if (!tokenInfo.address) return null;
   //   return (
   //     <XGroup
@@ -371,6 +387,14 @@ export function TokenDetails() {
     [wallet?.type],
   );
 
+  useEffect(() => {
+    const reloadCallback = () => run({ alwaysSetState: true });
+    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
+    };
+  }, [run]);
+
   return (
     <Page>
       <Page.Header
@@ -464,7 +488,7 @@ export function TokenDetails() {
                     <RawActions.Send onPress={handleSendPress} />
                     <RawActions.Receive
                       disabled={isReceiveDisabled}
-                      onPress={handleReceivePress}
+                      onPress={handleOnReceive}
                     />
                     <ReviewControl>
                       <ActionSell

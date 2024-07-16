@@ -4,7 +4,7 @@ import {
   decodeAddress,
   encodeAddress,
 } from '@polkadot/util-crypto';
-import { decode, getRegistry, methods } from '@substrate/txwrapper-polkadot';
+import { decode, methods } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isObject } from 'lodash';
 
@@ -15,16 +15,12 @@ import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   BalanceLowerMinimum,
   InvalidTransferValue,
-  NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
-import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -34,12 +30,6 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import {
-  EOnChainHistoryTransferType,
-  type IOnChainHistoryTx,
-  type IOnChainHistoryTxToken,
-} from '@onekeyhq/shared/types/history';
-import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EDecodedTxActionType,
@@ -59,7 +49,15 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { getTransactionTypeFromTxInfo } from './utils';
+import {
+  getBlockInfo,
+  getGenesisHash,
+  getMetadataRpc,
+  getMinAmount,
+  getRegistry,
+  getRuntimeVersion,
+  getTransactionTypeFromTxInfo,
+} from './utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -115,9 +113,9 @@ export default class VaultDot extends VaultBase {
   }
 
   private async _getTxBaseInfo(): Promise<{
-    blockHash: string;
+    blockHash: `0x${string}`;
     blockNumber: number;
-    genesisHash: string;
+    genesisHash: `0x${string}`;
     metadataRpc: `0x${string}`;
     specName: string;
     specVersion: number;
@@ -126,66 +124,28 @@ export default class VaultDot extends VaultBase {
   }> {
     const [
       { specName, specVersion, transactionVersion },
-      blockHash,
       genesisHash,
-      { block },
       metadataRpc,
-    ] = (await this.backgroundApi.serviceAccountProfile.sendProxyRequest({
-      networkId: this.networkId,
-      body: [
-        {
-          route: 'rpc',
-          params: {
-            method: 'state_getRuntimeVersion',
-            params: [],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'chain_getBlockHash',
-            params: [],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'chain_getBlockHash',
-            params: [0],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'chain_getBlock',
-            params: [],
-          },
-        },
-        {
-          route: 'rpc',
-          params: {
-            method: 'state_getMetadata',
-            params: [],
-          },
-        },
-      ],
-    })) as [
-      { specName: string; specVersion: number; transactionVersion: number },
-      string,
-      string,
-      { block: { header: { number: number } } },
-      `0x${string}`,
-    ];
+      { blockHash, blockNumber },
+    ] = await Promise.all([
+      getRuntimeVersion(this.networkId, this.backgroundApi),
+      getGenesisHash(this.networkId, this.backgroundApi),
+      getMetadataRpc(this.networkId, this.backgroundApi),
+      getBlockInfo(this.networkId, this.backgroundApi),
+    ]);
     const info = {
       metadataRpc,
       specName: specName as 'polkadot',
       specVersion,
       chainName: await this.getNetworkChainId(),
     };
-    const registry = getRegistry(info);
+    const registry = await getRegistry(
+      { ...info, networkId: this.networkId },
+      this.backgroundApi,
+    );
     return {
       ...info,
-      blockNumber: block.header.number,
+      blockNumber,
       transactionVersion,
       blockHash,
       genesisHash,
@@ -223,18 +183,11 @@ export default class VaultDot extends VaultBase {
     const network = await this.getNetwork();
     const txBaseInfo = await this._getTxBaseInfo();
 
-    const account =
-      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-        accountId: this.accountId,
-        networkId: this.networkId,
-        withNonce: true,
-      });
-
     const info = {
       ...txBaseInfo,
       address: from,
       eraPeriod: 64,
-      nonce: account.nonce ?? 0,
+      nonce: 0,
       tip: 0,
     };
 
@@ -307,90 +260,25 @@ export default class VaultDot extends VaultBase {
       ...unsigned,
       specName: txBaseInfo.specName,
       chainName: network.name,
+      metadataRpc: '' as unknown as `0x${string}`,
     };
   }
 
-  private async _getMetadataRpc(): Promise<`0x${string}`> {
-    const [res] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
-        {
-          networkId: this.networkId,
-          body: [
-            {
-              route: 'rpc',
-              params: {
-                method: 'state_getMetadata',
-                params: [],
-              },
-            },
-          ],
-        },
-      );
-    return res;
-  }
-
-  private async _getRegistry(params: {
-    metadataRpc?: `0x${string}`;
-    specVersion?: string;
-    specName?: string;
-  }): Promise<TypeRegistry> {
-    const network = await this.getNetwork();
-
-    let metadataRpcHex: `0x${string}`;
-    if (isNil(params.metadataRpc) || isEmpty(params.metadataRpc)) {
-      metadataRpcHex = await this._getMetadataRpc();
-    } else {
-      metadataRpcHex = params.metadataRpc;
-    }
-
-    let specVersion: number;
-    let specName: string;
-    if (
-      !params.specVersion ||
-      isEmpty(params.specVersion) ||
-      !params.specName ||
-      isEmpty(params.specName)
-    ) {
-      const [res] =
-        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
-          specName: string;
-          specVersion: number;
-        }>({
-          networkId: this.networkId,
-          body: [
-            {
-              route: 'rpc',
-              params: {
-                method: 'state_getRuntimeVersion',
-                params: [],
-              },
-            },
-          ],
-        });
-      specVersion = res.specVersion;
-      specName = res.specName;
-    } else {
-      specVersion = +numberUtils.hexToDecimal(
-        hexUtils.addHexPrefix(params.specVersion),
-      );
-      specName = params.specName;
-    }
-
-    return getRegistry({
-      chainName: network.name,
-      specName: specName as 'polkadot',
-      specVersion,
-      metadataRpc: metadataRpcHex,
-    });
-  }
-
   private async _decodeUnsignedTx(unsigned: IEncodedTxDot) {
-    const registry = await this._getRegistry(unsigned);
-
     let { metadataRpc } = unsigned;
     if (!metadataRpc) {
-      metadataRpc = await this._getMetadataRpc();
+      metadataRpc = await getMetadataRpc(this.networkId, this.backgroundApi);
     }
+    const registry = await getRegistry(
+      {
+        specName: unsigned.specName,
+        specVersion: unsigned.specVersion,
+        metadataRpc,
+        networkId: this.networkId,
+      },
+      this.backgroundApi,
+    );
+
     const decodedUnsigned = decode(unsigned, {
       metadataRpc,
       registry,
@@ -444,47 +332,48 @@ export default class VaultDot extends VaultBase {
         tokenIdOnNetwork: assetId || (networkInfo.nativeTokenAddress ?? ''),
       });
 
-      const { value: tokenAmount } = decodeUnsignedTx.method.args;
-      to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
+      if (tokenInfo) {
+        const { value: tokenAmount } = decodeUnsignedTx.method.args;
+        to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
 
-      if (decodeUnsignedTx.method.name === 'transferAll') {
-        const accountDetail =
-          await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-            networkId: this.networkId,
-            accountId: this.accountId,
-            withNonce: false,
-            withNetWorth: true,
-          });
-        const balance = new BigNumber(accountDetail.balance ?? 0);
-        const feeInfo = unsignedTx.feeInfo;
-        const fee = feeInfo
-          ? new BigNumber(feeInfo.gas?.gasLimit ?? 0)
-              .times(new BigNumber(feeInfo.gas?.gasPrice ?? 0))
-              .shiftedBy(feeInfo.common.feeDecimals)
-          : 0;
-        amount = balance.minus(fee).toFixed();
-      } else {
-        amount = tokenAmount?.toString() ?? '0';
+        if (decodeUnsignedTx.method.name === 'transferAll') {
+          const balance = new BigNumber(
+            params.transferPayload?.amountToSend ?? 0,
+          ).shiftedBy(tokenInfo.decimals);
+          const feeInfo = unsignedTx.feeInfo;
+          const fee = feeInfo
+            ? new BigNumber(feeInfo.gas?.gasLimit ?? 0)
+                .times(new BigNumber(feeInfo.gas?.gasPrice ?? 0))
+                .shiftedBy(feeInfo.common.feeDecimals)
+            : 0;
+          amount = balance.minus(fee).toFixed();
+        } else {
+          amount = tokenAmount?.toString() ?? '0';
+        }
+
+        const transferAction: IDecodedTxTransferInfo = {
+          from,
+          to,
+          amount: new BigNumber(amount)
+            .shiftedBy(-tokenInfo.decimals)
+            .toFixed(),
+          icon: tokenInfo.logoURI ?? '',
+          name: tokenInfo.symbol,
+          symbol: tokenInfo.symbol,
+          tokenIdOnNetwork: tokenInfo.address,
+          isNFT: false,
+          isNative: tokenInfo.symbol === networkInfo.nativeTokenAddress,
+        };
+
+        action = await this.buildTxTransferAssetAction({
+          from,
+          to,
+          transfers: [transferAction],
+        });
       }
+    }
 
-      const transferAction: IDecodedTxTransferInfo = {
-        from,
-        to,
-        amount: new BigNumber(amount).shiftedBy(-tokenInfo.decimals).toFixed(),
-        icon: tokenInfo.logoURI ?? '',
-        name: tokenInfo.symbol,
-        symbol: tokenInfo.symbol,
-        tokenIdOnNetwork: tokenInfo.address,
-        isNFT: false,
-        isNative: tokenInfo.symbol === networkInfo.nativeTokenAddress,
-      };
-
-      action = await this.buildTxTransferAssetAction({
-        from,
-        to,
-        transfers: [transferAction],
-      });
-    } else {
+    if (!action) {
       action = {
         type: EDecodedTxActionType.UNKNOWN,
         direction: EDecodedTxDirection.OTHER,
@@ -518,9 +407,6 @@ export default class VaultDot extends VaultBase {
     const encodedTx = (params.encodedTx ??
       (await this.buildEncodedTx(params))) as IEncodedTxDot;
     if (encodedTx) {
-      if (!encodedTx.metadataRpc) {
-        encodedTx.metadataRpc = await this._getMetadataRpc();
-      }
       return {
         encodedTx,
       };
@@ -593,8 +479,32 @@ export default class VaultDot extends VaultBase {
           ...tx,
           specName: txBaseInfo.specName,
           chainName: network.name,
+          metadataRpc: '' as `0x${string}`,
         };
       }
+    }
+
+    if (!params.nonceInfo && !encodedTx.isFromDapp) {
+      const blockInfo = await getBlockInfo(this.networkId, this.backgroundApi);
+      const registry = await getRegistry(
+        {
+          networkId: this.networkId,
+          metadataRpc: encodedTx.metadataRpc,
+          specName: (encodedTx.specName ?? '') as 'polkadot',
+          specVersion: +encodedTx.specVersion,
+        },
+        this.backgroundApi,
+      );
+      const era = registry.createType('ExtrinsicEra', {
+        current: blockInfo.blockNumber,
+        period: 64,
+      });
+      encodedTx = {
+        ...encodedTx,
+        blockHash: blockInfo.blockHash,
+        blockNumber: blockInfo.blockNumber as unknown as `0x${string}`,
+        era: era.toHex(),
+      };
     }
 
     return {
@@ -664,7 +574,10 @@ export default class VaultDot extends VaultBase {
       Buffer.alloc(64).fill(0x42),
     ]);
     const tx = await serializeSignedTransaction(
-      encodedTx,
+      {
+        ...encodedTx,
+        metadataRpc: await getMetadataRpc(this.networkId, this.backgroundApi),
+      },
       fakeSignature.toString('hex'),
     );
     return {
@@ -674,49 +587,18 @@ export default class VaultDot extends VaultBase {
     };
   }
 
-  private _getMinAmount = memoizee(
-    async ({
-      accountAddress,
-      withBalance,
-    }: {
-      accountAddress: string;
-      withBalance?: boolean;
-    }) => {
-      const [minAmountStr] =
-        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<string>(
-          {
-            networkId: this.networkId,
-            body: [
-              {
-                route: 'consts',
-                params: {
-                  method: 'balances.existentialDeposit',
-                  params: [],
-                },
-              },
-            ],
-          },
-        );
-      const minAmount = new BigNumber(minAmountStr);
-      const account = withBalance
-        ? await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-            networkId: this.networkId,
-            accountId: this.accountId,
-            withNonce: false,
-            withNetWorth: true,
-          })
-        : {
-            balance: '0',
-          };
-      const balance = new BigNumber(account.balance ?? 0);
-      return {
-        minAmount,
-        balance,
-      };
+  private _getBalance = memoizee(
+    async (address: string) => {
+      const account =
+        await this.backgroundApi.serviceAccountProfile.fetchAccountInfo({
+          accountId: this.accountId,
+          networkId: this.networkId,
+          accountAddress: address,
+          withNetWorth: true,
+        });
+      return new BigNumber(account.balance ?? 0);
     },
-    {
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
-    },
+    { promise: true, maxAge: 10000 },
   );
 
   override async validateSendAmount({
@@ -726,16 +608,21 @@ export default class VaultDot extends VaultBase {
     to: string;
     amount: string;
   }): Promise<boolean> {
+    // preload registry
+    void getRegistry(
+      {
+        networkId: this.networkId,
+      },
+      this.backgroundApi,
+    );
     if (isNil(amount) || isEmpty(amount) || isEmpty(to)) {
       return true;
     }
     const network = await this.getNetwork();
 
     const sendAmount = new BigNumber(amount).shiftedBy(network.decimals);
-    const { minAmount, balance } = await this._getMinAmount({
-      accountAddress: to,
-      withBalance: true,
-    });
+    const minAmount = await getMinAmount(this.networkId, this.backgroundApi);
+    const balance = await this._getBalance(to);
 
     if (balance.plus(sendAmount).lt(minAmount)) {
       throw new InvalidTransferValue({
@@ -776,10 +663,10 @@ export default class VaultDot extends VaultBase {
         return true;
       }
 
-      const { minAmount, balance } = await this._getMinAmount({
-        accountAddress: encodedTx.address,
-        withBalance: !params.nativeAmountInfo?.maxSendAmount,
-      });
+      const minAmount = await getMinAmount(this.networkId, this.backgroundApi);
+      const balance = !params.nativeAmountInfo?.maxSendAmount
+        ? await this._getBalance(encodedTx.address)
+        : new BigNumber(0);
       const tokenAmount = new BigNumber(args.value);
       const gasLimit = new BigNumber(feeInfo?.gas?.gasLimit ?? '0');
       const gasPrice = new BigNumber(feeInfo?.gas?.gasPrice ?? '0');

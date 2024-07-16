@@ -166,6 +166,7 @@ class ProviderApiPrivateExternalAccount extends ProviderApiBase {
       accountId,
     });
     const broadcastRes = await vault.broadcastTransaction({
+      accountId,
       accountAddress: address ?? '',
       networkId,
       signedTx: {

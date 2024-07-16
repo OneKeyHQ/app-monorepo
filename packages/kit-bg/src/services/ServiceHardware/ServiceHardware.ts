@@ -76,7 +76,7 @@ class ServiceHardware extends ServiceBase {
     backgroundApi: this.backgroundApi,
   });
 
-  registeredEvents = false;
+  private registeredEvents = false;
 
   checkSdkVersionValid() {
     if (process.env.NODE_ENV !== 'production') {
@@ -159,17 +159,24 @@ class ServiceHardware extends ServiceBase {
         connectId: newPayload.connectId,
       });
 
-      const { device } = originEvent.payload || {};
-      const { features } = device || {};
-
-      const inputPinOnSoftware = supportInputPinOnSoftwareSdk(features);
-      const supportInputPinOnSoftware =
-        dbDevice?.settings?.inputPinOnSoftware !== false &&
-        inputPinOnSoftware.support;
-
-      if (!supportInputPinOnSoftware) {
-        await this.backgroundApi.serviceHardwareUI.showEnterPinOnDevice();
+      if (
+        dbDevice?.deviceType &&
+        ['touch', 'pro'].includes(dbDevice?.deviceType)
+      ) {
         newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
+      } else {
+        const { device } = originEvent.payload || {};
+        const { features } = device || {};
+
+        const inputPinOnSoftware = supportInputPinOnSoftwareSdk(features);
+        const supportInputPinOnSoftware =
+          dbDevice?.settings?.inputPinOnSoftware !== false &&
+          inputPinOnSoftware.support;
+
+        if (!supportInputPinOnSoftware) {
+          await this.backgroundApi.serviceHardwareUI.showEnterPinOnDevice();
+          newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
+        }
       }
     }
 
@@ -426,7 +433,12 @@ class ServiceHardware extends ServiceBase {
 
     // cancel the hardware process
     // (cancel not working on enter pin on device mode, use getFeatures() later)
-    sdk.cancel(connectId);
+    try {
+      sdk.cancel(connectId);
+    } catch (e: any) {
+      const { message } = e || {};
+      console.log('sdk cancel error: ', message);
+    }
 
     console.log('sdk call cancel device: ', connectId);
 
@@ -438,12 +450,12 @@ class ServiceHardware extends ServiceBase {
         await this.getFeaturesWithoutCache({
           connectId,
           params: {
-            retryCount: 2,
+            retryCount: 0,
           },
         }); // TODO move to sdk.cancel()
       }
-    } catch (e) {
-      //
+    } catch (error) {
+      // ignore
     }
   }
 

@@ -14,7 +14,6 @@ import {
   useSendSelectedFeeInfoAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
-import { getMaxSendFeeUpwardAdjustmentFactor } from '@onekeyhq/kit/src/utils/gasFee';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   calculateNativeAmountInActions,
@@ -46,6 +45,7 @@ function TxActionsContainer(props: IProps) {
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [isSendNativeToken, setIsSendNativeToken] = useState(false);
   const { vaultSettings } = useAccountData({ networkId });
+  const swapInfo = unsignedTxs[0]?.swapInfo;
 
   const r = usePromiseResult(
     () =>
@@ -106,8 +106,9 @@ function TxActionsContainer(props: IProps) {
           nativeTokenBalanceBN,
           nativeTokenTransferBN,
         );
+
         const amountToUpdate = transferAmountBN.minus(
-          feeBN.times(getMaxSendFeeUpwardAdjustmentFactor({ networkId })),
+          feeBN.times(vaultSettings?.maxSendFeeUpRatio?.[networkId] ?? 1),
         );
         if (amountToUpdate.gte(0)) {
           updateNativeTokenTransferAmountToUpdate({
@@ -142,6 +143,7 @@ function TxActionsContainer(props: IProps) {
     updateNativeTokenTransferAmountToUpdate,
     vaultSettings?.ignoreUpdateNativeAmount,
     vaultSettings?.isUtxo,
+    vaultSettings?.maxSendFeeUpRatio,
   ]);
 
   const renderActions = useCallback(() => {
@@ -207,6 +209,7 @@ function TxActionsContainer(props: IProps) {
         nativeTokenTransferAmountToUpdate={
           nativeTokenTransferAmountToUpdate.amountToUpdate
         }
+        swapInfo={swapInfo}
       />
     ));
   }, [
@@ -214,6 +217,7 @@ function TxActionsContainer(props: IProps) {
     nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     r.result,
+    swapInfo,
   ]);
 
   return <>{renderActions()}</>;

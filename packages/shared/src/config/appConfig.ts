@@ -63,3 +63,6 @@ export const buildServiceEndpoint = ({
   `https://${serviceName}.${
     env === 'prod' ? ONEKEY_API_HOST : ONEKEY_TEST_API_HOST
   }`;
+
+export const CHAIN_SELECTOR_LOGO =
+  'https://uni.onekey-asset.com/static/logo/chain_selector_logo.png';

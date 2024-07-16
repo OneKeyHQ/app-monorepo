@@ -226,10 +226,11 @@ class ProviderApiCardano extends ProviderApiBase {
 
   @providerApiMethod()
   async submitTx(request: IJsBridgeMessagePayload, params: string) {
-    const { accountInfo: { networkId, address } = {} } = (
+    const { accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
     return this.backgroundApi.serviceSend.broadcastTransaction({
+      accountId: accountId ?? '',
       networkId: networkId ?? '',
       signedTx: {
         txid: '',
