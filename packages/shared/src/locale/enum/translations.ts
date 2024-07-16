@@ -135,6 +135,7 @@ export enum ETranslations {
   bip44__standard = 'bip44__standard',
   browser_bookmark = 'browser.bookmark',
   browser_import = 'browser.import',
+  browser_invalid_url = 'browser.invalid_url',
   coming_soon = 'coming_soon',
   confirm_exit_dialog_desc = 'confirm_exit_dialog_desc',
   confirm_exit_dialog_title = 'confirm_exit_dialog_title',

@@ -134,6 +134,7 @@
   "bip44__standard": "BIP44 standard",
   "browser.bookmark": "Bookmark",
   "browser.import": "Import",
+  "browser.invalid_url": "Invalid URL",
   "coming_soon": "Coming soon",
   "confirm_exit_dialog_desc": "Are you sure you want to exit the data migration process?",
   "confirm_exit_dialog_title": "Confirm exit",

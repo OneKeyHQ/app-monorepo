@@ -134,6 +134,7 @@
   "bip44__standard": "Standard BIP44",
   "browser.bookmark": "Marque-page",
   "browser.import": "Importer",
+  "browser.invalid_url": "URL invalide",
   "coming_soon": "Bientôt disponible",
   "confirm_exit_dialog_desc": "Êtes-vous sûr de vouloir quitter le processus de migration des données ?",
   "confirm_exit_dialog_title": "Confirmer la sortie",
