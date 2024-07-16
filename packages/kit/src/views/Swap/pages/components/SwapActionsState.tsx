@@ -132,6 +132,7 @@ const SwapActionsState = ({
                 size="$bodyLg"
                 $gtMd={{
                   size: '$bodyMd',
+                  pt: '$5',
                 }}
                 pb="$5"
                 px="$5"
