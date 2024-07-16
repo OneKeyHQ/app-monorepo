@@ -117,6 +117,14 @@ function NFTListView(props: IProps) {
   const { listViewProps, listViewRef } = useTabListScroll<IAccountNFT>({
     onContentSizeChange,
   });
+  const contentContainerStyle = useMemo(
+    () => ({
+      px: '$2.5',
+      pb: '$6',
+      pt: '$0.5',
+    }),
+    [],
+  );
 
   if (!initialized && isLoading) {
     return <NFTListLoadingView onContentSizeChange={onContentSizeChange} />;
@@ -126,6 +134,7 @@ function NFTListView(props: IProps) {
     <ListView
       {...listViewProps}
       ref={listViewRef}
+      contentContainerStyle={contentContainerStyle}
       numColumns={numColumns}
       scrollEnabled={platformEnv.isWebTouchable}
       disableScrollViewPanResponder
