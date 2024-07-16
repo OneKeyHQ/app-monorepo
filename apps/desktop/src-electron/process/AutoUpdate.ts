@@ -10,6 +10,7 @@ import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 import { readCleartextMessage, readKey } from 'openpgp';
 
+import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { ipcMessageKeys } from '../config';
