@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { ScrollView, XStack } from '@onekeyhq/components';
+import { ListView, ScrollView, XStack } from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -16,6 +16,8 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import { NFTListHeader } from './NFTListHeader';
 import { NFTListItem } from './NFTListItem';
+
+import type { ListRenderItemInfo } from 'react-native';
 
 type IProps = {
   data: IAccountNFT[];
@@ -72,21 +74,32 @@ function NFTListView(props: IProps) {
     );
   }, [filteredNfts, handleOnPressNFT, searchKey]);
 
+  const handleRenderItem = useCallback(
+    ({ item }: ListRenderItemInfo<IAccountNFT>) => (
+      <NFTListItem
+        nft={item}
+        key={`${item.collectionAddress}-${item.itemId}`}
+        onPress={handleOnPressNFT}
+      />
+    ),
+    [handleOnPressNFT],
+  );
+
   if (!initialized && isLoading) {
     return <NFTListLoadingView onContentSizeChange={onContentSizeChange} />;
   }
 
   return (
-    <ScrollView
-      h="100%"
-      py="$3"
+    <ListView
+      flex={1}
+      numColumns={7}
       scrollEnabled={platformEnv.isWebTouchable}
       disableScrollViewPanResponder
+      data={filteredNfts}
+      py="$3"
       onContentSizeChange={onContentSizeChange}
-    >
-      <NFTListHeader nfts={data} filteredNfts={filteredNfts} />
-      {renderNFTListView()}
-    </ScrollView>
+      renderItem={handleRenderItem}
+    />
   );
 }
 
