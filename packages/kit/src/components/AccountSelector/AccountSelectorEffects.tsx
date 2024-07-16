@@ -1,4 +1,6 @@
-import { memo, useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+
+import { throttle } from 'lodash';
 
 import type { IDBExternalAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
@@ -9,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -72,6 +75,9 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   const { selectedAccount, isSelectedAccountDefaultValue } = useSelectedAccount(
     { num },
   );
+  const selectedAccountRef = useRef(selectedAccount);
+  selectedAccountRef.current = selectedAccount;
+
   const [, setContextData] = useAccountSelectorContextDataAtom();
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
 
@@ -99,21 +105,48 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   useAutoSelectDeriveType({ num });
   useExternalAccountActivate({ num });
 
-  const reloadActiveAccountInfo = useCallback(async () => {
-    if (!isReady) {
-      return;
-    }
-    const activeAccount = await actions.current.reloadActiveAccountInfo({
-      num,
-      selectedAccount,
-    });
-    if (activeAccount.account && activeAccount.network?.id) {
-      void backgroundApiProxy.serviceAccount.saveAccountAddresses({
-        account: activeAccount.account,
-        networkId: activeAccount.network?.id,
-      });
-    }
-  }, [actions, isReady, num, selectedAccount]);
+  const activeAccountReloadDeps = useMemo(
+    () => [
+      selectedAccount.walletId,
+      selectedAccount.indexedAccountId,
+      selectedAccount.othersWalletAccountId,
+      selectedAccount.networkId,
+      selectedAccount.deriveType,
+    ],
+    [
+      selectedAccount.walletId,
+      selectedAccount.indexedAccountId,
+      selectedAccount.othersWalletAccountId,
+      selectedAccount.networkId,
+      selectedAccount.deriveType,
+    ],
+  );
+  const reloadActiveAccountInfo = useMemo(
+    () =>
+      throttle(
+        async () => {
+          if (!isReady) {
+            return;
+          }
+          const activeAccount = await actions.current.reloadActiveAccountInfo({
+            num,
+            selectedAccount: selectedAccountRef.current,
+          });
+          if (activeAccount.account && activeAccount.network?.id) {
+            void backgroundApiProxy.serviceAccount.saveAccountAddresses({
+              account: activeAccount.account,
+              networkId: activeAccount.network?.id,
+            });
+          }
+        },
+        100,
+        {
+          leading: false,
+          trailing: true,
+        },
+      ),
+    [actions, isReady, num],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -142,8 +175,9 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   ]);
 
   useEffect(() => {
+    noopObject(activeAccountReloadDeps);
     void reloadActiveAccountInfo();
-  }, [reloadActiveAccountInfo]);
+  }, [activeAccountReloadDeps, reloadActiveAccountInfo]);
 
   useEffect(() => {
     const updateNetwork = (params: {

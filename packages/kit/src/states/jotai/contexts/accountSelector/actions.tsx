@@ -4,7 +4,7 @@ import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, Spinner } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -21,6 +21,7 @@ import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -67,6 +68,7 @@ import type {
   IAccountSelectorActiveAccountInfo,
   IAccountSelectorRouteParams,
   IAccountSelectorUpdateMeta,
+  ISelectedAccountsAtomMap,
 } from './atoms';
 
 const { serviceAccount } = backgroundApiProxy;
@@ -92,13 +94,32 @@ export type IFinalizeWalletSetupCreateWalletResult = {
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
-    set(selectedAccountsAtom(), (v) => ({
-      ...v,
-      [num]: {
-        ...v[num],
-      } as any,
-    }));
+    this.setSelectedAccountsAtom(
+      set,
+      (v) => ({
+        ...v,
+        [num]: {
+          ...v[num],
+        } as any,
+      }),
+      'refresh',
+    );
   });
+
+  setSelectedAccountsAtom(
+    set: IJotaiSetter,
+    fn: (currentValue: ISelectedAccountsAtomMap) => ISelectedAccountsAtomMap,
+    reason?: string,
+  ) {
+    console.log('AccountSelectorAtomChanged  setSelectedAccountsAtom', reason);
+    set(selectedAccountsAtom(), (currentValue) => {
+      const newValue = fn(currentValue);
+      if (isEqual(currentValue, newValue)) {
+        return currentValue;
+      }
+      return newValue;
+    });
+  }
 
   mutex = new Semaphore(1);
 
@@ -345,10 +366,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           newSelectedAccount.othersWalletAccountId = undefined;
         }
       }
-      set(selectedAccountsAtom(), (v) => ({
-        ...v,
-        [num]: newSelectedAccount,
-      }));
+      this.setSelectedAccountsAtom(
+        set,
+        (v) => ({
+          ...v,
+          [num]: newSelectedAccount,
+        }),
+        'updateSelectedAccount',
+      );
       set(accountSelectorUpdateMetaAtom(), (v) => ({
         ...v,
         [num]: {
@@ -1079,7 +1104,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         selectedAccountsMapInDB &&
         !isEqual(selectedAccountsMapInDB, selectedAccountsMap)
       ) {
-        set(selectedAccountsAtom(), (v) => selectedAccountsMapInDB || v);
+        this.setSelectedAccountsAtom(
+          set,
+          (v) => selectedAccountsMapInDB || v,
+          'initFromStorage',
+        );
       }
       set(accountSelectorStorageReadyAtom(), () => true);
     },
