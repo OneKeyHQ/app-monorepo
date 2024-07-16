@@ -1,12 +1,10 @@
-import { MMKV } from 'react-native-mmkv';
-
 import resetUtils from '../utils/resetUtils';
+
+import mmkvStorageInstance from './instance/mmkvStorageInstance';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
-export const appSetting = new MMKV({
-  id: `onekey-app-setting`,
-});
+export const appSetting = mmkvStorageInstance;
 
 export enum EAppSettingKey {
   rrt = 'rrt',

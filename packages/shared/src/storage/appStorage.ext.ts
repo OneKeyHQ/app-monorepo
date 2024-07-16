@@ -4,14 +4,15 @@
 
 import { buildAppStorageFactory } from './appSetting';
 import { createPrintMethod } from './createPrintMethod';
-import ExtensionStorage from './ExtensionStorage';
-import MockStorage from './MockStorage';
+import mockStorageInstance from './instance/mockStorageInstance';
+import webStorageInstance from './instance/webStorageInstance';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
-const appStorage: AsyncStorageStatic = new ExtensionStorage();
+// const appStorage: AsyncStorageStatic = extensionStorageInstance; // v4
+const appStorage: AsyncStorageStatic = webStorageInstance; // v5
 
-export const mockStorage = new MockStorage();
+export const mockStorage = mockStorageInstance;
 
 /*
 - Extension internal: ExtensionStorage
