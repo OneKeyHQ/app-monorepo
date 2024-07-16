@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import type { IStackProps } from '@onekeyhq/components';
 import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
@@ -21,7 +22,7 @@ function NFTListItem(props: IProps) {
     <Stack
       key={nft.itemId}
       group="nftItem"
-      flexBasis={flexBasis}
+      flexBasis={platformEnv.isNative ? '100%' : flexBasis}
       focusable
       focusStyle={{
         outlineColor: '$focusRing',
