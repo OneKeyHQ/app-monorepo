@@ -2,7 +2,7 @@ import { Semaphore } from 'async-mutex';
 import { isFunction, isNil, isString } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import appStorageInstance from '@onekeyhq/shared/src/storage/appStorage';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
@@ -13,7 +13,8 @@ type ISimpleDbEntitySavedData<T> = {
   updatedAt: number;
 };
 abstract class SimpleDbEntityBase<T> {
-  appStorage: AsyncStorageStatic = appStorage;
+  // Do not use appStorageInstance directly, use this.appStorage instead
+  appStorage: AsyncStorageStatic = appStorageInstance;
 
   mutex = new Semaphore(1);
 
