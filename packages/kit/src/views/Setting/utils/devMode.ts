@@ -12,11 +12,15 @@ const showPromoteDialog = async () =>
     Dialog.show({
       title: 'Danger Zone',
       tone: 'warning',
+      icon: 'ErrorOutline',
       description:
         'Are you sure you want to enable developer-related features?',
       dismissOnOverlayPress: false,
       onConfirm: resolve,
-      onCancel: reject,
+      onCancel: (close) => {
+        void close();
+        reject(new Error('User canceled'));
+      },
     });
   });
 
@@ -52,6 +56,7 @@ export const handleOpenDevMode = async (callback: () => void) => {
     } catch (error) {
       /* empty */
     } finally {
+      clickCount = 0;
       isPasswordVerifying = false;
     }
   }
