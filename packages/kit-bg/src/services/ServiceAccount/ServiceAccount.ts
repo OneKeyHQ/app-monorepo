@@ -1216,6 +1216,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
     const r = await localDb.setAccountName(params);
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
@@ -1453,6 +1454,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async setWalletNameAndAvatar(params: IDBSetWalletNameAndAvatarParams) {
     const result = await localDb.setWalletNameAndAvatar(params);
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);

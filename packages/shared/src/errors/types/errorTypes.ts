@@ -1,4 +1,4 @@
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
 export enum ECustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,
@@ -47,7 +47,7 @@ export interface IOneKeyError<
   data?: DataT;
   // ---- OneKeyError props
   className?: EOneKeyErrorClassNames;
-  key?: ETranslations; // i18n key
+  key?: ETranslations | ETranslationsMock; // i18n key
   info?: InfoT; // i18n params
   constructorName?: string;
   /*
