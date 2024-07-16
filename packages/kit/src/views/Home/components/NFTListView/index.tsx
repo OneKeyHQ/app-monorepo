@@ -1,6 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { ListView, XStack } from '@onekeyhq/components';
+import { ListView, XStack, useMedia } from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -26,6 +26,44 @@ type IProps = {
   initialized?: boolean;
   onRefresh?: () => void;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
+};
+
+const useMumColumns = () => {
+  const { gtSm, gtLg, gtXl, gt2xl } = useMedia();
+  return useMemo(() => {
+    if (gt2xl) {
+      return {
+        flexBasis: '14.2857142857%',
+        numColumns: 7,
+      };
+    }
+
+    if (gtXl) {
+      return {
+        flexBasis: '16.666666%',
+        numColumns: 6,
+      };
+    }
+
+    if (gtLg) {
+      return {
+        flexBasis: '25%',
+        numColumns: 4,
+      };
+    }
+
+    if (gtSm) {
+      return {
+        flexBasis: '33.333333%',
+        numColumns: 3,
+      };
+    }
+
+    return {
+      flexBasis: '50%',
+      numColumns: 2,
+    };
+  }, [gt2xl, gtLg, gtSm, gtXl]);
 };
 
 function NFTListView(props: IProps) {
@@ -58,15 +96,18 @@ function NFTListView(props: IProps) {
     [account, navigation, network, wallet],
   );
 
+  const { flexBasis, numColumns } = useMumColumns();
+
   const handleRenderItem = useCallback(
     ({ item }: ListRenderItemInfo<IAccountNFT>) => (
       <NFTListItem
         nft={item}
+        flexBasis={flexBasis}
         key={`${item.collectionAddress}-${item.itemId}`}
         onPress={handleOnPressNFT}
       />
     ),
-    [handleOnPressNFT],
+    [flexBasis, handleOnPressNFT],
   );
 
   const { listViewProps, listViewRef } = useTabListScroll<IAccountNFT>({
@@ -81,7 +122,7 @@ function NFTListView(props: IProps) {
     <ListView
       {...listViewProps}
       ref={listViewRef}
-      numColumns={7}
+      numColumns={numColumns}
       scrollEnabled={platformEnv.isWebTouchable}
       disableScrollViewPanResponder
       data={filteredNfts}
