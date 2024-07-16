@@ -5,7 +5,7 @@ import {
 } from '@onekeyhq/core/src/secret';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import type { IBiologyAuth } from '@onekeyhq/shared/src/biologyAuth/types';
-import secureStorage from '@onekeyhq/shared/src/storage/secureStorage';
+import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
@@ -23,21 +23,21 @@ class BiologyAuthUtils implements IBiologyAuth {
   }
 
   savePassword = async (password: string) => {
-    if (!secureStorage.supportSecureStorage()) return;
+    if (!secureStorageInstance.supportSecureStorage()) return;
     let text = decodeSensitiveText({ encodedText: password });
     const settings = await settingsPersistAtom.get();
     text = encodeSensitiveText({
       text,
       key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
     });
-    await secureStorage.setSecureItem('password', text);
+    await secureStorageInstance.setSecureItem('password', text);
   };
 
   getPassword = async () => {
-    if (!secureStorage.supportSecureStorage()) {
+    if (!secureStorageInstance.supportSecureStorage()) {
       throw new Error('No password');
     }
-    let text = await secureStorage.getSecureItem('password');
+    let text = await secureStorageInstance.getSecureItem('password');
     if (text) {
       const settings = await settingsPersistAtom.get();
       text = decodeSensitiveText({
@@ -51,8 +51,8 @@ class BiologyAuthUtils implements IBiologyAuth {
   };
 
   deletePassword = async () => {
-    if (!secureStorage.supportSecureStorage()) return;
-    await secureStorage.removeSecureItem('password');
+    if (!secureStorageInstance.supportSecureStorage()) return;
+    await secureStorageInstance.removeSecureItem('password');
   };
 }
 const biologyAuthUtils = new BiologyAuthUtils();

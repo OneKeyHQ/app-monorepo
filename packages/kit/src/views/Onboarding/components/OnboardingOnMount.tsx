@@ -138,6 +138,9 @@ function OnboardingOnMountCmp() {
       if (!isOnboardingDone) {
         navigation.pushFullModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.GetStarted,
+          params: {
+            showCloseButton: true,
+          },
         });
       }
     },

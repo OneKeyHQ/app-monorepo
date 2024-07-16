@@ -26,6 +26,7 @@ module.exports = [
   'jane',
   'wildcard',
   'isXprvt',
+  'mmkv',
   'xxxxxx',
   'npx',
   'tsc',

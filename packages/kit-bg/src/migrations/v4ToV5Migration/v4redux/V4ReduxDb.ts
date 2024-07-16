@@ -1,6 +1,6 @@
 import { isPlainObject, isString } from 'lodash';
 
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { v4appStorage } from '../v4appStorage';
 
 import type {
   IV4ReduxCloudBackupState,
@@ -30,7 +30,7 @@ export class V4ReduxDb {
     // eslint-disable-next-line no-async-promise-executor
     this.reduxData = new Promise(async (resolve) => {
       try {
-        const data = await appStorage.getItem('persist:ONEKEY_WALLET');
+        const data = await v4appStorage.getItem('persist:ONEKEY_WALLET');
         if (!data) {
           resolve(undefined);
           return;

@@ -4,17 +4,17 @@
 
 import { buildAppStorageFactory } from './appSetting';
 import { createPrintMethod } from './createPrintMethod';
-import MockStorage from './MockStorage';
-import WebStorage from './WebStorage';
+import mockStorageInstance from './instance/mockStorageInstance';
+import webStorageInstance from './instance/webStorageInstance';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 const appStorage: AsyncStorageStatic = // IndexedDB in web:
   // eslint-disable-next-line spellcheck/spell-checker
   //    OneKeyStorage -> keyvaluepairs
-  new WebStorage();
+  webStorageInstance;
 
-export const mockStorage = new MockStorage();
+export const mockStorage = mockStorageInstance;
 
 /*
 - Extension internal: ExtensionStorage
