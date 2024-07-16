@@ -2,12 +2,16 @@ import { useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
+import { ETranslations } from '../../locale';
+import { appLocale } from '../../locale/appLocale';
 import { defaultLogger } from '../../logger/logger';
 
 import type {
   IDownloadPackage,
   IInstallPackage,
+  IUpdateDownloadedEvent,
   IUseDownloadProgress,
+  IVerifyPackage,
 } from './type';
 
 const updateCheckingTasks: (() => void)[] = [];
@@ -35,6 +39,14 @@ window.desktopApi?.on?.('update/download', ({ version }) => {
   defaultLogger.update.app.log('download', version);
 });
 
+const updateVerifyTasks: (() => void)[] = [];
+window.desktopApi.on('update/verified', () => {
+  defaultLogger.update.app.log('update/verified');
+  while (updateVerifyTasks.length) {
+    updateVerifyTasks.pop()?.();
+  }
+});
+
 let updateDownloadingTasks: ((params: {
   total: number;
   delta: number;
@@ -57,11 +69,11 @@ window.desktopApi?.on?.(
   },
 );
 
-const updateDownloadedTasks: (() => void)[] = [];
-window.desktopApi.on('update/downloaded', () => {
+const updateDownloadedTasks: ((event: IUpdateDownloadedEvent) => void)[] = [];
+window.desktopApi.on('update/downloaded', (event: IUpdateDownloadedEvent) => {
   defaultLogger.update.app.log('download');
   while (updateDownloadedTasks.length) {
-    updateDownloadedTasks.pop()?.();
+    updateDownloadedTasks.pop()?.(event);
   }
   updateDownloadingTasks = [];
 });
@@ -88,19 +100,46 @@ window.desktopApi?.on?.(
 );
 
 export const downloadPackage: IDownloadPackage = () =>
-  new Promise((resolve, reject) => {
+  new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
     updateAvailableTasks.push(() => {
       window.desktopApi.downloadUpdate();
     });
-    updateDownloadedTasks.push(resolve);
+    updateDownloadedTasks.push((event: IUpdateDownloadedEvent) => {
+      resolve(event);
+    });
     updateErrorTasks.push(reject);
     window.desktopApi.checkForUpdates();
   });
 
-export const installPackage: IInstallPackage = async () => {
-  defaultLogger.update.app.log('install');
-  window.desktopApi.installUpdate();
-};
+export const verifyPackage: IVerifyPackage = async (params) =>
+  new Promise((resolve, reject) => {
+    updateVerifyTasks.push(resolve);
+    updateErrorTasks.push(reject);
+    window.desktopApi.verifyUpdate(params);
+  });
+
+export const installPackage: IInstallPackage = async ({ downloadedEvent }) =>
+  new Promise((_, reject) => {
+    defaultLogger.update.app.log('install');
+    updateErrorTasks.push(reject);
+    // verifyUpdate will be called by default in the electron module when calling to installUpdate
+    window.desktopApi.installUpdate({
+      ...downloadedEvent,
+      dialog: {
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.update_new_update_downloaded,
+        }),
+        buttons: [
+          appLocale.intl.formatMessage({
+            id: ETranslations.update_install_and_restart,
+          }),
+          appLocale.intl.formatMessage({
+            id: ETranslations.global_later,
+          }),
+        ],
+      },
+    });
+  });
 
 export const useDownloadProgress: IUseDownloadProgress = (
   onSuccess,

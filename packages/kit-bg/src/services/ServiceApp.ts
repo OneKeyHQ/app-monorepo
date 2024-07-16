@@ -27,6 +27,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import localDb from '../dbs/local/localDb';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { v4appStorage } from '../migrations/v4ToV5Migration/v4appStorage';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import v4dbHubs from '../migrations/v4ToV5Migration/v4dbHubs';
 
 import ServiceBase from './ServiceBase';
@@ -57,6 +59,7 @@ class ServiceApp extends ServiceBase {
   private async resetData() {
     // clean app storage
     await appStorage.clear();
+    await v4appStorage.clear();
 
     // clean local db
     await localDb.reset();
