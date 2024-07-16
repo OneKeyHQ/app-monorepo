@@ -251,7 +251,7 @@ const SwapProviderListItem = ({
 
   const routeComponents = useMemo(() => {
     const routesData = providerResult.routesData;
-    if (providerResult.info.provider === 'swap_swft') {
+    if (providerResult.info.provider === 'SwapSwft') {
       return (
         <SizableText size="$bodySm" color="$textSubdued" mt="$3.5">
           {intl.formatMessage({ id: ETranslations.provider_route_swft })}

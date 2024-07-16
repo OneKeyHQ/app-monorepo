@@ -156,11 +156,19 @@ export const {
     sortedList = [...receivedSorted];
   }
   return sortedList.map((p) => {
-    if (p.info.provider === receivedSorted?.[0]?.info?.provider && p.toAmount) {
+    if (
+      p.info.provider === receivedSorted?.[0]?.info?.provider &&
+      p.info.providerName === receivedSorted?.[0]?.info?.providerName &&
+      p.toAmount
+    ) {
       p.receivedBest = true;
       p.isBest = true;
     }
-    if (p.info.provider === gasFeeSorted?.[0]?.info?.provider && p.toAmount) {
+    if (
+      p.info.provider === gasFeeSorted?.[0]?.info?.provider &&
+      p.info.providerName === gasFeeSorted?.[0]?.info?.providerName &&
+      p.toAmount
+    ) {
       p.minGasCost = true;
     }
     return p;
@@ -174,7 +182,9 @@ export const {
   const list = get(swapSortedQuoteListAtom());
   const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
   const manualSelectQuoteResult = list.find(
-    (item) => item.info.provider === manualSelectQuoteProviders?.info.provider,
+    (item) =>
+      item.info.provider === manualSelectQuoteProviders?.info.provider &&
+      item.info.providerName === manualSelectQuoteProviders?.info.providerName,
   );
   return manualSelectQuoteProviders &&
     (manualSelectQuoteResult?.toAmount ||
@@ -182,7 +192,9 @@ export const {
       manualSelectQuoteResult?.limit?.min)
     ? list.find(
         (item) =>
-          item.info.provider === manualSelectQuoteProviders.info.provider,
+          item.info.provider === manualSelectQuoteProviders.info.provider &&
+          item.info.providerName ===
+            manualSelectQuoteProviders.info.providerName,
       )
     : list[0];
 });

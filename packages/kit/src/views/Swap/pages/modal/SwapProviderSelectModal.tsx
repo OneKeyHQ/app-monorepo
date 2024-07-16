@@ -175,7 +175,10 @@ const SwapProviderSelectModal = () => {
                 }
               : undefined
           }
-          selected={item.info.provider === currentSelectQuote?.info.provider}
+          selected={Boolean(
+            item.info.provider === currentSelectQuote?.info.provider &&
+              item.info.providerName === currentSelectQuote?.info.providerName,
+          )}
           fromTokenAmount={fromTokenAmount}
           fromToken={fromToken}
           toToken={toToken}
@@ -187,6 +190,7 @@ const SwapProviderSelectModal = () => {
     },
     [
       currentSelectQuote?.info.provider,
+      currentSelectQuote?.info.providerName,
       fromToken,
       fromTokenAmount,
       onSelectQuote,
