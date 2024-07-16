@@ -2274,6 +2274,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     if (params.name && params.shouldCheckDuplicate) {
       const id = params.indexedAccountId ?? params.accountId;
+      if (params.indexedAccountId && params.accountId) {
+        throw new Error(
+          'setAccountName ERROR: indexedAccountId and accountId should not be set at the same time',
+        );
+      }
       if (id) {
         const walletId = accountUtils.getWalletIdFromAccountId({
           accountId: id,
@@ -2304,7 +2309,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             (item) => item.name === params.name,
           );
           if (duplicatedNameAccount && duplicatedNameAccount.id !== id) {
-            throw new RenameDuplicateNameError()
+            throw new RenameDuplicateNameError();
           }
         }
       }
