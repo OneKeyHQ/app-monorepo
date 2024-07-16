@@ -68,4 +68,5 @@ export enum EGalleryRoutes {
   ComponentWebEmbed = 'component-WebEmbed',
   ComponentDotMap = 'component-DotMap',
   ComponentUsePromiseResult = 'component-UsePromiseResultGallery',
+  ComponentImageCropGallery = 'component-ImageCropGallery',
 }

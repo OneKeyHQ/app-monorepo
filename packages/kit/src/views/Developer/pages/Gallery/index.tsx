@@ -431,6 +431,13 @@ const UsePromiseResultGallery = LazyLoadPage(
     ),
 );
 
+const ImageCropGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ImageCrop'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -618,5 +625,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentUsePromiseResult,
     component: UsePromiseResultGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentImageCropGallery,
+    component: ImageCropGallery,
   },
 ];
