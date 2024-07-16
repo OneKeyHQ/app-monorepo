@@ -92,7 +92,7 @@ function V4AccountNameSelector({
 function RenameInputWithNameSelector({
   value,
   onChange,
-  maxLength = 24,
+  maxLength = 85,
   indexedAccount,
   disabledMaxLengthLabel = false,
 }: {
@@ -129,7 +129,7 @@ function RenameInputWithNameSelector({
           onChange={onChange}
         />
       ) : null}
-      {!disabledMaxLengthLabel && value?.length ? (
+      {!disabledMaxLengthLabel ? (
         <SizableText color="$textSubdued" textAlign="right" pt="$1">
           {value?.length}/{maxLength}
         </SizableText>
@@ -142,7 +142,7 @@ export const showRenameDialog = (
   name: string,
   {
     onSubmit,
-    maxLength = 24,
+    maxLength = 85,
     indexedAccount,
     disabledMaxLengthLabel = false,
     ...dialogProps
