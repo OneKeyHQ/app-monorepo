@@ -1,5 +1,10 @@
+import memoizee from 'memoizee';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import {
+  atom,
+  createJotaiContext,
+} from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import type { IMarketWatchListData } from '@onekeyhq/shared/types/market';
 
 const {
@@ -9,16 +14,37 @@ const {
 } = createJotaiContext();
 export { ProviderJotaiContextMarketWatchList, contextAtomMethod };
 
-export const { atom: marketWatchListAtom, use: useMarketWatchListAtom } =
-  contextAtom<IMarketWatchListData>({ data: [], loading: true });
+export const { atom: basicMarketWatchListAtom, useContextAtom } =
+  contextAtom<IMarketWatchListData>({ data: [] });
 
-marketWatchListAtom().onMount = (set) => {
-  void backgroundApiProxy.simpleDb.marketWatchList
-    .getMarketWatchList()
-    .then((data) =>
-      set({
-        ...data,
-        loading: false,
-      }),
-    );
+export const { atom: marketStorageReadyAtom, use: useMarketStorageReadyAtom } =
+  contextAtom<boolean>(false);
+
+const INIT = 'INIT';
+export const marketWatchListAtom = memoizee(() =>
+  atom(
+    (get) => ({
+      ...get(basicMarketWatchListAtom()),
+      loading: !get(marketStorageReadyAtom()),
+    }),
+    (get, set, arg: any) => {
+      if (arg === INIT) {
+        void backgroundApiProxy.simpleDb.marketWatchList
+          .getMarketWatchList()
+          .then((data) => {
+            set(basicMarketWatchListAtom(), data);
+            set(marketStorageReadyAtom(), true);
+          });
+      } else {
+        set(basicMarketWatchListAtom(), arg);
+      }
+    },
+  ),
+);
+
+marketWatchListAtom().onMount = (setAtom) => {
+  setAtom(INIT);
 };
+
+export const useMarketWatchListAtom = () =>
+  useContextAtom(marketWatchListAtom());
