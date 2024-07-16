@@ -8,6 +8,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 
+import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
 import { NetworkAvatar } from '../../NetworkAvatar';
 import { useMockAccountSelectorLoading } from '../hooks/useAccountSelectorTrigger';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
@@ -18,14 +19,19 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   loadingDuration?: number;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 }>(({ num, disabled, beforeShowTrigger, loadingDuration, ...rest }, _: any) => {
-  const { isLoading } = useMockAccountSelectorLoading(loadingDuration);
+  const { isLoading: mockIsLoading } =
+    useMockAccountSelectorLoading(loadingDuration);
+  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
+  const isLoading = syncLoading?.[num]?.isLoading || mockIsLoading;
+
   const {
     activeAccount: { network },
     showChainSelector,
     networkIds,
   } = useNetworkSelectorTrigger({ num });
 
-  const triggerDisabled = disabled || (networkIds ?? []).length <= 1;
+  const triggerDisabled =
+    isLoading || disabled || (networkIds ?? []).length <= 1;
 
   const handlePress = useCallback(async () => {
     await beforeShowTrigger?.();
