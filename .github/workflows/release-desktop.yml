@@ -112,7 +112,6 @@ jobs:
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APP_GPG_PUBKEY: ${{ secrets.APP_GPG_PUBKEY }}
           CSC_LINK: './sign.p12'
         run: 'cd apps/desktop && yarn publish:all'
 
@@ -124,7 +123,6 @@ jobs:
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APP_GPG_PUBKEY: ${{ secrets.APP_GPG_PUBKEY }}
           CSC_LINK: './sign.p12'
         run: 'cd apps/desktop && yarn build'
        
