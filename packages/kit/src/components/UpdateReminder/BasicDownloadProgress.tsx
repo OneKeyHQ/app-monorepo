@@ -10,9 +10,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 export function DownloadProgress() {
   const intl = useIntl();
-  const onSuccess = useCallback(() => {
-    void backgroundApiProxy.serviceAppUpdate.readyToInstall();
-  }, []);
+  const onSuccess = useCallback(() => {}, []);
   const onFailed = useCallback(
     (e: { message: string }) => {
       Toast.error({

@@ -138,6 +138,20 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         return true;
     }
 
+    @ReactMethod void verifyAPK(final ReadableMap map, final Promise promise) {
+        String filePath = map.getString("filePath");
+        String sha256 = map.getString("sha256");
+
+        File downloadedFile = buildFile(filePath);
+        if (!downloadedFile.exists()) {
+            promise.reject(new Exception("The APK file does not exist."));
+        }
+        boolean isValidAPK = this.checkFilePackage(downloadedFile, sha256, promise);
+        if (isValidAPK) {
+            promise.resolve(null);
+        }
+    }
+
     @ReactMethod
     public void downloadAPK(final ReadableMap map, final Promise promise) {
         String url = map.getString("url");

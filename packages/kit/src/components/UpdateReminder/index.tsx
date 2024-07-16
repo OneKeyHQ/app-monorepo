@@ -50,8 +50,19 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           iconColor: '$iconInfo',
           renderText: DownloadProgress,
         },
+        [EAppUpdateStatus.verifying]: {
+          iconName: 'RefreshCcwSolid',
+          iconColor: '$iconInfo',
+          renderText() {
+            return intl.formatMessage({
+              id: platformEnv.isNativeAndroid
+                ? ETranslations.update_verifying_sha256_and_package_name
+                : ETranslations.update_verify_file_signature,
+            });
+          },
+        },
         [EAppUpdateStatus.ready]: {
-          iconName: 'DownloadOutline',
+          iconName: 'Shield2CheckOutline',
           iconColor: '$iconSuccess',
           renderText({
             updateInfo: appUpdateInfo,
@@ -151,13 +162,18 @@ function UpdateAction({
         [EAppUpdateStatus.downloading]: {
           label: intl.formatMessage({ id: ETranslations.global_view }),
         },
+        [EAppUpdateStatus.verifying]: {
+          label: intl.formatMessage({ id: ETranslations.global_view }),
+        },
         [EAppUpdateStatus.ready]: {
           label: intl.formatMessage({
             id: platformEnv.isNativeAndroid
-              ? ETranslations.update_install_now
+              ? ETranslations.global_install
               : ETranslations.update_restart_to_update,
           }),
-          icon: 'RestartToUpdateCustom',
+          icon: platformEnv.isNativeAndroid
+            ? undefined
+            : 'RestartToUpdateCustom',
           variant: 'primary',
         },
         [EAppUpdateStatus.failed]: {
@@ -207,6 +223,10 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
     borderColor: '$borderInfoSubdued',
   },
   [EAppUpdateStatus.downloading]: {
+    bg: '$bgInfoSubdued',
+    borderColor: '$borderInfoSubdued',
+  },
+  [EAppUpdateStatus.verifying]: {
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
   },

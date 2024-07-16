@@ -8,6 +8,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -63,6 +64,10 @@ class ServiceAppUpdate extends ServiceBase {
     if (isFirstLaunchAfterUpdated(appInfo)) {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
+        isForceUpdate: false,
+        sha256: '',
+        errorText: undefined,
+        downloadedEvent: undefined,
         status: EAppUpdateStatus.done,
       }));
     }
@@ -112,6 +117,16 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async verifyPackage(downloadedEvent: IUpdateDownloadedEvent) {
+    clearTimeout(downloadTimeoutId);
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      downloadedEvent,
+      status: EAppUpdateStatus.verifying,
+    }));
+  }
+
+  @backgroundMethod()
   public async readyToInstall() {
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set((prev) => ({
@@ -122,6 +137,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async reset() {
+    clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set({
       latestVersion: '0.0.0',
       isForceUpdate: false,

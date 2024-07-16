@@ -4,16 +4,16 @@ import { useIntl } from 'react-intl';
 
 import type { IPageFooterProps } from '@onekeyhq/components';
 import { Page, Toast, YStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+import {
+  useAppUpdateInfo,
+  useDownloadPackage,
+} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  downloadPackage,
   installPackage,
   useDownloadProgress,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { IUpdatePreviewActionButton } from './type';
@@ -25,6 +25,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
 }) => {
   const intl = useIntl();
   const appUpdateInfo = useAppUpdateInfo();
+  const downloadPackage = useDownloadPackage();
   const downloadSuccess = useCallback(() => {}, []);
   const downloadFailed = useCallback(() => {}, []);
   const progress = useDownloadProgress(downloadSuccess, downloadFailed);
@@ -34,26 +35,14 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
         if (appUpdateInfo.data.storeUrl) {
           openUrlExternal(appUpdateInfo.data.storeUrl);
         } else if (appUpdateInfo.data.downloadUrl) {
-          void backgroundApiProxy.serviceAppUpdate.startDownloading();
-          void downloadPackage(appUpdateInfo.data)
-            .then(() => {
-              void backgroundApiProxy.serviceAppUpdate.readyToInstall();
-            })
-            .catch((e: { message: string }) => {
-              Toast.error({
-                title: intl.formatMessage({
-                  id: ETranslations.global_update_failed,
-                }),
-              });
-              void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
-            });
+          void downloadPackage(appUpdateInfo.data);
           if (autoClose) {
             close();
           }
         }
       }
     },
-    [appUpdateInfo.data, autoClose, intl],
+    [appUpdateInfo.data, autoClose, downloadPackage],
   );
 
   const handleToInstall = useCallback(async () => {
@@ -67,42 +56,45 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
     }
   }, [appUpdateInfo.data]);
 
-  const isDownloading =
-    EAppUpdateStatus.downloading === appUpdateInfo.data?.status;
+  const isDisabledButton = [
+    EAppUpdateStatus.downloading,
+    EAppUpdateStatus.verifying,
+  ].includes(appUpdateInfo.data?.status);
 
   const isReadyToInstall =
     EAppUpdateStatus.ready === appUpdateInfo.data?.status;
 
   const renderButtonText = useCallback(() => {
-    if (isDownloading) {
-      return intl.formatMessage(
-        {
-          id: ETranslations.update_progress_downloading,
-        },
-        {
-          progress,
-        },
-      );
+    switch (appUpdateInfo.data?.status) {
+      case EAppUpdateStatus.downloading: {
+        return intl.formatMessage(
+          {
+            id: ETranslations.update_progress_downloading,
+          },
+          {
+            progress,
+          },
+        );
+      }
+      case EAppUpdateStatus.verifying: {
+        return intl.formatMessage({
+          id: ETranslations.update_verifying,
+        });
+      }
+      default: {
+        return intl.formatMessage({
+          id: ETranslations.update_update_now,
+        });
+      }
     }
-
-    if (isReadyToInstall) {
-      return intl.formatMessage({
-        id: platformEnv.isNativeAndroid
-          ? ETranslations.update_install_now
-          : ETranslations.update_restart_to_update,
-      });
-    }
-    return intl.formatMessage({
-      id: ETranslations.update_update_now,
-    });
-  }, [intl, isDownloading, isReadyToInstall, progress]);
+  }, [appUpdateInfo.data?.status, intl, progress]);
   return (
     <Page.Footer>
       <YStack>
         <Page.FooterActions
           confirmButtonProps={{
-            disabled: isDownloading,
-            loading: isDownloading,
+            disabled: isDisabledButton,
+            loading: isDisabledButton,
           }}
           onConfirmText={renderButtonText()}
           onConfirm={isReadyToInstall ? handleToInstall : handleToUpdate}
