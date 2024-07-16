@@ -9,12 +9,11 @@ import logger from 'electron-log';
 import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 import { readCleartextMessage, readKey } from 'openpgp';
-import { PUBLIC_KEY } from '../constant/gpg'
 
-import { BUILD_SERVICE_ENDPOINT } from '@onekeyhq/shared/src/config/appConfig';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { ipcMessageKeys } from '../config';
+import { PUBLIC_KEY } from '../constant/gpg';
 import { b2t, toHumanReadable } from '../libs/utils';
 
 import type { IDependencies } from '.';
