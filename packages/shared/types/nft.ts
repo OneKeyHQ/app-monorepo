@@ -33,8 +33,8 @@ export type IAccountNFT = {
     attributes?: ITraits[];
   };
 
-  accountId: string;
-  networkId: string;
+  accountId?: string;
+  networkId?: string;
 };
 
 export type IFetchAccountNFTsParams = {

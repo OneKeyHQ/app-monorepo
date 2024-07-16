@@ -7,7 +7,7 @@ import { Token } from '../Token';
 type IProps = {
   tableLayout?: boolean;
   icon?: string;
-  networkId: string;
+  networkId: string | undefined;
 };
 
 function TokenIconView(props: IProps) {
