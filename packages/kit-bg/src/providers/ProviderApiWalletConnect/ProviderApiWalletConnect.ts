@@ -3,6 +3,7 @@ import { getSdkError } from '@walletconnect/utils';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_ALGO, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
 import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types/dappConnection';
 
@@ -137,7 +138,11 @@ class ProviderApiWalletConnect {
     }
 
     try {
-      const { origin } = new URL(proposal.params.proposer.metadata.url);
+      const origin = uriUtils.safeGetWalletConnectOrigin(proposal);
+      if (!origin) {
+        throw new Error('Invalid Url');
+      }
+
       const result = (await serviceDApp.openModal({
         request: {
           scope: '$walletConnect',

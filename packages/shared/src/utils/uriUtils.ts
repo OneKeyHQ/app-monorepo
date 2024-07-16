@@ -7,11 +7,13 @@ import {
   PROTOCOLS_SUPPORTED_TO_OPEN,
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
+import { NameToUrlMapForInvalidDapp } from '../walletConnect/constant';
 
 import type {
   EOneKeyDeepLinkPath,
   IEOneKeyDeepLinkParams,
 } from '../consts/deeplinkConsts';
+import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
@@ -222,6 +224,21 @@ function buildDeepLinkUrl<T extends EOneKeyDeepLinkPath>({
   });
 }
 
+function safeGetWalletConnectOrigin(proposal: Web3WalletTypes.SessionProposal) {
+  try {
+    const { origin } = new URL(proposal.params.proposer.metadata.url);
+    return origin;
+  } catch (err) {
+    const nameToUrl =
+      NameToUrlMapForInvalidDapp[proposal.params.proposer.metadata.name];
+    if (nameToUrl) {
+      const { origin } = new URL(nameToUrl);
+      return origin;
+    }
+    return null;
+  }
+}
+
 export default {
   getOriginFromUrl,
   getHostNameFromUrl,
@@ -232,4 +249,5 @@ export default {
   containsPunycode,
   buildUrl,
   buildDeepLinkUrl,
+  safeGetWalletConnectOrigin,
 };
