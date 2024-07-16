@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import type { IStackProps } from '@onekeyhq/components';
 import { ListView, XStack, useMedia } from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
@@ -28,7 +29,10 @@ type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
 };
 
-const useMumColumns = () => {
+const useMumColumns: () => {
+  numColumns: number;
+  flexBasis: IStackProps['flexBasis'];
+} = () => {
   const { gtSm, gtLg, gtXl, gt2xl } = useMedia();
   return useMemo(() => {
     if (gt2xl) {
