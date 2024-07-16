@@ -9,7 +9,6 @@ import {
   Dialog,
   Input,
   Select,
-  SizableText,
   Stack,
   Toast,
 } from '@onekeyhq/components';
@@ -17,7 +16,7 @@ import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4CoinTypeToNetworkId } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -163,21 +162,14 @@ export const showRenameDialog = (
     ),
     onConfirm: async ({ getForm, close }) => {
       const form = getForm();
-      try {
-        await onSubmit(form?.getValues().name);
-        // fix toast dropped frames
-        await close();
-        Toast.success({
-          title: appLocale.intl.formatMessage({
-            id: ETranslations.feedback_change_saved,
-          }),
-        });
-      } catch (error: unknown) {
-        Toast.error({
-          title: `Change Failed via ${(error as Error).message}`,
-        });
-        throw error;
-      }
+      await onSubmit(form?.getValues().name);
+      // fix toast dropped frames
+      await close();
+      Toast.success({
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.feedback_change_saved,
+        }),
+      });
     },
     ...dialogProps,
   });
