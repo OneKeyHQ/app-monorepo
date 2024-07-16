@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
@@ -7,11 +7,13 @@ import type { ISelectItem } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
+  Form,
   Input,
   Select,
   SizableText,
   Stack,
   Toast,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -114,27 +116,27 @@ function RenameInputWithNameSelector({
       return false;
     }, [indexedAccount]);
   return (
-    <Stack>
-      <Input
-        size="large"
-        $gtMd={{ size: 'medium' }}
-        maxLength={maxLength}
-        autoFocus
-        value={value}
-        onChangeText={onChange}
-      />
-      {shouldShowV4AccountNameSelector && indexedAccount ? (
-        <V4AccountNameSelector
-          indexedAccount={indexedAccount}
-          onChange={onChange}
+    <>
+      <Stack>
+        <Input
+          size="large"
+          $gtMd={{ size: 'medium' }}
+          maxLength={maxLength}
+          autoFocus
+          value={value}
+          onChangeText={onChange}
         />
-      ) : null}
-      {!disabledMaxLengthLabel ? (
-        <SizableText color="$textSubdued" textAlign="right" pt="$1">
-          {value?.length}/{maxLength}
-        </SizableText>
-      ) : null}
-    </Stack>
+        {shouldShowV4AccountNameSelector && indexedAccount ? (
+          <V4AccountNameSelector
+            indexedAccount={indexedAccount}
+            onChange={onChange}
+          />
+        ) : null}
+      </Stack>
+      <Form.FieldDescription textAlign="right">{`${
+        value?.length || 0
+      }/${maxLength}`}</Form.FieldDescription>
+    </>
   );
 }
 
