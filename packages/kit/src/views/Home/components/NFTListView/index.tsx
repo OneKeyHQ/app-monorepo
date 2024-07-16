@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
 
-import { ListView, ScrollView, XStack } from '@onekeyhq/components';
+import { ListView, XStack } from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useTabListScroll } from '@onekeyhq/kit/src/hooks/useTabListScroll';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSearchKeyAtom } from '@onekeyhq/kit/src/states/jotai/contexts/nftList';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -57,23 +58,6 @@ function NFTListView(props: IProps) {
     [account, navigation, network, wallet],
   );
 
-  const renderNFTListView = useCallback(() => {
-    if (!filteredNfts || filteredNfts.length === 0)
-      return searchKey ? <EmptySearch /> : <EmptyNFT />;
-
-    return (
-      <XStack flexWrap="wrap" px="$2.5" pb="$6" pt="$0.5">
-        {filteredNfts.map((item) => (
-          <NFTListItem
-            nft={item}
-            key={`${item.collectionAddress}-${item.itemId}`}
-            onPress={handleOnPressNFT}
-          />
-        ))}
-      </XStack>
-    );
-  }, [filteredNfts, handleOnPressNFT, searchKey]);
-
   const handleRenderItem = useCallback(
     ({ item }: ListRenderItemInfo<IAccountNFT>) => (
       <NFTListItem
@@ -85,20 +69,28 @@ function NFTListView(props: IProps) {
     [handleOnPressNFT],
   );
 
+  const { listViewProps, listViewRef } = useTabListScroll<IAccountNFT>({
+    onContentSizeChange,
+  });
+
   if (!initialized && isLoading) {
     return <NFTListLoadingView onContentSizeChange={onContentSizeChange} />;
   }
 
   return (
     <ListView
-      flex={1}
+      {...listViewProps}
+      ref={listViewRef}
       numColumns={7}
       scrollEnabled={platformEnv.isWebTouchable}
       disableScrollViewPanResponder
       data={filteredNfts}
       py="$3"
-      onContentSizeChange={onContentSizeChange}
       renderItem={handleRenderItem}
+      ListHeaderComponent={
+        <NFTListHeader nfts={data} filteredNfts={filteredNfts} />
+      }
+      ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
     />
   );
 }
