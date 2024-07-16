@@ -2,6 +2,8 @@ import { getSdkError } from '@walletconnect/utils';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_ALGO, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
@@ -140,7 +142,21 @@ class ProviderApiWalletConnect {
     try {
       const origin = uriUtils.safeGetWalletConnectOrigin(proposal);
       if (!origin) {
-        throw new Error('Invalid Url');
+        const message = appLocale.intl.formatMessage({
+          id: ETranslations.browser_invalid_url,
+        });
+        await this.web3Wallet?.rejectSession({
+          id: proposal.id,
+          reason: {
+            message,
+            code: 40001,
+          },
+        });
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'error',
+          title: message,
+        });
+        return;
       }
 
       const result = (await serviceDApp.openModal({

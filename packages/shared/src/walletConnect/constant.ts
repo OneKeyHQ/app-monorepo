@@ -204,7 +204,3 @@ export const supportEventsMap: Record<INamespaceUnion, string[]> = {
 };
 
 export const WalletConnectAccountSelectorNumStartAt = 1000;
-
-export const NameToUrlMapForInvalidDapp: Record<string, string> = {
-  'Algorand Governance': 'https://governance.algorand.foundation',
-};

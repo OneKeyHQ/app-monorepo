@@ -7,7 +7,6 @@ import {
   PROTOCOLS_SUPPORTED_TO_OPEN,
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
-import { NameToUrlMapForInvalidDapp } from '../walletConnect/constant';
 
 import type {
   EOneKeyDeepLinkPath,
@@ -224,6 +223,9 @@ function buildDeepLinkUrl<T extends EOneKeyDeepLinkPath>({
   });
 }
 
+const NameToUrlMapForInvalidDapp: Record<string, string> = {
+  'Algorand Governance': 'https://governance.algorand.foundation',
+};
 function safeGetWalletConnectOrigin(proposal: Web3WalletTypes.SessionProposal) {
   try {
     const { origin } = new URL(proposal.params.proposer.metadata.url);
