@@ -103,6 +103,8 @@ export function ImageSource({
 
   return isVisible ? (
     <ImageComponent
+      // Browser-level image lazy loading for the web
+      // https://developer.mozilla.org/en-US/docs/Web/Performance/Lazy_loading
       // @ts-expect-error
       loading="lazy"
       source={imageSource}
