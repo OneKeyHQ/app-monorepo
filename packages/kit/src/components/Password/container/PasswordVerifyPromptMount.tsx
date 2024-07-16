@@ -55,11 +55,13 @@ const PasswordVerifyPromptMount = () => {
     [intl, onClose],
   );
   const showPasswordVerifyPrompt = useCallback(
-    (id: number) => {
+    (id: number, dialogProps: { description?: string } = {}) => {
+      const { description } = dialogProps;
       dialogRef.current = Dialog.show({
         title: intl.formatMessage({
-          id: ETranslations.auth_confirm_password_form_label,
+          id: ETranslations.enter_password,
         }),
+        description,
         onClose() {
           onClose(id);
         },
@@ -102,6 +104,7 @@ const PasswordVerifyPromptMount = () => {
       ) {
         showPasswordVerifyPromptRef.current?.(
           passwordPromptPromiseTriggerData.idNumber,
+          passwordPromptPromiseTriggerData.dialogProps,
         );
       } else {
         showPasswordSetupPromptRef.current?.(
