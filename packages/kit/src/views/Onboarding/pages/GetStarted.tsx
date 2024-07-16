@@ -1,6 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useThrottledCallback } from 'use-debounce';
 
 import type {
   IKeyOfIcons,
@@ -29,7 +30,11 @@ import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
-import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -107,12 +112,40 @@ function ActionsGroup({ items }: IActionsProp) {
   );
 }
 
+export function useExtensionOnboardingFromExpandTab() {
+  const openOnboardingOfExtension = useThrottledCallback(
+    async () =>
+      backgroundApiProxy.serviceApp.openExtensionExpandTab({
+        routes: [
+          ERootRoutes.Modal,
+          EModalRoutes.OnboardingModal,
+          EOnboardingPages.GetStarted,
+        ],
+        // params,
+      }),
+    1000,
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
+  useEffect(() => {
+    if (platformEnv.isExtensionUiPopup) {
+      void openOnboardingOfExtension();
+      window.close();
+    }
+  }, [openOnboardingOfExtension]);
+}
+
 export function GetStarted({
   route,
 }: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>) {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { showCloseButton } = route.params || {};
+
+  // TODO may cause onboarding open twice at first time
+  // useExtensionOnboardingFromExpandTab();
 
   const handleCreateWalletPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
