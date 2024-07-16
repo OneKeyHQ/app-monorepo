@@ -57,7 +57,6 @@ function showDevOnlyPasswordDialog({
   desc: string;
   onConfirm: (params: IBackgroundMethodWithDevOnlyPassword) => Promise<void>;
 }) {
-  let devOnlyPwd = correctDevOnlyPwd;
   Dialog.show({
     title,
     confirmButtonProps: {
@@ -67,23 +66,28 @@ function showDevOnlyPasswordDialog({
       <Stack>
         <SizableText>{desc}</SizableText>
         <Stack mt="$4">
-          <Input
-            placeholder="devOnlyPassword"
-            defaultValue={correctDevOnlyPwd}
-            onChangeText={(v) => {
-              devOnlyPwd = v;
-            }}
-          />
+          <Dialog.Form formProps={{ values: { password: correctDevOnlyPwd } }}>
+            <Dialog.FormField
+              name="password"
+              rules={{
+                required: { value: true, message: 'password is required.' },
+              }}
+            >
+              <Input placeholder="devOnlyPassword" />
+            </Dialog.FormField>
+          </Dialog.Form>
         </Stack>
       </Stack>
     ),
-    onConfirm: async () => {
-      if (!isCorrectDevOnlyPassword(devOnlyPwd)) {
+    onConfirm: async ({ getForm }) => {
+      const { password } = (getForm()?.getValues() || {}) as {
+        password: string;
+      };
+      if (!isCorrectDevOnlyPassword(password)) {
         return;
       }
-      correctDevOnlyPwd = devOnlyPwd;
       const params: IBackgroundMethodWithDevOnlyPassword = {
-        $$devOnlyPassword: devOnlyPwd,
+        $$devOnlyPassword: password,
       };
       await onConfirm(params);
     },
