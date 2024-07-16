@@ -103,6 +103,8 @@ export function ImageSource({
 
   return isVisible ? (
     <ImageComponent
+      // @ts-expect-error
+      loading="lazy"
       source={imageSource}
       {...restProps}
       borderRadius={style.borderRadius as number}
