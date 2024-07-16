@@ -8,6 +8,7 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import { WalletConnectAccountTriggerList } from '../../components/DAppAccountList';
@@ -35,7 +36,7 @@ function SessionProposalModal() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
-  const { origin } = new URL(proposal.params.proposer.metadata.url);
+  const origin = uriUtils.safeGetWalletConnectOrigin(proposal);
   const favicon = proposal.params.proposer.metadata.icons[0];
   const {
     showContinueOperate,
@@ -43,7 +44,7 @@ function SessionProposalModal() {
     setContinueOperate,
     riskLevel,
     urlSecurityInfo,
-  } = useRiskDetection({ origin });
+  } = useRiskDetection({ origin: origin ?? '' });
 
   const { result: sessionAccountsInfo } = usePromiseResult(
     async () => serviceWalletConnect.getSessionApprovalAccountInfo(proposal),
@@ -152,13 +153,13 @@ function SessionProposalModal() {
               id: ETranslations.dapp_connect_connection_request,
             })}
             subtitleShown={false}
-            origin={origin}
+            origin={origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}
             favicon={favicon}
           >
             {Array.isArray(sessionAccountsInfo) ? (
               <WalletConnectAccountTriggerList
-                sceneUrl={origin}
+                sceneUrl={origin ?? ''}
                 sessionAccountsInfo={sessionAccountsInfo}
                 handleAccountChanged={handleAccountChanged}
               />
