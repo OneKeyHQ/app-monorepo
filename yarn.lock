@@ -5717,6 +5717,8 @@ __metadata:
     "@polkadot/extension-inject": "npm:0.46.6"
     "@polkadot/types": "npm:11.3.1"
     "@polkadot/util-crypto": "npm:12.6.2"
+    "@pqina/pintura": "npm:^8.82.12"
+    "@pqina/react-pintura": "npm:^9.0.3"
     "@substrate/txwrapper-polkadot": "npm:7.5.1"
     "@tamagui/animations-moti": "npm:1.79.19"
     "@tamagui/babel-plugin": "npm:1.79.19"
@@ -7351,6 +7353,22 @@ __metadata:
     tslib: "npm:^2.6.2"
     ws: "npm:^8.15.1"
   checksum: 10/de987c0a9d5df7d9eb17d96fd47afb2417eb85b7126e4e11bc4fe7dc908b54307390a1e3da61d251cd5f1f6edd054712f018bdc695ce946e0267806d1f050119
+  languageName: node
+  linkType: hard
+
+"@pqina/pintura@npm:^8.82.12":
+  version: 8.82.12
+  resolution: "@pqina/pintura@npm:8.82.12"
+  checksum: 10/86314bb3e2588d6322c65a251a19ab6dbf63aaeceff590bee54bee5a4de086e3edee6336ae6b9feea83d2e3aa7f16fa8c90b94c74706bdb7e084635719e9f36d
+  languageName: node
+  linkType: hard
+
+"@pqina/react-pintura@npm:^9.0.3":
+  version: 9.0.3
+  resolution: "@pqina/react-pintura@npm:9.0.3"
+  peerDependencies:
+    "@pqina/pintura": ^8.x
+  checksum: 10/a7e0c9964899c57a793d5967dd1c70d8d6b26149e6c075b6f3034c26b22bfd0761508fc35a8506c1d05668582619de2f8f64d3f106823d549862a7a5bc08230a
   languageName: node
   linkType: hard
 

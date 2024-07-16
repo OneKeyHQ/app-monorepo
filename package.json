@@ -66,6 +66,8 @@
     "@polkadot/extension-inject": "0.46.6",
     "@polkadot/types": "11.3.1",
     "@polkadot/util-crypto": "12.6.2",
+    "@pqina/pintura": "^8.82.12",
+    "@pqina/react-pintura": "^9.0.3",
     "@substrate/txwrapper-polkadot": "7.5.1",
     "@tamagui/animations-moti": "1.79.19",
     "@tamagui/config": "1.79.19",

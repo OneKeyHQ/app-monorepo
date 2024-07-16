@@ -4,11 +4,13 @@ import { withStaticProperties } from 'tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
+import type { IOpenPickerFunc } from './type';
+
 function BasicImageCrop() {
   return null;
 }
 
-const openPicker: typeof nativeOpenPicker = (params: any) =>
+const openPicker: IOpenPickerFunc = (params: any) =>
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   nativeOpenPicker({
     cropping: true,

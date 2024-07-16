@@ -16,7 +16,6 @@ const ImageCropGallery = () => (
               ImageCrop.openPicker({
                 width: 300,
                 height: 400,
-                cropping: true,
               })
             }
           >
