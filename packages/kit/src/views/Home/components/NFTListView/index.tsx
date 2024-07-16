@@ -64,7 +64,7 @@ const useMumColumns: () => {
     }
 
     return {
-      flexBasis: '50%',
+      flexBasis: '100%',
       numColumns: 2,
     };
   }, [gt2xl, gtLg, gtSm, gtXl]);
