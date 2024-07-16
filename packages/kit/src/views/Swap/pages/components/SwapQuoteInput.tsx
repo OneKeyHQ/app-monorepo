@@ -86,6 +86,7 @@ const SwapQuoteInput = ({
           alignSelf="flex-end"
           icon="SwitchVerOutline"
           size="small"
+          zIndex={2}
           disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
           onPress={alternationToken}
           mb="$-3"
