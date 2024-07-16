@@ -6,8 +6,6 @@ import {
   Dialog,
   ESwitchSize,
   Input,
-  SizableText,
-  Stack,
   Switch,
   Toast,
   YStack,
@@ -50,34 +48,30 @@ if (process.env.NODE_ENV !== 'production') {
 
 function showDevOnlyPasswordDialog({
   title,
-  desc,
+  description,
   onConfirm,
 }: {
   title: string;
-  desc: string;
+  description?: string;
   onConfirm: (params: IBackgroundMethodWithDevOnlyPassword) => Promise<void>;
 }) {
   Dialog.show({
     title,
+    description,
     confirmButtonProps: {
       variant: 'destructive',
     },
     renderContent: (
-      <Stack>
-        <SizableText>{desc}</SizableText>
-        <Stack mt="$4">
-          <Dialog.Form formProps={{ values: { password: correctDevOnlyPwd } }}>
-            <Dialog.FormField
-              name="password"
-              rules={{
-                required: { value: true, message: 'password is required.' },
-              }}
-            >
-              <Input placeholder="devOnlyPassword" />
-            </Dialog.FormField>
-          </Dialog.Form>
-        </Stack>
-      </Stack>
+      <Dialog.Form formProps={{ values: { password: correctDevOnlyPwd } }}>
+        <Dialog.FormField
+          name="password"
+          rules={{
+            required: { value: true, message: 'password is required.' },
+          }}
+        >
+          <Input placeholder="devOnlyPassword" />
+        </Dialog.FormField>
+      </Dialog.Form>
     ),
     onConfirm: async ({ getForm }) => {
       const form = getForm();
@@ -115,7 +109,12 @@ export const DevSettingsSection = () => {
   }, []);
 
   const handleOpenDevTools = useCallback(() => {
-    window?.desktopApi.openDevTools();
+    showDevOnlyPasswordDialog({
+      title: 'Danger Zone: Open Chrome DevTools',
+      onConfirm: async () => {
+        window?.desktopApi.openDevTools();
+      },
+    });
   }, []);
 
   if (!devSettings.enabled) {
@@ -215,7 +214,7 @@ export const DevSettingsSection = () => {
         onPress={() => {
           showDevOnlyPasswordDialog({
             title: 'Danger Zone',
-            desc: `Export Accounts Data`,
+            description: `Export Accounts Data`,
             onConfirm: async (params) => {
               Dialog.cancel({
                 title: 'Export Accounts Data',
@@ -273,7 +272,7 @@ export const DevSettingsSection = () => {
         onPress={() => {
           showDevOnlyPasswordDialog({
             title: 'Danger Zone: Clear all your data',
-            desc: `This is a feature specific to development environments.
+            description: `This is a feature specific to development environments.
                   Function used to erase all data in the app.`,
             onConfirm: async (params) => {
               Dialog.cancel({
