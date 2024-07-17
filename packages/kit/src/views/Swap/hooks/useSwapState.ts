@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { swapQuoteIntervalMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';

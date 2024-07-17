@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { debounce } from 'lodash';
 
 import { EPageType, usePageType } from '@onekeyhq/components';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';

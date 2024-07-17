@@ -2,8 +2,6 @@
 import type { ForwardedRef } from 'react';
 import { forwardRef, useCallback, useEffect, useState } from 'react';
 
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-
 import type { ICheckedState } from '@onekeyhq/components';
 import {
   Button,
@@ -27,6 +25,7 @@ import type {
   IDialogInstance,
 } from '@onekeyhq/components/src/composite/Dialog/type';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EGalleryRoutes,
   EModalRoutes,

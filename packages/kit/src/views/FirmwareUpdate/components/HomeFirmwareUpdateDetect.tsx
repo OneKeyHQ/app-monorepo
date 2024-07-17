@@ -1,7 +1,6 @@
 import { memo, useEffect, useMemo } from 'react';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';

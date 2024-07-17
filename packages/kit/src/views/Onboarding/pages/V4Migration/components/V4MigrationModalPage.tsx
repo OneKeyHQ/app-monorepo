@@ -1,9 +1,8 @@
 import { useEffect, useRef } from 'react';
 
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-
 import type { IPageProps } from '@onekeyhq/components';
 import { Page } from '@onekeyhq/components';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {

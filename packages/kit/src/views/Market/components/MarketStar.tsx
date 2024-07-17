@@ -1,10 +1,10 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useIntl } from 'react-intl';
 
 import type { IIconButtonProps, IStackProps } from '@onekeyhq/components';
 import { IconButton, useMedia } from '@onekeyhq/components';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EAppEventBusNames,
   appEventBus,

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import { Button } from '@onekeyhq/components';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   useAccountIsAutoCreatingAtom,
