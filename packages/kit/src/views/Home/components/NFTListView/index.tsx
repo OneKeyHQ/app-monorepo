@@ -121,10 +121,11 @@ function NFTListView(props: IProps) {
     [flexBasis, handleOnPressNFT],
   );
 
-  const { listViewProps, listViewRef } = useTabListScroll<IAccountNFT>({
-    onContentSizeChange,
-    inTabList,
-  });
+  const { listViewProps, listViewRef, onLayout } =
+    useTabListScroll<IAccountNFT>({
+      onContentSizeChange,
+      inTabList,
+    });
   const contentContainerStyle = useMemo(
     () => ({
       pb: '$6',
@@ -144,6 +145,7 @@ function NFTListView(props: IProps) {
       // Changing numColumns on the fly is not supported.
       //  Change the key prop in FlatList when changing the number of columns to force a fresh render of the component.
       key={numColumns}
+      onLayout={onLayout}
       contentContainerStyle={contentContainerStyle}
       numColumns={numColumns}
       scrollEnabled={platformEnv.isWebTouchable}

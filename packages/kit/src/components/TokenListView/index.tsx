@@ -56,10 +56,11 @@ function TokenListView(props: IProps) {
 
   const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
 
-  const { listViewProps, listViewRef } = useTabListScroll<IAccountToken>({
-    onContentSizeChange,
-    inTabList,
-  });
+  const { listViewProps, listViewRef, onLayout } =
+    useTabListScroll<IAccountToken>({
+      onContentSizeChange,
+      inTabList,
+    });
 
   if (!tokenListState.initialized && tokenListState.isRefreshing) {
     return <ListLoading onContentSizeChange={onContentSizeChange} />;
@@ -71,6 +72,7 @@ function TokenListView(props: IProps) {
       py={withPresetVerticalPadding ? '$3' : '$0'}
       estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef}
+      onLayout={onLayout}
       scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
       disableScrollViewPanResponder={!!onContentSizeChange}
       data={filteredTokens}

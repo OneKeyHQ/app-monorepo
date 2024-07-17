@@ -157,10 +157,11 @@ function TxHistoryListView(props: IProps) {
     [data, intl, onPressHistory, showIcon, tableLayout],
   );
 
-  const { listViewProps, listViewRef } = useTabListScroll<IAccountHistoryTx>({
-    onContentSizeChange,
-    inTabList,
-  });
+  const { listViewProps, listViewRef, onLayout } =
+    useTabListScroll<IAccountHistoryTx>({
+      onContentSizeChange,
+      inTabList,
+    });
 
   if (!initialized && isLoading) {
     return (
@@ -180,6 +181,7 @@ function TxHistoryListView(props: IProps) {
       ref={listViewRef}
       py="$3"
       h="100%"
+      onLayout={onLayout}
       scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
       disableScrollViewPanResponder={!!onContentSizeChange}
       data={filteredHistory}
