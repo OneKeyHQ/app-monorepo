@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import type {
   IListViewProps,
@@ -10,41 +10,78 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function useTabListScroll<T>({
   onContentSizeChange,
+  inTabList,
 }: {
   onContentSizeChange: IListViewProps<T>['onContentSizeChange'];
+  inTabList: boolean;
 }) {
   const scrollViewRef = useTabScrollViewRef();
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
 
-  useEffect(() => {
-    if (!platformEnv.isNative) {
-      let lastScrollTop = 0;
-      let isBindListViewEvent = false;
-      let listView: HTMLDivElement | undefined;
+  const isBindEvent = useRef(false);
+  const onLayout = useCallback(() => {
+    if (isBindEvent.current) {
+      return;
+    }
+    const MoveEventName = platformEnv.isWebTouchable ? 'touchmove' : 'wheel';
+    isBindEvent.current = true;
+    if (inTabList && !platformEnv.isNative) {
+      let direction = 0;
       const scrollView = scrollViewRef?.current as unknown as HTMLElement;
-      const onListViewScroll = () => {
-        // If lastScrollTop >= scrollTop, it means the listView is scrolling up.
-        if (!listView) {
-          return;
+      const listView = (
+        listViewRef.current as unknown as {
+          _listRef?: { _scrollRef: HTMLDivElement };
         }
-        const { scrollTop } = listView;
-        if (lastScrollTop >= scrollTop && scrollTop === 0) {
-          listView.style.overflowY = 'hidden';
+      )?._listRef?._scrollRef;
+      // const onListViewScroll = () => {
+      //   if (!listView) {
+      //     return;
+      //   }
+      //   const { scrollTop } = listView;
+      //   if (scrollTop === 0) {
+      //     listView.style.overflowY = direction < 0 ? 'scroll' : 'hidden';
+      //   }
+      // };
+
+      let prevOverFlowY = 'hidden';
+      let prevScrollPos = 0;
+      const onMoveScroll = (event: any) => {
+        if (platformEnv.isWebTouchable) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          const currentScrollPos = event.changedTouches[0].clientY;
+          direction = currentScrollPos - prevScrollPos;
+          prevScrollPos = currentScrollPos;
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          direction = event.wheelDelta;
         }
-        lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
-      };
-      const onScroll = () => {
-        if (!isBindListViewEvent) {
-          isBindListViewEvent = true;
-          listView = (
-            listViewRef.current as unknown as {
-              _listRef?: { _scrollRef: HTMLDivElement };
+        if (listView) {
+          const {
+            scrollTop: scrollViewScrollTop,
+            scrollHeight,
+            clientHeight,
+          } = scrollView;
+          const { scrollTop } = listView;
+          const isNearBottom =
+            scrollViewScrollTop + clientHeight >= scrollHeight;
+          // console.log(scrollTop, isNearBottom, direction);
+          if (scrollTop === 0 && isNearBottom) {
+            listView.style.overflowY = direction < 0 ? 'scroll' : 'hidden';
+            if (
+              prevOverFlowY === 'hidden' &&
+              listView.style.overflowY === 'scroll'
+            ) {
+              listView.scrollTo({
+                top: Math.abs(direction),
+                behavior: 'smooth',
+              });
             }
-          )?._listRef?._scrollRef;
-          if (listView) {
-            listView?.addEventListener('scroll', onListViewScroll);
+            prevOverFlowY = listView.style.overflowY;
           }
         }
+      };
+
+      const onScroll = () => {
         const { scrollTop, scrollHeight, clientHeight } = scrollView;
         const isNearBottom = scrollTop + clientHeight >= scrollHeight;
         if (listView) {
@@ -62,29 +99,35 @@ export function useTabListScroll<T>({
       };
 
       scrollView?.addEventListener('scroll', onScroll);
+      // listView?.addEventListener('scroll', onListViewScroll);
+      listView?.addEventListener(MoveEventName, onMoveScroll as any);
       return () => {
         scrollView?.removeEventListener('scroll', onScroll);
-        listView?.removeEventListener('scroll', onListViewScroll);
+        // listView?.removeEventListener('scroll', onListViewScroll);
+        listView?.removeEventListener(MoveEventName, onMoveScroll as any);
       };
     }
-  }, [scrollViewRef]);
+  }, [scrollViewRef, inTabList]);
 
   const listViewProps = useMemo(
     () =>
       platformEnv.isNative
         ? ({ onContentSizeChange } as IListViewProps<T>)
         : ({
-            style: {
-              overflowY: 'hidden',
-            } as IStackProps['style'],
+            style: inTabList
+              ? ({
+                  overflowY: 'hidden',
+                } as IStackProps['style'])
+              : undefined,
           } as IListViewProps<T>),
-    [onContentSizeChange],
+    [onContentSizeChange, inTabList],
   );
   return useMemo(
     () => ({
+      onLayout,
       listViewProps,
       listViewRef,
     }),
-    [listViewProps],
+    [listViewProps, onLayout],
   );
 }

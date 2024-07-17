@@ -453,6 +453,7 @@ function TokenListContainer({
         withHeader
         withFooter
         withPrice
+        inTabList
         withBuyAndReceive={isBuyAndReceiveEnabled}
         isBuyTokenSupported={isSupported}
         onBuyToken={handleOnBuy}
