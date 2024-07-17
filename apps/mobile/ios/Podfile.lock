@@ -1048,7 +1048,7 @@ PODS:
     - React-Core
   - react-native-get-random-values (1.9.0):
     - React-Core
-  - react-native-lite-card (1.0.7):
+  - react-native-lite-card (1.0.9):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -1449,6 +1449,7 @@ DEPENDENCIES:
   - RNShare (from `../../../node_modules/react-native-share`)
   - RNSVG (from `../../../node_modules/react-native-svg`)
   - RNZipArchive (from `../../../node_modules/react-native-zip-archive`)
+  - SDWebImageWebPCoder (= 0.8.5)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -1791,7 +1792,7 @@ SPEC CHECKSUMS:
   react-native-cloud-fs: c90379f513b8d7ad5cfed610ccf50f27d837016e
   react-native-compat: 896f9ea99a6917730b112c3be4d400fa1e6b5381
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
-  react-native-lite-card: 824a22580b50b173344f79d41cb2561ac9336928
+  react-native-lite-card: 4553138793e773745c967d10aa46da6efd6cfd5b
   react-native-metrix: dd791bfe9f9acfeb6bdd07da19747136ac977a4d
   react-native-mmkv: 9ae7ca3977e8ef48dbf7f066974eb844c20b5fd7
   react-native-netinfo: 48c5f79a84fbc3ba1d28a8b0d04adeda72885fa8
@@ -1854,6 +1855,6 @@ SPEC CHECKSUMS:
   Yoga: 6d01ccde54c9f8b92492beb05d468dbfed1d9881
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 79986a2b6c6e09ab426bb13f88dbe69d9d8eb641
+PODFILE CHECKSUM: 31e753bb2c9f68d523b0363a09cd2f6549a1a5c6
 
 COCOAPODS: 1.15.2
