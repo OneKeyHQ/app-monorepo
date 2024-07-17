@@ -27,10 +27,12 @@ export function getOnChainHistoryTxStatus(
 }
 
 export function getOnChainHistoryTxAssetInfo({
+  key,
   tokenAddress,
   tokens = {},
   nfts = {},
 }: {
+  key: string;
   tokenAddress: string;
   tokens: Record<string, IOnChainHistoryTxToken>;
   nfts: Record<string, IOnChainHistoryTxNFT>;
@@ -47,9 +49,9 @@ export function getOnChainHistoryTxAssetInfo({
   let decimals = 0;
   nft = nfts[tokenAddress];
   if (tokenAddress === '') {
-    token = tokens[tokenAddress] || tokens.native;
+    token = tokens[key] || tokens.native;
   } else {
-    token = tokens[tokenAddress];
+    token = tokens[key];
   }
 
   if (nft) {
