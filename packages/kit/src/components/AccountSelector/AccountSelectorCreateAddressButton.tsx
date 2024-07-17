@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';

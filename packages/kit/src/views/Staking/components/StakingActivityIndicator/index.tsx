@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useIntl } from 'react-intl';
 
 import { Badge, IconButton, Stack } from '@onekeyhq/components';

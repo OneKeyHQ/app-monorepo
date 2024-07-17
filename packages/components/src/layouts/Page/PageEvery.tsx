@@ -1,7 +1,7 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 import { memo } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 
 const pageExtra: {
   children?: ReactNode;

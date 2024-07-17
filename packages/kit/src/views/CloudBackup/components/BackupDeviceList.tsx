@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { useEffect, useMemo } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { deviceName, osName } from 'expo-device';
 import { useIntl } from 'react-intl';
 

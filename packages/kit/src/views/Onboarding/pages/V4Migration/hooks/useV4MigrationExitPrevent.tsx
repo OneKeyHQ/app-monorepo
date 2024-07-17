@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 import { Alert, BackHandler } from 'react-native';

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { useIsFocused } from '@react-navigation/native';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useIntl } from 'react-intl';
 
 import { Empty, ListView, Page, SizableText } from '@onekeyhq/components';

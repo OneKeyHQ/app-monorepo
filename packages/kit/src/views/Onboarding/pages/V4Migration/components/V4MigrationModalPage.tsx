@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 
 import type { IPageProps } from '@onekeyhq/components';
 import { Page } from '@onekeyhq/components';
