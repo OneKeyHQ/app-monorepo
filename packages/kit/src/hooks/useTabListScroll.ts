@@ -13,7 +13,7 @@ export function useTabListScroll<T>({
   inTabList,
 }: {
   onContentSizeChange: IListViewProps<T>['onContentSizeChange'];
-  inTabList?: boolean;
+  inTabList: boolean;
 }) {
   const scrollViewRef = useTabScrollViewRef();
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);

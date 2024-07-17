@@ -36,6 +36,7 @@ type IProps = {
   showIcon?: boolean;
   onPressHistory?: (history: IAccountHistoryTx) => void;
   initialized?: boolean;
+  inTabList?: boolean;
 };
 
 const ListFooterComponent = () => <Stack h="$5" />;
@@ -52,6 +53,7 @@ function TxHistoryListView(props: IProps) {
     tableLayout,
     onContentSizeChange,
     initialized,
+    inTabList,
   } = props;
 
   const currentDate = useRef('');
@@ -157,6 +159,7 @@ function TxHistoryListView(props: IProps) {
 
   const { listViewProps, listViewRef } = useTabListScroll<IAccountHistoryTx>({
     onContentSizeChange,
+    inTabList,
   });
 
   if (!initialized && isLoading) {
