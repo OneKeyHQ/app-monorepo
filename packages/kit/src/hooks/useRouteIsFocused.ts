@@ -3,7 +3,7 @@ import { useIsFocused } from '@react-navigation/core';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 export const useRouteIsFocused = ({
-  disableLockScreenCheck,
+  disableLockScreenCheck = false,
 }:
   | {
       disableLockScreenCheck?: boolean;
