@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Empty, ListView, Page, SizableText } from '@onekeyhq/components';
@@ -9,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IMetaDataObject } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

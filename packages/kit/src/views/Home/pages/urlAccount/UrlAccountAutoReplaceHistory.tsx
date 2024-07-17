@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
-
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   useAccountSelectorSceneInfo,
   useActiveAccount,

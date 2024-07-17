@@ -7,7 +7,9 @@ import { V4MigrationManagerBase } from './V4MigrationManagerBase';
 
 export class V4MigrationForSecurePassword extends V4MigrationManagerBase {
   private async getV4SecurePassword(): Promise<string> {
-    const v4SecurePassword = await secureStorageInstance.getSecureItem('password');
+    const v4SecurePassword = await secureStorageInstance.getSecureItem(
+      'password',
+    );
     if (v4SecurePassword) {
       return encodeSensitiveText({ text: v4SecurePassword });
     }
