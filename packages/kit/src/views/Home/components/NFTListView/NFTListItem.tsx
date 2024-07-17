@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -14,7 +14,7 @@ type IProps = {
   flexBasis: IStackProps['flexBasis'];
 };
 
-function NFTListItem(props: IProps) {
+function BasicNFTListItem(props: IProps) {
   const { nft, onPress, flexBasis } = props;
   const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
 
@@ -103,4 +103,4 @@ function NFTListItem(props: IProps) {
   );
 }
 
-export { NFTListItem };
+export const NFTListItem = memo(BasicNFTListItem);

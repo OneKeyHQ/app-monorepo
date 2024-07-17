@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { Stack, XStack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -12,15 +14,14 @@ import { TokenPriceView } from './TokenPriceView';
 import { TokenValueView } from './TokenValueView';
 
 export type ITokenListItemProps = {
-  index: number;
   token: IAccountToken;
   onPress?: (token: IAccountToken) => void;
   tableLayout?: boolean;
   withPrice?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
-function TokenListItem(props: ITokenListItemProps) {
-  const { index, token, onPress, tableLayout, withPrice, ...rest } = props;
+function BasicTokenListItem(props: ITokenListItemProps) {
+  const { token, onPress, tableLayout, withPrice, ...rest } = props;
 
   return (
     <ListItem
@@ -113,4 +114,4 @@ function TokenListItem(props: ITokenListItemProps) {
   );
 }
 
-export { TokenListItem };
+export const TokenListItem = memo(BasicTokenListItem);

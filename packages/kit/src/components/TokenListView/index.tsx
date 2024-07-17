@@ -27,6 +27,7 @@ type IProps = {
   withPrice?: boolean;
   withBuyAndReceive?: boolean;
   withPresetVerticalPadding?: boolean;
+  inTabList?: boolean;
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
   isBuyTokenSupported?: boolean;
@@ -40,6 +41,7 @@ function TokenListView(props: IProps) {
     withHeader,
     withFooter,
     withPrice,
+    inTabList = false,
     withBuyAndReceive,
     onReceiveToken,
     onBuyToken,
@@ -54,9 +56,11 @@ function TokenListView(props: IProps) {
 
   const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
 
-  const { listViewProps, listViewRef } = useTabListScroll<IAccountToken>({
-    onContentSizeChange,
-  });
+  const { listViewProps, listViewRef, onLayout } =
+    useTabListScroll<IAccountToken>({
+      onContentSizeChange,
+      inTabList,
+    });
 
   if (!tokenListState.initialized && tokenListState.isRefreshing) {
     return <ListLoading onContentSizeChange={onContentSizeChange} />;
@@ -68,6 +72,7 @@ function TokenListView(props: IProps) {
       py={withPresetVerticalPadding ? '$3' : '$0'}
       estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef}
+      onLayout={onLayout}
       scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
       disableScrollViewPanResponder={!!onContentSizeChange}
       data={filteredTokens}
@@ -92,11 +97,10 @@ function TokenListView(props: IProps) {
           />
         )
       }
-      renderItem={({ item, index }) => (
+      renderItem={({ item }) => (
         <TokenListItem
           token={item}
           key={item.$key}
-          index={index}
           onPress={onPressToken}
           tableLayout={tableLayout}
           withPrice={withPrice}
