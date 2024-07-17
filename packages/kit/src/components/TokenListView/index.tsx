@@ -97,11 +97,10 @@ function TokenListView(props: IProps) {
           />
         )
       }
-      renderItem={({ item, index }) => (
+      renderItem={({ item }) => (
         <TokenListItem
           token={item}
           key={item.$key}
-          index={index}
           onPress={onPressToken}
           tableLayout={tableLayout}
           withPrice={withPrice}
