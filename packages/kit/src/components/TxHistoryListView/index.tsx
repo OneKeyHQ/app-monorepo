@@ -53,7 +53,7 @@ function TxHistoryListView(props: IProps) {
     tableLayout,
     onContentSizeChange,
     initialized,
-    inTabList,
+    inTabList = false,
   } = props;
 
   const currentDate = useRef('');

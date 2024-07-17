@@ -72,8 +72,13 @@ const useMumColumns: () => {
 };
 
 function NFTListView(props: IProps) {
-  const { data, isLoading, initialized, onContentSizeChange, inTabList } =
-    props;
+  const {
+    data,
+    isLoading,
+    initialized,
+    onContentSizeChange,
+    inTabList = false,
+  } = props;
 
   const [searchKey] = useSearchKeyAtom();
 

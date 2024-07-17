@@ -41,7 +41,7 @@ function TokenListView(props: IProps) {
     withHeader,
     withFooter,
     withPrice,
-    inTabList,
+    inTabList = false,
     withBuyAndReceive,
     onReceiveToken,
     onBuyToken,
