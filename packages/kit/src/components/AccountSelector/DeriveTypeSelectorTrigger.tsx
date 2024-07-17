@@ -109,8 +109,9 @@ export function DeriveTypeSelectorTriggerStaticInput(
   useEffect(() => {
     void (async () => {
       if (
-        viewItems?.length &&
-        !viewItems.find((item) => item.value === deriveType)
+        !deriveType ||
+        (viewItems?.length &&
+          !viewItems.find((item) => item.value === deriveType))
       ) {
         const defaultDeriveType =
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({

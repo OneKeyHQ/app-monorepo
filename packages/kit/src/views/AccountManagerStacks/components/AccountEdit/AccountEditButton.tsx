@@ -1,10 +1,10 @@
 import { ActionList } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type {
   IDBAccount,
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -46,6 +46,7 @@ export function AccountEditButton({
           />
           {showExportPrivateKeys ? (
             <AccountExportPrivateKeyButton
+              accountName={name}
               indexedAccount={indexedAccount}
               account={account}
               onClose={handleActionListClose}

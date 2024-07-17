@@ -1066,6 +1066,12 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getDBAccountSafe({ accountId }: { accountId: string }) {
+    const account = await localDb.getAccountSafe({ accountId });
+    return account;
+  }
+
+  @backgroundMethod()
   async saveAccountAddresses({
     account,
     networkId,
@@ -1151,7 +1157,7 @@ class ServiceAccount extends ServiceBase {
       if (!deriveType) {
         throw new Error('deriveType is required');
       }
-      const { accounts } = await this.getAccountsByIndexedAccount({
+      const { accounts } = await this.getAccountsByIndexedAccounts({
         networkId,
         deriveType,
         indexedAccountIds: [indexedAccountId],
@@ -1183,10 +1189,11 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId,
   }: {
     indexedAccountId: string;
-  }) {
+  }): Promise<IDBAccount[]> {
     return localDb.getAccountsInSameIndexedAccountId({ indexedAccountId });
   }
 
+  @backgroundMethod()
   async getDbAccountIdFromIndexedAccountId({
     indexedAccountId,
     networkId,
@@ -1222,7 +1229,15 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountsByIndexedAccount({
+  /**
+   * Retrieves accounts by their indexed account IDs.
+   *
+   * @param indexedAccountIds - An array of indexed account IDs.
+   * @param networkId - The network ID.
+   * @param deriveType - The account derive type.
+   * @returns A promise that resolves to an object containing the retrieved accounts.
+   */
+  async getAccountsByIndexedAccounts({
     indexedAccountIds,
     networkId,
     deriveType,

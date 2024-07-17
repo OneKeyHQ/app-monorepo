@@ -15,10 +15,12 @@ import {
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 
 export function AccountExportPrivateKeyButton({
+  accountName,
   indexedAccount,
   account,
   onClose,
 }: {
+  accountName?: string;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
   onClose?: () => void;
@@ -38,6 +40,7 @@ export function AccountExportPrivateKeyButton({
           params: {
             indexedAccount,
             account,
+            accountName,
           },
         });
       }}

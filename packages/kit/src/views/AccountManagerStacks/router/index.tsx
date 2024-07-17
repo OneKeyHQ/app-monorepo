@@ -12,15 +12,15 @@ const ExportPrivateKeys = LazyLoadPage(
 );
 
 const BatchCreateAccountForm = LazyLoadPage(
-  () => import('../pages/BatchCreateAccountPage/BatchCreateAccountForm'),
+  () => import('../pages/BatchCreateAccount/BatchCreateAccountForm'),
 );
 
 const BatchCreateAccountPreview = LazyLoadPage(
-  () => import('../pages/BatchCreateAccountPage/BatchCreateAccountPreview'),
+  () => import('../pages/BatchCreateAccount/BatchCreateAccountPreview'),
 );
 
 const BatchCreateAccountProcessing = LazyLoadPage(
-  () => import('../pages/BatchCreateAccountPage/BatchCreateAccountProcessing'),
+  () => import('../pages/BatchCreateAccount/BatchCreateAccountProcessing'),
 );
 
 export const AccountManagerStacks: IModalFlowNavigatorConfig<
