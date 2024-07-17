@@ -17,7 +17,7 @@ Bounties for potential bugs include, but are not limited to:
 
 More generally, if it lives in the repository* and affects OneKey's security, it's fair game.
 
-_\* There are some components of the OneKey repository that are not created by the OneKey team, but which still could be relevant to overall security. If a bug or exploit makes use of any external libraries or submodules, it will be considered on a case-by-case basis for elegibility._
+_\* There are some components of the OneKey repository that are not created by the OneKey team, but which still could be relevant to overall security. If a bug or exploit makes use of any external libraries or submodules, it will be considered on a case-by-case basis for eligibility._
 
 ## Rules
 
@@ -32,7 +32,7 @@ It is requested that all submissions follow the format defined in the [issue tem
 
 In the case of private bug disclosure, all relevant materials should be sent in email to `dev@onekey.so` -- and should follow the same template as a public issue.
 
-Once submitted, the issue will be responded to, verified, accepted, and rewarded accordindly.
+Once submitted, the issue will be responded to, verified, accepted, and rewarded accordingly.
 
 ### Submission Branches
 Participants in the program are free to submit bugs on branches in the OneKey codebase:
