@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 
 import { SizableText } from '@onekeyhq/components';
 // import useIsActiveTab from '@onekeyhq/components/src/TabView/hooks/useIsActiveTab';

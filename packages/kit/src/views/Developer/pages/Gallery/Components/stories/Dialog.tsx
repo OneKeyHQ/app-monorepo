@@ -2,7 +2,7 @@
 import type { ForwardedRef } from 'react';
 import { forwardRef, useCallback, useEffect, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import {

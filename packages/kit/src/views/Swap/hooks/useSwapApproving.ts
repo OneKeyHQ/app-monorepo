@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useIntl } from 'react-intl';
 
 import { EPageType, Toast, usePageType } from '@onekeyhq/components';
