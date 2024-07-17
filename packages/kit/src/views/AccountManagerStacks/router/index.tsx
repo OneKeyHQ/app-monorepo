@@ -7,6 +7,10 @@ const AccountSelectorStackPage = LazyLoadPage(
   () => import('../pages/AccountSelectorStack'),
 );
 
+const ExportPrivateKeys = LazyLoadPage(
+  () => import('../pages/ExportKeys/ExportPrivateKeys'),
+);
+
 export const AccountManagerStacks: IModalFlowNavigatorConfig<
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList
@@ -14,5 +18,9 @@ export const AccountManagerStacks: IModalFlowNavigatorConfig<
   {
     name: EAccountManagerStacksRoutes.AccountSelectorStack,
     component: AccountSelectorStackPage,
+  },
+  {
+    name: EAccountManagerStacksRoutes.ExportPrivateKeysPage,
+    component: ExportPrivateKeys,
   },
 ];

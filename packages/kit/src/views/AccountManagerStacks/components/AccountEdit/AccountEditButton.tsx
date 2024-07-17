@@ -1,40 +1,57 @@
 import { ActionList } from '@onekeyhq/components';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IDBAccount,
   IDBIndexedAccount,
+  IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { AccountExportPrivateKeyButton } from './AccountExportPrivateKeyButton';
 import { AccountRemoveButton } from './AccountRemoveButton';
 import { AccountRenameButton } from './AccountRenameButton';
 
 export function AccountEditButton({
   indexedAccount,
   account,
+  wallet,
 }: {
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
+  wallet?: IDBWallet;
 }) {
   const name = indexedAccount?.name || account?.name || '--';
-  const { config } = useAccountSelectorContextData();
-  if (!config) {
-    return null;
-  }
+  // const { config } = useAccountSelectorContextData();
+  // if (!config) {
+  //   return null;
+  // }
+  const showExportPrivateKeys =
+    wallet?.id &&
+    (accountUtils.isHdWallet({ walletId: wallet?.id }) ||
+      accountUtils.isImportedWallet({ walletId: wallet?.id }));
+  const showRemoveButton = !indexedAccount || platformEnv.isDev;
+
   return (
     <ActionList
       title={name}
       renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
       renderItems={({ handleActionListClose }) => (
-        <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
+        <>
           <AccountRenameButton
             name={name}
             indexedAccount={indexedAccount}
             account={account}
             onClose={handleActionListClose}
           />
-          {!indexedAccount ? (
+          {showExportPrivateKeys ? (
+            <AccountExportPrivateKeyButton
+              indexedAccount={indexedAccount}
+              account={account}
+              onClose={handleActionListClose}
+            />
+          ) : null}
+          {showRemoveButton ? (
             <AccountRemoveButton
               name={name}
               indexedAccount={indexedAccount}
@@ -42,7 +59,7 @@ export function AccountEditButton({
               onClose={handleActionListClose}
             />
           ) : null}
-        </AccountSelectorProviderMirror>
+        </>
       )}
     />
   );

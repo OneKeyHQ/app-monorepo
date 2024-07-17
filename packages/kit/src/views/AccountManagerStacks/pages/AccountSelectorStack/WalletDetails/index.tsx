@@ -474,6 +474,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   <AccountEditButton
                     account={account}
                     indexedAccount={indexedAccount}
+                    wallet={focusedWalletInfo?.wallet}
                   />
                 </>
               );
