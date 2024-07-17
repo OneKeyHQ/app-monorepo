@@ -42,7 +42,7 @@ export function useTabListScroll<T>({
       //   }
       // };
 
-      let prevOverFlowY = '';
+      let prevOverFlowY = 'hidden';
       const onWheelScroll = ({ wheelDelta }: { wheelDelta: number }) => {
         direction = wheelDelta;
         if (listView) {
@@ -57,8 +57,14 @@ export function useTabListScroll<T>({
           console.log(scrollTop, isNearBottom, direction);
           if (scrollTop === 0 && isNearBottom) {
             listView.style.overflowY = direction < 0 ? 'scroll' : 'hidden';
-            if (prevOverFlowY === '' && listView.style.overflowY === 'scroll') {
-              listView.scrollTo({ top: wheelDelta, behavior: 'smooth' });
+            if (
+              prevOverFlowY === 'hidden' &&
+              listView.style.overflowY === 'scroll'
+            ) {
+              listView.scrollTo({
+                top: Math.abs(wheelDelta),
+                behavior: 'smooth',
+              });
             }
             prevOverFlowY = listView.style.overflowY;
           }
