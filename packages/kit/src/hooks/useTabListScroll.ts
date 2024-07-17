@@ -20,21 +20,24 @@ export function useTabListScroll<T>({
 
   useEffect(() => {
     if (inTabList && !platformEnv.isNative) {
-      let lastScrollTop = 0;
       let isBindListViewEvent = false;
       let listView: HTMLDivElement | undefined;
+      let direction = 0;
       const scrollView = scrollViewRef?.current as unknown as HTMLElement;
       const onListViewScroll = () => {
-        // If lastScrollTop >= scrollTop, it means the listView is scrolling up.
         if (!listView) {
           return;
         }
         const { scrollTop } = listView;
-        if (lastScrollTop >= scrollTop && scrollTop === 0) {
-          listView.style.overflowY = 'hidden';
+        if (scrollTop === 0) {
+          listView.style.overflowY = direction < 0 ? 'hidden' : 'scroll';
         }
-        lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
       };
+
+      const onWheelScroll = ({ wheelDelta }: { wheelDelta: number }) => {
+        direction = wheelDelta;
+      };
+
       const onScroll = () => {
         if (!isBindListViewEvent) {
           isBindListViewEvent = true;
@@ -45,6 +48,7 @@ export function useTabListScroll<T>({
           )?._listRef?._scrollRef;
           if (listView) {
             listView?.addEventListener('scroll', onListViewScroll);
+            listView?.addEventListener('wheel', onWheelScroll as any);
           }
         }
         const { scrollTop, scrollHeight, clientHeight } = scrollView;
@@ -67,6 +71,7 @@ export function useTabListScroll<T>({
       return () => {
         scrollView?.removeEventListener('scroll', onScroll);
         listView?.removeEventListener('scroll', onListViewScroll);
+        listView?.removeEventListener('wheel', onWheelScroll as any);
       };
     }
   }, [scrollViewRef, inTabList]);
