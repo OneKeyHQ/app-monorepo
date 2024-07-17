@@ -21,7 +21,7 @@ export type ITokenListItemProps = {
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
-  const { index, token, onPress, tableLayout, withPrice, ...rest } = props;
+  const { token, onPress, tableLayout, withPrice, ...rest } = props;
 
   return (
     <ListItem
