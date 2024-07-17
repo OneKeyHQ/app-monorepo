@@ -77,6 +77,7 @@ function NFTListContainer(props: ITabPageProps) {
 
   return (
     <NFTListView
+      inTabList
       data={result ?? []}
       isLoading={nftListState.isRefreshing}
       onContentSizeChange={onContentSizeChange}

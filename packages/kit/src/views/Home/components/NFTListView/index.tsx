@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { ListView, XStack, useMedia } from '@onekeyhq/components';
+import { ListView, useMedia } from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -24,6 +24,7 @@ import type { ListRenderItemInfo } from 'react-native';
 type IProps = {
   data: IAccountNFT[];
   isLoading?: boolean;
+  inTabList?: boolean;
   initialized?: boolean;
   onRefresh?: () => void;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
@@ -71,7 +72,8 @@ const useMumColumns: () => {
 };
 
 function NFTListView(props: IProps) {
-  const { data, isLoading, initialized, onContentSizeChange } = props;
+  const { data, isLoading, initialized, onContentSizeChange, inTabList } =
+    props;
 
   const [searchKey] = useSearchKeyAtom();
 
@@ -116,6 +118,7 @@ function NFTListView(props: IProps) {
 
   const { listViewProps, listViewRef } = useTabListScroll<IAccountNFT>({
     onContentSizeChange,
+    inTabList,
   });
   const contentContainerStyle = useMemo(
     () => ({
