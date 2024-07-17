@@ -1,7 +1,7 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 import { memo } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/core';
 
 const pageExtra: {
   children?: ReactNode;
