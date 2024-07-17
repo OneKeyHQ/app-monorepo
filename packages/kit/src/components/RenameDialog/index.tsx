@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
@@ -7,10 +7,12 @@ import type { ISelectItem } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
+  Form,
   Input,
   Select,
   Stack,
   Toast,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -91,13 +93,15 @@ function V4AccountNameSelector({
 function RenameInputWithNameSelector({
   value,
   onChange,
-  maxLength = 24,
+  maxLength = 80,
   indexedAccount,
+  disabledMaxLengthLabel = false,
 }: {
   maxLength?: number;
   value?: string;
   onChange?: (val: string) => void;
   indexedAccount?: IDBIndexedAccount;
+  disabledMaxLengthLabel: boolean;
 }) {
   const { result: shouldShowV4AccountNameSelector } =
     usePromiseResult(async () => {
@@ -111,22 +115,29 @@ function RenameInputWithNameSelector({
       return false;
     }, [indexedAccount]);
   return (
-    <Stack>
-      <Input
-        size="large"
-        $gtMd={{ size: 'medium' }}
-        maxLength={maxLength}
-        autoFocus
-        value={value}
-        onChangeText={onChange}
-      />
-      {shouldShowV4AccountNameSelector && indexedAccount ? (
-        <V4AccountNameSelector
-          indexedAccount={indexedAccount}
-          onChange={onChange}
+    <>
+      <Stack>
+        <Input
+          size="large"
+          $gtMd={{ size: 'medium' }}
+          maxLength={maxLength}
+          autoFocus
+          value={value}
+          onChangeText={onChange}
         />
-      ) : null}
-    </Stack>
+        {shouldShowV4AccountNameSelector && indexedAccount ? (
+          <V4AccountNameSelector
+            indexedAccount={indexedAccount}
+            onChange={onChange}
+          />
+        ) : null}
+      </Stack>
+      {disabledMaxLengthLabel ? null : (
+        <Form.FieldDescription textAlign="right">{`${
+          value?.length || 0
+        }/${maxLength}`}</Form.FieldDescription>
+      )}
+    </>
   );
 }
 
@@ -134,13 +145,15 @@ export const showRenameDialog = (
   name: string,
   {
     onSubmit,
-    maxLength = 24,
+    maxLength = 80,
     indexedAccount,
+    disabledMaxLengthLabel = false,
     ...dialogProps
   }: IDialogShowProps & {
     indexedAccount?: IDBIndexedAccount;
     maxLength?: number;
     onSubmit: (name: string) => Promise<void>;
+    disabledMaxLengthLabel?: boolean;
   },
 ) =>
   Dialog.show({
@@ -150,12 +163,18 @@ export const showRenameDialog = (
         <Dialog.FormField
           name="name"
           rules={{
-            required: { value: true, message: 'Name is required.' },
+            required: {
+              value: true,
+              message: appLocale.intl.formatMessage({
+                id: ETranslations.form_rename_error_empty,
+              }),
+            },
           }}
         >
           <RenameInputWithNameSelector
             maxLength={maxLength}
             indexedAccount={indexedAccount}
+            disabledMaxLengthLabel={disabledMaxLengthLabel}
           />
         </Dialog.FormField>
       </Dialog.Form>

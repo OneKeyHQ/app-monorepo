@@ -18,6 +18,7 @@ import { Label, SizableText, View, XStack, YStack } from '../../primitives';
 import { Input } from '../Input';
 import { TextArea } from '../TextArea';
 
+import type { ISizableTextProps } from '../../primitives';
 import type { IPropsWithTestId } from '../../types';
 import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
 import type { GetProps } from 'tamagui';
@@ -82,6 +83,12 @@ const getChildProps = (
     }
   }
 };
+
+export function FieldDescription(props: ISizableTextProps) {
+  return (
+    <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued" {...props} />
+  );
+}
 
 type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
@@ -170,9 +177,7 @@ function Field({
             ) : null}
           </HeightTransition>
           {typeof description === 'string' ? (
-            <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued">
-              {description}
-            </SizableText>
+            <FieldDescription>{description}</FieldDescription>
           ) : (
             description
           )}
@@ -184,4 +189,5 @@ function Field({
 
 export const Form = withStaticProperties(FormWrapper, {
   Field,
+  FieldDescription,
 });
