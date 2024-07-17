@@ -32,16 +32,17 @@ export function useTabListScroll<T>({
           _listRef?: { _scrollRef: HTMLDivElement };
         }
       )?._listRef?._scrollRef;
-      const onListViewScroll = () => {
-        if (!listView) {
-          return;
-        }
-        const { scrollTop } = listView;
-        if (scrollTop === 0) {
-          listView.style.overflowY = direction < 0 ? 'scroll' : 'hidden';
-        }
-      };
+      // const onListViewScroll = () => {
+      //   if (!listView) {
+      //     return;
+      //   }
+      //   const { scrollTop } = listView;
+      //   if (scrollTop === 0) {
+      //     listView.style.overflowY = direction < 0 ? 'scroll' : 'hidden';
+      //   }
+      // };
 
+      let prevOverFlowY = '';
       const onWheelScroll = ({ wheelDelta }: { wheelDelta: number }) => {
         direction = wheelDelta;
         if (listView) {
@@ -54,8 +55,12 @@ export function useTabListScroll<T>({
           const isNearBottom =
             scrollViewScrollTop + clientHeight >= scrollHeight;
           console.log(scrollTop, isNearBottom, direction);
-          if (scrollTop === 0 && isNearBottom && direction < 0) {
-            listView.style.overflowY = 'scroll';
+          if (scrollTop === 0 && isNearBottom) {
+            listView.style.overflowY = direction < 0 ? 'scroll' : 'hidden';
+            if (prevOverFlowY === '' && listView.style.overflowY === 'scroll') {
+              listView.scrollTo({ top: wheelDelta, behavior: 'smooth' });
+            }
+            prevOverFlowY = listView.style.overflowY;
           }
         }
       };
@@ -78,11 +83,11 @@ export function useTabListScroll<T>({
       };
 
       scrollView?.addEventListener('scroll', onScroll);
-      listView?.addEventListener('scroll', onListViewScroll);
+      // listView?.addEventListener('scroll', onListViewScroll);
       listView?.addEventListener('wheel', onWheelScroll as any);
       return () => {
         scrollView?.removeEventListener('scroll', onScroll);
-        listView?.removeEventListener('scroll', onListViewScroll);
+        // listView?.removeEventListener('scroll', onListViewScroll);
         listView?.removeEventListener('wheel', onWheelScroll as any);
       };
     }
