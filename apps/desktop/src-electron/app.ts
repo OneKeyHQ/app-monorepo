@@ -525,6 +525,11 @@ function createMainWindow() {
     browserWindow.webContents.send(ipcMessageKeys.APP_STATE, 'background');
   });
 
+  app.on('login', (event, webContents, request, authInfo, callback) => {
+    event.preventDefault();
+    callback('onekey', 'juDUIpz3lVnubZ2aHOkwBB6SJotYynyb');
+  });
+
   // Prevents clicking on links to open new Windows
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
