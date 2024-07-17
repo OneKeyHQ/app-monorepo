@@ -4,6 +4,9 @@ import type { IAccountSelectorRouteParams } from '@onekeyhq/kit/src/states/jotai
 export enum EAccountManagerStacksRoutes {
   AccountSelectorStack = 'AccountSelectorStack',
   ExportPrivateKeysPage = 'ExportPrivateKeysPage',
+  BatchCreateAccountForm = 'BatchCreateAccountForm',
+  BatchCreateAccountPreview = 'BatchCreateAccountPreview',
+  BatchCreateAccountProcessing = 'BatchCreateAccountProcessing',
 }
 
 export type IAccountSelectorRouteParamsExtraConfig = {
@@ -18,4 +21,14 @@ export type IAccountManagerStacksParamList = {
     indexedAccount?: IDBIndexedAccount;
     account?: IDBAccount;
   };
+  [EAccountManagerStacksRoutes.BatchCreateAccountForm]: {
+    walletId: string;
+  };
+  [EAccountManagerStacksRoutes.BatchCreateAccountPreview]: {
+    walletId: string;
+    networkId: string;
+    from: string;
+    count: string;
+  };
+  [EAccountManagerStacksRoutes.BatchCreateAccountProcessing]: undefined;
 };

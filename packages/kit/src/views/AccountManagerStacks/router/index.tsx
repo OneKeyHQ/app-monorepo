@@ -11,6 +11,18 @@ const ExportPrivateKeys = LazyLoadPage(
   () => import('../pages/ExportKeys/ExportPrivateKeys'),
 );
 
+const BatchCreateAccountForm = LazyLoadPage(
+  () => import('../pages/BatchCreateAccountPage/BatchCreateAccountForm'),
+);
+
+const BatchCreateAccountPreview = LazyLoadPage(
+  () => import('../pages/BatchCreateAccountPage/BatchCreateAccountPreview'),
+);
+
+const BatchCreateAccountProcessing = LazyLoadPage(
+  () => import('../pages/BatchCreateAccountPage/BatchCreateAccountProcessing'),
+);
+
 export const AccountManagerStacks: IModalFlowNavigatorConfig<
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList
@@ -22,5 +34,17 @@ export const AccountManagerStacks: IModalFlowNavigatorConfig<
   {
     name: EAccountManagerStacksRoutes.ExportPrivateKeysPage,
     component: ExportPrivateKeys,
+  },
+  {
+    name: EAccountManagerStacksRoutes.BatchCreateAccountForm,
+    component: BatchCreateAccountForm,
+  },
+  {
+    name: EAccountManagerStacksRoutes.BatchCreateAccountPreview,
+    component: BatchCreateAccountPreview,
+  },
+  {
+    name: EAccountManagerStacksRoutes.BatchCreateAccountProcessing,
+    component: BatchCreateAccountProcessing,
   },
 ];
