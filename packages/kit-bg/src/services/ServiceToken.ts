@@ -9,6 +9,7 @@ import {
   EthereumMatic,
   SepoliaMatic,
 } from '@onekeyhq/shared/src/consts/addresses';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   getEmptyTokenData,
   getMergedTokenData,
@@ -74,6 +75,9 @@ class ServiceToken extends ServiceBase {
       console.log(
         `fetchAccountTokens ERROR: accountAddress and xpub are both empty`,
       );
+      defaultLogger.token.request.fetchAccountTokenAccountAddressAndXpubBothEmpty(
+        { params, accountAddress, xpub },
+      );
       return getEmptyTokenData();
     }
 
@@ -137,6 +141,9 @@ class ServiceToken extends ServiceBase {
     if (!accountAddress && !xpub) {
       console.log(
         `fetchTokensDetails ERROR: accountAddress and xpub are both empty`,
+      );
+      defaultLogger.token.request.fetchTokensDetailsAccountAddressAndXpubBothEmpty(
+        { params, accountAddress, xpub },
       );
       return [];
     }

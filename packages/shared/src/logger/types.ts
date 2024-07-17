@@ -18,6 +18,7 @@ export enum EScopeName {
   addressInput = 'addressInput',
   signatureRecord = 'signatureRecord',
   discovery = 'discovery',
+  token = 'token',
 }
 export interface IScope {
   getName: () => EScopeName;
