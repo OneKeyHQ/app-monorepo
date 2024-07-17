@@ -2426,9 +2426,31 @@ const ton: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const scdo:IServerNetwork = {
+  'chainId': '541',
+  'code': 'scdo',
+  'decimals': 8,
+  'id': 'scdo--mainnet',
+  'impl': 'scdo',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/polygon-zkevm.png',
+  'name': 'SCDO',
+  'shortcode': 'scdo',
+  'shortname': 'scdo',
+  'symbol': 'Scdo',
+  'feeMeta': {
+    'code': 'scdo',
+    'decimals': 8,
+    'symbol': 'Scdo',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
   ton,
+  scdo,
 ];
 
 export const presetNetworksMap = {
