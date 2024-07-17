@@ -2,36 +2,27 @@ import { useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import type { IStackProps } from '@onekeyhq/components';
 import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
   nft: IAccountNFT;
   onPress?: (token: IAccountNFT) => void;
+  flexBasis: IStackProps['flexBasis'];
 };
 
 function NFTListItem(props: IProps) {
-  const { nft, onPress } = props;
+  const { nft, onPress, flexBasis } = props;
   const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
 
   return (
     <Stack
       key={nft.itemId}
       group="nftItem"
-      flexBasis="50%"
-      $gtSm={{
-        flexBasis: '33.333333%',
-      }}
-      $gtLg={{
-        flexBasis: '25%',
-      }}
-      $gtXl={{
-        flexBasis: '16.666666%',
-      }}
-      $gt2xl={{
-        flexBasis: '14.2857142857%',
-      }}
+      flexBasis={platformEnv.isNative ? '100%' : flexBasis}
       focusable
       focusStyle={{
         outlineColor: '$focusRing',
@@ -39,7 +30,8 @@ function NFTListItem(props: IProps) {
         outlineStyle: 'solid',
         outlineOffset: -2,
       }}
-      p="$2.5"
+      py="$2.5"
+      px="$5"
       borderRadius="$4"
       onPress={() => {
         onPress?.(nft);
