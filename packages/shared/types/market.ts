@@ -190,5 +190,4 @@ export interface IMarketWatchListItem {
 
 export interface IMarketWatchListData {
   data: IMarketWatchListItem[];
-  loading?: boolean;
 }

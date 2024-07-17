@@ -11,7 +11,7 @@ export const homeResettingFlags: Record<string, number> = {};
 
 class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
   syncToDb = contextAtomMethod((_, set, payload: IMarketWatchListItem[]) => {
-    const result = { data: payload, loading: false };
+    const result = { data: payload };
     set(marketWatchListAtom(), result);
     void backgroundApiProxy.simpleDb.marketWatchList.setRawData(result);
   });
@@ -25,6 +25,9 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     (get, set, payload: IMarketWatchListItem | IMarketWatchListItem[]) => {
       const params = !Array.isArray(payload) ? [payload] : payload;
       const prev = get(marketWatchListAtom());
+      if (prev.isMounted) {
+        return;
+      }
       const watchList = [...prev.data, ...params];
       this.syncToDb.call(set, watchList);
     },
@@ -33,6 +36,9 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
   removeFormWatchList = contextAtomMethod(
     (get, set, payload: IMarketWatchListItem) => {
       const prev = get(marketWatchListAtom());
+      if (prev.isMounted) {
+        return;
+      }
       const watchList = prev.data.filter(
         (i) => i.coingeckoId !== payload.coingeckoId,
       );
@@ -42,6 +48,9 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
 
   moveToTop = contextAtomMethod((get, set, payload: IMarketWatchListItem) => {
     const prev = get(marketWatchListAtom());
+    if (prev.isMounted) {
+      return;
+    }
     const newItems = prev.data.filter(
       (i) => i.coingeckoId !== payload.coingeckoId,
     );

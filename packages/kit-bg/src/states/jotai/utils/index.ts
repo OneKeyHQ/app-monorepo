@@ -300,6 +300,7 @@ export function contextAtomBase<Value>({
   const useFn = () => useContextAtom(atomBuilder());
 
   return {
+    useContextAtom,
     atom: atomBuilder,
     use: useFn,
   };
