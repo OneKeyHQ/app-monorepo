@@ -23,6 +23,7 @@ export function useTabListScroll<T>({
     if (isBindEvent.current) {
       return;
     }
+    const MoveEventName = platformEnv.isWebTouchable ? 'touchmove' : 'wheel';
     isBindEvent.current = true;
     if (inTabList && !platformEnv.isNative) {
       let direction = 0;
@@ -43,8 +44,17 @@ export function useTabListScroll<T>({
       // };
 
       let prevOverFlowY = 'hidden';
-      const onWheelScroll = ({ wheelDelta }: { wheelDelta: number }) => {
-        direction = wheelDelta;
+      let prevScrollPos = 0;
+      const onMoveScroll = (event: any) => {
+        if (platformEnv.isWebTouchable) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          const currentScrollPos = event.changedTouches[0].clientY;
+          direction = currentScrollPos - prevScrollPos;
+          prevScrollPos = currentScrollPos;
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          direction = event.wheelDelta;
+        }
         if (listView) {
           const {
             scrollTop: scrollViewScrollTop,
@@ -62,7 +72,7 @@ export function useTabListScroll<T>({
               listView.style.overflowY === 'scroll'
             ) {
               listView.scrollTo({
-                top: Math.abs(wheelDelta),
+                top: Math.abs(direction),
                 behavior: 'smooth',
               });
             }
@@ -90,11 +100,11 @@ export function useTabListScroll<T>({
 
       scrollView?.addEventListener('scroll', onScroll);
       // listView?.addEventListener('scroll', onListViewScroll);
-      listView?.addEventListener('wheel', onWheelScroll as any);
+      listView?.addEventListener(MoveEventName, onMoveScroll as any);
       return () => {
         scrollView?.removeEventListener('scroll', onScroll);
         // listView?.removeEventListener('scroll', onListViewScroll);
-        listView?.removeEventListener('wheel', onWheelScroll as any);
+        listView?.removeEventListener(MoveEventName, onMoveScroll as any);
       };
     }
   }, [scrollViewRef, inTabList]);
