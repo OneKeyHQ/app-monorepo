@@ -4,6 +4,7 @@ import { DemoScope } from './scopes/demo';
 import { DiscoveryScope } from './scopes/discovery';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
+import { TokenScope } from './scopes/token';
 import { UpdateScope } from './scopes/update';
 
 class Logger {
@@ -20,6 +21,8 @@ class Logger {
   update = new UpdateScope();
 
   discovery = new DiscoveryScope();
+
+  token = new TokenScope();
 }
 
 export const defaultLogger = new Logger();
