@@ -1,5 +1,5 @@
 import type { ETranslations } from '../locale';
-import { IUpdateDownloadedEvent } from '../modules3rdParty/auto-update';
+import type { IUpdateDownloadedEvent } from '../modules3rdParty/auto-update';
 
 export interface IBasicAppUpdateInfo {
   // app store url

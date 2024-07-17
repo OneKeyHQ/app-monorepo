@@ -1,13 +1,12 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
-
 import { ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
