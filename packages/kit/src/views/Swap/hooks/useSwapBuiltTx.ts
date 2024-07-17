@@ -278,8 +278,23 @@ export function useSwapBuildTx() {
               to: res.swftOrder.platformAddr,
               amount: res.swftOrder.depositCoinAmt,
             };
-          }
-          if (res?.thorSwapCallData) {
+          } else if (res?.changellyOrder) {
+            encodedTx = undefined;
+            // changelly order
+            transferInfo = {
+              from: swapFromAddressInfo.address,
+              tokenInfo: {
+                ...res.result.fromTokenInfo,
+                isNative: !!res.result.fromTokenInfo.isNative,
+                address: res.result.fromTokenInfo.contractAddress,
+                name:
+                  res.result.fromTokenInfo.name ??
+                  res.result.fromTokenInfo.symbol,
+              },
+              to: res.changellyOrder.payinAddress,
+              amount: res.changellyOrder.amountExpectedFrom,
+            };
+          } else if (res?.thorSwapCallData) {
             encodedTx = undefined;
             transferInfo = {
               from: swapFromAddressInfo.address,
@@ -299,8 +314,7 @@ export function useSwapBuildTx() {
                 .shiftedBy(-fromToken.decimals)
                 .toFixed(),
             };
-          }
-          if (res?.tx) {
+          } else if (res?.tx) {
             transferInfo = undefined;
             if (typeof res.tx !== 'string' && res.tx.data) {
               const valueHex = toBigIntHex(new BigNumber(res.tx.value ?? 0));
