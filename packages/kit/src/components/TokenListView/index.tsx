@@ -27,6 +27,7 @@ type IProps = {
   withPrice?: boolean;
   withBuyAndReceive?: boolean;
   withPresetVerticalPadding?: boolean;
+  inTabList?: boolean;
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
   isBuyTokenSupported?: boolean;
@@ -40,6 +41,7 @@ function TokenListView(props: IProps) {
     withHeader,
     withFooter,
     withPrice,
+    inTabList,
     withBuyAndReceive,
     onReceiveToken,
     onBuyToken,
@@ -56,6 +58,7 @@ function TokenListView(props: IProps) {
 
   const { listViewProps, listViewRef } = useTabListScroll<IAccountToken>({
     onContentSizeChange,
+    inTabList,
   });
 
   if (!tokenListState.initialized && tokenListState.isRefreshing) {

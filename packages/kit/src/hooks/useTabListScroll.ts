@@ -10,14 +10,16 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function useTabListScroll<T>({
   onContentSizeChange,
+  inTabList,
 }: {
   onContentSizeChange: IListViewProps<T>['onContentSizeChange'];
+  inTabList?: boolean;
 }) {
   const scrollViewRef = useTabScrollViewRef();
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
 
   useEffect(() => {
-    if (!platformEnv.isNative) {
+    if (inTabList && !platformEnv.isNative) {
       let lastScrollTop = 0;
       let isBindListViewEvent = false;
       let listView: HTMLDivElement | undefined;
@@ -67,18 +69,20 @@ export function useTabListScroll<T>({
         listView?.removeEventListener('scroll', onListViewScroll);
       };
     }
-  }, [scrollViewRef]);
+  }, [scrollViewRef, inTabList]);
 
   const listViewProps = useMemo(
     () =>
       platformEnv.isNative
         ? ({ onContentSizeChange } as IListViewProps<T>)
         : ({
-            style: {
-              overflowY: 'hidden',
-            } as IStackProps['style'],
+            style: inTabList
+              ? ({
+                  overflowY: 'hidden',
+                } as IStackProps['style'])
+              : undefined,
           } as IListViewProps<T>),
-    [onContentSizeChange],
+    [onContentSizeChange, inTabList],
   );
   return useMemo(
     () => ({
