@@ -124,4 +124,7 @@ target 'OneKeyWallet' do
       Pod::UI.warn e
     end
   end
+
+  pod 'SDWebImageWebPCoder', '0.8.5'
+
 end
