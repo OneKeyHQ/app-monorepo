@@ -82,35 +82,47 @@ function useAllNetworkRequests<T>(params: {
       walletId: wallet.id,
     });
 
-    const requests: Array<() => Promise<T | undefined>> = [];
+    // const requests: Array<() => Promise<T | undefined>> = [];
     const paramsGroup: {
       accountId: string;
       networkId: string;
+      backendIndex?: boolean;
     }[] = [];
+
+    const concurrentNetworks = new Set<string>();
+    const sequentialNetworks = new Set<string>();
 
     for (const a of allAccounts) {
       if (currentAllNetworkId !== allNetworkId.current) return;
-      const networks =
-        await backgroundApiProxy.serviceNetwork.getNetworkIdsByImpls({
+      const networks = (
+        await backgroundApiProxy.serviceNetwork.getNetworksByImpls({
           impls: [a.impl],
-        });
+        })
+      ).networks.filter((i) => !i.isTestnet);
 
-      for (const networkId of networks.networkIds) {
+      for (const n of networks) {
         if (currentAllNetworkId !== allNetworkId.current) return;
 
-        if (!isNFTRequests || enableNFTNetworkIds.includes(networkId)) {
+        if (!isNFTRequests || enableNFTNetworkIds.includes(n.id)) {
+          const networkData = { accountId: a.id, networkId: n.id };
           if (allNetworkDataInit.current) {
-            requests.push(() =>
-              allNetworkRequests({ accountId: a.id, networkId }),
-            );
+            if (n.backendIndex) {
+              concurrentNetworks.add(JSON.stringify(networkData));
+            } else {
+              sequentialNetworks.add(JSON.stringify(networkData));
+            }
           } else {
-            paramsGroup.push({ accountId: a.id, networkId });
+            paramsGroup.push({ ...networkData, backendIndex: n.backendIndex });
           }
         }
       }
     }
 
-    if (isEmpty(requests) && isEmpty(paramsGroup)) {
+    if (
+      concurrentNetworks.size === 0 &&
+      sequentialNetworks.size === 0 &&
+      isEmpty(paramsGroup)
+    ) {
       setIsEmptyAccount(true);
       return;
     }
@@ -118,15 +130,51 @@ function useAllNetworkRequests<T>(params: {
     setIsEmptyAccount(false);
 
     if (allNetworkDataInit.current) {
-      resp = (await Promise.all(requests.map((r) => r()))).filter(Boolean);
-    } else {
-      for (const p of paramsGroup) {
+      // 处理并发请求的网络
+      const concurrentRequests = Array.from(concurrentNetworks).map(
+        (networkDataString) => {
+          const { accountId, networkId } = JSON.parse(networkDataString);
+          console.log('concurrentRequests: =====>>>>>: ', accountId, networkId);
+          return allNetworkRequests({ accountId, networkId });
+        },
+      );
+      const concurrentResp = await Promise.all(concurrentRequests);
+
+      // 处理顺序请求的网络
+      const sequentialResp = [];
+      for (const networkDataString of sequentialNetworks) {
         if (currentAllNetworkId !== allNetworkId.current) return;
-        void allNetworkRequests({
-          accountId: p.accountId,
-          networkId: p.networkId,
-        });
+        const { accountId, networkId } = JSON.parse(networkDataString);
+        const r = await allNetworkRequests({ accountId, networkId });
+        sequentialResp.push(r);
         await waitAsync(interval);
+      }
+      resp = [...concurrentResp, ...sequentialResp].filter(Boolean);
+    } else {
+      // 直接根据 backendIndex 分组
+      const concurrentParams = paramsGroup.filter((p) => p.backendIndex);
+      const sequentialParams = paramsGroup.filter((p) => !p.backendIndex);
+
+      // 处理并发请求
+      await Promise.all(
+        concurrentParams.map((p) =>
+          allNetworkRequests({
+            accountId: p.accountId,
+            networkId: p.networkId,
+          }),
+        ),
+      );
+
+      // 处理顺序请求
+      for (const p of sequentialParams) {
+        if (currentAllNetworkId !== allNetworkId.current) return;
+        await Promise.race([
+          await allNetworkRequests({
+            accountId: p.accountId,
+            networkId: p.networkId,
+          }),
+          await waitAsync(interval),
+        ]);
       }
     }
 
