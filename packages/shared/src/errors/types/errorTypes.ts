@@ -1,4 +1,7 @@
-import type { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import type {
+  ETranslations,
+  ETranslationsMock,
+} from '@onekeyhq/shared/src/locale';
 
 export enum ECustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,

@@ -9,7 +9,11 @@ import {
   EthereumMatic,
   SepoliaMatic,
 } from '@onekeyhq/shared/src/consts/addresses';
-import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  getEmptyTokenData,
+  getMergedTokenData,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFetchAccountTokensParams,
@@ -66,6 +70,16 @@ class ServiceToken extends ServiceBase {
         networkId,
       }),
     ]);
+
+    if (!accountAddress && !xpub) {
+      console.log(
+        `fetchAccountTokens ERROR: accountAddress and xpub are both empty`,
+      );
+      defaultLogger.token.request.fetchAccountTokenAccountAddressAndXpubBothEmpty(
+        { params, accountAddress, xpub },
+      );
+      return getEmptyTokenData();
+    }
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
@@ -160,6 +174,16 @@ class ServiceToken extends ServiceBase {
         networkId,
       }),
     ]);
+
+    if (!accountAddress && !xpub) {
+      console.log(
+        `fetchTokensDetails ERROR: accountAddress and xpub are both empty`,
+      );
+      defaultLogger.token.request.fetchTokensDetailsAccountAddressAndXpubBothEmpty(
+        { params, accountAddress, xpub },
+      );
+      return [];
+    }
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
