@@ -1277,6 +1277,7 @@
   "settings.view_address_in_explorer": "Voir l'adresse dans l'explorateur",
   "settings.view_transaction_in_explorer": "Voir la transaction dans l'explorateur",
   "settings.whats_new": "Quoi de neuf",
+  "skip_verify_text": "Je n'ai pas mon appareil avec moi",
   "slippage_tolerance.button_save": "Enregistrer",
   "slippage_tolerance.description": "L'optimisation automatique du glissement s'adapte en fonction de la liquidité du pool et du volume de trading, réduisant ainsi les échecs de transaction et les risques d'attaques MEV.",
   "slippage_tolerance.error_message": "La tolérance au glissement doit être comprise entre 0 et 50%.",

@@ -1277,6 +1277,7 @@
   "settings.view_address_in_explorer": "Lihat alamat di penjelajah",
   "settings.view_transaction_in_explorer": "Lihat transaksi di penjelajah",
   "settings.whats_new": "Apa yang baru",
+  "skip_verify_text": "Saya tidak membawa perangkat saya",
   "slippage_tolerance.button_save": "Simpan",
   "slippage_tolerance.description": "Auto slippage mengoptimalkan slippage berdasarkan likuiditas kolam dan volume perdagangan, mengurangi kegagalan transaksi dan risiko serangan MEV.",
   "slippage_tolerance.error_message": "Toleransi Slippage harus antara 0 hingga 50%.",

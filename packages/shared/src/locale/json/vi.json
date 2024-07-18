@@ -1277,6 +1277,7 @@
   "settings.view_address_in_explorer": "Xem địa chỉ trong trình duyệt",
   "settings.view_transaction_in_explorer": "Xem giao dịch trong trình duyệt",
   "settings.whats_new": "Điều gì mới",
+  "skip_verify_text": "Tôi không mang theo thiết bị của mình",
   "slippage_tolerance.button_save": "Lưu",
   "slippage_tolerance.description": "Tự động trượt giúp tối ưu hóa sự trượt dựa trên khả năng thanh khoản của hồ và khối lượng giao dịch, giảm thiểu rủi ro thất bại giao dịch và rủi ro tấn công MEV.",
   "slippage_tolerance.error_message": "Tolerance Slippage phải nằm trong khoảng từ 0 đến 50%.",

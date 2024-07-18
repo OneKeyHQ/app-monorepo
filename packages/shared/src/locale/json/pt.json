@@ -1277,6 +1277,7 @@
   "settings.view_address_in_explorer": "Ver endereço no explorador",
   "settings.view_transaction_in_explorer": "Ver transação no explorador",
   "settings.whats_new": "O que há de novo",
+  "skip_verify_text": "Não tenho meu dispositivo comigo",
   "slippage_tolerance.button_save": "Salvar",
   "slippage_tolerance.description": "O deslizamento automático otimiza o deslizamento com base na liquidez do pool e no volume de negociação, reduzindo falhas de transação e riscos de ataques MEV.",
   "slippage_tolerance.error_message": "A tolerância de deslizamento deve estar entre 0 e 50%.",

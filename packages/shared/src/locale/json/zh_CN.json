@@ -1277,6 +1277,7 @@
   "settings.view_address_in_explorer": "在浏览器中查看地址",
   "settings.view_transaction_in_explorer": "在浏览器中查看交易",
   "settings.whats_new": "新功能",
+  "skip_verify_text": "设备不在我身边",
   "slippage_tolerance.button_save": "保存",
   "slippage_tolerance.description": "自动滑点优化基于池流动性和交易量的滑点，减少交易失败和 MEV 攻击风险。",
   "slippage_tolerance.error_message": "滑点容忍度必须在 0 到 50% 之间。",

@@ -1277,6 +1277,7 @@
   "settings.view_address_in_explorer": "एक्सप्लोरर में पता देखें",
   "settings.view_transaction_in_explorer": "एक्सप्लोरर में लेन-देन देखें",
   "settings.whats_new": "क्या नया है",
+  "skip_verify_text": "मेरे पास अपना उपकरण नहीं है",
   "slippage_tolerance.button_save": "सहेजें",
   "slippage_tolerance.description": "ऑटो स्लिपेज पूल लिक्विडिटी और ट्रेडिंग वॉल्यूम के आधार पर स्लिपेज को अनुकूलित करता है, जिससे लेन-देन में विफलताएं और MEV हमले के जोखिम कम होते हैं।",
   "slippage_tolerance.error_message": "स्लिपेज सहनशीलता 0 से 50% के बीच होनी चाहिए।",
