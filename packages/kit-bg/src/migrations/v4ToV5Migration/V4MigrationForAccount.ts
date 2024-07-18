@@ -78,6 +78,12 @@ import type {
 import type { VaultBase } from '../../vaults/base/VaultBase';
 import type VaultNexa from '../../vaults/impls/nexa/Vault';
 
+function isLightningV4Account({ v4account }: { v4account: IV4DBAccount }) {
+  return [COINTYPE_LIGHTNING, COINTYPE_LIGHTNING_TESTNET].includes(
+    v4account.coinType,
+  );
+}
+
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({
     v4dbCredential,
@@ -344,6 +350,36 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       await v4dbHubs.logger.runAsyncWithCatch(
         async () => {
           //
+          if (isLightningV4Account({ v4account })) {
+            v4account.address =
+              v4accountUtxo?.addresses?.normalizedAddress || '';
+            v4accountUtxo.addresses = {
+              '0/0': v4account.address,
+            };
+            const addLastQuote = (str: string) => {
+              if (str.endsWith(`m/44'/81297820149147'/0`)) {
+                return `${str}'`;
+              }
+            };
+            if (v4account.path) {
+              v4account.path = addLastQuote(v4account.path) || v4account.path;
+            }
+            if (v4account.id) {
+              v4account.id = addLastQuote(v4account.id) || v4account.id;
+            }
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields hw Lightning',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          //
           if (v4account.coinType === COINTYPE_SOL) {
             if (v4account?.pub && v4account?.pub === v4account?.address) {
               v4account.pub = '';
@@ -351,7 +387,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           }
         },
         {
-          name: 'fixV4AccountMissingFields SOL',
+          name: 'fixV4AccountMissingFields hw SOL',
           errorResultFn: () => undefined,
           logErrorFn,
           logErrorOnly: true,
@@ -374,7 +410,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           }
         },
         {
-          name: 'fixV4AccountMissingFields Nexa,ADA path',
+          name: 'fixV4AccountMissingFields hw Nexa,ADA path',
           errorResultFn: () => undefined,
           logErrorFn,
           logErrorOnly: true,
@@ -390,7 +426,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           }
         },
         {
-          name: 'fixV4AccountMissingFields DNX',
+          name: 'fixV4AccountMissingFields hw DNX',
           errorResultFn: () => undefined,
           logErrorFn,
           logErrorOnly: true,
@@ -404,7 +440,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           }
         },
         {
-          name: 'fixV4AccountMissingFields SUI',
+          name: 'fixV4AccountMissingFields hw SUI',
           errorResultFn: () => undefined,
           logErrorFn,
           logErrorOnly: true,
@@ -434,7 +470,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           }
         },
         {
-          name: 'fixV4AccountMissingFields COSMOS',
+          name: 'fixV4AccountMissingFields hw COSMOS/DOT',
           errorResultFn: () => undefined,
           logErrorFn,
           logErrorOnly: true,
@@ -470,7 +506,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           }
         },
         {
-          name: 'fixV4AccountMissingFields NEXA',
+          name: 'fixV4AccountMissingFields hw NEXA',
           errorResultFn: () => undefined,
           logErrorFn,
           logErrorOnly: true,
@@ -504,10 +540,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
   // }
 
   async fixV4AccountLightningType({ v4account }: { v4account: IV4DBAccount }) {
-    if (
-      v4account.coinType === COINTYPE_LIGHTNING ||
-      v4account.coinType === COINTYPE_LIGHTNING_TESTNET
-    ) {
+    if (isLightningV4Account({ v4account })) {
       if (accountUtils.isHwAccount({ accountId: v4account.id })) {
         v4account.type = EV4DBAccountType.SIMPLE;
       }
@@ -1425,7 +1458,8 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                           idSuffix: deriveInfo?.idSuffix,
                         });
                         const addressRelPath =
-                          v4account.type === EV4DBAccountType.UTXO
+                          v4account.type === EV4DBAccountType.UTXO ||
+                          isLightningV4Account({ v4account })
                             ? accountUtils.buildUtxoAddressRelPath()
                             : undefined;
                         const v5account: IDBAccount = {
