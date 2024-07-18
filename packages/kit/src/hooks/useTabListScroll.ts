@@ -19,6 +19,15 @@ export function useTabListScroll<T>({
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
 
   const isBindEvent = useRef(false);
+  const getListView = useCallback(
+    () =>
+      (
+        listViewRef.current as unknown as {
+          _listRef?: { _scrollRef: HTMLDivElement };
+        }
+      )?._listRef?._scrollRef,
+    [],
+  );
   const onLayout = useCallback(() => {
     if (isBindEvent.current) {
       return;
@@ -28,11 +37,7 @@ export function useTabListScroll<T>({
     if (inTabList && !platformEnv.isNative) {
       let direction = 0;
       const scrollView = scrollViewRef?.current as unknown as HTMLElement;
-      const listView = (
-        listViewRef.current as unknown as {
-          _listRef?: { _scrollRef: HTMLDivElement };
-        }
-      )?._listRef?._scrollRef;
+      // const listView = getListView();
       // const onListViewScroll = () => {
       //   if (!listView) {
       //     return;
@@ -55,6 +60,7 @@ export function useTabListScroll<T>({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           direction = event.wheelDelta;
         }
+        const listView = getListView();
         if (listView) {
           const {
             scrollTop: scrollViewScrollTop,
@@ -64,7 +70,7 @@ export function useTabListScroll<T>({
           const { scrollTop } = listView;
           const isNearBottom =
             scrollViewScrollTop + clientHeight >= scrollHeight;
-          console.log(scrollTop, isNearBottom, direction);
+          // console.log(scrollTop, isNearBottom, direction);
           if (scrollTop === 0 && isNearBottom) {
             listView.style.overflowY = direction < 0 ? 'scroll' : 'hidden';
             if (
@@ -84,6 +90,7 @@ export function useTabListScroll<T>({
       const onScroll = () => {
         const { scrollTop, scrollHeight, clientHeight } = scrollView;
         const isNearBottom = scrollTop + clientHeight >= scrollHeight;
+        const listView = getListView();
         if (listView) {
           if (isNearBottom) {
             listView.style.overflowY = 'scroll';
@@ -98,6 +105,7 @@ export function useTabListScroll<T>({
         }
       };
 
+      const listView = getListView();
       scrollView?.addEventListener('scroll', onScroll);
       // listView?.addEventListener('scroll', onListViewScroll);
       listView?.addEventListener(MoveEventName, onMoveScroll as any);
@@ -107,7 +115,7 @@ export function useTabListScroll<T>({
         listView?.removeEventListener(MoveEventName, onMoveScroll as any);
       };
     }
-  }, [scrollViewRef, inTabList]);
+  }, [scrollViewRef, inTabList, getListView]);
 
   const listViewProps = useMemo(
     () =>
