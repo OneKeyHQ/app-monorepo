@@ -35,14 +35,14 @@ class ServiceToken extends ServiceBase {
     super({ backgroundApi });
   }
 
-  _fetchAccountTokensController: AbortController | null = null;
+  _fetchAccountTokensControllers: AbortController[] = [];
 
   @backgroundMethod()
   public async abortFetchAccountTokens() {
-    if (this._fetchAccountTokensController) {
-      this._fetchAccountTokensController.abort();
-      this._fetchAccountTokensController = null;
-    }
+    this._fetchAccountTokensControllers.forEach((controller) =>
+      controller.abort(),
+    );
+    this._fetchAccountTokensControllers = [];
   }
 
   @backgroundMethod()
@@ -83,8 +83,10 @@ class ServiceToken extends ServiceBase {
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
-    this._fetchAccountTokensController = controller;
-    const resp = await client.post<{ data: IFetchAccountTokensResp }>(
+    this._fetchAccountTokensControllers.push(controller);
+    const resp = await client.post<{
+      data: Omit<IFetchAccountTokensResp, 'accountId' | 'networkId'>;
+    }>(
       `/wallet/v1/account/token/list?flag=${flag || ''}`,
       {
         ...rest,
@@ -99,7 +101,6 @@ class ServiceToken extends ServiceBase {
           }),
       },
     );
-    this._fetchAccountTokensController = null;
 
     let allTokens: ITokenData | undefined;
     if (mergeTokens) {
@@ -112,7 +113,43 @@ class ServiceToken extends ServiceBase {
     }
 
     resp.data.data.allTokens = allTokens;
+
+    resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => ({
+      ...token,
+      accountId,
+      networkId,
+    }));
+
+    resp.data.data.riskTokens.data = resp.data.data.riskTokens.data.map(
+      (token) => ({
+        ...token,
+        accountId,
+        networkId,
+      }),
+    );
+
+    resp.data.data.smallBalanceTokens.data =
+      resp.data.data.smallBalanceTokens.data.map((token) => ({
+        ...token,
+        accountId,
+        networkId,
+      }));
+
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async fetchAllNetworkTokens({
+    indexedAccountId,
+  }: {
+    indexedAccountId: string;
+  }) {
+    const accounts =
+      await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+        { indexedAccountId },
+      );
+
+    console.log('accounts:', accounts);
   }
 
   @backgroundMethod()
