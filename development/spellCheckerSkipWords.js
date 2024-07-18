@@ -734,4 +734,6 @@ module.exports = [
   'watchlist',
   'usdt',
   'babylon',
+  'changelly',
+  'Changelly',
 ];

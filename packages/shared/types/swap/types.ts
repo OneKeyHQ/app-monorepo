@@ -203,6 +203,7 @@ export interface IFetchQuoteResult {
   fromTokenInfo: ISwapTokenBase;
   toTokenInfo: ISwapTokenBase;
   quoteResultCtx?: any;
+  protocolNoRouterInfo?: string;
 }
 
 export interface IAllowanceResult {
@@ -296,6 +297,7 @@ export interface IFetchBuildTxResponse {
   tx?: ITransaction;
   thorSwapCallData?: IThorSwapCallData;
   swftOrder?: IFetchBuildTxOrderResponse;
+  changellyOrder?: IFetchBuildTxChangellyOrderResponse;
   ctx?: any;
   socketBridgeScanUrl?: string;
   orderId?: string;
@@ -325,6 +327,11 @@ export interface IFetchBuildTxOrderResponse {
   platformAddr: string;
   depositCoinAmt: string;
   depositCoinCode: string;
+  orderId: string;
+}
+export interface IFetchBuildTxChangellyOrderResponse {
+  payinAddress: string;
+  amountExpectedFrom: string;
   orderId: string;
 }
 
