@@ -191,6 +191,8 @@ class ServiceDemo extends ServiceBase {
         name: 'Ethereum',
         symbol: 'ETH',
         isNative: true,
+        accountId,
+        networkId,
       },
     };
 
