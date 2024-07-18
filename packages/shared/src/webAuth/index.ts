@@ -87,7 +87,11 @@ export const registerWebAuth = async (credId?: string) => {
         pubKeyCredParams: [
           {
             'type': 'public-key',
-            'alg': -7,
+            'alg': -7, // ES256 algorithm
+          },
+          {
+            'type': 'public-key',
+            'alg': -257, // RS256 algorithm
           },
         ],
         timeout: 60000,
