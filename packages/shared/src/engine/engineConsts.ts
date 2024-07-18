@@ -187,6 +187,7 @@ export const getEnabledAccountDynamicNetworkIds = (): string[] => [
 ];
 
 export const getEnabledNFTNetworkIds = (): string[] => [
+  getNetworkIdsMap().all,
   getNetworkIdsMap().eth,
   getNetworkIdsMap().optimism,
   getNetworkIdsMap().bsc,

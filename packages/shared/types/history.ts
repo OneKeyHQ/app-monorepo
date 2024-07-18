@@ -31,6 +31,7 @@ export type IOnChainHistoryTxApprove = {
   amount: string;
   spender: string;
   token: string;
+  key: string;
   isInfiniteAmount: boolean;
 };
 
@@ -39,6 +40,7 @@ export type IOnChainHistoryTxTransfer = {
   from: string;
   to: string;
   token: string;
+  key: string;
   amount: string;
   label: string;
   isNative?: boolean;
@@ -69,6 +71,7 @@ export type IOnChainHistoryTxUTXOOutput = {
 };
 
 export type IOnChainHistoryTx = {
+  networkId: string;
   tx: string;
   riskLevel: number;
   type: EOnChainHistoryTxType;
@@ -177,4 +180,10 @@ export type IHistoryTxMetaComponents = {
   [EHistoryTxDetailsBlock.Attributes]?: (
     props: IHistoryTxMetaProps,
   ) => JSX.Element | null;
+};
+
+export type IAllNetworkHistoryExtraItem = {
+  networkId: string;
+  accountId: string;
+  accountAddress: string;
 };
