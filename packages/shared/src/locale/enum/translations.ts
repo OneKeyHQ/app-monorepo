@@ -1453,6 +1453,7 @@ export enum ETranslations {
   update_bridge_timeout_error = 'update.bridge_timeout_error',
   update_check_connection_try_again = 'update.check_connection_try_again',
   update_checking_device = 'update.checking_device',
+  update_checking_device_if_no_restart = 'update.checking_device_if_no_restart',
   update_checking_for_updates = 'update.checking_for_updates',
   update_checking_latest_ui_resources = 'update.checking_latest_ui_resources',
   update_connection_interrupted = 'update.connection_interrupted',
