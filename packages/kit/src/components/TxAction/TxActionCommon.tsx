@@ -12,7 +12,6 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
@@ -37,12 +36,10 @@ function TxActionCommonAvatar({
   const containerSize = '$10';
 
   const {
-    activeAccount: { account },
+    activeAccount: { network: activeNetwork },
   } = useActiveAccount({ num: 0 });
 
   const { network } = useAccountData({ networkId });
-
-  const isAllNetworks = account?.impl === IMPL_ALLNETWORKS;
 
   if (!avatar.src || typeof avatar.src === 'string') {
     return (
@@ -51,7 +48,9 @@ function TxActionCommonAvatar({
         isNFT={avatar.isNFT}
         fallbackIcon={avatar.fallbackIcon}
         tokenImageUri={avatar.src}
-        networkImageUri={isAllNetworks ? network?.logoURI : undefined}
+        networkImageUri={
+          activeNetwork?.isAllNetworks ? network?.logoURI : undefined
+        }
       />
     );
   }
@@ -69,7 +68,7 @@ function TxActionCommonAvatar({
           isNFT={avatar.isNFT}
           fallbackIcon={avatar.fallbackIcon}
           tokenImageUri={avatar.src[0]}
-          networkImageUri={isAllNetworks ? network?.logoURI : undefined}
+          networkImageUri={activeNetwork ? network?.logoURI : undefined}
         />
       </Stack>
       <Stack
@@ -83,7 +82,7 @@ function TxActionCommonAvatar({
           isNFT={avatar.isNFT}
           fallbackIcon={avatar.fallbackIcon}
           tokenImageUri={avatar.src[1]}
-          networkImageUri={isAllNetworks ? network?.logoURI : undefined}
+          networkImageUri={activeNetwork ? network?.logoURI : undefined}
         />
       </Stack>
     </Stack>

@@ -66,6 +66,7 @@ export type IServerNetwork = {
   extensions?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  isAllNetworks?: boolean;
 };
 
 export enum EOnekeyDomain {

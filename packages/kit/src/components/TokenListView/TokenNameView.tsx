@@ -6,6 +6,8 @@ import type { ISizableTextProps } from '@onekeyhq/components';
 import { Icon, SizableText, Tooltip, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+
 type IProps = {
   name: string;
   isNative?: boolean;
@@ -15,13 +17,17 @@ function TokenNameView(props: IProps) {
   const { name, isNative, ...rest } = props;
   const intl = useIntl();
 
+  const {
+    activeAccount: { network: activeNetwork },
+  } = useActiveAccount({ num: 0 });
+
   const content = useMemo(
     () => (
       <XStack alignItems="center" space="$1" flex={1}>
         <SizableText numberOfLines={1} {...rest}>
           {name}
         </SizableText>
-        {isNative ? (
+        {isNative && !activeNetwork?.isAllNetworks ? (
           <Tooltip
             renderContent={intl.formatMessage({
               id: ETranslations.native_token_tooltip,
@@ -38,7 +44,7 @@ function TokenNameView(props: IProps) {
         ) : null}
       </XStack>
     ),
-    [rest, name, isNative, intl],
+    [rest, name, isNative, activeNetwork?.isAllNetworks, intl],
   );
   return content;
 }
