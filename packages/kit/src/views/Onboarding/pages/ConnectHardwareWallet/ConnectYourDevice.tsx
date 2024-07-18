@@ -123,12 +123,6 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
 }
 
 function ConnectByQrCode() {
-  const {
-    start: startScan,
-    // close,
-  } = useScanQrCode();
-  const actions = useAccountSelectorActions();
-  const navigation = useAppNavigation();
   const { createQrWallet } = useCreateQrWallet();
   const intl = useIntl();
 
@@ -170,28 +164,6 @@ function ConnectByQrCode() {
       >
         {intl.formatMessage({ id: ETranslations.global_scan_to_connect })}
       </Button>
-    </Stack>
-  );
-}
-
-function ConnectByQrCodeComingSoon() {
-  const intl = useIntl();
-  if (process.env.NODE_ENV !== 'production') {
-    return <ConnectByQrCode />;
-  }
-
-  return (
-    <Stack flex={1} alignItems="center" justifyContent="center">
-      <SizableText
-        textAlign="center"
-        color="$textSubdued"
-        maxWidth="$80"
-        pb="$5"
-      >
-        {intl.formatMessage({
-          id: ETranslations.coming_soon,
-        })}
-      </SizableText>
     </Stack>
   );
 }
@@ -932,9 +904,7 @@ export function ConnectYourDevicePage() {
           />
         ) : null}
 
-        {tabValue === EConnectDeviceTab.qr ? (
-          <ConnectByQrCodeComingSoon />
-        ) : null}
+        {tabValue === EConnectDeviceTab.qr ? <ConnectByQrCode /> : null}
 
         {/* buy link */}
         <XStack
