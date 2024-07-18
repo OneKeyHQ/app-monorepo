@@ -72,6 +72,7 @@ export function DeriveTypeSelectorTriggerStaticInput(
   props: Omit<IDeriveTypeSelectorTriggerProps, 'items'> & {
     enabledItems?: IAccountDeriveInfo[];
     networkId: string;
+    onItemsChange?: (items: IAccountDeriveInfoItems[]) => void;
   },
 ) {
   const {
@@ -79,6 +80,7 @@ export function DeriveTypeSelectorTriggerStaticInput(
     networkId,
     value: deriveType,
     onChange: onDeriveTypeChange,
+    onItemsChange,
     ...others
   } = props;
   const intl = useIntl();
@@ -123,6 +125,8 @@ export function DeriveTypeSelectorTriggerStaticInput(
       }
     })();
   }, [deriveType, networkId, onDeriveTypeChange, viewItems]);
+
+  onItemsChange?.(options);
 
   if (!viewItems) {
     return null;

@@ -42,6 +42,7 @@ export function AccountEditButton({
       Boolean(
         account &&
           !indexedAccount &&
+          account?.id &&
           accountUtils.isImportedAccount({ accountId: account?.id }),
       ),
     [account, indexedAccount],

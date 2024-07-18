@@ -18,6 +18,7 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
@@ -27,7 +28,6 @@ import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/componen
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -45,6 +45,43 @@ type IFormValues = {
   deriveType?: IAccountDeriveTypes | '';
   rawKeyContent: string;
 };
+
+function DeriveTypeSelectorFormField({
+  networkIdValue,
+}: {
+  networkIdValue: string | undefined;
+}) {
+  const intl = useIntl();
+  const media = useMedia();
+  const [hide, setHide] = useState(false);
+  return (
+    <Stack
+      height={hide ? 0 : undefined}
+      opacity={hide ? 0 : undefined}
+      overflow={hide ? 'hidden' : undefined}
+    >
+      <Form.Field
+        label={intl.formatMessage({
+          id: ETranslations.derivation_path,
+        })}
+        name="deriveType"
+      >
+        <DeriveTypeSelectorTriggerStaticInput
+          onItemsChange={(items) => {
+            const shouldHide = items.length <= 1;
+            if (hide !== shouldHide) {
+              setHide(shouldHide);
+            }
+          }}
+          networkId={networkIdValue || ''}
+          defaultTriggerInputProps={{
+            size: media.gtMd ? 'medium' : 'large',
+          }}
+        />
+      </Form.Field>
+    </Stack>
+  );
+}
 
 function ExportPrivateKeysPage({
   indexedAccount,
@@ -259,19 +296,7 @@ function ExportPrivateKeysPage({
           </Form.Field>
 
           {!isImportedAccount ? (
-            <Form.Field
-              label={intl.formatMessage({
-                id: ETranslations.derivation_path,
-              })}
-              name="deriveType"
-            >
-              <DeriveTypeSelectorTriggerStaticInput
-                networkId={networkIdValue || ''}
-                defaultTriggerInputProps={{
-                  size: media.gtMd ? 'medium' : 'large',
-                }}
-              />
-            </Form.Field>
+            <DeriveTypeSelectorFormField networkIdValue={networkIdValue} />
           ) : null}
 
           <Form.Field label={keyLabel} name="rawKeyContent">
