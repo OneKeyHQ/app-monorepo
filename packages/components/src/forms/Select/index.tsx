@@ -372,6 +372,7 @@ function SelectFrame<T extends string | ISelectItem>({
 function BasicSelect<T extends string | ISelectItem>({
   renderTrigger,
   testID = '',
+  defaultTriggerInputProps,
   ...props
 }: ISelectProps<T>) {
   const defaultRenderTrigger = useCallback(
@@ -384,16 +385,24 @@ function BasicSelect<T extends string | ISelectItem>({
           readonly
           flex={1}
           testID={`${testID}-input`}
+          {...defaultTriggerInputProps}
         />
-        <Icon
+        {/* <Icon
           name="ChevronBottomSolid"
+          position="absolute"
+          right="$3"
+          top="$2"
+        /> */}
+        <Icon
+          name="ChevronDownSmallOutline"
+          color="$iconSubdued"
           position="absolute"
           right="$3"
           top="$2"
         />
       </>
     ),
-    [testID],
+    [defaultTriggerInputProps, testID],
   );
   return (
     <SelectFrame {...props}>
