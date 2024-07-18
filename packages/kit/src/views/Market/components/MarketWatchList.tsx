@@ -89,7 +89,7 @@ function RecommendItem({
 const maxSize = 8;
 export function MarketWatchList({ category }: { category: IMarketCategory }) {
   const intl = useIntl();
-  const [{ data: watchListCoingeckoIds, loading }] = useMarketWatchListAtom();
+  const [{ data: watchListCoingeckoIds, isMounted }] = useMarketWatchListAtom();
 
   const actions = useWatchListAction();
 
@@ -223,7 +223,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
     handleRecommendItemChange,
     intl,
   ]);
-  if (loading) {
+  if (!isMounted) {
     return null;
   }
   return watchListCoingeckoIds?.length === 0 ? (
