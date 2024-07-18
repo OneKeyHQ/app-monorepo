@@ -1,6 +1,5 @@
 import { useCallback, useEffect } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Badge, IconButton, Stack } from '@onekeyhq/components';
@@ -8,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeTag } from '@onekeyhq/shared/types/staking';
 
