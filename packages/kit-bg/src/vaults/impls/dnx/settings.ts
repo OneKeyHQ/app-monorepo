@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_DNX,
   IMPL_DNX,
@@ -28,6 +29,11 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: false,
   softwareAccountDisabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.xprvt,
+    ECoreApiExportedSecretKeyType.xpub,
+  ],
 
   defaultFeePresetIndex: 0,
 

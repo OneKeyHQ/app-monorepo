@@ -36,6 +36,7 @@ export enum EAppEventBusNames {
   ShowQrcode = 'ShowQrcode',
   RealmInit = 'RealmInit',
   V4RealmInit = 'V4RealmInit',
+  BatchCreateAccount = 'BatchCreateAccount',
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
@@ -108,6 +109,12 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;
+  [EAppEventBusNames.BatchCreateAccount]: {
+    totalCount: number;
+    createdCount: number;
+    progressTotal: number;
+    progressCurrent: number;
+  };
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
   [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
     connectId: string | undefined;

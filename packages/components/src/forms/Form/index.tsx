@@ -124,6 +124,9 @@ function Field({
     return null;
   }, [labelAddon]);
   const error = errors[name] as unknown as Error;
+  // if (error) {
+  //   debugger;
+  // }
   return (
     <Controller
       name={name}

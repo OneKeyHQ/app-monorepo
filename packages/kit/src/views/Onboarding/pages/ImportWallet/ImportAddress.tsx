@@ -77,7 +77,7 @@ const FormDeriveTypeInput = ({
       >
         <DeriveTypeSelectorTriggerStaticInput
           networkId={networkId}
-          items={deriveInfoItems}
+          enabledItems={deriveInfoItems}
           renderTrigger={({ label }) => (
             <Stack
               userSelect="none"
