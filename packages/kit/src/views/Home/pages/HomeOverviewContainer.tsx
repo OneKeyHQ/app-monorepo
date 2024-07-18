@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -39,7 +40,6 @@ function HomeOverviewContainer() {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num });
 
-  const refreshAllNetworksWorth = useRef(false);
   const [accountWorth] = useAccountWorthAtom();
   const [overviewState] = useAccountOverviewStateAtom();
   const { updateAccountOverviewState } = useAccountOverviewActions().current;
@@ -85,7 +85,6 @@ function HomeOverviewContainer() {
         initialized: false,
         isRefreshing: true,
       });
-      refreshAllNetworksWorth.current = false;
     }
   }, [account?.id, network?.id, updateAccountOverviewState, wallet?.id]);
 

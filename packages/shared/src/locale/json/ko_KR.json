@@ -1277,6 +1277,7 @@
   "settings.view_address_in_explorer": "탐색기에서 주소 보기",
   "settings.view_transaction_in_explorer": "탐색기에서 거래 보기",
   "settings.whats_new": "새로운 기능",
+  "skip_verify_text": "제 기기가 제게 없습니다",
   "slippage_tolerance.button_save": "저장",
   "slippage_tolerance.description": "자동 슬리피지는 풀 유동성과 거래량에 기반하여 슬리피지를 최적화하여, 거래 실패와 MEV 공격 위험을 줄입니다.",
   "slippage_tolerance.error_message": "슬리피지 허용치는 0%에서 50% 사이여야 합니다.",
