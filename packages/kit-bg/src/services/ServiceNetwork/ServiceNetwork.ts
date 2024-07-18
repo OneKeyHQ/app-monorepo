@@ -1,6 +1,9 @@
 import { uniq } from 'lodash';
 
-import type { EAddressEncodings } from '@onekeyhq/core/src/types';
+import {
+  type EAddressEncodings,
+  ECoreApiExportedSecretKeyType,
+} from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -520,6 +523,61 @@ class ServiceNetwork extends ServiceBase {
         network: o.network,
         publicKeyExportEnabled: o.vaultSetting.publicKeyExportEnabled,
         watchingAccountEnabled: o.vaultSetting.watchingAccountEnabled,
+      }));
+  }
+
+  @backgroundMethod()
+  async getSupportExportAccountKeyNetworks({
+    exportType,
+  }: {
+    exportType: 'privateKey' | 'publicKey';
+  }): Promise<
+    {
+      network: IServerNetwork;
+    }[]
+  > {
+    if (exportType === 'privateKey') {
+      return this.getSupportExportPrivateKeyNetworks();
+    }
+    if (exportType === 'publicKey') {
+      return this.getSupportExportPublicKeyNetworks();
+    }
+    throw new Error('Not implemented');
+  }
+
+  @backgroundMethod()
+  async getSupportExportPrivateKeyNetworks() {
+    const settings = await this._getNetworkVaultSettings();
+    return settings
+      .filter(
+        (o) =>
+          o.vaultSetting?.supportExportedSecretKeys?.includes(
+            ECoreApiExportedSecretKeyType.privateKey,
+          ) ||
+          o.vaultSetting?.supportExportedSecretKeys?.includes(
+            ECoreApiExportedSecretKeyType.xprvt,
+          ),
+      )
+      .map((o) => ({
+        network: o.network,
+      }));
+  }
+
+  @backgroundMethod()
+  async getSupportExportPublicKeyNetworks() {
+    const settings = await this._getNetworkVaultSettings();
+    return settings
+      .filter(
+        (o) =>
+          o.vaultSetting?.supportExportedSecretKeys?.includes(
+            ECoreApiExportedSecretKeyType.publicKey,
+          ) ||
+          o.vaultSetting?.supportExportedSecretKeys?.includes(
+            ECoreApiExportedSecretKeyType.xpub,
+          ),
+      )
+      .map((o) => ({
+        network: o.network,
       }));
   }
 
