@@ -37,6 +37,7 @@ import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
@@ -317,98 +318,104 @@ function SendDataInputContainer() {
     navigation,
     networkId,
   ]);
-  const handleOnConfirm = useCallback(async () => {
-    try {
-      if (!account) return;
-      const toAddress = form.getValues('to').resolved;
-      if (!toAddress) return;
-      let realAmount = amount;
+  const handleOnConfirm = useCallback(
+    async () =>
+      errorUtils.withErrorAutoToast(async () => {
+        try {
+          if (!account) return;
+          const toAddress = form.getValues('to').resolved;
+          if (!toAddress) return;
+          let realAmount = amount;
 
-      setIsSubmitting(true);
+          setIsSubmitting(true);
 
-      if (isNFT) {
-        realAmount = nftAmount;
-      } else {
-        realAmount = amount;
-
-        if (isUseFiat) {
-          if (
-            new BigNumber(amount).isGreaterThan(tokenDetails?.fiatValue ?? 0)
-          ) {
-            realAmount = tokenDetails?.balanceParsed ?? '0';
+          if (isNFT) {
+            realAmount = nftAmount;
           } else {
-            realAmount = linkedAmount.originalAmount;
+            realAmount = amount;
+
+            if (isUseFiat) {
+              if (
+                new BigNumber(amount).isGreaterThan(
+                  tokenDetails?.fiatValue ?? 0,
+                )
+              ) {
+                realAmount = tokenDetails?.balanceParsed ?? '0';
+              } else {
+                realAmount = linkedAmount.originalAmount;
+              }
+            }
           }
+
+          const memoValue = form.getValues('memo');
+          const paymentIdValue = form.getValues('paymentId');
+          const transfersInfo: ITransferInfo[] = [
+            {
+              from: account.address,
+              to: toAddress,
+              amount: realAmount,
+              nftInfo:
+                isNFT && nftDetails
+                  ? {
+                      nftId: nftDetails.itemId,
+                      nftAddress: nftDetails.collectionAddress,
+                      nftType: nftDetails.collectionType,
+                    }
+                  : undefined,
+              tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
+              memo: memoValue,
+              paymentId: paymentIdValue,
+            },
+          ];
+          await sendConfirm.navigationToSendConfirm({
+            transfersInfo,
+            sameModal: true,
+            onSuccess,
+            onFail,
+            onCancel,
+            transferPayload: {
+              amountToSend: realAmount,
+              isMaxSend,
+              isNFT,
+            },
+          });
+          setIsSubmitting(false);
+        } catch (e: any) {
+          setIsSubmitting(false);
+
+          if (
+            accountUtils.isWatchingAccount({ accountId: account?.id ?? '' })
+          ) {
+            throw new OneKeyError({
+              message: intl.formatMessage({
+                id: ETranslations.wallet_error_trade_with_watched_acocunt,
+              }),
+              autoToast: true,
+            });
+          }
+
+          // use the original error to avoid auto-toast twice in UI layer
+          throw e;
         }
-      }
-
-      const memoValue = form.getValues('memo');
-      const paymentIdValue = form.getValues('paymentId');
-      const transfersInfo: ITransferInfo[] = [
-        {
-          from: account.address,
-          to: toAddress,
-          amount: realAmount,
-          nftInfo:
-            isNFT && nftDetails
-              ? {
-                  nftId: nftDetails.itemId,
-                  nftAddress: nftDetails.collectionAddress,
-                  nftType: nftDetails.collectionType,
-                }
-              : undefined,
-          tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
-          memo: memoValue,
-          paymentId: paymentIdValue,
-        },
-      ];
-      await sendConfirm.navigationToSendConfirm({
-        transfersInfo,
-        sameModal: true,
-        onSuccess,
-        onFail,
-        onCancel,
-        transferPayload: {
-          amountToSend: realAmount,
-          isMaxSend,
-          isNFT,
-        },
-      });
-      setIsSubmitting(false);
-    } catch (e: any) {
-      setIsSubmitting(false);
-
-      if (accountUtils.isWatchingAccount({ accountId: account?.id ?? '' })) {
-        throw new OneKeyError({
-          message: intl.formatMessage({
-            id: ETranslations.wallet_error_trade_with_watched_acocunt,
-          }),
-          autoToast: true,
-        });
-      }
-
-      throw new OneKeyError({
-        message: e.message,
-        autoToast: true,
-      });
-    }
-  }, [
-    account,
-    amount,
-    form,
-    intl,
-    isMaxSend,
-    isNFT,
-    isUseFiat,
-    linkedAmount.originalAmount,
-    nftAmount,
-    nftDetails,
-    onCancel,
-    onFail,
-    onSuccess,
-    sendConfirm,
-    tokenDetails,
-  ]);
+      }),
+    [
+      account,
+      amount,
+      form,
+      intl,
+      isMaxSend,
+      isNFT,
+      isUseFiat,
+      linkedAmount.originalAmount,
+      nftAmount,
+      nftDetails,
+      onCancel,
+      onFail,
+      onSuccess,
+      sendConfirm,
+      tokenDetails,
+    ],
+  );
   const handleValidateTokenAmount = useCallback(
     async (value: string) => {
       const amountBN = new BigNumber(value ?? 0);

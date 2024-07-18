@@ -217,11 +217,20 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   }
 }
 
-async function withErrorAutoToast<T>(fn: () => Promise<T>) {
+async function withErrorAutoToast<T>(
+  fn: () => Promise<T>,
+  options: {
+    alwaysShowToast?: boolean;
+  } = {},
+) {
   try {
     const result = await fn();
     return result;
   } catch (error: unknown) {
+    const alwaysShowToast = options?.alwaysShowToast ?? true;
+    if (alwaysShowToast) {
+      toastIfError(error);
+    }
     showToastOfError(error);
     throw error;
   }
