@@ -106,7 +106,7 @@ function Demo1() {
           console.log(r);
         }}
       >
-        异步函数显示 toast
+        异步函数显示 toast (globalListener)
       </Button>
       <Button
         onPress={async () => {
@@ -116,7 +116,7 @@ function Demo1() {
           console.log(r);
         }}
       >
-        异步函数显示 toast (2)
+        异步函数显示 toast (withErrorAutoToast)
       </Button>
       <Button
         onPress={async () => {
@@ -149,6 +149,21 @@ function Demo1() {
       >
         调用 background 显示 toast3
       </Button>
+
+      <Button
+        onPress={async () => {
+          try {
+            const ctx = await backgroundApiProxy.serviceDemo.demoError4();
+            console.log(ctx);
+          } catch (error) {
+            console.log('调用 background 显示 toast3', error);
+            throw error;
+          }
+        }}
+      >
+        调用 background 显示 toast4
+      </Button>
+
       <Button
         onPress={async () => {
           appEventBus.emit(EAppEventBusNames.ShowToast, {

@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
@@ -7,7 +7,13 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_NFT,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
+import type {
+  IAccountNFT,
+  IFetchAccountNFTsResp,
+} from '@onekeyhq/shared/types/nft';
 
+import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
@@ -25,22 +31,22 @@ function NFTListContainer(props: ITabPageProps) {
     initialized: false,
     isRefreshing: false,
   });
+  const refreshAllNetworksNftList = useRef(false);
+  const [nftList, setNftList] = useState<IAccountNFT[]>([]);
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
-  const { result, run } = usePromiseResult(
+  const { run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
+
+      if (account.impl === IMPL_ALLNETWORKS) return;
+
       await backgroundApiProxy.serviceNFT.abortFetchAccountNFTs();
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         accountId: account.id,
         networkId: network.id,
-        accountAddress: account.address,
-        xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
-          accountId: account.id,
-          networkId: network.id,
-        }),
       });
 
       setNftListState({
@@ -48,6 +54,8 @@ function NFTListContainer(props: ITabPageProps) {
         isRefreshing: false,
       });
       setIsHeaderRefreshing(false);
+
+      setNftList(r.data);
 
       return r.data;
     },
@@ -59,6 +67,54 @@ function NFTListContainer(props: ITabPageProps) {
     },
   );
 
+  const handleAllNetworkRequests = useCallback(
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId: string;
+      networkId: string;
+    }) => {
+      const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
+        accountId,
+        networkId,
+      });
+      if (!refreshAllNetworksNftList.current) {
+        setNftList((prev) => [...prev, ...r.data]);
+        setNftListState({
+          initialized: true,
+          isRefreshing: false,
+        });
+      }
+
+      return r;
+    },
+    [],
+  );
+
+  const handleClearAllNetworkData = useCallback(() => setNftList([]), []);
+
+  const { result: allNetworksResult, isEmptyAccount } =
+    useAllNetworkRequests<IFetchAccountNFTsResp>({
+      account,
+      network,
+      wallet,
+      allNetworkRequests: handleAllNetworkRequests,
+      clearAllNetworkData: handleClearAllNetworkData,
+      isNFTRequests: true,
+    });
+
+  useEffect(() => {
+    if (refreshAllNetworksNftList.current && allNetworksResult) {
+      let allNetworksNftList: IAccountNFT[] = [];
+      for (const r of allNetworksResult) {
+        allNetworksNftList = allNetworksNftList.concat(r.data);
+      }
+
+      setNftList(allNetworksNftList);
+    }
+  }, [allNetworksResult]);
+
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
       setNftListState({
@@ -66,6 +122,7 @@ function NFTListContainer(props: ITabPageProps) {
         isRefreshing: true,
       });
       updateSearchKey('');
+      refreshAllNetworksNftList.current = false;
     }
   }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 
@@ -75,10 +132,20 @@ function NFTListContainer(props: ITabPageProps) {
     }
   }, [isHeaderRefreshing, run]);
 
+  useEffect(() => {
+    if (isEmptyAccount) {
+      setNftList([]);
+      setNftListState({
+        initialized: true,
+        isRefreshing: false,
+      });
+    }
+  }, [isEmptyAccount]);
+
   return (
     <NFTListView
       inTabList
-      data={result ?? []}
+      data={nftList ?? []}
       isLoading={nftListState.isRefreshing}
       onContentSizeChange={onContentSizeChange}
       initialized={nftListState.initialized}
