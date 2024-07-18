@@ -1,0 +1,353 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
+
+import type {
+  IKeyOfIcons,
+  IPageScreenProps,
+  IPropsWithTestId,
+} from '@onekeyhq/components';
+import {
+  Form,
+  Input,
+  Page,
+  SizableText,
+  Stack,
+  useClipboard,
+  useForm,
+  useMedia,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  AccountSelectorProviderMirror,
+  ControlledNetworkSelectorTrigger,
+} from '@onekeyhq/kit/src/components/AccountSelector';
+import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EAccountManagerStacksRoutes,
+  IAccountManagerStacksParamList,
+  IExportAccountSecretKeysRouteParams,
+} from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+type IFormValues = {
+  networkId?: string;
+  deriveType?: IAccountDeriveTypes | '';
+  rawKeyContent: string;
+};
+
+function DeriveTypeSelectorFormField({
+  networkIdValue,
+}: {
+  networkIdValue: string | undefined;
+}) {
+  const intl = useIntl();
+  const media = useMedia();
+  const [hide, setHide] = useState(false);
+  return (
+    <Stack
+      height={hide ? 0 : undefined}
+      opacity={hide ? 0 : undefined}
+      overflow={hide ? 'hidden' : undefined}
+    >
+      <Form.Field
+        label={intl.formatMessage({
+          id: ETranslations.derivation_path,
+        })}
+        name="deriveType"
+      >
+        <DeriveTypeSelectorTriggerStaticInput
+          onItemsChange={(items) => {
+            const shouldHide = items.length <= 1;
+            if (hide !== shouldHide) {
+              setHide(shouldHide);
+            }
+          }}
+          networkId={networkIdValue || ''}
+          defaultTriggerInputProps={{
+            size: media.gtMd ? 'medium' : 'large',
+          }}
+        />
+      </Form.Field>
+    </Stack>
+  );
+}
+
+function ExportPrivateKeysPage({
+  indexedAccount,
+  account,
+  accountName,
+  title,
+  exportType,
+}: IExportAccountSecretKeysRouteParams) {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const navigation = useAppNavigation();
+
+  const intl = useIntl();
+  const media = useMedia();
+
+  const [secureEntry, setSecureEntry] = useState(true);
+  const clipboard = useClipboard();
+
+  const isImportedAccount = useMemo(
+    () =>
+      Boolean(
+        account &&
+          !indexedAccount &&
+          accountUtils.isImportedAccount({ accountId: account?.id }),
+      ),
+    [account, indexedAccount],
+  );
+
+  const { result: networkIds = [] } = usePromiseResult(async () => {
+    if (isImportedAccount && account?.createAtNetwork) {
+      return [account?.createAtNetwork];
+    }
+    const networksInfo =
+      await backgroundApiProxy.serviceNetwork.getSupportExportAccountKeyNetworks(
+        {
+          exportType,
+        },
+      );
+    return networksInfo.map((n) => n.network.id);
+  }, [account?.createAtNetwork, exportType, isImportedAccount]);
+
+  const initialNetworkId = useMemo(() => {
+    if (isImportedAccount) {
+      return account?.createAtNetwork || getNetworkIdsMap().btc;
+    }
+    return activeAccount?.network?.id || getNetworkIdsMap().btc;
+  }, [account?.createAtNetwork, activeAccount?.network?.id, isImportedAccount]);
+  const form = useForm<IFormValues>({
+    values: {
+      networkId: initialNetworkId,
+      deriveType: activeAccount?.deriveType ?? undefined,
+      rawKeyContent: '',
+    },
+    mode: 'onChange',
+    reValidateMode: 'onBlur',
+  });
+
+  const networkIdValue = form.watch('networkId');
+  const deriveTypeValue = form.watch('deriveType');
+  const rawKeyValue = form.watch('rawKeyContent');
+
+  const reset = useCallback(() => {
+    form.setValue('rawKeyContent', '');
+    form.clearErrors('rawKeyContent');
+    setSecureEntry(true);
+  }, [form]);
+
+  const generateKey = useCallback(
+    async ({
+      accountId,
+      indexedAccountId,
+      networkId,
+      deriveType,
+    }: {
+      accountId: string | undefined;
+      indexedAccountId: string | undefined;
+      networkId: string;
+      deriveType: IAccountDeriveTypes | undefined | '';
+    }) => {
+      reset();
+      if ((!indexedAccountId && !accountId) || !networkId) {
+        return;
+      }
+      if (!isImportedAccount && !deriveType) {
+        return;
+      }
+      try {
+        const key =
+          await backgroundApiProxy.serviceAccount.exportAccountKeysByType({
+            indexedAccountId,
+            accountId,
+            networkId,
+            deriveType: deriveType || undefined,
+            exportType,
+            accountName,
+          });
+        if (key) {
+          form.setValue('rawKeyContent', key);
+        }
+      } catch (error) {
+        form.setError(
+          'rawKeyContent',
+          // form.setError use {...error} which will lose error.message
+          // so we should use errorUtils.toPlainErrorObject to convert error to plain object
+          errorUtils.toPlainErrorObject(error as any) ?? { message: 'error' },
+        );
+        throw error;
+      }
+    },
+    [accountName, exportType, form, isImportedAccount, reset],
+  );
+  const generateKeyDebounced = useDebouncedCallback(generateKey, 600);
+
+  const refreshKey = useCallback(
+    async ({ noDebouncedCall }: { noDebouncedCall?: boolean } = {}) => {
+      reset();
+      const fn = noDebouncedCall ? generateKey : generateKeyDebounced;
+      await fn({
+        accountId: account?.id,
+        indexedAccountId: indexedAccount?.id,
+        networkId: networkIdValue || '',
+        deriveType: deriveTypeValue,
+      });
+    },
+    [
+      account?.id,
+      deriveTypeValue,
+      generateKey,
+      generateKeyDebounced,
+      indexedAccount?.id,
+      networkIdValue,
+      reset,
+    ],
+  );
+
+  const actions: IPropsWithTestId<{
+    iconName?: IKeyOfIcons;
+    onPress?: () => void;
+    loading?: boolean;
+  }>[] = useMemo(
+    () =>
+      rawKeyValue
+        ? [
+            {
+              iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
+              onPress: () => {
+                setSecureEntry(!secureEntry);
+              },
+            },
+
+            {
+              iconName: 'Copy3Outline',
+              onPress: () => {
+                clipboard.copyText(form.getValues('rawKeyContent'));
+              },
+            },
+          ]
+        : [
+            {
+              iconName: 'RefreshCcwOutline',
+              onPress: () => {
+                void refreshKey({ noDebouncedCall: true });
+              },
+            },
+          ],
+    [clipboard, form, rawKeyValue, refreshKey, secureEntry],
+  );
+
+  useEffect(() => {
+    if (networkIdValue) {
+      // reset deriveType when networkId changed, DeriveTypeSelectorTriggerStaticInput will re-fetch deriveTypes from global settings
+      form.setValue('deriveType', '');
+    }
+  }, [form, networkIdValue]);
+
+  useEffect(() => {
+    noopObject(networkIdValue, deriveTypeValue);
+    reset();
+  }, [deriveTypeValue, networkIdValue, reset]);
+
+  // use manual refreshKey instead of auto refreshKey
+  // useEffect(() => {
+  //   void refreshKey();
+  // }, [refreshKey]);
+
+  const keyLabel = useMemo(() => {
+    let label = 'key';
+    if (exportType === 'publicKey') {
+      label = intl.formatMessage({ id: ETranslations.global_public_key });
+    }
+    if (exportType === 'privateKey') {
+      label = intl.formatMessage({ id: ETranslations.global_private_key });
+    }
+    return label;
+  }, [exportType, intl]);
+
+  return (
+    <Page scrollEnabled safeAreaEnabled={false}>
+      <Page.Header title={title} />
+      <Page.Body p="$4">
+        <Form form={form}>
+          <Form.Field
+            label={intl.formatMessage({ id: ETranslations.global_network })}
+            name="networkId"
+            disabled={isImportedAccount}
+            // editable={!isImportedAccount}
+          >
+            <ControlledNetworkSelectorTrigger
+              disabled={isImportedAccount}
+              editable={!isImportedAccount}
+              networkIds={networkIds}
+            />
+          </Form.Field>
+
+          {!isImportedAccount ? (
+            <DeriveTypeSelectorFormField networkIdValue={networkIdValue} />
+          ) : null}
+
+          <Form.Field label={keyLabel} name="rawKeyContent">
+            <Input
+              size={media.gtMd ? 'medium' : 'large'}
+              editable={false}
+              placeholder={keyLabel}
+              secureTextEntry={secureEntry}
+              addOns={actions}
+            />
+          </Form.Field>
+        </Form>
+
+        {process.env.NODE_ENV !== 'production' ? (
+          <Stack mt="$8">
+            <SizableText>networkId: {networkIdValue}</SizableText>
+            <SizableText>deriveType: {deriveTypeValue}</SizableText>
+          </Stack>
+        ) : null}
+      </Page.Body>
+      <Page.Footer
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_done,
+        })}
+        confirmButtonProps={{
+          disabled: false,
+        }}
+        onConfirm={async () => {
+          void navigation.popStack();
+        }}
+      />
+    </Page>
+  );
+}
+
+export default function ExportPrivateKeys({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  route,
+}: IPageScreenProps<
+  IAccountManagerStacksParamList,
+  EAccountManagerStacksRoutes.ExportPrivateKeysPage
+>) {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+    >
+      <ExportPrivateKeysPage {...route.params} />
+    </AccountSelectorProviderMirror>
+  );
+}
