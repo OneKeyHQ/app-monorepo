@@ -25,43 +25,81 @@ class ServiceNFT extends ServiceBase {
     super({ backgroundApi });
   }
 
-  _fetchAccountNFTsController: AbortController | null = null;
+  _fetchAccountNFTsControllers: AbortController[] = [];
 
   @backgroundMethod()
   public async abortFetchAccountNFTs() {
-    if (this._fetchAccountNFTsController) {
-      this._fetchAccountNFTsController.abort();
-      this._fetchAccountNFTsController = null;
-    }
+    this._fetchAccountNFTsControllers.forEach((controller) => {
+      controller.abort();
+    });
+    this._fetchAccountNFTsControllers = [];
   }
 
   @backgroundMethod()
   public async fetchAccountNFTs(params: IFetchAccountNFTsParams) {
-    const { accountId, ...rest } = params;
+    const { accountId, networkId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
+
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+    ]);
+
     const controller = new AbortController();
-    this._fetchAccountNFTsController = controller;
+    this._fetchAccountNFTsControllers.push(controller);
+
     const resp = await client.get<{
       data: IFetchAccountNFTsResp;
-    }>(`/wallet/v1/account/nft/list?${qs.stringify(omitBy(rest, isNil))}`, {
-      signal: controller.signal,
-      headers:
-        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-          accountId: params.accountId,
-        }),
-    });
-    this._fetchAccountNFTsController = null;
+    }>(
+      `/wallet/v1/account/nft/list?${qs.stringify(
+        omitBy({ networkId, accountAddress, xpub, ...rest }, isNil),
+      )}`,
+      {
+        signal: controller.signal,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+          }),
+      },
+    );
+
+    resp.data.data.data = resp.data.data.data.map((nft) => ({
+      ...nft,
+      accountId,
+      networkId,
+    }));
+
     return resp.data.data;
   }
 
   @backgroundMethod()
   public async fetchNFTDetails(params: IFetchNFTDetailsParams) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const { nfts, accountId, ...rest } = params;
+    const { nfts, accountId, networkId } = params;
+
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+    ]);
+
     const resp = await client.post<IFetchNFTDetailsResp>(
       '/wallet/v1/account/nft/detail',
       {
-        ...rest,
+        accountAddress,
+        xpub,
+        networkId,
         nftIds: nfts.map((nft) =>
           isNil(nft.itemId)
             ? nft.collectionAddress
@@ -112,7 +150,6 @@ class ServiceNFT extends ServiceBase {
     networkId: string;
     nftId: string;
     collectionAddress: string;
-    accountAddress: string;
   }) {
     try {
       return {
@@ -129,19 +166,16 @@ class ServiceNFT extends ServiceBase {
       networkId,
       nftId,
       collectionAddress,
-      accountAddress,
     }: {
       accountId: string;
       networkId: string;
       nftId: string;
       collectionAddress: string;
-      accountAddress: string;
     }) => {
       const nftDetails = await this.fetchNFTDetails({
         accountId,
         networkId,
         nfts: [{ collectionAddress, itemId: nftId }],
-        accountAddress,
       });
       return nftDetails[0];
     },
