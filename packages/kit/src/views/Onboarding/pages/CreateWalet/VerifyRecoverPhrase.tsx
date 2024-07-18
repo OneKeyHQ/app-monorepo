@@ -143,7 +143,7 @@ export function VerifyRecoveryPhrase({
           <YStack space="$5">
             {verifyRecoveryPhrases.map(([wordIndex, phraseArray], index) => (
               <YStack key={String(wordIndex)} space="$2.5">
-                <SizableText>{`${intl.formatMessage({
+                <SizableText testID="wordIndex">{`${intl.formatMessage({
                   id: ETranslations.word,
                 })} #${Number(wordIndex) + 1}`}</SizableText>
                 <WordSelector
