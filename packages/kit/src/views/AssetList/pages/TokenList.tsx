@@ -106,7 +106,9 @@ function TokenList() {
         tokens,
         keys,
       });
-      refreshTokenListMap(tokenMap);
+      refreshTokenListMap({
+        tokens: tokenMap,
+      });
       updateTokenListState({ initialized: true, isRefreshing: false });
     }
   }, [

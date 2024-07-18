@@ -237,8 +237,7 @@ function HistoryDetails() {
       >
     >();
 
-  const { accountId, networkId, accountAddress, historyTx, xpub } =
-    route.params;
+  const { accountId, networkId, historyTx } = route.params;
 
   const historyInit = useRef(false);
   const historyConfirmed = useRef(false);
@@ -246,7 +245,12 @@ function HistoryDetails() {
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
 
-  const { network, vaultSettings } = useAccountData({ networkId });
+  const { account, network, vaultSettings } = useAccountData({
+    networkId,
+    accountId,
+  });
+
+  const accountAddress = account?.address;
 
   const nativeToken = usePromiseResult(
     () =>
@@ -262,8 +266,6 @@ function HistoryDetails() {
       const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
         accountId,
         networkId,
-        accountAddress,
-        xpub,
         txid: historyTx.decodedTx.txid,
       });
       historyInit.current = true;
@@ -282,8 +284,6 @@ function HistoryDetails() {
     [
       accountId,
       networkId,
-      accountAddress,
-      xpub,
       historyTx.decodedTx.txid,
       historyTx.decodedTx.status,
     ],

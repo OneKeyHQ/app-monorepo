@@ -1,6 +1,7 @@
 import {
   IMPL_ADA,
   IMPL_ALGO,
+  IMPL_ALLNETWORKS,
   IMPL_APTOS,
   IMPL_BCH,
   IMPL_BTC,
@@ -92,6 +93,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_KASPA]: () => import('./impls/kaspa/settings'),
     [IMPL_APTOS]: () => import('./impls/aptos/settings'),
     [IMPL_DNX]: () => import('./impls/dnx/settings'),
+    [IMPL_ALLNETWORKS]: () => import('./impls/all/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

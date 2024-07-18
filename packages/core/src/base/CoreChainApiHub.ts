@@ -1,5 +1,6 @@
 import CoreChainAda from '../chains/ada';
 import CoreChainAlgo from '../chains/algo';
+import CoreAllNetwork from '../chains/all';
 import CoreChainAptos from '../chains/aptos';
 import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
@@ -26,6 +27,8 @@ import CoreChainTron from '../chains/tron';
 import CoreChainXrp from '../chains/xrp';
 
 export class CoreChainApiHub {
+  all = new CoreAllNetwork();
+
   evm = new CoreChainEvm();
 
   btc = new CoreChainBtc();

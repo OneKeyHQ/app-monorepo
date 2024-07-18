@@ -1,6 +1,8 @@
+import BigNumber from 'bignumber.js';
+
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
-import type { IAccountToken, ITokenData } from '../../types/token';
+import type { IAccountToken, ITokenData, ITokenFiat } from '../../types/token';
 
 export function getMergedTokenData({
   tokens,
@@ -84,4 +86,21 @@ export function getFilteredTokenBySearchKey({
   );
 
   return filteredTokens;
+}
+
+export function sortTokensByFiatValue({
+  tokens,
+  map = {},
+}: {
+  tokens: IAccountToken[];
+  map?: {
+    [key: string]: ITokenFiat;
+  };
+}) {
+  return tokens.sort((a, b) => {
+    const aFiat = map[a.$key]?.fiatValue ?? 0;
+    const bFiat = map[b.$key]?.fiatValue ?? 0;
+
+    return new BigNumber(bFiat).comparedTo(aFiat);
+  });
 }

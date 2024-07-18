@@ -26,6 +26,7 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
+  IAllNetworkHistoryExtraItem,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
@@ -494,6 +495,7 @@ export interface IBuildHistoryTxParams {
   nfts: Record<string, IOnChainHistoryTxNFT>;
   localHistoryPendingTxs?: IAccountHistoryTx[];
   index?: number;
+  allNetworkHistoryExtraItems?: IAllNetworkHistoryExtraItem[];
 }
 
 export type IGetPrivateKeyFromImportedParams = {

@@ -121,6 +121,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       hideFeeInfo={hideFeeInfo}
       replaceType={replaceType}
       status={decodedTx.status}
+      networkId={decodedTx.networkId}
       {...componentProps}
     />
   );

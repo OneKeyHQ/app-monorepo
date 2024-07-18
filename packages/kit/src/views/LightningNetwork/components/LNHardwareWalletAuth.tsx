@@ -9,7 +9,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import HomeSelector from '../../Home/components/HomeSelector';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { HomeHeaderContainer } from '../../Home/pages/HomeHeaderContainer';
 
 function LNHardwareWalletAuth({
   children,

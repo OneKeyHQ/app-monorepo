@@ -84,7 +84,9 @@ function TokenSelector() {
     );
 
     refreshTokenList({ keys: allTokens.keys, tokens: filteredTokens });
-    refreshTokenListMap(allTokens.map);
+    refreshTokenListMap({
+      tokens: allTokens.map,
+    });
     updateTokenListState({ initialized: true, isRefreshing: false });
   }, [
     accountId,
@@ -108,7 +110,9 @@ function TokenSelector() {
         );
 
         refreshTokenList({ tokens: filteredTokens, keys: tokens.keys });
-        refreshTokenListMap(tokens.map);
+        refreshTokenListMap({
+          tokens: tokens.map,
+        });
         updateTokenListState({ initialized: true, isRefreshing: false });
       } else {
         void fetchAccountTokens();

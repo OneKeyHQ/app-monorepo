@@ -7,6 +7,10 @@ export type IToken = {
   isNative: boolean | undefined;
   riskLevel?: number;
   sendAddress?: string;
+
+  // for all networks
+  networkId?: string;
+  accountId?: string;
 };
 
 export type ITokenFiat = {

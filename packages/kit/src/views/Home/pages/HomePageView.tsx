@@ -81,6 +81,7 @@ export function HomePageView({
         : Promise.resolve(undefined),
     [network],
   ).result;
+
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
