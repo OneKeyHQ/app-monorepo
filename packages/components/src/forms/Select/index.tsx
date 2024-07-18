@@ -402,7 +402,7 @@ function BasicSelect<T extends string | ISelectItem>({
         />
       </>
     ),
-    [testID],
+    [defaultTriggerInputProps, testID],
   );
   return (
     <SelectFrame {...props}>

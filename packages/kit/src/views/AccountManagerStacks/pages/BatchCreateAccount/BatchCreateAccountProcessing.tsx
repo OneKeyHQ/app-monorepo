@@ -4,7 +4,9 @@ import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Icon, Page, Progress, SizableText, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -18,9 +20,6 @@ import type {
   IAccountManagerStacksParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
 
 function BatchCreateAccountProcessingPage({
   walletId,

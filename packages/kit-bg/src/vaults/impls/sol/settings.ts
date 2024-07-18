@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   COINTYPE_SOL,
@@ -13,7 +14,6 @@ import type {
   IAccountDeriveInfoMapBase,
   IVaultSettings,
 } from '../../types';
-import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 
 export type IAccountDeriveInfoMapSol = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;

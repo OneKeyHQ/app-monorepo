@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_APTOS,
   IMPL_APTOS,
@@ -10,7 +11,6 @@ import { EDBAccountType } from '../../../dbs/local/consts';
 import { APTOS_NATIVE_COIN } from './utils';
 
 import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
-import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {

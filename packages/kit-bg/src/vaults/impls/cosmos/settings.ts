@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_COSMOS,
   IMPL_COSMOS,
@@ -11,7 +12,6 @@ import type {
   IAccountDeriveInfoMapBase,
   IVaultSettings,
 } from '../../types';
-import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 
 export type IAccountDeriveInfoMapCosmos = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;

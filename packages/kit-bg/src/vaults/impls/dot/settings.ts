@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_DOT,
   IMPL_DOT,
@@ -7,7 +8,6 @@ import {
 import { EDBAccountType } from '../../../dbs/local/consts';
 
 import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
-import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
