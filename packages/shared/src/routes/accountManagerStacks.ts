@@ -1,7 +1,15 @@
 import type { IAccountSelectorRouteParams } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 export enum EAccountManagerStacksRoutes {
   AccountSelectorStack = 'AccountSelectorStack',
+  ExportPrivateKeysPage = 'ExportPrivateKeysPage',
+  BatchCreateAccountForm = 'BatchCreateAccountForm',
+  BatchCreateAccountPreview = 'BatchCreateAccountPreview',
+  BatchCreateAccountProcessing = 'BatchCreateAccountProcessing',
 }
 
 export type IAccountSelectorRouteParamsExtraConfig = {
@@ -9,7 +17,25 @@ export type IAccountSelectorRouteParamsExtraConfig = {
   editable?: boolean;
 };
 
+export type IExportAccountSecretKeysRouteParams = {
+  indexedAccount?: IDBIndexedAccount;
+  account?: IDBAccount;
+  accountName?: string;
+  title?: string;
+  exportType: 'privateKey' | 'publicKey';
+};
 export type IAccountManagerStacksParamList = {
   [EAccountManagerStacksRoutes.AccountSelectorStack]: IAccountSelectorRouteParams &
     IAccountSelectorRouteParamsExtraConfig;
+  [EAccountManagerStacksRoutes.ExportPrivateKeysPage]: IExportAccountSecretKeysRouteParams;
+  [EAccountManagerStacksRoutes.BatchCreateAccountForm]: {
+    walletId: string;
+  };
+  [EAccountManagerStacksRoutes.BatchCreateAccountPreview]: {
+    walletId: string;
+    networkId: string;
+    from: string;
+    count: string;
+  };
+  [EAccountManagerStacksRoutes.BatchCreateAccountProcessing]: undefined;
 };

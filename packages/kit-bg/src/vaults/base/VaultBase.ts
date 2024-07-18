@@ -773,7 +773,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       })
     ) {
       throw new Error(
-        `account impl not matched to network: ${this.networkId} ${account.id}`,
+        `account impl not matched to network: ${
+          this.networkId
+        } ${account.id?.slice(0, 30)}`,
       );
     }
 

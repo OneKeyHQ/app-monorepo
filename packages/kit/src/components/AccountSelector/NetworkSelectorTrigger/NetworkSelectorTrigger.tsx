@@ -130,10 +130,14 @@ export function ControlledNetworkSelectorTrigger({
   value,
   onChange,
   networkIds,
+  disabled,
+  editable,
 }: {
   value?: string;
   onChange?: (networkId: string) => void;
   networkIds?: string[];
+  disabled?: boolean;
+  editable?: boolean | undefined;
 }) {
   const intl = useIntl();
   return (
@@ -142,6 +146,8 @@ export function ControlledNetworkSelectorTrigger({
       title={intl.formatMessage({ id: ETranslations.network__network })}
       value={value}
       onChange={onChange}
+      editable={editable}
+      disabled={disabled}
       networkIds={networkIds}
       borderRadius="$3"
       borderWidth={1}

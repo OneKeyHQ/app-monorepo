@@ -24,6 +24,7 @@ import {
 
 type IDeriveTypeSelectorTriggerPropsBase = {
   renderTrigger?: ISelectProps<ISelectItem>['renderTrigger'];
+  defaultTriggerInputProps?: ISelectProps<ISelectItem>['defaultTriggerInputProps'];
   placement?: ComponentProps<typeof Select>['placement'];
   offset?: ISelectProps<ISelectItem>['offset'];
 };
@@ -41,6 +42,7 @@ function DeriveTypeSelectorTriggerView({
   placement,
   testID,
   offset,
+  defaultTriggerInputProps,
 }: IDeriveTypeSelectorTriggerProps & {
   testID?: string;
 }) {
@@ -60,6 +62,7 @@ function DeriveTypeSelectorTriggerView({
         onChange={onDeriveTypeChange}
         title={intl.formatMessage({ id: ETranslations.derivation_path })}
         renderTrigger={renderTrigger}
+        defaultTriggerInputProps={defaultTriggerInputProps}
       />
     </>
   );
@@ -67,15 +70,17 @@ function DeriveTypeSelectorTriggerView({
 
 export function DeriveTypeSelectorTriggerStaticInput(
   props: Omit<IDeriveTypeSelectorTriggerProps, 'items'> & {
-    items: IAccountDeriveInfo[];
+    enabledItems?: IAccountDeriveInfo[];
     networkId: string;
+    onItemsChange?: (items: IAccountDeriveInfoItems[]) => void;
   },
 ) {
   const {
-    items,
+    enabledItems,
     networkId,
     value: deriveType,
     onChange: onDeriveTypeChange,
+    onItemsChange,
     ...others
   } = props;
   const intl = useIntl();
@@ -83,10 +88,10 @@ export function DeriveTypeSelectorTriggerStaticInput(
     const selectItems =
       await backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
         networkId,
-        enabledItems: items,
+        enabledItems,
       });
     return selectItems;
-  }, [items, networkId]);
+  }, [enabledItems, networkId]);
   const options = useMemo(
     () =>
       viewItems?.map(({ value, label, item, description, descI18n }) => ({
@@ -104,14 +109,24 @@ export function DeriveTypeSelectorTriggerStaticInput(
 
   // autofix derivetype when it's not in the list
   useEffect(() => {
-    if (
-      viewItems?.length &&
-      !viewItems.find((item) => item.value === deriveType)
-    ) {
-      const fixedValue = viewItems?.[0].value as IAccountDeriveTypes;
-      onDeriveTypeChange?.(fixedValue);
-    }
-  }, [deriveType, onDeriveTypeChange, viewItems]);
+    void (async () => {
+      if (
+        !deriveType ||
+        (viewItems?.length &&
+          !viewItems.find((item) => item.value === deriveType))
+      ) {
+        const defaultDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId,
+          });
+        const fixedValue =
+          defaultDeriveType || (viewItems?.[0].value as IAccountDeriveTypes);
+        onDeriveTypeChange?.(fixedValue);
+      }
+    })();
+  }, [deriveType, networkId, onDeriveTypeChange, viewItems]);
+
+  onItemsChange?.(options);
 
   if (!viewItems) {
     return null;

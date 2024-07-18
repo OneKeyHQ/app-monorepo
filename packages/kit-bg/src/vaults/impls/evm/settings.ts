@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   COINTYPE_ETH,
@@ -67,6 +68,11 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
 
   dappInteractionEnabled: true,
 

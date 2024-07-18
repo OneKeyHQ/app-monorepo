@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   COINTYPE_SOL,
@@ -45,6 +46,11 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
 
   dappInteractionEnabled: true,
 

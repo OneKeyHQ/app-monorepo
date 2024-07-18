@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_COSMOS,
   IMPL_COSMOS,
@@ -34,6 +35,11 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
 
   dappInteractionEnabled: true,
 

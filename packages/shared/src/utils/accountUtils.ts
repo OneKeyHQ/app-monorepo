@@ -261,19 +261,22 @@ function findIndexFromTemplate({
 }
 
 function buildHDAccountId({
-  walletId,
   networkImpl,
+  walletId,
   path,
   template,
   index,
   idSuffix,
   isUtxo,
 }: {
-  walletId: string;
   networkImpl?: string;
-  path?: string;
+  //
+  walletId: string;
+  //
+  path?: string; // TODO remove path
   template?: string;
   index?: number;
+  //
   idSuffix?: string;
   isUtxo?: boolean;
 }): string {

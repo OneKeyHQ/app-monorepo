@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_NEXA,
   IMPL_NEXA,
@@ -27,6 +28,11 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.xprvt,
+    ECoreApiExportedSecretKeyType.xpub,
+  ],
 
   isUtxo: true, //
   isSingleToken: true,

@@ -179,7 +179,7 @@ export function ImportSingleChainBase({
             >
               <DeriveTypeSelectorTriggerStaticInput
                 networkId={form.getValues().networkId || ''}
-                items={validateResult?.deriveInfoItems || []}
+                enabledItems={validateResult?.deriveInfoItems || []}
                 renderTrigger={({ label }) => (
                   <Stack
                     userSelect="none"

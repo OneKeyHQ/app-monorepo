@@ -11,6 +11,7 @@ export function WalletOptionItem({
   isLoading,
   children,
   drillIn,
+  testID,
   ...rest
 }: Omit<IListItemProps, 'icon'> & {
   label: ISizableTextProps['children'];
@@ -20,9 +21,10 @@ export function WalletOptionItem({
   iconColor?: IIconProps['color'];
   isLoading?: boolean;
   drillIn?: boolean;
+  testID?: string;
 }) {
   return (
-    <ListItem userSelect="none" {...rest}>
+    <ListItem userSelect="none" testID={testID} {...rest}>
       {icon ? (
         <Stack px="$2">
           <Icon name={icon} color={iconColor} />
