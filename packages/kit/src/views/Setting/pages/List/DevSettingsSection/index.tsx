@@ -209,7 +209,7 @@ export const DevSettingsSection = () => {
         name="showDevExportPrivateKey"
         title="首页导出私钥临时入口"
         subtitle=""
-        testID="show-dev-overlay"
+        testID="export-private-key"
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
