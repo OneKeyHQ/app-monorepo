@@ -7,6 +7,10 @@ import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
 import {
+  useSettingsAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
@@ -35,21 +39,22 @@ const PasswordVerifyContainer = ({
   const [{ authType, isEnable }] = usePasswordBiologyAuthInfoAtom();
   const { verifiedPasswordWebAuth } = useWebAuthActions();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
+  const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
   const [hasCachedPassword, setHasCachedPassword] = useState(false);
   const [hasSecurePassword, setHasSecurePassword] = useState(false);
 
   useEffect(() => {
-    if (webAuthCredentialId) {
+    if (webAuthCredentialId && isBiologyAuthSwitchOn) {
       void (async () => {
         setHasCachedPassword(
           !!(await backgroundApiProxy.servicePassword.getCachedPassword()),
         );
       })();
     }
-  }, [webAuthCredentialId]);
+  }, [webAuthCredentialId, isBiologyAuthSwitchOn]);
 
   useEffect(() => {
-    if (isEnable) {
+    if (isEnable && isBiologyAuthSwitchOn) {
       void (async () => {
         try {
           const securePassword = await biologyAuthUtils.getPassword();
@@ -59,14 +64,21 @@ const PasswordVerifyContainer = ({
         }
       })();
     }
-  }, [isEnable]);
+  }, [isEnable, isBiologyAuthSwitchOn]);
 
   const isBiologyAuthEnable = useMemo(
     // both webAuth or biologyAuth are enabled
     () =>
-      (isEnable && hasSecurePassword) ||
-      (!!webAuthCredentialId && !!hasCachedPassword),
-    [hasCachedPassword, hasSecurePassword, isEnable, webAuthCredentialId],
+      isBiologyAuthSwitchOn &&
+      ((isEnable && hasSecurePassword) ||
+        (!!webAuthCredentialId && !!hasCachedPassword)),
+    [
+      hasCachedPassword,
+      hasSecurePassword,
+      isEnable,
+      webAuthCredentialId,
+      isBiologyAuthSwitchOn,
+    ],
   );
   const [status, setStatues] = useState<{
     value: EPasswordVerifyStatus;

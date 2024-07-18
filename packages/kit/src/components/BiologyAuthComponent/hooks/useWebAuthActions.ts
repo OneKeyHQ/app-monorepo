@@ -18,20 +18,21 @@ export const useWebAuthActions = () => {
       let webAuthCredentialId: string | undefined;
       if (enable) {
         // web auth must be called in ui context for extension
-        webAuthCredentialId = await registerWebAuth();
+        webAuthCredentialId = await registerWebAuth(credId);
         if (!webAuthCredentialId) {
           Toast.error({
             title: intl.formatMessage({ id: ETranslations.Toast_web_auth }),
           });
+        } else {
+          setPasswordPersist((v) => ({
+            ...v,
+            webAuthCredentialId: webAuthCredentialId ?? '',
+          }));
         }
       }
-      setPasswordPersist((v) => ({
-        ...v,
-        webAuthCredentialId: webAuthCredentialId ?? '',
-      }));
       return webAuthCredentialId;
     },
-    [intl, setPasswordPersist],
+    [credId, intl, setPasswordPersist],
   );
 
   const verifiedPasswordWebAuth = useCallback(async () => {
