@@ -65,6 +65,7 @@ export function ActionListItem({
       borderCurve="continuous"
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
+      aria-disabled={disabled}
       {...(!disabled && {
         hoverStyle: { bg: '$bgHover' },
         pressStyle: { bg: '$bgActive' },

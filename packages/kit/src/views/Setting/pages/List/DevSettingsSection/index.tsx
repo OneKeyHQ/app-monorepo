@@ -40,6 +40,8 @@ import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
 
+import { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
+
 let correctDevOnlyPwd = '';
 
 if (process.env.NODE_ENV !== 'production') {
@@ -50,16 +52,19 @@ function showDevOnlyPasswordDialog({
   title,
   description,
   onConfirm,
+  confirmButtonProps,
 }: {
   title: string;
   description?: string;
   onConfirm: (params: IBackgroundMethodWithDevOnlyPassword) => Promise<void>;
+  confirmButtonProps?: IDialogButtonProps;
 }) {
   Dialog.show({
     title,
     description,
     confirmButtonProps: {
       variant: 'destructive',
+      ...confirmButtonProps,
     },
     renderContent: (
       <Dialog.Form formProps={{ values: { password: correctDevOnlyPwd } }}>
@@ -69,7 +74,7 @@ function showDevOnlyPasswordDialog({
             required: { value: true, message: 'password is required.' },
           }}
         >
-          <Input placeholder="devOnlyPassword" />
+          <Input testID="dev-only-password" placeholder="devOnlyPassword" />
         </Dialog.FormField>
       </Dialog.Form>
     ),
@@ -204,7 +209,7 @@ export const DevSettingsSection = () => {
         name="showDevExportPrivateKey"
         title="首页导出私钥临时入口"
         subtitle=""
-        testID="show-dev-overlay"
+        testID="export-private-key"
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
@@ -272,6 +277,10 @@ export const DevSettingsSection = () => {
         onPress={() => {
           showDevOnlyPasswordDialog({
             title: 'Danger Zone: Clear all your data',
+            confirmButtonProps: {
+              variant: 'destructive',
+              testID: 'clear-double-confirm',
+            },
             description: `This is a feature specific to development environments.
                   Function used to erase all data in the app.`,
             onConfirm: async (params) => {
