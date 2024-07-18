@@ -230,7 +230,10 @@ export function FirmwareUpdateProgressBar({
           type: ['checking'],
           progress: () => 1,
           progressMax: () => checkingMaxProgress,
-          desc: () => defaultDesc(),
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_checking_device_if_no_restart,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.CheckLatestUiResource],
@@ -376,7 +379,6 @@ export function FirmwareUpdateProgressBar({
     },
     [
       intl,
-      defaultDesc,
       // do not add any deps here, use ref instead
     ],
   );
