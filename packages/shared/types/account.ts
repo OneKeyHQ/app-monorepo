@@ -7,6 +7,10 @@ export type INetworkAccount = IDBAccount & {
   addressDetail: INetworkAccountAddressDetail;
 };
 
+export type IBatchCreateAccount = INetworkAccount & {
+  existsInDb: boolean | undefined;
+};
+
 export type IQrWalletAirGapAccount = IAirGapAccount & {
   // childrenPath?: string; // 0/* // TODO rename childPathTpl
   // xfp?: string; // generate from xpub

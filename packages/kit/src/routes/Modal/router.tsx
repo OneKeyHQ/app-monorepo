@@ -49,6 +49,9 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.AccountManagerStacks,
     children: AccountManagerStacks,
+    async onUnmounted() {
+      await backgroundApiProxy.serviceCreateBatchAccount.clearNetworkAccountCache();
+    },
   },
   {
     onMounted: () => {

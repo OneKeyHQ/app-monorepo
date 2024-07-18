@@ -1,6 +1,7 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 
 import type { IPopoverProps } from '../../actions';
+import type { IInputProps } from '../Input';
 import type { ListItemProps, SheetProps } from 'tamagui';
 
 export interface ISelectRenderTriggerProps {
@@ -42,6 +43,7 @@ export type ISelectProps<T extends string | ISelectItem> = PropsWithChildren<{
   onChange?: (value: T) => void;
   onOpenChange?: (isOpen: boolean) => void;
   renderTrigger?: ISelectTriggerProps['renderTrigger'];
+  defaultTriggerInputProps?: IInputProps;
   disabled?: boolean;
   sheetProps?: SheetProps;
   floatingPanelProps?: IPopoverProps['floatingPanelProps'];

@@ -116,8 +116,8 @@ export class RenameDuplicateNameError extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'RenameNameDuplicate',
-        defaultKey: ETranslationsMock.rename_duplicate_name,
+        defaultMessage: 'RenameDuplicateNameError',
+        defaultKey: ETranslations.form_rename_error_exist,
       }),
     );
   }

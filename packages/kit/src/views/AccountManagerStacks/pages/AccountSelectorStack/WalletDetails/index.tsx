@@ -2,11 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  IButtonProps,
-  IIconButtonProps,
-  ISectionListRef,
-} from '@onekeyhq/components';
+import type { IButtonProps, ISectionListRef } from '@onekeyhq/components';
 import {
   ActionList,
   Empty,
@@ -214,7 +210,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
   const { scrollToLocation, onLayout } = useSafelyScrollToLocation(listRef);
   // scroll into selected account
-  useEffect(() => {
+  const scrollToSelectedAccount = useCallback(() => {
     if (sectionData?.[0]?.data) {
       const itemIndex = sectionData[0].data?.findIndex(({ id }) =>
         isOthers
@@ -235,6 +231,22 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     selectedAccount.indexedAccountId,
     selectedAccount.othersWalletAccountId,
   ]);
+
+  const scrollToTop = useCallback(() => {
+    scrollToLocation({
+      animated: true,
+      sectionIndex: 0,
+      itemIndex: 0,
+    });
+  }, [scrollToLocation]);
+
+  useEffect(() => {
+    if (editMode) {
+      scrollToTop();
+    } else {
+      scrollToSelectedAccount();
+    }
+  }, [editMode, scrollToSelectedAccount, scrollToTop]);
 
   const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
@@ -319,6 +331,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     }
     return focusedWalletInfo?.wallet?.name || '';
   }, [focusedWalletInfo, isOthers]);
+
   return (
     <Stack flex={1} pb={bottom} testID="account-selector-accountList">
       <WalletDetailsHeader
@@ -474,6 +487,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   <AccountEditButton
                     account={account}
                     indexedAccount={indexedAccount}
+                    wallet={focusedWalletInfo?.wallet}
                   />
                 </>
               );
