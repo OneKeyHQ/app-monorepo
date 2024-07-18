@@ -1,74 +1,18 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 
 import type { IXStackProps } from '@onekeyhq/components';
-import {
-  Button,
-  Icon,
-  SizableText,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Icon, SizableText, XStack, useMedia } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  EAccountManagerStacksRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
 
 type IProps = { createAddressDisabled?: boolean } & IXStackProps;
-
-function BatchCreateAddressButtonTest() {
-  const navigation = useAppNavigation();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  return (
-    <Button
-      onPress={async () => {
-        navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-          screen: EAccountManagerStacksRoutes.BatchCreateAccountForm,
-          params: {
-            walletId: activeAccount?.wallet?.id || '',
-          },
-        });
-        // const r =
-        //   await backgroundApiProxy.serviceCreateBatchAccount.batchBuildAccounts(
-        //     {
-        //       walletId: activeAccount?.wallet?.id || '',
-        //       networkId: activeAccount?.network?.id || '',
-        //       deriveType: activeAccount?.deriveType,
-        //       fromIndex: 4,
-        //       toIndex: 22,
-        //       excludeIndexes: {
-        //         15: true,
-        //         5: true,
-        //         21: true,
-        //       },
-        //       saveToDb: true,
-        //     },
-        //   );
-        // console.log('BatchCreateAddressButtonTest>>>', r);
-      }}
-      size="small"
-    >
-      BatchCreateAddress
-    </Button>
-  );
-}
 
 function HomeSelector(props: IProps) {
   const media = useMedia();
   const num = 0;
 
   const { createAddressDisabled, ...rest } = props;
-
-  const batchCreateAddressButton = useMemo(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      return <BatchCreateAddressButtonTest />;
-    }
-    return null;
-  }, []);
 
   return (
     <XStack
@@ -129,7 +73,6 @@ function HomeSelector(props: IProps) {
           num={num}
         />
       ) : null}
-      {batchCreateAddressButton}
     </XStack>
   );
 }
