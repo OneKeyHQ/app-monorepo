@@ -1278,6 +1278,7 @@ export enum ETranslations {
   settings_view_address_in_explorer = 'settings.view_address_in_explorer',
   settings_view_transaction_in_explorer = 'settings.view_transaction_in_explorer',
   settings_whats_new = 'settings.whats_new',
+  skip_verify_text = 'skip_verify_text',
   slippage_tolerance_button_save = 'slippage_tolerance.button_save',
   slippage_tolerance_description = 'slippage_tolerance.description',
   slippage_tolerance_error_message = 'slippage_tolerance.error_message',

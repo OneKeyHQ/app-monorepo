@@ -1277,6 +1277,7 @@
   "settings.view_address_in_explorer": "Просмотреть адрес в проводнике",
   "settings.view_transaction_in_explorer": "Просмотреть транзакцию в эксплорере",
   "settings.whats_new": "Что нового",
+  "skip_verify_text": "У меня нет при себе устройства",
   "slippage_tolerance.button_save": "Сохранить",
   "slippage_tolerance.description": "Автоматический контроль скольжения оптимизирует скольжение на основе ликвидности пула и объема торгов, снижая риск сбоев в транзакциях и риски атак MEV.",
   "slippage_tolerance.error_message": "Допустимый уровень проскальзывания должен быть от 0 до 50%.",

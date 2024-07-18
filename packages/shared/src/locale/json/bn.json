@@ -1277,6 +1277,7 @@
   "settings.view_address_in_explorer": "এক্সপ্লোরারে ঠিকানা দেখুন",
   "settings.view_transaction_in_explorer": "এক্সপ্লোরারে লেনদেন দেখুন",
   "settings.whats_new": "কি নতুন",
+  "skip_verify_text": "আমার ডিভাইসটি আমার সাথে নেই",
   "slippage_tolerance.button_save": "সংরক্ষণ করুন",
   "slippage_tolerance.description": "অটো স্লিপেজ পুল লিকুইডিটি এবং ট্রেডিং ভলিউমের উপর ভিত্তি করে স্লিপেজ অনুকূলন করে, লেনদেনের ব্যর্থতা এবং MEV হামলা ঝুঁকিগুলি হ্রাস করে।",
   "slippage_tolerance.error_message": "স্লিপেজ টলারেন্স অবশ্যই 0 থেকে 50% এর মধ্যে হতে হবে।",

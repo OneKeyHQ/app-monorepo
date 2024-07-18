@@ -1277,6 +1277,7 @@
   "settings.view_address_in_explorer": "Переглянути адресу в провіднику",
   "settings.view_transaction_in_explorer": "Переглянути транзакцію в експлорері",
   "settings.whats_new": "Що нового",
+  "skip_verify_text": "У мене немає приладу зі мною",
   "slippage_tolerance.button_save": "Зберегти",
   "slippage_tolerance.description": "Автоматичне зміщення оптимізує зміщення на основі ліквідності пулу та обсягу торгів, зменшуючи ризики невдалих транзакцій та атак MEV.",
   "slippage_tolerance.error_message": "Толерантність до просідання має бути від 0 до 50%.",

@@ -1277,6 +1277,7 @@
   "settings.view_address_in_explorer": "Adresse im Explorer anzeigen",
   "settings.view_transaction_in_explorer": "Transaktion im Explorer anzeigen",
   "settings.whats_new": "Was gibt's Neues",
+  "skip_verify_text": "Ich habe mein Gerät nicht bei mir",
   "slippage_tolerance.button_save": "Speichern",
   "slippage_tolerance.description": "Die Auto-Slippage optimiert den Slippage basierend auf der Pool-Liquidität und dem Handelsvolumen, wodurch Transaktionsfehler und MEV-Angriffsrisiken reduziert werden.",
   "slippage_tolerance.error_message": "Die Toleranz für Slippage muss zwischen 0 und 50% liegen.",

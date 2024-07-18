@@ -1277,6 +1277,7 @@
   "settings.view_address_in_explorer": "ดูที่อยู่ใน Explorer",
   "settings.view_transaction_in_explorer": "ดูรายการธุรกรรมใน explorer",
   "settings.whats_new": "มีอะไรใหม่",
+  "skip_verify_text": "ฉันไม่มีอุปกรณ์ของฉันอยู่กับฉัน",
   "slippage_tolerance.button_save": "บันทึก",
   "slippage_tolerance.description": "การปรับสภาพการลื่นไถลอัตโนมัติจะทำการปรับสภาพการลื่นไถลตามความเหลวของสระและปริมาณการซื้อขาย ทำให้ลดความล้มเหลวในการทำธุรกรรมและความเสี่ยงจากการโจมตี MEV",
   "slippage_tolerance.error_message": "ความคลาดเคลื่อนที่ยอมรับต้องอยู่ระหว่าง 0 ถึง 50%.",
