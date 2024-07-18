@@ -88,7 +88,6 @@ function TxHistoryListContainer(props: ITabPageProps) {
   const { run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
-      // if (account.impl === IMPL_ALLNETWORKS) return;
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
         networkId: network.id,
@@ -107,71 +106,6 @@ function TxHistoryListContainer(props: ITabPageProps) {
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
     },
   );
-
-  // const handleAllNetworkRequests = useCallback(
-  //   async ({
-  //     accountId,
-  //     networkId,
-  //   }: {
-  //     accountId: string;
-  //     networkId: string;
-  //   }) => {
-  //     const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-  //       accountId,
-  //       networkId,
-  //     });
-
-  //     if (!refreshAllNetworksHistory.current) {
-  //       setHistoryData((prev) => {
-  //         const prevPendingTxs = prev.filter(
-  //           (item) => item.decodedTx.status === EDecodedTxStatus.Pending,
-  //         );
-  //         const newPendingTxs = r.filter(
-  //           (item) => item.decodedTx.status === EDecodedTxStatus.Pending,
-  //         );
-
-  //         const prevConfirmedTxs = prev.filter(
-  //           (item) => item.decodedTx.status !== EDecodedTxStatus.Pending,
-  //         );
-
-  //         const newConfirmedTxs = r.filter(
-  //           (item) => item.decodedTx.status !== EDecodedTxStatus.Pending,
-  //         );
-
-  //         // merge pending txs and sort by time
-
-  //         const mergedPendingTxs = sortHistoryTxsByTime({
-  //           txs: [...prevPendingTxs, ...newPendingTxs],
-  //         });
-
-  //         // merge confirmed txs and sort by time
-  //         const mergedConfirmedTxs = sortHistoryTxsByTime({
-  //           txs: [...prevConfirmedTxs, ...newConfirmedTxs],
-  //         });
-
-  //         return [...mergedPendingTxs, ...mergedConfirmedTxs];
-  //       });
-  //       setHistoryState({
-  //         initialized: true,
-  //         isRefreshing: false,
-  //       });
-  //     }
-
-  //     return r;
-  //   },
-  //   [],
-  // );
-  // const handleClearAllNetworkData = useCallback(() => {
-  //   setHistoryData([]);
-  // }, []);
-
-  // const { result: allNetworksResult } = useAllNetworkRequests({
-  //   account,
-  //   network,
-  //   wallet,
-  //   allNetworkRequests: handleAllNetworkRequests,
-  //   clearAllNetworkData: handleClearAllNetworkData,
-  // });
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {

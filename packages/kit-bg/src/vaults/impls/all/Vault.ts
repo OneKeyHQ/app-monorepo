@@ -130,6 +130,7 @@ export default class Vault extends VaultBase {
     ).filter((a) => a.impl !== IMPL_ALLNETWORKS);
 
     const allNetworkAccounts: Array<{
+      accountId: string;
       networkId: string;
       accountAddress: string;
     }> = [];
