@@ -52,6 +52,16 @@ import v4MigrationUtils from './v4MigrationUtils';
 import { EV4DBAccountType } from './v4types';
 
 import type {
+  IDBAccount,
+  IDBCreateHwWalletParams,
+  IDBDevice,
+  IDBDeviceSettings,
+  IDBUtxoAccount,
+  IDBWallet,
+} from '../../dbs/local/types';
+import type { VaultBase } from '../../vaults/base/VaultBase';
+import type VaultNexa from '../../vaults/impls/nexa/Vault';
+import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
   IV4MigrationWallet,
@@ -67,16 +77,6 @@ import type {
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
 } from './v4local/v4localDBTypes';
-import type {
-  IDBAccount,
-  IDBCreateHwWalletParams,
-  IDBDevice,
-  IDBDeviceSettings,
-  IDBUtxoAccount,
-  IDBWallet,
-} from '../../dbs/local/types';
-import type { VaultBase } from '../../vaults/base/VaultBase';
-import type VaultNexa from '../../vaults/impls/nexa/Vault';
 
 function isLightningV4Account({ v4account }: { v4account: IV4DBAccount }) {
   return [COINTYPE_LIGHTNING, COINTYPE_LIGHTNING_TESTNET].includes(
@@ -357,9 +357,10 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               '0/0': v4account.address,
             };
             const addLastQuote = (str: string) => {
-              if (str.endsWith(`m/44'/81297820149147'/0`)) {
+              if (!str.endsWith(`'`)) {
                 return `${str}'`;
               }
+              return str;
             };
             if (v4account.path) {
               v4account.path = addLastQuote(v4account.path) || v4account.path;
@@ -1457,9 +1458,10 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                           path: v4account.path,
                           idSuffix: deriveInfo?.idSuffix,
                         });
+                        const isLightning = isLightningV4Account({ v4account });
                         const addressRelPath =
                           v4account.type === EV4DBAccountType.UTXO ||
-                          isLightningV4Account({ v4account })
+                          isLightning
                             ? accountUtils.buildUtxoAddressRelPath()
                             : undefined;
                         const v5account: IDBAccount = {
@@ -1489,12 +1491,16 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                           v4accountId: v4account.id,
                           v5account,
                         });
-                        // TODO use service add hw account
-                        await v5localDb.addAccountsToWallet({
-                          allAccountsBelongToNetworkId: networkId,
-                          walletId: v5wallet?.id,
-                          accounts: [v5account],
-                        });
+                        // lightening account requires login token which is not migrated
+                        // so skip adding lightening account, let user add it manually
+                        if (!isLightning) {
+                          // TODO use service add hw account
+                          await v5localDb.addAccountsToWallet({
+                            allAccountsBelongToNetworkId: networkId,
+                            walletId: v5wallet?.id,
+                            accounts: [v5account],
+                          });
+                        }
                         v5dbAccount = v5account;
                       }
 
