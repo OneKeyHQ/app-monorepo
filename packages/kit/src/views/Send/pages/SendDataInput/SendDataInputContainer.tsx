@@ -130,16 +130,10 @@ function SendDataInputContainer() {
           } & ITokenFiat)[]
         | undefined;
 
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
       if (isNFT && nft) {
         nftResp = await serviceNFT.fetchNFTDetails({
           accountId,
           networkId,
-          accountAddress,
           nfts: [
             {
               collectionAddress: nft.collectionAddress,
