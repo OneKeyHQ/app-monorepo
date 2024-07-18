@@ -51,7 +51,7 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
       return (
         <>
           <BatchCreateAccountButton wallet={wallet} />
-          <HdWalletBackupButton wallet={wallet} />;
+          <HdWalletBackupButton wallet={wallet} />
         </>
       );
     }

@@ -11,6 +11,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EDBAccountType } from '../../../dbs/local/consts';
 
 import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
@@ -30,6 +31,11 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
 
   defaultFeePresetIndex: 0,
 

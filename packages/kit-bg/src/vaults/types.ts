@@ -48,11 +48,7 @@ import type {
 } from './impls/evm/settings';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
-import type {
-  IDBAccount,
-  IDBWalletId,
-  IDBWalletType,
-} from '../dbs/local/types';
+import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -132,6 +128,8 @@ export type IVaultSettings = {
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
   publicKeyExportEnabled?: boolean;
+
+  supportExportedSecretKeys?: ECoreApiExportedSecretKeyType[];
 
   dappInteractionEnabled?: boolean;
 

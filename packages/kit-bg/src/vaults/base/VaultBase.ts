@@ -68,7 +68,7 @@ import {
 
 import { VaultContext } from './VaultContext';
 
-import type { KeyringBase } from './KeyringBase';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   IDBAccount,
   IDBExternalAccount,
@@ -89,7 +89,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../types';
-import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { KeyringBase } from './KeyringBase';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
@@ -773,7 +773,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       })
     ) {
       throw new Error(
-        `account impl not matched to network: ${this.networkId} ${account.id}`,
+        `account impl not matched to network: ${
+          this.networkId
+        } ${account.id?.slice(0, 30)}`,
       );
     }
 

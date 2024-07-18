@@ -13,6 +13,7 @@ import type {
   IAccountDeriveInfoMapBase,
   IVaultSettings,
 } from '../../types';
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 
 export type IAccountDeriveInfoMapEvm = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;
@@ -67,6 +68,11 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
 
   dappInteractionEnabled: true,
 

@@ -10,6 +10,7 @@ import { EDBAccountType } from '../../../dbs/local/consts';
 import { APTOS_NATIVE_COIN } from './utils';
 
 import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
@@ -29,6 +30,11 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
 
   dappInteractionEnabled: true,
 

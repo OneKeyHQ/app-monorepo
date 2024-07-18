@@ -1,7 +1,9 @@
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -12,18 +14,22 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-
 export function AccountExportPrivateKeyButton({
   accountName,
   indexedAccount,
   account,
   onClose,
+  icon,
+  label,
+  exportType,
 }: {
   accountName?: string;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
   onClose?: () => void;
+  icon: IKeyOfIcons;
+  label: string;
+  exportType: 'privateKey' | 'publicKey';
 }) {
   const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
@@ -31,8 +37,8 @@ export function AccountExportPrivateKeyButton({
 
   return (
     <ActionList.Item
-      icon="PencilOutline"
-      label={intl.formatMessage({ id: ETranslations.global_private_key })}
+      icon={icon}
+      label={label}
       onClose={onClose}
       onPress={async () => {
         navigation.pushModal(EModalRoutes.AccountManagerStacks, {
@@ -41,6 +47,8 @@ export function AccountExportPrivateKeyButton({
             indexedAccount,
             account,
             accountName,
+            title: label,
+            exportType,
           },
         });
       }}
