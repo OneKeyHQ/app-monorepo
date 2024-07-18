@@ -20,7 +20,10 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { getEmptyTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  getEmptyTokenData,
+  sortTokensByFiatValue,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IAccountToken,
   IFetchAccountTokensResp,
@@ -196,6 +199,7 @@ function TokenListContainer({
           keys: r.tokens.keys,
           tokens: r.tokens.data,
           merge: true,
+          map: r.tokens.map,
         });
         refreshTokenListMap({
           tokens: r.tokens.map,
@@ -206,6 +210,7 @@ function TokenListContainer({
           keys: r.smallBalanceTokens.keys,
           smallBalanceTokens: r.smallBalanceTokens.data,
           merge: true,
+          map: r.smallBalanceTokens.map,
         });
         refreshSmallBalanceTokenListMap({
           tokens: r.smallBalanceTokens.map,
@@ -216,6 +221,7 @@ function TokenListContainer({
           keys: r.riskTokens.keys,
           riskyTokens: r.riskTokens.data,
           merge: true,
+          map: r.riskTokens.map,
         });
 
         refreshRiskyTokenListMap({
@@ -288,7 +294,7 @@ function TokenListContainer({
     refreshTokenListMap,
   ]);
 
-  const { result: allNetworksResult } =
+  const { run: runAllNetworkRequest, result: allNetworksResult } =
     useAllNetworkRequests<IFetchAccountTokensResp>({
       account,
       network,
@@ -353,6 +359,21 @@ function TokenListContainer({
         riskyTokenList.keys = `${riskyTokenList.keys}_${r.riskTokens.keys}`;
         Object.assign(riskyTokenListMap, r.riskTokens.map);
       }
+
+      tokenList.tokens = sortTokensByFiatValue({
+        tokens: tokenList.tokens,
+        map: tokenListMap,
+      });
+
+      smallBalanceTokenList.smallBalanceTokens = sortTokensByFiatValue({
+        tokens: smallBalanceTokenList.smallBalanceTokens,
+        map: smallBalanceTokenListMap,
+      });
+
+      riskyTokenList.riskyTokens = sortTokensByFiatValue({
+        tokens: riskyTokenList.riskyTokens,
+        map: riskyTokenListMap,
+      });
 
       refreshTokenList(tokenList);
       refreshTokenListMap({

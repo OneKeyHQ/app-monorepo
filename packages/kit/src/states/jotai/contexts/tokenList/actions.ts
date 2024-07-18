@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { isEqual, uniqBy } from 'lodash';
 
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { sortTokensByFiatValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
@@ -80,13 +81,27 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         tokens: IAccountToken[];
         keys: string;
         merge?: boolean;
+        map?: {
+          [key: string]: ITokenFiat;
+        };
       },
     ) => {
       const { keys, tokens } = payload;
 
       if (payload.merge) {
         if (tokens.length) {
-          const newTokens = get(tokenListAtom()).tokens.concat(tokens);
+          let newTokens = get(tokenListAtom()).tokens.concat(tokens);
+
+          const tokenListMap = get(tokenListMapAtom());
+
+          newTokens = sortTokensByFiatValue({
+            tokens: newTokens,
+            map: {
+              ...tokenListMap,
+              ...(payload.map || {}),
+            },
+          });
+
           set(tokenListAtom(), {
             tokens: uniqBy(newTokens, (item) => item.$key),
             keys: `${get(tokenListAtom()).keys}_${keys}`,
@@ -129,15 +144,29 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         riskyTokens: IAccountToken[];
         keys: string;
         merge?: boolean;
+        map?: {
+          [key: string]: ITokenFiat;
+        };
       },
     ) => {
       const { keys, riskyTokens } = payload;
 
       if (payload.merge) {
         if (riskyTokens.length) {
-          const newTokens = get(riskyTokenListAtom()).riskyTokens.concat(
+          let newTokens = get(riskyTokenListAtom()).riskyTokens.concat(
             riskyTokens,
           );
+
+          const tokenListMap = get(riskyTokenListMapAtom());
+
+          newTokens = sortTokensByFiatValue({
+            tokens: newTokens,
+            map: {
+              ...tokenListMap,
+              ...(payload.map || {}),
+            },
+          });
+
           set(riskyTokenListAtom(), {
             riskyTokens: uniqBy(newTokens, (item) => item.$key),
             keys: `${get(riskyTokenListAtom()).keys}_${keys}`,
@@ -180,15 +209,29 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         smallBalanceTokens: IAccountToken[];
         keys: string;
         merge?: boolean;
+        map?: {
+          [key: string]: ITokenFiat;
+        };
       },
     ) => {
       const { keys, smallBalanceTokens } = payload;
 
       if (payload.merge) {
         if (smallBalanceTokens.length) {
-          const newTokens = get(
+          let newTokens = get(
             smallBalanceTokenListAtom(),
           ).smallBalanceTokens.concat(smallBalanceTokens);
+
+          const tokenListMap = get(smallBalanceTokenListMapAtom());
+
+          newTokens = sortTokensByFiatValue({
+            tokens: newTokens,
+            map: {
+              ...tokenListMap,
+              ...(payload.map || {}),
+            },
+          });
+
           set(smallBalanceTokenListAtom(), {
             smallBalanceTokens: uniqBy(newTokens, (item) => item.$key),
             keys: `${get(smallBalanceTokenListAtom()).keys}_${keys}`,

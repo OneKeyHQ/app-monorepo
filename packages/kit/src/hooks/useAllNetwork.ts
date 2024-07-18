@@ -48,12 +48,16 @@ function useAllNetworkRequests<T>(params: {
   } = params;
   const allNetworkId = useRef('');
   const allNetworkDataInit = useRef(false);
+  const isRequesting = useRef(false);
   const [isEmptyAccount, setIsEmptyAccount] = useState(false);
 
   const { run, result } = usePromiseResult(async () => {
     if (disabled) return;
+    if (isRequesting.current) return;
     if (!account || !network || !wallet) return;
     if (account.impl !== IMPL_ALLNETWORKS) return;
+
+    isRequesting.current = true;
 
     if (!allNetworkDataInit.current) {
       clearAllNetworkData();
@@ -73,6 +77,7 @@ function useAllNetworkRequests<T>(params: {
 
     if (!allAccounts || isEmpty(allAccounts)) {
       setIsEmptyAccount(true);
+      isRequesting.current = false;
       return;
     }
 
@@ -81,13 +86,6 @@ function useAllNetworkRequests<T>(params: {
       networkId: network.id,
       walletId: wallet.id,
     });
-
-    // const requests: Array<() => Promise<T | undefined>> = [];
-    const paramsGroup: {
-      accountId: string;
-      networkId: string;
-      backendIndex?: boolean;
-    }[] = [];
 
     const concurrentNetworks = new Set<string>();
     const sequentialNetworks = new Set<string>();
@@ -105,31 +103,36 @@ function useAllNetworkRequests<T>(params: {
 
         if (!isNFTRequests || enableNFTNetworkIds.includes(n.id)) {
           const networkData = { accountId: a.id, networkId: n.id };
-          if (allNetworkDataInit.current) {
-            if (n.backendIndex) {
-              concurrentNetworks.add(JSON.stringify(networkData));
-            } else {
-              sequentialNetworks.add(JSON.stringify(networkData));
-            }
+          if (n.backendIndex) {
+            concurrentNetworks.add(JSON.stringify(networkData));
           } else {
-            paramsGroup.push({ ...networkData, backendIndex: n.backendIndex });
+            sequentialNetworks.add(JSON.stringify(networkData));
           }
         }
       }
     }
 
-    if (
-      concurrentNetworks.size === 0 &&
-      sequentialNetworks.size === 0 &&
-      isEmpty(paramsGroup)
-    ) {
+    if (concurrentNetworks.size === 0 && sequentialNetworks.size === 0) {
       setIsEmptyAccount(true);
+      isRequesting.current = false;
       return;
     }
 
     setIsEmptyAccount(false);
 
     if (allNetworkDataInit.current) {
+      // merge sequentialNetworks and concurrentNetworks
+      const allNetworks = [
+        ...Array.from(sequentialNetworks),
+        ...Array.from(concurrentNetworks),
+      ];
+
+      const requests = allNetworks.map((networkDataString) => {
+        const { accountId, networkId } = JSON.parse(networkDataString);
+        return allNetworkRequests({ accountId, networkId });
+      });
+      resp = await Promise.all(requests);
+    } else {
       // 处理并发请求的网络
       const concurrentRequests = Array.from(concurrentNetworks).map(
         (networkDataString) => {
@@ -138,47 +141,19 @@ function useAllNetworkRequests<T>(params: {
           return allNetworkRequests({ accountId, networkId });
         },
       );
-      const concurrentResp = await Promise.all(concurrentRequests);
+      await Promise.all(concurrentRequests);
 
       // 处理顺序请求的网络
-      const sequentialResp = [];
       for (const networkDataString of sequentialNetworks) {
         if (currentAllNetworkId !== allNetworkId.current) return;
         const { accountId, networkId } = JSON.parse(networkDataString);
-        const r = await allNetworkRequests({ accountId, networkId });
-        sequentialResp.push(r);
+        await allNetworkRequests({ accountId, networkId });
         await waitAsync(interval);
-      }
-      resp = [...concurrentResp, ...sequentialResp].filter(Boolean);
-    } else {
-      // 直接根据 backendIndex 分组
-      const concurrentParams = paramsGroup.filter((p) => p.backendIndex);
-      const sequentialParams = paramsGroup.filter((p) => !p.backendIndex);
-
-      // 处理并发请求
-      await Promise.all(
-        concurrentParams.map((p) =>
-          allNetworkRequests({
-            accountId: p.accountId,
-            networkId: p.networkId,
-          }),
-        ),
-      );
-
-      // 处理顺序请求
-      for (const p of sequentialParams) {
-        if (currentAllNetworkId !== allNetworkId.current) return;
-        await Promise.race([
-          await allNetworkRequests({
-            accountId: p.accountId,
-            networkId: p.networkId,
-          }),
-          await waitAsync(interval),
-        ]);
       }
     }
 
     allNetworkDataInit.current = true;
+    isRequesting.current = false;
 
     return resp;
   }, [
