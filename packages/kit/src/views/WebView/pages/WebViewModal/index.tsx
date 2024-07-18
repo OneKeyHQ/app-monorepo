@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 import { useRoute } from '@react-navigation/core';
@@ -83,6 +83,9 @@ export default function WebViewModal() {
   );
 
   const [navigationTitle, setNavigationTitle] = useState(title);
+  useEffect(() => {
+    setNavigationTitle('');
+  }, []);
   const onNavigationStateChange = useCallback(
     ({ title: webTitle }: { title: string }) => {
       if (!title) {
