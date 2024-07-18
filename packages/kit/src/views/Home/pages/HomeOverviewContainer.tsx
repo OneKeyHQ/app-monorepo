@@ -117,6 +117,7 @@ function HomeOverviewContainer() {
       wallet,
       allNetworkRequests: handleAllNetworkRequests,
       clearAllNetworkData: handleClearAllNetworkData,
+      interval: 200,
     });
 
   const { result: vaultSettings } = usePromiseResult(async () => {
