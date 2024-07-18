@@ -1,7 +1,8 @@
+import BigNumber from 'bignumber.js';
+
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
 import type { IAccountToken, ITokenData, ITokenFiat } from '../../types/token';
-import BigNumber from 'bignumber.js';
 
 export function getMergedTokenData({
   tokens,

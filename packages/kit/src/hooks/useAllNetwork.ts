@@ -81,7 +81,7 @@ function useAllNetworkRequests<T>(params: {
 
     const concurrentNetworks = new Set<string>();
     const sequentialNetworks = new Set<string>();
-    let resp: Array<T | undefined> = [];
+    let resp: Array<T> = [];
 
     for (const a of allAccounts) {
       const networks = (
