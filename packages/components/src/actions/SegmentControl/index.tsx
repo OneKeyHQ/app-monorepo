@@ -14,6 +14,7 @@ export interface ISegmentControlProps extends IXStackProps {
   options: {
     label: string | ReactElement;
     value: string | number;
+    testID?: string;
   }[];
   onChange: (value: string | number) => void;
 }
@@ -106,8 +107,9 @@ function SegmentControlFrame({
       p="$0.5"
       {...rest}
     >
-      {options.map(({ label, value: v }, index) => (
+      {options.map(({ label, value: v, testID }, index) => (
         <SegmentControlItem
+          testID={testID}
           key={index}
           label={label}
           value={v}

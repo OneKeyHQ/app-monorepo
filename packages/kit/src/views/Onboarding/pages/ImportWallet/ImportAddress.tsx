@@ -80,6 +80,7 @@ const FormDeriveTypeInput = ({
           enabledItems={deriveInfoItems}
           renderTrigger={({ label }) => (
             <Stack
+              testID={'derive-type-input'}
               userSelect="none"
               flexDirection="row"
               px="$3.5"
@@ -271,12 +272,14 @@ function ImportAddress() {
                     id: ETranslations.global_address,
                   }),
                   value: EImportMethod.Address,
+                  testID: 'import-address-address',
                 },
                 {
                   label: intl.formatMessage({
                     id: ETranslations.global_public_key,
                   }),
                   value: EImportMethod.PublicKey,
+                  testID: 'import-address-publicKey',
                 },
               ]}
             />
@@ -294,7 +297,7 @@ function ImportAddress() {
                   placeholder={intl.formatMessage({
                     id: ETranslations.form_public_key_placeholder,
                   })}
-                  testID='import-address-input'
+                  testID="import-address-input"
                   size={media.gtMd ? 'medium' : 'large'}
                   addOns={[
                     {
@@ -348,7 +351,7 @@ function ImportAddress() {
                     id: ETranslations.form_address_placeholder,
                   })}
                   networkId={networkIdText ?? ''}
-                  testID='import-address-input'
+                  testID="import-address-input"
                 />
               </Form.Field>
             </>
