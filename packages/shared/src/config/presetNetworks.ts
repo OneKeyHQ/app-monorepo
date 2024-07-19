@@ -15,6 +15,7 @@ export const dangerAllNetworkRepresent: IServerNetwork = {
   'id': 'all--0',
   'impl': 'all',
   'isTestnet': false,
+  'isAllNetworks': true,
   'logoURI': 'https://uni.onekey-asset.com/static/chain/all.png',
   'name': 'All Networks',
   'shortcode': 'all',

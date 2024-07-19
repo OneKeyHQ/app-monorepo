@@ -19,3 +19,14 @@ export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
   }>({
     worth: '0',
   });
+
+export const {
+  atom: accountOverviewStateAtom,
+  use: useAccountOverviewStateAtom,
+} = contextAtom<{
+  isRefreshing: boolean;
+  initialized: boolean;
+}>({
+  isRefreshing: true,
+  initialized: false,
+});

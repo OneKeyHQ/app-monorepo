@@ -4,9 +4,9 @@ import {
   ShowToastProvider,
   Toaster,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function FullWindowOverlayContainer() {
   return (
