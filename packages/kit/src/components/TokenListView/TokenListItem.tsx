@@ -17,10 +17,12 @@ export type ITokenListItemProps = {
   onPress?: (token: IAccountToken) => void;
   tableLayout?: boolean;
   withPrice?: boolean;
+  isAllNetworks?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
-  const { token, onPress, tableLayout, withPrice, ...rest } = props;
+  const { token, onPress, tableLayout, withPrice, isAllNetworks, ...rest } =
+    props;
 
   return (
     <ListItem
@@ -39,6 +41,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         tableLayout={tableLayout}
         networkId={token.networkId}
         icon={token.logoURI}
+        isAllNetworks={isAllNetworks}
       />
       <Stack
         flexGrow={1}
@@ -59,6 +62,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             numberOfLines={1}
             name={token.name}
             isNative={token.isNative}
+            isAllNetworks={isAllNetworks}
             {...(tableLayout && {
               size: '$bodyMdMedium',
             })}
