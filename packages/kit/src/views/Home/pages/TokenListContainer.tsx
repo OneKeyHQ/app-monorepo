@@ -522,6 +522,7 @@ function TokenListContainer({
         onReceiveToken={handleOnReceive}
         onPressToken={handleOnPressToken}
         onContentSizeChange={onContentSizeChange}
+        isAllNetworks={network?.isAllNetworks}
         {...(media.gtLg && {
           tableLayout: true,
         })}
