@@ -24,5 +24,6 @@ export type IModalAssetListParamList = {
     onPressToken?: (token: IAccountToken) => void;
     deriveInfo?: IAccountDeriveInfo;
     deriveType?: IAccountDeriveTypes;
+    isAllNetworks?: boolean;
   };
 };
