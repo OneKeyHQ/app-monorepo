@@ -25,7 +25,7 @@ function useBuyToken({
 
   return {
     handleOnBuy,
-    isSupported: networkId && accountId && isSupported,
+    isSupported: Boolean(networkId && accountId && isSupported),
   };
 }
 
