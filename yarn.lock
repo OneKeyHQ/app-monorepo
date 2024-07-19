@@ -6110,9 +6110,9 @@ __metadata:
     "@react-native-async-storage/async-storage": "npm:1.22.0"
     "@react-native-community/netinfo": "npm:^9.4.1"
     "@react-native-community/slider": "npm:4.4.3"
-    "@react-native-firebase/analytics": "npm:^20.1.0"
-    "@react-native-firebase/app": "npm:^20.1.0"
-    "@react-native-firebase/crashlytics": "npm:^20.1.0"
+    "@react-native-firebase/analytics": "npm:20.1.0"
+    "@react-native-firebase/app": "npm:20.1.0"
+    "@react-native-firebase/crashlytics": "npm:20.1.0"
     "@react-native-google-signin/google-signin": "npm:^9.1.0"
     "@shopify/flash-list": "npm:^1.6.3"
     "@types/react-native-canvas": "npm:^0.1.13"
@@ -7971,16 +7971,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native-firebase/analytics@npm:^20.1.0":
-  version: 20.3.0
-  resolution: "@react-native-firebase/analytics@npm:20.3.0"
+"@react-native-firebase/analytics@npm:20.1.0":
+  version: 20.1.0
+  resolution: "@react-native-firebase/analytics@npm:20.1.0"
   peerDependencies:
-    "@react-native-firebase/app": 20.3.0
-  checksum: 10/1ca954663b7979e30ae6f77d56cba91a9467adcfe28396750829a206e537f824e5f10923042f7dba867eb4171d1a148a0a822de39aa7775455c90a564cc55636
+    "@react-native-firebase/app": 20.1.0
+  checksum: 10/fae8b85c244167018bde169554000ada17ab6205996f7712d46592cbed2807a9102a77caaaa4f49e8db0cb19bd63da438190c9c1b97414e42805b7a69e7cc5d2
   languageName: node
   linkType: hard
 
-"@react-native-firebase/app@npm:^20.1.0":
+"@react-native-firebase/app@npm:20.1.0":
   version: 20.1.0
   resolution: "@react-native-firebase/app@npm:20.1.0"
   dependencies:
@@ -7997,7 +7997,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native-firebase/crashlytics@npm:^20.1.0":
+"@react-native-firebase/crashlytics@npm:20.1.0":
   version: 20.1.0
   resolution: "@react-native-firebase/crashlytics@npm:20.1.0"
   dependencies:
