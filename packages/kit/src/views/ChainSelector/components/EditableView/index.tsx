@@ -202,7 +202,7 @@ export const EditableView: FC<IEditableViewProps> = ({
     for (const section of sections) {
       const index = section.data.findIndex((item) => item.id === networkId);
       if (index !== -1) {
-        setTimeout(
+        const timer = setTimeout(
           // Scrolling animations need to be enabled on Android devices to prevent the list from flickering.
           // eslint-disable-next-line no-loop-func, @typescript-eslint/no-loop-func
           () => {
@@ -214,9 +214,9 @@ export const EditableView: FC<IEditableViewProps> = ({
             });
             hasScrollToSelectedCell.current = true;
           },
-          platformEnv.isNativeAndroid ? 100 : 0,
+          !platformEnv.isNativeIOS ? 100 : 0,
         );
-        break;
+        return () => clearTimeout(timer);
       }
       y += 36 + 20;
       y += section.data.length * CELL_HEIGHT;
