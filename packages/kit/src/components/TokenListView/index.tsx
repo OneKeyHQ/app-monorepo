@@ -31,6 +31,7 @@ type IProps = {
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
   isBuyTokenSupported?: boolean;
+  isAllNetworks?: boolean;
 };
 
 function TokenListView(props: IProps) {
@@ -47,6 +48,7 @@ function TokenListView(props: IProps) {
     onBuyToken,
     isBuyTokenSupported,
     withPresetVerticalPadding = true,
+    isAllNetworks,
   } = props;
 
   const [tokenList] = useTokenListAtom();
@@ -104,6 +106,7 @@ function TokenListView(props: IProps) {
           onPress={onPressToken}
           tableLayout={tableLayout}
           withPrice={withPrice}
+          isAllNetworks={isAllNetworks}
         />
       )}
       ListFooterComponent={
