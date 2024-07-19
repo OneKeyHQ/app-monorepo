@@ -481,6 +481,7 @@ function TokenListContainer({
           deriveInfo,
           deriveType,
           tokenInfo: token,
+          isAllNetworks: network.isAllNetworks,
         },
       });
     },
