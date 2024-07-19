@@ -28,6 +28,7 @@ module.exports = [
   'jane',
   'wildcard',
   'isXprvt',
+  'mmkv',
   'xxxxxx',
   'npx',
   'tsc',
@@ -739,4 +740,6 @@ module.exports = [
   'watchlist',
   'usdt',
   'babylon',
+  'changelly',
+  'Changelly',
 ];

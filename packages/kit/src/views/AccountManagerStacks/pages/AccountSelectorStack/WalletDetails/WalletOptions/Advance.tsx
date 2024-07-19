@@ -65,14 +65,13 @@ function EnablePassphraseSwitch(
       value={enablePassphrase}
       onChange={async (v) => {
         try {
-          setEnablePassphrase(v);
           await backgroundApiProxy.serviceHardware.setPassphraseEnabled({
             walletId: props?.wallet?.id || '',
             passphraseEnabled: v,
           });
+          setEnablePassphrase(v);
         } catch (error) {
           console.error(error);
-          setEnablePassphrase(!v);
         }
       }}
     />

@@ -1,26 +1,28 @@
+import { memo } from 'react';
+
 import { Stack, XStack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { Token } from '../Token';
-
 import { TokenBalanceView } from './TokenBalanceView';
+import { TokenIconView } from './TokenIconView';
 import { TokenNameView } from './TokenNameView';
 import { TokenPriceChangeView } from './TokenPriceChangeView';
 import { TokenPriceView } from './TokenPriceView';
 import { TokenValueView } from './TokenValueView';
 
 export type ITokenListItemProps = {
-  index: number;
   token: IAccountToken;
   onPress?: (token: IAccountToken) => void;
   tableLayout?: boolean;
   withPrice?: boolean;
+  isAllNetworks?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
-function TokenListItem(props: ITokenListItemProps) {
-  const { index, token, onPress, tableLayout, withPrice, ...rest } = props;
+function BasicTokenListItem(props: ITokenListItemProps) {
+  const { token, onPress, tableLayout, withPrice, isAllNetworks, ...rest } =
+    props;
 
   return (
     <ListItem
@@ -35,7 +37,12 @@ function TokenListItem(props: ITokenListItemProps) {
       //   })}
       {...rest}
     >
-      <Token size={tableLayout ? 'md' : 'lg'} tokenImageUri={token.logoURI} />
+      <TokenIconView
+        tableLayout={tableLayout}
+        networkId={token.networkId}
+        icon={token.logoURI}
+        isAllNetworks={isAllNetworks}
+      />
       <Stack
         flexGrow={1}
         flexBasis={0}
@@ -55,6 +62,7 @@ function TokenListItem(props: ITokenListItemProps) {
             numberOfLines={1}
             name={token.name}
             isNative={token.isNative}
+            isAllNetworks={isAllNetworks}
             {...(tableLayout && {
               size: '$bodyMdMedium',
             })}
@@ -113,4 +121,4 @@ function TokenListItem(props: ITokenListItemProps) {
   );
 }
 
-export { TokenListItem };
+export const TokenListItem = memo(BasicTokenListItem);

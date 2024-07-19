@@ -161,7 +161,23 @@ class ServiceDemo extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async demoError3() {
-    throw new Error('hello world: error toast');
+    throw new Error('hello world: error toast: 3');
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async demoError4() {
+    return this.demoError4a();
+  }
+
+  @toastIfError()
+  async demoError4a() {
+    return this.demoError4b();
+  }
+
+  @toastIfError()
+  async demoError4b() {
+    throw new Error('hello world: error toast: 4b');
   }
 
   @backgroundMethod()
@@ -191,6 +207,8 @@ class ServiceDemo extends ServiceBase {
         name: 'Ethereum',
         symbol: 'ETH',
         isNative: true,
+        accountId,
+        networkId,
       },
     };
 

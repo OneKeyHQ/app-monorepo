@@ -9,10 +9,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 type IProps = {
   name: string;
   isNative?: boolean;
+  isAllNetworks?: boolean;
 } & ISizableTextProps;
 
 function TokenNameView(props: IProps) {
-  const { name, isNative, ...rest } = props;
+  const { name, isNative, isAllNetworks, ...rest } = props;
   const intl = useIntl();
 
   const content = useMemo(
@@ -21,7 +22,7 @@ function TokenNameView(props: IProps) {
         <SizableText numberOfLines={1} {...rest}>
           {name}
         </SizableText>
-        {isNative ? (
+        {isNative && !isAllNetworks ? (
           <Tooltip
             renderContent={intl.formatMessage({
               id: ETranslations.native_token_tooltip,
@@ -38,7 +39,7 @@ function TokenNameView(props: IProps) {
         ) : null}
       </XStack>
     ),
-    [rest, name, isNative, intl],
+    [rest, name, isNative, isAllNetworks, intl],
   );
   return content;
 }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,27 +19,27 @@ const WebAuthSwitchContainer = ({
   skipRegistration,
 }: IWebAuthSwitchContainerProps) => {
   const intl = useIntl();
-  const [{ isSupport, isEnable }] = usePasswordWebAuthInfoAtom();
+  const [{ isSupport }] = usePasswordWebAuthInfoAtom();
   const { setWebAuthEnable } = useWebAuthActions();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const webAuthSwitchOpen = useMemo(() => {
-    if (skipRegistration) {
-      return isSupport && settingsPersistAtom.isBiologyAuthSwitchOn;
-    }
-    return isEnable;
-  }, [
-    isEnable,
-    isSupport,
-    settingsPersistAtom.isBiologyAuthSwitchOn,
-    skipRegistration,
-  ]);
   const onChange = useCallback(
     async (checked: boolean) => {
       try {
         if (!skipRegistration) {
-          await setWebAuthEnable(checked);
+          if (checked) {
+            const res = await setWebAuthEnable(checked);
+            if (res) {
+              await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(
+                checked,
+              );
+            }
+          }
         }
-        await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(checked);
+        if (skipRegistration || !checked) {
+          await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(
+            checked,
+          );
+        }
       } catch (e: any) {
         Toast.error({
           title: intl.formatMessage({ id: ETranslations.Toast_web_auth }),
@@ -51,7 +51,7 @@ const WebAuthSwitchContainer = ({
   return (
     <WebAuthSwitch
       isSupport={isSupport}
-      isWebAuthEnable={webAuthSwitchOpen}
+      isWebAuthEnable={settingsPersistAtom.isBiologyAuthSwitchOn}
       onChange={onChange}
     />
   );

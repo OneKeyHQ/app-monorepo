@@ -211,6 +211,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       borderRadius={borderRadius}
       borderCurve="continuous"
       disabled={disabled || loading}
+      aria-disabled={disabled || loading}
       {...sharedFrameStyles}
       hoverStyle={{
         ...sharedFrameStyles.hoverStyle,

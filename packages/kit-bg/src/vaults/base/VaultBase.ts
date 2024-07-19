@@ -14,6 +14,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -400,14 +401,29 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IBuildHistoryTxParams,
   ): Promise<IAccountHistoryTx | null> {
     const {
-      accountId,
-      networkId,
+      accountId: originAccountId,
+      networkId: originNetworkId,
       onChainHistoryTx,
       tokens,
       nfts,
-      accountAddress,
+      accountAddress: originAccountAddress,
       xpub,
+      allNetworkHistoryExtraItems,
     } = params;
+    let accountId = originAccountId;
+    let networkId = originNetworkId;
+    let accountAddress = originAccountAddress;
+    if (originNetworkId === getNetworkIdsMap().all) {
+      const allNetworkAccount = allNetworkHistoryExtraItems?.find(
+        (i) => i.networkId === onChainHistoryTx.networkId,
+      );
+      if (allNetworkAccount) {
+        accountId = allNetworkAccount.accountId;
+        networkId = allNetworkAccount.networkId;
+        accountAddress = allNetworkAccount.accountAddress;
+      }
+    }
+
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     try {
@@ -568,6 +584,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }) {
     const { icon, symbol, name, isNFT, isNative, price } =
       getOnChainHistoryTxAssetInfo({
+        key: transfer.key,
         tokenAddress: transfer.token,
         tokens,
         nfts,
@@ -601,6 +618,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokenApprove: IOnChainHistoryTxApprove;
   }): IDecodedTxAction {
     const { icon, symbol, name, decimals } = getOnChainHistoryTxAssetInfo({
+      key: tokenApprove.key,
       tokenAddress: tokenApprove.token,
       tokens,
       nfts,
@@ -773,7 +791,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       })
     ) {
       throw new Error(
-        `account impl not matched to network: ${this.networkId} ${account.id}`,
+        `account impl not matched to network: ${
+          this.networkId
+        } ${account.id?.slice(0, 30)}`,
       );
     }
 

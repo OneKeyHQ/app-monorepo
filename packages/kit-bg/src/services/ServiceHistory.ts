@@ -6,16 +6,18 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import {
-  EOnChainHistoryTxStatus,
-  type IAccountHistoryTx,
-  type IFetchAccountHistoryParams,
-  type IFetchAccountHistoryResp,
-  type IFetchHistoryTxDetailsParams,
-  type IFetchHistoryTxDetailsResp,
-  type IFetchTxDetailsParams,
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
+import type {
+  IAccountHistoryTx,
+  IAllNetworkHistoryExtraItem,
+  IFetchAccountHistoryParams,
+  IFetchAccountHistoryResp,
+  IFetchHistoryTxDetailsParams,
+  IFetchHistoryTxDetailsResp,
+  IFetchTxDetailsParams,
 } from '@onekeyhq/shared/types/history';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
@@ -239,6 +241,19 @@ class ServiceHistory extends ServiceBase {
     const { accountId, networkId, xpub, tokenIdOnNetwork, accountAddress } =
       params;
     const extraParams = await this.buildFetchHistoryListParams(params);
+    let extraRequestParams = extraParams;
+    if (networkId === getNetworkIdsMap().all) {
+      extraRequestParams = {
+        allNetworkAccounts: (
+          extraParams as unknown as {
+            allNetworkAccounts: IAllNetworkHistoryExtraItem[];
+          }
+        ).allNetworkAccounts.map((i) => ({
+          networkId: i.networkId,
+          accountAddress: i.accountAddress,
+        })),
+      };
+    }
     const vault = await vaultFactory.getVault({
       accountId,
       networkId,
@@ -253,7 +268,7 @@ class ServiceHistory extends ServiceBase {
           accountAddress,
           xpub,
           tokenAddress: tokenIdOnNetwork,
-          ...extraParams,
+          ...extraRequestParams,
         },
         {
           headers:
@@ -289,6 +304,8 @@ class ServiceHistory extends ServiceBase {
             tokens,
             nfts,
             index,
+            // @ts-expect-error
+            allNetworkHistoryExtraItems: extraParams?.allNetworkAccounts,
           }),
         ),
       )
@@ -300,11 +317,24 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
-      const { accountId, networkId, txid, accountAddress, xpub } = params;
+      const { accountId, networkId, txid } = params;
+
+      const [accountAddress, xpub] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+      ]);
+
       const extraParams = await this.buildFetchHistoryListParams({
         ...params,
         accountAddress: accountAddress || '',
       });
+
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
         '/wallet/v1/account/history/detail',

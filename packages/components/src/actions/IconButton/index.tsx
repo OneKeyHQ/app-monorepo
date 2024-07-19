@@ -66,6 +66,7 @@ export const IconButton = (props: IIconButtonProps) => {
       p={p}
       borderRadius="$full"
       disabled={disabled || loading}
+      aria-disabled={disabled || loading}
       $platform-native={{
         hitSlop:
           size === 'small'

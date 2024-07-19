@@ -17,6 +17,7 @@ import { getFilteredHistoryBySearchKey } from '@onekeyhq/shared/src/utils/histor
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { useTabListScroll } from '../../hooks/useTabListScroll';
 import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
@@ -35,6 +36,7 @@ type IProps = {
   showIcon?: boolean;
   onPressHistory?: (history: IAccountHistoryTx) => void;
   initialized?: boolean;
+  inTabList?: boolean;
 };
 
 const ListFooterComponent = () => <Stack h="$5" />;
@@ -51,6 +53,7 @@ function TxHistoryListView(props: IProps) {
     tableLayout,
     onContentSizeChange,
     initialized,
+    inTabList = false,
   } = props;
 
   const currentDate = useRef('');
@@ -154,6 +157,12 @@ function TxHistoryListView(props: IProps) {
     [data, intl, onPressHistory, showIcon, tableLayout],
   );
 
+  const { listViewProps, listViewRef, onLayout } =
+    useTabListScroll<IAccountHistoryTx>({
+      onContentSizeChange,
+      inTabList,
+    });
+
   if (!initialized && isLoading) {
     return (
       <Stack py="$3">
@@ -168,11 +177,13 @@ function TxHistoryListView(props: IProps) {
 
   return (
     <ListView
+      {...listViewProps}
+      ref={listViewRef}
       py="$3"
       h="100%"
+      onLayout={onLayout}
       scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
       disableScrollViewPanResponder={!!onContentSizeChange}
-      onContentSizeChange={onContentSizeChange}
       data={filteredHistory}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
       estimatedItemSize={60}

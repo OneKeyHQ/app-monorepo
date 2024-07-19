@@ -1,3 +1,4 @@
+import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import type {
   IDecryptStringParams,
   IEncryptStringParams,
@@ -402,7 +403,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async promptPasswordVerify(options?: {
     reason?: EReasonForNeedPassword;
-    dialogProps?: { description?: string };
+    dialogProps?: IDialogShowProps;
   }): Promise<IPasswordRes> {
     const v4migrationData = await v4migrationAtom.get();
     if (v4migrationData?.isProcessing) {
@@ -453,6 +454,9 @@ export default class ServicePassword extends ServiceBase {
     });
     const result = await (res as Promise<IPasswordRes>);
     ensureSensitiveTextEncoded(result.password);
+
+    // wait PromptPasswordDialog close animation
+    await timerUtils.wait(600);
     return result;
   }
 
@@ -502,7 +506,7 @@ export default class ServicePassword extends ServiceBase {
   async showPasswordPromptDialog(params: {
     idNumber: number;
     type: EPasswordPromptType;
-    dialogProps?: { description?: string };
+    dialogProps?: IDialogShowProps;
   }) {
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,

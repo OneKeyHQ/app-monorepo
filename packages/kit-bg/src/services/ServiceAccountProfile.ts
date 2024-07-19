@@ -36,6 +36,16 @@ class ServiceAccountProfile extends ServiceBase {
     super({ backgroundApi });
   }
 
+  _fetchAccountDetailsControllers: AbortController[] = [];
+
+  @backgroundMethod()
+  public async abortFetchAccountDetails() {
+    this._fetchAccountDetailsControllers.forEach((controller) =>
+      controller.abort(),
+    );
+    this._fetchAccountDetailsControllers = [];
+  }
+
   @backgroundMethod()
   public async fetchAccountInfo(
     params: IFetchAccountDetailsParams & {
@@ -44,10 +54,12 @@ class ServiceAccountProfile extends ServiceBase {
     },
   ): Promise<IFetchAccountDetailsResp> {
     const queryParams = {
-      ...omit(params, ['accountId']),
+      ...omit(params, ['accountId', 'signal']),
     };
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const controller = new AbortController();
+    this._fetchAccountDetailsControllers.push(controller);
     const resp = await client.get<{
       data: IFetchAccountDetailsResp;
     }>(
@@ -58,6 +70,7 @@ class ServiceAccountProfile extends ServiceBase {
         headers: await this._getWalletTypeHeader({
           accountId: params.accountId,
         }),
+        signal: controller.signal,
       },
     );
 

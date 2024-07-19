@@ -5,6 +5,7 @@ import {
   InvoiceExpiredError,
   OneKeyError,
 } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -40,6 +41,15 @@ function error12() {
 
 async function error20() {
   await timerUtils.wait(1000);
+  throw new InvoiceExpiredError({
+    autoToast: true,
+  });
+}
+
+type IError21Result = {
+  hello: 'world';
+};
+async function error21(): Promise<IError21Result> {
   throw new InvoiceExpiredError({
     autoToast: true,
   });
@@ -88,7 +98,25 @@ function Demo1() {
           await error20();
         }}
       >
-        异步函数显示 toast
+        异步函数显示 toast （1s 后）
+      </Button>
+      <Button
+        onPress={async () => {
+          const r: IError21Result = await error21();
+          console.log(r);
+        }}
+      >
+        异步函数显示 toast (globalListener)
+      </Button>
+      <Button
+        onPress={async () => {
+          const r: IError21Result = await errorUtils.withErrorAutoToast(() =>
+            error21(),
+          );
+          console.log(r);
+        }}
+      >
+        异步函数显示 toast (withErrorAutoToast)
       </Button>
       <Button
         onPress={async () => {
@@ -110,12 +138,32 @@ function Demo1() {
 
       <Button
         onPress={async () => {
-          const ctx = await backgroundApiProxy.serviceDemo.demoError3();
-          console.log(ctx);
+          try {
+            const ctx = await backgroundApiProxy.serviceDemo.demoError3();
+            console.log(ctx);
+          } catch (error) {
+            console.log('调用 background 显示 toast3', error);
+            throw error;
+          }
         }}
       >
         调用 background 显示 toast3
       </Button>
+
+      <Button
+        onPress={async () => {
+          try {
+            const ctx = await backgroundApiProxy.serviceDemo.demoError4();
+            console.log(ctx);
+          } catch (error) {
+            console.log('调用 background 显示 toast3', error);
+            throw error;
+          }
+        }}
+      >
+        调用 background 显示 toast4
+      </Button>
+
       <Button
         onPress={async () => {
           appEventBus.emit(EAppEventBusNames.ShowToast, {

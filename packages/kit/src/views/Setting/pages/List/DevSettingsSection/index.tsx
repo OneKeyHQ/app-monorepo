@@ -6,13 +6,12 @@ import {
   Dialog,
   ESwitchSize,
   Input,
-  SizableText,
-  Stack,
   Switch,
   Toast,
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -50,42 +49,49 @@ if (process.env.NODE_ENV !== 'production') {
 
 function showDevOnlyPasswordDialog({
   title,
-  desc,
+  description,
   onConfirm,
+  confirmButtonProps,
 }: {
   title: string;
-  desc: string;
+  description?: string;
   onConfirm: (params: IBackgroundMethodWithDevOnlyPassword) => Promise<void>;
+  confirmButtonProps?: IDialogButtonProps;
 }) {
-  let devOnlyPwd = correctDevOnlyPwd;
   Dialog.show({
     title,
+    description,
     confirmButtonProps: {
       variant: 'destructive',
+      ...confirmButtonProps,
     },
     renderContent: (
-      <Stack>
-        <SizableText>{desc}</SizableText>
-        <Stack mt="$4">
-          <Input
-            placeholder="devOnlyPassword"
-            defaultValue={correctDevOnlyPwd}
-            onChangeText={(v) => {
-              devOnlyPwd = v;
-            }}
-          />
-        </Stack>
-      </Stack>
+      <Dialog.Form formProps={{ values: { password: correctDevOnlyPwd } }}>
+        <Dialog.FormField
+          name="password"
+          rules={{
+            required: { value: true, message: 'password is required.' },
+          }}
+        >
+          <Input testID="dev-only-password" placeholder="devOnlyPassword" />
+        </Dialog.FormField>
+      </Dialog.Form>
     ),
-    onConfirm: async () => {
-      if (!isCorrectDevOnlyPassword(devOnlyPwd)) {
-        return;
+    onConfirm: async ({ getForm }) => {
+      const form = getForm();
+      if (form) {
+        await form.trigger();
+        const { password } = (form.getValues() || {}) as {
+          password: string;
+        };
+        if (!isCorrectDevOnlyPassword(password)) {
+          return;
+        }
+        const params: IBackgroundMethodWithDevOnlyPassword = {
+          $$devOnlyPassword: password,
+        };
+        await onConfirm(params);
       }
-      correctDevOnlyPwd = devOnlyPwd;
-      const params: IBackgroundMethodWithDevOnlyPassword = {
-        $$devOnlyPassword: devOnlyPwd,
-      };
-      await onConfirm(params);
     },
   });
 }
@@ -107,7 +113,12 @@ export const DevSettingsSection = () => {
   }, []);
 
   const handleOpenDevTools = useCallback(() => {
-    window?.desktopApi.openDevTools();
+    showDevOnlyPasswordDialog({
+      title: 'Danger Zone: Open Chrome DevTools',
+      onConfirm: async () => {
+        window?.desktopApi.openDevTools();
+      },
+    });
   }, []);
 
   if (!devSettings.enabled) {
@@ -197,7 +208,7 @@ export const DevSettingsSection = () => {
         name="showDevExportPrivateKey"
         title="首页导出私钥临时入口"
         subtitle=""
-        testID="show-dev-overlay"
+        testID="export-private-key"
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
@@ -207,7 +218,7 @@ export const DevSettingsSection = () => {
         onPress={() => {
           showDevOnlyPasswordDialog({
             title: 'Danger Zone',
-            desc: `Export Accounts Data`,
+            description: `Export Accounts Data`,
             onConfirm: async (params) => {
               Dialog.cancel({
                 title: 'Export Accounts Data',
@@ -265,7 +276,11 @@ export const DevSettingsSection = () => {
         onPress={() => {
           showDevOnlyPasswordDialog({
             title: 'Danger Zone: Clear all your data',
-            desc: `This is a feature specific to development environments.
+            confirmButtonProps: {
+              variant: 'destructive',
+              testID: 'clear-double-confirm',
+            },
+            description: `This is a feature specific to development environments.
                   Function used to erase all data in the app.`,
             onConfirm: async (params) => {
               Dialog.cancel({
