@@ -1,5 +1,3 @@
-import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
-
 import { useAccountData } from '../../hooks/useAccountData';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { Token } from '../Token';
@@ -13,12 +11,12 @@ type IProps = {
 function TokenIconView(props: IProps) {
   const { tableLayout, icon, networkId } = props;
   const {
-    activeAccount: { account },
+    activeAccount: { network: activeNetwork },
   } = useActiveAccount({ num: 0 });
 
   const { network } = useAccountData({ networkId });
 
-  if (account?.impl === IMPL_ALLNETWORKS) {
+  if (activeNetwork?.isAllNetworks) {
     return (
       <Token
         size={tableLayout ? 'md' : 'lg'}
