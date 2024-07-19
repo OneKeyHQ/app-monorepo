@@ -75,6 +75,7 @@ function TokenListFooter(props: IProps) {
         },
         deriveType,
         deriveInfo,
+        isAllNetworks: network.isAllNetworks,
       },
     });
   }, [

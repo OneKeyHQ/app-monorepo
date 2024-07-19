@@ -51,6 +51,7 @@ function TokenList() {
     isBlocked,
     deriveInfo,
     deriveType,
+    isAllNetworks,
   } = route.params;
   const { tokens, map: tokenMap, keys } = tokenList;
 
@@ -80,8 +81,8 @@ function TokenList() {
   const handleOnPressToken = useCallback(
     (token: IToken) => {
       navigation.push(EModalAssetDetailRoutes.TokenDetails, {
-        accountId,
-        networkId,
+        accountId: token.accountId ?? accountId,
+        networkId: token.networkId ?? networkId,
         walletId,
         tokenInfo: token,
         isBlocked,
@@ -144,6 +145,7 @@ function TokenList() {
         <TokenListView
           onPressToken={onPressToken ?? handleOnPressToken}
           withPrice
+          isAllNetworks={isAllNetworks}
         />
       </Page.Body>
     </Page>
