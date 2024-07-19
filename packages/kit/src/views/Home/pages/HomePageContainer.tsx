@@ -5,6 +5,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUti
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { withAccountOverviewProvider } from '../../../states/jotai/contexts/accountOverview';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -82,4 +83,4 @@ function HomePageContainer() {
   );
 }
 
-export default HomePageContainer;
+export default withAccountOverviewProvider(HomePageContainer);

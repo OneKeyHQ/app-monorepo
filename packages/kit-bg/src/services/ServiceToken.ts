@@ -49,8 +49,15 @@ class ServiceToken extends ServiceBase {
   public async fetchAccountTokens(
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
-    const { mergeTokens, flag, accountId, ...rest } = params;
+    const { mergeTokens, flag, accountId, isAllNetworks, ...rest } = params;
     const { networkId, contractList = [] } = rest;
+
+    if (isAllNetworks && this._currentNetworkId !== getNetworkIdsMap().all)
+      return {
+        ...getEmptyTokenData(),
+        networkId: this._currentNetworkId,
+      };
+
     if (
       [getNetworkIdsMap().eth, getNetworkIdsMap().sepolia].includes(networkId)
     ) {
@@ -85,7 +92,7 @@ class ServiceToken extends ServiceBase {
     const controller = new AbortController();
     this._fetchAccountTokensControllers.push(controller);
     const resp = await client.post<{
-      data: Omit<IFetchAccountTokensResp, 'accountId' | 'networkId'>;
+      data: IFetchAccountTokensResp;
     }>(
       `/wallet/v1/account/token/list?flag=${flag || ''}`,
       {
@@ -134,6 +141,8 @@ class ServiceToken extends ServiceBase {
         accountId,
         networkId,
       }));
+
+    resp.data.data.networkId = this._currentNetworkId;
 
     return resp.data.data;
   }

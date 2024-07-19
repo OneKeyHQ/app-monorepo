@@ -40,6 +40,7 @@ export type IFetchAccountTokensParams = {
   blockedTokens?: string[];
   unblockedTokens?: string[];
   flag?: string;
+  isAllNetworks?: boolean;
 };
 
 export type ITokenData = {
@@ -54,6 +55,7 @@ export type IFetchAccountTokensResp = {
   tokens: ITokenData;
   riskTokens: ITokenData;
   smallBalanceTokens: ITokenData;
+  networkId?: string;
 };
 
 export type IFetchTokenDetailParams = {

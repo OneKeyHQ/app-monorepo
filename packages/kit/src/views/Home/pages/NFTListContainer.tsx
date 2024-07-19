@@ -3,11 +3,11 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_NFT,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import type {
   IAccountNFT,
   IFetchAccountNFTsResp,
@@ -21,6 +21,8 @@ import {
   withNFTListProvider,
 } from '../../../states/jotai/contexts/nftList';
 import { NFTListView } from '../components/NFTListView';
+
+const networkIdsMap = getNetworkIdsMap();
 
 function NFTListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
@@ -41,7 +43,7 @@ function NFTListContainer(props: ITabPageProps) {
     async () => {
       if (!account || !network) return;
 
-      if (account.impl === IMPL_ALLNETWORKS) return;
+      if (network.isAllNetworks) return;
 
       await backgroundApiProxy.serviceNFT.abortFetchAccountNFTs();
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
@@ -78,8 +80,12 @@ function NFTListContainer(props: ITabPageProps) {
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         accountId,
         networkId,
+        isAllNetworks: true,
       });
-      if (!refreshAllNetworksNftList.current) {
+      if (
+        !refreshAllNetworksNftList.current &&
+        r.networkId === networkIdsMap.all
+      ) {
         setNftList((prev) => [...prev, ...r.data]);
         setNftListState({
           initialized: true,
@@ -123,6 +129,9 @@ function NFTListContainer(props: ITabPageProps) {
       });
       updateSearchKey('');
       refreshAllNetworksNftList.current = false;
+      void backgroundApiProxy.serviceNFT.updateCurrentNetworkId({
+        networkId: network.id,
+      });
     }
   }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 

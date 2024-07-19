@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { CanceledError } from 'axios';
+import BigNumber from 'bignumber.js';
 
 import type { ITabPageProps } from '@onekeyhq/components';
 import {
@@ -9,12 +10,12 @@ import {
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EModalAssetDetailRoutes,
   EModalRoutes,
@@ -32,16 +33,20 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
+import { useAccountData } from '../../../hooks/useAccountData';
 import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useBuyToken } from '../../../hooks/useBuyToken';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useReceiveToken } from '../../../hooks/useReceiveToken';
+import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { UrlAccountHomeTokenListProviderMirror } from '../components/HomeTokenListProvider/UrlAccountHomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
+
+const networkIdsMap = getNetworkIdsMap();
 
 function TokenListContainer({
   showWalletActions = false,
@@ -54,6 +59,8 @@ function TokenListContainer({
   const {
     activeAccount: { account, network, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
+
+  const { vaultSettings } = useAccountData({ networkId: network?.id ?? '' });
 
   const { handleOnBuy, isSupported } = useBuyToken({
     accountId: account?.id ?? '',
@@ -86,12 +93,15 @@ function TokenListContainer({
     updateSearchKey,
   } = useTokenListActions().current;
 
+  const { updateAccountWorth, updateAccountOverviewState } =
+    useAccountOverviewActions().current;
+
   const { run } = usePromiseResult(
     async () => {
       try {
         if (!account || !network) return;
 
-        if (account.impl === IMPL_ALLNETWORKS) return;
+        if (network.isAllNetworks) return;
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
         const blockedTokens =
@@ -192,9 +202,29 @@ function TokenListContainer({
         networkId,
         accountId,
         flag: 'home-token-list',
+        isAllNetworks: true,
       });
 
-      if (!refreshAllNetworksTokenList.current) {
+      if (
+        !refreshAllNetworksTokenList.current &&
+        r.networkId === networkIdsMap.all
+      ) {
+        let accountWorth = new BigNumber(0);
+        accountWorth = accountWorth
+          .plus(r.tokens.fiatValue ?? '0')
+          .plus(r.riskTokens.fiatValue ?? '0')
+          .plus(r.smallBalanceTokens.fiatValue ?? '0');
+
+        updateAccountOverviewState({
+          isRefreshing: false,
+          initialized: true,
+        });
+
+        updateAccountWorth({
+          worth: accountWorth.toFixed(),
+          merge: true,
+        });
+
         refreshTokenList({
           keys: r.tokens.keys,
           tokens: r.tokens.data,
@@ -244,6 +274,8 @@ function TokenListContainer({
       refreshSmallBalanceTokenListMap,
       refreshTokenList,
       refreshTokenListMap,
+      updateAccountOverviewState,
+      updateAccountWorth,
       updateTokenListState,
     ],
   );
@@ -375,6 +407,14 @@ function TokenListContainer({
         map: riskyTokenListMap,
       });
 
+      let accountWorth = new BigNumber(0);
+      accountWorth = accountWorth
+        .plus(allNetworksResult[0].tokens.fiatValue ?? '0')
+        .plus(allNetworksResult[0].riskTokens.fiatValue ?? '0')
+        .plus(allNetworksResult[0].smallBalanceTokens.fiatValue ?? '0');
+
+      updateAccountWorth({ worth: accountWorth.toFixed() });
+
       refreshTokenList(tokenList);
       refreshTokenListMap({
         tokens: tokenListMap,
@@ -400,6 +440,7 @@ function TokenListContainer({
     refreshSmallBalanceTokenListMap,
     refreshTokenList,
     refreshTokenListMap,
+    updateAccountWorth,
   ]);
 
   useEffect(() => {
@@ -407,14 +448,6 @@ function TokenListContainer({
       void run();
     }
   }, [isHeaderRefreshing, run]);
-
-  const { result: vaultSettings } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceNetwork.getVaultSettings({
-        networkId: network?.id ?? '',
-      }),
-    [network?.id],
-  );
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
@@ -424,6 +457,9 @@ function TokenListContainer({
       });
       updateSearchKey('');
       refreshAllNetworksTokenList.current = false;
+      void backgroundApiProxy.serviceToken.updateCurrentNetworkId({
+        networkId: network.id,
+      });
     }
   }, [
     account?.id,
@@ -457,6 +493,11 @@ function TokenListContainer({
       wallet?.type !== WALLET_TYPE_WATCHING,
     [vaultSettings?.disabledSendAction, wallet?.type],
   );
+
+  const handleRefreshAllNetworkData = useCallback(() => {
+    refreshAllNetworksTokenList.current = true;
+    void runAllNetworkRequest();
+  }, [runAllNetworkRequest]);
 
   return (
     <>

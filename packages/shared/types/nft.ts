@@ -42,11 +42,13 @@ export type IFetchAccountNFTsParams = {
   networkId: string;
   cursor?: string;
   limit?: number;
+  isAllNetworks?: boolean;
 };
 
 export type IFetchAccountNFTsResp = {
   data: IAccountNFT[];
   next: string;
+  networkId?: string;
 };
 
 export type IFetchNFTDetailsParams = {
