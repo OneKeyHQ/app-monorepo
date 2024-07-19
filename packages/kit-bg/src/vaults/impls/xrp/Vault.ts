@@ -245,7 +245,18 @@ export default class Vault extends VaultBase {
   override updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    return Promise.resolve(params.unsignedTx);
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxXrp;
+    if (params.nativeAmountInfo?.maxSendAmount) {
+      if (encodedTx.Fee) {
+        encodedTx.Amount = new BigNumber(encodedTx.Amount)
+          .minus(encodedTx.Fee)
+          .toString();
+      }
+    }
+    return Promise.resolve({
+      ...params.unsignedTx,
+      encodedTx,
+    });
   }
 
   override buildOnChainHistoryTxExtraInfo({
