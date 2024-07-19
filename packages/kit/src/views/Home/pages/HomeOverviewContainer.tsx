@@ -95,7 +95,7 @@ function HomeOverviewContainer() {
   }, [
     account?.id,
     network?.id,
-    network.isAllNetworks,
+    network?.isAllNetworks,
     updateAccountOverviewState,
     updateAccountWorth,
     wallet?.id,
