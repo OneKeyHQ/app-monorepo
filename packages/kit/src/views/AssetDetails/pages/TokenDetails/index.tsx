@@ -79,6 +79,7 @@ export function TokenDetails() {
     deriveType,
     tokenInfo,
     isBlocked: tokenIsBlocked,
+    isAllNetworks,
   } = route.params;
 
   const [isBlocked, setIsBlocked] = useState(!!tokenIsBlocked);
@@ -438,6 +439,7 @@ export function TokenDetails() {
                         tokenInfo.logoURI ?? tokenDetails?.info.logoURI
                       }
                       size="xl"
+                      networkImageUri={isAllNetworks ? network?.logoURI : ''}
                     />
                     <Stack ml="$3" flex={1}>
                       {isLoadingTokenDetails ? (

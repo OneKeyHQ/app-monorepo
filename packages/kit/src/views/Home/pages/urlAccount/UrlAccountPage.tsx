@@ -15,6 +15,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { ProviderJotaiContextAccountOverview } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -230,15 +231,17 @@ export function UrlAccountPageContainer() {
     name: 'URLAccountMount:  UrlAccountPageContainer',
   });
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <UrlAccountAutoCreate />
-    </AccountSelectorProviderMirror>
+    <ProviderJotaiContextAccountOverview>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <UrlAccountAutoCreate />
+      </AccountSelectorProviderMirror>
+    </ProviderJotaiContextAccountOverview>
   );
 }
 
@@ -247,14 +250,16 @@ export function UrlAccountLanding() {
     name: 'URLAccountMount:  UrlAccountLanding',
   });
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <UrlAccountAutoCreate redirectMode />
-    </AccountSelectorProviderMirror>
+    <ProviderJotaiContextAccountOverview>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <UrlAccountAutoCreate redirectMode />
+      </AccountSelectorProviderMirror>
+    </ProviderJotaiContextAccountOverview>
   );
 }

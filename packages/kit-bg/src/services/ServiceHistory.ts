@@ -269,7 +269,6 @@ class ServiceHistory extends ServiceBase {
           xpub,
           tokenAddress: tokenIdOnNetwork,
           ...extraRequestParams,
-          limit: 50,
         },
         {
           headers:

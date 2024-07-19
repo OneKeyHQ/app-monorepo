@@ -47,7 +47,7 @@ export function getOnChainHistoryTxAssetInfo({
   let isNative = false;
   let price = '0';
   let decimals = 0;
-  nft = nfts[tokenAddress];
+  nft = nfts[key] ?? nfts[tokenAddress];
   if (tokenAddress === '') {
     token = tokens[key] || tokens.native;
   } else {
