@@ -5,6 +5,7 @@ import {
   memo,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -93,22 +94,31 @@ const TabComponent = (
   const [contentHeight, setContentHeight] = useState<number | undefined>(1);
   const scrollViewRef = useRef<IScrollViewRef | null>(null);
   const pageContainerRef = useRef<any | null>(null);
-  const dataCount = useMemo(() => data.length, [data]);
+  const createStickyDataConfig = useCallback(
+    (valueList: ITabProps['data']) =>
+      new Array(valueList?.length ?? 0).fill({}).map(() => ({
+        contentHeight: 0,
+        contentOffsetY: 0,
+        freezeRef: createRef<IFreezeContainerRef>(),
+        refreshingFocusedRef: createRef<IRefreshingFocusedContainerRef>(),
+      })),
+    [],
+  );
   const stickyConfig = useMemo(
     () => ({
       lastIndex: initialScrollIndex,
       scrollViewHeight: 0,
       headerViewY: 0,
       headerViewHeight: 0,
-      data: new Array(dataCount).fill({}).map(() => ({
-        contentHeight: 0,
-        contentOffsetY: 0,
-        freezeRef: createRef<IFreezeContainerRef>(),
-        refreshingFocusedRef: createRef<IRefreshingFocusedContainerRef>(),
-      })),
+      data: createStickyDataConfig(data),
     }),
-    [dataCount, initialScrollIndex],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [createStickyDataConfig],
   );
+  useEffect(() => {
+    stickyConfig.lastIndex = initialScrollIndex;
+    stickyConfig.data = createStickyDataConfig(data);
+  }, [data, initialScrollIndex, createStickyDataConfig, stickyConfig]);
   const reloadContentHeight = useCallback(
     (index: number) => {
       if (stickyConfig.scrollViewHeight * stickyConfig.headerViewHeight <= 0) {
