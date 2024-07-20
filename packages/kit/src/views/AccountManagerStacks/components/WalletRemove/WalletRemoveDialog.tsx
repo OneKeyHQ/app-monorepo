@@ -8,7 +8,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { ETrackEventNames, trackEvent } from '@onekeyhq/shared/src/analytics';
+import { ETrackEventNames, analytics } from '@onekeyhq/shared/src/analytics';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function WalletRemoveDialog({
