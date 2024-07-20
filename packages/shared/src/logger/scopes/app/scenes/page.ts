@@ -7,4 +7,6 @@ export class PageScene extends BaseScene {
   public pageView(pageName: string) {
     return { pageName };
   }
+
+  public appStart() {}
 }
