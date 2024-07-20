@@ -6,32 +6,6 @@ import { getDeviceInfo } from './deviceInfo';
 
 import type { AxiosInstance } from 'axios';
 
-export enum ETrackEventNames {
-  PageView = 'pageView',
-  AppStart = 'AppStart',
-  EnterDapp = 'EnterDapp',
-  DeleteWallet = 'DeleteWallet',
-  CreateWallet = 'CreateWallet',
-  ImportWallet = 'ImportWallet',
-}
-
-export interface ITrackPayload {
-  [ETrackEventNames.PageView]: { pageName: string };
-  [ETrackEventNames.AppStart]: undefined;
-  [ETrackEventNames.EnterDapp]: {
-    dapp_url: string;
-    dapp_title?: string;
-    is_favorite: boolean;
-  };
-  [ETrackEventNames.DeleteWallet]: undefined;
-  [ETrackEventNames.CreateWallet]: {
-    is_biometric_verification_set: boolean;
-  };
-  [ETrackEventNames.ImportWallet]: {
-    import_method: string;
-  };
-}
-
 class Analytics {
   private instanceId = '';
 

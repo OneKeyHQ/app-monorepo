@@ -10,6 +10,7 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETrackEventNames, analytics } from '@onekeyhq/shared/src/analytics';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function WalletRemoveDialog({
   defaultValue,
@@ -47,8 +48,7 @@ export function WalletRemoveDialog({
           await actions.current.removeWallet({
             walletId: wallet?.id || '',
           });
-          analytics.trackEvent(ETrackEventNames.DeleteWallet);
-
+          defaultLogger.account.wallet.deleteWallet();
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.feedback_change_saved,

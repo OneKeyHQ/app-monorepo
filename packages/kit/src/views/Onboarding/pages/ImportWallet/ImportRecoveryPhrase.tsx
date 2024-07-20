@@ -6,6 +6,7 @@ import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETrackEventNames, analytics } from '@onekeyhq/shared/src/analytics';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';
@@ -20,9 +21,7 @@ export function ImportRecoveryPhrase() {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic,
       });
-      analytics.trackEvent(ETrackEventNames.ImportWallet, {
-        import_method: 'mnemonic',
-      });
+      defaultLogger.account.wallet.importWallet({ importMethod: 'mnemonic' });
     },
     [navigation],
   );

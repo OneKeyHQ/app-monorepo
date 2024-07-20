@@ -26,7 +26,6 @@ export default function PageTrackerContainer() {
     try {
       if (state === undefined) {
         defaultLogger.app.page.pageView(ETabHomeRoutes.TabHome);
-        analytics.trackPage(ETabHomeRoutes.TabHome);
       } else {
         const page = getActiveRoute(state as IState);
         if (page) {

@@ -13,6 +13,7 @@ export type ILogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export enum EScopeName {
   app = 'app',
+  account = 'account',
   demo = 'demo',
   setting = 'setting',
   addressInput = 'addressInput',
