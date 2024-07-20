@@ -8,5 +8,7 @@ export class PageScene extends BaseScene {
     return { pageName };
   }
 
+  @LogToServer()
+  @LogToLocal({ level: 'debug' })
   public appStart() {}
 }
