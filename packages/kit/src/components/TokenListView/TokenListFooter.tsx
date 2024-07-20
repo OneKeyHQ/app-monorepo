@@ -122,6 +122,14 @@ function TokenListFooter(props: IProps) {
     riskyTokens,
     wallet,
   ]);
+
+  const handleOnPressManageToken = useCallback(() => {
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.TokenManagerModal,
+      params: undefined,
+    });
+  }, [navigation]);
+
   return (
     <Stack>
       {tableLayout &&
@@ -187,6 +195,26 @@ function TokenListFooter(props: IProps) {
           />
         </ListItem>
       ) : null}
+      <ListItem onPress={handleOnPressManageToken} userSelect="none">
+        <Stack
+          p={tableLayout ? '$1' : '$1.5'}
+          borderRadius="$full"
+          bg="$bgStrong"
+        >
+          <Icon
+            name="BlockOutline"
+            color="$iconSubdued"
+            size={tableLayout ? '$6' : '$7'}
+          />
+        </Stack>
+        <ListItem.Text
+          flex={1}
+          primary="Manage Token"
+          {...(tableLayout && {
+            primaryTextProps: { size: '$bodyMdMedium' },
+          })}
+        />
+      </ListItem>
     </Stack>
   );
 }

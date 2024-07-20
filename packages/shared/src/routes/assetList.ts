@@ -6,6 +6,7 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 export enum EModalAssetListRoutes {
   TokenList = 'TokenList',
+  TokenManagerModal = 'TokenManagerModal',
 }
 
 export type IModalAssetListParamList = {
@@ -26,4 +27,5 @@ export type IModalAssetListParamList = {
     deriveType?: IAccountDeriveTypes;
     isAllNetworks?: boolean;
   };
+  [EModalAssetListRoutes.TokenManagerModal]: undefined;
 };
