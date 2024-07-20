@@ -104,7 +104,10 @@ class Analytics {
     return this.deviceInfo;
   }
 
-  private async requestEvent(eventName: string, eventProps?: Record<string, any>) {
+  private async requestEvent(
+    eventName: string,
+    eventProps?: Record<string, any>,
+  ) {
     const event = {
       ...eventProps,
       ...(await this.lazyDeviceInfo()),
@@ -116,7 +119,7 @@ class Analytics {
     const axios = this.lazyAxios();
     await axios.post('/utility/v1/track/event', {
       eventName,
-      event,
+      eventProps: event,
     });
   }
 }
