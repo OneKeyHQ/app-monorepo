@@ -1,6 +1,5 @@
 import type { IImageProps, IXStackProps } from '@onekeyhq/components';
 import { Icon, Image, XStack } from '@onekeyhq/components';
-import { CHAIN_SELECTOR_LOGO } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -25,10 +24,6 @@ export const NetworkAvatarBase = ({
       <Icon name="GlobusOutline" color="$iconSubdued" />
     </Image.Fallback>
   </Image>
-);
-
-export const AllNetworksAvatar = ({ size }: { size?: IImageProps['size'] }) => (
-  <NetworkAvatarBase logoURI={CHAIN_SELECTOR_LOGO} size={size} />
 );
 
 type INetworkAvatarProps = {

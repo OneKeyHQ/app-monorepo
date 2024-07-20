@@ -3,12 +3,9 @@ import { memo, useCallback, useContext, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page, SearchBar, Stack, Tab, XStack } from '@onekeyhq/components';
-import {
-  AllNetworksAvatar,
-  NetworkAvatar,
-} from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
-import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ConnectedSites } from './ConnectedSites';
@@ -62,11 +59,7 @@ const ChainSelectorCmp = ({
     userSelect="none"
     onPress={onPress}
   >
-    {networkId ? (
-      <NetworkAvatar size={24} networkId={networkId} />
-    ) : (
-      <AllNetworksAvatar size={24} />
-    )}
+    <NetworkAvatar size={24} networkId={networkId} />
   </XStack>
 );
 
@@ -74,7 +67,7 @@ const ChainSelector = memo(ChainSelectorCmp);
 
 const PageView = () => {
   const intl = useIntl();
-  const [networkId, setNetworkId] = useState<string>('');
+  const [networkId, setNetworkId] = useState<string>(getNetworkIdsMap().all);
   const [searchContent, setSearchContent] = useState<string>('');
 
   const values = useMemo(
@@ -86,13 +79,8 @@ const PageView = () => {
   const onPress = useCallback(() => {
     onShowChainSelector({
       defaultNetworkId: networkId,
-      enableDangerNetwork: true,
       onSelect(network) {
-        if (network.id === dangerAllNetworkRepresent.id) {
-          setNetworkId('');
-        } else {
-          setNetworkId?.(network.id);
-        }
+        setNetworkId?.(network.id);
       },
     });
   }, [onShowChainSelector, networkId, setNetworkId]);
