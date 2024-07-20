@@ -344,8 +344,11 @@ class ServiceNetwork extends ServiceBase {
   }: {
     networks: IServerNetwork[];
   }) {
+    const networkIds = networks
+      .map((o) => o.id)
+      .filter((id) => id !== getNetworkIdsMap().all);
     return this.backgroundApi.simpleDb.networkSelector.setPinnedNetworkIds({
-      networkIds: networks.map((o) => o.id),
+      networkIds,
     });
   }
 
@@ -353,15 +356,20 @@ class ServiceNetwork extends ServiceBase {
   async getNetworkSelectorPinnedNetworks(): Promise<IServerNetwork[]> {
     const pinnedNetworkIds =
       await this.backgroundApi.simpleDb.networkSelector.getPinnedNetworkIds();
-    const networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
+    let networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
+    networkIds = [
+      getNetworkIdsMap().all,
+      ...networkIds.filter((id) => id !== getNetworkIdsMap().all),
+    ];
     const networkIdsIndex = networkIds.reduce((result, item, index) => {
       result[item] = index;
       return result;
     }, {} as Record<string, number>);
     const resp = await this.getNetworksByIds({ networkIds });
-    return resp.networks.sort(
+    const sorted = resp.networks.sort(
       (a, b) => networkIdsIndex[a.id] - networkIdsIndex[b.id],
     );
+    return sorted;
   }
 
   @backgroundMethod()

@@ -7,6 +7,7 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
@@ -69,7 +70,7 @@ function ChainSelector({
   return (
     <ChainSelectorPageView
       editable={editable}
-      networks={networks}
+      networks={networks.filter((o) => o.id !== getNetworkIdsMap().all)}
       networkId={network?.id}
       onPressItem={handleListItemPress}
       defaultTopNetworks={pinnedNetworks}

@@ -24,6 +24,7 @@ import type { ISortableSectionListRef } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -75,6 +76,10 @@ const EditableViewListItem = ({
     () => intl.formatMessage({ id: ETranslations.global_unpin_from_top }),
     [intl],
   );
+
+  const isDraggable =
+    isEditMode && sectionIndex === 0 && item.id !== getNetworkIdsMap().all;
+
   return (
     <ListItem
       title={item.name}
@@ -108,7 +113,7 @@ const EditableViewListItem = ({
       {networkId === item.id && !isEditMode ? (
         <ListItem.CheckMark key="checkmark" />
       ) : null}
-      {isEditMode && sectionIndex === 0 ? (
+      {isDraggable ? (
         <ListItem.IconButton
           key="darg"
           {...ListItem.EnterAnimationStyle}
