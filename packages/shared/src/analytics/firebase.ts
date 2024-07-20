@@ -21,7 +21,8 @@ export const analyticLogEvent = (
     !platformEnv.isProduction ||
     !firebaseConfig.apiKey ||
     platformEnv.isExtension
-  )
+  ) {
     return;
+  }
   return logEvent(getAnalyticsInstance(), eventName, eventParams);
 };
