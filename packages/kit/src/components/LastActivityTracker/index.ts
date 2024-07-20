@@ -11,11 +11,11 @@ import {
   useSettingsPersistAtom,
   useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETrackEventNames, analytics } from '@onekeyhq/shared/src/analytics';
+import { analytics } from '@onekeyhq/shared/src/analytics';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 const LastActivityTracker = () => {
   const [{ enableSystemIdleLock, appLockDuration }] = usePasswordPersistAtom();

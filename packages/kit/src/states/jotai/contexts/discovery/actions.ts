@@ -23,7 +23,6 @@ import {
   injectToResumeWebsocket,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
-import { ETrackEventNames, analytics } from '@onekeyhq/shared/src/analytics';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -524,7 +523,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           dappUrl: url,
           dappTitle: title,
           isFavorite: isBookmark,
-        })
+        });
         return true;
       }
       return false;
