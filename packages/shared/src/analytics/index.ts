@@ -32,79 +32,93 @@ export interface ITrackPayload {
   };
 }
 
-const basicInfo = {} as {
-  screenName: string;
-};
+class Analytics {
+  private instanceId = '';
 
-let deviceInfo: Record<string, any> | null = null;
-const lazyDeviceInfo = async () => {
-  if (!deviceInfo) {
-    deviceInfo = await getDeviceInfo();
-    deviceInfo.appBuildNumber = platformEnv.buildNumber;
-    deviceInfo.appVersion = platformEnv.version;
+  private baseURL = '';
+
+  private cacheEvents = [] as [string, Record<string, any> | undefined][];
+
+  private request: AxiosInstance | null = null;
+
+  private basicInfo = {} as {
+    screenName: string;
+  };
+
+  private deviceInfo: Record<string, any> | null = null;
+
+  setBaseInfo({
+    instanceId,
+    baseURL,
+  }: {
+    instanceId: string;
+    baseURL: string;
+  }) {
+    this.instanceId = instanceId;
+    this.baseURL = baseURL;
+    while (this.cacheEvents.length) {
+      const params = this.cacheEvents.pop();
+      if (params) {
+        const [eventName, eventProps] = params;
+        this.trackEvent(eventName as any, eventProps);
+      }
+    }
   }
-  deviceInfo.screenName = basicInfo.screenName;
-  return deviceInfo;
-};
 
-let distinctId = '';
-let request: AxiosInstance | null = null;
-const lazyAxios = () => {
-  if (!request) {
-    request = Axios.create({
-      baseURL: 'https://api.mintscan.io',
-      timeout: 30 * 1000,
+  lazyAxios() {
+    if (!this.request) {
+      this.request = Axios.create({
+        baseURL: this.baseURL,
+        timeout: 30 * 1000,
+      });
+    }
+    return this.request;
+  }
+
+  trackPage(pageName: string) {
+    this.basicInfo.screenName = pageName;
+    this.trackEvent(ETrackEventNames.PageView, { pageName });
+  }
+
+  trackEvent<T extends ETrackEventNames>(
+    eventName: T,
+    eventProps?: ITrackPayload[T],
+  ) {
+    if (!this.instanceId || !this.baseURL) {
+      this.cacheEvents.push([eventName, eventProps]);
+    } else {
+      void this.requestEvent(eventName, {
+        distinctId: this.instanceId,
+        eventProps,
+      });
+    }
+  }
+
+  async lazyDeviceInfo() {
+    if (!this.deviceInfo) {
+      this.deviceInfo = await getDeviceInfo();
+      this.deviceInfo.appBuildNumber = platformEnv.buildNumber;
+      this.deviceInfo.appVersion = platformEnv.version;
+    }
+    this.deviceInfo.screenName = this.basicInfo.screenName;
+    return this.deviceInfo;
+  }
+
+  async requestEvent(eventName: string, eventProps?: Record<string, any>) {
+    const event = {
+      ...eventProps,
+      ...(await this.lazyDeviceInfo()),
+    };
+    // if (platformEnv.isDev) {
+    //   console.log('trackEvent', event);
+    //   return;
+    // }
+    const axios = this.lazyAxios();
+    await axios.post('/utility/v1/track/event', {
+      eventName,
+      event,
     });
   }
-  return request;
-};
-
-const requestEvent = async (
-  eventName: string,
-  eventProps?: Record<string, any>,
-) => {
-  const event = {
-    ...eventProps,
-    ...(await lazyDeviceInfo()),
-  };
-  if (platformEnv.isDev) {
-    console.log('trackEvent', event);
-    return;
-  }
-  const axios = lazyAxios();
-  await axios.post('/api/track-event', {
-    eventName,
-    event,
-  });
-};
-
-const requestUpdateAttributes = async (attributes?: Record<string, any>) => {
-  const axios = lazyAxios();
-  await axios.post('/api/update-attributes', {
-    distinctId,
-    attributes,
-  });
-};
-
-export const updateUserAttributes = (attributes?: Record<string, any>) => {
-  void requestUpdateAttributes(attributes);
-};
-
-export function trackEvent<T extends ETrackEventNames>(
-  eventName: T,
-  eventProps?: ITrackPayload[T],
-) {
-  void requestEvent(eventName, {
-    distinctId,
-    eventProps,
-  });
 }
 
-export const trackPage = (pageName: string) => {
-  basicInfo.screenName = pageName;
-  trackEvent(ETrackEventNames.PageView, { pageName });
-};
-
-export const identify = (instanceId: string) => {
-  distinctId = instanceId;
-};
+export const analytics = new Analytics();
