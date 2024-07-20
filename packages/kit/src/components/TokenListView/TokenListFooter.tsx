@@ -126,9 +126,12 @@ function TokenListFooter(props: IProps) {
   const handleOnPressManageToken = useCallback(() => {
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.TokenManagerModal,
-      params: undefined,
+      params: {
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+      },
     });
-  }, [navigation]);
+  }, [navigation, network?.id, account?.id]);
 
   return (
     <Stack>

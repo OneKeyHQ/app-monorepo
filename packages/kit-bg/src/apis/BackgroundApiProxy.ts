@@ -16,6 +16,7 @@ import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceCreateBatchAccount from '../services/ServiceCreateBatchAccount';
+import type ServiceCustomToken from '../services/ServiceCustomToken';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
@@ -216,6 +217,10 @@ class BackgroundApiProxy
   serviceExplorer = this._createProxyService(
     'serviceExplorer',
   ) as ServiceExplorer;
+
+  serviceCustomToken = this._createProxyService(
+    'serviceCustomToken',
+  ) as ServiceCustomToken;
 }
 
 export default BackgroundApiProxy;

@@ -20,6 +20,7 @@ import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceCreateBatchAccount from '../services/ServiceCreateBatchAccount';
+import type ServiceCustomToken from '../services/ServiceCustomToken';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
@@ -157,6 +158,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceMarket: ServiceMarket;
   serviceContextMenu: ServiceContextMenu;
   serviceExplorer: ServiceExplorer;
+  serviceCustomToken: ServiceCustomToken;
 
   serviceE2E: ServiceE2E;
   serviceLogger: ServiceLogger;

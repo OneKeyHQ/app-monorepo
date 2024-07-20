@@ -27,5 +27,8 @@ export type IModalAssetListParamList = {
     deriveType?: IAccountDeriveTypes;
     isAllNetworks?: boolean;
   };
-  [EModalAssetListRoutes.TokenManagerModal]: undefined;
+  [EModalAssetListRoutes.TokenManagerModal]: {
+    accountId: string;
+    networkId: string;
+  };
 };

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { Keyboard, StyleSheet } from 'react-native';
+import { useRoute } from '@react-navigation/core';
 
 import {
   Divider,
@@ -9,22 +9,65 @@ import {
   SearchBar,
   SizableText,
   Stack,
-  XStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { TokenIconView } from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
+import type {
+  EModalAssetListRoutes,
+  IModalAssetListParamList,
+} from '@onekeyhq/shared/src/routes';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useTokenListAtom } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
+import type { RouteProp } from '@react-navigation/core';
+
 function TokenManagerModal() {
+  const route =
+    useRoute<
+      RouteProp<
+        IModalAssetListParamList,
+        EModalAssetListRoutes.TokenManagerModal
+      >
+    >();
+  const { networkId, accountId } = route.params;
   const [tokenList] = useTokenListAtom();
+
+  const { result, run } = usePromiseResult(async () => {
+    const hiddenToken =
+      await backgroundApiProxy.serviceCustomToken.getHiddenTokens({
+        accountId,
+        networkId,
+      });
+    return tokenList.tokens.filter(
+      (token) =>
+        !hiddenToken.find(
+          (t) => t.address === token.address && t.networkId === token.networkId,
+        ),
+    );
+  }, [tokenList, accountId, networkId]);
 
   const [searchValue, setSearchValue] = useState('');
   useEffect(() => {
     console.log('===>TokenList: ', tokenList);
   }, [tokenList]);
+
+  const onHiddenToken = useCallback(
+    async (token: IAccountToken) => {
+      await backgroundApiProxy.serviceCustomToken.hideToken({
+        token: {
+          ...token,
+          accountId: accountId ?? token.accountId ?? '',
+          networkId: networkId ?? token.networkId,
+        },
+      });
+      setTimeout(() => run(), 200);
+    },
+    [run, accountId, networkId],
+  );
 
   return (
     <Page safeAreaEnabled>
@@ -44,7 +87,7 @@ function TokenManagerModal() {
           />
         </Stack>
         <ListView
-          data={tokenList.tokens}
+          data={result}
           ListHeaderComponent={
             <>
               <ListItem
@@ -70,7 +113,7 @@ function TokenManagerModal() {
             <ListItem>
               <TokenIconView
                 icon={item.logoURI}
-                networkId="evm--1"
+                networkId={networkId}
                 isAllNetworks
               />
               <ListItem.Text
@@ -83,7 +126,7 @@ function TokenManagerModal() {
               />
               <ListItem.IconButton
                 icon="DeleteOutline"
-                onPress={() => console.log('Delete butto')}
+                onPress={() => onHiddenToken(item)}
               />
             </ListItem>
           )}
