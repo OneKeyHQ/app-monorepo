@@ -1,5 +1,6 @@
 import { useOnRouterChange } from '@onekeyhq/components';
 import { analytics } from '@onekeyhq/shared/src/analytics';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
 
 import type { NavigationState, PartialState } from '@react-navigation/routers';
@@ -24,11 +25,12 @@ export default function PageTrackerContainer() {
   useOnRouterChange((state) => {
     try {
       if (state === undefined) {
+        defaultLogger.app.page.pageView(ETabHomeRoutes.TabHome);
         analytics.trackPage(ETabHomeRoutes.TabHome);
       } else {
         const page = getActiveRoute(state as IState);
         if (page) {
-          analytics.trackPage(page.name);
+          defaultLogger.app.page.pageView(page.name);
         }
       }
     } catch (error) {

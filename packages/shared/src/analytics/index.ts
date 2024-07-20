@@ -75,15 +75,7 @@ class Analytics {
     return this.request;
   }
 
-  trackPage(pageName: string) {
-    this.basicInfo.screenName = pageName;
-    this.trackEvent(ETrackEventNames.PageView, { pageName });
-  }
-
-  trackEvent<T extends ETrackEventNames>(
-    eventName: T,
-    eventProps?: ITrackPayload[T],
-  ) {
+  trackEvent(eventName: string, eventProps?: Record<string, any>) {
     if (!this.instanceId || !this.baseURL) {
       this.cacheEvents.push([eventName, eventProps]);
     } else {

@@ -512,7 +512,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             tabId,
           });
         }
-
+        a;
         // close deep link tab after 1s
         if (maybeDeepLink) {
           if (browserTypeHandler === 'MultiTabBrowser' && tabId) {

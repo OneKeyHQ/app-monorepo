@@ -1,3 +1,4 @@
+import { analytics } from '../../analytics';
 import { isPromiseObject } from '../../utils/promiseUtils';
 import { getLoggerExtension } from '../extensions';
 import { stringifyFunc } from '../stringifyFunc';
@@ -50,7 +51,7 @@ export abstract class BaseScope implements IScope {
               console[level](...obj.args);
             } else if (obj.metadata.type === 'server') {
               // eslint-disable-next-line no-console
-              console.error('Server logging is not implemented'); // mix panel, sentry, etc
+              analytics.trackEvent(prop, args);
             }
           }
           //  eslint-disable-next-line @typescript-eslint/no-unsafe-return

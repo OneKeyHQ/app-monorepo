@@ -3,6 +3,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import {
   devSettingsPersistAtom,
@@ -17,8 +19,6 @@ import type {
   IFirmwareUpdateDevSettings,
   IFirmwareUpdateDevSettingsKeys,
 } from '../states/jotai/atoms/devSettings';
-import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 @backgroundClass()
 class ServiceDevSetting extends ServiceBase {

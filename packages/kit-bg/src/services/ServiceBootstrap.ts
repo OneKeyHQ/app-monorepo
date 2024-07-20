@@ -1,7 +1,7 @@
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 @backgroundClass()
 class ServiceBootstrap extends ServiceBase {
