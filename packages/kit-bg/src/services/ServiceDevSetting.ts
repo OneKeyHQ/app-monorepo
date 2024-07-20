@@ -1,3 +1,4 @@
+import { analytics } from '@onekeyhq/shared/src/analytics';
 import {
   backgroundClass,
   backgroundMethod,
@@ -16,6 +17,8 @@ import type {
   IFirmwareUpdateDevSettings,
   IFirmwareUpdateDevSettingsKeys,
 } from '../states/jotai/atoms/devSettings';
+import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 @backgroundClass()
 class ServiceDevSetting extends ServiceBase {
@@ -57,6 +60,19 @@ class ServiceDevSetting extends ServiceBase {
     }
     const fwDev = await firmwareUpdateDevSettingsPersistAtom.get();
     return fwDev[key];
+  }
+
+  @backgroundMethod()
+  public async initAnalytics() {
+    const devSettings = await this.getDevSetting();
+    const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
+    analytics.setBasicAttributes({
+      instanceId,
+      baseURL: buildServiceEndpoint({
+        serviceName: EServiceEndpointEnum.Utility,
+        env: devSettings.settings?.enableTestEndpoint ? 'test' : 'prod',
+      }),
+    });
   }
 }
 

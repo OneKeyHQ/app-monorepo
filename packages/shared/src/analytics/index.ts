@@ -47,7 +47,7 @@ class Analytics {
 
   private deviceInfo: Record<string, any> | null = null;
 
-  setBaseInfo({
+  setBasicAttributes({
     instanceId,
     baseURL,
   }: {
@@ -65,7 +65,7 @@ class Analytics {
     }
   }
 
-  lazyAxios() {
+  private lazyAxios() {
     if (!this.request) {
       this.request = Axios.create({
         baseURL: this.baseURL,
@@ -94,7 +94,7 @@ class Analytics {
     }
   }
 
-  async lazyDeviceInfo() {
+  private async lazyDeviceInfo() {
     if (!this.deviceInfo) {
       this.deviceInfo = await getDeviceInfo();
       this.deviceInfo.appBuildNumber = platformEnv.buildNumber;
@@ -104,7 +104,7 @@ class Analytics {
     return this.deviceInfo;
   }
 
-  async requestEvent(eventName: string, eventProps?: Record<string, any>) {
+  private async requestEvent(eventName: string, eventProps?: Record<string, any>) {
     const event = {
       ...eventProps,
       ...(await this.lazyDeviceInfo()),

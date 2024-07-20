@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETrackEventNames, trackEvent } from '@onekeyhq/shared/src/analytics';
+import { ETrackEventNames, analytics } from '@onekeyhq/shared/src/analytics';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -20,7 +20,7 @@ export function ImportRecoveryPhrase() {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic,
       });
-      trackEvent(ETrackEventNames.ImportWallet, {
+      analytics.trackEvent(ETrackEventNames.ImportWallet, {
         import_method: 'mnemonic',
       });
     },

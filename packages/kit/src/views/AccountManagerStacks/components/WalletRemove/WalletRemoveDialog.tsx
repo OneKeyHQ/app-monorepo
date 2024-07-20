@@ -47,7 +47,7 @@ export function WalletRemoveDialog({
           await actions.current.removeWallet({
             walletId: wallet?.id || '',
           });
-          trackEvent(ETrackEventNames.DeleteWallet);
+          analytics.trackEvent(ETrackEventNames.DeleteWallet);
 
           Toast.success({
             title: intl.formatMessage({

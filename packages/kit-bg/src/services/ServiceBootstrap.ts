@@ -1,6 +1,7 @@
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 @backgroundClass()
 class ServiceBootstrap extends ServiceBase {
@@ -19,6 +20,9 @@ class ServiceBootstrap extends ServiceBase {
     ]);
     // wait for local messages to be loaded
     void this.backgroundApi.serviceContextMenu.init();
+    if (platformEnv.isExtension) {
+      await this.backgroundApi.serviceDevSetting.initAnalytics();
+    }
   }
 }
 

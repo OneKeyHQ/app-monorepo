@@ -16,7 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETrackEventNames, trackEvent } from '@onekeyhq/shared/src/analytics';
+import { ETrackEventNames, analytics } from '@onekeyhq/shared/src/analytics';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
@@ -114,7 +114,7 @@ export function VerifyRecoveryPhrase({
         navigation.push(EOnboardingPages.FinalizeWalletSetup, {
           mnemonic,
         });
-        trackEvent(ETrackEventNames.CreateWallet, {
+        analytics.trackEvent(ETrackEventNames.CreateWallet, {
           is_biometric_verification_set: settings.isBiologyAuthSwitchOn,
         });
       } else {
