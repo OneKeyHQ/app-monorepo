@@ -23,7 +23,10 @@ function useBuyToken({
     });
   }, [accountId, navigation, networkId]);
 
-  return { handleOnBuy, isSupported };
+  return {
+    handleOnBuy,
+    isSupported: Boolean(networkId && accountId && isSupported),
+  };
 }
 
 export { useBuyToken };

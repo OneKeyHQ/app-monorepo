@@ -2,11 +2,7 @@ import { useIntl } from 'react-intl';
 
 import { Empty, ListView, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import {
-  AllNetworksAvatar,
-  NetworkAvatarBase,
-} from '@onekeyhq/kit/src/components/NetworkAvatar';
-import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IServerNetworkMatch } from '../../types';
@@ -43,13 +39,7 @@ export const BaseListView = ({
     renderItem={({ item }) => (
       <ListItem
         h={48}
-        renderAvatar={
-          item.id === dangerAllNetworkRepresent.id ? (
-            <AllNetworksAvatar size="$8" />
-          ) : (
-            <NetworkAvatarBase logoURI={item.logoURI} size="$8" />
-          )
-        }
+        renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
         title={item.name}
         titleMatch={item.titleMatch}
         onPress={() => onPressItem?.(item)}
