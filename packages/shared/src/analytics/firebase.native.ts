@@ -10,8 +10,9 @@ export const analyticLogEvent = async (
     [key: string]: any;
   },
 ) => {
-  /** native only inject firebase config at production with CFBundleVersion not 1 */
-  if (!platformEnv.isProduction && process.env.BUILD_NUMBER !== '1') return;
+  if (!platformEnv.isProduction) {
+    return;
+  }
   const module = await import('@react-native-firebase/analytics');
   return module.firebase.analytics().logEvent(eventName, eventParams);
 };
