@@ -50,8 +50,8 @@ export abstract class BaseScope implements IScope {
               // eslint-disable-next-line no-console
               console[level](...obj.args);
             } else if (obj.metadata.type === 'server') {
-              // eslint-disable-next-line no-console
-              analytics.trackEvent(prop, args);
+              // eslint-disable-next-line no-console, @typescript-eslint/no-unsafe-member-access
+              analytics.trackEvent(prop, obj.args[0].args[0]);
             }
           }
           //  eslint-disable-next-line @typescript-eslint/no-unsafe-return
