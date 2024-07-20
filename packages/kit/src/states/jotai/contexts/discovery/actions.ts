@@ -522,7 +522,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           }
         }
 
-        trackEvent(ETrackEventNames.EnterDapp, {
+        analytics.trackEvent(ETrackEventNames.EnterDapp, {
           dapp_url: url,
           dapp_title: title,
           is_favorite: isBookmark,
