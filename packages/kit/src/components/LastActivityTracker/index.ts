@@ -15,6 +15,7 @@ import { ETrackEventNames, analytics } from '@onekeyhq/shared/src/analytics';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 const LastActivityTracker = () => {
   const [{ enableSystemIdleLock, appLockDuration }] = usePasswordPersistAtom();
@@ -32,7 +33,7 @@ const LastActivityTracker = () => {
         env: devSettings.settings?.enableTestEndpoint ? 'test' : 'prod',
       }),
     });
-    analytics.trackEvent(ETrackEventNames.AppStart);
+    defaultLogger.app.page.appStart();
   }, [devSettings.settings?.enableTestEndpoint]);
 
   const refresh = useCallback(() => {
