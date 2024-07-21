@@ -357,10 +357,7 @@ class ServiceNetwork extends ServiceBase {
     const pinnedNetworkIds =
       await this.backgroundApi.simpleDb.networkSelector.getPinnedNetworkIds();
     let networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
-    networkIds = [
-      getNetworkIdsMap().all,
-      ...networkIds.filter((id) => id !== getNetworkIdsMap().all),
-    ];
+    networkIds = networkIds.filter((id) => id !== getNetworkIdsMap().all);
     const networkIdsIndex = networkIds.reduce((result, item, index) => {
       result[item] = index;
       return result;
