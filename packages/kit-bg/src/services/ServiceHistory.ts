@@ -79,7 +79,6 @@ class ServiceHistory extends ServiceBase {
         this.fetchHistoryTxDetails({
           accountId,
           networkId,
-          accountAddress,
           txid: tx.decodedTx.txid,
         }),
       ),
@@ -317,7 +316,7 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
-      const { accountId, networkId, txid } = params;
+      const { accountId, networkId, txid, withUTXOs } = params;
 
       const [accountAddress, xpub] = await Promise.all([
         this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -335,17 +334,25 @@ class ServiceHistory extends ServiceBase {
         accountAddress: accountAddress || '',
       });
 
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
-        '/wallet/v1/account/history/detail',
-        {
-          params: {
+      const requestParams = withUTXOs
+        ? {
+            networkId,
+            txid,
+            ...extraParams,
+          }
+        : {
             networkId,
             txid,
             xpub,
             accountAddress,
             ...extraParams,
-          },
+          };
+
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
+        '/wallet/v1/account/history/detail',
+        {
+          params: requestParams,
           headers:
             await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
@@ -367,15 +374,9 @@ class ServiceHistory extends ServiceBase {
     networkId,
     txid,
   }: IFetchTxDetailsParams) {
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
     return this.fetchHistoryTxDetails({
       accountId,
       networkId,
-      accountAddress,
       txid,
     });
   }
