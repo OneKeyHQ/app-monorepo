@@ -17,31 +17,25 @@ const ToastGallery = () => (
           <YStack space="$2" justifyContent="center">
             <Button
               onPress={() => {
-                Toast.success({
+                Toast.message({
                   duration: ONE_HOUR,
                   title: 'Account created',
                 });
-              }}
-            >
-              Success
-            </Button>
-            <Button
-              onPress={() => {
                 Toast.error({
+                  duration: ONE_HOUR,
                   title: 'Create account failed',
                 });
-              }}
-            >
-              Error
-            </Button>
-            <Button
-              onPress={() => {
-                Toast.message({
+                Toast.warning({
+                  duration: ONE_HOUR,
+                  title: 'Create account failed',
+                });
+                Toast.success({
+                  duration: ONE_HOUR,
                   title: 'Address copied',
                 });
               }}
             >
-              Default
+              All Types
             </Button>
             <Button
               onPress={() => {

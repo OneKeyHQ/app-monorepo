@@ -3,7 +3,7 @@ import { createRef } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
 import { useWindowDimensions } from 'react-native';
-import { SizableText, View, YStack } from 'tamagui';
+import { SizableText, useMedia, View, YStack } from 'tamagui';
 
 import { Portal } from '../../hocs';
 import { Icon, XStack } from '../../primitives';
@@ -41,11 +41,11 @@ const iconMap = {
 const RenderLines = ({
   size,
   children: text,
-  hasMessage = false,
+  color,
 }: {
   children?: string;
   size: ISizableTextProps['size'];
-  hasMessage?: boolean;
+  color: ISizableTextProps['color'];
 }) => {
   if (!text) {
     return null;
@@ -53,40 +53,18 @@ const RenderLines = ({
   const lines = text?.split('\n') || [];
   return lines.length > 0 ? (
     <YStack>
-      {lines.map((v, index) =>
-        index === 0 ? (
-          <XStack
-            $platform-native={{
-              justifyContent: hasMessage ? 'flex-start' : 'center',
-            }}
-            alignItems="center"
-            key={index}
-            space="$1.5"
-          >
-            <SizableText
-              flexShrink={1}
-              selectable={false}
-              size={size}
-              wordWrap="break-word"
-            >
-              {v}
-            </SizableText>
-          </XStack>
-        ) : (
-          <SizableText
-            selectable={false}
-            $platform-native={{
-              textAlign: 'center',
-            }}
-            size={size}
-            wordWrap="break-word"
-            width="100%"
-            key={index}
-          >
-            {v}
-          </SizableText>
-        ),
-      )}
+      {lines.map((v, index) => (
+        <SizableText
+          color={color}
+          textTransform="none"
+          selectable={false}
+          size={size}
+          wordWrap="break-word"
+          key={v + index}
+        >
+          {v}
+        </SizableText>
+      ))}
     </YStack>
   ) : null;
 };
@@ -105,6 +83,7 @@ function Title({
   actions?: IToastProps['actions'];
 }) {
   const { height, width } = useWindowDimensions();
+  const media = useMedia();
 
   return (
     <YStack
@@ -113,7 +92,7 @@ function Title({
       maxHeight={height - 100}
       $platform-native={{
         maxHeight: height - 200,
-        width: width - 100,
+        width: width - 64,
       }}
       $platform-web={{
         overflow: 'hidden',
@@ -121,25 +100,38 @@ function Title({
     >
       <XStack space={icon ? '$2' : 0}>
         {icon ? (
-          <View width={'$5.5'} height={'$5.5'}>
+          <View
+            $platform-android={{
+              paddingTop: '$0.5',
+            }}
+            width={'$5.5'}
+            height={'$5.5'}
+          >
             {icon}
           </View>
         ) : null}
 
         <YStack flex={1} space={'$1'}>
           {title ? (
-            <RenderLines size="$headingSm" hasMessage={!!message}>
+            <RenderLines color="$text" size={'$headingSm'}>
               {title}
             </RenderLines>
           ) : null}
 
-          {message ? <RenderLines size="$bodySm">{message}</RenderLines> : null}
+          {message ? (
+            <RenderLines
+              color="$textSubdued"
+              size={media.md ? '$bodySm' : '$bodyMd'}
+            >
+              {message}
+            </RenderLines>
+          ) : null}
 
           {actions ? (
             <XStack
               space="$2"
               justifyContent="flex-end"
-              paddingTop={'$2.5'}
+              paddingTop={'$3'}
               paddingRight={'$0.5'}
               paddingBottom={'$0.5'}
             >
