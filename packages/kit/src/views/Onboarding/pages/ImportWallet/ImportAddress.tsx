@@ -155,7 +155,10 @@ function ImportAddress() {
   const { clearText } = useClipboard();
   const form = useForm<IFormValues>({
     values: {
-      networkId: network?.id ?? getNetworkIdsMap().btc,
+      networkId:
+        network?.id && network.id !== getNetworkIdsMap().all
+          ? network?.id
+          : getNetworkIdsMap().btc,
       deriveType: undefined,
       publicKeyValue: '',
       addressValue: { raw: '', resolved: undefined },
