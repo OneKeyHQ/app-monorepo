@@ -152,8 +152,7 @@ export type IFetchHistoryTxDetailsParams = {
   accountId: string;
   networkId: string;
   txid: string;
-  accountAddress?: string;
-  xpub?: string;
+  withUTXOs?: boolean;
 };
 
 export type IFetchTxDetailsParams = {
