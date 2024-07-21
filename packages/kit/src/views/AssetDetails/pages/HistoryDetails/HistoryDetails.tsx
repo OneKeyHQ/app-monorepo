@@ -213,7 +213,7 @@ export function AssetItem({
         networkImageUri={networkIcon}
       />
       <ListItem.Text
-        primary={asset.symbol}
+        primary={asset.isNFT ? asset.name : asset.symbol}
         secondary={asset.name}
         flexShrink={0}
       />
