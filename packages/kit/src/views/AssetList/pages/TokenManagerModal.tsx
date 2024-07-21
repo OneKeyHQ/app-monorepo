@@ -12,13 +12,15 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TokenIconView } from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
-import type {
+import {
   EModalAssetListRoutes,
-  IModalAssetListParamList,
+  EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { IModalAssetListParamList } from '@onekeyhq/shared/src/routes';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useTokenListAtom } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -26,6 +28,7 @@ import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenList
 import type { RouteProp } from '@react-navigation/core';
 
 function TokenManagerModal() {
+  const navigation = useAppNavigation();
   const route =
     useRoute<
       RouteProp<
@@ -54,6 +57,16 @@ function TokenManagerModal() {
   useEffect(() => {
     console.log('===>TokenList: ', tokenList);
   }, [tokenList]);
+
+  const onAddCustomToken = useCallback(() => {
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.AddCustomTokenModal,
+      params: {
+        networkId,
+        accountId,
+      },
+    });
+  }, [navigation, networkId, accountId]);
 
   const onHiddenToken = useCallback(
     async (token: IAccountToken) => {
@@ -94,13 +107,10 @@ function TokenManagerModal() {
                 mt="$4"
                 title="Manually add a token"
                 onPress={() => {
-                  console.log('=====>>>> Manully Add');
+                  onAddCustomToken();
                 }}
               >
-                <ListItem.IconButton
-                  icon="ChevronRightSmallOutline"
-                  onPress={() => console.log('Delete butto')}
-                />
+                <ListItem.IconButton icon="ChevronRightSmallOutline" />
               </ListItem>
               <Divider />
               <SizableText mt={10} px="$5" size="$bodyMd" color="$textSubdued">

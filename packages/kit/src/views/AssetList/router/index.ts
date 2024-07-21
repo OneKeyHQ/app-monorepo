@@ -9,6 +9,10 @@ const TokenManagerModal = LazyLoadPage(
   () => import('../pages/TokenManagerModal'),
 );
 
+const AddCustomTokenModal = LazyLoadPage(
+  () => import('../pages/AddCustomTokenModal'),
+);
+
 export const ModalAssetListStack: IModalFlowNavigatorConfig<
   EModalAssetListRoutes,
   IModalAssetListParamList
@@ -20,5 +24,9 @@ export const ModalAssetListStack: IModalFlowNavigatorConfig<
   {
     name: EModalAssetListRoutes.TokenManagerModal,
     component: TokenManagerModal,
+  },
+  {
+    name: EModalAssetListRoutes.AddCustomTokenModal,
+    component: AddCustomTokenModal,
   },
 ];
