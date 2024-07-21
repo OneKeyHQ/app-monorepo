@@ -72,7 +72,10 @@ export function ImportSingleChainBase({
   const { clearText } = useClipboard();
   const form = useForm<IFormValues>({
     values: {
-      networkId: network?.id ?? getNetworkIdsMap().btc,
+      networkId:
+        network?.id && network.id !== getNetworkIdsMap().all
+          ? network?.id
+          : getNetworkIdsMap().btc,
       input: '',
       deriveType: undefined,
     },

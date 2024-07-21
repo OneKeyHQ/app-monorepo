@@ -14,4 +14,5 @@ export enum ETranslationsMock {
   batch_create_account_preview = 'Preview',
   batch_create_account_preview_added = '{count} accounts added',
   batch_create_account_done_added = '{count} accounts have been added',
+  unavailable_networks_for_selected_account = 'Unavailable networks for selected account',
 }

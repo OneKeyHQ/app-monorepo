@@ -21,10 +21,12 @@ const settings: IVaultSettings = {
   coinTypeDefault: COINTYPE_ALLNETWORKS,
   accountType: EDBAccountType.SIMPLE,
 
-  importedAccountEnabled: true,
-  hardwareAccountEnabled: true,
-  externalAccountEnabled: true,
-  watchingAccountEnabled: true,
+  importedAccountEnabled: false,
+  hardwareAccountEnabled: false,
+  externalAccountEnabled: false,
+  watchingAccountEnabled: false,
+  publicKeyExportEnabled: false,
+  addressBookDisabled: true,
 
   defaultFeePresetIndex: 0,
 
