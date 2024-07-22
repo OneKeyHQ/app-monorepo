@@ -1,5 +1,6 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
+import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import {
   backgroundClass,
   providerApiMethod,
@@ -9,6 +10,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -103,6 +105,76 @@ class ProviderApiScdo extends ProviderApiBase {
   @providerApiMethod()
   public scdo_estimateGas(request: IJsBridgeMessagePayload) {
     return this._rpcCall(request);
+  }
+
+  private async _signAndSendTransaction(
+    request: IJsBridgeMessagePayload,
+    isSend = false,
+  ) {
+    const accounts = await this.getAccountsInfo(request);
+    if (!accounts || accounts.length === 0) {
+      throw new Error('No accounts');
+    }
+
+    const {
+      params: [encodedTx],
+    } = request.data as { method: string; params: [IEncodedTxScdo] };
+    const { account, accountInfo } = accounts[0];
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx,
+        accountId: account.id,
+        networkId: accountInfo?.networkId ?? '',
+        signOnly: !isSend,
+      });
+
+    const tx = {
+      Data: encodedTx,
+      Hash: result.txid,
+      Signature: {
+        Sig: result.signature,
+      },
+    };
+
+    return tx;
+  }
+
+  @providerApiMethod()
+  public scdo_signTransaction(request: IJsBridgeMessagePayload) {
+    return this._signAndSendTransaction(request, false);
+  }
+
+  @providerApiMethod()
+  public scdo_sendTransaction(request: IJsBridgeMessagePayload) {
+    return this._signAndSendTransaction(request, true);
+  }
+
+  @providerApiMethod()
+  public async scdo_signMessage(request: IJsBridgeMessagePayload) {
+    const accounts = await this.getAccountsInfo(request);
+    if (!accounts || accounts.length === 0) {
+      throw new Error('No accounts');
+    }
+
+    const {
+      params: [message],
+    } = request.data as {
+      params: [string];
+    };
+    const account = accounts[0];
+    const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      unsignedMessage: {
+        type: EMessageTypesCommon.SIMPLE_SIGN,
+        message,
+        secure: true,
+      },
+      networkId: account.accountInfo?.networkId ?? '',
+      accountId: account.account.id ?? '',
+    })) as string;
+
+    return result;
   }
 }
 

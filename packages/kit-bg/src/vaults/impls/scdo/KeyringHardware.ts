@@ -1,15 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
+
+import {
+  hash,
+  serializeSignedTransaction,
+  serializeUnsignedTransaction,
+} from './utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -51,7 +56,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               'payload': [
                 {
                   'path': "m/44'/541'/0'/0/0",
-                  'address': '1S0193a327fbcc88b7a54e5f4fd5c858678caef021',
+                  'address': '1S0118a02f993fc7a4348fd36b7f7a596948f02b31',
                 },
               ],
             };
@@ -101,6 +106,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const sdk = await this.getHardwareSDKInstance();
     const account = await this.vault.getAccount();
     console.log(deviceCommonParams, connectId, deviceId, sdk, account.path);
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxScdo;
+    const signingTx = serializeUnsignedTransaction(encodedTx);
+    const txHash = hash(signingTx);
     // const res = await convertDeviceResponse(() =>
     //   sdk.aptosSignTransaction(connectId, deviceId, {
     //     ...deviceCommonParams,
@@ -109,17 +117,36 @@ export class KeyringHardware extends KeyringHardwareBase {
     //   }),
     // );
     const res = {
-      signature: '',
+      signature: Buffer.from(new Array(64).fill(0)).toString('base64'),
     };
+    const rawTx = serializeSignedTransaction(encodedTx, txHash, res.signature);
     return {
-      txid: '',
-      rawTx: '',
+      txid: txHash,
+      rawTx,
       encodedTx: unsignedTx.encodedTx,
       signature: res.signature,
     };
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new NotImplemented();
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    const { messages, deviceParams } = params;
+    const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
+    const { connectId, deviceId } = checkIsDefined(dbDevice);
+    const sdk = await this.getHardwareSDKInstance();
+    const account = await this.vault.getAccount();
+    console.log(deviceCommonParams, connectId, deviceId, sdk, account.path);
+    // const res = await convertDeviceResponse(() =>
+    //   sdk.aptosSignTransaction(connectId, deviceId, {
+    //     ...deviceCommonParams,
+    //     path: account.path,
+    //     rawTx: '',
+    //   }),
+    // );
+    const res = {
+      signature: Buffer.from(new Array(64).fill(0)).toString('base64'),
+    };
+    return [res.signature];
   }
 }

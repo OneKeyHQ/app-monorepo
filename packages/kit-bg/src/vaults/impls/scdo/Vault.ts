@@ -179,7 +179,10 @@ export default class Vault extends VaultBase {
         ? +params.feeInfo.gas.gasLimit
         : 0;
       encodedTx.GasPrice = params.feeInfo.gas?.gasPrice
-        ? +params.feeInfo.gas.gasPrice
+        ? new BigNumber(params.feeInfo.gas.gasPrice)
+            .shiftedBy(params.feeInfo.common.feeDecimals)
+            .integerValue()
+            .toNumber()
         : 0;
     }
     // max token send
