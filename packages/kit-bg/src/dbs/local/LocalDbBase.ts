@@ -62,6 +62,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -89,7 +90,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -586,13 +586,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       avatarInfo = parsedAvatar;
     }
     wallet.avatarInfo = avatarInfo;
-    wallet.walletOrder = wallet.walletNo;
+    wallet.walletOrder = wallet.walletOrderSaved ?? wallet.walletNo;
     if (accountUtils.isHwHiddenWallet({ wallet })) {
       const parentWallet = await this.getParentWalletOfHiddenWallet({
         dbDeviceId: wallet.associatedDevice || '',
         isQr: accountUtils.isQrWallet({ walletId: wallet.id }), // wallet.type === WALLET_TYPE_QR
       });
-      wallet.walletOrder = parentWallet.walletNo + wallet.walletNo / 1000000;
+      wallet.walletOrder =
+        (parentWallet.walletOrderSaved ?? parentWallet.walletNo) +
+        (wallet.walletOrderSaved ?? wallet.walletNo) / 1000000;
     }
 
     if (hiddenWallets && hiddenWallets.length > 0) {
@@ -630,6 +632,28 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     // wallet.xfp = 'aaaaaaaa'; // mock qr wallet xfp
     return wallet;
+  }
+
+  async updateWalletOrder({
+    walletId,
+    walletOrder,
+  }: {
+    walletId: string;
+    walletOrder: number;
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateWallet({
+        tx,
+        walletId,
+        updater(item) {
+          if (!isNil(walletOrder)) {
+            item.walletOrderSaved = walletOrder;
+          }
+          return item;
+        },
+      });
+    });
   }
 
   async getIndexedAccount({ id }: { id: string }) {

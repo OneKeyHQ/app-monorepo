@@ -141,7 +141,8 @@ export type IDBWallet = IDBBaseObjectWithName & {
   isTemp?: boolean;
   passphraseState?: string;
   walletNo: number;
-  walletOrder?: number;
+  walletOrderSaved?: number; // db field
+  walletOrder?: number; // readonly field
   hash?: string; // hd wallet only
   xfp?: string; // qr wallet only
   airGapAccountsInfoRaw?: string;

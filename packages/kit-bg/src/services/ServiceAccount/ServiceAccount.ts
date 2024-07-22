@@ -1862,6 +1862,54 @@ class ServiceAccount extends ServiceBase {
       },
     );
   }
+
+  @backgroundMethod()
+  async insertWalletOrder({
+    targetWalletId,
+    startWalletId,
+    endWalletId,
+    emitEvent,
+  }: {
+    targetWalletId: string;
+    startWalletId: string | undefined;
+    endWalletId: string | undefined;
+    emitEvent?: boolean;
+  }) {
+    const checkIsNotHiddenWallet = (wallet: IDBWallet | undefined) => {
+      if (wallet && accountUtils.isHwHiddenWallet({ wallet })) {
+        throw new Error(
+          'insertWalletOrder ERROR: Not supported for HW hidden wallet',
+        );
+      }
+    };
+
+    const targetWallet = await localDb.getWalletSafe({
+      walletId: targetWalletId,
+    });
+    checkIsNotHiddenWallet(targetWallet);
+
+    const startWallet = await localDb.getWalletSafe({
+      walletId: startWalletId || '',
+    });
+    checkIsNotHiddenWallet(startWallet);
+
+    const endWallet = await localDb.getWalletSafe({
+      walletId: endWalletId || '',
+    });
+    checkIsNotHiddenWallet(endWallet);
+
+    const startOrder = startWallet?.walletOrder ?? 0;
+    const endOrder = endWallet?.walletOrder ?? startOrder + 1;
+    await localDb.updateWalletOrder({
+      walletId: targetWalletId,
+      walletOrder: (startOrder + endOrder) / 2,
+    });
+
+    if (emitEvent) {
+      // force UI re-render, may cause performance issue
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
+  }
 }
 
 export default ServiceAccount;
