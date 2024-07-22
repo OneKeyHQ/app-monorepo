@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
+
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
@@ -75,11 +77,19 @@ export default class Vault extends VaultBase {
       throw new Error('transfersInfo is required');
     }
     const transfer = transfersInfo[0];
+    const tokenInfo = transfer.tokenInfo;
+    if (!tokenInfo) {
+      throw new Error('tokenInfo is required');
+    }
+
     return {
       Type: 0,
       From: transfer.from,
       To: transfer.to,
-      Amount: +transfer.amount,
+      Amount: new BigNumber(transfer.amount)
+        .shiftedBy(tokenInfo.decimals)
+        .integerValue()
+        .toNumber(),
       AccountNonce: 0,
       GasPrice: 1,
       GasLimit: 0,

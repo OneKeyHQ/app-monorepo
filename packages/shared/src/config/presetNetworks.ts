@@ -2430,7 +2430,7 @@ const scdo:IServerNetwork = {
   'chainId': '541',
   'code': 'scdo',
   'decimals': 8,
-  'id': 'scdo--mainnet',
+  'id': 'scdo--net1',
   'impl': 'scdo',
   'isTestnet': false,
   'logoURI': 'https://uni.onekey-asset.com/static/chain/polygon-zkevm.png',
