@@ -48,6 +48,7 @@ function UTXODetails() {
         accountId,
         networkId,
         txid: txId,
+        withUTXOs: true,
       });
 
       if (r) {
