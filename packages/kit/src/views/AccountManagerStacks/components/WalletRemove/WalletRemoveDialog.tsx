@@ -9,6 +9,7 @@ import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function WalletRemoveDialog({
   defaultValue,
@@ -46,7 +47,7 @@ export function WalletRemoveDialog({
           await actions.current.removeWallet({
             walletId: wallet?.id || '',
           });
-
+          defaultLogger.account.wallet.deleteWallet();
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.feedback_change_saved,
