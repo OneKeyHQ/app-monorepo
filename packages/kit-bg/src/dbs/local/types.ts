@@ -211,6 +211,9 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   // single chain account auto change to createAtNetwork when network not compatible and networks not defined
   createAtNetwork?: string;
   template?: string;
+
+  accountOrder?: number; // readonly field
+  accountOrderSaved?: number; // db field
 };
 
 export type IDBSimpleAccount = IDBBaseAccount & {

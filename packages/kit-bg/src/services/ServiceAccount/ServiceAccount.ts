@@ -1948,6 +1948,44 @@ class ServiceAccount extends ServiceBase {
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     }
   }
+
+  @backgroundMethod()
+  async insertAccountOrder({
+    targetAccountId,
+    startAccountId,
+    endAccountId,
+    emitEvent,
+  }: {
+    targetAccountId: string;
+    startAccountId: string | undefined;
+    endAccountId: string | undefined;
+    emitEvent?: boolean;
+  }) {
+    // const targetAccount = await localDb.getAccountSafe({
+    //   accountId: targetAccountId,
+    // });
+
+    const startAccount = await localDb.getAccountSafe({
+      accountId: startAccountId || '',
+    });
+
+    const endAccount = await localDb.getAccountSafe({
+      accountId: endAccountId || '',
+    });
+
+    const startOrder = startAccount?.accountOrder ?? 0;
+    const endOrder = endAccount?.accountOrder ?? startOrder + 1;
+
+    await localDb.updateAccountOrder({
+      accountId: targetAccountId,
+      order: (startOrder + endOrder) / 2,
+    });
+
+    if (emitEvent) {
+      // force UI re-render, may cause performance issue
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
+  }
 }
 
 export default ServiceAccount;

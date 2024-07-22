@@ -705,7 +705,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     indexedAccount: IDBIndexedAccount;
   }) {
-    indexedAccount.order = indexedAccount.orderSaved ?? indexedAccount.index;
+    indexedAccount.order =
+      indexedAccount.orderSaved ?? indexedAccount.index + 1;
     return indexedAccount;
   }
 
@@ -2190,7 +2191,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           (item) =>
             item && !accountUtils.isUrlAccountFn({ accountId: item.id }),
         )
-        .map((account) => this.refillAccountInfo({ account })),
+        .map((account, walletAccountsIndex) =>
+          this.refillAccountInfo({ account, walletAccountsIndex }),
+        )
+        .sort((a, b) =>
+          natsort({ insensitive: true })(
+            a.accountOrder ?? 0,
+            b.accountOrder ?? 0,
+          ),
+        ),
     };
   }
 
@@ -2239,7 +2248,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  refillAccountInfo({ account }: { account: IDBAccount }) {
+  refillAccountInfo({
+    account,
+    walletAccountsIndex,
+  }: {
+    account: IDBAccount;
+    walletAccountsIndex?: number;
+  }) {
+    account.accountOrder = account?.accountOrderSaved;
+    if (!isNil(walletAccountsIndex)) {
+      account.accountOrder =
+        account?.accountOrderSaved ?? walletAccountsIndex + 1;
+    }
     const externalAccount = account as IDBExternalAccount;
     if (externalAccount && externalAccount.connectionInfoRaw) {
       externalAccount.connectionInfo = JSON.parse(
@@ -2247,6 +2267,29 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       );
     }
     return account;
+  }
+
+  async updateAccountOrder({
+    accountId,
+    order,
+  }: {
+    accountId: string;
+    order: number;
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        ids: [accountId],
+        updater(item) {
+          if (!isNil(order)) {
+            item.accountOrderSaved = order;
+          }
+          return item;
+        },
+      });
+    });
   }
 
   async getAllAccounts() {
