@@ -70,8 +70,13 @@ export abstract class BaseScope implements IScope {
           throw new Error(`Scene method ${prop} not found`);
         }
         return async (...args: any[]) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-          const result = instance[prop].call(instance, ...args);
+          let result: any;
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+            result = instance[prop].call(instance, ...args);
+          } catch (error) {
+            console.error(error);
+          }
           const obj = isPromiseObject(result) ? await result : result;
           if (obj && obj instanceof Metadata) {
             const rawMsg = stringifyFunc(...obj.args);
