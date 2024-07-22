@@ -57,7 +57,7 @@ const SwapProviderInfoItem = ({
       return (
         <SizableText ml="$1" size="$bodyMdMedium">
           {intl.formatMessage({
-            id: ETranslations.swap_page_provider_provider_insufficient_liquidity,
+            id: ETranslations.swap_page_provider_rate_unavailable,
           })}
         </SizableText>
       );
