@@ -84,7 +84,7 @@ function NFTListContainer(props: ITabPageProps) {
       });
       if (
         !refreshAllNetworksNftList.current &&
-        r.networkId === networkIdsMap.all
+        r.networkId === networkIdsMap.onekeyall
       ) {
         setNftList((prev) => [...prev, ...r.data]);
         setNftListState({

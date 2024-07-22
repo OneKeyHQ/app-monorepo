@@ -13,7 +13,7 @@ import type {
 } from '../../types';
 
 export class KeyringHardware extends KeyringHardwareBase {
-  override coreApi = coreChainApi.all.hd;
+  override coreApi = coreChainApi.onekeyall.hd;
 
   override prepareAccounts(
     params: IPrepareHardwareAccountsParams,

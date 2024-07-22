@@ -8,7 +8,7 @@ import { getPresetNetworks } from './presetNetworks';
 export const NETWORK_ID_ETC = 'evm--61';
 
 export type INetworkShortCode =
-  | 'all'
+  | 'onekeyall'
   | 'eth'
   | 'goerli'
   | 'arbitrum'
