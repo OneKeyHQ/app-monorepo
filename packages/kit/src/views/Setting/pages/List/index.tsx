@@ -1,6 +1,7 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,6 +14,9 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useWebAuthActions } from '@onekeyhq/kit/src/components/BiologyAuthComponent/hooks/useWebAuthActions';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   DISCORD_URL,
   GITHUB_URL,
@@ -121,6 +125,20 @@ const SocialButtonGroup = () => {
 };
 
 export default function SettingListModal() {
+  const route = useRoute();
+  const flag = (route.params as { flag?: string })?.flag ?? '';
+  const { setWebAuthEnable } = useWebAuthActions();
+  const [{ webAuthCredentialId: credId }] = usePasswordPersistAtom();
+  useEffect(() => {
+    if (flag === 'webAuthRegistration' && !credId) {
+      void (async () => {
+        const res = await setWebAuthEnable(true);
+        if (res) {
+          await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(true);
+        }
+      })();
+    }
+  }, [flag, setWebAuthEnable, credId]);
   const intl = useIntl();
   return (
     <Page scrollEnabled>

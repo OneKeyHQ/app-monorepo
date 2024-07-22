@@ -11,7 +11,7 @@ export enum EModalSettingRoutes {
 }
 
 export type IModalSettingParamList = {
-  [EModalSettingRoutes.SettingListModal]: undefined;
+  [EModalSettingRoutes.SettingListModal]: { flag?: string } | undefined;
   [EModalSettingRoutes.SettingCurrencyModal]: undefined;
   [EModalSettingRoutes.SettingAccountDerivationModal]: undefined;
   [EModalSettingRoutes.SettingSpendUTXOModal]: undefined;
