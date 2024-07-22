@@ -42,7 +42,8 @@ function HomeOverviewContainer() {
 
   const [accountWorth] = useAccountWorthAtom();
   const [overviewState] = useAccountOverviewStateAtom();
-  const { updateAccountOverviewState } = useAccountOverviewActions().current;
+  const { updateAccountOverviewState, updateAccountWorth } =
+    useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
 
@@ -85,8 +86,20 @@ function HomeOverviewContainer() {
         initialized: false,
         isRefreshing: true,
       });
+      if (network.isAllNetworks) {
+        updateAccountWorth({
+          worth: '0',
+        });
+      }
     }
-  }, [account?.id, network?.id, updateAccountOverviewState, wallet?.id]);
+  }, [
+    account?.id,
+    network?.id,
+    network?.isAllNetworks,
+    updateAccountOverviewState,
+    updateAccountWorth,
+    wallet?.id,
+  ]);
 
   const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);

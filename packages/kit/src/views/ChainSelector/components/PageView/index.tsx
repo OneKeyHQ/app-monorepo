@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,6 +20,7 @@ type IChainSelectorViewProps = {
 type IChainSelectorEditableViewProps = IChainSelectorViewProps & {
   defaultTopNetworks?: IServerNetwork[];
   onTopNetworksChange?: (networks: IServerNetwork[]) => void;
+  unavailableNetworks?: IServerNetwork[];
 };
 
 type IChainSelectorPageViewProps = IChainSelectorEditableViewProps & {
@@ -64,31 +65,36 @@ const ChainSelectorEditableView: FC<IChainSelectorEditableViewProps> = ({
   networks,
   networkId,
   onPressItem,
+  unavailableNetworks = [],
   defaultTopNetworks = [],
   onTopNetworksChange,
 }) => {
   const intl = useIntl();
   const [isEditMode, setIsEditMode] = useState(false);
-  const handleEditButtonPress = () => {
-    setIsEditMode(!isEditMode);
-  };
+
+  const headerRight = useMemo(() => {
+    if (unavailableNetworks.length > 0) {
+      return undefined;
+    }
+    return () =>
+      getHeaderRightComponent(
+        isEditMode
+          ? intl.formatMessage({ id: ETranslations.global_done })
+          : intl.formatMessage({ id: ETranslations.global_edit }),
+        () => setIsEditMode(!isEditMode),
+      );
+  }, [intl, isEditMode, unavailableNetworks]);
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_networks })}
-        headerRight={() =>
-          getHeaderRightComponent(
-            isEditMode
-              ? intl.formatMessage({ id: ETranslations.global_done })
-              : intl.formatMessage({ id: ETranslations.global_edit }),
-            handleEditButtonPress,
-          )
-        }
+        headerRight={headerRight}
       />
       <Page.Body>
         <EditableView
           isEditMode={isEditMode}
           defaultTopNetworks={defaultTopNetworks}
+          unavailableNetworks={unavailableNetworks}
           networkId={networkId}
           allNetworks={networks}
           onPressItem={onPressItem}
@@ -104,6 +110,7 @@ export const ChainSelectorPageView: FC<IChainSelectorPageViewProps> = ({
   networks,
   networkId,
   defaultTopNetworks,
+  unavailableNetworks,
   onPressItem,
   onTopNetworksChange,
 }) =>
@@ -111,6 +118,7 @@ export const ChainSelectorPageView: FC<IChainSelectorPageViewProps> = ({
     <ChainSelectorEditableView
       networks={networks}
       networkId={networkId}
+      unavailableNetworks={unavailableNetworks}
       defaultTopNetworks={defaultTopNetworks}
       onPressItem={onPressItem}
       onTopNetworksChange={onTopNetworksChange}

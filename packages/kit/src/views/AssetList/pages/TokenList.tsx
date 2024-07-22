@@ -88,12 +88,14 @@ function TokenList() {
         isBlocked,
         deriveInfo,
         deriveType,
+        isAllNetworks,
       });
     },
     [
       accountId,
       deriveInfo,
       deriveType,
+      isAllNetworks,
       isBlocked,
       navigation,
       networkId,

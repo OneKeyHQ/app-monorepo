@@ -117,7 +117,7 @@ export function WalletActionMore() {
         {
           label: intl.formatMessage({ id: ETranslations.global_sell }),
           icon: 'MinusLargeOutline',
-          disabled: isSellDisabled,
+          disabled: Boolean(isSellDisabled && account?.id && network?.id),
           onPress: sellCrypto,
         },
       ],
