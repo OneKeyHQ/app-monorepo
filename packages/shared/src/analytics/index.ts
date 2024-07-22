@@ -55,7 +55,7 @@ class Analytics {
     } else {
       void this.requestEvent(eventName, {
         distinctId: this.instanceId,
-        eventProps,
+        ...eventProps,
       });
     }
   }
