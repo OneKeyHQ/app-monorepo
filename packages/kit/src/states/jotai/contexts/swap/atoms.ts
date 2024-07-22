@@ -131,6 +131,18 @@ export const {
   const receivedSorted = list.slice().sort((a, b) => {
     const aVal = new BigNumber(a.toAmount || 0);
     const bVal = new BigNumber(b.toAmount || 0);
+    // Check if limit exists for a and b
+    const aHasLimit = !!a.limit;
+    const bHasLimit = !!b.limit;
+
+    if (aHasLimit && !bHasLimit) {
+      return -1;
+    }
+
+    if (bHasLimit && !aHasLimit) {
+      return 1;
+    }
+
     if (
       aVal.isZero() ||
       aVal.isNaN() ||
