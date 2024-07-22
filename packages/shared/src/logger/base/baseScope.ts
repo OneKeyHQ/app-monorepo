@@ -81,31 +81,33 @@ export abstract class BaseScope implements IScope {
           } catch (error) {
             console.error(error);
           }
-          if (obj && obj instanceof Metadata) {
-            const rawMsg = stringifyFunc(...obj.args);
-            if (Array.isArray(obj.metadata)) {
-              for (let i = 0; i < obj.metadata.length; i += 1) {
-                const metadata = obj.metadata[i];
+          setTimeout(() => {
+            if (obj && obj instanceof Metadata) {
+              const rawMsg = stringifyFunc(...obj.args);
+              if (Array.isArray(obj.metadata)) {
+                for (let i = 0; i < obj.metadata.length; i += 1) {
+                  const metadata = obj.metadata[i];
+                  handleMetadata({
+                    scopeName: this.scopeName,
+                    sceneName,
+                    metadata,
+                    prop,
+                    rawMsg,
+                    obj,
+                  });
+                }
+              } else {
                 handleMetadata({
                   scopeName: this.scopeName,
                   sceneName,
-                  metadata,
+                  metadata: obj.metadata,
                   prop,
                   rawMsg,
                   obj,
                 });
               }
-            } else {
-              handleMetadata({
-                scopeName: this.scopeName,
-                sceneName,
-                metadata: obj.metadata,
-                prop,
-                rawMsg,
-                obj,
-              });
             }
-          }
+          });
           //  eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return obj;
         };
