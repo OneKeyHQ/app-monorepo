@@ -99,7 +99,7 @@ const COINTYPE_DNX = '29538';
 const IMPL_CKB = 'nervos';
 const COINTYPE_CKB = '309';
 
-const IMPL_ALLNETWORKS = 'all';
+const IMPL_ALLNETWORKS = 'onekeyall';
 const COINTYPE_ALLNETWORKS = '0000';
 
 const SUPPORTED_IMPLS = new Set([
@@ -187,7 +187,7 @@ export const getEnabledAccountDynamicNetworkIds = (): string[] => [
 ];
 
 export const getEnabledNFTNetworkIds = (): string[] => [
-  getNetworkIdsMap().all,
+  getNetworkIdsMap().onekeyall,
   getNetworkIdsMap().eth,
   getNetworkIdsMap().optimism,
   getNetworkIdsMap().bsc,

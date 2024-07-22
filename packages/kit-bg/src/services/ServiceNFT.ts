@@ -40,7 +40,7 @@ class ServiceNFT extends ServiceBase {
   public async fetchAccountNFTs(params: IFetchAccountNFTsParams) {
     const { accountId, networkId, isAllNetworks, ...rest } = params;
 
-    if (isAllNetworks && this._currentNetworkId !== getNetworkIdsMap().all) {
+    if (isAllNetworks && this._currentNetworkId !== getNetworkIdsMap().onekeyall) {
       return {
         data: [],
         next: '',

@@ -11,7 +11,7 @@ import type {
 } from '../../types';
 
 export class KeyringHd extends KeyringHdBase {
-  override coreApi = coreChainApi.all.hd;
+  override coreApi = coreChainApi.onekeyall.hd;
 
   override async getPrivateKeys(): Promise<IGetPrivateKeysResult> {
     throw new NotImplemented();

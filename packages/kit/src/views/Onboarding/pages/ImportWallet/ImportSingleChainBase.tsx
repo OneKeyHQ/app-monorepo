@@ -73,7 +73,7 @@ export function ImportSingleChainBase({
   const form = useForm<IFormValues>({
     values: {
       networkId:
-        network?.id && network.id !== getNetworkIdsMap().all
+        network?.id && network.id !== getNetworkIdsMap().onekeyall
           ? network?.id
           : getNetworkIdsMap().btc,
       input: '',

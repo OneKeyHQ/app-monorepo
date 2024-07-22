@@ -47,7 +47,7 @@ function ChainSelector({
       const _pinnedNetworks =
         backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks();
       const _allNetwork = backgroundApiProxy.serviceNetwork.getNetworkSafe({
-        networkId: getNetworkIdsMap().all,
+        networkId: getNetworkIdsMap().onekeyall,
       });
       return Promise.all([_networks, _pinnedNetworks, _allNetwork]);
     },
@@ -65,7 +65,7 @@ function ChainSelector({
 
   const data = useMemo(() => {
     let [{ networks: _networks }, _pinnedNetworks, _allNetwork] = result;
-    _networks = _networks.filter((o) => o.id !== getNetworkIdsMap().all);
+    _networks = _networks.filter((o) => o.id !== getNetworkIdsMap().onekeyall);
     let unavailableNetworks: IServerNetwork[] = [];
     let pinnedNetworks: IServerNetwork[] = [];
     let networks: IServerNetwork[] = [];

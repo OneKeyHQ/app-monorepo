@@ -27,7 +27,7 @@ import CoreChainTron from '../chains/tron';
 import CoreChainXrp from '../chains/xrp';
 
 export class CoreChainApiHub {
-  all = new CoreAllNetwork();
+  onekeyall = new CoreAllNetwork();
 
   evm = new CoreChainEvm();
 
