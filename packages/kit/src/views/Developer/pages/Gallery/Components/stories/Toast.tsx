@@ -329,7 +329,7 @@ const ToastGallery = () => (
                     'A few weeks with the Daylight DC-1 tablet: rethinking screen time',
                   message: `So far, this thing doesn’t seem like a very impressive tablet. But Daylight is more a display company than a tablet company — and the display is pretty great.`,
                   actions: [
-                    <Button variant="primary" size="small">
+                    <Button key="1" variant="primary" size="small">
                       Primary
                     </Button>,
                   ],
@@ -346,10 +346,10 @@ const ToastGallery = () => (
                     'Google is trying to steal the Ray-Ban partnership from Meta',
                   message: `The smart glasses market is heating up. Also: layoffs and a strategy shift hit Magic Leap.`,
                   actions: [
-                    <Button variant="secondary" size="small">
+                    <Button key="1" variant="secondary" size="small">
                       Secondary
                     </Button>,
-                    <Button variant="primary" size="small">
+                    <Button key="2" variant="primary" size="small">
                       Primary
                     </Button>,
                   ],
