@@ -229,7 +229,7 @@ const SwapAccountAddressContainer = ({
     }
     if (
       fromToken &&
-      !toToken &&
+      (!toToken || (toToken && !swapAnotherAddressInfo.address)) &&
       type === ESwapDirectionType.FROM &&
       swapAddressInfo.address
     ) {

@@ -66,6 +66,15 @@ export function useSwapQuote() {
   }, [fromToken?.decimals, fromAmountDebounce, setFromTokenAmount]);
 
   useEffect(() => {
+    if (!fromTokenAmount) {
+      void quoteAction(
+        activeAccountRef.current?.address,
+        activeAccountRef.current?.accountInfo?.account?.id,
+      );
+    }
+  }, [fromTokenAmount, quoteAction]);
+
+  useEffect(() => {
     if (swapSlippageDialogOpening.status || swapApproveAllowanceSelectOpen) {
       cleanQuoteInterval();
     } else if (
