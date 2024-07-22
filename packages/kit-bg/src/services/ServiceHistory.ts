@@ -241,7 +241,7 @@ class ServiceHistory extends ServiceBase {
       params;
     const extraParams = await this.buildFetchHistoryListParams(params);
     let extraRequestParams = extraParams;
-    if (networkId === getNetworkIdsMap().all) {
+    if (networkId === getNetworkIdsMap().onekeyall) {
       extraRequestParams = {
         allNetworkAccounts: (
           extraParams as unknown as {

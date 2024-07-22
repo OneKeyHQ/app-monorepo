@@ -742,4 +742,5 @@ module.exports = [
   'babylon',
   'changelly',
   'Changelly',
+  'onekeyall',
 ];
