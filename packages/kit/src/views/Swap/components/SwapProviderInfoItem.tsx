@@ -44,7 +44,7 @@ const SwapProviderInfoItem = ({
     return !rateBN.isZero();
   }, [rate]);
   const rateContent = useMemo(() => {
-    if (!rateIsExit || !fromToken || !toToken)
+    if (!onPress || !fromToken || !toToken) {
       return (
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({
@@ -52,6 +52,16 @@ const SwapProviderInfoItem = ({
           })}
         </SizableText>
       );
+    }
+    if (!rateIsExit) {
+      return (
+        <SizableText ml="$1" size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.swap_page_provider_provider_insufficient_liquidity,
+          })}
+        </SizableText>
+      );
+    }
     const rateBN = new BigNumber(rate ?? 0);
     return (
       <SizableText
@@ -67,7 +77,7 @@ const SwapProviderInfoItem = ({
         <SizableText size="$bodyMdMedium">{toToken.symbol}</SizableText>
       </SizableText>
     );
-  }, [fromToken, intl, md, rate, rateIsExit, toToken]);
+  }, [fromToken, intl, md, onPress, rate, rateIsExit, toToken]);
   return (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
@@ -92,7 +102,7 @@ const SwapProviderInfoItem = ({
               Best
             </Badge>
           ) : null}
-          {!rateIsExit || !fromToken || !toToken ? null : (
+          {!providerIcon || !fromToken || !toToken ? null : (
             <Image
               source={{ uri: providerIcon }}
               w="$5"
