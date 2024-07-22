@@ -10,6 +10,5 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  // eslint-disable-next-line @typescript-eslint/no-empty-function, no-empty-function
-  public async appStart() {}
+  public appStart() {}
 }

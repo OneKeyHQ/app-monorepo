@@ -33,7 +33,7 @@ const LastActivityTracker = () => {
         env: devSettings.settings?.enableTestEndpoint ? 'test' : 'prod',
       }),
     });
-    void defaultLogger.app.page.appStart();
+    defaultLogger.app.page.appStart();
   }, [devSettings.settings?.enableTestEndpoint]);
 
   const refresh = useCallback(() => {
