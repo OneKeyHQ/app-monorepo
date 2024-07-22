@@ -3,12 +3,12 @@ import { LogToLocal, LogToServer } from '../../../decorators';
 
 export class PageScene extends BaseScene {
   @LogToServer()
-  @LogToLocal({ level: 'debug' })
+  @LogToLocal()
   public pageView(pageName: string) {
     return { pageName };
   }
 
   @LogToServer()
-  @LogToLocal({ level: 'debug' })
+  @LogToLocal()
   public appStart() {}
 }
