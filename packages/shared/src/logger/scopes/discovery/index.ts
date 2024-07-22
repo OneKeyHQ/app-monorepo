@@ -9,5 +9,5 @@ export class DiscoveryScope extends BaseScope {
 
   browser = this.createScene('browser', BrowserScene);
 
-  dapp = this.createScene('browser', DappScene);
+  dapp = this.createScene('dapp', DappScene);
 }
