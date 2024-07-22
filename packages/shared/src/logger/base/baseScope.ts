@@ -71,13 +71,14 @@ export abstract class BaseScope implements IScope {
         }
         return async (...args: any[]) => {
           let result: any;
+          let obj: any;
           try {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
             result = instance[prop].call(instance, ...args);
+            obj = isPromiseObject(result) ? await result : result;
           } catch (error) {
             console.error(error);
           }
-          const obj = isPromiseObject(result) ? await result : result;
           if (obj && obj instanceof Metadata) {
             const rawMsg = stringifyFunc(...obj.args);
             if (Array.isArray(obj.metadata)) {
