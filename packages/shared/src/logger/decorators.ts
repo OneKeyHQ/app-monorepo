@@ -22,10 +22,24 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
       if (!Array.isArray(result)) {
         result = [result];
       }
+
       if (Array.isArray(result)) {
         result = result.filter((item) => item !== NO_LOG_OUTPUT);
         if ((result as any[])?.length === 0) {
           return null;
+        }
+      }
+      const metadata = (result as Metadata[])[0];
+      if (metadata && metadata instanceof Metadata) {
+        const newDecoratorArgs: IMethodDecoratorMetadata[] = [];
+        if (Array.isArray(metadata.metadata)) {
+          newDecoratorArgs.push(...metadata.metadata);
+        } else {
+          newDecoratorArgs.push(metadata.metadata);
+        }
+        if (newDecoratorArgs.length > 0) {
+          newDecoratorArgs.push(decoratorArgs);
+          return new Metadata(metadata.args, newDecoratorArgs);
         }
       }
       return new Metadata(result, decoratorArgs);
