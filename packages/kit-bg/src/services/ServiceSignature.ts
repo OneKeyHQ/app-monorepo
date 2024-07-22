@@ -56,7 +56,7 @@ class ServiceSignature extends ServiceBase {
   ): Promise<ISignedMessage[]> {
     const { networkId: _networkId, address, limit, offset } = params ?? {};
     const networkId =
-      _networkId !== getNetworkIdsMap().all ? _networkId : undefined;
+      _networkId !== getNetworkIdsMap().onekeyall ? _networkId : undefined;
     const isSearch = Boolean(networkId || address);
     const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({
@@ -110,7 +110,7 @@ class ServiceSignature extends ServiceBase {
   ): Promise<ISignedTransaction[]> {
     const { networkId: _networkId, address, limit, offset } = params ?? {};
     const networkId =
-      _networkId !== getNetworkIdsMap().all ? _networkId : undefined;
+      _networkId !== getNetworkIdsMap().onekeyall ? _networkId : undefined;
     const isSearch = Boolean(networkId || address);
     const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({
@@ -196,7 +196,7 @@ class ServiceSignature extends ServiceBase {
   ): Promise<IConnectedSite[]> {
     const { networkId: _networkId, address, limit, offset } = params ?? {};
     const networkId =
-      _networkId !== getNetworkIdsMap().all ? _networkId : undefined;
+      _networkId !== getNetworkIdsMap().onekeyall ? _networkId : undefined;
     const isSearch = Boolean(networkId || address);
     const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({

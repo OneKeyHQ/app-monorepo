@@ -207,7 +207,7 @@ function TokenListContainer({
 
       if (
         !refreshAllNetworksTokenList.current &&
-        r.networkId === networkIdsMap.all
+        r.networkId === networkIdsMap.onekeyall
       ) {
         let accountWorth = new BigNumber(0);
         accountWorth = accountWorth
