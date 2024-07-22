@@ -19,6 +19,8 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public walletNo!: number;
 
+  public walletOrderSaved?: number;
+
   public nextIds?: Realm.Dictionary<number>;
 
   public associatedDevice?: string;
@@ -44,6 +46,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       backuped: { type: 'bool', default: false },
       accounts: 'string?[]',
       walletNo: 'int',
+      walletOrderSaved: 'float?',
       nextIds: {
         type: 'dictionary',
         default: {},
@@ -68,6 +71,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       // convert RealmDB list to JS plain array
       accounts: Array.from(this.accounts || []),
       walletNo: this.walletNo,
+      walletOrderSaved: this.walletOrderSaved,
       // convert RealmDB dictionary to JS plain object
       nextIds: (this.nextIds?.toJSON() as any) || {},
       associatedDevice: this.associatedDevice,

@@ -1862,6 +1862,130 @@ class ServiceAccount extends ServiceBase {
       },
     );
   }
+
+  @backgroundMethod()
+  async insertWalletOrder({
+    targetWalletId,
+    startWalletId,
+    endWalletId,
+    emitEvent,
+  }: {
+    targetWalletId: string;
+    startWalletId: string | undefined;
+    endWalletId: string | undefined;
+    emitEvent?: boolean;
+  }) {
+    const checkIsNotHiddenWallet = (wallet: IDBWallet | undefined) => {
+      if (wallet && accountUtils.isHwHiddenWallet({ wallet })) {
+        throw new Error(
+          'insertWalletOrder ERROR: Not supported for HW hidden wallet',
+        );
+      }
+    };
+
+    const targetWallet = await localDb.getWalletSafe({
+      walletId: targetWalletId,
+    });
+    checkIsNotHiddenWallet(targetWallet);
+
+    const startWallet = await localDb.getWalletSafe({
+      walletId: startWalletId || '',
+    });
+    checkIsNotHiddenWallet(startWallet);
+
+    const endWallet = await localDb.getWalletSafe({
+      walletId: endWalletId || '',
+    });
+    checkIsNotHiddenWallet(endWallet);
+
+    const startOrder = startWallet?.walletOrder ?? 0;
+    const endOrder = endWallet?.walletOrder ?? startOrder + 1;
+    await localDb.updateWalletOrder({
+      walletId: targetWalletId,
+      walletOrder: (startOrder + endOrder) / 2,
+    });
+
+    if (emitEvent) {
+      // force UI re-render, may cause performance issue
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
+  }
+
+  @backgroundMethod()
+  async insertIndexedAccountOrder({
+    targetIndexedAccountId,
+    startIndexedAccountId,
+    endIndexedAccountId,
+    emitEvent,
+  }: {
+    targetIndexedAccountId: string;
+    startIndexedAccountId: string | undefined;
+    endIndexedAccountId: string | undefined;
+    emitEvent?: boolean;
+  }) {
+    // const targetIndexedAccount = await localDb.getIndexedAccountSafe({
+    //   id: targetIndexedAccountId,
+    // });
+
+    const startIndexedAccount = await localDb.getIndexedAccountSafe({
+      id: startIndexedAccountId || '',
+    });
+
+    const endIndexedAccount = await localDb.getIndexedAccountSafe({
+      id: endIndexedAccountId || '',
+    });
+
+    const startOrder = startIndexedAccount?.order ?? 0;
+    const endOrder = endIndexedAccount?.order ?? startOrder + 1;
+
+    await localDb.updateIndexedAccountOrder({
+      indexedAccountId: targetIndexedAccountId,
+      order: (startOrder + endOrder) / 2,
+    });
+
+    if (emitEvent) {
+      // force UI re-render, may cause performance issue
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
+  }
+
+  @backgroundMethod()
+  async insertAccountOrder({
+    targetAccountId,
+    startAccountId,
+    endAccountId,
+    emitEvent,
+  }: {
+    targetAccountId: string;
+    startAccountId: string | undefined;
+    endAccountId: string | undefined;
+    emitEvent?: boolean;
+  }) {
+    // const targetAccount = await localDb.getAccountSafe({
+    //   accountId: targetAccountId,
+    // });
+
+    const startAccount = await localDb.getAccountSafe({
+      accountId: startAccountId || '',
+    });
+
+    const endAccount = await localDb.getAccountSafe({
+      accountId: endAccountId || '',
+    });
+
+    const startOrder = startAccount?.accountOrder ?? 0;
+    const endOrder = endAccount?.accountOrder ?? startOrder + 1;
+
+    await localDb.updateAccountOrder({
+      accountId: targetAccountId,
+      order: (startOrder + endOrder) / 2,
+    });
+
+    if (emitEvent) {
+      // force UI re-render, may cause performance issue
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
+  }
 }
 
 export default ServiceAccount;

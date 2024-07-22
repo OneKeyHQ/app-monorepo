@@ -53,6 +53,8 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
 
   public connectionInfoRaw?: string;
 
+  public accountOrderSaved?: number; // db field
+
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Account,
     primaryKey: 'id',
@@ -90,6 +92,7 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       },
       connectionInfoRaw: 'string?',
       template: 'string?',
+      accountOrderSaved: 'float?',
     },
   };
 
@@ -109,6 +112,7 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       impl: this.impl,
       networks: Array.from(this.networks || []),
       createAtNetwork: this.createAtNetwork,
+      accountOrderSaved: this.accountOrderSaved,
     };
     if (this.type === EDBAccountType.SIMPLE) {
       ret.pub = this.pub || '';
