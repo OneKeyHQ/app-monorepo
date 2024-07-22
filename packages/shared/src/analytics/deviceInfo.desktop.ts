@@ -6,8 +6,8 @@ const deviceInfo = {
   deviceId: generateUUID(),
   os: window.desktopApi.platform,
   osVersion: window.desktopApi.systemVersion,
-  screenHeight: typeof window !== 'undefined' ? window.innerHeight : 0,
-  screenWidth: typeof window !== 'undefined' ? window.innerWidth : 0,
+  screenHeight: typeof window !== 'undefined' ? window.innerHeight : undefined,
+  screenWidth: typeof window !== 'undefined' ? window.innerWidth : undefined,
 } as IDeviceInfo;
 
 if (typeof window !== 'undefined' && window.addEventListener) {
