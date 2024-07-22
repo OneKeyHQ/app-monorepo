@@ -3,7 +3,7 @@ import { createRef } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
 import { useWindowDimensions } from 'react-native';
-import { SizableText, useMedia, View, YStack } from 'tamagui';
+import { SizableText, View, YStack, useMedia } from 'tamagui';
 
 import { Portal } from '../../hocs';
 import { Icon, XStack } from '../../primitives';
@@ -60,7 +60,7 @@ const RenderLines = ({
           selectable={false}
           size={size}
           wordWrap="break-word"
-          key={v + index}
+          key={index}
         >
           {v}
         </SizableText>
@@ -92,7 +92,7 @@ function Title({
       maxHeight={height - 100}
       $platform-native={{
         maxHeight: height - 200,
-        width: width - 64,
+        width: media.md ? width - 64 : 640,
       }}
       $platform-web={{
         overflow: 'hidden',
@@ -104,16 +104,16 @@ function Title({
             $platform-android={{
               paddingTop: '$0.5',
             }}
-            width={'$5.5'}
-            height={'$5.5'}
+            width="$5.5"
+            height="$5.5"
           >
             {icon}
           </View>
         ) : null}
 
-        <YStack flex={1} space={'$1'}>
+        <YStack flex={1} space="$1">
           {title ? (
-            <RenderLines color="$text" size={'$headingSm'}>
+            <RenderLines color="$text" size="$headingSm">
               {title}
             </RenderLines>
           ) : null}
@@ -131,9 +131,9 @@ function Title({
             <XStack
               space="$2"
               justifyContent="flex-end"
-              paddingTop={'$3'}
-              paddingRight={'$0.5'}
-              paddingBottom={'$0.5'}
+              paddingTop="$3"
+              paddingRight="$0.5"
+              paddingBottom="$0.5"
             >
               {actions}
             </XStack>
