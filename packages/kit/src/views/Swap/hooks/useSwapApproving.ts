@@ -30,7 +30,13 @@ export function useSwapApproving() {
   if (approveTxRef.current !== approveTx) {
     approveTxRef.current = approveTx;
   }
+  const isFocused = useIsFocused();
+  const isFocusRef = useRef(isFocused);
+  if (isFocusRef.current !== isFocused) {
+    isFocusRef.current = isFocused;
+  }
   useEffect(() => {
+    if (!isFocusRef.current) return;
     if (
       swapApprovingTransaction?.txId &&
       swapApprovingTransaction?.status === ESwapApproveTransactionStatus.PENDING
@@ -66,6 +72,12 @@ export function useSwapApproving() {
           swapApprovingTransaction?.resetApproveValue,
           !!swapApprovingTransaction?.resetApproveIsMax,
         );
+      } else {
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.swap_page_toast_approve_successful,
+          }),
+        });
       }
     }
     if (
@@ -111,7 +123,6 @@ export function useSwapApproving() {
       }
     },
   );
-  const isFocused = useIsFocused();
   useEffect(() => {
     if (pageType === EPageType.modal) {
       if (

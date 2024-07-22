@@ -2,10 +2,9 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { EPageType, Toast, usePageType } from '@onekeyhq/components';
+import { EPageType, usePageType } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ESwapApproveTransactionStatus,
@@ -40,9 +39,10 @@ export function useSwapQuote() {
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [{ swapApprovingTransaction }, setInAppNotificationAtom] =
     useInAppNotificationAtom();
-  const fromAmountRef = useRef(fromTokenAmount);
-  if (fromAmountRef.current !== fromTokenAmount) {
-    fromAmountRef.current = fromTokenAmount;
+  const isFocused = useIsFocused();
+  const isFocusRef = useRef(isFocused);
+  if (isFocusRef.current !== isFocused) {
+    isFocusRef.current = isFocused;
   }
   const activeAccountRef = useRef<
     ReturnType<typeof useSwapAddressInfo> | undefined
@@ -100,24 +100,19 @@ export function useSwapQuote() {
   ]);
 
   useEffect(() => {
+    if (!isFocusRef.current) return;
     if (
       swapApprovingTransaction &&
       swapApprovingTransaction.txId &&
       swapApprovingTransaction.status ===
         ESwapApproveTransactionStatus.SUCCESS &&
-      !swapApprovingTransaction.resetApproveValue &&
-      fromAmountRef?.current
+      !swapApprovingTransaction.resetApproveValue
     ) {
       void quoteAction(
         activeAccountRef.current?.address,
         activeAccountRef.current?.accountInfo?.account?.id,
         swapApprovingTransaction.blockNumber,
       );
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.swap_page_toast_approve_successful,
-        }),
-      });
     }
   }, [
     intl,
@@ -167,7 +162,6 @@ export function useSwapQuote() {
     },
   );
 
-  const isFocused = useIsFocused();
   useEffect(() => {
     if (pageType === EPageType.modal) {
       if (isFocused && !swapApprovingTxRef.current?.txId) {
