@@ -1,7 +1,18 @@
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 
-import type { IXStackProps } from '@onekeyhq/components';
-import { Icon, SizableText, XStack, useMedia } from '@onekeyhq/components';
+import type { ITourStep, IXStackProps } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  Stack,
+  TourBox,
+  TourStep,
+  TourTrigger,
+  XStack,
+  useMedia,
+  useSpotlightTour,
+} from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
@@ -13,7 +24,7 @@ function HomeSelector(props: IProps) {
   const num = 0;
 
   const { createAddressDisabled, ...rest } = props;
-
+  const { start } = useSpotlightTour();
   return (
     <XStack
       testID="Wallet-Address-Generator"
@@ -23,7 +34,11 @@ function HomeSelector(props: IProps) {
     >
       <NetworkSelectorTriggerHome num={num} />
       {!createAddressDisabled ? (
-        <AccountSelectorActiveAccountHome num={num} />
+        <TourStep index={0}>
+          <Stack bg="red">
+            <AccountSelectorActiveAccountHome num={num} />
+          </Stack>
+        </TourStep>
       ) : null}
       {!createAddressDisabled ? (
         <DeriveTypeSelectorTrigger
@@ -73,6 +88,7 @@ function HomeSelector(props: IProps) {
           num={num}
         />
       ) : null}
+      <Button onPress={start}>start</Button>
     </XStack>
   );
 }

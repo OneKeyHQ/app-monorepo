@@ -20,7 +20,7 @@ function Page() {
       </TourTrigger>
       <YStack>
         {/** Followed by assign width and height  */}
-        <TourStep index={0} width={110} height={40}>
+        <TourStep index={0}>
           <SizableText size="$headingXl">Introduction</SizableText>
         </TourStep>
         <SizableText>

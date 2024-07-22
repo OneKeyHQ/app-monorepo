@@ -111,7 +111,6 @@ export function TourStep({
     <>
       <AttachStep {...props}>
         <Stack
-          testID="step-ooooooo"
           width={width}
           height={height}
           pointerEvents="none"
