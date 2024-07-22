@@ -1910,6 +1910,44 @@ class ServiceAccount extends ServiceBase {
       appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     }
   }
+
+  @backgroundMethod()
+  async insertIndexedAccountOrder({
+    targetIndexedAccountId,
+    startIndexedAccountId,
+    endIndexedAccountId,
+    emitEvent,
+  }: {
+    targetIndexedAccountId: string;
+    startIndexedAccountId: string | undefined;
+    endIndexedAccountId: string | undefined;
+    emitEvent?: boolean;
+  }) {
+    // const targetIndexedAccount = await localDb.getIndexedAccountSafe({
+    //   id: targetIndexedAccountId,
+    // });
+
+    const startIndexedAccount = await localDb.getIndexedAccountSafe({
+      id: startIndexedAccountId || '',
+    });
+
+    const endIndexedAccount = await localDb.getIndexedAccountSafe({
+      id: endIndexedAccountId || '',
+    });
+
+    const startOrder = startIndexedAccount?.order ?? 0;
+    const endOrder = endIndexedAccount?.order ?? startOrder + 1;
+
+    await localDb.updateIndexedAccountOrder({
+      indexedAccountId: targetIndexedAccountId,
+      order: (startOrder + endOrder) / 2,
+    });
+
+    if (emitEvent) {
+      // force UI re-render, may cause performance issue
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
+  }
 }
 
 export default ServiceAccount;

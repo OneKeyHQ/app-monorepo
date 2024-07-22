@@ -62,7 +62,6 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
-import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -90,6 +89,7 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -656,12 +656,57 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async getIndexedAccount({ id }: { id: string }) {
+  async updateIndexedAccountOrder({
+    indexedAccountId,
+    order,
+  }: {
+    indexedAccountId: string;
+    order: number;
+  }) {
     const db = await this.readyDb;
-    return db.getRecordById({
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.IndexedAccount,
+        ids: [indexedAccountId],
+        updater(item) {
+          if (!isNil(order)) {
+            item.orderSaved = order;
+          }
+          return item;
+        },
+      });
+    });
+  }
+
+  async getIndexedAccountSafe({
+    id,
+  }: {
+    id: string;
+  }): Promise<IDBIndexedAccount | undefined> {
+    try {
+      return await this.getIndexedAccount({ id });
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  async getIndexedAccount({ id }: { id: string }): Promise<IDBIndexedAccount> {
+    const db = await this.readyDb;
+    const indexedAccount = await db.getRecordById({
       name: ELocalDBStoreNames.IndexedAccount,
       id,
     });
+    return this.refillIndexedAccount({ indexedAccount });
+  }
+
+  refillIndexedAccount({
+    indexedAccount,
+  }: {
+    indexedAccount: IDBIndexedAccount;
+  }) {
+    indexedAccount.order = indexedAccount.orderSaved ?? indexedAccount.index;
+    return indexedAccount;
   }
 
   async getIndexedAccountByAccount({ account }: { account: IDBAccount }) {
@@ -705,10 +750,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     return {
-      accounts: accounts.sort((a, b) =>
-        // indexedAccount sort by index
-        natsort({ insensitive: true })(a.index, b.index),
-      ),
+      accounts: accounts
+        .map((a) => this.refillIndexedAccount({ indexedAccount: a }))
+        .sort((a, b) =>
+          // indexedAccount sort by index
+          natsort({ insensitive: true })(
+            a.order ?? a.index,
+            b.order ?? b.index,
+          ),
+        ),
     };
   }
 
