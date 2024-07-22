@@ -22,27 +22,29 @@ const handleMetadata = ({
   rawMsg: string;
   obj: Metadata;
 }) => {
-  switch (metadata.type) {
-    case 'local':
-      {
-        const extensionName = `${scopeName} -> ${sceneName}`;
-        const logger = getLoggerExtension(extensionName);
-        const msg = `${scopeName} -> ${sceneName} -> ${prop}: ${rawMsg}`;
-        logger[metadata.level](msg);
-        if (metadata.level === 'error') {
-          console.error(msg);
+  setTimeout(() => {
+    switch (metadata.type) {
+      case 'local':
+        {
+          const extensionName = `${scopeName} -> ${sceneName}`;
+          const logger = getLoggerExtension(extensionName);
+          const msg = `${scopeName} -> ${sceneName} -> ${prop}: ${rawMsg}`;
+          logger[metadata.level](msg);
+          if (metadata.level === 'error') {
+            console.error(msg);
+          }
         }
+        break;
+      case 'server':
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        analytics.trackEvent(prop, obj.args[0]);
+        break;
+      case 'console':
+      default: {
+        console[metadata.level](...obj.args);
       }
-      break;
-    case 'server':
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      analytics.trackEvent(prop, obj.args[0]);
-      break;
-    case 'console':
-    default: {
-      console[metadata.level](...obj.args);
     }
-  }
+  });
 };
 
 export abstract class BaseScope implements IScope {
