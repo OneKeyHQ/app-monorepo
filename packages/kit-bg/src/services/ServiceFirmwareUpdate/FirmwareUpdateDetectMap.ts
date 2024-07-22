@@ -31,7 +31,7 @@ export class FirmwareUpdateDetectMap {
 
     // Check is not allowed until one minute after the app is started
     if (now - this.firstDetectAt < this.firstDetectTimeSpan) {
-      console.log(`skip detectFirmwareUpdates with first check: ${connectId}`);
+      // console.log(`skip detectFirmwareUpdates with first check: ${connectId}`);
 
       void this.backgroundApi.serviceFirmwareUpdate.showAutoUpdateCheckDebugToast(
         '刚启动 App，跳过检查更新',
@@ -45,7 +45,7 @@ export class FirmwareUpdateDetectMap {
       lastDetectResult?.lastDetectAt &&
       now - lastDetectResult.lastDetectAt < this.detectTimeSpan
     ) {
-      console.log(`skip detectFirmwareUpdates: ${connectId}`);
+      // console.log(`skip detectFirmwareUpdates: ${connectId}`);
 
       void this.backgroundApi.serviceFirmwareUpdate.showAutoUpdateCheckDebugToast(
         '刚刚检查过，跳过检查更新',
@@ -127,7 +127,7 @@ export class FirmwareUpdateDetectMap {
     connectId: string;
     updateInfo: IFirmwareUpdateInfo;
   }) {
-    console.log('updateFirmwareUpdateInfo', { connectId, updateInfo });
+    // console.log('updateFirmwareUpdateInfo', { connectId, updateInfo });
     const mockAllIsUpToDate =
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'allIsUpToDate',

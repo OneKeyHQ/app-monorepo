@@ -121,6 +121,12 @@ export function FirmwareUpdateDevSettings() {
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
+      <FirmwareUpdateSectionFieldItem
+        name="showDeviceDebugLogs"
+        title="Show Device Debug Log"
+      >
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
       <SizableText>{JSON.stringify(devSetting, null, 2)}</SizableText>
       <FirmwareUpdateGalleryDemo />
     </YStack>
