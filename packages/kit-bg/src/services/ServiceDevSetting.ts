@@ -66,7 +66,7 @@ class ServiceDevSetting extends ServiceBase {
   public async initAnalytics() {
     const devSettings = await this.getDevSetting();
     const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
-    analytics.setBasicAttributes({
+    analytics.init({
       instanceId,
       baseURL: buildServiceEndpoint({
         serviceName: EServiceEndpointEnum.Utility,

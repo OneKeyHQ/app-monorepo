@@ -26,7 +26,7 @@ const LastActivityTracker = () => {
   const instanceIdRef = useRef(settings.instanceId);
 
   useEffect(() => {
-    analytics.setBasicAttributes({
+    analytics.init({
       instanceId: instanceIdRef.current,
       baseURL: buildServiceEndpoint({
         serviceName: EServiceEndpointEnum.Utility,

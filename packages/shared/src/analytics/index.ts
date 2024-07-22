@@ -21,13 +21,7 @@ class Analytics {
 
   private deviceInfo: Record<string, any> | null = null;
 
-  setBasicAttributes({
-    instanceId,
-    baseURL,
-  }: {
-    instanceId: string;
-    baseURL: string;
-  }) {
+  init({ instanceId, baseURL }: { instanceId: string; baseURL: string }) {
     this.instanceId = instanceId;
     this.baseURL = baseURL;
     while (this.cacheEvents.length) {
