@@ -1,3 +1,4 @@
+import { AccountScope } from './scopes/account';
 import { AddressInputScope } from './scopes/AddressInput';
 import { AppScope } from './scopes/app';
 import { DemoScope } from './scopes/demo';
@@ -8,6 +9,8 @@ import { TokenScope } from './scopes/token';
 import { UpdateScope } from './scopes/update';
 
 class Logger {
+  account = new AccountScope();
+
   app = new AppScope();
 
   demo = new DemoScope();

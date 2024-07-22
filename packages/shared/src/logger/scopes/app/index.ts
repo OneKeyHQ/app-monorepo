@@ -5,6 +5,7 @@ import { BackgroundScene } from './scenes/background';
 import { BootstrapScene } from './scenes/bootstrap';
 import { InstallScene } from './scenes/install';
 import { NetworkScene } from './scenes/network';
+import { PageScene } from './scenes/page';
 
 export class AppScope extends BaseScope {
   protected override scopeName = EScopeName.app;
@@ -16,4 +17,6 @@ export class AppScope extends BaseScope {
   install = this.createScene('install', InstallScene);
 
   network = this.createScene('network', NetworkScene);
+
+  page = this.createScene('page', PageScene);
 }

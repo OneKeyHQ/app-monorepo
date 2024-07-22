@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';
@@ -19,6 +20,7 @@ export function ImportRecoveryPhrase() {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic,
       });
+      defaultLogger.account.wallet.importWallet({ importMethod: 'mnemonic' });
     },
     [navigation],
   );

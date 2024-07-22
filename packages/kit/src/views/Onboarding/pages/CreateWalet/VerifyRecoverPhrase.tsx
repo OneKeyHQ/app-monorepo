@@ -15,7 +15,9 @@ import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -87,6 +89,7 @@ export function VerifyRecoveryPhrase({
   const intl = useIntl();
   const { servicePassword } = backgroundApiProxy;
   const { mnemonic, verifyRecoveryPhrases } = route.params || {};
+  const [settings] = useSettingsPersistAtom();
 
   ensureSensitiveTextEncoded(mnemonic);
   const navigation = useAppNavigation();
@@ -111,6 +114,9 @@ export function VerifyRecoveryPhrase({
         navigation.push(EOnboardingPages.FinalizeWalletSetup, {
           mnemonic,
         });
+        defaultLogger.account.wallet.createWallet({
+          isBiometricVerificationSet: settings.isBiologyAuthSwitchOn,
+        });
       } else {
         Toast.error({
           title: intl.formatMessage({
@@ -128,6 +134,7 @@ export function VerifyRecoveryPhrase({
     navigation,
     phrases,
     selectedWords,
+    settings.isBiologyAuthSwitchOn,
     verifyRecoveryPhrases,
   ]);
 

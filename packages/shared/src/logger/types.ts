@@ -13,6 +13,7 @@ export type ILogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export enum EScopeName {
   app = 'app',
+  account = 'account',
   demo = 'demo',
   setting = 'setting',
   addressInput = 'addressInput',
@@ -32,9 +33,12 @@ export type IMethodDecoratorMetadata = {
 export class Metadata {
   args: any;
 
-  metadata: IMethodDecoratorMetadata;
+  metadata: IMethodDecoratorMetadata | IMethodDecoratorMetadata[];
 
-  constructor(args: any, metadata: IMethodDecoratorMetadata) {
+  constructor(
+    args: any,
+    metadata: IMethodDecoratorMetadata | IMethodDecoratorMetadata[],
+  ) {
     this.args = args;
     this.metadata = metadata;
   }
