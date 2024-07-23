@@ -211,12 +211,12 @@ const TabComponent = (
       >
         <RefreshingFocusedContainer
           initialFocused={index === initialScrollIndex}
-          ref={stickyConfig.data[index].refreshingFocusedRef}
+          ref={stickyConfig?.data?.[index]?.refreshingFocusedRef}
           setScrollHeaderIsRefreshing={setIsRefreshing}
         >
           <FreezeContainer
             initialFreeze={index !== initialScrollIndex}
-            ref={stickyConfig.data[index].freezeRef}
+            ref={stickyConfig?.data?.[index]?.freezeRef}
           >
             <item.page
               onContentSizeChange={(_width: number, height: number) => {
