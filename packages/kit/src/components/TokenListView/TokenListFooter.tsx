@@ -32,7 +32,15 @@ function TokenListFooter(props: IProps) {
   const { tableLayout } = props;
   const navigation = useAppNavigation();
   const {
-    activeAccount: { account, network, wallet, deriveType, deriveInfo },
+    activeAccount: {
+      account,
+      network,
+      wallet,
+      isOthersWallet,
+      indexedAccount,
+      deriveType,
+      deriveInfo,
+    },
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
@@ -127,11 +135,23 @@ function TokenListFooter(props: IProps) {
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.TokenManagerModal,
       params: {
+        walletId: wallet?.id ?? '',
+        isOthersWallet,
+        indexedAccountId: indexedAccount?.id,
         networkId: network?.id ?? '',
         accountId: account?.id ?? '',
+        deriveType,
       },
     });
-  }, [navigation, network?.id, account?.id]);
+  }, [
+    navigation,
+    wallet?.id,
+    isOthersWallet,
+    indexedAccount?.id,
+    network?.id,
+    account?.id,
+    deriveType,
+  ]);
 
   return (
     <Stack>

@@ -36,7 +36,14 @@ function TokenManagerModal() {
         EModalAssetListRoutes.TokenManagerModal
       >
     >();
-  const { networkId, accountId } = route.params;
+  const {
+    walletId,
+    isOthersWallet,
+    indexedAccountId,
+    networkId,
+    accountId,
+    deriveType,
+  } = route.params;
   const [tokenList] = useTokenListAtom();
 
   const { result, run } = usePromiseResult(async () => {
@@ -62,11 +69,23 @@ function TokenManagerModal() {
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.AddCustomTokenModal,
       params: {
+        walletId,
+        isOthersWallet,
+        indexedAccountId,
         networkId,
         accountId,
+        deriveType,
       },
     });
-  }, [navigation, networkId, accountId]);
+  }, [
+    navigation,
+    walletId,
+    isOthersWallet,
+    indexedAccountId,
+    networkId,
+    accountId,
+    deriveType,
+  ]);
 
   const onHiddenToken = useCallback(
     async (token: IAccountToken) => {

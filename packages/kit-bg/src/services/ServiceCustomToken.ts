@@ -2,7 +2,11 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type {
+  IAccountToken,
+  IFetchTokenDetailItem,
+} from '@onekeyhq/shared/types/token';
 
 import ServiceBase from './ServiceBase';
 
@@ -48,6 +52,73 @@ class ServiceCustomToken extends ServiceBase {
       accountId,
       networkId,
     });
+  }
+
+  @backgroundMethod()
+  async searchTokenByKeywords({
+    walletId,
+    networkId,
+    keywords,
+  }: {
+    walletId: string;
+    networkId: string;
+    keywords: string;
+  }) {
+    if (!keywords) {
+      return [];
+    }
+    return this._searchTokens({
+      walletId,
+      networkId,
+      searchParams: { keywords },
+    });
+  }
+
+  @backgroundMethod()
+  async searchTokenByContractAddress({
+    walletId,
+    networkId,
+    contractAddress,
+  }: {
+    walletId: string;
+    networkId: string;
+    contractAddress: string;
+  }) {
+    if (!contractAddress) {
+      return [];
+    }
+    return this._searchTokens({
+      walletId,
+      networkId,
+      searchParams: { contractList: [contractAddress] },
+    });
+  }
+
+  @backgroundMethod()
+  async _searchTokens({
+    walletId,
+    networkId,
+    searchParams,
+  }: {
+    walletId: string;
+    networkId: string;
+    searchParams: { keywords?: string; contractList?: string[] };
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const response = await client.post<{ data: IFetchTokenDetailItem[] }>(
+      '/wallet/v1/account/token/search',
+      {
+        networkId,
+        ...searchParams,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            walletId,
+          }),
+      },
+    );
+    return response.data.data ?? [];
   }
 }
 

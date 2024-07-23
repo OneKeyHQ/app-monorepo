@@ -29,12 +29,21 @@ export type IModalAssetListParamList = {
     isAllNetworks?: boolean;
   };
   [EModalAssetListRoutes.TokenManagerModal]: {
+    walletId: string;
+    isOthersWallet?: boolean;
+    indexedAccountId?: string;
     accountId: string;
     networkId: string;
+    deriveType: IAccountDeriveTypes;
+    isAllNetworks?: boolean;
   };
   [EModalAssetListRoutes.AddCustomTokenModal]: {
     token?: IAccountToken;
+    walletId: string;
+    isOthersWallet?: boolean;
+    indexedAccountId?: string;
     accountId: string;
     networkId: string;
+    deriveType: IAccountDeriveTypes;
   };
 };

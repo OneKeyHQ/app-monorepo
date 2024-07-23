@@ -18,11 +18,11 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
     accountId: string,
     address: string,
   ): string {
-    return `${networkId}:${accountId}:${address}`;
+    return `${networkId}__${accountId}__${address}`;
   }
 
   private generateKeyPrefix(networkId: string, accountId: string): string {
-    return `${networkId}:${accountId}:`;
+    return `${networkId}__${accountId}__`;
   }
 
   @backgroundMethod()
@@ -41,6 +41,10 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
         token.address,
       );
 
+      // If the token exists in hiddenTokens, remove it first
+      if (data.hiddenTokens[key]) {
+        delete data.hiddenTokens[key];
+      }
       data.customTokens[key] = token;
       return data;
     });
