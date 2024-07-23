@@ -579,6 +579,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
             addressDetail,
             existsInDb: false,
           };
+          accountForCreate.address =
+            addressDetail?.displayAddress ||
+            addressDetail?.address ||
+            accountForCreate.address;
           this.checkIfCancelled({ saveToDb });
 
           await processAccountForCreate({
