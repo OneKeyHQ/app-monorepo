@@ -756,3 +756,29 @@ export class Expect24WordsMnemonicError extends OneKeyError {
     );
   }
 }
+
+export type IRemainingMinBalanceErrorInfo = {
+  miniAmount: string;
+};
+
+export class RemainingMinBalanceError extends OneKeyError<IRemainingMinBalanceErrorInfo> {
+  constructor(props?: IOneKeyError<IRemainingMinBalanceErrorInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'RemainingMinBalanceError',
+        defaultKey: ETranslations.feedback_transaction_ckb_error_less,
+      }),
+    );
+  }
+}
+
+export class ConvertTxError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ConvertTxError',
+        defaultKey: ETranslations.feedback_transaction_ckb_error_convert,
+      }),
+    );
+  }
+}
