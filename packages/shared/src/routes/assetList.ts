@@ -45,5 +45,6 @@ export type IModalAssetListParamList = {
     accountId: string;
     networkId: string;
     deriveType: IAccountDeriveTypes;
+    onSuccess?: () => void;
   };
 };

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -49,21 +49,8 @@ function AddCustomTokenModal() {
     isOthersWallet,
     deriveType,
     token,
+    onSuccess,
   } = route.params;
-
-  // TODO: use getNetwork, because network can not change
-  const { result } = usePromiseResult(async () => {
-    const resp =
-      await backgroundApiProxy.serviceNetwork.getPublicKeyExportOrWatchingAccountEnabledNetworks();
-    const networkIds = resp.map((o) => o.network.id);
-    const customTokenEnabledNetworkIds = resp
-      .filter((o) => o.publicKeyExportEnabled)
-      .map((t) => t.network.id);
-    return {
-      networkIds,
-      customTokenEnabledNetworks: new Set(customTokenEnabledNetworkIds),
-    };
-  }, []);
 
   const form = useForm<IFormValues>({
     values: {
@@ -171,8 +158,10 @@ function AddCustomTokenModal() {
     return { allTokens, hiddenTokens };
   }, [checkAccountIsExist, fetchTokenList, networkId]);
 
+  const [isLoading, setIsLoading] = useState(false);
   const onConfirm = useCallback(
     async (close?: () => void) => {
+      setIsLoading(true);
       // Step1 -> Create Address
       const { hasExistAccountFlag, accountIdForNetwork } =
         await checkAccountIsExist();
@@ -182,12 +171,15 @@ function AddCustomTokenModal() {
       const values = form.getValues();
       const { contractAddress, symbol, decimals } = values;
       if (!contractAddress) {
+        setIsLoading(false);
         throw new Error('Contract address is empty');
       }
       if (!symbol) {
+        setIsLoading(false);
         throw new Error('Symbol is empty');
       }
       if (!new BigNumber(decimals).isInteger()) {
+        setIsLoading(false);
         throw new Error('Decimals is invalid');
       }
       let tokenList = existTokenList?.allTokens;
@@ -206,6 +198,7 @@ function AddCustomTokenModal() {
           (t) => t.address.toLowerCase() === contractAddress.toLowerCase(),
         )
       ) {
+        setIsLoading(false);
         Toast.error({
           title: 'Token already exists',
         });
@@ -230,8 +223,10 @@ function AddCustomTokenModal() {
         }),
       });
       setTimeout(() => {
+        onSuccess?.();
         close?.();
-      });
+        setIsLoading(false);
+      }, 300);
     },
     [
       form,
@@ -240,6 +235,7 @@ function AddCustomTokenModal() {
       existTokenList,
       networkId,
       intl,
+      onSuccess,
     ],
   );
 
@@ -253,9 +249,7 @@ function AddCustomTokenModal() {
             name="networkId"
             disabled
           >
-            <ControlledNetworkSelectorTrigger
-              networkIds={result?.networkIds ?? []}
-            />
+            <ControlledNetworkSelectorTrigger networkIds={[networkId]} />
           </Form.Field>
           <Form.Field label="Contract Address" name="contractAddress">
             <Input />
@@ -268,7 +262,13 @@ function AddCustomTokenModal() {
           </Form.Field>
         </Form>
       </Page.Body>
-      <Page.Footer onConfirmText="Add" onConfirm={onConfirm}>
+      <Page.Footer
+        onConfirmText="Add"
+        onConfirm={onConfirm}
+        confirmButtonProps={{
+          loading: isLoading,
+        }}
+      >
         {/* <AccountSelectorCreateAddressButton
           num={0}
           account={{

@@ -46,19 +46,26 @@ function TokenManagerModal() {
   } = route.params;
   const [tokenList] = useTokenListAtom();
 
-  const { result, run } = usePromiseResult(async () => {
-    const hiddenToken =
-      await backgroundApiProxy.serviceCustomToken.getHiddenTokens({
-        accountId,
-        networkId,
-      });
-    return tokenList.tokens.filter(
-      (token) =>
-        !hiddenToken.find(
-          (t) => t.address === token.address && t.networkId === token.networkId,
-        ),
-    );
-  }, [tokenList, accountId, networkId]);
+  const { result, run } = usePromiseResult(
+    async () => {
+      const hiddenToken =
+        await backgroundApiProxy.serviceCustomToken.getHiddenTokens({
+          accountId,
+          networkId,
+        });
+      return tokenList.tokens.filter(
+        (token) =>
+          !hiddenToken.find(
+            (t) =>
+              t.address === token.address && t.networkId === token.networkId,
+          ),
+      );
+    },
+    [tokenList, accountId, networkId],
+    {
+      checkIsFocused: false,
+    },
+  );
 
   const [searchValue, setSearchValue] = useState('');
   useEffect(() => {
@@ -75,6 +82,9 @@ function TokenManagerModal() {
         networkId,
         accountId,
         deriveType,
+        onSuccess: () => {
+          void run();
+        },
       },
     });
   }, [
@@ -85,6 +95,7 @@ function TokenManagerModal() {
     networkId,
     accountId,
     deriveType,
+    run,
   ]);
 
   const onHiddenToken = useCallback(
