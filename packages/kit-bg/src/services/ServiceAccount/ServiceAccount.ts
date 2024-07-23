@@ -2008,6 +2008,39 @@ class ServiceAccount extends ServiceBase {
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     }
   }
+
+  @backgroundMethod()
+  async getNetworkAccountsInSameIndexedAccountId({
+    indexedAccountId,
+    networkIds,
+  }: {
+    indexedAccountId: string;
+    networkIds: string[];
+  }) {
+    const { serviceNetwork } = this.backgroundApi;
+    const dbAccounts = await this.getAccountsInSameIndexedAccountId({
+      indexedAccountId,
+    });
+    return Promise.all(
+      networkIds.map(async (networkId) => {
+        const dbAccount = dbAccounts.find((account) =>
+          accountUtils.isAccountCompatibleWithNetwork({
+            account,
+            networkId,
+          }),
+        );
+        let account: INetworkAccount | undefined;
+        if (dbAccount) {
+          account = await this.getAccount({
+            accountId: dbAccount.id,
+            networkId,
+          });
+        }
+        const network = await serviceNetwork.getNetwork({ networkId });
+        return { network, account };
+      }),
+    );
+  }
 }
 
 export default ServiceAccount;
