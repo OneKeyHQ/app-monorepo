@@ -140,7 +140,10 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
         keyExtractor={(item) => `${item.id}`}
         data={wallets as IDBWallet[]}
         onDragEnd={async (result) => {
-          walletsResult.wallets = [...result.data];
+          if (!walletsResult) {
+            return;
+          }
+          walletsResult.wallets = result.data;
           setResult({ ...walletsResult });
 
           const toIndex = result.to + (result.to > result.from ? 1 : 0);
