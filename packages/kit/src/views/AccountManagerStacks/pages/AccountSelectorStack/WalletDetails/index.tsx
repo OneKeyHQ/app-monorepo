@@ -467,6 +467,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         )}
         renderItem={({
           item,
+          section,
         }: {
           item: IDBIndexedAccount | IDBAccount;
           section: IAccountSelectorAccountsListSectionData;
@@ -488,6 +489,11 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   <AccountEditButton
                     account={account}
                     indexedAccount={indexedAccount}
+                    firstIndexedAccount={
+                      isOthersUniversal
+                        ? undefined
+                        : (section?.data?.[0] as IDBIndexedAccount)
+                    }
                     wallet={focusedWalletInfo?.wallet}
                   />
                 </>

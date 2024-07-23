@@ -22,10 +22,12 @@ import { AccountRenameButton } from './AccountRenameButton';
 
 export function AccountEditButton({
   indexedAccount,
+  firstIndexedAccount,
   account,
   wallet,
 }: {
   indexedAccount?: IDBIndexedAccount;
+  firstIndexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
   wallet?: IDBWallet;
 }) {
@@ -136,7 +138,7 @@ export function AccountEditButton({
           ) : null}
           <AccountMoveToTopButton
             indexedAccount={indexedAccount}
-            wallet={wallet}
+            firstIndexedAccount={firstIndexedAccount}
             onClose={handleActionListClose}
           />
           {showRemoveButton ? (
