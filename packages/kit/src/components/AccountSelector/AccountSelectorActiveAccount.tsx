@@ -4,15 +4,24 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
+  Icon,
   SizableText,
   Tooltip,
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
-import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  IModalReceiveParamList,
+  IModalWalletAddressParamList,
+} from '@onekeyhq/shared/src/routes';
+import {
+  EModalReceiveRoutes,
+  EModalRoutes,
+  EModalWalletAddressRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import {
@@ -31,7 +40,9 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const { selectedAccount } = useSelectedAccount({ num });
 
   const navigation =
-    useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
+    useAppNavigation<
+      IPageNavigationProp<IModalReceiveParamList & IModalWalletAddressParamList>
+    >();
 
   const logActiveAccount = useCallback(() => {
     console.log({
@@ -45,6 +56,19 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
 
   const handleAddressOnPress = useCallback(() => {
     if (!account || !network || !deriveInfo || !wallet) return;
+    if (network.id === getNetworkIdsMap().onekeyall) {
+      navigation.pushModal(EModalRoutes.WalletAddress, {
+        screen: EModalWalletAddressRoutes.WalletAddress,
+        params: {
+          networkId: network.id,
+          accountId: account.id,
+          // walletId: wallet.id,
+          // deriveInfo,
+          // deriveType,
+        },
+      });
+      return;
+    }
     if (
       wallet?.id &&
       (accountUtils.isHwWallet({
@@ -117,9 +141,13 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
             }}
             userSelect="none"
           >
-            <SizableText size="$bodyMd">
-              {accountUtils.shortenAddress({ address: account?.address })}
-            </SizableText>
+            {network?.id === getNetworkIdsMap().onekeyall ? (
+              <Icon name="Copy1Outline" size="$5" />
+            ) : (
+              <SizableText size="$bodyMd">
+                {accountUtils.shortenAddress({ address: account?.address })}
+              </SizableText>
+            )}
           </XStack>
         }
       />
