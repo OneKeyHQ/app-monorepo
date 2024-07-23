@@ -25,6 +25,7 @@ function SegmentControlItem({
   onChange,
   active,
   disabled,
+  testID,
   ...rest
 }: {
   label: string | ReactElement;
@@ -51,6 +52,7 @@ function SegmentControlItem({
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
       }}
+      testID={testID}
       {...(active
         ? {
             bg: '$bg',
@@ -71,6 +73,7 @@ function SegmentControlItem({
     >
       {typeof label === 'string' ? (
         <SizableText
+          testID={testID}
           size="$bodyMdMedium"
           textAlign="center"
           color={active ? '$text' : '$textSubdued'}
