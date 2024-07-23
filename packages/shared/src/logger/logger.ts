@@ -1,5 +1,5 @@
 import { AccountScope } from './scopes/account';
-import { AddressInputScope } from './scopes/AddressInput';
+import { AddressInputScope } from './scopes/addressInput';
 import { AppScope } from './scopes/app';
 import { DemoScope } from './scopes/demo';
 import { DiscoveryScope } from './scopes/discovery';
