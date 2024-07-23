@@ -43,7 +43,7 @@ const settings: IVaultSettings = {
   accountDeriveInfo,
   networkInfo: {
     default: {
-      curve: 'ed25519',
+      curve: 'secp256k1',
       addressPrefix: '',
     },
   },
