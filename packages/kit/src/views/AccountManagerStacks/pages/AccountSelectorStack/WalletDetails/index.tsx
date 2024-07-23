@@ -217,7 +217,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           ? selectedAccount.othersWalletAccountId === id
           : selectedAccount.indexedAccountId === id,
       );
-      console.log('itemIndex----', itemIndex);
       scrollToLocation({
         animated: true,
         sectionIndex: 0,
@@ -233,12 +232,14 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   ]);
 
   const scrollToTop = useCallback(() => {
-    scrollToLocation({
-      animated: true,
-      sectionIndex: 0,
-      itemIndex: 0,
-    });
-  }, [scrollToLocation]);
+    if (sectionData?.length) {
+      scrollToLocation({
+        animated: true,
+        sectionIndex: 0,
+        itemIndex: 0,
+      });
+    }
+  }, [scrollToLocation, sectionData]);
 
   useEffect(() => {
     if (editMode) {
