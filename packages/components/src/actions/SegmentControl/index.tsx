@@ -73,7 +73,6 @@ function SegmentControlItem({
     >
       {typeof label === 'string' ? (
         <SizableText
-          testID={testID}
           size="$bodyMdMedium"
           textAlign="center"
           color={active ? '$text' : '$textSubdued'}
