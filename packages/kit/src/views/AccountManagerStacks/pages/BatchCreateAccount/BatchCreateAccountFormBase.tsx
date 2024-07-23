@@ -1,0 +1,304 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
+import {
+  Form,
+  IconButton,
+  Input,
+  SizableText,
+  Stack,
+  XStack,
+  useForm,
+  useMedia,
+} from '@onekeyhq/components';
+import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
+import { DeriveTypeSelectorFormField } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+
+import type { UseFormReturn } from 'react-hook-form';
+
+export type IBatchCreateAccountFormValues = {
+  networkId?: string;
+  deriveType?: IAccountDeriveTypes;
+  from: string;
+  count: string;
+};
+
+export const BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT = 15;
+
+function AdvancedSettingsFormField({
+  form,
+  isAllNetwork,
+  alwaysShowAdvancedSettings,
+}: {
+  form: UseFormReturn<IBatchCreateAccountFormValues, any, undefined>;
+  isAllNetwork: boolean | undefined;
+  alwaysShowAdvancedSettings?: boolean;
+}) {
+  const intl = useIntl();
+  const media = useMedia();
+  const [collapse, setCollapse] = useState(!alwaysShowAdvancedSettings);
+
+  const toggle = useCallback(() => {
+    setCollapse((v) => !v);
+  }, []);
+
+  const fromValue = form.watch('from');
+  const countValue = form.watch('count');
+
+  const fromError = form.formState.errors.from;
+
+  const calculateAddressRange = useMemo(() => {
+    const from = parseInt(fromValue) || 2;
+    const count = parseInt(countValue) || 16;
+    const to = from + count - 1;
+    const text = intl.formatMessage(
+      {
+        id: ETranslations.global_serial_number_start_desc,
+      },
+      {
+        from,
+        to,
+      },
+    );
+    // return text;
+    return `${text} >>> Adding address from ${from} to ${to}.`;
+  }, [countValue, fromValue, intl]);
+
+  return (
+    <Stack>
+      {!alwaysShowAdvancedSettings ? (
+        <XStack space="$3" py="$2" ai="center" onPress={toggle}>
+          <Stack>
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.global_advantage_settings,
+              })}
+            </SizableText>
+          </Stack>
+          <IconButton
+            icon={
+              collapse ? 'ChevronDownSmallOutline' : 'ChevronTopSmallOutline'
+            }
+            variant="tertiary"
+            onPress={toggle}
+          />
+        </XStack>
+      ) : null}
+
+      <Stack
+        height={collapse ? 0 : undefined}
+        opacity={collapse ? 0 : undefined}
+        overflow={collapse ? 'hidden' : undefined}
+      >
+        <Stack mt={!alwaysShowAdvancedSettings ? '$4' : undefined}>
+          <Form.Field
+            label={intl.formatMessage({
+              id: ETranslations.global_serial_number_start,
+            })}
+            name="from"
+            rules={{
+              required: true,
+              validate: (value: string) => {
+                const valueNum = new BigNumber(value);
+                if (!value || valueNum.isNaN()) {
+                  return intl.formatMessage({
+                    id: ETranslationsMock.batch_create_page_number_invalid,
+                  });
+                }
+                if (valueNum.isLessThan(1)) {
+                  return intl.formatMessage({
+                    id: ETranslationsMock.batch_create_account_count_min,
+                  });
+                }
+                return true;
+              },
+              onChange: (e: { target: { name: string; value: string } }) => {
+                const value = (e?.target?.value || '').replace(/\D/g, '');
+                const valueNum = new BigNumber(parseInt(value, 10));
+                if (!value || valueNum.isNaN()) {
+                  form.setValue('from', '');
+                  return;
+                }
+                if (valueNum.isLessThan(1)) {
+                  form.setValue('from', '1');
+                  return;
+                }
+                form.setValue('from', valueNum.toFixed());
+              },
+            }}
+          >
+            <Input
+              secureTextEntry={false}
+              placeholder={intl.formatMessage({
+                id: ETranslations.global_serial_number_start,
+              })}
+              size={media.gtMd ? 'medium' : 'large'}
+            />
+            {!fromError ? (
+              <Form.FieldDescription>
+                {calculateAddressRange}
+              </Form.FieldDescription>
+            ) : null}
+          </Form.Field>
+        </Stack>
+      </Stack>
+    </Stack>
+  );
+}
+
+export function BatchCreateAccountFormBase({
+  alwaysShowAdvancedSettings,
+  networkReadyOnly,
+  defaultCount,
+  defaultDeriveType,
+  defaultFrom,
+  defaultNetworkId,
+  onNetworkChanged,
+  formRef,
+}: {
+  alwaysShowAdvancedSettings?: boolean;
+  networkReadyOnly?: boolean;
+  defaultNetworkId: string;
+  defaultDeriveType: IAccountDeriveTypes | undefined;
+  defaultFrom: string; // 1
+  defaultCount: string; // 1
+  onNetworkChanged?: (params: {
+    networkId: string | undefined;
+    isAllNetwork: boolean;
+  }) => void;
+  formRef?: React.MutableRefObject<
+    UseFormReturn<IBatchCreateAccountFormValues, any, undefined> | undefined
+  >;
+}) {
+  const intl = useIntl();
+  const media = useMedia();
+
+  const form = useForm<IBatchCreateAccountFormValues>({
+    values: {
+      // networkId: activeAccount?.network?.id ?? getNetworkIdsMap().all,
+      networkId: defaultNetworkId,
+      deriveType: defaultDeriveType,
+      from: defaultFrom,
+      count: defaultCount,
+    },
+    mode: 'onChange',
+    reValidateMode: 'onBlur',
+  });
+  if (formRef) {
+    formRef.current = form;
+  }
+
+  const networkIdValue = form.watch('networkId');
+
+  const isAllNetwork = useMemo(
+    () => networkUtils.isAllNetwork({ networkId: networkIdValue }),
+    [networkIdValue],
+  );
+
+  useEffect(() => {
+    onNetworkChanged?.({
+      networkId: networkIdValue,
+      isAllNetwork,
+    });
+  }, [isAllNetwork, networkIdValue, onNetworkChanged]);
+
+  return (
+    <Form form={form}>
+      <Form.Field
+        label={intl.formatMessage({ id: ETranslations.global_network })}
+        name="networkId"
+        disabled={networkReadyOnly}
+      >
+        <ControlledNetworkSelectorTrigger
+          disabled={networkReadyOnly}
+          editable={!networkReadyOnly}
+        />
+        {networkIdValue === getNetworkIdsMap().onekeyall ? (
+          <Form.FieldDescription>
+            {intl.formatMessage({
+              id: ETranslations.global_networks_information,
+            })}
+          </Form.FieldDescription>
+        ) : null}
+      </Form.Field>
+
+      <Form.Field
+        label={intl.formatMessage({
+          id: ETranslations.global_generate_amount,
+        })}
+        name="count"
+        rules={{
+          required: true,
+          validate: (value: string) => {
+            const valueNum = new BigNumber(value);
+            if (!value || valueNum.isNaN()) {
+              return intl.formatMessage({
+                id: ETranslationsMock.batch_create_page_number_invalid,
+              });
+            }
+            if (isAllNetwork) {
+              if (
+                valueNum.isGreaterThan(
+                  BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT,
+                )
+              ) {
+                return intl.formatMessage(
+                  {
+                    id: ETranslationsMock.batch_create_account_count_max,
+                  },
+                  {
+                    maxCount: BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT,
+                  },
+                );
+              }
+            }
+            if (valueNum.isLessThan(1)) {
+              return intl.formatMessage({
+                id: ETranslationsMock.batch_create_account_count_min,
+              });
+            }
+            return true;
+          },
+          onChange: (e: { target: { name: string; value: string } }) => {
+            const value = (e?.target?.value || '').replace(/\D/g, '');
+            const valueNum = new BigNumber(parseInt(value, 10));
+            if (!value || valueNum.isNaN()) {
+              form.setValue('count', '');
+              return;
+            }
+            if (valueNum.isLessThan(1)) {
+              form.setValue('count', '1');
+              return;
+            }
+            form.setValue('count', valueNum.toFixed());
+          },
+        }}
+      >
+        <Input
+          secureTextEntry={false}
+          placeholder={intl.formatMessage({
+            id: ETranslations.global_generate_amount,
+          })}
+          size={media.gtMd ? 'medium' : 'large'}
+        />
+      </Form.Field>
+
+      <AdvancedSettingsFormField
+        form={form}
+        alwaysShowAdvancedSettings={alwaysShowAdvancedSettings}
+        isAllNetwork={isAllNetwork}
+      />
+
+      <DeriveTypeSelectorFormField
+        fieldName="deriveType"
+        networkId={networkIdValue}
+      />
+    </Form>
+  );
+}

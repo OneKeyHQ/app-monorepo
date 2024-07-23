@@ -23,7 +23,7 @@ import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorTrigger,
 } from '@onekeyhq/kit/src/components/AccountSelector';
-import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import { DeriveTypeSelectorFormField } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -40,48 +40,13 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { showCopyPrivateKeysDialog } from './showCopyPrivateKeysDialog';
+
 type IFormValues = {
   networkId?: string;
   deriveType?: IAccountDeriveTypes | '';
   rawKeyContent: string;
 };
-
-function DeriveTypeSelectorFormField({
-  networkIdValue,
-}: {
-  networkIdValue: string | undefined;
-}) {
-  const intl = useIntl();
-  const media = useMedia();
-  const [hide, setHide] = useState(false);
-  return (
-    <Stack
-      height={hide ? 0 : undefined}
-      opacity={hide ? 0 : undefined}
-      overflow={hide ? 'hidden' : undefined}
-    >
-      <Form.Field
-        label={intl.formatMessage({
-          id: ETranslations.derivation_path,
-        })}
-        name="deriveType"
-      >
-        <DeriveTypeSelectorTriggerStaticInput
-          onItemsChange={(items) => {
-            const shouldHide = items.length <= 1;
-            if (hide !== shouldHide) {
-              setHide(shouldHide);
-            }
-          }}
-          networkId={networkIdValue || ''}
-          defaultTriggerInputProps={{
-            size: media.gtMd ? 'medium' : 'large',
-          }}
-        />
-      </Form.Field>
-    </Stack>
-  );
-}
 
 function ExportPrivateKeysPage({
   indexedAccount,
@@ -233,8 +198,22 @@ function ExportPrivateKeysPage({
 
             {
               iconName: 'Copy3Outline',
-              onPress: () => {
-                clipboard.copyText(form.getValues('rawKeyContent'));
+              onPress: async () => {
+                if (exportType === 'privateKey') {
+                  showCopyPrivateKeysDialog({
+                    title: intl.formatMessage({
+                      id: ETranslations.global_private_key_copy,
+                    }),
+                    description: intl.formatMessage({
+                      id: ETranslations.global_private_key_copy_information,
+                    }),
+                    showCheckBox: true,
+                    defaultChecked: false,
+                    rawKeyContent: form.getValues('rawKeyContent') || '',
+                  });
+                } else {
+                  clipboard.copyText(form.getValues('rawKeyContent'));
+                }
               },
             },
           ]
@@ -246,7 +225,7 @@ function ExportPrivateKeysPage({
               },
             },
           ],
-    [clipboard, form, rawKeyValue, refreshKey, secureEntry],
+    [clipboard, exportType, form, intl, rawKeyValue, refreshKey, secureEntry],
   );
 
   useEffect(() => {
@@ -296,7 +275,10 @@ function ExportPrivateKeysPage({
           </Form.Field>
 
           {!isImportedAccount ? (
-            <DeriveTypeSelectorFormField networkIdValue={networkIdValue} />
+            <DeriveTypeSelectorFormField
+              fieldName="deriveType"
+              networkId={networkIdValue}
+            />
           ) : null}
 
           <Form.Field label={keyLabel} name="rawKeyContent">
@@ -309,6 +291,35 @@ function ExportPrivateKeysPage({
             />
           </Form.Field>
         </Form>
+
+        {exportType === 'privateKey' ? (
+          <Stack py="$4">
+            <Stack h="$4" />
+            <SizableText color="$textSubdued" size="$headingSm">
+              {intl.formatMessage({
+                id: ETranslations.faq_private_key,
+              })}
+            </SizableText>
+            <SizableText color="$textSubdued" size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.faq_private_key_desc,
+              })}
+            </SizableText>
+
+            <Stack h="$4" />
+
+            <SizableText color="$textSubdued" size="$headingSm">
+              {intl.formatMessage({
+                id: ETranslations.faq_private_key_keep,
+              })}
+            </SizableText>
+            <SizableText color="$textSubdued" size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.faq_private_key_keep_desc,
+              })}
+            </SizableText>
+          </Stack>
+        ) : null}
 
         {process.env.NODE_ENV !== 'production' ? (
           <Stack mt="$8">
