@@ -25,7 +25,7 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     (get, set, payload: IMarketWatchListItem | IMarketWatchListItem[]) => {
       const params = !Array.isArray(payload) ? [payload] : payload;
       const prev = get(marketWatchListAtom());
-      if (prev.isMounted) {
+      if (!prev.isMounted) {
         return;
       }
       const watchList = [...prev.data, ...params];
@@ -36,7 +36,7 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
   removeFormWatchList = contextAtomMethod(
     (get, set, payload: IMarketWatchListItem) => {
       const prev = get(marketWatchListAtom());
-      if (prev.isMounted) {
+      if (!prev.isMounted) {
         return;
       }
       const watchList = prev.data.filter(
@@ -48,7 +48,7 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
 
   moveToTop = contextAtomMethod((get, set, payload: IMarketWatchListItem) => {
     const prev = get(marketWatchListAtom());
-    if (prev.isMounted) {
+    if (!prev.isMounted) {
       return;
     }
     const newItems = prev.data.filter(
