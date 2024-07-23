@@ -12,7 +12,7 @@ export type ITabPageType = ComponentType<ITabPageProps>;
 
 export interface ITabProps extends IScrollViewProps {
   data: { title: string; page: ITabPageType }[];
-  disableRefresh: boolean;
+  disableRefresh?: boolean;
   initialScrollIndex?: number;
   ListHeaderComponent?: ReactElement;
   headerProps?: Omit<IHeaderProps, 'data'>;
