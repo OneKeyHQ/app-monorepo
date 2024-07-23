@@ -461,7 +461,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
     excludedIndexes,
     saveToDb,
     hideCheckingDeviceLoading,
-  }: IBatchBuildAccountsParams) {
+  }: IBatchBuildAccountsParams): Promise<{
+    accountsForCreate: IBatchCreateAccount[];
+  }> {
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new Error('Batch Create Accounts ERROR:  All network not support');
     }

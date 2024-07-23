@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -8,6 +8,7 @@ import {
   Button,
   Checkbox,
   IconButton,
+  NumberSizeableText,
   Page,
   SizableText,
   Spinner,
@@ -22,6 +23,7 @@ import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/componen
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IBatchBuildAccountsAdvancedFlowParams,
   IBatchBuildAccountsNormalFlowParams,
@@ -33,7 +35,11 @@ import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
+import type {
+  IBatchCreateAccount,
+  INetworkAccount,
+} from '@onekeyhq/shared/types/account';
+import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
 
 import { BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT } from './BatchCreateAccountFormBase';
 import { showBatchCreateAccountPreviewAdvancedDialog } from './showBatchCreateAccountPreviewAdvancedDialog';
@@ -143,6 +149,16 @@ function BatchCreateAccountPreviewPage({
 
   const previewTimes = useRef(0);
 
+  const { result: network } = usePromiseResult(
+    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+    [networkId],
+  );
+  const [balanceMap, setBalanceMap] = useState<{
+    [key: string]: string | undefined;
+  }>({});
+  const balanceMapRef = useRef(balanceMap);
+  balanceMapRef.current = balanceMap;
+
   const { result: accounts = [], isLoading } = usePromiseResult(
     async () => {
       try {
@@ -188,6 +204,51 @@ function BatchCreateAccountPreviewPage({
       watchLoading: true,
     },
   );
+
+  const buildBalanceMapKey = useCallback(
+    ({ account }: { account: INetworkAccount }) =>
+      `${networkId}--${account.address}--${(account as IDBUtxoAccount).xpub}`,
+    [networkId],
+  );
+
+  useEffect(() => {
+    void (async () => {
+      const toFetchBalanceAccounts = [];
+      for (const account of accounts) {
+        const key: string = buildBalanceMapKey({ account });
+        if (isNil(balanceMapRef.current[key])) {
+          toFetchBalanceAccounts.push(account);
+        }
+      }
+      if (toFetchBalanceAccounts.length) {
+        const balancesToUpdate: {
+          [key: string]: string | undefined;
+        } = {};
+
+        await Promise.all(
+          toFetchBalanceAccounts.map(async (account) => {
+            const balances: IFetchAccountDetailsResp =
+              await backgroundApiProxy.serviceAccountProfile.fetchAccountInfo({
+                accountId: account?.id || '',
+                networkId,
+                accountAddress: account?.address,
+                xpub: (account as IDBUtxoAccount)?.xpub,
+              });
+            // Process the balances here
+            balancesToUpdate[buildBalanceMapKey({ account })] =
+              balances.balanceParsed;
+          }),
+        );
+
+        if (Object.keys(balancesToUpdate).length) {
+          setBalanceMap((v) => {
+            const newValue = { ...v, ...balancesToUpdate };
+            return newValue;
+          });
+        }
+      }
+    })();
+  }, [accounts, buildBalanceMapKey, networkId]);
 
   const selectCheckBox = useCallback(
     ({
@@ -381,7 +442,12 @@ function BatchCreateAccountPreviewPage({
                     {account.relPath || ''}
                   </SizableText>
                 </Stack>
-                <SizableText>0 ETH</SizableText>
+                <NumberSizeableText
+                  formatter="balance"
+                  formatterOptions={{ tokenSymbol: network?.symbol }}
+                >
+                  {balanceMap[buildBalanceMapKey({ account })] ?? '-'}
+                </NumberSizeableText>
               </Stack>
             );
           })
