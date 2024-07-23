@@ -833,8 +833,11 @@ function ConnectByUSBOrBLE({
                   id: ETranslations.onboarding_usb_connect_help_text,
                 })}
           </SizableText>
-          {devicesData.map((item, index) => (
-            <DeviceListItem item={item} key={index} />
+          {devicesData.map((item) => (
+            <DeviceListItem
+              item={item}
+              key={item.device?.connectId ?? item.title}
+            />
           ))}
           {platformEnv.isDev ? (
             <Button
