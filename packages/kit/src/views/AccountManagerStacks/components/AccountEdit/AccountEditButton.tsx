@@ -16,6 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AccountExportPrivateKeyButton } from './AccountExportPrivateKeyButton';
+import { AccountMoveToTopButton } from './AccountMoveToTopButton';
 import { AccountRemoveButton } from './AccountRemoveButton';
 import { AccountRenameButton } from './AccountRenameButton';
 
@@ -133,6 +134,11 @@ export function AccountEditButton({
               exportType="publicKey"
             />
           ) : null}
+          <AccountMoveToTopButton
+            indexedAccount={indexedAccount}
+            wallet={wallet}
+            onClose={handleActionListClose}
+          />
           {showRemoveButton ? (
             <>
               <Divider mx="$2" my="$1" />
