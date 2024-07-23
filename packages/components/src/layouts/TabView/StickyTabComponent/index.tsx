@@ -4,7 +4,6 @@ import {
   memo,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -43,6 +42,7 @@ const TabScrollViewRefProvider = memo(TabScrollViewRefContext.Provider);
 
 export const useTabScrollViewRef = () => useContext(TabScrollViewRefContext);
 
+/* eslint-disable react/prop-types */
 export const TabComponent = (
   {
     data,
@@ -67,6 +67,7 @@ export const TabComponent = (
     () => ({
       lastIndex: initialScrollIndex,
       data: new Array(data?.length ?? 0).fill({}).map(() => ({
+        /* eslint-enable react/prop-types */
         freezeRef: createRef<IFreezeContainerRef>(),
         refreshingFocusedRef: createRef<IRefreshingFocusedContainerRef>(),
       })),
