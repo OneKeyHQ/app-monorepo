@@ -181,6 +181,7 @@ export const EditableView: FC<IEditableViewProps> = ({
   const lastIsEditMode = usePrevious(isEditMode);
   const trimSearchText = searchText.trim();
   const scrollView = useRef<ISortableSectionListRef>(null);
+  const scrollViewHeight = useRef(0);
 
   useLayoutEffect(() => {
     if (!isEditMode && lastIsEditMode) {
@@ -243,10 +244,12 @@ export const EditableView: FC<IEditableViewProps> = ({
           () => {
             y += index * CELL_HEIGHT;
             y -= section.title ? 20 : 0;
-            scrollView?.current?.scrollTo?.({
-              y,
-              animated: platformEnv.isNativeAndroid,
-            });
+            if (y >= scrollViewHeight.current - CELL_HEIGHT) {
+              scrollView?.current?.scrollTo?.({
+                y,
+                animated: platformEnv.isNativeAndroid,
+              });
+            }
             hasScrollToSelectedCell.current = true;
           },
           !platformEnv.isNativeIOS ? 100 : 0,
@@ -323,7 +326,14 @@ export const EditableView: FC<IEditableViewProps> = ({
             onChangeText={(text) => setSearchText(text.trim())}
           />
         </Stack>
-        <Stack flex={1}>
+        <Stack
+          flex={1}
+          onLayout={({
+            nativeEvent: {
+              layout: { height },
+            },
+          }) => (scrollViewHeight.current = height)}
+        >
           {sections.length > 0 ? (
             <SortableSectionList
               // @ts-ignore
