@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
@@ -20,7 +18,7 @@ import type {
   ISignedTxPro,
 } from '../../types';
 
-const curve: ICurveName = 'ed25519';
+const curve: ICurveName = 'secp256k1';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
   override getExportedSecretKey(
@@ -32,79 +30,34 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    // throw new NotImplemented();;
-    return this.baseGetPrivateKeys({
-      payload,
-      curve,
-    });
+    throw new NotImplemented();
   }
 
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    // throw new NotImplemented();;
-    const { unsignedTx } = payload;
-    const signer = await this.baseGetSingleSigner({
-      payload,
-      curve,
-    });
-    // eslint-disable-next-line prefer-destructuring
-    const encodedTx = unsignedTx.encodedTx;
-    const txBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(txBytes);
-    const txid = '';
-    const rawTx = '';
-    return {
-      encodedTx: unsignedTx.encodedTx,
-      txid,
-      rawTx,
-    };
+    throw new NotImplemented();
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
-    // throw new NotImplemented();;
-    // eslint-disable-next-line prefer-destructuring
-    const unsignedMsg = payload.unsignedMsg;
-    const signer = await this.baseGetSingleSigner({
-      payload,
-      curve,
-    });
-    const msgBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(msgBytes);
-    return '';
+    throw new NotImplemented();
   }
 
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new NotImplemented();;
-    const { privateKeyRaw } = query;
-    const privateKey = bufferUtils.toBuffer(privateKeyRaw);
-    const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
-    return this.getAddressFromPublic({
-      publicKey: bufferUtils.bytesToHex(pub),
-      networkInfo: query.networkInfo,
-    });
+    throw new NotImplemented();
   }
 
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new NotImplemented();;
-    const { publicKey } = query;
-    const address = '';
-    return Promise.resolve({
-      address,
-      publicKey,
-    });
+    throw new NotImplemented();
   }
 
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
-    // throw new NotImplemented();;
-    return this.baseGetAddressesFromHd(query, {
-      curve,
-    });
+    throw new NotImplemented();
   }
 }
