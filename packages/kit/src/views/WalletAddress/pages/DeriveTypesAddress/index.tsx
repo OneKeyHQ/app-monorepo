@@ -61,25 +61,21 @@ const DeriveTypesAddressItem = ({
     } else {
       try {
         setLoading(true);
+        if (!network) {
+          throw new Error('wrong network');
+        }
         await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
           walletId,
           indexedAccountId,
           deriveType: item.deriveType,
-          networkId: network?.id,
+          networkId: network.id,
         });
         refreshLocalData?.();
       } finally {
         setLoading(false);
       }
     }
-  }, [
-    item,
-    copyText,
-    refreshLocalData,
-    indexedAccountId,
-    network?.id,
-    walletId,
-  ]);
+  }, [item, copyText, refreshLocalData, indexedAccountId, network, walletId]);
   return (
     <ListItem
       title={item.deriveInfo.label}

@@ -2066,15 +2066,20 @@ class ServiceAccount extends ServiceBase {
     }));
     const networkAccounts = await Promise.all(
       accountDeriveTypes.map(async (item) => {
-        const { accounts } = await this.getAccountsByIndexedAccounts({
-          indexedAccountIds: [indexedAccountId],
-          networkId,
-          deriveType: item.deriveType,
-        });
+        let resp: { accounts: INetworkAccount[] } | undefined;
+        try {
+          resp = await this.getAccountsByIndexedAccounts({
+            indexedAccountIds: [indexedAccountId],
+            networkId,
+            deriveType: item.deriveType,
+          });
+        } catch (e) {
+          // fail to get account
+        }
         return {
           deriveType: item.deriveType,
           deriveInfo: item.deriveInfo,
-          account: accounts[0],
+          account: resp?.accounts[0],
         };
       }),
     );
