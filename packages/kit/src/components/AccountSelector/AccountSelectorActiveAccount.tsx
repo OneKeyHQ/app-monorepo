@@ -116,6 +116,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
               },
             }}
             userSelect="none"
+            testID="account-selector-address"
           >
             <SizableText size="$bodyMd">
               {accountUtils.shortenAddress({ address: account?.address })}

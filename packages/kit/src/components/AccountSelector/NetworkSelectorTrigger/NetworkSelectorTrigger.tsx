@@ -112,7 +112,13 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
       onPress={showChainSelector}
     >
       <NetworkAvatar networkId={network?.id} size="$5" />
-      <SizableText pl="$2" size="$bodyMd" flexShrink={1} numberOfLines={1}>
+      <SizableText
+        pl="$2"
+        size="$bodyMd"
+        flexShrink={1}
+        numberOfLines={1}
+        testID="account-network-text"
+      >
         {network?.name}
       </SizableText>
       <Icon
