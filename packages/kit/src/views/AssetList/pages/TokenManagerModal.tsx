@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { throttle } from 'lodash';
+import { debounce } from 'lodash';
 
 import {
   Divider,
@@ -51,14 +51,30 @@ function TokenManagerModal() {
 
   const { result, run } = usePromiseResult(
     async () => {
-      const hiddenToken =
-        await backgroundApiProxy.serviceCustomToken.getHiddenTokens({
+      const [hiddenTokens, customTokens] = await Promise.all([
+        backgroundApiProxy.serviceCustomToken.getHiddenTokens({
           accountId,
           networkId,
-        });
-      return tokenList.tokens.filter(
+        }),
+        backgroundApiProxy.serviceCustomToken.getCustomTokens({
+          accountId,
+          networkId,
+        }),
+      ]);
+      const allTokens = [...tokenList.tokens, ...customTokens];
+      const uniqueTokens = allTokens.filter(
+        (token, index, self) =>
+          index ===
+          self.findIndex(
+            (t) =>
+              t.networkId === token.networkId &&
+              t.accountId === token.accountId &&
+              t.address === token.address,
+          ),
+      );
+      return uniqueTokens.filter(
         (token) =>
-          !hiddenToken.find(
+          !hiddenTokens.find(
             (t) =>
               t.address === token.address && t.networkId === token.networkId,
           ),
@@ -71,46 +87,65 @@ function TokenManagerModal() {
   );
 
   const [searchValue, setSearchValue] = useState('');
-  const throttledSearchTokensRef = useRef(
-    throttle(async (keywords) => {
-      const r =
-        await backgroundApiProxy.serviceCustomToken.searchTokenByKeywords({
-          walletId,
-          networkId,
-          keywords,
-        });
-      console.log('=====>>>>Search Result: ', r);
-      return r;
-    }, 500),
+  const [searchResult, setSearchResult] = useState<ICustomTokenItem[] | null>(
+    null,
   );
-  const { result: searchResult } = usePromiseResult(async () => {
-    if (!searchValue) {
-      return null;
-    }
-    console.log('=====>>>>Search Value: ', searchValue);
-    const r = await throttledSearchTokensRef.current(searchValue);
-    return r?.map((t) => {
-      const { price, price24h, info } = t;
+  const debouncedFetchDataRef = useRef(
+    debounce(
+      async (params: {
+        walletId: string;
+        networkId: string;
+        searchValue: string;
+      }) => {
+        try {
+          console.log('=====>Effect Start: ', params.searchValue);
+          const r =
+            await backgroundApiProxy.serviceCustomToken.searchTokenByKeywords({
+              walletId: params.walletId,
+              networkId: params.networkId,
+              keywords: params.searchValue,
+            });
+          console.log('=====>Effect R: ', r);
+          const formattedResult = r?.map((t) => {
+            const { price, price24h, info } = t;
 
-      return {
-        $key: `search__${info.networkId ?? ''}_${info.address}_${
-          info.isNative ? 'native' : 'token'
-        }`,
-        address: info.address,
-        decimals: info.decimals,
-        isNative: info.isNative,
-        logoURI: info.logoURI,
-        name: info.name,
-        symbol: info.symbol,
-        riskLevel: info.riskLevel,
-        networkId: info.networkId,
-        // Add price info
-        price,
-        price24h,
-        canAdded: !result?.find((n) => n.address === info.address),
-      } as ICustomTokenItem;
-    });
-  }, [searchValue, result]);
+            return {
+              $key: `search__${info.networkId ?? ''}_${info.address}_${
+                info.isNative ? 'native' : 'token'
+              }`,
+              address: info.address,
+              decimals: info.decimals,
+              isNative: info.isNative,
+              logoURI: info.logoURI,
+              name: info.name,
+              symbol: info.symbol,
+              riskLevel: info.riskLevel,
+              networkId: info.networkId,
+              // Add price info
+              price,
+              price24h,
+              canAdded: !result?.find((n) => n.address === info.address),
+            } as ICustomTokenItem;
+          });
+          setSearchResult(formattedResult);
+        } catch (error) {
+          console.error('Error fetching search response:', error);
+        }
+      },
+      500,
+    ),
+  ).current;
+
+  useEffect(() => {
+    if (!searchValue) {
+      setSearchResult(null);
+      return;
+    }
+    void debouncedFetchDataRef({ walletId, networkId, searchValue });
+    return () => {
+      debouncedFetchDataRef.cancel();
+    };
+  }, [searchValue, networkId, walletId, debouncedFetchDataRef]);
   const isSearchMode = useMemo(
     () => searchValue && searchValue.length > 0,
     [searchValue],
@@ -129,31 +164,35 @@ function TokenManagerModal() {
     console.log('===>TokenList: ', tokenList);
   }, [tokenList]);
 
-  const onAddCustomToken = useCallback(() => {
-    navigation.pushModal(EModalRoutes.MainModal, {
-      screen: EModalAssetListRoutes.AddCustomTokenModal,
-      params: {
-        walletId,
-        isOthersWallet,
-        indexedAccountId,
-        networkId,
-        accountId,
-        deriveType,
-        onSuccess: () => {
-          void run();
+  const onAddCustomToken = useCallback(
+    (token?: ICustomTokenItem) => {
+      navigation.pushModal(EModalRoutes.MainModal, {
+        screen: EModalAssetListRoutes.AddCustomTokenModal,
+        params: {
+          walletId,
+          isOthersWallet,
+          indexedAccountId,
+          networkId,
+          accountId,
+          deriveType,
+          token,
+          onSuccess: () => {
+            void run();
+          },
         },
-      },
-    });
-  }, [
-    navigation,
-    walletId,
-    isOthersWallet,
-    indexedAccountId,
-    networkId,
-    accountId,
-    deriveType,
-    run,
-  ]);
+      });
+    },
+    [
+      navigation,
+      walletId,
+      isOthersWallet,
+      indexedAccountId,
+      networkId,
+      accountId,
+      deriveType,
+      run,
+    ],
+  );
 
   const onHiddenToken = useCallback(
     async (token: IAccountToken) => {
@@ -231,7 +270,9 @@ function TokenManagerModal() {
               {item.isNative ? null : (
                 <ListItem.IconButton
                   icon={item.canAdded ? 'PlusCircleOutline' : 'DeleteOutline'}
-                  onPress={() => onHiddenToken(item)}
+                  onPress={() =>
+                    item.canAdded ? onAddCustomToken(item) : onHiddenToken(item)
+                  }
                 />
               )}
             </ListItem>
