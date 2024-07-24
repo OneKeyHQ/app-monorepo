@@ -37,7 +37,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 const WalletAddressContext = createContext<{
   networkAccountMap: Record<string, INetworkAccount>;
-  accountId: string;
+  accountId?: string;
   indexedAccountId: string;
   walletId: string;
   deriveType?: IAccountDeriveTypes;

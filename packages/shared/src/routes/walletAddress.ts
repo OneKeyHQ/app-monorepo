@@ -8,12 +8,12 @@ export enum EModalWalletAddressRoutes {
 export type IModalWalletAddressParamList = {
   [EModalWalletAddressRoutes.DeriveTypesAddress]: {
     networkId: string;
-    accountId: string;
     indexedAccountId: string;
     walletId: string;
+    accountId: string;
   };
   [EModalWalletAddressRoutes.WalletAddress]: {
-    accountId: string;
+    accountId?: string;
     indexedAccountId: string;
     walletId: string;
     deriveType: IAccountDeriveTypes;

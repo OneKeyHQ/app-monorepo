@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Icon,
+  IconButton,
   SizableText,
   Tooltip,
   XStack,
@@ -31,18 +32,49 @@ import {
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
+const AllNetworkAccountSelector = ({ num }: { num: number }) => {
+  const { activeAccount } = useActiveAccount({ num });
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
+  const { account, wallet, indexedAccount, deriveType } = activeAccount;
+  const onPress = useCallback(() => {
+    if (!wallet || !indexedAccount) {
+      return;
+    }
+    navigation.pushModal(EModalRoutes.WalletAddress, {
+      screen: EModalWalletAddressRoutes.WalletAddress,
+      params: {
+        accountId: account?.id,
+        indexedAccountId: indexedAccount.id,
+        walletId: wallet.id,
+        deriveType,
+      },
+    });
+  }, [navigation, account, indexedAccount, wallet, deriveType]);
+  if (!indexedAccount || !wallet) {
+    return null;
+  }
+  return (
+    <IconButton
+      variant="tertiary"
+      icon="Copy1Outline"
+      size="small"
+      onPress={onPress}
+    />
+  );
+};
+
 export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
-  const { account, wallet, network, deriveType, deriveInfo } = activeAccount;
+  const { account, wallet, network, deriveType, deriveInfo, indexedAccount } =
+    activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
 
   const navigation =
-    useAppNavigation<
-      IPageNavigationProp<IModalReceiveParamList & IModalWalletAddressParamList>
-    >();
+    useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
 
   const logActiveAccount = useCallback(() => {
     console.log({
@@ -56,22 +88,6 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
 
   const handleAddressOnPress = useCallback(() => {
     if (!account || !network || !deriveInfo || !wallet) return;
-    if (
-      network.id === getNetworkIdsMap().onekeyall &&
-      account.indexedAccountId
-    ) {
-      navigation.pushModal(EModalRoutes.WalletAddress, {
-        screen: EModalWalletAddressRoutes.WalletAddress,
-        params: {
-          accountId: account.id,
-          indexedAccountId: account.indexedAccountId,
-          walletId: wallet.id,
-          deriveType,
-          // deriveInfo,
-        },
-      });
-      return;
-    }
     if (
       wallet?.id &&
       (accountUtils.isHwWallet({
@@ -105,6 +121,14 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     network,
     wallet,
   ]);
+
+  if (
+    network &&
+    network.id === getNetworkIdsMap().onekeyall &&
+    indexedAccount
+  ) {
+    return <AllNetworkAccountSelector num={num} />;
+  }
 
   // show address if account has an address
   if (account?.address) {
@@ -144,13 +168,9 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
             }}
             userSelect="none"
           >
-            {network?.id === getNetworkIdsMap().onekeyall ? (
-              <Icon name="Copy1Outline" size="$5" />
-            ) : (
-              <SizableText size="$bodyMd">
-                {accountUtils.shortenAddress({ address: account?.address })}
-              </SizableText>
-            )}
+            <SizableText size="$bodyMd">
+              {accountUtils.shortenAddress({ address: account?.address })}
+            </SizableText>
           </XStack>
         }
       />
