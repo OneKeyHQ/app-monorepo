@@ -1,4 +1,5 @@
 import { useIntl } from 'react-intl';
+import { Pressable } from 'react-native';
 
 import type { IStackProps } from '@onekeyhq/components';
 import { SizableText, Stack, Tooltip, useMedia } from '@onekeyhq/components';
@@ -12,6 +13,7 @@ type IWalletListItemProps = {
   focusedWallet: IAccountSelectorFocusedWallet;
   wallet: IDBWallet | undefined;
   onWalletPress: (focusedWallet: IAccountSelectorFocusedWallet) => void;
+  onWalletLongPress: (focusedWallet: IAccountSelectorFocusedWallet) => void;
 } & IStackProps &
   Partial<IWalletAvatarProps>;
 
@@ -19,6 +21,7 @@ export function WalletListItem({
   wallet,
   focusedWallet,
   onWalletPress,
+  onWalletLongPress,
   isOthers,
   badge,
   ...rest
@@ -34,6 +37,7 @@ export function WalletListItem({
   let walletName = wallet?.name;
   let selected = focusedWallet === wallet?.id;
   let onPress = () => wallet?.id && onWalletPress(wallet?.id);
+  let onLongPress = () => wallet?.id && onWalletLongPress(wallet?.id);
   if (isOthers) {
     walletName = 'Others';
     selected = focusedWallet === '$$others';
@@ -42,6 +46,7 @@ export function WalletListItem({
       wallet: undefined,
     };
     onPress = () => onWalletPress('$$others');
+    onLongPress = () => onWalletLongPress('$$others');
   }
   const hiddenWallets = wallet?.hiddenWallets;
 
@@ -53,47 +58,52 @@ export function WalletListItem({
   // });
 
   const basicComponent = (
-    <Stack
-      role="button"
-      alignItems="center"
-      p="$1"
-      borderRadius="$3"
-      borderCurve="continuous"
-      userSelect="none"
-      {...(selected
-        ? {
-            bg: '$bgActive',
-          }
-        : {
-            hoverStyle: {
-              bg: '$bgHover',
-            },
-            pressStyle: {
-              bg: '$bgActive',
-            },
-          })}
-      focusable
-      focusStyle={{
-        outlineWidth: 2,
-        outlineColor: '$focusRing',
-        outlineStyle: 'solid',
-      }}
-      {...rest}
+    <Pressable
+      pointerEvents="box-only"
+      onLongPress={onLongPress}
       onPress={onPress}
     >
-      {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
-      {media.gtMd ? (
-        <SizableText
-          flex={1}
-          numberOfLines={1}
-          mt="$1"
-          size="$bodySm"
-          color={selected ? '$text' : '$textSubdued'}
-        >
-          {i18nWalletName}
-        </SizableText>
-      ) : null}
-    </Stack>
+      <Stack
+        role="button"
+        alignItems="center"
+        p="$1"
+        borderRadius="$3"
+        borderCurve="continuous"
+        userSelect="none"
+        {...(selected
+          ? {
+              bg: '$bgActive',
+            }
+          : {
+              hoverStyle: {
+                bg: '$bgHover',
+              },
+              pressStyle: {
+                bg: '$bgActive',
+              },
+            })}
+        focusable
+        focusStyle={{
+          outlineWidth: 2,
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+        }}
+        {...rest}
+      >
+        {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
+        {media.gtMd ? (
+          <SizableText
+            flex={1}
+            numberOfLines={1}
+            mt="$1"
+            size="$bodySm"
+            color={selected ? '$text' : '$textSubdued'}
+          >
+            {i18nWalletName}
+          </SizableText>
+        ) : null}
+      </Stack>
+    </Pressable>
   );
 
   const responsiveComponent = media.md ? (
@@ -122,6 +132,7 @@ export function WalletListItem({
             wallet={hiddenWallet}
             focusedWallet={focusedWallet}
             onWalletPress={onWalletPress}
+            onWalletLongPress={onWalletLongPress}
             {...(media.md && {
               badge: Number(index) + 1,
             })}

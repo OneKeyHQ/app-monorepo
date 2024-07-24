@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   Page,
@@ -162,20 +162,15 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
           }
 
           return (
-            <Pressable
-              pointerEvents="box-only"
-              onLongPress={drag}
-              onPress={() => onWalletPress(item.id)}
-            >
-              <WalletListItem
-                key={item.id}
-                wallet={item}
-                focusedWallet={selectedAccount.focusedWallet}
-                onWalletPress={onWalletPress}
-                testID={`wallet-${item.id}`}
-                badge={badge}
-              />
-            </Pressable>
+            <WalletListItem
+              key={item.id}
+              wallet={item}
+              focusedWallet={selectedAccount.focusedWallet}
+              onWalletPress={onWalletPress}
+              onWalletLongPress={drag}
+              testID={`wallet-${item.id}`}
+              badge={badge}
+            />
           );
         }}
         ItemSeparatorComponent={ListItemSeparator}
