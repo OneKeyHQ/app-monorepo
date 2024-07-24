@@ -343,6 +343,19 @@ const SwapHistoryDetailModal = () => {
         })}
       />
       <Page.Body>{renderSwapHistoryDetails()}</Page.Body>
+      {txHistory.swapInfo.supportUrl ? (
+        <Page.Footer
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_support,
+          })}
+          confirmButtonProps={{
+            icon: 'BubbleAnnotationOutline',
+          }}
+          onConfirm={() => {
+            onViewInBrowser(txHistory.swapInfo.supportUrl ?? '');
+          }}
+        />
+      ) : null}
     </Page>
   );
 };

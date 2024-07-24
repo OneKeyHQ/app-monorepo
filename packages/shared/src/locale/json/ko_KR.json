@@ -794,6 +794,7 @@
   "global.status": "상태",
   "global.step_str": "{step} 단계",
   "global.success": "성공",
+  "global.support": "지원",
   "global.swap": "교환",
   "global.switch_address": "주소 변경",
   "global.sync_error": "동기화 오류",

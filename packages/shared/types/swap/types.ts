@@ -204,6 +204,7 @@ export interface IFetchQuoteResult {
   toTokenInfo: ISwapTokenBase;
   quoteResultCtx?: any;
   protocolNoRouterInfo?: string;
+  supportUrl?: string;
 }
 
 export interface IAllowanceResult {
@@ -388,6 +389,7 @@ export interface ISwapTxHistory {
     protocolFee?: number;
     oneKeyFee?: number;
     orderId?: string;
+    supportUrl?: string;
   };
   date: {
     created: number;

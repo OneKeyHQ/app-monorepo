@@ -71,6 +71,7 @@ export function useSwapTxHistoryActions() {
             protocolFee:
               swapTxInfo.swapBuildResData.result.fee?.protocolFees ?? 0,
             orderId: swapTxInfo.swapBuildResData.orderId,
+            supportUrl: swapTxInfo.swapBuildResData.result.supportUrl,
           },
           ctx: swapTxInfo.swapBuildResData.ctx,
         };
