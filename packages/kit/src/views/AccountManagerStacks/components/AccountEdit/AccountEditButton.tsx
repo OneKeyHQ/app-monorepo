@@ -9,6 +9,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type {
   IDBAccount,
   IDBIndexedAccount,
+  IDBUtxoAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -53,6 +54,17 @@ export function AccountEditButton({
     [account, indexedAccount],
   );
 
+  const isWatchingAccount = useMemo(
+    () =>
+      Boolean(
+        account &&
+          !indexedAccount &&
+          account?.id &&
+          accountUtils.isWatchingAccount({ accountId: account?.id }),
+      ),
+    [account, indexedAccount],
+  );
+
   const isHdAccount = useMemo(
     () =>
       indexedAccount &&
@@ -66,7 +78,12 @@ export function AccountEditButton({
     showExportPrivateKey: boolean;
     showExportPublicKey: boolean;
   }>(async () => {
-    if (isImportedAccount && account?.createAtNetwork) {
+    if (
+      (isImportedAccount && account?.createAtNetwork) ||
+      (isWatchingAccount &&
+        account?.createAtNetwork &&
+        (account?.pub || (account as IDBUtxoAccount)?.xpub))
+    ) {
       const privateKeyTypes =
         await backgroundApiProxy.serviceAccount.getNetworkSupportedExportKeyTypes(
           {
@@ -82,7 +99,9 @@ export function AccountEditButton({
           },
         );
       return {
-        showExportPrivateKey: Boolean(privateKeyTypes?.length),
+        showExportPrivateKey: isWatchingAccount
+          ? false
+          : Boolean(privateKeyTypes?.length),
         showExportPublicKey: Boolean(publicKeyTypes?.length),
       };
     }
@@ -98,7 +117,7 @@ export function AccountEditButton({
       showExportPrivateKey: false,
       showExportPublicKey: false,
     };
-  }, [account?.createAtNetwork, isHdAccount, isImportedAccount]);
+  }, [account, isHdAccount, isImportedAccount, isWatchingAccount]);
 
   return (
     <ActionList

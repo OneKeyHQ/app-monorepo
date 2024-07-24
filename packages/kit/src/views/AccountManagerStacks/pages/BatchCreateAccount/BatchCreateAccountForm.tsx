@@ -10,7 +10,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountManagerStacksParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -60,7 +60,7 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
     <Page scrollEnabled safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({
-          id: ETranslationsMock.batch_create_account,
+          id: ETranslations.global_bulk_add_accounts,
         })}
       />
       <Page.Body p="$4">
@@ -83,16 +83,6 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
             <SizableText>walletId: {walletId}</SizableText>
             <SizableText>networkId: {activeAccount.network?.id}</SizableText>
             <SizableText>deriveType: {activeAccount.deriveType}</SizableText>
-            <SizableText>
-              {intl.formatMessage(
-                {
-                  id: ETranslationsMock.batch_create_account_preview_added,
-                },
-                {
-                  count: '12',
-                },
-              )}
-            </SizableText>
           </Stack>
         ) : null}
       </Page.Body>

@@ -29,7 +29,7 @@ import type {
   IBatchBuildAccountsNormalFlowParams,
 } from '@onekeyhq/kit-bg/src/services/ServiceBatchCreateAccount/ServiceBatchCreateAccount';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountManagerStacksParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -115,7 +115,7 @@ function BatchCreateAccountPreviewPage({
       if (!Number.isInteger(pageNumber)) {
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslationsMock.batch_create_page_number_invalid,
+            id: ETranslations.global_bulk_accounts_page_number_error,
           }),
         });
         return;
@@ -346,17 +346,21 @@ function BatchCreateAccountPreviewPage({
     [count, deriveType, enableAdvancedMode, from, intl, media.gtMd, networkId],
   );
 
-  const totalCountEstimate = useMemo(() => {
-    if (!isAdvancedMode && selectedIndexesCount > 0) {
-      return ` (${selectedIndexesCount})`;
+  const totalCount = useMemo<number>(() => {
+    if (!isAdvancedMode) {
+      return selectedIndexesCount;
     }
-    if (isAdvancedMode) {
-      return ` (${
-        countInt - Object.values(advanceExcludedIndexes).filter(Boolean).length
-      })`;
+    return (
+      countInt - Object.values(advanceExcludedIndexes).filter(Boolean).length
+    );
+  }, [advanceExcludedIndexes, countInt, isAdvancedMode, selectedIndexesCount]);
+
+  const totalCountEstimate = useMemo(() => {
+    if (totalCount > 0) {
+      return ` (${totalCount})`;
     }
     return '';
-  }, [advanceExcludedIndexes, countInt, isAdvancedMode, selectedIndexesCount]);
+  }, [totalCount]);
 
   return (
     <Page scrollEnabled safeAreaEnabled={false}>
@@ -463,7 +467,7 @@ function BatchCreateAccountPreviewPage({
               if (isLoading) {
                 return true;
               }
-              if (!isAdvancedMode && selectedIndexesCount <= 0) {
+              if (totalCount <= 0) {
                 return true;
               }
               return false;
