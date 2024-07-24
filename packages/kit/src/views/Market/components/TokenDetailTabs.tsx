@@ -169,9 +169,9 @@ function BasicTokenDetailTabs({
       ListHeaderComponent={
         <Stack mb="$5">
           {listHeaderComponent}
-          {/*{pools ? null : (
+          {/* {pools ? null : (
             <YStack $gtMd={{ px: '$5' }}>{renderPoolSkeleton}</YStack>
-          )}*/}
+          )} */}
         </Stack>
       }
       onSelectedPageIndex={(index: number) => {

@@ -1,4 +1,3 @@
-import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_DNX,
   IMPL_DNX,
@@ -31,8 +30,9 @@ const settings: IVaultSettings = {
   softwareAccountDisabled: true,
 
   supportExportedSecretKeys: [
-    ECoreApiExportedSecretKeyType.xprvt,
-    ECoreApiExportedSecretKeyType.xpub,
+    // DNX HD wallet not support
+    // ECoreApiExportedSecretKeyType.xprvt,
+    // ECoreApiExportedSecretKeyType.xpub,
   ],
 
   defaultFeePresetIndex: 0,

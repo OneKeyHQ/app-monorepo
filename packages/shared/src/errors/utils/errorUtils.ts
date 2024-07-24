@@ -196,9 +196,10 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   const err = error as IOneKeyError | undefined;
   if (
     err?.className &&
-    [EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel].includes(
-      err?.className,
-    )
+    [
+      EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+      EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
+    ].includes(err?.className)
   ) {
     return;
   }
