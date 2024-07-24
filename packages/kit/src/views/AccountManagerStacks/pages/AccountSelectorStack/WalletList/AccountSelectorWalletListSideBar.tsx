@@ -3,8 +3,8 @@ import { useCallback, useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 
 import {
-  ListView,
   Page,
+  SortableListView,
   Stack,
   XStack,
   useSafeAreaInsets,
@@ -69,7 +69,11 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   const isEditableRouteParams = route.params?.editable;
   const { selectedAccount } = useSelectedAccount({ num });
 
-  const { result: walletsResult, run: reloadWallets } = usePromiseResult(
+  const {
+    result: walletsResult,
+    setResult,
+    run: reloadWallets,
+  } = usePromiseResult(
     () =>
       // serviceAccount.getHDAndHWWallets({
       serviceAccount.getWallets({
@@ -125,13 +129,33 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
         </XStack>
       ) : null}
       {/* Primary wallets */}
-      <ListView
+      <SortableListView
         showsVerticalScrollIndicator={false}
         p="$2"
-        estimatedItemSize="$10"
-        data={wallets}
+        getItemLayout={(_, index) => ({
+          length: 80,
+          offset: index * 80,
+          index,
+        })}
+        keyExtractor={(item) => `${item.id}`}
+        data={wallets as IDBWallet[]}
+        onDragEnd={async (result) => {
+          if (!walletsResult) {
+            return;
+          }
+          walletsResult.wallets = result.data;
+          setResult({ ...walletsResult });
+
+          const toIndex = result.to + (result.to > result.from ? 1 : 0);
+          await serviceAccount.insertWalletOrder({
+            targetWalletId: wallets[result.from].id,
+            startWalletId: wallets[toIndex - 1]?.id,
+            endWalletId: wallets[toIndex]?.id,
+            emitEvent: true,
+          });
+        }}
         extraData={selectedAccount.focusedWallet}
-        renderItem={({ item }: { item: IDBWallet }) => {
+        renderItem={({ item, drag }) => {
           let badge: number | string | undefined;
           if (accountUtils.isQrWallet({ walletId: item.id })) {
             badge = 'QR';
@@ -143,6 +167,7 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
               wallet={item}
               focusedWallet={selectedAccount.focusedWallet}
               onWalletPress={onWalletPress}
+              onWalletLongPress={drag}
               testID={`wallet-${item.id}`}
               badge={badge}
             />

@@ -102,7 +102,7 @@ function TokenDetailHeader({
         </PriceChangePercentage>
       </YStack>
       {gtMd ? (
-        <MarketDetailOverview token={token} onContentSizeChange={() => {}} />
+        <MarketDetailOverview token={token} />
       ) : (
         <XStack
           flex={1}

@@ -5,11 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from './utils/Layout';
 
-const FirstRoute = ({
-  onContentSizeChange,
-}: {
-  onContentSizeChange: ((w: number, h: number) => void) | undefined;
-}) => (
+const FirstRoute = () => (
   <ListView
     data={new Array(20).fill({})}
     estimatedItemSize="$10"
@@ -20,15 +16,10 @@ const FirstRoute = ({
         <SizableText>Page 1 Row: {index}</SizableText>
       </Stack>
     )}
-    onContentSizeChange={onContentSizeChange}
   />
 );
 
-const SecondRoute = ({
-  onContentSizeChange,
-}: {
-  onContentSizeChange: ((w: number, h: number) => void) | undefined;
-}) => (
+const SecondRoute = () => (
   <ListView
     data={new Array(50).fill({})}
     estimatedItemSize="$10"
@@ -39,7 +30,6 @@ const SecondRoute = ({
         <SizableText>Page 2 Row: {index}</SizableText>
       </Stack>
     )}
-    onContentSizeChange={onContentSizeChange}
   />
 );
 
@@ -62,8 +52,7 @@ const TabViewScrollStickyDemo = () => {
       data={data}
       initialScrollIndex={1}
       ListHeaderComponent={<Stack bg="$bgInfoStrong" h={100} />}
-      // style={{ width: 400, height: 600, backgroundColor: 'black' }}
-      h={600}
+      style={{ height: 400 }}
       headerProps={{
         itemContainerStyle: { flex: 1 },
         cursorStyle: { width: '70%', h: '$0.5', bg: '$text' },
@@ -144,7 +133,7 @@ const TabViewGallery = () => (
   <Layout
     description=""
     suggestions={[
-      '吸顶用 Tab, 它继承自 ScrollView, 请记得 onContentSizeChange, 关掉 data 里面每个 page 的 scrollEnabled 和 disableScrollViewPanResponder',
+      '吸顶用 Tab',
       '不需要吸顶用 Tab.Page, 它继承自 Fragment, 尽量不要把 Tab.Page 放到 ScrollView 里面',
     ]}
     boundaryConditions={[]}

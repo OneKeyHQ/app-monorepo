@@ -15,6 +15,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -287,11 +288,37 @@ class ServiceAccountSelector extends ServiceBase {
         //
       }
     }
-    const canCreateAddress = !isOthersWallet && !account?.address;
+    let allNetworkDbAccounts: IDBAccount[] | undefined;
+    let canCreateAddress = false;
+    if (networkId && networkUtils.isAllNetwork({ networkId })) {
+      if (!isOthersWallet && indexedAccountId) {
+        const dbAccounts =
+          await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+            {
+              indexedAccountId,
+            },
+          );
+        if (dbAccounts.length) {
+          allNetworkDbAccounts = dbAccounts;
+          account =
+            await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount({
+              indexedAccountId,
+            });
+          canCreateAddress = false;
+        } else {
+          canCreateAddress = true;
+          account = undefined;
+        }
+      }
+    } else {
+      canCreateAddress = !isOthersWallet && !account?.address;
+    }
+
     const isNetworkNotMatched = isOthersWallet && !account && !indexedAccount;
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
       dbAccount,
+      allNetworkDbAccounts,
       indexedAccount,
       accountName: universalAccountName,
       wallet,

@@ -16,16 +16,21 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AccountExportPrivateKeyButton } from './AccountExportPrivateKeyButton';
+import { AccountMoveToTopButton } from './AccountMoveToTopButton';
 import { AccountRemoveButton } from './AccountRemoveButton';
 import { AccountRenameButton } from './AccountRenameButton';
 
 export function AccountEditButton({
   indexedAccount,
+  firstIndexedAccount,
   account,
+  firstAccount,
   wallet,
 }: {
   indexedAccount?: IDBIndexedAccount;
+  firstIndexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
+  firstAccount?: IDBAccount;
   wallet?: IDBWallet;
 }) {
   const intl = useIntl();
@@ -115,7 +120,7 @@ export function AccountEditButton({
               account={account}
               onClose={handleActionListClose}
               label={intl.formatMessage({
-                id: ETranslations.global_private_key,
+                id: ETranslations.global_export_private_key,
               })}
               exportType="privateKey"
             />
@@ -133,6 +138,13 @@ export function AccountEditButton({
               exportType="publicKey"
             />
           ) : null}
+          <AccountMoveToTopButton
+            indexedAccount={indexedAccount}
+            firstIndexedAccount={firstIndexedAccount}
+            account={account}
+            firstAccount={firstAccount}
+            onClose={handleActionListClose}
+          />
           {showRemoveButton ? (
             <>
               <Divider mx="$2" my="$1" />

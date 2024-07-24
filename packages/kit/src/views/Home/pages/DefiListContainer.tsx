@@ -8,7 +8,6 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { DefiListView } from '../components/DefiListView';
 
 function DefiListContainer(props: ITabPageProps) {
-  const { onContentSizeChange } = props;
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
@@ -29,12 +28,7 @@ function DefiListContainer(props: ITabPageProps) {
       void run();
     }
   }, [isHeaderRefreshing, run]);
-  return (
-    <DefiListView
-      data={result ?? []}
-      onContentSizeChange={onContentSizeChange}
-    />
-  );
+  return <DefiListView data={result ?? []} />;
 }
 
 export { DefiListContainer };

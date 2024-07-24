@@ -30,6 +30,7 @@ module.exports = [
   'isXprvt',
   'mmkv',
   'xxxxxx',
+  'faq',
   'npx',
   'tsc',
   'autofix',
