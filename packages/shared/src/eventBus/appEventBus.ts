@@ -10,6 +10,7 @@ import platformEnv from '../platformEnv';
 
 import type { EAccountSelectorSceneName } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
+import { IAccountToken, ITokenFiat } from '../../types/token';
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -52,6 +53,7 @@ export enum EAppEventBusNames {
   CloseHardwareUiStateDialogManually = 'CloseHardwareUiStateDialogManually',
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
+  TokenListUpdate = 'TokenListUpdate',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -141,6 +143,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CloseHardwareUiStateDialogManually]: undefined;
   [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
+  [EAppEventBusNames.TokenListUpdate]: {
+    tokens: IAccountToken[];
+    keys: string;
+    map: Record<string, ITokenFiat>;
+    merge?: boolean;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

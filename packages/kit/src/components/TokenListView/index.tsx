@@ -25,6 +25,7 @@ type IProps = {
   withPrice?: boolean;
   withBuyAndReceive?: boolean;
   withPresetVerticalPadding?: boolean;
+  withNetwork?: boolean;
   inTabList?: boolean;
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
@@ -41,6 +42,7 @@ function TokenListView(props: IProps) {
     withPrice,
     inTabList = false,
     withBuyAndReceive,
+    withNetwork,
     onReceiveToken,
     onBuyToken,
     isBuyTokenSupported,
@@ -102,6 +104,7 @@ function TokenListView(props: IProps) {
           tableLayout={tableLayout}
           withPrice={withPrice}
           isAllNetworks={isAllNetworks}
+          withNetwork={withNetwork}
         />
       )}
       ListFooterComponent={

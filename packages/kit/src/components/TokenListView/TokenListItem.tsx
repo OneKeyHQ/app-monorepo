@@ -17,12 +17,20 @@ export type ITokenListItemProps = {
   onPress?: (token: IAccountToken) => void;
   tableLayout?: boolean;
   withPrice?: boolean;
+  withNetwork?: boolean;
   isAllNetworks?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
-  const { token, onPress, tableLayout, withPrice, isAllNetworks, ...rest } =
-    props;
+  const {
+    token,
+    onPress,
+    tableLayout,
+    withPrice,
+    isAllNetworks,
+    withNetwork,
+    ...rest
+  } = props;
 
   return (
     <ListItem
@@ -63,6 +71,8 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             name={token.name}
             isNative={token.isNative}
             isAllNetworks={isAllNetworks}
+            networkId={token.networkId}
+            withNetwork={withNetwork}
             {...(tableLayout && {
               size: '$bodyMdMedium',
             })}

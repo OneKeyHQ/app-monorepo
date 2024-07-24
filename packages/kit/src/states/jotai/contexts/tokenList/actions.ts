@@ -32,18 +32,33 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         tokens: IAccountToken[];
         keys: string;
         merge?: boolean;
+        map?: {
+          [key: string]: ITokenFiat;
+        };
       },
     ) => {
       const { keys, tokens } = payload;
-
       const allTokenList = get(allTokenListAtom());
 
       if (payload.merge) {
-        const newTokens = allTokenList.tokens.concat(tokens);
-        set(allTokenListAtom(), {
-          tokens: newTokens,
-          keys: `${allTokenList.keys}_${keys}`,
-        });
+        if (tokens.length) {
+          let newTokens = allTokenList.tokens.concat(tokens);
+
+          const tokenListMap = get(tokenListMapAtom());
+
+          newTokens = sortTokensByFiatValue({
+            tokens: newTokens,
+            map: {
+              ...tokenListMap,
+              ...(payload.map || {}),
+            },
+          });
+
+          set(allTokenListAtom(), {
+            tokens: newTokens,
+            keys: `${allTokenList.keys}_${keys}`,
+          });
+        }
       } else if (!isEqual(allTokenList.keys, keys)) {
         set(allTokenListAtom(), { tokens, keys });
       }

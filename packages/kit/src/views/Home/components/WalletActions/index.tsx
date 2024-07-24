@@ -77,36 +77,36 @@ function WalletActionSend() {
           keys: allTokens.keys,
           map,
         },
+        tokenListState,
         onSelect: async (token: IToken) => {
           await timerUtils.wait(600);
           navigation.pushModal(EModalRoutes.SendModal, {
             screen: EModalSendRoutes.SendDataInput,
             params: {
-              accountId: account.id,
-              networkId: network.id,
+              accountId: token.accountId ?? account.id,
+              networkId: token.networkId ?? network.id,
               isNFT: false,
               token,
             },
           });
         },
+        isAllNetworks: network.isAllNetworks,
       },
     });
   }, [
     account,
-    allTokens.keys,
-    allTokens.tokens,
-    vaultSettings,
-    map,
-    navigation,
     network,
+    vaultSettings?.isSingleToken,
+    allTokens,
+    navigation,
+    map,
+    tokenListState,
   ]);
 
   return (
     <RawActions.Send
       onPress={handleOnSend}
-      disabled={
-        vaultSettings?.disabledSendAction || !tokenListState.initialized
-      }
+      disabled={vaultSettings?.disabledSendAction}
     />
   );
 }

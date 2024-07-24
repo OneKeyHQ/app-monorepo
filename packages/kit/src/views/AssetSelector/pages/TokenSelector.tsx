@@ -13,18 +13,25 @@ import {
   useTokenListAtom,
   withTokenListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EAssetSelectorRoutes,
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
+
+import { useAccountData } from '../../../hooks/useAccountData';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
-
-const networkIdsMap = getNetworkIdsMap();
 
 function TokenSelector() {
   const intl = useIntl();
@@ -50,7 +57,11 @@ function TokenSelector() {
     tokens,
     closeAfterSelect = true,
     onSelect,
+    tokenListState,
+    isAllNetworks,
   } = route.params;
+
+  const { network } = useAccountData({ networkId });
 
   const handleTokenOnPress = useCallback(
     (token: IToken) => {
@@ -117,7 +128,7 @@ function TokenSelector() {
           tokens: tokens.map,
         });
         updateTokenListState({ initialized: true, isRefreshing: false });
-      } else {
+      } else if (!network?.isAllNetworks && !tokenListState?.isRefreshing) {
         void fetchAccountTokens();
       }
     };
@@ -125,12 +136,36 @@ function TokenSelector() {
     void updateTokenList();
   }, [
     fetchAccountTokens,
+    network?.isAllNetworks,
     networkId,
     refreshTokenList,
     refreshTokenListMap,
+    tokenListState?.isRefreshing,
     tokens,
     updateTokenListState,
   ]);
+
+  useEffect(() => {
+    const updateTokenList = ({
+      tokens: tokensFromOut,
+      keys,
+      map,
+      merge,
+    }: {
+      tokens: IAccountToken[];
+      keys: string;
+      map: Record<string, ITokenFiat>;
+      merge?: boolean;
+    }) => {
+      updateTokenListState({ initialized: true, isRefreshing: false });
+      refreshTokenList({ tokens: tokensFromOut, keys, merge });
+      refreshTokenListMap({ tokens: map, merge });
+    };
+    appEventBus.on(EAppEventBusNames.TokenListUpdate, updateTokenList);
+    return () => {
+      appEventBus.off(EAppEventBusNames.TokenListUpdate, updateTokenList);
+    };
+  }, [refreshTokenList, refreshTokenListMap, updateTokenListState]);
 
   const debounceUpdateSearchKey = useDebouncedCallback(updateSearchKey, 200);
 
@@ -167,6 +202,8 @@ function TokenSelector() {
         <TokenListView
           withPresetVerticalPadding={false}
           onPressToken={handleTokenOnPress}
+          isAllNetworks={network?.isAllNetworks}
+          withNetwork={isAllNetworks}
         />
       </Page.Body>
     </Page>

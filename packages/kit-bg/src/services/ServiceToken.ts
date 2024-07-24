@@ -51,7 +51,6 @@ class ServiceToken extends ServiceBase {
   ): Promise<IFetchAccountTokensResp> {
     const { mergeTokens, flag, accountId, isAllNetworks, ...rest } = params;
     const { networkId, contractList = [] } = rest;
-
     if (
       isAllNetworks &&
       this._currentNetworkId !== getNetworkIdsMap().onekeyall
@@ -120,9 +119,15 @@ class ServiceToken extends ServiceBase {
         riskTokens,
         smallBalanceTokens,
       }));
+      if (allTokens) {
+        allTokens.data = allTokens.data.map((token) => ({
+          ...token,
+          accountId,
+          networkId,
+        }));
+      }
+      resp.data.data.allTokens = allTokens;
     }
-
-    resp.data.data.allTokens = allTokens;
 
     resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => ({
       ...token,
