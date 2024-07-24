@@ -50,6 +50,7 @@ import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
   INetworkAccount,
@@ -2016,6 +2017,82 @@ class ServiceAccount extends ServiceBase {
       // force UI re-render, may cause performance issue
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     }
+  }
+
+  @backgroundMethod()
+  async getNetworkAccountsInSameIndexedAccountId({
+    indexedAccountId,
+    networkIds,
+  }: {
+    indexedAccountId: string;
+    networkIds: string[];
+  }): Promise<{ network: IServerNetwork; account?: INetworkAccount }[]> {
+    const { serviceNetwork } = this.backgroundApi;
+    const dbAccounts = await this.getAccountsInSameIndexedAccountId({
+      indexedAccountId,
+    });
+    return Promise.all(
+      networkIds.map(async (networkId) => {
+        const dbAccount = dbAccounts.find((account) =>
+          accountUtils.isAccountCompatibleWithNetwork({
+            account,
+            networkId,
+          }),
+        );
+        let account: INetworkAccount | undefined;
+        if (dbAccount) {
+          account = await this.getAccount({
+            accountId: dbAccount.id,
+            networkId,
+          });
+        }
+        const network = await serviceNetwork.getNetwork({ networkId });
+        return { network, account };
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes({
+    networkId,
+    indexedAccountId,
+  }: {
+    networkId: string;
+    indexedAccountId: string;
+  }) {
+    const { serviceNetwork } = this.backgroundApi;
+    const network = await serviceNetwork.getNetworkSafe({ networkId });
+    if (!network) {
+      throw new Error('Network not found');
+    }
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const vaultSettings = await vault.getVaultSettings();
+    const accountDeriveTypes = Object.entries(
+      vaultSettings.accountDeriveInfo,
+    ).map(([deriveType, deriveInfo]) => ({
+      deriveType: deriveType as IAccountDeriveTypes,
+      deriveInfo,
+    }));
+    const networkAccounts = await Promise.all(
+      accountDeriveTypes.map(async (item) => {
+        let resp: { accounts: INetworkAccount[] } | undefined;
+        try {
+          resp = await this.getAccountsByIndexedAccounts({
+            indexedAccountIds: [indexedAccountId],
+            networkId,
+            deriveType: item.deriveType,
+          });
+        } catch (e) {
+          // fail to get account
+        }
+        return {
+          deriveType: item.deriveType,
+          deriveInfo: item.deriveInfo,
+          account: resp?.accounts[0],
+        };
+      }),
+    );
+    return { networkAccounts, network };
   }
 }
 

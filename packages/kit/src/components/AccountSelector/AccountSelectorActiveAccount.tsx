@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
+  IconButton,
   SizableText,
   Tooltip,
   XStack,
@@ -11,9 +12,17 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
-import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  IModalReceiveParamList,
+  IModalWalletAddressParamList,
+} from '@onekeyhq/shared/src/routes';
+import {
+  EModalReceiveRoutes,
+  EModalRoutes,
+  EModalWalletAddressRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import {
   useActiveAccount,
@@ -22,11 +31,44 @@ import {
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
+const AllNetworkAccountSelector = ({ num }: { num: number }) => {
+  const { activeAccount } = useActiveAccount({ num });
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
+  const { account, wallet, indexedAccount, deriveType } = activeAccount;
+  const onPress = useCallback(() => {
+    if (!wallet || !indexedAccount) {
+      return;
+    }
+    navigation.pushModal(EModalRoutes.WalletAddress, {
+      screen: EModalWalletAddressRoutes.WalletAddress,
+      params: {
+        accountId: account?.id,
+        indexedAccountId: indexedAccount.id,
+        walletId: wallet.id,
+        deriveType,
+      },
+    });
+  }, [navigation, account, indexedAccount, wallet, deriveType]);
+  if (!indexedAccount || !wallet) {
+    return null;
+  }
+  return (
+    <IconButton
+      variant="tertiary"
+      icon="Copy1Outline"
+      size="small"
+      onPress={onPress}
+    />
+  );
+};
+
 export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
-  const { account, wallet, network, deriveType, deriveInfo } = activeAccount;
+  const { account, wallet, network, deriveType, deriveInfo, indexedAccount } =
+    activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
 
@@ -78,6 +120,14 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     network,
     wallet,
   ]);
+
+  if (
+    network &&
+    networkUtils.isAllNetwork({ networkId: network.id }) &&
+    indexedAccount
+  ) {
+    return <AllNetworkAccountSelector num={num} />;
+  }
 
   // show address if account has an address
   if (account?.address) {
