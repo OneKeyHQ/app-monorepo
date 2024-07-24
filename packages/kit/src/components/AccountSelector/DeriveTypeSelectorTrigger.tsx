@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ISelectItem, ISelectProps } from '@onekeyhq/components';
-import { Select } from '@onekeyhq/components';
+import { Form, Select, Stack, useMedia } from '@onekeyhq/components';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
@@ -13,6 +13,7 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -251,5 +252,44 @@ export function DeriveTypeSelectorTriggerStandAlone({
       renderTrigger={renderTrigger}
       placement={placement}
     />
+  );
+}
+
+export function DeriveTypeSelectorFormField({
+  networkId,
+  fieldName,
+}: {
+  networkId: string | undefined;
+  fieldName: string;
+}) {
+  const intl = useIntl();
+  const media = useMedia();
+  const [hide, setHide] = useState(!!networkUtils.isAllNetwork({ networkId }));
+  return (
+    <Stack
+      height={hide ? 0 : undefined}
+      opacity={hide ? 0 : undefined}
+      overflow={hide ? 'hidden' : undefined}
+    >
+      <Form.Field
+        label={intl.formatMessage({
+          id: ETranslations.global_derivation_path,
+        })}
+        name={fieldName}
+      >
+        <DeriveTypeSelectorTriggerStaticInput
+          onItemsChange={(items) => {
+            const shouldHide = items.length <= 1;
+            if (hide !== shouldHide) {
+              setHide(shouldHide);
+            }
+          }}
+          networkId={networkId || ''}
+          defaultTriggerInputProps={{
+            size: media.gtMd ? 'medium' : 'large',
+          }}
+        />
+      </Form.Field>
+    </Stack>
   );
 }

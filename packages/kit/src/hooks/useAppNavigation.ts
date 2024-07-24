@@ -31,6 +31,21 @@ navigate by full route path:
     
 */
 
+/* 
+replace
+import { StackActions } from '@react-navigation/native';
+
+ navigation.dispatch(
+  StackActions.replace(ERootRoutes.Main, {
+    screen: ETabRoutes.Developer,
+    params: {
+      screen: ETabDeveloperRoutes.TabDeveloper,
+    },
+  }),
+);
+
+*/
+
 let lastPushAbleNavigation:
   | ReturnType<
       typeof useNavigation<IPageNavigationProp<any> | IModalNavigationProp<any>>

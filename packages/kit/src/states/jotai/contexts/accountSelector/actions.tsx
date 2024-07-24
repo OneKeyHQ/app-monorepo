@@ -596,15 +596,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
       const networkId = selectedAccount.networkId;
       const deriveType = selectedAccount.deriveType;
-      return serviceAccount.addDefaultNetworkAccounts({
-        walletId: wallet.id,
-        indexedAccountId: indexedAccount?.id,
-        customNetworks:
-          networkId && deriveType ? [{ networkId, deriveType }] : undefined,
+      return backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
+        {
+          walletId: wallet.id,
+          indexedAccountId: indexedAccount?.id,
+          customNetworks:
+            networkId && deriveType ? [{ networkId, deriveType }] : undefined,
 
-        skipDeviceCancel,
-        hideCheckingDeviceLoading,
-      });
+          skipDeviceCancel,
+          hideCheckingDeviceLoading,
+        },
+      );
     },
   );
 

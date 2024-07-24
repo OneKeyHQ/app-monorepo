@@ -27,6 +27,7 @@ import {
   IMPL_TRON,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type {
@@ -133,6 +134,10 @@ export async function getVaultSettingsAccountDeriveInfo({
     throw new Error(
       `no accountDeriveInfo found in vault settings: ${networkId} ${deriveType}`,
     );
+  }
+  if (info.labelKey) {
+    info.label =
+      appLocale.intl.formatMessage({ id: info.labelKey }) || info.label;
   }
   return info;
 }

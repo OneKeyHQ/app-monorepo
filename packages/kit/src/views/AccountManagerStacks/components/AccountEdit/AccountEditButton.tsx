@@ -115,7 +115,7 @@ export function AccountEditButton({
               account={account}
               onClose={handleActionListClose}
               label={intl.formatMessage({
-                id: ETranslations.global_private_key,
+                id: ETranslations.global_export_private_key,
               })}
               exportType="privateKey"
             />

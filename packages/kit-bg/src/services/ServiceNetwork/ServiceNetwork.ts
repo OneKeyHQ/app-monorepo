@@ -1,4 +1,4 @@
-import { uniq } from 'lodash';
+import { uniq, uniqBy } from 'lodash';
 
 import {
   type EAddressEncodings,
@@ -43,9 +43,27 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllNetworks(): Promise<{ networks: IServerNetwork[] }> {
+  async getAllNetworks(
+    params: {
+      excludeNetworkIds?: string[];
+      excludeTestNetwork?: boolean;
+      uniqByImpl?: boolean;
+    } = {},
+  ): Promise<{ networks: IServerNetwork[] }> {
     // TODO save to simpleDB
-    const networks = getPresetNetworks();
+    const excludeTestNetwork = params?.excludeTestNetwork ?? false;
+    const uniqByImpl = params?.uniqByImpl ?? false;
+    const excludeNetworkIds = params?.excludeNetworkIds ?? [];
+    let networks = getPresetNetworks();
+    if (uniqByImpl) {
+      networks = uniqBy(networks, (n) => n.impl);
+    }
+    if (excludeTestNetwork) {
+      networks = networks.filter((n) => !n.isTestnet);
+    }
+    if (excludeNetworkIds?.length) {
+      networks = networks.filter((n) => !excludeNetworkIds.includes(n.id));
+    }
     return Promise.resolve({ networks });
   }
 

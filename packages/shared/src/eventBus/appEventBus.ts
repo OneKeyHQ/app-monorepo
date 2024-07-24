@@ -3,6 +3,7 @@ import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 
 import type { IQrcodeDrawType } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 
 import platformEnv from '../platformEnv';
@@ -114,6 +115,8 @@ export interface IAppEventBusPayload {
     createdCount: number;
     progressTotal: number;
     progressCurrent: number;
+    networkId?: string;
+    deriveType?: string | IAccountDeriveTypes;
   };
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
   [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {

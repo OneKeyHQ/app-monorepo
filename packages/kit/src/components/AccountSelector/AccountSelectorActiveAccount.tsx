@@ -131,6 +131,17 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     return null;
   }
 
+  if (activeAccount.canCreateAddress) {
+    // show create button if account not exists
+    return (
+      <AccountSelectorCreateAddressButton
+        autoCreateAddress
+        num={num}
+        account={selectedAccount}
+      />
+    );
+  }
+
   if (
     !account &&
     selectedAccount.othersWalletAccountId &&
@@ -145,12 +156,11 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     );
   }
 
-  // show create button if account not exists
   return (
-    <AccountSelectorCreateAddressButton
-      autoCreateAddress
-      num={num}
-      account={selectedAccount}
-    />
+    <XStack onPress={() => logActiveAccount()}>
+      <SizableText size="$bodyMd" color="$textCaution">
+        ERROR address
+      </SizableText>
+    </XStack>
   );
 }

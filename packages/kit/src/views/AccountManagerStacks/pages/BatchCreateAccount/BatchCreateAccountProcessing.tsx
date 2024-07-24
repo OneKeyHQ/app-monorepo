@@ -13,7 +13,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAccountManagerStacksRoutes,
@@ -62,7 +62,7 @@ function BatchCreateAccountProcessingPage({
   const progressBarView = useMemo(
     () => (
       <>
-        <SizableText mb="$4">Adding Accounts</SizableText>
+        {/* <SizableText mb="$4">Adding Accounts</SizableText> */}
         <Progress
           w="100%"
           size="medium"
@@ -71,19 +71,19 @@ function BatchCreateAccountProcessingPage({
           )}
         />
         <SizableText mt="$5" size="$bodyLg" textAlign="center">
-          {state?.createdCount ?? 0}:::
           {intl.formatMessage(
             {
-              id: ETranslationsMock.batch_create_account_preview_added,
+              id: ETranslations.global_bulk_accounts_loading,
             },
             {
-              count: state?.createdCount ?? 0,
+              // amount: state?.createdCount ?? 0,
+              amount: state?.progressCurrent ?? 0,
             },
           )}
         </SizableText>
       </>
     ),
-    [intl, state?.createdCount, state?.progressCurrent, state?.progressTotal],
+    [intl, state?.progressCurrent, state?.progressTotal],
   );
 
   const doneView = useMemo(
@@ -98,22 +98,19 @@ function BatchCreateAccountProcessingPage({
           color="$iconSuccess"
         />
         <SizableText mt="$5" size="$bodyLg" textAlign="center">
-          {state?.createdCount ?? 0}:::
           {intl.formatMessage(
             {
-              id: ETranslationsMock.batch_create_account_done_added,
+              id: ETranslations.global_bulk_accounts_loading,
             },
             {
-              count: state?.createdCount ?? 0,
+              // amount: state?.createdCount ?? 0,
+              amount: state?.progressCurrent ?? 0,
             },
           )}
         </SizableText>
-        <SizableText>
-          {state?.createdCount} / {state?.totalCount}
-        </SizableText>
       </>
     ),
-    [intl, state?.createdCount, state?.totalCount],
+    [intl, state?.progressCurrent],
   );
 
   return (
@@ -139,7 +136,9 @@ function BatchCreateAccountProcessingPage({
 
           {platformEnv.isDev ? (
             <SizableText>
-              DebugProgress: {state?.progressCurrent} / {state?.progressTotal}
+              DebugProgress: {state?.progressCurrent} / {state?.progressTotal} :
+              {state?.createdCount} / {state?.totalCount} : ${state?.networkId}{' '}
+              - ${state?.deriveType}
             </SizableText>
           ) : null}
         </Stack>
@@ -149,7 +148,7 @@ function BatchCreateAccountProcessingPage({
           !isDone ? (
             <Page.CancelButton
               onCancel={async () => {
-                await backgroundApiProxy.serviceCreateBatchAccount.cancelBatchCreateAccountsFlow();
+                await backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
                 navigation.pop();
               }}
             >

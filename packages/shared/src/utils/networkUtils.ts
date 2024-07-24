@@ -82,6 +82,14 @@ export function getBtcDappNetworkName(network: IServerNetwork) {
   }
 }
 
+function isAllNetwork({
+  networkId,
+}: {
+  networkId: string | undefined;
+}): boolean {
+  return Boolean(networkId && networkId === getNetworkIdsMap().onekeyall);
+}
+
 export default {
   getNetworkChainId,
   getNetworkImpl,
@@ -91,4 +99,5 @@ export default {
   isLightningNetworkByNetworkId,
   isBTCNetwork,
   getBtcDappNetworkName,
+  isAllNetwork,
 };
