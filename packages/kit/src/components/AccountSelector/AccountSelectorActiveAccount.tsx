@@ -65,9 +65,9 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
         params: {
           accountId: account.id,
           indexedAccountId: account.indexedAccountId,
-          // walletId: wallet.id,
+          walletId: wallet.id,
+          deriveType,
           // deriveInfo,
-          // deriveType,
         },
       });
       return;

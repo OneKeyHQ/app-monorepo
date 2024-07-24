@@ -1,4 +1,10 @@
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,6 +20,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalWalletAddressRoutes,
@@ -25,7 +32,18 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 const WalletAddressContext = createContext<{
   networkAccountMap: Record<string, INetworkAccount>;
-}>({ networkAccountMap: {} });
+  accountId: string;
+  indexedAccountId: string;
+  walletId: string;
+  deriveType?: IAccountDeriveTypes;
+  refreshLocalData: () => void;
+}>({
+  networkAccountMap: {},
+  accountId: '',
+  indexedAccountId: '',
+  walletId: '',
+  refreshLocalData: () => {},
+});
 
 type ISectionItem = {
   title?: string;
@@ -36,20 +54,50 @@ const CELL_HEIGHT = 48;
 
 const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
   const intl = useIntl();
+  const [loading, setLoading] = useState(false);
   const { copyText } = useClipboard();
-  const { networkAccountMap } = useContext(WalletAddressContext);
+  const {
+    networkAccountMap,
+    walletId,
+    indexedAccountId,
+    deriveType,
+    refreshLocalData,
+  } = useContext(WalletAddressContext);
   const account = networkAccountMap[item.id] as INetworkAccount | undefined;
   const subtitle = account
     ? accountUtils.shortenAddress({ address: account.address })
     : intl.formatMessage({ id: ETranslations.wallet_no_address });
 
-  const onPress = useCallback(() => {
+  const onPress = useCallback(async () => {
     if (account) {
       copyText(account.address);
     } else {
       // create address
+      if (!deriveType) {
+        throw Error('deriveType must not be empty');
+      }
+      try {
+        setLoading(true);
+        await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
+          walletId,
+          indexedAccountId,
+          deriveType,
+          networkId: item.id,
+        });
+        refreshLocalData();
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [account, copyText]);
+  }, [
+    account,
+    copyText,
+    walletId,
+    indexedAccountId,
+    deriveType,
+    item.id,
+    refreshLocalData,
+  ]);
   return (
     <ListItem
       title={item.name}
@@ -58,6 +106,7 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
       renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
     >
       <ListItem.IconButton
+        loading={loading}
         icon={account ? 'Copy1Outline' : 'PlusLargeOutline'}
         size="small"
         onPress={onPress}
@@ -153,8 +202,8 @@ export default function WalletAddressPage({
   IModalWalletAddressParamList,
   EModalWalletAddressRoutes.WalletAddress
 >) {
-  const { accountId, indexedAccountId } = route.params;
-  const { result } = usePromiseResult(
+  const { accountId, indexedAccountId, walletId, deriveType } = route.params;
+  const { result, run: refreshLocalData } = usePromiseResult(
     async () => {
       const networks =
         await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
@@ -194,8 +243,22 @@ export default function WalletAddressPage({
       }
       return acc;
     }, {} as Record<string, INetworkAccount>);
-    return { networkAccountMap };
-  }, [result.networksAccount]);
+    return {
+      networkAccountMap,
+      walletId,
+      deriveType,
+      accountId,
+      indexedAccountId,
+      refreshLocalData,
+    };
+  }, [
+    result.networksAccount,
+    walletId,
+    deriveType,
+    indexedAccountId,
+    accountId,
+    refreshLocalData,
+  ]);
 
   return (
     <WalletAddressContext.Provider value={context}>
