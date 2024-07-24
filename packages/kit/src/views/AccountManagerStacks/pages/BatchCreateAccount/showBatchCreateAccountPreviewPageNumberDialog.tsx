@@ -1,4 +1,4 @@
-import { Dialog, Input, SizableText } from '@onekeyhq/components';
+import { Dialog, Input } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -43,10 +43,22 @@ export function showBatchCreateAccountPreviewPageNumberDialog({
           rules={{
             required: {
               value: true,
-              message: appLocale.intl.formatMessage({
-                id: ETranslationsMock.batch_create_page_number_required,
-              }),
+              message: 'Page number required',
             },
+            // TODO how to get form in Dialog?
+            // onChange: (e: { target: { name: string; value: string } }) => {
+            //   const value = (e?.target?.value || '').replace(/\D/g, '');
+            //   const valueNum = new BigNumber(parseInt(value, 10));
+            //   if (!value || valueNum.isNaN()) {
+            //     form.setValue('from', '');
+            //     return;
+            //   }
+            //   if (valueNum.isLessThan(1)) {
+            //     form.setValue('from', '1');
+            //     return;
+            //   }
+            //   form.setValue('from', valueNum.toFixed());
+            // },
           }}
         >
           <DialogInput />
