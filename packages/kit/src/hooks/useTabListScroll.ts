@@ -8,13 +8,7 @@ import type {
 import { useTabScrollViewRef } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export function useTabListScroll<T>({
-  onContentSizeChange,
-  inTabList,
-}: {
-  onContentSizeChange: IListViewProps<T>['onContentSizeChange'];
-  inTabList: boolean;
-}) {
+export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
   const scrollViewRef = useTabScrollViewRef();
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
 
@@ -120,7 +114,7 @@ export function useTabListScroll<T>({
   const listViewProps = useMemo(
     () =>
       platformEnv.isNative
-        ? ({ onContentSizeChange } as IListViewProps<T>)
+        ? {}
         : ({
             style: inTabList
               ? ({
@@ -128,7 +122,7 @@ export function useTabListScroll<T>({
                 } as IStackProps['style'])
               : undefined,
           } as IListViewProps<T>),
-    [onContentSizeChange, inTabList],
+    [inTabList],
   );
   return useMemo(
     () => ({

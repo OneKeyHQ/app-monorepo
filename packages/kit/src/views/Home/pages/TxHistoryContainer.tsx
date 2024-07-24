@@ -31,7 +31,6 @@ import {
 } from '../../../states/jotai/contexts/historyList';
 
 function TxHistoryListContainer(props: ITabPageProps) {
-  const { onContentSizeChange } = props;
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
@@ -158,7 +157,6 @@ function TxHistoryListContainer(props: ITabPageProps) {
       showHeader
       isLoading={historyState.isRefreshing}
       initialized={historyState.initialized}
-      onContentSizeChange={onContentSizeChange}
       {...(media.gtLg && {
         tableLayout: true,
       })}

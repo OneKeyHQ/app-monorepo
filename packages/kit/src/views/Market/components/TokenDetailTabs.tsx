@@ -140,9 +140,7 @@ function BasicTokenDetailTabs({
                   }),
                   // eslint-disable-next-line react/no-unstable-nested-components
                   page: (props: ITabPageProps) => (
-                    <Stack px="$5">
-                      <MarketDetailOverview {...props} token={token} />
-                    </Stack>
+                    <MarketDetailOverview {...props} token={token} />
                   ),
                 }
               : undefined,
@@ -167,12 +165,13 @@ function BasicTokenDetailTabs({
       $gtMd={{ pr: '$5' }}
       $md={{ mt: '$5' }}
       data={tabConfig}
+      disableRefresh
       ListHeaderComponent={
         <Stack mb="$5">
           {listHeaderComponent}
-          {pools ? null : (
+          {/*{pools ? null : (
             <YStack $gtMd={{ px: '$5' }}>{renderPoolSkeleton}</YStack>
-          )}
+          )}*/}
         </Stack>
       }
       onSelectedPageIndex={(index: number) => {
