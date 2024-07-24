@@ -52,7 +52,10 @@ class ServiceToken extends ServiceBase {
     const { mergeTokens, flag, accountId, isAllNetworks, ...rest } = params;
     const { networkId, contractList = [] } = rest;
 
-    if (isAllNetworks && this._currentNetworkId !== getNetworkIdsMap().all)
+    if (
+      isAllNetworks &&
+      this._currentNetworkId !== getNetworkIdsMap().onekeyall
+    )
       return {
         ...getEmptyTokenData(),
         networkId: this._currentNetworkId,

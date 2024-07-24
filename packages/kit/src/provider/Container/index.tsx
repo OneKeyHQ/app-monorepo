@@ -1,5 +1,7 @@
 import { RootSiblingParent } from 'react-native-root-siblings';
 
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 
@@ -15,6 +17,11 @@ import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { QrcodeDialogContainer } from './QrcodeDialogContainer';
+
+const PageTrackerContainer = LazyLoad(
+  () => import('./PageTrackerContainer'),
+  100,
+);
 
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
@@ -35,6 +42,7 @@ export function Container() {
           <CloudBackupContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />
+          <PageTrackerContainer />
           <ErrorToastContainer />
           <ForceFirmwareUpdateContainer />
           {process.env.NODE_ENV !== 'production' ? (

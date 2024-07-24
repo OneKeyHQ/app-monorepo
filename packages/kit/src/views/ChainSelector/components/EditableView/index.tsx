@@ -84,7 +84,9 @@ const EditableViewListItem = ({
   );
 
   const isDraggable =
-    isEditMode && sectionIndex === 0 && item.id !== getNetworkIdsMap().all;
+    isEditMode &&
+    sectionIndex === 0 &&
+    item.id !== getNetworkIdsMap().onekeyall;
 
   const opacity = isDisabled ? 0.7 : 1;
 

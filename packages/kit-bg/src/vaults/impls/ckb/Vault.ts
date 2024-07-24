@@ -19,6 +19,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
   OneKeyInternalError,
+  RemainingMinBalanceError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -260,9 +261,11 @@ export default class Vault extends VaultBase {
         )
           .shiftedBy(-network.decimals)
           .toFixed();
-        throw new Error(
-          `The balance after the transaction must not be less than ${miniAmount}`,
-        );
+        throw new RemainingMinBalanceError({
+          info: {
+            miniAmount,
+          },
+        });
       }
     }
 

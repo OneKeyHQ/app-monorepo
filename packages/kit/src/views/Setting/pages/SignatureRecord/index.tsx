@@ -67,7 +67,9 @@ const ChainSelector = memo(ChainSelectorCmp);
 
 const PageView = () => {
   const intl = useIntl();
-  const [networkId, setNetworkId] = useState<string>(getNetworkIdsMap().all);
+  const [networkId, setNetworkId] = useState<string>(
+    getNetworkIdsMap().onekeyall,
+  );
   const [searchContent, setSearchContent] = useState<string>('');
 
   const values = useMemo(

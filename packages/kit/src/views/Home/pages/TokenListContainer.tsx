@@ -48,11 +48,7 @@ import { WalletActions } from '../components/WalletActions';
 
 const networkIdsMap = getNetworkIdsMap();
 
-function TokenListContainer({
-  showWalletActions = false,
-  ...props
-}: ITabPageProps) {
-  const { onContentSizeChange } = props;
+function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
@@ -207,7 +203,7 @@ function TokenListContainer({
 
       if (
         !refreshAllNetworksTokenList.current &&
-        r.networkId === networkIdsMap.all
+        r.networkId === networkIdsMap.onekeyall
       ) {
         let accountWorth = new BigNumber(0);
         accountWorth = accountWorth
@@ -522,7 +518,6 @@ function TokenListContainer({
         onBuyToken={handleOnBuy}
         onReceiveToken={handleOnReceive}
         onPressToken={handleOnPressToken}
-        onContentSizeChange={onContentSizeChange}
         isAllNetworks={network?.isAllNetworks}
         {...(media.gtLg && {
           tableLayout: true,

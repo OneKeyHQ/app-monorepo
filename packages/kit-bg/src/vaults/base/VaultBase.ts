@@ -413,7 +413,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     let accountId = originAccountId;
     let networkId = originNetworkId;
     let accountAddress = originAccountAddress;
-    if (originNetworkId === getNetworkIdsMap().all) {
+    if (originNetworkId === getNetworkIdsMap().onekeyall) {
       const allNetworkAccount = allNetworkHistoryExtraItems?.find(
         (i) => i.networkId === onChainHistoryTx.networkId,
       );

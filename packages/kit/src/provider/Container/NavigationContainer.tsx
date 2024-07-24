@@ -6,6 +6,7 @@ import {
   RouterEventProvider,
 } from '@onekeyhq/components';
 import { RootNavigator } from '@onekeyhq/kit/src/routes';
+import { analyticLogEvent } from '@onekeyhq/shared/src/analytics/firebase';
 import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -20,6 +21,11 @@ function BasicNavigation({ children }: PropsWithChildren) {
     setTimeout(async () => {
       const instanceId =
         await backgroundApiProxy.serviceSetting.getInstanceId();
+      analyticLogEvent('initialized', {
+        instanceId,
+        platform: platformEnv.symbol,
+        distribution: platformEnv.appChannel,
+      });
       setAttributes({
         instanceId,
         platform: platformEnv.symbol || '',
