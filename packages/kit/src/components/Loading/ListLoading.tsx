@@ -2,22 +2,9 @@ import { Skeleton, Stack, XStack } from '@onekeyhq/components';
 
 import { ListItem } from '../ListItem';
 
-type IProps = {
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
-};
-
-function ListLoading(props: IProps) {
-  const { onContentSizeChange } = props;
+function ListLoading() {
   return (
-    <Stack
-      py="$3"
-      onLayout={(event) =>
-        onContentSizeChange?.(
-          event.nativeEvent.layout.width,
-          event.nativeEvent.layout.height,
-        )
-      }
-    >
+    <Stack py="$3">
       {/* Header */}
       <XStack
         space="$3"
@@ -138,20 +125,9 @@ function ListLoading(props: IProps) {
   );
 }
 
-function NFTListLoadingView(props: IProps) {
-  const { onContentSizeChange } = props;
-
+function NFTListLoadingView() {
   return (
-    <XStack
-      p="$2.5"
-      flexWrap="wrap"
-      onLayout={(event) =>
-        onContentSizeChange?.(
-          event.nativeEvent.layout.width,
-          event.nativeEvent.layout.height,
-        )
-      }
-    >
+    <XStack p="$2.5" flexWrap="wrap">
       {[...Array(6)].map((_, index) => (
         <Stack
           key={index}
@@ -190,20 +166,9 @@ function NFTListLoadingView(props: IProps) {
   );
 }
 
-function HistoryLoadingView({
-  onContentSizeChange,
-  tableLayout,
-}: { tableLayout?: boolean } & IProps) {
+function HistoryLoadingView({ tableLayout }: { tableLayout?: boolean }) {
   return (
-    <Stack
-      py="$3"
-      onLayout={(event) =>
-        onContentSizeChange?.(
-          event.nativeEvent.layout.width,
-          event.nativeEvent.layout.height,
-        )
-      }
-    >
+    <Stack py="$3">
       {[...Array(5)].map((_, index) => (
         <ListItem key={index}>
           <XStack flexGrow={1} flexBasis={0} space="$3">

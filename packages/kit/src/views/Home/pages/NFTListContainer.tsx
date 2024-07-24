@@ -25,7 +25,6 @@ import { NFTListView } from '../components/NFTListView';
 const networkIdsMap = getNetworkIdsMap();
 
 function NFTListContainer(props: ITabPageProps) {
-  const { onContentSizeChange } = props;
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
   const { updateSearchKey } = useNFTListActions().current;
@@ -156,7 +155,6 @@ function NFTListContainer(props: ITabPageProps) {
       inTabList
       data={nftList ?? []}
       isLoading={nftListState.isRefreshing}
-      onContentSizeChange={onContentSizeChange}
       initialized={nftListState.initialized}
     />
   );

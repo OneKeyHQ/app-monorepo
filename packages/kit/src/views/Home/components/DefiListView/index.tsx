@@ -1,4 +1,9 @@
-import { Empty, ListView, Stack } from '@onekeyhq/components';
+import {
+  Empty,
+  ListView,
+  Stack,
+  renderNestedScrollView,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountDefi } from '@onekeyhq/shared/types/defi';
 
@@ -9,7 +14,6 @@ type IProps = {
   data: IAccountDefi[];
   isLoading?: boolean;
   onRefresh?: () => void;
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
 };
 
 function DefiListEmpty() {
@@ -21,16 +25,16 @@ function DefiListEmpty() {
 }
 
 function DefiListView(props: IProps) {
-  const { data, onContentSizeChange } = props;
+  const { data } = props;
 
   return (
     <ListView
+      renderScrollComponent={renderNestedScrollView}
       h="100%"
       estimatedItemSize={76}
       scrollEnabled={platformEnv.isWebTouchable}
       disableScrollViewPanResponder
       data={data}
-      onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={DefiListEmpty}
       ListHeaderComponent={DefiListHeader}
       ListHeaderComponentStyle={{

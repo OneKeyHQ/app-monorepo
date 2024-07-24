@@ -14,6 +14,7 @@ import {
   View,
   XStack,
   YStack,
+  renderNestedScrollView,
   useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -221,8 +222,6 @@ function NetworkIdSelect({
 
 export function MarketDetailPools({
   pools,
-  // eslint-disable-next-line react/prop-types
-  onContentSizeChange,
 }: ITabPageProps & { pools: IMarketResponsePool[] }) {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
@@ -256,10 +255,8 @@ export function MarketDetailPools({
   return (
     <ListView
       data={sortedListData}
+      renderScrollComponent={renderNestedScrollView}
       estimatedItemSize={38}
-      onContentSizeChange={onContentSizeChange}
-      scrollEnabled={platformEnv.isWebTouchable}
-      disableScrollViewPanResponder
       ListHeaderComponent={
         <YStack pb="$2" pt="$5">
           <NetworkIdSelect

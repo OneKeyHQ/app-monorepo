@@ -8,6 +8,7 @@ import type {
   ITabPageProps,
 } from '@onekeyhq/components';
 import {
+  NestedScrollView,
   NumberSizeableText,
   Progress,
   SizableText,
@@ -258,65 +259,59 @@ export function MarketDetailOverview({
     },
     about,
   },
-  onContentSizeChange,
 }: ITabPageProps & {
   token: IMarketTokenDetail;
 }) {
   const intl = useIntl();
   return (
-    <YStack
-      pb="$10"
-      onLayout={({
-        nativeEvent: {
-          layout: { width, height },
-        },
-      }) => onContentSizeChange(width, height)}
-    >
-      <XStack
-        borderWidth="$px"
-        borderRadius="$2"
-        borderColor="$borderSubdued"
-        py="$3"
-        my="$6"
-      >
-        <OverviewPriceChange
-          title={intl.formatMessage({ id: ETranslations.market_1d })}
+    <NestedScrollView>
+      <YStack pb="$10" px="$5">
+        <XStack
+          borderWidth="$px"
+          borderRadius="$2"
+          borderColor="$borderSubdued"
+          py="$3"
+          my="$6"
         >
-          {performance.priceChangePercentage24h}
-        </OverviewPriceChange>
-        <OverviewPriceChange
-          title={intl.formatMessage({ id: ETranslations.market_1w })}
-        >
-          {performance.priceChangePercentage7d}
-        </OverviewPriceChange>
-        <OverviewPriceChange
-          title={intl.formatMessage({ id: ETranslations.market_1m })}
-        >
-          {performance.priceChangePercentage30d}
-        </OverviewPriceChange>
-        <OverviewPriceChange
-          title={intl.formatMessage({ id: ETranslations.market_1y })}
-        >
-          {performance.priceChangePercentage1y}
-        </OverviewPriceChange>
-      </XStack>
-      <Overview24PriceChange
-        currentPrice={currentPrice}
-        low={low24h}
-        high={high24h}
-      />
-      <OverviewMarketVOL
-        volume24h={volume24h}
-        fdv={fdv}
-        marketCap={marketCap}
-        marketCapRank={marketCapRank}
-        maxSupply={maxSupply}
-        totalSupply={totalSupply}
-        circulatingSupply={circulatingSupply}
-        detailPlatforms={detailPlatforms}
-      />
-      {/* <GoPlus /> */}
-      <MarketAbout>{about}</MarketAbout>
-    </YStack>
+          <OverviewPriceChange
+            title={intl.formatMessage({ id: ETranslations.market_1d })}
+          >
+            {performance.priceChangePercentage24h}
+          </OverviewPriceChange>
+          <OverviewPriceChange
+            title={intl.formatMessage({ id: ETranslations.market_1w })}
+          >
+            {performance.priceChangePercentage7d}
+          </OverviewPriceChange>
+          <OverviewPriceChange
+            title={intl.formatMessage({ id: ETranslations.market_1m })}
+          >
+            {performance.priceChangePercentage30d}
+          </OverviewPriceChange>
+          <OverviewPriceChange
+            title={intl.formatMessage({ id: ETranslations.market_1y })}
+          >
+            {performance.priceChangePercentage1y}
+          </OverviewPriceChange>
+        </XStack>
+        <Overview24PriceChange
+          currentPrice={currentPrice}
+          low={low24h}
+          high={high24h}
+        />
+        <OverviewMarketVOL
+          volume24h={volume24h}
+          fdv={fdv}
+          marketCap={marketCap}
+          marketCapRank={marketCapRank}
+          maxSupply={maxSupply}
+          totalSupply={totalSupply}
+          circulatingSupply={circulatingSupply}
+          detailPlatforms={detailPlatforms}
+        />
+        {/* <GoPlus /> */}
+        <MarketAbout>{about}</MarketAbout>
+      </YStack>
+    </NestedScrollView>
   );
 }
