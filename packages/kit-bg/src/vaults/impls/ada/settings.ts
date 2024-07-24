@@ -30,10 +30,7 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
-  supportExportedSecretKeys: [
-    ECoreApiExportedSecretKeyType.xprvt,
-    ECoreApiExportedSecretKeyType.xpub,
-  ],
+  supportExportedSecretKeys: [ECoreApiExportedSecretKeyType.xprvt],
 
   dappInteractionEnabled: true,
 
