@@ -39,8 +39,12 @@ export default function SelectWalletPage() {
         ListEmptyComponent={
           <Empty
             icon="SearchOutline"
-            title="No Available Wallet"
-            description="There is no app wallet available for backup"
+            title={intl.formatMessage({
+              id: ETranslations.backup_no_data,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.backup_no_content_available_for_backup,
+            })}
           />
         }
         ListFooterComponent={

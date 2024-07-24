@@ -135,11 +135,11 @@ export const {
     const aHasLimit = !!a.limit;
     const bHasLimit = !!b.limit;
 
-    if (aHasLimit && !bHasLimit) {
+    if (aVal.isZero() && bVal.isZero() && aHasLimit && !bHasLimit) {
       return -1;
     }
 
-    if (bHasLimit && !aHasLimit) {
+    if (aVal.isZero() && bVal.isZero() && bHasLimit && !aHasLimit) {
       return 1;
     }
 

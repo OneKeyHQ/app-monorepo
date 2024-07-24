@@ -794,6 +794,7 @@
   "global.status": "Status",
   "global.step_str": "Step {step}",
   "global.success": "Success",
+  "global.support": "Support",
   "global.swap": "Swap",
   "global.switch_address": "Switch address",
   "global.sync_error": "Sync error",
