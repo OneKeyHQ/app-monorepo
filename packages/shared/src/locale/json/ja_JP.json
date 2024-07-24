@@ -794,6 +794,7 @@
   "global.status": "ステータス",
   "global.step_str": "{step}ステップ",
   "global.success": "成功",
+  "global.support": "サポート",
   "global.swap": "スワップ",
   "global.switch_address": "住所を切り替える",
   "global.sync_error": "同期エラー",
