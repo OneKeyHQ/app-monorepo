@@ -194,6 +194,8 @@ PODS:
     - hermes-engine/Pre-built (= 0.73.7)
   - hermes-engine/Pre-built (0.73.7)
   - IQKeyboardManagerSwift (6.5.11)
+  - JXCategoryView (1.6.8)
+  - JXPagingView/Pager (2.1.3)
   - libevent (2.1.12)
   - libwebp (1.3.2):
     - libwebp/demux (= 1.3.2)
@@ -1128,7 +1130,9 @@ PODS:
     - React-Core
   - react-native-slider (4.4.3):
     - React-Core
-  - react-native-tab-page-view (1.0.5):
+  - react-native-tab-page-view (1.0.7):
+    - JXCategoryView (~> 1.6.1)
+    - JXPagingView/Pager (~> 2.1.2)
     - React
   - react-native-tcp-socket (6.0.6):
     - CocoaAsyncSocket
@@ -1333,7 +1337,7 @@ PODS:
     - React-Core
     - SDWebImage (~> 5.11.1)
     - SDWebImageWebPCoder (~> 0.8.4)
-  - RNFBAnalytics (20.3.0):
+  - RNFBAnalytics (20.1.0):
     - Firebase/Analytics (= 10.27.0)
     - React-Core
     - RNFBApp
@@ -1534,6 +1538,8 @@ SPEC REPOS:
     - GoogleDataTransport
     - GoogleUtilities
     - IQKeyboardManagerSwift
+    - JXCategoryView
+    - JXPagingView
     - libevent
     - libwebp
     - lottie-ios
@@ -1826,6 +1832,8 @@ SPEC CHECKSUMS:
   GoogleUtilities: ea963c370a38a8069cc5f7ba4ca849a60b6d7d15
   hermes-engine: 39589e9c297d024e90fe68f6830ff86c4e01498a
   IQKeyboardManagerSwift: c7955c0bdbf7b2eb29bb7daaa44e3d90f55a9a85
+  JXCategoryView: 262d503acea0b1278c79a1c25b7332ffaef4d518
+  JXPagingView: afdd2e9af09c90160dd232b970d603cc6e7ddd0e
   libevent: 4049cae6c81cdb3654a443be001fb9bdceff7913
   libwebp: 1786c9f4ff8a279e4dac1e8f385004d5fc253009
   lottie-ios: 25e7b2675dad5c3ddad369ac9baab03560c5bfdd
@@ -1870,7 +1878,7 @@ SPEC CHECKSUMS:
   react-native-restart: 7595693413fe3ca15893702f2c8306c62a708162
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
-  react-native-tab-page-view: f51a8899ee03805b8959cdf739e03f1e6e9fb54e
+  react-native-tab-page-view: eea7bd05591c6bb7b44c7b244fe3b6f67de4dbab
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
   react-native-video: dc3118548cf8864a83f57df4345cf6c692402e8f
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
@@ -1903,7 +1911,7 @@ SPEC CHECKSUMS:
   RNCAsyncStorage: c43e6d71e13bb4748503797784839e0fbbf89d56
   RNDeviceInfo: bf8a32acbcb875f568217285d1793b0e8588c974
   RNFastImage: 5c9c9fed9c076e521b3f509fe79e790418a544e8
-  RNFBAnalytics: 76cf9ccdbc780980cfa6fbff6cc2003a2a4af071
+  RNFBAnalytics: 3f336502732e51de9f5a5be8b5e3df879bf2eca7
   RNFBApp: 9acbe359ef3559d6f8ca5c350db471f2b352f98a
   RNFBCrashlytics: a4a66785997e629313ec8005a0811765738239fd
   RNFileLogger: 9eaf7a6ea709eaaffe646cc485b98ae1dbf1e9f0
