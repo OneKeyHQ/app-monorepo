@@ -14,7 +14,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyErrorAirGapInvalidQrCode } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -23,6 +23,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IQrWalletDevice } from '@onekeyhq/shared/types/device';
 
 import ServiceBase from '../ServiceBase';
@@ -91,15 +92,27 @@ class ServiceQrWallet extends ServiceBase {
     });
   }
 
+  /*
+  EVM-BSC: ETH
+  EVM-ETH: ETH
+
+  Bitcoin: BTC
+  Bitcoin Testnet: TBTC
+  Bitcoin Signet: SBTC
+  */
   async getDeviceChainNameByNetworkId({ networkId }: { networkId: string }) {
-    const ids = getNetworkIdsMap();
-    if (networkId === ids.tbtc) {
-      // eslint-disable-next-line no-param-reassign
-      networkId = ids.btc;
-    }
+    // const ids = getNetworkIdsMap();
+    // if (networkId === ids.tbtc) {
+    //   // eslint-disable-next-line no-param-reassign
+    //   networkId = ids.btc;
+    // }
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
     });
+    const impl = networkUtils.getNetworkImpl({ networkId });
+    if (impl === IMPL_EVM) {
+      return 'ETH';
+    }
     return network.symbol.toUpperCase();
   }
 
