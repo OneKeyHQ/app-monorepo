@@ -31,9 +31,9 @@ import { CoreSDKLoader } from '../hardware/instance';
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
-import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
