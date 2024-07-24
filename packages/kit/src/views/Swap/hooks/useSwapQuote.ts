@@ -37,8 +37,7 @@ export function useSwapQuote() {
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [{ swapApprovingTransaction }, setInAppNotificationAtom] =
-    useInAppNotificationAtom();
+  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
   const isFocused = useIsFocused();
   const isFocusRef = useRef(isFocused);
   if (isFocusRef.current !== isFocused) {
@@ -114,16 +113,14 @@ export function useSwapQuote() {
         swapApprovingTransaction.blockNumber,
       );
     }
-  }, [
-    intl,
-    cleanQuoteInterval,
-    quoteAction,
-    swapApprovingTransaction,
-    setInAppNotificationAtom,
-  ]);
+  }, [intl, cleanQuoteInterval, quoteAction, swapApprovingTransaction]);
 
   useEffect(() => {
-    if (fromToken?.networkId !== activeAccountRef.current?.networkId) {
+    if (
+      fromToken?.networkId !== activeAccountRef.current?.networkId ||
+      (fromToken?.networkId === toToken?.networkId &&
+        fromToken?.contractAddress === toToken?.contractAddress)
+    ) {
       return;
     }
     alignmentDecimal();
