@@ -96,16 +96,15 @@ function TokenManagerModal() {
         walletId: string;
         networkId: string;
         searchValue: string;
+        existTokens: ICustomTokenItem[] | undefined;
       }) => {
         try {
-          console.log('=====>Effect Start: ', params.searchValue);
           const r =
             await backgroundApiProxy.serviceCustomToken.searchTokenByKeywords({
               walletId: params.walletId,
               networkId: params.networkId,
               keywords: params.searchValue,
             });
-          console.log('=====>Effect R: ', r);
           const formattedResult = r?.map((t) => {
             const { price, price24h, info } = t;
 
@@ -124,7 +123,9 @@ function TokenManagerModal() {
               // Add price info
               price,
               price24h,
-              canAdded: !result?.find((n) => n.address === info.address),
+              canAdded: !params.existTokens?.find(
+                (n) => n.address === info.address,
+              ),
             } as ICustomTokenItem;
           });
           setSearchResult(formattedResult);
@@ -141,11 +142,16 @@ function TokenManagerModal() {
       setSearchResult(null);
       return;
     }
-    void debouncedFetchDataRef({ walletId, networkId, searchValue });
+    void debouncedFetchDataRef({
+      walletId,
+      networkId,
+      searchValue,
+      existTokens: result,
+    });
     return () => {
       debouncedFetchDataRef.cancel();
     };
-  }, [searchValue, networkId, walletId, debouncedFetchDataRef]);
+  }, [result, searchValue, networkId, walletId, debouncedFetchDataRef]);
   const isSearchMode = useMemo(
     () => searchValue && searchValue.length > 0,
     [searchValue],
@@ -160,9 +166,6 @@ function TokenManagerModal() {
     }
     return result;
   }, [isSearchMode, searchResult, result]);
-  useEffect(() => {
-    console.log('===>TokenList: ', tokenList);
-  }, [tokenList]);
 
   const onAddCustomToken = useCallback(
     (token?: ICustomTokenItem) => {
@@ -220,9 +223,7 @@ function TokenManagerModal() {
             selectTextOnFocus
             value={searchValue}
             onSearchTextChange={setSearchValue}
-            onSubmitEditing={() => {
-              console.log('submit search value: => : ', searchValue);
-            }}
+            onSubmitEditing={() => {}}
           />
         </Stack>
         <ListView
