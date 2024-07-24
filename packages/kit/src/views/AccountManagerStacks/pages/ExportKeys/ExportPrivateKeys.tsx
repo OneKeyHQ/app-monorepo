@@ -18,6 +18,7 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
@@ -27,7 +28,6 @@ import { DeriveTypeSelectorFormField } from '@onekeyhq/kit/src/components/Accoun
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -186,45 +186,40 @@ function ExportPrivateKeysPage({
     onPress?: () => void;
     loading?: boolean;
   }>[] = useMemo(
-    () =>
-      rawKeyValue
-        ? [
-            {
-              iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
-              onPress: () => {
-                setSecureEntry(!secureEntry);
-              },
-            },
-
-            {
-              iconName: 'Copy3Outline',
-              onPress: async () => {
-                if (exportType === 'privateKey') {
-                  showCopyPrivateKeysDialog({
-                    title: intl.formatMessage({
-                      id: ETranslations.global_private_key_copy,
-                    }),
-                    description: intl.formatMessage({
-                      id: ETranslations.global_private_key_copy_information,
-                    }),
-                    showCheckBox: true,
-                    defaultChecked: false,
-                    rawKeyContent: form.getValues('rawKeyContent') || '',
-                  });
-                } else {
-                  clipboard.copyText(form.getValues('rawKeyContent'));
-                }
-              },
-            },
-          ]
-        : [
-            {
-              iconName: 'RefreshCcwOutline',
-              onPress: () => {
-                void refreshKey({ noDebouncedCall: true });
-              },
-            },
-          ],
+    () => [
+      {
+        iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
+        onPress: async () => {
+          if (!rawKeyValue) {
+            await refreshKey({ noDebouncedCall: true });
+          }
+          setSecureEntry(!secureEntry);
+        },
+      },
+      {
+        iconName: 'Copy3Outline',
+        onPress: async () => {
+          if (!rawKeyValue) {
+            await refreshKey({ noDebouncedCall: true });
+          }
+          if (exportType === 'privateKey') {
+            showCopyPrivateKeysDialog({
+              title: intl.formatMessage({
+                id: ETranslations.global_private_key_copy,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.global_private_key_copy_information,
+              }),
+              showCheckBox: true,
+              defaultChecked: false,
+              rawKeyContent: form.getValues('rawKeyContent') || '',
+            });
+          } else {
+            clipboard.copyText(form.getValues('rawKeyContent'));
+          }
+        },
+      },
+    ],
     [clipboard, exportType, form, intl, rawKeyValue, refreshKey, secureEntry],
   );
 
