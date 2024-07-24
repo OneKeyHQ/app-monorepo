@@ -13,9 +13,9 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorFormField } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -110,13 +110,11 @@ function AdvancedSettingsFormField({
                 const valueNum = new BigNumber(value);
                 if (!value || valueNum.isNaN()) {
                   return intl.formatMessage({
-                    id: ETranslationsMock.batch_create_page_number_invalid,
+                    id: ETranslations.global_bulk_accounts_page_number_error,
                   });
                 }
                 if (valueNum.isLessThan(1)) {
-                  return intl.formatMessage({
-                    id: ETranslationsMock.batch_create_account_count_min,
-                  });
+                  return 'The minimum number of accounts is 1';
                 }
                 return true;
               },
@@ -241,7 +239,7 @@ export function BatchCreateAccountFormBase({
             const valueNum = new BigNumber(value);
             if (!value || valueNum.isNaN()) {
               return intl.formatMessage({
-                id: ETranslationsMock.batch_create_page_number_invalid,
+                id: ETranslations.global_bulk_accounts_page_number_error,
               });
             }
             if (isAllNetwork) {
@@ -261,9 +259,7 @@ export function BatchCreateAccountFormBase({
               }
             }
             if (valueNum.isLessThan(1)) {
-              return intl.formatMessage({
-                id: ETranslationsMock.batch_create_account_count_min,
-              });
+              return 'The minimum number of accounts is 1';
             }
             return true;
           },

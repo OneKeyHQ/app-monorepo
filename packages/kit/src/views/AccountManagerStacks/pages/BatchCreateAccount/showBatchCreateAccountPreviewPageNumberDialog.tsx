@@ -34,17 +34,14 @@ export function showBatchCreateAccountPreviewPageNumberDialog({
 }) {
   Dialog.show({
     title: appLocale.intl.formatMessage({
-      id: ETranslationsMock.batch_create_page_number_title,
+      id: ETranslations.global_bulk_accounts_page_number,
     }),
     renderContent: (
       <Dialog.Form formProps={{ values: { page } }}>
         <Dialog.FormField
           name="page"
           rules={{
-            required: {
-              value: true,
-              message: 'Page number required',
-            },
+            required: true,
             // TODO how to get form in Dialog?
             // onChange: (e: { target: { name: string; value: string } }) => {
             //   const value = (e?.target?.value || '').replace(/\D/g, '');

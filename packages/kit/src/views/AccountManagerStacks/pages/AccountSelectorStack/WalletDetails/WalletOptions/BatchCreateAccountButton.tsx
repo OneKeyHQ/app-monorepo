@@ -1,7 +1,7 @@
 import { useIntl } from 'react-intl';
 
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import {
   EAccountManagerStacksRoutes,

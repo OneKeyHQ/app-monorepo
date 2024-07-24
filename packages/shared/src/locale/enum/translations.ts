@@ -563,6 +563,8 @@ export enum ETranslations {
   global_browser = 'global.browser',
   global_bulk_accounts_advance = 'global.bulk_accounts_advance',
   global_bulk_accounts_loading = 'global.bulk_accounts_loading',
+  global_bulk_accounts_page_number = 'global.bulk_accounts_page_number',
+  global_bulk_accounts_page_number_error = 'global.bulk_accounts_page_number_error',
   global_bulk_accounts_preview = 'global.bulk_accounts_preview',
   global_bulk_add_accounts = 'global.bulk_add_accounts',
   global_bulk_add_accounts_error = 'global.bulk_add_accounts_error',

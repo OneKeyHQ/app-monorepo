@@ -22,8 +22,8 @@ import {
   BatchCreateAccountFormBase,
 } from './BatchCreateAccountFormBase';
 
-import type { UseFormReturn } from 'react-hook-form';
 import type { IBatchCreateAccountFormValues } from './BatchCreateAccountFormBase';
+import type { UseFormReturn } from 'react-hook-form';
 
 function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
