@@ -8,7 +8,10 @@ import {
 
 import { useIntl } from 'react-intl';
 
-import type { IPageScreenProps } from '@onekeyhq/components';
+import type {
+  IPageNavigationProp,
+  IPageScreenProps,
+} from '@onekeyhq/components';
 import {
   Page,
   SearchBar,
@@ -19,12 +22,14 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
+import {
   EModalWalletAddressRoutes,
-  IModalWalletAddressParamList,
+  type IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -51,6 +56,29 @@ type ISectionItem = {
 };
 
 const CELL_HEIGHT = 48;
+
+const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
+  const appNavigation =
+    useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
+  const { walletId, indexedAccountId, accountId } =
+    useContext(WalletAddressContext);
+  const onPress = useCallback(() => {
+    appNavigation.push(EModalWalletAddressRoutes.DeriveTypesAddress, {
+      networkId: item.id,
+      walletId,
+      indexedAccountId,
+      accountId,
+    });
+  }, [appNavigation, walletId, indexedAccountId, accountId, item.id]);
+  return (
+    <ListItem
+      title={item.name}
+      h={CELL_HEIGHT}
+      onPress={onPress}
+      renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
+    />
+  );
+};
 
 const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
   const intl = useIntl();
@@ -98,6 +126,10 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     item.id,
     refreshLocalData,
   ]);
+
+  if (item.id === getNetworkIdsMap().btc) {
+    return <WalletAddressDeriveTypeItem item={item} />;
+  }
   return (
     <ListItem
       title={item.name}
