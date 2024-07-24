@@ -1,7 +1,13 @@
 import { memo } from 'react';
 
 import type { IXStackProps } from '@onekeyhq/components';
-import { Icon, SizableText, XStack, useMedia } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  Spotlight,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
@@ -23,7 +29,18 @@ function HomeSelector(props: IProps) {
     >
       <NetworkSelectorTriggerHome num={num} />
       {!createAddressDisabled ? (
-        <AccountSelectorActiveAccountHome num={num} />
+        <Spotlight
+          isVisible
+          placement="bottom"
+          content={
+            <SizableText>
+              If you don’t see assets under ‘All Networks,’ click here to create
+              an address for that network.
+            </SizableText>
+          }
+        >
+          <AccountSelectorActiveAccountHome num={num} />
+        </Spotlight>
       ) : null}
       {!createAddressDisabled ? (
         <DeriveTypeSelectorTrigger

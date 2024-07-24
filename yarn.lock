@@ -5889,6 +5889,7 @@ __metadata:
     react-native-draggable-flatlist: "npm:4.0.1"
     react-native-flipper: "npm:0.201.0"
     react-native-reanimated: "npm:3.6.1"
+    react-native-walkthrough-tooltip: "npm:^1.6.0"
     react-native-web: "npm:0.18.12"
     react-refresh: "npm:^0.14.0"
     react-render-tracker: "npm:^0.7.6"
@@ -28409,7 +28410,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prop-types@npm:15.8.1, prop-types@npm:^15.5.10, prop-types@npm:^15.5.7, prop-types@npm:^15.6.2, prop-types@npm:^15.7.2, prop-types@npm:^15.8.1":
+"prop-types@npm:15.8.1, prop-types@npm:^15.5.10, prop-types@npm:^15.5.7, prop-types@npm:^15.6.1, prop-types@npm:^15.6.2, prop-types@npm:^15.7.2, prop-types@npm:^15.8.1":
   version: 15.8.1
   resolution: "prop-types@npm:15.8.1"
   dependencies:
@@ -28864,6 +28865,13 @@ __metadata:
   version: 6.0.11
   resolution: "react-error-overlay@npm:6.0.11"
   checksum: 10/b4ac746fc4fb50da733768aadbc638d34dd56d4e46ed4b2f2d1ac54dced0c5fa5fe47ebbbf90810ada44056ed0713bba5b9b930b69f4e45466e7f59fc806c44e
+  languageName: node
+  linkType: hard
+
+"react-fast-compare@npm:^2.0.4":
+  version: 2.0.4
+  resolution: "react-fast-compare@npm:2.0.4"
+  checksum: 10/e4e3218c0f5c29b88e9f184a12adb77b0a93a803dbd45cb98bbb754c8310dc74e6266c53dd70b90ba4d0939e0e1b8a182cb05d081bcab22507a0390fbcd768ac
   languageName: node
   linkType: hard
 
@@ -29507,6 +29515,18 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/da3280c3615651b19a86c87b6aa2efb5f2cf8d4bcd9b50c47bd7668de50190a360e9ab0dcf0b8c671b9d4eaf3ef5a15b3a37796af54361dc4cfbf5c4f92019a5
+  languageName: node
+  linkType: hard
+
+"react-native-walkthrough-tooltip@npm:^1.6.0":
+  version: 1.6.0
+  resolution: "react-native-walkthrough-tooltip@npm:1.6.0"
+  dependencies:
+    prop-types: "npm:^15.6.1"
+    react-fast-compare: "npm:^2.0.4"
+  peerDependencies:
+    "@types/react": ">=16.8.24"
+  checksum: 10/62e5d4b946e50b866ffc500deaa7a4a2d9d8935413dd972933d8dff8be469dedb28b7b500989385375f440db59f3a961d2e17b5cfc11559edec8b3915f783c5e
   languageName: node
   linkType: hard
 
