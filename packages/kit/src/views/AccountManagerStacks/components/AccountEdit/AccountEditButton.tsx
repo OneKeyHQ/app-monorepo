@@ -24,11 +24,13 @@ export function AccountEditButton({
   indexedAccount,
   firstIndexedAccount,
   account,
+  firstAccount,
   wallet,
 }: {
   indexedAccount?: IDBIndexedAccount;
   firstIndexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
+  firstAccount?: IDBAccount;
   wallet?: IDBWallet;
 }) {
   const intl = useIntl();
@@ -139,6 +141,8 @@ export function AccountEditButton({
           <AccountMoveToTopButton
             indexedAccount={indexedAccount}
             firstIndexedAccount={firstIndexedAccount}
+            account={account}
+            firstAccount={firstAccount}
             onClose={handleActionListClose}
           />
           {showRemoveButton ? (
