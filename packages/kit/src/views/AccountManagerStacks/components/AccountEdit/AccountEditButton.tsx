@@ -4,8 +4,10 @@ import { useIntl } from 'react-intl';
 
 import { ActionList, Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -35,6 +37,7 @@ export function AccountEditButton({
   wallet?: IDBWallet;
 }) {
   const intl = useIntl();
+  const { config } = useAccountSelectorContextData();
   const name = indexedAccount?.name || account?.name || '--';
   // const { config } = useAccountSelectorContextData();
   // if (!config) {
@@ -119,12 +122,16 @@ export function AccountEditButton({
     };
   }, [account, isHdAccount, isImportedAccount, isWatchingAccount]);
 
+  if (!config) {
+    return null;
+  }
   return (
     <ActionList
       title={name}
       renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
       renderItems={({ handleActionListClose }) => (
-        <>
+        // fix missing context in popover
+        <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
           <AccountRenameButton
             name={name}
             indexedAccount={indexedAccount}
@@ -175,7 +182,7 @@ export function AccountEditButton({
               />
             </>
           ) : null}
-        </>
+        </AccountSelectorProviderMirror>
       )}
     />
   );
