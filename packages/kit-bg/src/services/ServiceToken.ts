@@ -67,16 +67,19 @@ class ServiceToken extends ServiceBase {
       rest.contractList = ['', maticAddress, ...contractList];
     }
 
-    const [xpub, accountAddress] = await Promise.all([
-      this.backgroundApi.serviceAccount.getAccountXpub({
-        accountId,
-        networkId,
-      }),
-      this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      }),
-    ]);
+    const accountParams = {
+      accountId,
+      networkId,
+    };
+    const [xpub, accountAddress, customTokens, hiddenTokens] =
+      await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
+        this.backgroundApi.serviceAccount.getAccountAddressForApi(
+          accountParams,
+        ),
+        this.backgroundApi.serviceCustomToken.getCustomTokens(accountParams),
+        this.backgroundApi.serviceCustomToken.getHiddenTokens(accountParams),
+      ]);
 
     if (!accountAddress && !xpub) {
       console.log(
@@ -87,6 +90,13 @@ class ServiceToken extends ServiceBase {
       );
       return getEmptyTokenData();
     }
+
+    rest.contractList = [
+      ...(rest.contractList ?? []),
+      ...customTokens.map((t) => t.address),
+    ];
+
+    rest.hiddenTokens = hiddenTokens.map((t) => t.address);
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();

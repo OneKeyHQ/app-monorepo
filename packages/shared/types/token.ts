@@ -39,6 +39,7 @@ export type IFetchAccountTokensParams = {
   contractList?: string[];
   blockedTokens?: string[];
   unblockedTokens?: string[];
+  hiddenTokens?: string[];
   flag?: string;
   isAllNetworks?: boolean;
 };
