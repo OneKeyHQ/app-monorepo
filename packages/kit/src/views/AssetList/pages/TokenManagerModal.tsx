@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { throttle } from 'lodash';
 
 import {
   Divider,
@@ -26,6 +27,8 @@ import { useTokenListAtom } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
+
+type ICustomTokenItem = IAccountToken & { canAdded?: boolean };
 
 function TokenManagerModal() {
   const navigation = useAppNavigation();
@@ -59,7 +62,7 @@ function TokenManagerModal() {
             (t) =>
               t.address === token.address && t.networkId === token.networkId,
           ),
-      );
+      ) as ICustomTokenItem[];
     },
     [tokenList, accountId, networkId],
     {
@@ -68,6 +71,60 @@ function TokenManagerModal() {
   );
 
   const [searchValue, setSearchValue] = useState('');
+  const throttledSearchTokensRef = useRef(
+    throttle(async (keywords) => {
+      const r =
+        await backgroundApiProxy.serviceCustomToken.searchTokenByKeywords({
+          walletId,
+          networkId,
+          keywords,
+        });
+      console.log('=====>>>>Search Result: ', r);
+      return r;
+    }, 500),
+  );
+  const { result: searchResult } = usePromiseResult(async () => {
+    if (!searchValue) {
+      return null;
+    }
+    console.log('=====>>>>Search Value: ', searchValue);
+    const r = await throttledSearchTokensRef.current(searchValue);
+    return r?.map((t) => {
+      const { price, price24h, info } = t;
+
+      return {
+        $key: `search__${info.networkId ?? ''}_${info.address}_${
+          info.isNative ? 'native' : 'token'
+        }`,
+        address: info.address,
+        decimals: info.decimals,
+        isNative: info.isNative,
+        logoURI: info.logoURI,
+        name: info.name,
+        symbol: info.symbol,
+        riskLevel: info.riskLevel,
+        networkId: info.networkId,
+        // Add price info
+        price,
+        price24h,
+        canAdded: !result?.find((n) => n.address === info.address),
+      } as ICustomTokenItem;
+    });
+  }, [searchValue, result]);
+  const isSearchMode = useMemo(
+    () => searchValue && searchValue.length > 0,
+    [searchValue],
+  );
+  const dataSource = useMemo(() => {
+    if (
+      isSearchMode &&
+      Array.isArray(searchResult) &&
+      searchResult.length > 0
+    ) {
+      return searchResult;
+    }
+    return result;
+  }, [isSearchMode, searchResult, result]);
   useEffect(() => {
     console.log('===>TokenList: ', tokenList);
   }, [tokenList]);
@@ -130,23 +187,30 @@ function TokenManagerModal() {
           />
         </Stack>
         <ListView
-          data={result}
+          data={dataSource}
           ListHeaderComponent={
-            <>
-              <ListItem
-                mt="$4"
-                title="Manually add a token"
-                onPress={() => {
-                  onAddCustomToken();
-                }}
-              >
-                <ListItem.IconButton icon="ChevronRightSmallOutline" />
-              </ListItem>
-              <Divider />
-              <SizableText mt={10} px="$5" size="$bodyMd" color="$textSubdued">
-                Added token
-              </SizableText>
-            </>
+            isSearchMode ? null : (
+              <>
+                <ListItem
+                  mt="$4"
+                  title="Manually add a token"
+                  onPress={() => {
+                    onAddCustomToken();
+                  }}
+                >
+                  <ListItem.IconButton icon="ChevronRightSmallOutline" />
+                </ListItem>
+                <Divider />
+                <SizableText
+                  mt={10}
+                  px="$5"
+                  size="$bodyMd"
+                  color="$textSubdued"
+                >
+                  Added token
+                </SizableText>
+              </>
+            )
           }
           keyExtractor={(item) => item.$key}
           renderItem={({ item }) => (
@@ -164,10 +228,12 @@ function TokenManagerModal() {
                   size: '$bodyLgMedium',
                 }}
               />
-              <ListItem.IconButton
-                icon="DeleteOutline"
-                onPress={() => onHiddenToken(item)}
-              />
+              {item.isNative ? null : (
+                <ListItem.IconButton
+                  icon={item.canAdded ? 'PlusCircleOutline' : 'DeleteOutline'}
+                  onPress={() => onHiddenToken(item)}
+                />
+              )}
             </ListItem>
           )}
         />
