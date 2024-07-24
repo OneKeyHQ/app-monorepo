@@ -55,6 +55,8 @@ export class OneKeyErrorAirGapAccountNotFound extends OneKeyError {
   override className = EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound;
 }
 
+
+
 export class OneKeyErrorAirGapWalletMismatch extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -99,6 +101,18 @@ export class OneKeyInternalError extends OneKeyError {
       }),
     );
   }
+}
+
+export class PasswordPromptDialogCancel extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PasswordPromptDialogCancel',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PasswordPromptDialogCancel;
 }
 
 export class FailedToTransfer extends OneKeyError {

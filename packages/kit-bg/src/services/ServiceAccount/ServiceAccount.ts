@@ -86,6 +86,7 @@ import type {
 } from '../../dbs/local/types';
 import type {
   IAccountDeriveInfo,
+  IAccountDeriveInfoItems,
   IAccountDeriveTypes,
   IPrepareHardwareAccountsParams,
   IPrepareHdAccountsParams,
@@ -627,11 +628,16 @@ class ServiceAccount extends ServiceBase {
         networkId,
       });
       let deriveInfo: IAccountDeriveInfo | undefined;
+      let deriveItems: IAccountDeriveInfoItems[] | undefined;
       if (deriveType) {
         deriveInfo =
           await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
             networkId,
             deriveType,
+          });
+        deriveItems =
+          await this.backgroundApi.serviceNetwork.getDeriveInfoItemsOfNetwork({
+            networkId,
           });
       }
       throw new Error(
@@ -641,7 +647,10 @@ class ServiceAccount extends ServiceBase {
           },
           {
             network: network?.name || '',
-            path: deriveInfo?.label || deriveType || '',
+            path:
+              deriveItems?.length && deriveItems?.length > 1
+                ? deriveInfo?.label || deriveType || ''
+                : '',
           },
         ),
       );

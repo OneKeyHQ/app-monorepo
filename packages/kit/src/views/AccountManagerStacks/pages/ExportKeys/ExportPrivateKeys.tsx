@@ -18,7 +18,6 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
@@ -28,7 +27,12 @@ import { DeriveTypeSelectorFormField } from '@onekeyhq/kit/src/components/Accoun
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -146,12 +150,17 @@ function ExportPrivateKeysPage({
           form.setValue('rawKeyContent', key);
         }
       } catch (error) {
-        form.setError(
-          'rawKeyContent',
-          // form.setError use {...error} which will lose error.message
-          // so we should use errorUtils.toPlainErrorObject to convert error to plain object
-          errorUtils.toPlainErrorObject(error as any) ?? { message: 'error' },
-        );
+        const ignoreErrorClasses: Array<EOneKeyErrorClassNames | undefined> = [
+          EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+        ];
+        if (!ignoreErrorClasses.includes((error as IOneKeyError)?.className)) {
+          form.setError(
+            'rawKeyContent',
+            // form.setError use {...error} which will lose error.message
+            // so we should use errorUtils.toPlainErrorObject to convert error to plain object
+            errorUtils.toPlainErrorObject(error as any) ?? { message: 'error' },
+          );
+        }
         throw error;
       }
     },
@@ -243,7 +252,7 @@ function ExportPrivateKeysPage({
   const keyLabel = useMemo(() => {
     let label = 'key';
     if (exportType === 'publicKey') {
-      label = intl.formatMessage({ id: ETranslations.global_public_key });
+      label = intl.formatMessage({ id: ETranslations.form_public_key_title });
     }
     if (exportType === 'privateKey') {
       label = intl.formatMessage({ id: ETranslations.global_private_key });

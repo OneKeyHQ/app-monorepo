@@ -518,6 +518,7 @@ export enum ETranslations {
   form_private_key_error_invalid = 'form.private_key_error_invalid',
   form_public_key_error_invalid = 'form.public_key_error_invalid',
   form_public_key_placeholder = 'form.public_key_placeholder',
+  form_public_key_title = 'form.public_key_title',
   form_recipient_ln_placeholder = 'form.recipient_ln_placeholder',
   form_ree_rate_error_out_of_range = 'form.ree_rate_error_out_of_range',
   form_rename_error_empty = 'form.rename_error_empty',
