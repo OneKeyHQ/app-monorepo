@@ -28,7 +28,7 @@ export const Tab = withStaticProperties(forwardRef(TabComponent), {
 
 const renderNestedScrollView = platformEnv.isNativeAndroid
   ? (NestedScrollView as (props: ScrollViewProps) => ReactElement)
-  : null;
+  : undefined;
 
 export { renderNestedScrollView, NestedScrollView };
 export { useTabIsRefreshingFocused } from './RefreshingFocused';
