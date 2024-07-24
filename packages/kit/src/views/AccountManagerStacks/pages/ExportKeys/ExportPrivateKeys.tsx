@@ -78,8 +78,23 @@ function ExportPrivateKeysPage({
     [account, indexedAccount],
   );
 
+  const isWatchingAccount = useMemo(
+    () =>
+      Boolean(
+        account &&
+          !indexedAccount &&
+          accountUtils.isWatchingAccount({ accountId: account?.id }),
+      ),
+    [account, indexedAccount],
+  );
+
+  const isHdAccount = !!indexedAccount;
+
   const { result: networkIds = [] } = usePromiseResult(async () => {
-    if (isImportedAccount && account?.createAtNetwork) {
+    if (
+      (isImportedAccount && account?.createAtNetwork) ||
+      (isWatchingAccount && account?.createAtNetwork)
+    ) {
       return [account?.createAtNetwork];
     }
     const networksInfo =
@@ -89,14 +104,24 @@ function ExportPrivateKeysPage({
         },
       );
     return networksInfo.map((n) => n.network.id);
-  }, [account?.createAtNetwork, exportType, isImportedAccount]);
+  }, [
+    account?.createAtNetwork,
+    exportType,
+    isImportedAccount,
+    isWatchingAccount,
+  ]);
 
   const initialNetworkId = useMemo(() => {
-    if (isImportedAccount) {
+    if (isImportedAccount || isWatchingAccount) {
       return account?.createAtNetwork || getNetworkIdsMap().btc;
     }
     return activeAccount?.network?.id || getNetworkIdsMap().btc;
-  }, [account?.createAtNetwork, activeAccount?.network?.id, isImportedAccount]);
+  }, [
+    account?.createAtNetwork,
+    activeAccount?.network?.id,
+    isImportedAccount,
+    isWatchingAccount,
+  ]);
   const form = useForm<IFormValues>({
     values: {
       networkId: initialNetworkId,
@@ -133,7 +158,7 @@ function ExportPrivateKeysPage({
       if ((!indexedAccountId && !accountId) || !networkId) {
         return;
       }
-      if (!isImportedAccount && !deriveType) {
+      if (isHdAccount && !deriveType) {
         return;
       }
       try {
@@ -164,7 +189,7 @@ function ExportPrivateKeysPage({
         throw error;
       }
     },
-    [accountName, exportType, form, isImportedAccount, reset],
+    [accountName, exportType, form, isHdAccount, reset],
   );
   const generateKeyDebounced = useDebouncedCallback(generateKey, 600);
 
@@ -278,7 +303,7 @@ function ExportPrivateKeysPage({
             />
           </Form.Field>
 
-          {!isImportedAccount ? (
+          {!isImportedAccount && !isWatchingAccount ? (
             <DeriveTypeSelectorFormField
               fieldName="deriveType"
               networkId={networkIdValue}

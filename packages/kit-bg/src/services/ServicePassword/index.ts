@@ -477,9 +477,13 @@ export default class ServicePassword extends ServiceBase {
           walletId,
         });
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const isPasswordSet = await localDb.isPasswordSet();
     if (
       accountUtils.isHdWallet({ walletId }) ||
       accountUtils.isImportedWallet({ walletId })
+      // || isPasswordSet // Do not prompt password for external,watching account action
     ) {
       ({ password } = await this.promptPasswordVerify({ reason }));
     }

@@ -55,8 +55,6 @@ export class OneKeyErrorAirGapAccountNotFound extends OneKeyError {
   override className = EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound;
 }
 
-
-
 export class OneKeyErrorAirGapWalletMismatch extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(
