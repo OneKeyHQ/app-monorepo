@@ -247,7 +247,7 @@ function ConnectByUSBOrBLE({
         defaultLogger.account.wallet.connectHWWallet({
           connectType: platformEnv.isNative ? 'ble' : 'usb',
           deviceType: device.deviceType,
-          deviceFmVersion: features.onekey_firmware_version.
+          deviceFmVersion: features.onekey_firmware_version,
         });
 
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
