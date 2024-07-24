@@ -3,11 +3,19 @@ import { memo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Stack,
+  Video,
+  XStack,
+} from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
-import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 
 type IProps = {
   nft: IAccountNFT;
@@ -95,9 +103,14 @@ function BasicNFTListItem(props: IProps) {
         </Stack>
       </Stack>
       <Stack mt="$2">
-        <SizableText size="$bodyLgMedium" numberOfLines={1}>
-          {nft.metadata?.name ?? '-'}
-        </SizableText>
+        <XStack alignItems="center" justifyContent="space-between">
+          <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
+            {nft.metadata?.name ?? '-'}
+          </SizableText>
+          {isAllNetworks ? (
+            <Token width="$4" height="$4" tokenImageUri={network?.logoURI} />
+          ) : null}
+        </XStack>
         <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
           {nft.collectionName}
         </SizableText>

@@ -13,6 +13,7 @@ import {
   useTokenListAtom,
   withTokenListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EAssetSelectorRoutes,
@@ -22,7 +23,6 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 const networkIdsMap = getNetworkIdsMap();
 
