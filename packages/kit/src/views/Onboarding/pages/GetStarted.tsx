@@ -216,7 +216,7 @@ export function GetStarted({
   );
 
   return (
-    <Page>
+    <Page safeAreaEnabled>
       <Page.Header headerShown={false} />
       <Page.Body>
         {showCloseButton ? (
@@ -227,6 +227,7 @@ export function GetStarted({
               variant="tertiary"
               left="$5"
               top="$5"
+              p="$4"
               zIndex={1}
             />
           </Page.Close>
