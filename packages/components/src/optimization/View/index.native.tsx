@@ -6,8 +6,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Stack } from '../../primitives/Stack';
 
 import type { IOptimizationViewType } from './type';
-import { Stack } from '../../primitives/Stack';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const ViewNativeComponent: {
   default: ElementType<IOptimizationViewType>;

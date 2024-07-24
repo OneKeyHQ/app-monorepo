@@ -41,8 +41,6 @@ import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
 
-import { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
-
 let correctDevOnlyPwd = '';
 
 if (process.env.NODE_ENV !== 'production') {
