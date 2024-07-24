@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, memo } from 'react';
 import type { ReactElement } from 'react';
 
 import {
@@ -9,8 +9,6 @@ import {
 // @ts-expect-error
 import NestedScrollView from 'react-native-nested-scroll-view';
 import { withStaticProperties } from 'tamagui';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Header } from './Header';
 import { Page } from './Page';
