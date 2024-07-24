@@ -7,16 +7,19 @@ import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 
 type IProps = {
   nft: IAccountNFT;
   onPress?: (token: IAccountNFT) => void;
   flexBasis: IStackProps['flexBasis'];
+  isAllNetworks?: boolean;
 };
 
 function BasicNFTListItem(props: IProps) {
-  const { nft, onPress, flexBasis } = props;
+  const { nft, onPress, flexBasis, isAllNetworks } = props;
   const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
+  const { network } = useAccountData({ networkId: nft.networkId });
 
   return (
     <Stack
