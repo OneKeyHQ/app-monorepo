@@ -37,7 +37,7 @@ export function AccountSelectorCreateWalletButton() {
         });
       }}
       icon="PlusSmallOutline"
-      testID="add-wallet"
+      testID="account-add-wallet"
     />
   );
   return (

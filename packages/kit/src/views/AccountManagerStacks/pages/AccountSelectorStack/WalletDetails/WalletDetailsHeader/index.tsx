@@ -57,7 +57,7 @@ export function WalletDetailsHeader({
       ) : null}
       {editable ? (
         <Button
-          testID="AccountSelectorModal-EditButton"
+          testID="account-edit-button"
           variant="tertiary"
           onPress={onEditButtonPress}
         >

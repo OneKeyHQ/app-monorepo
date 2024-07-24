@@ -608,6 +608,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         }) =>
           isEditableRouteParams ? (
             <ListItem
+              testID="account-add-account"
               onPress={async () => {
                 if (isOthersUniversal) {
                   if (section.walletId === WALLET_TYPE_WATCHING) {

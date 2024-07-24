@@ -21,7 +21,7 @@ export function BatchCreateAccountButton({
 
   return (
     <WalletOptionItem
-      testID="AccountSelector-WalletOption-Backup"
+      testID="account-batch-add-account"
       icon="Back10Outline"
       // global::bulk_add_accounts
       label={intl.formatMessage({ id: ETranslationsMock.batch_create_account })}
