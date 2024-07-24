@@ -31,9 +31,9 @@ import { CoreSDKLoader } from '../hardware/instance';
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
+import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
-import type { SearchDevice } from '@onekeyfe/hd-core';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -336,6 +336,18 @@ function parseIndexedAccountId({
     walletId: walletIdArr.join(''),
     index,
   };
+}
+
+function buildAllNetworkIndexedAccountIdFromAccountId({
+  accountId,
+}: {
+  accountId: string;
+}) {
+  const { walletId, usedPath } = parseAccountId({ accountId });
+  return buildIndexedAccountId({
+    walletId,
+    index: parseInt(usedPath.split('/')[1], 10),
+  });
 }
 
 function buildHdWalletId({ nextHD }: { nextHD: number }) {
@@ -687,6 +699,7 @@ export default {
   buildHwWalletId,
   buildQrWalletId,
   buildExternalAccountId,
+  buildAllNetworkIndexedAccountIdFromAccountId,
   isHdWallet,
   isQrWallet,
   isHwWallet,

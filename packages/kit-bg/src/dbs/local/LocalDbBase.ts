@@ -2513,6 +2513,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async getWalletDeviceSafe({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<IDBDevice | undefined> {
+    try {
+      return await this.getWalletDevice({ walletId });
+    } catch (error) {
+      return undefined;
+    }
+  }
+
   async getWalletDevice({
     walletId,
   }: {
