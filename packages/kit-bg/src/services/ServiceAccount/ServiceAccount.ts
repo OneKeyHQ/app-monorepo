@@ -2042,6 +2042,44 @@ class ServiceAccount extends ServiceBase {
       }),
     );
   }
+
+  @backgroundMethod()
+  async getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes({
+    networkId,
+    indexedAccountId,
+  }: {
+    networkId: string;
+    indexedAccountId: string;
+  }) {
+    const { serviceNetwork } = this.backgroundApi;
+    const network = await serviceNetwork.getNetworkSafe({ networkId });
+    if (!network) {
+      throw new Error('Network not found');
+    }
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const vaultSettings = await vault.getVaultSettings();
+    const accountDeriveTypes = Object.entries(
+      vaultSettings.accountDeriveInfo,
+    ).map(([deriveType, deriveInfo]) => ({
+      deriveType: deriveType as IAccountDeriveTypes,
+      deriveInfo,
+    }));
+    const networkAccounts = await Promise.all(
+      accountDeriveTypes.map(async (item) => {
+        const { accounts } = await this.getAccountsByIndexedAccounts({
+          indexedAccountIds: [indexedAccountId],
+          networkId,
+          deriveType: item.deriveType,
+        });
+        return {
+          deriveType: item.deriveType,
+          deriveInfo: item.deriveInfo,
+          account: accounts[0],
+        };
+      }),
+    );
+    return { networkAccounts, network };
+  }
 }
 
 export default ServiceAccount;
