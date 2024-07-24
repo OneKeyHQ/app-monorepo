@@ -3,12 +3,13 @@ export enum EModalWalletAddressRoutes {
   WalletAddress = 'WalletAddress',
 }
 
-type IBaseRouteParams = {
-  networkId: string;
-  accountId: string;
-};
-
 export type IModalWalletAddressParamList = {
-  [EModalWalletAddressRoutes.DeriveTypesAddress]: IBaseRouteParams;
-  [EModalWalletAddressRoutes.WalletAddress]: IBaseRouteParams;
+  [EModalWalletAddressRoutes.DeriveTypesAddress]: {
+    networkId: string;
+    accountId: string;
+  };
+  [EModalWalletAddressRoutes.WalletAddress]: {
+    accountId: string;
+    indexedAccountId: string;
+  };
 };

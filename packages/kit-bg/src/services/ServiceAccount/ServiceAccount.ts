@@ -50,6 +50,7 @@ import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
   INetworkAccount,
@@ -2016,7 +2017,7 @@ class ServiceAccount extends ServiceBase {
   }: {
     indexedAccountId: string;
     networkIds: string[];
-  }) {
+  }): Promise<{ network: IServerNetwork; account?: INetworkAccount }[]> {
     const { serviceNetwork } = this.backgroundApi;
     const dbAccounts = await this.getAccountsInSameIndexedAccountId({
       indexedAccountId,

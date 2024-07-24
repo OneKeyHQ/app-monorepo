@@ -56,12 +56,15 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
 
   const handleAddressOnPress = useCallback(() => {
     if (!account || !network || !deriveInfo || !wallet) return;
-    if (network.id === getNetworkIdsMap().onekeyall) {
+    if (
+      network.id === getNetworkIdsMap().onekeyall &&
+      account.indexedAccountId
+    ) {
       navigation.pushModal(EModalRoutes.WalletAddress, {
         screen: EModalWalletAddressRoutes.WalletAddress,
         params: {
-          networkId: network.id,
           accountId: account.id,
+          indexedAccountId: account.indexedAccountId,
           // walletId: wallet.id,
           // deriveInfo,
           // deriveType,
