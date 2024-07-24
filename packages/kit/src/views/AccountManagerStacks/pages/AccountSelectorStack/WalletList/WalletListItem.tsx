@@ -13,7 +13,7 @@ type IWalletListItemProps = {
   focusedWallet: IAccountSelectorFocusedWallet;
   wallet: IDBWallet | undefined;
   onWalletPress: (focusedWallet: IAccountSelectorFocusedWallet) => void;
-  onWalletLongPress: (focusedWallet: IAccountSelectorFocusedWallet) => void;
+  onWalletLongPress?: (focusedWallet: IAccountSelectorFocusedWallet) => void;
 } & IStackProps &
   Partial<IWalletAvatarProps>;
 
@@ -37,7 +37,7 @@ export function WalletListItem({
   let walletName = wallet?.name;
   let selected = focusedWallet === wallet?.id;
   let onPress = () => wallet?.id && onWalletPress(wallet?.id);
-  let onLongPress = () => wallet?.id && onWalletLongPress(wallet?.id);
+  let onLongPress = () => wallet?.id && onWalletLongPress?.(wallet?.id);
   if (isOthers) {
     walletName = 'Others';
     selected = focusedWallet === '$$others';
@@ -46,7 +46,7 @@ export function WalletListItem({
       wallet: undefined,
     };
     onPress = () => onWalletPress('$$others');
-    onLongPress = () => onWalletLongPress('$$others');
+    onLongPress = () => undefined;
   }
   const hiddenWallets = wallet?.hiddenWallets;
 
