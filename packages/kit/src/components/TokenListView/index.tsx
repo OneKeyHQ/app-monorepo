@@ -1,5 +1,4 @@
-import { ListView, Stack } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ListView, Stack, renderNestedScrollView } from '@onekeyhq/components';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
@@ -21,7 +20,6 @@ type IProps = {
   tableLayout?: boolean;
   onRefresh?: () => void;
   onPressToken?: (token: IAccountToken) => void;
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   withHeader?: boolean;
   withFooter?: boolean;
   withPrice?: boolean;
@@ -31,11 +29,11 @@ type IProps = {
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
   isBuyTokenSupported?: boolean;
+  isAllNetworks?: boolean;
 };
 
 function TokenListView(props: IProps) {
   const {
-    onContentSizeChange,
     onPressToken,
     tableLayout,
     withHeader,
@@ -47,6 +45,7 @@ function TokenListView(props: IProps) {
     onBuyToken,
     isBuyTokenSupported,
     withPresetVerticalPadding = true,
+    isAllNetworks,
   } = props;
 
   const [tokenList] = useTokenListAtom();
@@ -58,23 +57,21 @@ function TokenListView(props: IProps) {
 
   const { listViewProps, listViewRef, onLayout } =
     useTabListScroll<IAccountToken>({
-      onContentSizeChange,
       inTabList,
     });
 
   if (!tokenListState.initialized && tokenListState.isRefreshing) {
-    return <ListLoading onContentSizeChange={onContentSizeChange} />;
+    return <ListLoading />;
   }
 
   return (
     <ListView
       {...listViewProps}
+      renderScrollComponent={renderNestedScrollView}
       py={withPresetVerticalPadding ? '$3' : '$0'}
       estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef}
       onLayout={onLayout}
-      scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
-      disableScrollViewPanResponder={!!onContentSizeChange}
       data={filteredTokens}
       ListHeaderComponent={
         withHeader && tokens.length > 0 ? (
@@ -104,6 +101,7 @@ function TokenListView(props: IProps) {
           onPress={onPressToken}
           tableLayout={tableLayout}
           withPrice={withPrice}
+          isAllNetworks={isAllNetworks}
         />
       )}
       ListFooterComponent={

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isNil } from 'lodash';
 
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -132,25 +133,34 @@ export function useSwapInit(params?: ISwapInitParams) {
     const accountNetwork = swapNetworksRef.current.find(
       (net) => net.networkId === swapAddressInfoRef.current?.networkId,
     );
-    if (accountNetwork) {
+    const isAllNet =
+      swapAddressInfoRef.current?.networkId === dangerAllNetworkRepresent.id;
+    let netInfo = accountNetwork;
+    let netId = accountNetwork?.networkId;
+    if (isAllNet) {
+      netId = dangerAllNetworkRepresent.id;
+      netInfo = swapNetworksRef.current.find(
+        (net) => net.networkId === 'evm--1',
+      ); // all net use evm default token
+    }
+
+    if (netInfo && netId) {
       if (
-        !isNil(swapDefaultSetTokens[accountNetwork.networkId]?.fromToken) ||
-        !isNil(swapDefaultSetTokens[accountNetwork.networkId]?.toToken)
+        !isNil(swapDefaultSetTokens[netId]?.fromToken) ||
+        !isNil(swapDefaultSetTokens[netId]?.toToken)
       ) {
-        const defaultFromToken =
-          swapDefaultSetTokens[accountNetwork.networkId]?.fromToken;
-        const defaultToToken =
-          swapDefaultSetTokens[accountNetwork.networkId]?.toToken;
+        const defaultFromToken = swapDefaultSetTokens[netId]?.fromToken;
+        const defaultToToken = swapDefaultSetTokens[netId]?.toToken;
         if (defaultFromToken) {
           setFromToken({
             ...defaultFromToken,
-            networkLogoURI: accountNetwork.logoURI,
+            networkLogoURI: netInfo?.logoURI,
           });
         }
         if (defaultToToken) {
           setToToken({
             ...defaultToToken,
-            networkLogoURI: accountNetwork.logoURI,
+            networkLogoURI: netInfo?.logoURI,
           });
         }
       }

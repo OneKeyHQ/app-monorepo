@@ -27,10 +27,12 @@ export function getOnChainHistoryTxStatus(
 }
 
 export function getOnChainHistoryTxAssetInfo({
+  key,
   tokenAddress,
   tokens = {},
   nfts = {},
 }: {
+  key: string;
   tokenAddress: string;
   tokens: Record<string, IOnChainHistoryTxToken>;
   nfts: Record<string, IOnChainHistoryTxNFT>;
@@ -45,11 +47,11 @@ export function getOnChainHistoryTxAssetInfo({
   let isNative = false;
   let price = '0';
   let decimals = 0;
-  nft = nfts[tokenAddress];
+  nft = nfts[key] ?? nfts[tokenAddress];
   if (tokenAddress === '') {
-    token = tokens[tokenAddress] || tokens.native;
+    token = tokens[key] || tokens.native;
   } else {
-    token = tokens[tokenAddress];
+    token = tokens[key];
   }
 
   if (nft) {
@@ -187,4 +189,13 @@ export function buildLocalHistoryKey({
   }
 
   return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
+}
+
+// sort history
+export function sortHistoryTxsByTime({ txs }: { txs: IAccountHistoryTx[] }) {
+  return txs.sort(
+    (b, a) =>
+      (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+      (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
+  );
 }

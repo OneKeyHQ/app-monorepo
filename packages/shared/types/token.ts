@@ -7,6 +7,10 @@ export type IToken = {
   isNative: boolean | undefined;
   riskLevel?: number;
   sendAddress?: string;
+
+  // for all networks
+  networkId?: string;
+  accountId?: string;
 };
 
 export type ITokenFiat = {
@@ -36,6 +40,7 @@ export type IFetchAccountTokensParams = {
   blockedTokens?: string[];
   unblockedTokens?: string[];
   flag?: string;
+  isAllNetworks?: boolean;
 };
 
 export type ITokenData = {
@@ -50,6 +55,7 @@ export type IFetchAccountTokensResp = {
   tokens: ITokenData;
   riskTokens: ITokenData;
   smallBalanceTokens: ITokenData;
+  networkId?: string;
 };
 
 export type IFetchTokenDetailParams = {

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -22,6 +23,11 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import {
+  useAccountOverviewActions,
+  useAccountOverviewStateAtom,
+  useAccountWorthAtom,
+} from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
@@ -34,16 +40,18 @@ function HomeOverviewContainer() {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num });
 
-  const [overviewState, setOverviewState] = useState({
-    initialized: false,
-    isRefreshing: false,
-  });
+  const [accountWorth] = useAccountWorthAtom();
+  const [overviewState] = useAccountOverviewStateAtom();
+  const { updateAccountOverviewState, updateAccountWorth } =
+    useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
 
   const { result: overview } = usePromiseResult(
     async () => {
       if (!account || !network) return;
+      if (network.isAllNetworks) return;
+      await backgroundApiProxy.serviceAccountProfile.abortFetchAccountDetails();
       const r =
         await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
           networkId: network.id,
@@ -51,13 +59,13 @@ function HomeOverviewContainer() {
           withNetWorth: true,
           withNonce: false,
         });
-      setOverviewState({
+      updateAccountOverviewState({
         initialized: true,
         isRefreshing: false,
       });
       return r;
     },
-    [account, network],
+    [account, network, updateAccountOverviewState],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOTAL_VALUE,
@@ -74,12 +82,25 @@ function HomeOverviewContainer() {
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
-      setOverviewState({
+      updateAccountOverviewState({
         initialized: false,
         isRefreshing: true,
       });
+      if (network.isAllNetworks) {
+        updateAccountWorth({
+          worth: '0',
+        });
+      }
     }
-  }, [account?.id, network?.id, wallet?.id]);
+  }, [
+    account?.id,
+    network?.id,
+    network?.isAllNetworks,
+    updateAccountOverviewState,
+    updateAccountWorth,
+    wallet?.id,
+  ]);
+
   const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
 
@@ -90,7 +111,9 @@ function HomeOverviewContainer() {
       </Stack>
     );
 
-  const balanceString = overview?.netWorth ?? '0';
+  const balanceString = network?.isAllNetworks
+    ? accountWorth.worth ?? '0'
+    : overview?.netWorth ?? '0';
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
     { length: 25, size: '$headingXl' },
     { length: 13, size: '$heading4xl' },

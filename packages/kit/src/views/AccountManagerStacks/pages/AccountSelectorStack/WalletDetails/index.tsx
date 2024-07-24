@@ -13,6 +13,13 @@ import {
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
+import type {
+  IDBAccount,
+  IDBDevice,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
@@ -26,13 +33,6 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
-import type {
-  IDBAccount,
-  IDBDevice,
-  IDBIndexedAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -217,7 +217,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           ? selectedAccount.othersWalletAccountId === id
           : selectedAccount.indexedAccountId === id,
       );
-      console.log('itemIndex----', itemIndex);
       scrollToLocation({
         animated: true,
         sectionIndex: 0,
@@ -233,20 +232,29 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   ]);
 
   const scrollToTop = useCallback(() => {
-    scrollToLocation({
-      animated: true,
-      sectionIndex: 0,
-      itemIndex: 0,
-    });
-  }, [scrollToLocation]);
+    if (sectionData?.length) {
+      scrollToLocation({
+        animated: true,
+        sectionIndex: 0,
+        itemIndex: 0,
+      });
+    }
+  }, [scrollToLocation, sectionData]);
 
   useEffect(() => {
     if (editMode) {
-      scrollToTop();
+      // Scrolling to the top makes it inconvenient for users to edit the name,
+      // and not scrolling to the top makes it difficult for users to see the batch create address
+      //
+      // scrollToTop();
     } else {
-      scrollToSelectedAccount();
+      // scrollToSelectedAccount();
     }
   }, [editMode, scrollToSelectedAccount, scrollToTop]);
+
+  useEffect(() => {
+    scrollToSelectedAccount();
+  }, [scrollToSelectedAccount]);
 
   const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
@@ -466,6 +474,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         )}
         renderItem={({
           item,
+          section,
         }: {
           item: IDBIndexedAccount | IDBAccount;
           section: IAccountSelectorAccountsListSectionData;
@@ -485,8 +494,18 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 <>
                   {/* TODO rename to AccountEditTrigger */}
                   <AccountEditButton
-                    account={account}
                     indexedAccount={indexedAccount}
+                    firstIndexedAccount={
+                      isOthersUniversal
+                        ? undefined
+                        : (section?.data?.[0] as IDBIndexedAccount)
+                    }
+                    account={account}
+                    firstAccount={
+                      isOthersUniversal
+                        ? (section?.data?.[0] as IDBAccount)
+                        : undefined
+                    }
                     wallet={focusedWalletInfo?.wallet}
                   />
                 </>

@@ -1,4 +1,6 @@
 module.exports = [
+  'mixpanel',
+  'Mixpanel',
   'changelog',
   'qrcode',
   'tlightning',
@@ -28,6 +30,7 @@ module.exports = [
   'isXprvt',
   'mmkv',
   'xxxxxx',
+  'faq',
   'npx',
   'tsc',
   'autofix',
@@ -680,6 +683,10 @@ module.exports = [
   'caips',
   'glmt',
   'walletconnect',
+  'Mixpanel',
+  'mixpanel',
+  'pageview',
+  'dnt',
   'lru',
   'compat',
   'replacer',
@@ -736,4 +743,5 @@ module.exports = [
   'babylon',
   'changelly',
   'Changelly',
+  'onekeyall',
 ];

@@ -55,6 +55,7 @@ export type IServerNetwork = {
   decimals: number;
   feeMeta: INetworkFeeInfo;
   defaultEnabled: boolean;
+  backendIndex?: boolean;
   support?: string[];
   balance2FeeDecimals: number;
   status: ENetworkStatus;
@@ -65,6 +66,7 @@ export type IServerNetwork = {
   extensions?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  isAllNetworks?: boolean;
 };
 
 export enum EOnekeyDomain {

@@ -24,20 +24,18 @@ export type IModalAssetDetailsParamList = {
     tokenInfo: IToken;
     isBlocked?: boolean;
     riskyTokens?: string[];
+    isAllNetworks?: boolean;
   };
   [EModalAssetDetailRoutes.NFTDetails]: {
     networkId: string;
     accountId: string;
     walletId: string;
-    accountAddress: string;
     collectionAddress: string;
     itemId: string;
   };
   [EModalAssetDetailRoutes.HistoryDetails]: {
     accountId: string;
     networkId: string;
-    accountAddress: string;
-    xpub?: string;
     historyTx: IAccountHistoryTx;
   };
   [EModalAssetDetailRoutes.UTXODetails]: {

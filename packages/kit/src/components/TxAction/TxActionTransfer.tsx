@@ -189,7 +189,7 @@ function buildTransferChangeInfo({
         ? ''
         : amountBN.multipliedBy(transfers[0].price ?? 0).toFixed();
     }
-    changeSymbol = transfers[0].symbol;
+    changeSymbol = transfers[0].isNFT ? transfers[0].name : transfers[0].symbol;
   } else {
     const tokens = uniq(map(transfers, 'tokenIdOnNetwork'));
     if (tokens.length === 1) {
@@ -221,7 +221,7 @@ function buildTransferChangeInfo({
         );
       } else if (transfersWithNFT.length === 1) {
         change = new BigNumber(transfersWithNFT[0].amount).abs().toFixed();
-        changeSymbol = transfersWithNFT[0].symbol;
+        changeSymbol = transfersWithNFT[0].name;
       } else {
         const totalNFTs = transfersWithNFT
           .reduce(
@@ -234,7 +234,7 @@ function buildTransferChangeInfo({
         changeDescription = intl.formatMessage(
           { id: ETranslations.symbol_and_more },
           {
-            symbol: transfersWithNFT[0].symbol,
+            symbol: transfersWithNFT[0].name,
           },
         );
       }
@@ -434,6 +434,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       showIcon={showIcon}
       replaceType={replaceType}
       status={decodedTx.status}
+      networkId={networkId}
       {...componentProps}
     />
   );

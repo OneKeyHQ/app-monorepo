@@ -5,9 +5,8 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { Token } from '../Token';
-
 import { TokenBalanceView } from './TokenBalanceView';
+import { TokenIconView } from './TokenIconView';
 import { TokenNameView } from './TokenNameView';
 import { TokenPriceChangeView } from './TokenPriceChangeView';
 import { TokenPriceView } from './TokenPriceView';
@@ -18,10 +17,12 @@ export type ITokenListItemProps = {
   onPress?: (token: IAccountToken) => void;
   tableLayout?: boolean;
   withPrice?: boolean;
+  isAllNetworks?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
-  const { token, onPress, tableLayout, withPrice, ...rest } = props;
+  const { token, onPress, tableLayout, withPrice, isAllNetworks, ...rest } =
+    props;
 
   return (
     <ListItem
@@ -36,7 +37,12 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       //   })}
       {...rest}
     >
-      <Token size={tableLayout ? 'md' : 'lg'} tokenImageUri={token.logoURI} />
+      <TokenIconView
+        tableLayout={tableLayout}
+        networkId={token.networkId}
+        icon={token.logoURI}
+        isAllNetworks={isAllNetworks}
+      />
       <Stack
         flexGrow={1}
         flexBasis={0}
@@ -56,6 +62,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             numberOfLines={1}
             name={token.name}
             isNative={token.isNative}
+            isAllNetworks={isAllNetworks}
             {...(tableLayout && {
               size: '$bodyMdMedium',
             })}

@@ -3,7 +3,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -17,14 +16,14 @@ import {
   SearchBar,
   SectionList,
   SortableSectionList,
-  Spinner,
   Stack,
 } from '@onekeyhq/components';
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -42,6 +41,12 @@ type IEditableViewContext = {
   setTopNetworks?: (networks: IServerNetwork[]) => void;
 };
 
+type ISectionItem = {
+  title?: string;
+  data: IServerNetworkMatch[];
+  unavailable?: boolean;
+};
+
 const EditableViewContext = createContext<IEditableViewContext>({
   topNetworks: [],
   topNetworkIds: new Set(),
@@ -53,10 +58,12 @@ const EditableViewListItem = ({
   item,
   sectionIndex,
   drag,
+  isDisabled,
 }: {
   item: IServerNetworkMatch;
   sectionIndex: number;
   drag: () => void;
+  isDisabled?: boolean;
 }) => {
   const intl = useIntl();
   const {
@@ -75,15 +82,31 @@ const EditableViewListItem = ({
     () => intl.formatMessage({ id: ETranslations.global_unpin_from_top }),
     [intl],
   );
+
+  const isDraggable =
+    isEditMode &&
+    sectionIndex === 0 &&
+    item.id !== getNetworkIdsMap().onekeyall;
+
+  const opacity = isDisabled ? 0.7 : 1;
+
+  const onPress = useMemo(() => {
+    if (!isEditMode && !isDisabled) {
+      return () => onPressItem?.(item);
+    }
+    return undefined;
+  }, [isEditMode, isDisabled, item, onPressItem]);
+
   return (
     <ListItem
       title={item.name}
       titleMatch={item.titleMatch}
       h={CELL_HEIGHT}
       renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
-      onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
+      opacity={opacity}
+      onPress={onPress}
     >
-      {sectionIndex !== 0 && isEditMode ? (
+      {sectionIndex !== 0 && isEditMode && !isDisabled ? (
         <ListItem.IconButton
           {...ListItem.EnterAnimationStyle}
           onPress={() => {
@@ -108,7 +131,7 @@ const EditableViewListItem = ({
       {networkId === item.id && !isEditMode ? (
         <ListItem.CheckMark key="checkmark" />
       ) : null}
-      {isEditMode && sectionIndex === 0 ? (
+      {isDraggable ? (
         <ListItem.IconButton
           key="darg"
           {...ListItem.EnterAnimationStyle}
@@ -135,6 +158,7 @@ const ListEmptyComponent = () => {
 
 type IEditableViewProps = {
   isEditMode?: boolean;
+  unavailableNetworks: IServerNetwork[];
   defaultTopNetworks: IServerNetwork[];
   allNetworks: IServerNetwork[];
   networkId?: string;
@@ -147,6 +171,7 @@ export const EditableView: FC<IEditableViewProps> = ({
   onPressItem,
   networkId,
   defaultTopNetworks,
+  unavailableNetworks,
   isEditMode,
   onTopNetworksChange,
 }) => {
@@ -167,7 +192,7 @@ export const EditableView: FC<IEditableViewProps> = ({
     setTopNetworks(defaultTopNetworks);
   }, [defaultTopNetworks]);
 
-  const sections = useMemo<{ title?: string; data: IServerNetwork[] }[]>(() => {
+  const sections = useMemo<ISectionItem[]>(() => {
     if (trimSearchText) {
       const data = networkFuseSearch(allNetworks, trimSearchText);
       return data.length === 0
@@ -190,8 +215,18 @@ export const EditableView: FC<IEditableViewProps> = ({
     const sectionList = Object.entries(data)
       .map(([key, value]) => ({ title: key, data: value }))
       .sort((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
-    return [{ data: topNetworks }, ...sectionList];
-  }, [allNetworks, trimSearchText, topNetworks]);
+    const _sections: ISectionItem[] = [{ data: topNetworks }, ...sectionList];
+    if (unavailableNetworks.length > 0) {
+      _sections.push({
+        title: intl.formatMessage({
+          id: ETranslationsMock.unavailable_networks_for_selected_account,
+        }),
+        data: unavailableNetworks,
+        unavailable: true,
+      });
+    }
+    return _sections;
+  }, [allNetworks, trimSearchText, topNetworks, unavailableNetworks, intl]);
 
   const hasScrollToSelectedCell = useRef(false);
   useLayoutEffect(() => {
@@ -202,7 +237,7 @@ export const EditableView: FC<IEditableViewProps> = ({
     for (const section of sections) {
       const index = section.data.findIndex((item) => item.id === networkId);
       if (index !== -1) {
-        setTimeout(
+        const timer = setTimeout(
           // Scrolling animations need to be enabled on Android devices to prevent the list from flickering.
           // eslint-disable-next-line no-loop-func, @typescript-eslint/no-loop-func
           () => {
@@ -214,16 +249,16 @@ export const EditableView: FC<IEditableViewProps> = ({
             });
             hasScrollToSelectedCell.current = true;
           },
-          platformEnv.isNativeAndroid ? 100 : 0,
+          !platformEnv.isNativeIOS ? 100 : 0,
         );
-        break;
+        return () => clearTimeout(timer);
       }
       y += 36 + 20;
       y += section.data.length * CELL_HEIGHT;
     }
-  }, [defaultTopNetworks, sections, networkId]);
+  }, [sections, networkId]);
 
-  const ctx = useMemo<IEditableViewContext>(
+  const context = useMemo<IEditableViewContext>(
     () => ({
       topNetworks,
       topNetworkIds: new Set(topNetworks.map((item) => item.id)),
@@ -249,7 +284,7 @@ export const EditableView: FC<IEditableViewProps> = ({
       drag,
     }: {
       item: IServerNetwork;
-      section: { data: IServerNetwork[]; title: string };
+      section: ISectionItem;
       drag: () => void;
     }) => (
       <EditableViewListItem
@@ -259,6 +294,7 @@ export const EditableView: FC<IEditableViewProps> = ({
             ? 1
             : sections.findIndex((_section) => _section === section)
         }
+        isDisabled={section.unavailable}
         drag={drag}
       />
     ),
@@ -276,7 +312,7 @@ export const EditableView: FC<IEditableViewProps> = ({
   );
 
   return (
-    <EditableViewContext.Provider value={ctx}>
+    <EditableViewContext.Provider value={context}>
       <Stack flex={1}>
         <Stack px="$5">
           <SearchBar

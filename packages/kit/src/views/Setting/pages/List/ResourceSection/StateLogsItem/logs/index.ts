@@ -7,8 +7,9 @@ export const exportLogs = async (filename: string) => {
   defaultLogger.setting.device.logDeviceInfo();
   await waitAsync(1000);
   const allMsgs = await backgroundApiProxy.serviceLogger.getAllMsg();
+  const deviceMsgs = await backgroundApiProxy.serviceHardware.getLogs();
   const element = document.createElement('a');
-  const file = new Blob(allMsgs, {
+  const file = new Blob([...allMsgs, ...deviceMsgs], {
     type: 'text/plain',
     endings: 'native',
   });

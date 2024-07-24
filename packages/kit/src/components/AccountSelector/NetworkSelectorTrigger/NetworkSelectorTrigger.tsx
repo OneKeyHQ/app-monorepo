@@ -136,18 +136,20 @@ export function ControlledNetworkSelectorTrigger({
   value?: string;
   onChange?: (networkId: string) => void;
   networkIds?: string[];
-  disabled?: boolean;
+  disabled?: boolean; // TODO not working in form
   editable?: boolean | undefined;
 }) {
   const intl = useIntl();
   return (
     <ChainSelectorInput
       testID="network-selector-input"
-      title={intl.formatMessage({ id: ETranslations.network__network })}
+      title={intl.formatMessage({ id: ETranslations.global_networks })}
       value={value}
       onChange={onChange}
       editable={editable}
       disabled={disabled}
+      // editable={false}
+      // disabled
       networkIds={networkIds}
       borderRadius="$3"
       borderWidth={1}

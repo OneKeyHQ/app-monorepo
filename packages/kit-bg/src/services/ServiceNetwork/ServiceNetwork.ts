@@ -1,4 +1,4 @@
-import { uniq } from 'lodash';
+import { uniq, uniqBy } from 'lodash';
 
 import {
   type EAddressEncodings,
@@ -43,9 +43,27 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllNetworks(): Promise<{ networks: IServerNetwork[] }> {
+  async getAllNetworks(
+    params: {
+      excludeNetworkIds?: string[];
+      excludeTestNetwork?: boolean;
+      uniqByImpl?: boolean;
+    } = {},
+  ): Promise<{ networks: IServerNetwork[] }> {
     // TODO save to simpleDB
-    const networks = getPresetNetworks();
+    const excludeTestNetwork = params?.excludeTestNetwork ?? false;
+    const uniqByImpl = params?.uniqByImpl ?? false;
+    const excludeNetworkIds = params?.excludeNetworkIds ?? [];
+    let networks = getPresetNetworks();
+    if (uniqByImpl) {
+      networks = uniqBy(networks, (n) => n.impl);
+    }
+    if (excludeTestNetwork) {
+      networks = networks.filter((n) => !n.isTestnet);
+    }
+    if (excludeNetworkIds?.length) {
+      networks = networks.filter((n) => !excludeNetworkIds.includes(n.id));
+    }
     return Promise.resolve({ networks });
   }
 
@@ -344,8 +362,11 @@ class ServiceNetwork extends ServiceBase {
   }: {
     networks: IServerNetwork[];
   }) {
+    const networkIds = networks
+      .map((o) => o.id)
+      .filter((id) => id !== getNetworkIdsMap().onekeyall);
     return this.backgroundApi.simpleDb.networkSelector.setPinnedNetworkIds({
-      networkIds: networks.map((o) => o.id),
+      networkIds,
     });
   }
 
@@ -353,15 +374,17 @@ class ServiceNetwork extends ServiceBase {
   async getNetworkSelectorPinnedNetworks(): Promise<IServerNetwork[]> {
     const pinnedNetworkIds =
       await this.backgroundApi.simpleDb.networkSelector.getPinnedNetworkIds();
-    const networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
+    let networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
+    networkIds = networkIds.filter((id) => id !== getNetworkIdsMap().onekeyall);
     const networkIdsIndex = networkIds.reduce((result, item, index) => {
       result[item] = index;
       return result;
     }, {} as Record<string, number>);
     const resp = await this.getNetworksByIds({ networkIds });
-    return resp.networks.sort(
+    const sorted = resp.networks.sort(
       (a, b) => networkIdsIndex[a.id] - networkIdsIndex[b.id],
     );
+    return sorted;
   }
 
   @backgroundMethod()
