@@ -30,7 +30,7 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
 
   supportExportedSecretKeys: [
-    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.privateKey,
     // ECoreApiExportedSecretKeyType.publicKey,
   ],
 
