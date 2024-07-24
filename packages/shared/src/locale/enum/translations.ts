@@ -795,6 +795,7 @@ export enum ETranslations {
   global_status = 'global.status',
   global_step_str = 'global.step_str',
   global_success = 'global.success',
+  global_support = 'global.support',
   global_swap = 'global.swap',
   global_switch_address = 'global.switch_address',
   global_sync_error = 'global.sync_error',
