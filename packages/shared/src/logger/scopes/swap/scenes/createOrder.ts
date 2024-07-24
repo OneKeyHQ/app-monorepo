@@ -1,7 +1,8 @@
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../decorators';
+import { LogToLocal, LogToServer } from '../../../decorators';
 
 export class CreateOrderScene extends BaseScene {
+  @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
   public swapCreateOrder({
     swapType,
