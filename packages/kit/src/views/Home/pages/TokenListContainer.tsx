@@ -48,11 +48,7 @@ import { WalletActions } from '../components/WalletActions';
 
 const networkIdsMap = getNetworkIdsMap();
 
-function TokenListContainer({
-  showWalletActions = false,
-  ...props
-}: ITabPageProps) {
-  const { onContentSizeChange } = props;
+function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
@@ -522,7 +518,6 @@ function TokenListContainer({
         onBuyToken={handleOnBuy}
         onReceiveToken={handleOnReceive}
         onPressToken={handleOnPressToken}
-        onContentSizeChange={onContentSizeChange}
         isAllNetworks={network?.isAllNetworks}
         {...(media.gtLg && {
           tableLayout: true,
