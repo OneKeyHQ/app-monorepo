@@ -24,6 +24,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { networkFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/utils';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -155,7 +156,19 @@ const WalletAddressContent = ({
   frequentlyUsedNetworks: IServerNetwork[];
 }) => {
   const intl = useIntl();
+  const [searchText, setSearchText] = useState('');
   const sections = useMemo<ISectionItem[]>(() => {
+    const searchTextTrim = searchText.trim();
+    if (searchTextTrim) {
+      const data = networkFuseSearch(networks, searchTextTrim);
+      return data.length === 0
+        ? []
+        : [
+            {
+              data,
+            },
+          ];
+    }
     const data = networks.reduce((result, item) => {
       const char = item.name[0].toUpperCase();
       if (!result[char]) {
@@ -173,7 +186,7 @@ const WalletAddressContent = ({
       ...sectionList,
     ];
     return _sections;
-  }, [networks, frequentlyUsedNetworks]);
+  }, [networks, frequentlyUsedNetworks, searchText]);
 
   const renderSectionHeader = useCallback(
     (item: { section: { title: string } }) => {
@@ -199,6 +212,8 @@ const WalletAddressContent = ({
           placeholder={intl.formatMessage({
             id: ETranslations.global_search,
           })}
+          value={searchText}
+          onChangeText={(text) => setSearchText(text)}
         />
       </Stack>
       <SectionList
