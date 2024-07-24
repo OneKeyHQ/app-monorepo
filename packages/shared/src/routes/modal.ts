@@ -21,6 +21,7 @@ import type { IModalStakingParamList } from './staking';
 import type { IModalSwapParamList } from './swap';
 import type { ITestModalPagesParam } from './testModal';
 import type { IUniversalSearchParamList } from './universalSearch';
+import type { IModalWalletAddressParamList } from './walletAddress';
 import type { IModalWebViewParamList } from './webView';
 
 export enum EModalRoutes {
@@ -47,6 +48,7 @@ export enum EModalRoutes {
   KeyTagModal = 'KeyTagModal',
   UniversalSearchModal = 'UniversalSearchModal',
   StakingModal = 'StakingModal',
+  WalletAddress = 'WalletAddress',
 }
 
 export type IModalParamList = {
@@ -74,4 +76,5 @@ export type IModalParamList = {
   [EModalRoutes.KeyTagModal]: IModalKeyTagParamList;
   [EModalRoutes.UniversalSearchModal]: IUniversalSearchParamList;
   [EModalRoutes.StakingModal]: IModalStakingParamList;
+  [EModalRoutes.WalletAddress]: IModalWalletAddressParamList;
 };
