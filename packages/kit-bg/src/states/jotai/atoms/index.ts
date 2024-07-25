@@ -10,5 +10,6 @@ export * from './jotaiContextStoreMap';
 export * from './onboarding';
 export * from './password';
 export * from './settings';
+export * from './spotlight';
 export * from './v4migration';
 export * from './gallery';
