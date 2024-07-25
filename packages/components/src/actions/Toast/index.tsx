@@ -5,6 +5,8 @@ import { ToastProvider } from '@tamagui/toast';
 import { useWindowDimensions } from 'react-native';
 import { SizableText, View, YStack, useMedia } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Portal } from '../../hocs';
 import { Icon, XStack } from '../../primitives';
 
@@ -154,6 +156,11 @@ function toastMessage({
   preset = 'custom',
   actions,
 }: IToastBaseProps) {
+  if (platformEnv.isDev) {
+    if (title.length === 0) {
+      throw new Error(`The parameter 'title' cannot be an empty string`);
+    }
+  }
   if (toastId) {
     if (toastIdMap.has(toastId)) {
       const [createdAt, toastDuration] = toastIdMap.get(toastId) as [

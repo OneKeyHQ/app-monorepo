@@ -16,7 +16,7 @@ export function showMessage({ renderContent, duration }: IToastMessageOptions) {
         width={width}
       >
         <View
-          bg="$bgApp"
+          bg="$bg"
           px="$4"
           py="$3"
           borderRadius="$2"
