@@ -74,8 +74,9 @@ const MAX_RETRY_TIMES = 5;
 function PortalRender(props: {
   children: ReactNode;
   container?: EPortalContainerConstantName;
+  destroyDelayMs?: number;
 }) {
-  const { children, container } = props;
+  const { children, container, destroyDelayMs = 0 } = props;
 
   if (platformEnv.isDev) {
     if (children) {
@@ -143,9 +144,11 @@ function PortalRender(props: {
   useEffect(
     () => () => {
       // * destroy component
-      managerController.destroy();
+      setTimeout(() => {
+        managerController.destroy();
+      }, destroyDelayMs);
     },
-    [managerController],
+    [destroyDelayMs, managerController],
   );
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 
 import type { IXStackProps } from '@onekeyhq/components';
 import {
@@ -20,7 +20,7 @@ function HomeSelector(props: IProps) {
   const num = 0;
 
   const { createAddressDisabled, ...rest } = props;
-
+  const [visible, setVisible] = useState(true);
   return (
     <XStack
       testID="Wallet-Address-Generator"
@@ -33,14 +33,16 @@ function HomeSelector(props: IProps) {
         <AccountSelectorActiveAccountHome num={num} />
       ) : null}
       <Spotlight
-        isVisible
-        placement="bottom"
+        visible={visible}
         content={
           <SizableText>
             If you don’t see assets under ‘All Networks,’ click here to create
             an address for that network.
           </SizableText>
         }
+        onConfirm={() => {
+          setVisible(false);
+        }}
       >
         <IconButton icon="Copy2Outline" />
       </Spotlight>
