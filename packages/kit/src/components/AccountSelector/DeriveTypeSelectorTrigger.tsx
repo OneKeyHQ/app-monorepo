@@ -122,8 +122,14 @@ export function DeriveTypeSelectorTriggerStaticInput(
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId,
           });
-        const fixedValue =
-          defaultDeriveType || (viewItems?.[0].value as IAccountDeriveTypes);
+        let fixedValue = viewItems?.[0].value as IAccountDeriveTypes;
+        if (
+          defaultDeriveType &&
+          viewItems?.length &&
+          viewItems.find((item) => item.value === defaultDeriveType)
+        ) {
+          fixedValue = defaultDeriveType;
+        }
         onDeriveTypeChange?.(fixedValue);
       }
     })();

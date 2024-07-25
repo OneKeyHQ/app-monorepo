@@ -314,7 +314,7 @@ function ExportPrivateKeysPage({
             <Input
               size={media.gtMd ? 'medium' : 'large'}
               editable={false}
-              placeholder={keyLabel}
+              placeholder="••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
               secureTextEntry={secureEntry}
               addOns={actions}
               displayAsMaskWhenEmptyValue
