@@ -1,4 +1,7 @@
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 
 export enum EModalWalletAddressRoutes {
   DeriveTypesAddress = 'DeriveTypesAddress',
@@ -11,11 +14,13 @@ export type IModalWalletAddressParamList = {
     indexedAccountId: string;
     walletId: string;
     accountId: string;
+    onUnmounted?: () => void;
   };
   [EModalWalletAddressRoutes.WalletAddress]: {
     accountId?: string;
     indexedAccountId: string;
     walletId: string;
     deriveType: IAccountDeriveTypes;
+    deriveInfo: IAccountDeriveInfo;
   };
 };

@@ -13,19 +13,25 @@ import type {
   IPageScreenProps,
 } from '@onekeyhq/components';
 import {
+  Icon,
   Page,
   SearchBar,
   SectionList,
+  Spinner,
   Stack,
-  useClipboard,
+  Toast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { networkFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/utils';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -42,6 +48,7 @@ const WalletAddressContext = createContext<{
   indexedAccountId: string;
   walletId: string;
   deriveType?: IAccountDeriveTypes;
+  deriveInfo?: IAccountDeriveInfo;
   refreshLocalData: () => void;
 }>({
   networkAccountMap: {},
@@ -56,55 +63,99 @@ type ISectionItem = {
   data: IServerNetwork[];
 };
 
-const CELL_HEIGHT = 48;
-
 const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   const appNavigation =
     useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
+  const intl = useIntl();
   const { walletId, indexedAccountId, accountId } =
     useContext(WalletAddressContext);
+
+  const { result, run: onRefreshData } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+        {
+          networkId: item.id,
+          indexedAccountId,
+        },
+      ),
+    [item.id, indexedAccountId],
+  );
   const onPress = useCallback(() => {
     appNavigation.push(EModalWalletAddressRoutes.DeriveTypesAddress, {
       networkId: item.id,
       walletId,
       indexedAccountId,
       accountId,
+      onUnmounted: onRefreshData,
     });
-  }, [appNavigation, walletId, indexedAccountId, accountId, item.id]);
+  }, [
+    appNavigation,
+    walletId,
+    indexedAccountId,
+    accountId,
+    item.id,
+    onRefreshData,
+  ]);
+
+  const subtitle = useMemo(() => {
+    let text = intl.formatMessage({
+      id: ETranslations.copy_address_modal_item_create_address_instruction,
+    });
+    const count = result
+      ? result.networkAccounts.filter((o) => o.account).length
+      : 0;
+    if (count > 0) {
+      text = intl.formatMessage(
+        { id: ETranslations.global_count_addresses },
+        { count },
+      );
+    }
+    return text;
+  }, [intl, result]);
+
   return (
     <ListItem
       title={item.name}
-      h={CELL_HEIGHT}
+      subtitle={subtitle}
       onPress={onPress}
-      renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
-    />
+      renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$10" />}
+    >
+      <Icon name="ChevronRightOutline" color="$iconSubdued" />
+    </ListItem>
   );
 };
 
 const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
-  const { copyText } = useClipboard();
+  const copyAccountAddress = useCopyAccountAddress();
   const {
     networkAccountMap,
     walletId,
     indexedAccountId,
     deriveType,
+    deriveInfo,
     refreshLocalData,
   } = useContext(WalletAddressContext);
   const account = networkAccountMap[item.id] as INetworkAccount | undefined;
   const subtitle = account
     ? accountUtils.shortenAddress({ address: account.address })
-    : intl.formatMessage({ id: ETranslations.wallet_no_address });
+    : intl.formatMessage({
+        id: ETranslations.copy_address_modal_item_create_address_instruction,
+      });
 
   const onPress = useCallback(async () => {
+    if (!deriveType || !deriveInfo) {
+      throw Error('deriveType / deriveInfo must not be empty');
+    }
     if (account) {
-      copyText(account.address);
+      await copyAccountAddress({
+        accountId: account.id,
+        networkId: item.id,
+        deriveType,
+        deriveInfo,
+      });
     } else {
-      // create address
-      if (!deriveType) {
-        throw Error('deriveType must not be empty');
-      }
       try {
         setLoading(true);
         await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
@@ -113,6 +164,9 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
           deriveType,
           networkId: item.id,
         });
+        Toast.success({
+          title: intl.formatMessage({ id: ETranslations.global_success }),
+        });
         refreshLocalData();
       } finally {
         setLoading(false);
@@ -120,12 +174,14 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     }
   }, [
     account,
-    copyText,
     walletId,
     indexedAccountId,
     deriveType,
     item.id,
     refreshLocalData,
+    intl,
+    copyAccountAddress,
+    deriveInfo,
   ]);
 
   if (item.id === getNetworkIdsMap().btc) {
@@ -135,15 +191,20 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     <ListItem
       title={item.name}
       subtitle={subtitle}
-      h={CELL_HEIGHT}
-      renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
+      renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$10" />}
+      onPress={onPress}
+      disabled={loading}
     >
-      <ListItem.IconButton
-        loading={loading}
-        icon={account ? 'Copy1Outline' : 'PlusLargeOutline'}
-        size="small"
-        onPress={onPress}
-      />
+      {loading ? (
+        <Stack p="$0.5">
+          <Spinner />
+        </Stack>
+      ) : (
+        <Icon
+          name={account ? 'Copy3Outline' : 'PlusLargeOutline'}
+          color="$iconSubdued"
+        />
+      )}
     </ListItem>
   );
 };
@@ -193,7 +254,6 @@ const WalletAddressContent = ({
       if (item?.section?.title) {
         return <SectionList.SectionHeader title={item?.section?.title} />;
       }
-      return <Stack h="$2" />;
     },
     [],
   );
@@ -207,7 +267,7 @@ const WalletAddressContent = ({
 
   return (
     <Stack flex={1}>
-      <Stack px="$5">
+      <Stack px="$5" pb="$4">
         <SearchBar
           placeholder={intl.formatMessage({
             id: ETranslations.global_search,
@@ -231,17 +291,25 @@ const WalletAddress = ({
 }: {
   networks: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
-}) => (
-  <Page>
-    <Page.Header title="Wallet Address" />
-    <Page.Body>
-      <WalletAddressContent
-        networks={networks}
-        frequentlyUsedNetworks={frequentlyUsedNetworks}
+}) => {
+  const intl = useIntl();
+
+  return (
+    <Page>
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.copy_address_modal_title,
+        })}
       />
-    </Page.Body>
-  </Page>
-);
+      <Page.Body>
+        <WalletAddressContent
+          networks={networks}
+          frequentlyUsedNetworks={frequentlyUsedNetworks}
+        />
+      </Page.Body>
+    </Page>
+  );
+};
 
 export default function WalletAddressPage({
   route,
@@ -249,7 +317,8 @@ export default function WalletAddressPage({
   IModalWalletAddressParamList,
   EModalWalletAddressRoutes.WalletAddress
 >) {
-  const { accountId, indexedAccountId, walletId, deriveType } = route.params;
+  const { accountId, indexedAccountId, walletId, deriveType, deriveInfo } =
+    route.params;
   const { result, run: refreshLocalData } = usePromiseResult(
     async () => {
       const networks =
@@ -297,6 +366,7 @@ export default function WalletAddressPage({
       accountId,
       indexedAccountId,
       refreshLocalData,
+      deriveInfo,
     };
   }, [
     result.networksAccount,
@@ -305,6 +375,7 @@ export default function WalletAddressPage({
     indexedAccountId,
     accountId,
     refreshLocalData,
+    deriveInfo,
   ]);
 
   return (

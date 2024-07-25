@@ -9,10 +9,18 @@ import {
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { ListView, Page, Stack, useClipboard } from '@onekeyhq/components';
+import {
+  Icon,
+  ListView,
+  Page,
+  Spinner,
+  Stack,
+  Toast,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type {
   IAccountDeriveInfo,
@@ -46,7 +54,7 @@ const DeriveTypesAddressItem = ({
   item: IDeriveTypesAddressItemType;
 }) => {
   const intl = useIntl();
-  const { copyText } = useClipboard();
+  const copyAccountAddress = useCopyAccountAddress();
   const [loading, setLoading] = useState(false);
   const { network, refreshLocalData, walletId, indexedAccountId } = useContext(
     DeriveTypesAddressContent,
@@ -57,7 +65,15 @@ const DeriveTypesAddressItem = ({
 
   const onPress = useCallback(async () => {
     if (item.account) {
-      copyText(item.account.address);
+      if (!network) {
+        throw new Error('network is empty');
+      }
+      await copyAccountAddress({
+        accountId: item.account.id,
+        networkId: network.id,
+        deriveInfo: item.deriveInfo,
+        deriveType: item.deriveType,
+      });
     } else {
       try {
         setLoading(true);
@@ -70,26 +86,43 @@ const DeriveTypesAddressItem = ({
           deriveType: item.deriveType,
           networkId: network.id,
         });
+        Toast.success({
+          title: intl.formatMessage({ id: ETranslations.global_success }),
+        });
         refreshLocalData?.();
       } finally {
         setLoading(false);
       }
     }
-  }, [item, copyText, refreshLocalData, indexedAccountId, network, walletId]);
+  }, [
+    item,
+    copyAccountAddress,
+    refreshLocalData,
+    indexedAccountId,
+    network,
+    walletId,
+    intl,
+  ]);
   return (
     <ListItem
       title={item.deriveInfo.label}
       subtitle={subtitle}
       renderAvatar={
-        <NetworkAvatarBase logoURI={network?.logoURI ?? ''} size="$8" />
+        <NetworkAvatarBase logoURI={network?.logoURI ?? ''} size="$10" />
       }
+      onPress={onPress}
+      disabled={loading}
     >
-      <ListItem.IconButton
-        loading={loading}
-        icon={item.account ? 'Copy1Outline' : 'PlusLargeOutline'}
-        size="small"
-        onPress={onPress}
-      />
+      {loading ? (
+        <Stack p="$0.5">
+          <Spinner />
+        </Stack>
+      ) : (
+        <Icon
+          name={item.account ? 'Copy3Outline' : 'PlusLargeOutline'}
+          color="$iconSubdued"
+        />
+      )}
     </ListItem>
   );
 };
@@ -112,13 +145,14 @@ const DeriveTypesAddress = ({
   );
 };
 
-export default function WalletAddressPage({
+export default function DeriveTypesAddressPage({
   route,
 }: IPageScreenProps<
   IModalWalletAddressParamList,
   EModalWalletAddressRoutes.DeriveTypesAddress
 >) {
-  const { indexedAccountId, networkId, walletId } = route.params;
+  const intl = useIntl();
+  const { indexedAccountId, networkId, walletId, onUnmounted } = route.params;
   const { result, run: refreshLocalData } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
@@ -140,8 +174,10 @@ export default function WalletAddressPage({
   );
   return (
     <DeriveTypesAddressContent.Provider value={context}>
-      <Page>
-        <Page.Header title="Derive Types" />
+      <Page onUnmounted={onUnmounted}>
+        <Page.Header
+          title={intl.formatMessage({ id: ETranslations.address_type })}
+        />
         <Page.Body>
           <DeriveTypesAddress items={result?.networkAccounts ?? []} />
         </Page.Body>
