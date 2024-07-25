@@ -21,6 +21,7 @@ import {
   useAccountManualCreatingAtom,
   useSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
@@ -227,6 +228,15 @@ const SwapAccountAddressContainer = ({
     ) {
       return null;
     }
+    // all net need hidden
+    if (
+      swapAddressInfo.accountInfo?.network?.id ===
+        dangerAllNetworkRepresent.id ||
+      swapAnotherAddressInfo.accountInfo?.network?.id ===
+        dangerAllNetworkRepresent.id
+    ) {
+      return null;
+    }
     if (
       fromToken &&
       (!toToken || (toToken && !swapAnotherAddressInfo.address)) &&
@@ -291,15 +301,19 @@ const SwapAccountAddressContainer = ({
   }, [
     fromToken,
     type,
-    accountManualCreatingAtom.isLoading,
     toToken,
-    swapAddressInfo,
+    swapAddressInfo.accountInfo?.wallet,
+    swapAddressInfo.accountInfo?.indexedAccount,
+    swapAddressInfo.accountInfo?.network?.id,
+    swapAddressInfo.address,
     swapAnotherAddressInfo.address,
+    swapAnotherAddressInfo.accountInfo?.network?.id,
     swapSupportReceiveAddress,
     quoteResult,
     onToAnotherAddressModal,
     swapToAnotherAccountSwitchOn,
     intl,
+    accountManualCreatingAtom.isLoading,
     handleOnCreateAddress,
   ]);
 
