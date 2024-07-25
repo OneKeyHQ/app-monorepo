@@ -156,6 +156,7 @@ function NFTListContainer(props: ITabPageProps) {
       data={nftList ?? []}
       isLoading={nftListState.isRefreshing}
       initialized={nftListState.initialized}
+      isAllNetworks={network?.isAllNetworks}
     />
   );
 }

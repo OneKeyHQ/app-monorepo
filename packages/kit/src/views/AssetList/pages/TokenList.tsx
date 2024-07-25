@@ -147,6 +147,7 @@ function TokenList() {
         <TokenListView
           onPressToken={onPressToken ?? handleOnPressToken}
           withPrice
+          withNetwork={isAllNetworks}
           isAllNetworks={isAllNetworks}
         />
       </Page.Body>

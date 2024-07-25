@@ -17,12 +17,22 @@ export type ITokenListItemProps = {
   onPress?: (token: IAccountToken) => void;
   tableLayout?: boolean;
   withPrice?: boolean;
+  withNetwork?: boolean;
   isAllNetworks?: boolean;
+  isTokenSelectorLayout?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
-  const { token, onPress, tableLayout, withPrice, isAllNetworks, ...rest } =
-    props;
+  const {
+    token,
+    onPress,
+    tableLayout,
+    withPrice,
+    isAllNetworks,
+    withNetwork,
+    isTokenSelectorLayout,
+    ...rest
+  } = props;
 
   return (
     <ListItem
@@ -60,30 +70,48 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             size="$bodyLgMedium"
             minWidth={0}
             numberOfLines={1}
-            name={token.name}
+            name={isTokenSelectorLayout ? token.symbol : token.name}
             isNative={token.isNative}
             isAllNetworks={isAllNetworks}
+            networkId={token.networkId}
+            withNetwork={withNetwork}
             {...(tableLayout && {
               size: '$bodyMdMedium',
             })}
           />
         </XStack>
-        <TokenBalanceView
-          numberOfLines={1}
-          size="$bodyMd"
-          color="$textSubdued"
-          $key={token.$key ?? ''}
-          symbol={token.symbol}
-          {...(tableLayout && {
-            flexGrow: 1,
-            flexBasis: 0,
-            color: '$text',
-          })}
-        />
+        {isTokenSelectorLayout ? (
+          <TokenNameView
+            size="$bodyMd"
+            color="$textSubdued"
+            minWidth={0}
+            numberOfLines={1}
+            name={token.name}
+            networkId={token.networkId}
+            {...(tableLayout && {
+              flexGrow: 1,
+              flexBasis: 0,
+              color: '$text',
+            })}
+          />
+        ) : (
+          <TokenBalanceView
+            numberOfLines={1}
+            size="$bodyMd"
+            color="$textSubdued"
+            $key={token.$key ?? ''}
+            symbol={token.symbol}
+            {...(tableLayout && {
+              flexGrow: 1,
+              flexBasis: 0,
+              color: '$text',
+            })}
+          />
+        )}
       </Stack>
 
       <Stack
-        flexDirection="column-reverse"
+        flexDirection={isTokenSelectorLayout ? 'column' : 'column-reverse'}
         alignItems="flex-end"
         {...(tableLayout && {
           flexDirection: 'row',
@@ -106,16 +134,44 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             <TokenPriceChangeView $key={token.$key ?? ''} size="$bodyMd" />
           </XStack>
         ) : null}
-        <TokenValueView
-          $key={token.$key ?? ''}
-          size="$bodyLgMedium"
-          textAlign="right"
-          {...(tableLayout && {
-            flexGrow: 1,
-            flexBasis: 0,
-            size: '$bodyMdMedium',
-          })}
-        />
+        {isTokenSelectorLayout ? (
+          <TokenBalanceView
+            numberOfLines={1}
+            textAlign="right"
+            size="$bodyLgMedium"
+            $key={token.$key ?? ''}
+            symbol={token.symbol}
+            {...(tableLayout && {
+              flexGrow: 1,
+              flexBasis: 0,
+              color: '$text',
+            })}
+          />
+        ) : null}
+        {isTokenSelectorLayout ? (
+          <TokenValueView
+            $key={token.$key ?? ''}
+            size="$bodyMd"
+            color="$textSubdued"
+            textAlign="right"
+            {...(tableLayout && {
+              flexGrow: 1,
+              flexBasis: 0,
+              size: '$bodyMdMedium',
+            })}
+          />
+        ) : (
+          <TokenValueView
+            $key={token.$key ?? ''}
+            size="$bodyLgMedium"
+            textAlign="right"
+            {...(tableLayout && {
+              flexGrow: 1,
+              flexBasis: 0,
+              size: '$bodyMdMedium',
+            })}
+          />
+        )}
       </Stack>
     </ListItem>
   );
