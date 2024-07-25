@@ -110,7 +110,9 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
       >
         {current?.name ?? ''}
       </SizableText>
-      <Icon name="ChevronDownSmallOutline" mr="$-0.5" color="$iconSubdued" />
+      {!disabled ? (
+        <Icon name="ChevronDownSmallOutline" mr="$-0.5" color="$iconSubdued" />
+      ) : null}
     </Stack>
   );
 };

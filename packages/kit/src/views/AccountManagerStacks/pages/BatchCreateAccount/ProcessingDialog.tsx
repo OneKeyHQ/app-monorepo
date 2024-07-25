@@ -1,0 +1,154 @@
+import { useEffect, useMemo, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import {
+  Dialog,
+  Icon,
+  Progress,
+  SizableText,
+  Stack,
+} from '@onekeyhq/components';
+import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+function ProcessingDialogContent({
+  navigation,
+}: {
+  navigation?: IAppNavigation;
+}) {
+  const intl = useIntl();
+
+  const [state, setState] = useState<
+    IAppEventBusPayload[EAppEventBusNames.BatchCreateAccount] | undefined
+  >(undefined);
+
+  const isDone = useMemo(
+    () => Boolean(state && state?.progressCurrent === state?.progressTotal),
+    [state],
+  );
+  const [isCancelled, setIsCancelled] = useState(false);
+
+  useEffect(() => {
+    const cb = (
+      payload: IAppEventBusPayload[EAppEventBusNames.BatchCreateAccount],
+    ) => {
+      setState(payload);
+    };
+    appEventBus.on(EAppEventBusNames.BatchCreateAccount, cb);
+
+    return () => {
+      appEventBus.off(EAppEventBusNames.BatchCreateAccount, cb);
+    };
+  }, []);
+
+  return (
+    <Stack>
+      <Stack
+        py="$2.5"
+        px="$5"
+        space="$5"
+        flex={1}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Stack
+          flex={1}
+          alignItems="center"
+          justifyContent="center"
+          alignSelf="center"
+          w="100%"
+          maxWidth="$80"
+        >
+          {isDone ? (
+            <Icon name="CheckRadioSolid" size="$12" color="$iconSuccess" />
+          ) : null}
+
+          {isCancelled && !isDone ? (
+            <Icon name="XCircleSolid" size="$12" color="$iconCritical" />
+          ) : null}
+
+          {/* <SizableText mb="$4">Adding Accounts</SizableText> */}
+          <Progress
+            mt="$4"
+            w="100%"
+            size="medium"
+            value={Math.ceil(
+              ((state?.progressCurrent ?? 0) / (state?.progressTotal ?? 1)) *
+                100,
+            )}
+          />
+          <SizableText mt="$5" size="$bodyLg" textAlign="center">
+            {intl.formatMessage(
+              {
+                id: ETranslations.global_bulk_accounts_loading,
+              },
+              {
+                // amount: state?.createdCount ?? 0,
+                amount: state?.progressCurrent ?? 0,
+              },
+            )}
+          </SizableText>
+
+          {platformEnv.isDev ? (
+            <SizableText>
+              DebugProgress: {state?.progressCurrent} / {state?.progressTotal} :
+              {state?.createdCount} / {state?.totalCount} : ${state?.networkId}{' '}
+              - ${state?.deriveType}
+            </SizableText>
+          ) : null}
+        </Stack>
+      </Stack>
+
+      <Dialog.Footer
+        showCancelButton={false}
+        showConfirmButton
+        confirmButtonProps={{
+          variant: isDone || isCancelled ? 'primary' : 'secondary',
+        }}
+        onConfirmText={
+          isDone || isCancelled
+            ? intl.formatMessage({ id: ETranslations.global_done })
+            : intl.formatMessage({ id: ETranslations.global_cancel })
+        }
+        onConfirm={
+          isDone || isCancelled
+            ? () => {
+                if (!isCancelled) {
+                  navigation?.popStack();
+                }
+              }
+            : async ({ preventClose }) => {
+                preventClose();
+                setIsCancelled(true);
+                await backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
+              }
+        }
+      />
+    </Stack>
+  );
+}
+
+export function showBatchCreateAccountProcessingDialog({
+  navigation,
+  ...dialogProps
+}: IDialogShowProps & {
+  navigation?: IAppNavigation;
+}) {
+  Dialog.show({
+    showExitButton: false,
+    dismissOnOverlayPress: false,
+    // title: '',
+    renderContent: <ProcessingDialogContent navigation={navigation} />,
+    ...dialogProps,
+  });
+}
