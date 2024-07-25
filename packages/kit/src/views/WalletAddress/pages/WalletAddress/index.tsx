@@ -28,10 +28,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { networkFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/utils';
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -42,15 +39,16 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-const WalletAddressContext = createContext<{
+type IWalletAddressContext = {
   networkAccountMap: Record<string, INetworkAccount>;
   accountId?: string;
   indexedAccountId: string;
   walletId: string;
   deriveType?: IAccountDeriveTypes;
-  deriveInfo?: IAccountDeriveInfo;
   refreshLocalData: () => void;
-}>({
+};
+
+const WalletAddressContext = createContext<IWalletAddressContext>({
   networkAccountMap: {},
   accountId: '',
   indexedAccountId: '',
@@ -134,7 +132,6 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     walletId,
     indexedAccountId,
     deriveType,
-    deriveInfo,
     refreshLocalData,
   } = useContext(WalletAddressContext);
   const account = networkAccountMap[item.id] as INetworkAccount | undefined;
@@ -145,7 +142,7 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
       });
 
   const onPress = useCallback(async () => {
-    if (!deriveType || !deriveInfo) {
+    if (!deriveType) {
       throw Error('deriveType / deriveInfo must not be empty');
     }
     if (account) {
@@ -153,7 +150,6 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
         accountId: account.id,
         networkId: item.id,
         deriveType,
-        deriveInfo,
       });
     } else {
       try {
@@ -181,7 +177,6 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     refreshLocalData,
     intl,
     copyAccountAddress,
-    deriveInfo,
   ]);
 
   if (item.id === getNetworkIdsMap().btc) {
@@ -317,8 +312,7 @@ export default function WalletAddressPage({
   IModalWalletAddressParamList,
   EModalWalletAddressRoutes.WalletAddress
 >) {
-  const { accountId, indexedAccountId, walletId, deriveType, deriveInfo } =
-    route.params;
+  const { accountId, indexedAccountId, walletId, deriveType } = route.params;
   const { result, run: refreshLocalData } = usePromiseResult(
     async () => {
       const networks =
@@ -366,8 +360,7 @@ export default function WalletAddressPage({
       accountId,
       indexedAccountId,
       refreshLocalData,
-      deriveInfo,
-    };
+    } as IWalletAddressContext;
   }, [
     result.networksAccount,
     walletId,
@@ -375,7 +368,6 @@ export default function WalletAddressPage({
     indexedAccountId,
     accountId,
     refreshLocalData,
-    deriveInfo,
   ]);
 
   return (

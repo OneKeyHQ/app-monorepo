@@ -71,7 +71,6 @@ const DeriveTypesAddressItem = ({
       await copyAccountAddress({
         accountId: item.account.id,
         networkId: network.id,
-        deriveInfo: item.deriveInfo,
         deriveType: item.deriveType,
       });
     } else {
