@@ -11,3 +11,4 @@ export * from './onboarding';
 export * from './password';
 export * from './settings';
 export * from './v4migration';
+export * from './gallery';
