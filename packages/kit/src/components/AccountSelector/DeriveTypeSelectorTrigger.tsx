@@ -74,9 +74,11 @@ export function DeriveTypeSelectorTriggerStaticInput(
     enabledItems?: IAccountDeriveInfo[];
     networkId: string;
     onItemsChange?: (items: IAccountDeriveInfoItems[]) => void;
+    hideIfItemsLTEOne?: boolean; // <=1
   },
 ) {
   const {
+    hideIfItemsLTEOne,
     enabledItems,
     networkId,
     value: deriveType,
@@ -140,6 +142,11 @@ export function DeriveTypeSelectorTriggerStaticInput(
       value={deriveType}
       onChange={onDeriveTypeChange}
       {...others}
+      renderTrigger={
+        hideIfItemsLTEOne && options.length <= 1
+          ? () => <Stack />
+          : others.renderTrigger
+      }
     />
   );
 }
@@ -278,6 +285,7 @@ export function DeriveTypeSelectorFormField({
         name={fieldName}
       >
         <DeriveTypeSelectorTriggerStaticInput
+          hideIfItemsLTEOne
           onItemsChange={(items) => {
             const shouldHide = items.length <= 1;
             if (hide !== shouldHide) {

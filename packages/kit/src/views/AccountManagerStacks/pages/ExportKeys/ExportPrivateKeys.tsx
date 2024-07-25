@@ -277,7 +277,7 @@ function ExportPrivateKeysPage({
   const keyLabel = useMemo(() => {
     let label = 'key';
     if (exportType === 'publicKey') {
-      label = intl.formatMessage({ id: ETranslations.form_public_key_title });
+      label = intl.formatMessage({ id: ETranslations.global_public_key });
     }
     if (exportType === 'privateKey') {
       label = intl.formatMessage({ id: ETranslations.global_private_key });
