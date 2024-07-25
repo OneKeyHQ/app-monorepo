@@ -2,7 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import { spotlightPersistAtom } from '../states/jotai/atoms/spotlight';
 
@@ -26,6 +26,15 @@ class ServiceSpotlight extends ServiceBase {
           [tourName]: tourTimes + 1,
         },
       };
+    });
+  }
+
+  @backgroundMethod()
+  public async reset() {
+    await spotlightPersistAtom.set({
+      data: {
+        [ESpotlightTour.createAllNetworks]: 0,
+      },
     });
   }
 }
