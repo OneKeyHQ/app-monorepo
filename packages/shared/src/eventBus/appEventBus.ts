@@ -10,7 +10,7 @@ import platformEnv from '../platformEnv';
 
 import type { EAccountSelectorSceneName } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
-import { IAccountToken, ITokenFiat } from '../../types/token';
+import type { IAccountToken, ITokenFiat } from '../../types/token';
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
