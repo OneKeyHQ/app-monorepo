@@ -41,28 +41,29 @@ type ISpotlightContentEvent = ISpotlight & {
   offset: number;
 };
 function SpotlightContent({
+  initProps,
   triggerPropsRef,
-  defer,
 }: {
-  defer?: IDeferredPromise<unknown>;
+  initProps: ISpotlightContentEvent;
   triggerPropsRef: MutableRefObject<{
+    defer?: IDeferredPromise<unknown>;
     trigger: ((props: ISpotlightContentEvent) => void) | undefined;
   }>;
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const [props, setProps] = useState({} as ISpotlightContentEvent);
+  const [props, setProps] = useState(initProps);
 
   useLayoutEffect(() => {
     if (triggerPropsRef.current) {
       triggerPropsRef.current.trigger = (params) => {
         setProps(params);
       };
-      if (defer) {
-        defer.resolve(undefined);
+      if (triggerPropsRef.current.defer) {
+        triggerPropsRef.current.defer.resolve(undefined);
       }
     }
-  }, [defer, triggerPropsRef]);
+  }, [triggerPropsRef]);
   const { visible, children, floatingPosition, content, onConfirm, offset } =
     props;
 
@@ -79,9 +80,10 @@ function SpotlightContent({
     [floatingPosition, gtMd, offset],
   );
 
+  const isRendered = floatingPosition.width > 0;
   return (
     <AnimatePresence>
-      {visible ? (
+      {visible && isRendered ? (
         <Stack
           flex={1}
           bg="rgba(0,0,0,0.2)"
@@ -100,8 +102,8 @@ function SpotlightContent({
             position="absolute"
             pointerEvents="none"
             bg="$bg"
-            top={floatingPosition?.y}
-            left={floatingPosition?.x}
+            top={floatingPosition.y}
+            left={floatingPosition.x}
             borderRadius="$full"
           >
             {children}
@@ -139,8 +141,10 @@ export function Spotlight({
   const triggerRef = useRef<IElement | null>(null);
   const triggerPropsRef = useRef<{
     trigger: ((props: ISpotlightContentEvent) => void) | undefined;
+    defer: IDeferredPromise<unknown>;
   }>({
     trigger: undefined,
+    defer,
   });
   const [floatingPosition, setFloatingPosition] = useState<{
     x: number;
@@ -189,7 +193,17 @@ export function Spotlight({
           destroyDelayMs={1200}
           container={EPortalContainerConstantName.FULL_WINDOW_OVERLAY_PORTAL}
         >
-          <SpotlightContent triggerPropsRef={triggerPropsRef} defer={defer} />
+          <SpotlightContent
+            triggerPropsRef={triggerPropsRef}
+            initProps={{
+              visible,
+              children,
+              floatingPosition,
+              content,
+              onConfirm,
+              offset,
+            }}
+          />
         </Portal.Body>
       ) : null}
     </>
