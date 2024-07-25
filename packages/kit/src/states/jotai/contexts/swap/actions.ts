@@ -772,9 +772,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
       if (type === ESwapDirectionType.FROM) {
-        set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '0.0');
+        set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
       } else {
-        set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '0.0');
+        set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
       }
     },
   );
@@ -792,7 +792,7 @@ export const useSwapActions = () => {
   const recoverQuoteInterval = actions.recoverQuoteInterval.use();
   const quoteAction = actions.quoteAction.use();
   const approvingStateAction = actions.approvingStateAction.use();
-  const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 200);
+  const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 300);
   const tokenListFetchAction = actions.tokenListFetchAction.use();
 
   const loadSwapSelectTokenDetail = debounce(
