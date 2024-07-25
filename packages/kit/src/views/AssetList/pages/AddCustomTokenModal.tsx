@@ -5,7 +5,15 @@ import BigNumber from 'bignumber.js';
 import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Form, Input, Page, Toast, useForm } from '@onekeyhq/components';
+import {
+  Form,
+  Input,
+  Page,
+  SizableText,
+  Stack,
+  Toast,
+  useForm,
+} from '@onekeyhq/components';
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -14,6 +22,7 @@ import type {
   EModalAssetListRoutes,
   IModalAssetListParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IAccountToken,
   IToken,
@@ -21,6 +30,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { NetworkAvatar } from '../../../components/NetworkAvatar/NetworkAvatar';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -52,9 +62,10 @@ function AddCustomTokenModal() {
     onSuccess,
   } = route.params;
 
+  const isAllNetwork = networkUtils.isAllNetwork({ networkId });
   const form = useForm<IFormValues>({
     values: {
-      networkId: networkId ?? getNetworkIdsMap().eth,
+      networkId: isAllNetwork ? getNetworkIdsMap().eth : networkId,
       contractAddress: token?.address || '',
       symbol: token?.symbol || '',
       decimals: token?.decimals ? new BigNumber(token.decimals).toString() : '',
@@ -62,17 +73,18 @@ function AddCustomTokenModal() {
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
+  const selectedNetworkIdValue = form.watch('networkId');
   const contractAddressValue = form.watch('contractAddress');
 
   const searchedTokenRef = useRef<IToken>();
   const throttledSearchContractRef = useRef(
-    throttle(async (value) => {
+    throttle(async (params: { value: string; networkId: string }) => {
       const searchResult =
         await backgroundApiProxy.serviceCustomToken.searchTokenByContractAddress(
           {
             walletId,
-            networkId,
-            contractAddress: value,
+            networkId: params.networkId,
+            contractAddress: params.value,
             isNative: token?.isNative ?? false,
           },
         );
@@ -91,8 +103,66 @@ function AddCustomTokenModal() {
     }, 300),
   );
   useEffect(() => {
-    void throttledSearchContractRef.current(contractAddressValue);
-  }, [contractAddressValue]);
+    void throttledSearchContractRef.current({
+      value: contractAddressValue,
+      networkId: selectedNetworkIdValue,
+    });
+  }, [contractAddressValue, selectedNetworkIdValue]);
+
+  const { result: availableNetworks } = usePromiseResult(async () => {
+    const resp =
+      await backgroundApiProxy.serviceNetwork.getCustomTokenEnabledNetworks();
+    const networkIds = resp.map((o) => o.id);
+    const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+      networkId,
+    });
+    return {
+      networkIds,
+      network,
+    };
+  }, [networkId]);
+  const renderNetworkSelectorFormItem = useCallback(() => {
+    if (isAllNetwork) {
+      return (
+        <Form.Field
+          label={intl.formatMessage({ id: ETranslations.global_network })}
+          name="networkId"
+        >
+          <ControlledNetworkSelectorTrigger
+            networkIds={availableNetworks?.networkIds}
+          />
+        </Form.Field>
+      );
+    }
+    return (
+      <Form.Field
+        label={intl.formatMessage({ id: ETranslations.global_network })}
+        name="networkId"
+      >
+        <Stack
+          userSelect="none"
+          flexDirection="row"
+          alignItems="center"
+          borderRadius="$3"
+          borderWidth={1}
+          borderCurve="continuous"
+          borderColor="$borderStrong"
+          px="$3"
+          py="$2.5"
+          $gtMd={{
+            borderRadius: '$2',
+            py: '$2',
+          }}
+          testID="network-selector-input"
+        >
+          <NetworkAvatar networkId={networkId} size="$6" />
+          <SizableText px={14} flex={1} size="$bodyLg">
+            {availableNetworks?.network.name ?? ''}
+          </SizableText>
+        </Stack>
+      </Form.Field>
+    );
+  }, [availableNetworks, intl, isAllNetwork, networkId]);
 
   // MARK: - Check account if exist
   const checkAccountIsExist = useCallback(async () => {
@@ -133,13 +203,13 @@ function AddCustomTokenModal() {
       const { serviceToken } = backgroundApiProxy;
       const t = await serviceToken.fetchAccountTokens({
         accountId: params.accountId,
-        networkId,
+        networkId: selectedNetworkIdValue,
         mergeTokens: true,
         flag: 'custom-token',
       });
       return t.allTokens;
     },
-    [networkId],
+    [selectedNetworkIdValue],
   );
   const { result: existTokenList } = usePromiseResult(async () => {
     const { hasExistAccountFlag, accountIdForNetwork } =
@@ -212,10 +282,10 @@ function AddCustomTokenModal() {
           decimals: new BigNumber(decimals).toNumber(),
           ...searchedTokenRef.current,
           accountId: accountIdForNetwork,
-          networkId,
+          networkId: selectedNetworkIdValue,
           name: searchedTokenRef.current?.name ?? '',
           isNative: searchedTokenRef.current?.isNative ?? false,
-          $key: `${networkId}_${contractAddress}`,
+          $key: `${selectedNetworkIdValue}_${contractAddress}`,
         },
       });
       Toast.success({
@@ -234,7 +304,7 @@ function AddCustomTokenModal() {
       checkAccountIsExist,
       fetchTokenList,
       existTokenList,
-      networkId,
+      selectedNetworkIdValue,
       token?.isNative,
       intl,
       onSuccess,
@@ -246,13 +316,7 @@ function AddCustomTokenModal() {
       <Page.Header title="Custom Token" />
       <Page.Body px="$5">
         <Form form={form}>
-          <Form.Field
-            label={intl.formatMessage({ id: ETranslations.global_network })}
-            name="networkId"
-            disabled
-          >
-            <ControlledNetworkSelectorTrigger networkIds={[networkId]} />
-          </Form.Field>
+          {renderNetworkSelectorFormItem()}
           <Form.Field label="Contract Address" name="contractAddress">
             <Input editable={!token?.isNative} />
           </Form.Field>
