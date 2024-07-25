@@ -1,15 +1,11 @@
 import { toast } from '@backpackapp-io/react-native-toast';
-import { Dimensions } from 'react-native';
 
 import { View, XStack } from '../../primitives';
 
 import type { IToastMessageOptions } from './type';
 
-const GAP = 104;
 export function showMessage({ renderContent, duration }: IToastMessageOptions) {
-  const windowWidth = Dimensions.get('window').width;
   toast('', {
-    width: windowWidth - GAP * 2,
     duration,
     disableShadow: true,
     customToast: ({ width }) => (

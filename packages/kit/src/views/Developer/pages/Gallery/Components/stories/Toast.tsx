@@ -3,6 +3,8 @@ import { Button, Toast, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
+const ONE_HOUR = 60 * 60 * 1000;
+
 const ToastGallery = () => (
   <Layout
     description=""
@@ -15,30 +17,25 @@ const ToastGallery = () => (
           <YStack space="$2" justifyContent="center">
             <Button
               onPress={() => {
-                Toast.success({
+                Toast.message({
+                  duration: ONE_HOUR,
                   title: 'Account created',
                 });
-              }}
-            >
-              Success
-            </Button>
-            <Button
-              onPress={() => {
                 Toast.error({
+                  duration: ONE_HOUR,
                   title: 'Create account failed',
                 });
-              }}
-            >
-              Error
-            </Button>
-            <Button
-              onPress={() => {
-                Toast.message({
+                Toast.warning({
+                  duration: ONE_HOUR,
+                  title: 'Create account failed',
+                });
+                Toast.success({
+                  duration: ONE_HOUR,
                   title: 'Address copied',
                 });
               }}
             >
-              Default
+              All Types
             </Button>
             <Button
               onPress={() => {
@@ -62,7 +59,7 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.success({
-                  duration: 999999,
+                  duration: ONE_HOUR,
                   title: `Lorem ipsum dolor sit amet, 
                     consectetur adipiscing elit. 
                     Quisque nec elementum eros. 
@@ -137,7 +134,7 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.error({
-                  duration: 999999,
+                  duration: ONE_HOUR,
                   title: 'Title',
                   message: `Lorem ipsum dolor sit amet, 
                     consectetur adipiscing elit. 
@@ -213,7 +210,7 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.error({
-                  duration: 999999,
+                  duration: ONE_HOUR,
                   title:
                     'Lorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit amet',
                   message: `Lorem ipsum dolor sit amet, 
@@ -288,24 +285,6 @@ const ToastGallery = () => (
             </Button>
             <Button
               onPress={() => {
-                Toast.error({
-                  duration: 1400,
-                  title: 'Title',
-                  message: `Lorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit amet`,
-                  actionsProps: {
-                    children: 'Copy',
-                    my: '$2',
-                    onPress: () => {
-                      alert('Copy it');
-                    },
-                  },
-                });
-              }}
-            >
-              Copy it
-            </Button>
-            <Button
-              onPress={() => {
                 new Array(10).fill(0).forEach(() => {
                   setTimeout(() => {
                     Toast.error({
@@ -318,6 +297,66 @@ const ToastGallery = () => (
               }}
             >
               filter out duplicate toasts by toastId
+            </Button>
+            <Button
+              onPress={() => {
+                Toast.error({
+                  duration: ONE_HOUR,
+                  title:
+                    'Suunto’s new headphones finally made me appreciate bone conduction',
+                  message: `Usually, I’m all about the bass for workout headphones, so I was surprised by how much I enjoyed the Suunto Sonic and Wing.`,
+                  actions: (
+                    <Button
+                      variant="primary"
+                      size="small"
+                      onPress={() => {
+                        alert('Copy it');
+                      }}
+                    >
+                      Copy it
+                    </Button>
+                  ),
+                });
+              }}
+            >
+              Actions 1 (copy)
+            </Button>
+            <Button
+              onPress={() => {
+                Toast.message({
+                  duration: ONE_HOUR,
+                  title:
+                    'A few weeks with the Daylight DC-1 tablet: rethinking screen time',
+                  message: `So far, this thing doesn’t seem like a very impressive tablet. But Daylight is more a display company than a tablet company — and the display is pretty great.`,
+                  actions: [
+                    <Button key="1" variant="primary" size="small">
+                      Primary
+                    </Button>,
+                  ],
+                });
+              }}
+            >
+              Actions 2 (info)
+            </Button>
+            <Button
+              onPress={() => {
+                Toast.warning({
+                  duration: ONE_HOUR,
+                  title:
+                    'Google is trying to steal the Ray-Ban partnership from Meta',
+                  message: `The smart glasses market is heating up. Also: layoffs and a strategy shift hit Magic Leap.`,
+                  actions: [
+                    <Button key="1" variant="secondary" size="small">
+                      Secondary
+                    </Button>,
+                    <Button key="2" variant="primary" size="small">
+                      Primary
+                    </Button>,
+                  ],
+                });
+              }}
+            >
+              Actions 3 (warning)
             </Button>
           </YStack>
         ),
