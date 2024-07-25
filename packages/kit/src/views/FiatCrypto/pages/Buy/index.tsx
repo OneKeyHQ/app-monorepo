@@ -8,6 +8,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import SellOrBuy from '../../components/SellOrBuy';
+import { TokenDataContainer } from '../../components/TokenDataContainer';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -19,12 +20,14 @@ const BuyPage = () => {
   const { networkId, accountId } = route.params;
   const intl = useIntl();
   return (
-    <SellOrBuy
-      title={intl.formatMessage({ id: ETranslations.global_buy })}
-      type="buy"
-      networkId={networkId}
-      accountId={accountId}
-    />
+    <TokenDataContainer initialMap={{}} initialTokens={[]}>
+      <SellOrBuy
+        title={intl.formatMessage({ id: ETranslations.global_buy })}
+        type="buy"
+        networkId={networkId}
+        accountId={accountId}
+      />
+    </TokenDataContainer>
   );
 };
 
