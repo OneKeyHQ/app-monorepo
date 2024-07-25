@@ -144,11 +144,18 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     // throw new NotImplemented();;
     const { privateKeyRaw } = query;
 
-    // const privateKey = bufferUtils.toBuffer(privateKeyRaw, 'hex')
-    const privateKey = hexUtils.isHexString(privateKeyRaw)
-      ? bufferUtils.toBuffer(privateKeyRaw, 'hex')
-      : // eslint-disable-next-line spellcheck/spell-checker
-        bufferUtils.toBuffer(privateKeyRaw, 'utf-8'); // suiprivkey1qq*****
+    let privateKey: Buffer | undefined;
+    if (hexUtils.isHexString(privateKeyRaw)) {
+      privateKey = bufferUtils.toBuffer(privateKeyRaw, 'hex');
+    } else {
+      // eslint-disable-next-line spellcheck/spell-checker
+      // suiprivkey1qq*****
+      // privateKey = bufferUtils.toBuffer(privateKeyRaw, 'utf-8'); // not correct buffer convert for sui
+    }
+
+    if (!privateKey) {
+      throw new Error('Invalid private key');
+    }
 
     const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
     return this.getAddressFromPublic({
