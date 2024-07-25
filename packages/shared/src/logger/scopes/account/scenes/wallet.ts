@@ -28,11 +28,20 @@ export class WalletScene extends BaseScene {
     return params;
   }
 
+  @LogToServer()
   @LogToLocal()
   public connect3rdPartyWallet(params: {
     ['3rdpartyConnectNetwork']: string;
     ['3rdpartyConnectType']: string;
   }) {
     return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public backupWallet(backupMethod: string) {
+    return {
+      backupMethod,
+    };
   }
 }
