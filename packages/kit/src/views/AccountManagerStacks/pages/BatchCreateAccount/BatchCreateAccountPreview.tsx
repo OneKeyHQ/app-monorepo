@@ -371,7 +371,7 @@ function BatchCreateAccountPreviewPage({
   const numWidth = '$20';
 
   return (
-    <Page scrollEnabled safeAreaEnabled={false}>
+    <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.send_preview_button,

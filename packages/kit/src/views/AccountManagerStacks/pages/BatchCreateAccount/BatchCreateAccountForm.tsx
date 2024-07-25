@@ -58,7 +58,7 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
   const isProcessingRef = useRef(false);
 
   return (
-    <Page scrollEnabled safeAreaEnabled={false}>
+    <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_bulk_add_accounts,

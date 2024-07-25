@@ -286,7 +286,7 @@ function ExportPrivateKeysPage({
   }, [exportType, intl]);
 
   return (
-    <Page scrollEnabled safeAreaEnabled={false}>
+    <Page scrollEnabled safeAreaEnabled>
       <Page.Header title={title} />
       <Page.Body p="$4">
         <Form form={form}>
