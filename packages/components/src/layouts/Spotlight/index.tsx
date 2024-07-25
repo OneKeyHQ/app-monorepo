@@ -97,7 +97,7 @@ type IExtendedStylesProps = {
   contentStyle: ViewStyle;
 };
 
-class Spotlight extends Component<IProps, IState> {
+export class Spotlight extends Component<IProps, IState> {
   static defaultProps = {
     animated: false,
     arrowSize: DEFAULT_ARROW_SIZE,
@@ -621,5 +621,3 @@ class Spotlight extends Component<IProps, IState> {
     );
   }
 }
-
-export default Spotlight;
