@@ -191,7 +191,7 @@ export function Spotlight({
       {visible ? (
         <Portal.Body
           destroyDelayMs={1200}
-          container={EPortalContainerConstantName.FULL_WINDOW_OVERLAY_PORTAL}
+          container={EPortalContainerConstantName.SPOTLIGHT_OVERLAY_PORTAL}
         >
           <SpotlightContent
             triggerPropsRef={triggerPropsRef}
