@@ -258,7 +258,9 @@ function ReceiveToken() {
       <>
         <Stack mb="$5">
           <XStack space="$2" alignItems="center" justifyContent="center">
-            <Heading size="$headingMd">{network.name}</Heading>
+            <Heading size="$headingMd">
+              {token?.symbol ?? network.symbol}
+            </Heading>
             {vaultSettings?.showAddressType && addressType ? (
               <Badge>{addressType}</Badge>
             ) : null}
@@ -269,9 +271,14 @@ function ReceiveToken() {
             color="$textSubdued"
             textAlign="center"
           >
-            {intl.formatMessage({
-              id: ETranslations.receive_send_asset_warning_message,
-            })}
+            {intl.formatMessage(
+              {
+                id: ETranslations.receive_send_asset_warning_message,
+              },
+              {
+                network: network.name,
+              },
+            )}
           </SizableText>
         </Stack>
         <Stack
