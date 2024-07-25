@@ -20,6 +20,8 @@ import type {
   IFetchAccountTokensResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
+  ISearchTokenItem,
+  ISearchTokensParams,
   IToken,
   ITokenData,
 } from '@onekeyhq/shared/types/token';
@@ -37,6 +39,14 @@ class ServiceToken extends ServiceBase {
 
   _fetchAccountTokensControllers: AbortController[] = [];
 
+  _searchTokensControllers: AbortController[] = [];
+
+  @backgroundMethod()
+  public async abortSearchTokens() {
+    this._searchTokensControllers.forEach((controller) => controller.abort());
+    this._searchTokensControllers = [];
+  }
+
   @backgroundMethod()
   public async abortFetchAccountTokens() {
     this._fetchAccountTokensControllers.forEach((controller) =>
@@ -51,7 +61,6 @@ class ServiceToken extends ServiceBase {
   ): Promise<IFetchAccountTokensResp> {
     const { mergeTokens, flag, accountId, isAllNetworks, ...rest } = params;
     const { networkId, contractList = [] } = rest;
-
     if (
       isAllNetworks &&
       this._currentNetworkId !== getNetworkIdsMap().onekeyall
@@ -120,9 +129,15 @@ class ServiceToken extends ServiceBase {
         riskTokens,
         smallBalanceTokens,
       }));
+      if (allTokens) {
+        allTokens.data = allTokens.data.map((token) => ({
+          ...token,
+          accountId,
+          networkId,
+        }));
+      }
+      resp.data.data.allTokens = allTokens;
     }
-
-    resp.data.data.allTokens = allTokens;
 
     resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => ({
       ...token,
@@ -224,6 +239,34 @@ class ServiceToken extends ServiceBase {
     return vault.fillTokensDetails({
       tokensDetails: resp.data.data,
     });
+  }
+
+  @backgroundMethod()
+  public async searchTokens(params: ISearchTokensParams) {
+    const { accountId, networkId, contractList, keywords } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const controller = new AbortController();
+    this._searchTokensControllers.push(controller);
+    const resp = await client.post<{ data: ISearchTokenItem[] }>(
+      '/wallet/v1/account/token/search',
+      {
+        networkId,
+        contractList,
+        keywords,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+        signal: controller.signal,
+      },
+    );
+
+    return resp.data.data.map((item) => ({
+      ...item.info,
+      $key: item.info.uniqueKey ?? item.info.address,
+    }));
   }
 
   @backgroundMethod()

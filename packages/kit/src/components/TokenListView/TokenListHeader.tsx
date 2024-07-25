@@ -3,7 +3,6 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import {
-  ENABLE_SEARCH_TOKEN_LIST_MIN_LENGTH,
   SEARCH_DEBOUNCE_INTERVAL,
   SEARCH_KEY_MIN_LENGTH,
 } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -17,12 +16,11 @@ import {
 import { ListToolToolBar } from '../ListToolBar';
 
 type IProps = {
-  tokens: IAccountToken[];
   filteredTokens: IAccountToken[];
   tableLayout?: boolean;
 };
 
-function TokenListHeader({ tableLayout, tokens, filteredTokens }: IProps) {
+function TokenListHeader({ tableLayout, filteredTokens }: IProps) {
   const intl = useIntl();
   const { updateSearchKey } = useTokenListActions().current;
   const [searchKey] = useSearchKeyAtom();
@@ -30,20 +28,16 @@ function TokenListHeader({ tableLayout, tokens, filteredTokens }: IProps) {
   return (
     <Stack testID="Wallet-Token-List-Header">
       <ListToolToolBar
-        searchProps={
-          tokens.length >= ENABLE_SEARCH_TOKEN_LIST_MIN_LENGTH
-            ? {
-                onChangeText: debounce(
-                  (text) => updateSearchKey(text),
-                  SEARCH_DEBOUNCE_INTERVAL,
-                ),
-                searchResultCount:
-                  searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH
-                    ? filteredTokens.length
-                    : 0,
-              }
-            : undefined
-        }
+        searchProps={{
+          onChangeText: debounce(
+            (text) => updateSearchKey(text),
+            SEARCH_DEBOUNCE_INTERVAL,
+          ),
+          searchResultCount:
+            searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH
+              ? filteredTokens.length
+              : 0,
+        }}
       />
 
       {tableLayout ? (

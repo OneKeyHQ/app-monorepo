@@ -34,6 +34,7 @@ function useAllNetworkRequests<T>(params: {
   isNFTRequests?: boolean;
   disabled?: boolean;
   interval?: number;
+  shouldAlwaysFetch?: boolean;
 }) {
   const {
     account,
@@ -45,6 +46,7 @@ function useAllNetworkRequests<T>(params: {
     isNFTRequests,
     disabled,
     interval = 0,
+    shouldAlwaysFetch,
   } = params;
   const allNetworkDataInit = useRef(false);
   const isFetching = useRef(false);
@@ -178,6 +180,8 @@ function useAllNetworkRequests<T>(params: {
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused || !!shouldAlwaysFetch,
     },
   );
 

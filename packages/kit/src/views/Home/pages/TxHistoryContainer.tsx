@@ -7,7 +7,6 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
