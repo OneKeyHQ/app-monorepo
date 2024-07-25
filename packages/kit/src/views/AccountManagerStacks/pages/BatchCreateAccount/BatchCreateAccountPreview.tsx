@@ -380,7 +380,8 @@ function BatchCreateAccountPreviewPage({
         headerRight={headerRight}
       />
       <Page.Body
-        p="$4"
+        px="$5"
+        py="$4"
         // backgroundColor={'#eee'}
       >
         <Stack flexDirection="row">
