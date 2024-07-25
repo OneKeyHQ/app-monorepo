@@ -14,6 +14,7 @@ import { showMessage } from './showMessage';
 import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IPortalManager } from '../../hocs';
 import type { ISizableTextProps } from '../../primitives';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export interface IToastProps {
   toastId?: string;
@@ -154,6 +155,11 @@ function toastMessage({
   preset = 'custom',
   actions,
 }: IToastBaseProps) {
+  if (platformEnv.isDev) {
+    if (title.length === 0) {
+      throw new Error(`The parameter 'title' cannot be an empty string`)
+    }
+  }
   if (toastId) {
     if (toastIdMap.has(toastId)) {
       const [createdAt, toastDuration] = toastIdMap.get(toastId) as [
