@@ -16,6 +16,9 @@ function toBuffer(
 ): Buffer {
   if (isString(data)) {
     if (encoding === 'hex') {
+      // if (!hexUtils.isHexString(data)) {
+      //   throw new Error('toBuffer ERROR: Invalid hex string');
+      // }
       // eslint-disable-next-line no-param-reassign
       data = hexUtils.stripHexPrefix(data);
     }

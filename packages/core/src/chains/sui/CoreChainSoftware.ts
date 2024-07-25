@@ -14,8 +14,8 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { decrypt } from '../../secret';
-import { ECoreApiExportedSecretKeyType } from '../../types';
 import {
+  ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImported,
   type ICoreApiGetAddressQueryPublicKey,
@@ -143,7 +143,20 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   ): Promise<ICoreApiGetAddressItem> {
     // throw new NotImplemented();;
     const { privateKeyRaw } = query;
-    const privateKey = bufferUtils.toBuffer(privateKeyRaw);
+
+    let privateKey: Buffer | undefined;
+    if (hexUtils.isHexString(privateKeyRaw)) {
+      privateKey = bufferUtils.toBuffer(privateKeyRaw, 'hex');
+    } else {
+      // eslint-disable-next-line spellcheck/spell-checker
+      // suiprivkey1qq*****
+      // privateKey = bufferUtils.toBuffer(privateKeyRaw, 'utf-8'); // not correct buffer convert for sui
+    }
+
+    if (!privateKey) {
+      throw new Error('Invalid private key');
+    }
+
     const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
     return this.getAddressFromPublic({
       publicKey: bufferUtils.bytesToHex(pub),

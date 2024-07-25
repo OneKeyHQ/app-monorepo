@@ -587,10 +587,10 @@ function publicKeyToString(curveName: ICurveName, publicKey: Buffer): string {
   return publicKey.toString('hex');
 }
 
-test('Wrong length of ECDSA signature', () => {
-  expect(
-    verify('secp256k1', Buffer.from(''), Buffer.from(''), Buffer.from('')),
-  ).toStrictEqual(false);
+test('Empty buffer not allowed', () => {
+  expect(() => {
+    verify('secp256k1', Buffer.from(''), Buffer.from(''), Buffer.from(''));
+  }).toThrow(new Error('Curve call ERROR: Buffer is empty'));
 });
 
 test('Child index is not int', () => {
