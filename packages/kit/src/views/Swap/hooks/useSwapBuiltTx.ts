@@ -48,7 +48,7 @@ export function useSwapBuildTx() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
-  const [{ isFirstTimeSwap }] = useSettingsPersistAtom();
+  const [{ isFirstTimeSwap }, setSettings] = useSettingsPersistAtom();
   const { navigationToSendConfirm } = useSendConfirm({
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
     networkId: swapFromAddressInfo.networkId ?? '',
@@ -355,7 +355,7 @@ export function useSwapBuildTx() {
           });
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
             swapType: EProtocolOfExchange.SWAP,
-            slippage: slippageItem.value.toFixed(),
+            slippage: slippageItem.value.toString(),
             sourceChain: fromToken.networkId,
             receivedChain: toToken.networkId,
             fromAddress: swapFromAddressInfo.address,
@@ -364,10 +364,14 @@ export function useSwapBuildTx() {
             receivedTokenSymbol: toToken.symbol,
             swapAmount: selectQuote?.fromAmount,
             swapValue: selectQuote?.toAmount,
-            feeType: selectQuote?.fee?.percentageFee?.toFixed() ?? '0',
+            feeType: selectQuote?.fee?.percentageFee?.toString() ?? '0',
             router: JSON.stringify(selectQuote?.routesData ?? ''),
             isFirstTime: isFirstTimeSwap,
           });
+          setSettings((prev) => ({
+            ...prev,
+            isFirstTimeSwap: false,
+          }));
         } else {
           setSwapBuildTxFetching(false);
         }
@@ -376,6 +380,7 @@ export function useSwapBuildTx() {
       }
     }
   }, [
+    setSettings,
     fromToken,
     toToken,
     selectQuote?.fromAmount,
