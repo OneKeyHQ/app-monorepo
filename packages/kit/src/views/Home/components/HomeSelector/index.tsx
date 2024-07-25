@@ -5,13 +5,13 @@ import {
   Icon,
   IconButton,
   SizableText,
-  Spotlight,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
+import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 
 type IProps = { createAddressDisabled?: boolean } & IXStackProps;
 

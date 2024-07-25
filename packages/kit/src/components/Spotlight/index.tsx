@@ -10,16 +10,24 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { AnimatePresence, useMedia } from 'tamagui';
 
+import type { IElement } from '@onekeyhq/components';
+import {
+  AnimatePresence,
+  Button,
+  EPortalContainerConstantName,
+  Portal,
+  Stack,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { EPortalContainerConstantName, Portal } from '../../hocs';
-import { useDeferredPromise } from '../../hooks';
-import { Button, Stack, XStack, YStack } from '../../primitives';
+import { useDeferredPromise } from '../../hooks/useDeferredPromise';
 
-import type { IDeferredPromise } from '../../hooks';
-import type { IElement } from '../../types';
+import type { IDeferredPromise } from '../../hooks/useDeferredPromise';
 import type { View } from 'react-native';
 
 export type ISpotlight = PropsWithChildren<{
@@ -51,6 +59,8 @@ function SpotlightContent({
   }>;
 }) {
   const intl = useIntl();
+
+  const [isLocked] = useAppIsLockedAtom();
   const { gtMd } = useMedia();
   const [props, setProps] = useState(initProps);
 
@@ -83,7 +93,7 @@ function SpotlightContent({
   const isRendered = floatingPosition.width > 0;
   return (
     <AnimatePresence>
-      {visible && isRendered ? (
+      {visible && isRendered && !isLocked ? (
         <Stack
           flex={1}
           bg="rgba(0,0,0,0.2)"

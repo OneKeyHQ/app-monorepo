@@ -7,4 +7,3 @@ export * from './useColor';
 export * from './usePreventRemove';
 export * from './useShare';
 export * from './useStyle';
-export * from './useDeferredPromise';
