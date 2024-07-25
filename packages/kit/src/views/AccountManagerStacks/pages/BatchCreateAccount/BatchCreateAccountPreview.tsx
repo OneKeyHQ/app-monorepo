@@ -297,7 +297,8 @@ function BatchCreateAccountPreviewPage({
         {/* {isLoading ? <Spinner mr="$4" size="small" /> : null} */}
 
         <ListItem
-          userSelect="none"
+          ml="$4"
+          // variant="tertiary"
           onPress={async () => {
             showBatchCreateAccountPreviewAdvancedDialog({
               networkId,
@@ -310,7 +311,7 @@ function BatchCreateAccountPreviewPage({
             });
           }}
         >
-          <XStack>
+          <XStack alignItems="center">
             <SizableText mr="$3">
               {intl.formatMessage({
                 id: ETranslations.global_advanced,
@@ -334,11 +335,12 @@ function BatchCreateAccountPreviewPage({
           }}
           renderTrigger={({ label }) => (
             <ListItem
-              userSelect="none"
-              // title={title}
-              // avatarProps={{ src: icon, size: '$8' }}
+            // ml="$4"
+            // variant="tertiary"
+            // title={title}
+            // avatarProps={{ src: icon, size: '$8' }}
             >
-              <XStack>
+              <XStack alignItems="center">
                 <SizableText mr="$3">{label}</SizableText>
                 <ListItem.DrillIn name="ChevronDownSmallSolid" />
               </XStack>
@@ -366,6 +368,8 @@ function BatchCreateAccountPreviewPage({
     return '';
   }, [totalCount]);
 
+  const numWidth = '$20';
+
   return (
     <Page scrollEnabled safeAreaEnabled={false}>
       <Page.Header
@@ -380,7 +384,12 @@ function BatchCreateAccountPreviewPage({
         // backgroundColor={'#eee'}
       >
         <Stack flexDirection="row">
-          <SizableText size="$bodyMd" w="80px" pr="$4" wordWrap="break-word">
+          <SizableText
+            size="$bodyMd"
+            w={numWidth}
+            pr="$4"
+            wordWrap="break-word"
+          >
             {intl.formatMessage({
               id: ETranslations.global_generate_amount_number,
             })}
@@ -401,8 +410,7 @@ function BatchCreateAccountPreviewPage({
 
         {isLoading ? (
           <Stack
-            height="200px"
-            // py="$8"
+            py="$20"
             flexDirection="column"
             justifyContent="center"
             alignItems="center"
@@ -431,7 +439,7 @@ function BatchCreateAccountPreviewPage({
                 alignItems="center"
                 py="$1"
               >
-                <Stack w="80px" pr="$4">
+                <Stack w={numWidth} pr="$4">
                   <Checkbox
                     disabled={account.existsInDb}
                     value={checkedState}
@@ -545,11 +553,11 @@ function BatchCreateAccountPreviewPage({
           <Stack
             $gtMd={{
               mr: '$4',
+              flex: 1,
             }}
             $md={{
               mb: '$4',
             }}
-            flex={1}
             flexDirection="row"
             alignItems="center"
           >
