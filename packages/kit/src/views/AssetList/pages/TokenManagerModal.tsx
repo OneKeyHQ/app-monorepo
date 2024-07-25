@@ -2,22 +2,36 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { debounce } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Divider,
+  Empty,
   ListView,
   Page,
   SearchBar,
   SizableText,
+  Skeleton,
   Stack,
+  XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TokenIconView } from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
+import { TokenNameView } from '@onekeyhq/kit/src/components/TokenListView/TokenNameView';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalAssetListRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { IModalAssetListParamList } from '@onekeyhq/shared/src/routes';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -29,6 +43,31 @@ import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenList
 import type { RouteProp } from '@react-navigation/core';
 
 type ICustomTokenItem = IAccountToken & { canAdded?: boolean };
+
+function ListEmpty() {
+  const intl = useIntl();
+  return (
+    <Empty
+      flex={1}
+      icon="LinkSolid"
+      title={intl.formatMessage({
+        id: ETranslations.explore_no_dapps_connected,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.explore_no_dapps_connected_message,
+      })}
+    />
+  );
+}
+
+function SkeletonList() {
+  return (
+    <ListItem>
+      <Skeleton width="$10" height="$10" radius="round" />
+      <Skeleton w={118} h={14} />
+    </ListItem>
+  );
+}
 
 function TokenManagerModal() {
   const navigation = useAppNavigation();
@@ -47,6 +86,7 @@ function TokenManagerModal() {
     accountId,
     deriveType,
   } = route.params;
+  const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
   const [tokenList] = useTokenListAtom();
 
   const { result, run } = usePromiseResult(
@@ -86,6 +126,7 @@ function TokenManagerModal() {
     },
   );
 
+  const [isLoading, setIsLoading] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [searchResult, setSearchResult] = useState<ICustomTokenItem[] | null>(
     null,
@@ -98,6 +139,7 @@ function TokenManagerModal() {
         searchValue: string;
         existTokens: ICustomTokenItem[] | undefined;
       }) => {
+        setIsLoading(true);
         try {
           const r =
             await backgroundApiProxy.serviceCustomToken.searchTokenByKeywords({
@@ -131,6 +173,8 @@ function TokenManagerModal() {
           setSearchResult(formattedResult);
         } catch (error) {
           console.error('Error fetching search response:', error);
+        } finally {
+          setIsLoading(false);
         }
       },
       500,
@@ -157,15 +201,38 @@ function TokenManagerModal() {
     [searchValue],
   );
   const dataSource = useMemo(() => {
-    if (
-      isSearchMode &&
-      Array.isArray(searchResult) &&
-      searchResult.length > 0
-    ) {
+    if (isSearchMode && Array.isArray(searchResult)) {
       return searchResult;
     }
     return result;
   }, [isSearchMode, searchResult, result]);
+
+  const { result: networkMaps } = usePromiseResult(
+    async () => {
+      const networkIds: string[] = Array.from(
+        new Set((dataSource ?? []).map((i) => i.networkId ?? '')),
+      );
+      if ((networkIds && !Array.isArray(networkIds)) || !networkIds.length) {
+        return {};
+      }
+      const networks = await backgroundApiProxy.serviceNetwork.getNetworksByIds(
+        {
+          networkIds,
+        },
+      );
+      return networks.networks.reduce<Record<string, IServerNetwork>>(
+        (acc, network) => {
+          acc[network.id] = network;
+          return acc;
+        },
+        {},
+      );
+    },
+    [dataSource],
+    {
+      initResult: {},
+    },
+  );
 
   const onAddCustomToken = useCallback(
     (token?: ICustomTokenItem) => {
@@ -181,6 +248,7 @@ function TokenManagerModal() {
           token,
           onSuccess: () => {
             void run();
+            appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
           },
         },
       });
@@ -226,59 +294,79 @@ function TokenManagerModal() {
             onSubmitEditing={() => {}}
           />
         </Stack>
-        <ListView
-          data={dataSource}
-          ListHeaderComponent={
-            isSearchMode ? null : (
-              <>
-                <ListItem
-                  mt="$4"
-                  title="Manually add a token"
-                  onPress={() => {
-                    onAddCustomToken();
-                  }}
-                >
-                  <ListItem.IconButton icon="ChevronRightSmallOutline" />
-                </ListItem>
-                <Divider />
-                <SizableText
-                  mt={10}
-                  px="$5"
-                  size="$bodyMd"
-                  color="$textSubdued"
-                >
-                  Added token
-                </SizableText>
-              </>
-            )
-          }
-          keyExtractor={(item) => item.$key}
-          renderItem={({ item }) => (
-            <ListItem>
-              <TokenIconView
-                icon={item.logoURI}
-                networkId={networkId}
-                isAllNetworks
-              />
-              <ListItem.Text
-                flex={1}
-                align="right"
-                primary={<SizableText>{item.name}</SizableText>}
-                primaryTextProps={{
-                  size: '$bodyLgMedium',
-                }}
-              />
-              {item.isNative ? null : (
+        {isLoading ? (
+          <SkeletonList />
+        ) : (
+          <ListView
+            data={dataSource}
+            ListHeaderComponent={
+              isSearchMode ? null : (
+                <>
+                  <ListItem
+                    mt="$4"
+                    title="Manually add a token"
+                    onPress={() => {
+                      onAddCustomToken();
+                    }}
+                  >
+                    <ListItem.IconButton icon="ChevronRightSmallOutline" />
+                  </ListItem>
+                  <Divider />
+                  <SizableText
+                    mt={10}
+                    px="$5"
+                    size="$bodyMd"
+                    color="$textSubdued"
+                  >
+                    Added token
+                  </SizableText>
+                </>
+              )
+            }
+            keyExtractor={(item) => item.$key}
+            renderItem={({ item }) => (
+              <ListItem>
+                <TokenIconView
+                  icon={item.logoURI}
+                  networkId={item.networkId ?? networkId}
+                  isAllNetworks
+                />
+                <YStack flex={1}>
+                  <XStack space="$2">
+                    <SizableText size="$bodyLgMedium" color="$text">
+                      {item.symbol}
+                    </SizableText>
+                    {isAllNetwork ? (
+                      <Badge>
+                        {networkMaps?.[item.networkId ?? '']?.name ?? ''}
+                      </Badge>
+                    ) : null}
+                  </XStack>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {item.name}
+                  </SizableText>
+                </YStack>
                 <ListItem.IconButton
                   icon={item.canAdded ? 'PlusCircleOutline' : 'DeleteOutline'}
                   onPress={() =>
                     item.canAdded ? onAddCustomToken(item) : onHiddenToken(item)
                   }
                 />
-              )}
-            </ListItem>
-          )}
-        />
+                {/* {item.isNative ? null : (
+                  <ListItem.IconButton
+                    icon={item.canAdded ? 'PlusCircleOutline' : 'DeleteOutline'}
+                    onPress={() =>
+                      item.canAdded
+                        ? onAddCustomToken(item)
+                        : onHiddenToken(item)
+                    }
+                  />
+                )} */}
+              </ListItem>
+            )}
+            ListEmptyComponent={ListEmpty}
+          />
+        )}
       </Page.Body>
     </Page>
   );

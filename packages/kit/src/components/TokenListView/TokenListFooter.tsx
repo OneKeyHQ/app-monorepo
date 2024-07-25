@@ -225,14 +225,16 @@ function TokenListFooter(props: IProps) {
           bg="$bgStrong"
         >
           <Icon
-            name="BlockOutline"
+            name="SettingsOutline"
             color="$iconSubdued"
             size={tableLayout ? '$6' : '$7'}
           />
         </Stack>
         <ListItem.Text
           flex={1}
-          primary="Manage Token"
+          primary={intl.formatMessage({
+            id: ETranslations.manger_token_titile,
+          })}
           {...(tableLayout && {
             primaryTextProps: { size: '$bodyMdMedium' },
           })}

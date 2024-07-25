@@ -215,6 +215,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         (isPageFocused && isFocused) || shouldAlwaysFetch,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
+      checkIsFocused: false,
     },
   );
 
@@ -554,6 +555,20 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     refreshAllNetworksTokenList.current = true;
     void runAllNetworkRequest();
   }, [runAllNetworkRequest]);
+
+  useEffect(() => {
+    const fn = () => {
+      if (network?.isAllNetworks) {
+        void runAllNetworkRequest();
+      } else {
+        void run();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.RefreshTokenList, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshTokenList, fn);
+    };
+  }, [network?.isAllNetworks, run, runAllNetworkRequest]);
 
   return (
     <>
