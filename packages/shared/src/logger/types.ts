@@ -20,6 +20,7 @@ export enum EScopeName {
   signatureRecord = 'signatureRecord',
   discovery = 'discovery',
   token = 'token',
+  swap = 'swap',
 }
 export interface IScope {
   getName: () => EScopeName;
