@@ -18,6 +18,7 @@ import {
   EPortalContainerConstantName,
   Portal,
   Stack,
+  View,
   XStack,
   YStack,
   useMedia,
@@ -28,13 +29,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDeferredPromise } from '../../hooks/useDeferredPromise';
 
 import type { IDeferredPromise } from '../../hooks/useDeferredPromise';
-import type { View } from 'react-native';
+import type { View as NativeView } from 'react-native';
 
 export type ISpotlight = PropsWithChildren<{
   content: ReactElement;
   offset?: number;
   visible: boolean;
   onConfirm?: () => void;
+  replaceChildren?: ReactElement;
 }>;
 
 interface IFloatingPosition {
@@ -142,6 +144,7 @@ function SpotlightContent({
 
 export function Spotlight({
   children,
+  replaceChildren,
   content,
   offset = 12,
   visible = false,
@@ -172,16 +175,25 @@ export function Spotlight({
       await defer.promise;
       triggerPropsRef.current.trigger?.({
         visible,
-        children,
+        children: replaceChildren || children,
         floatingPosition,
         content,
         onConfirm,
         offset,
       });
     });
-  }, [children, content, defer, floatingPosition, offset, onConfirm, visible]);
+  }, [
+    children,
+    content,
+    defer,
+    floatingPosition,
+    offset,
+    onConfirm,
+    replaceChildren,
+    visible,
+  ]);
   const handleLayout = useCallback(() => {
-    (triggerRef?.current as any as View)?.measureInWindow(
+    (triggerRef?.current as any as NativeView)?.measureInWindow(
       (x, y, width, height) => {
         setFloatingPosition({
           x,
@@ -195,9 +207,9 @@ export function Spotlight({
 
   return (
     <>
-      <Stack ref={triggerRef} collapsable={false} onLayout={handleLayout}>
+      <View ref={triggerRef} collapsable={false} onLayout={handleLayout}>
         {children}
-      </Stack>
+      </View>
       {visible ? (
         <Portal.Body
           destroyDelayMs={1200}
@@ -207,7 +219,7 @@ export function Spotlight({
             triggerPropsRef={triggerPropsRef}
             initProps={{
               visible,
-              children,
+              children: replaceChildren || children,
               floatingPosition,
               content,
               onConfirm,

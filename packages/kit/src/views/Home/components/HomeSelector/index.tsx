@@ -1,5 +1,7 @@
 import { memo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IXStackProps } from '@onekeyhq/components';
 import {
   Icon,
@@ -12,13 +14,14 @@ import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/A
 import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IProps = { createAddressDisabled?: boolean } & IXStackProps;
 
 function HomeSelector(props: IProps) {
   const media = useMedia();
   const num = 0;
-
+  const intl = useIntl();
   const { createAddressDisabled, ...rest } = props;
   const [visible, setVisible] = useState(true);
   return (
@@ -29,9 +32,6 @@ function HomeSelector(props: IProps) {
       {...rest}
     >
       <NetworkSelectorTriggerHome num={num} />
-      {!createAddressDisabled ? (
-        <AccountSelectorActiveAccountHome num={num} />
-      ) : null}
       <Spotlight
         visible={visible}
         content={
@@ -43,8 +43,20 @@ function HomeSelector(props: IProps) {
         onConfirm={() => {
           setVisible(false);
         }}
+        replaceChildren={
+          <IconButton
+            title={intl.formatMessage({
+              id: ETranslations.global_copy_address,
+            })}
+            variant="tertiary"
+            icon="Copy3Outline"
+            size="small"
+          />
+        }
       >
-        <IconButton icon="Copy2Outline" />
+        {!createAddressDisabled ? (
+          <AccountSelectorActiveAccountHome num={num} />
+        ) : null}
       </Spotlight>
       {!createAddressDisabled ? (
         <DeriveTypeSelectorTrigger
