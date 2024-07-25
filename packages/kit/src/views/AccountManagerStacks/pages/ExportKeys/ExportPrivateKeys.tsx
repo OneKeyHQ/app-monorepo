@@ -317,6 +317,7 @@ function ExportPrivateKeysPage({
               placeholder={keyLabel}
               secureTextEntry={secureEntry}
               addOns={actions}
+              displayAsMaskWhenEmptyValue
             />
           </Form.Field>
         </Form>
