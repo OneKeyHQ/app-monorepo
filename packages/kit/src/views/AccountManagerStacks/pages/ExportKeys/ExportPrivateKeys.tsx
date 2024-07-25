@@ -29,6 +29,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -74,8 +78,23 @@ function ExportPrivateKeysPage({
     [account, indexedAccount],
   );
 
+  const isWatchingAccount = useMemo(
+    () =>
+      Boolean(
+        account &&
+          !indexedAccount &&
+          accountUtils.isWatchingAccount({ accountId: account?.id }),
+      ),
+    [account, indexedAccount],
+  );
+
+  const isHdAccount = !!indexedAccount;
+
   const { result: networkIds = [] } = usePromiseResult(async () => {
-    if (isImportedAccount && account?.createAtNetwork) {
+    if (
+      (isImportedAccount && account?.createAtNetwork) ||
+      (isWatchingAccount && account?.createAtNetwork)
+    ) {
       return [account?.createAtNetwork];
     }
     const networksInfo =
@@ -85,14 +104,24 @@ function ExportPrivateKeysPage({
         },
       );
     return networksInfo.map((n) => n.network.id);
-  }, [account?.createAtNetwork, exportType, isImportedAccount]);
+  }, [
+    account?.createAtNetwork,
+    exportType,
+    isImportedAccount,
+    isWatchingAccount,
+  ]);
 
   const initialNetworkId = useMemo(() => {
-    if (isImportedAccount) {
+    if (isImportedAccount || isWatchingAccount) {
       return account?.createAtNetwork || getNetworkIdsMap().btc;
     }
     return activeAccount?.network?.id || getNetworkIdsMap().btc;
-  }, [account?.createAtNetwork, activeAccount?.network?.id, isImportedAccount]);
+  }, [
+    account?.createAtNetwork,
+    activeAccount?.network?.id,
+    isImportedAccount,
+    isWatchingAccount,
+  ]);
   const form = useForm<IFormValues>({
     values: {
       networkId: initialNetworkId,
@@ -129,7 +158,7 @@ function ExportPrivateKeysPage({
       if ((!indexedAccountId && !accountId) || !networkId) {
         return;
       }
-      if (!isImportedAccount && !deriveType) {
+      if (isHdAccount && !deriveType) {
         return;
       }
       try {
@@ -146,16 +175,21 @@ function ExportPrivateKeysPage({
           form.setValue('rawKeyContent', key);
         }
       } catch (error) {
-        form.setError(
-          'rawKeyContent',
-          // form.setError use {...error} which will lose error.message
-          // so we should use errorUtils.toPlainErrorObject to convert error to plain object
-          errorUtils.toPlainErrorObject(error as any) ?? { message: 'error' },
-        );
+        const ignoreErrorClasses: Array<EOneKeyErrorClassNames | undefined> = [
+          EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+        ];
+        if (!ignoreErrorClasses.includes((error as IOneKeyError)?.className)) {
+          form.setError(
+            'rawKeyContent',
+            // form.setError use {...error} which will lose error.message
+            // so we should use errorUtils.toPlainErrorObject to convert error to plain object
+            errorUtils.toPlainErrorObject(error as any) ?? { message: 'error' },
+          );
+        }
         throw error;
       }
     },
-    [accountName, exportType, form, isImportedAccount, reset],
+    [accountName, exportType, form, isHdAccount, reset],
   );
   const generateKeyDebounced = useDebouncedCallback(generateKey, 600);
 
@@ -186,45 +220,40 @@ function ExportPrivateKeysPage({
     onPress?: () => void;
     loading?: boolean;
   }>[] = useMemo(
-    () =>
-      rawKeyValue
-        ? [
-            {
-              iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
-              onPress: () => {
-                setSecureEntry(!secureEntry);
-              },
-            },
-
-            {
-              iconName: 'Copy3Outline',
-              onPress: async () => {
-                if (exportType === 'privateKey') {
-                  showCopyPrivateKeysDialog({
-                    title: intl.formatMessage({
-                      id: ETranslations.global_private_key_copy,
-                    }),
-                    description: intl.formatMessage({
-                      id: ETranslations.global_private_key_copy_information,
-                    }),
-                    showCheckBox: true,
-                    defaultChecked: false,
-                    rawKeyContent: form.getValues('rawKeyContent') || '',
-                  });
-                } else {
-                  clipboard.copyText(form.getValues('rawKeyContent'));
-                }
-              },
-            },
-          ]
-        : [
-            {
-              iconName: 'RefreshCcwOutline',
-              onPress: () => {
-                void refreshKey({ noDebouncedCall: true });
-              },
-            },
-          ],
+    () => [
+      {
+        iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
+        onPress: async () => {
+          if (!rawKeyValue) {
+            await refreshKey({ noDebouncedCall: true });
+          }
+          setSecureEntry(!secureEntry);
+        },
+      },
+      {
+        iconName: 'Copy3Outline',
+        onPress: async () => {
+          if (!rawKeyValue) {
+            await refreshKey({ noDebouncedCall: true });
+          }
+          if (exportType === 'privateKey') {
+            showCopyPrivateKeysDialog({
+              title: intl.formatMessage({
+                id: ETranslations.global_private_key_copy,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.global_private_key_copy_information,
+              }),
+              showCheckBox: true,
+              defaultChecked: false,
+              rawKeyContent: form.getValues('rawKeyContent') || '',
+            });
+          } else {
+            clipboard.copyText(form.getValues('rawKeyContent'));
+          }
+        },
+      },
+    ],
     [clipboard, exportType, form, intl, rawKeyValue, refreshKey, secureEntry],
   );
 
@@ -248,7 +277,7 @@ function ExportPrivateKeysPage({
   const keyLabel = useMemo(() => {
     let label = 'key';
     if (exportType === 'publicKey') {
-      label = intl.formatMessage({ id: ETranslations.global_public_key });
+      label = intl.formatMessage({ id: ETranslations.form_public_key_title });
     }
     if (exportType === 'privateKey') {
       label = intl.formatMessage({ id: ETranslations.global_private_key });
@@ -274,7 +303,7 @@ function ExportPrivateKeysPage({
             />
           </Form.Field>
 
-          {!isImportedAccount ? (
+          {!isImportedAccount && !isWatchingAccount ? (
             <DeriveTypeSelectorFormField
               fieldName="deriveType"
               networkId={networkIdValue}

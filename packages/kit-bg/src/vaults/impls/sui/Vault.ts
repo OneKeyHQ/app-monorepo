@@ -441,6 +441,11 @@ export default class Vault extends VaultBase {
   override async validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
+    if (!/^(0x)?[0-9a-zA-Z]{64}$/.test(privateKey)) {
+      return {
+        isValid: false,
+      };
+    }
     return this.baseValidatePrivateKey(privateKey);
   }
 
