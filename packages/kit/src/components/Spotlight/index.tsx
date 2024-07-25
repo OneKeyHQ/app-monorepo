@@ -243,7 +243,7 @@ export const useSpotlight = (tourName: ESpotlightTour) => {
   }, [tourName]);
   return useMemo(
     () => ({
-      isFirstVisit: times > 0,
+      isFirstVisit: times === 0,
       tourVisited,
     }),
     [times, tourVisited],
