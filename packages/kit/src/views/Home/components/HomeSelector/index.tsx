@@ -1,10 +1,17 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 
 import type { IXStackProps } from '@onekeyhq/components';
-import { Icon, SizableText, XStack, useMedia } from '@onekeyhq/components';
+import {
+  Icon,
+  IconButton,
+  SizableText,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
+import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 
 type IProps = { createAddressDisabled?: boolean } & IXStackProps;
 
@@ -13,7 +20,7 @@ function HomeSelector(props: IProps) {
   const num = 0;
 
   const { createAddressDisabled, ...rest } = props;
-
+  const [visible, setVisible] = useState(true);
   return (
     <XStack
       testID="Wallet-Address-Generator"
@@ -25,6 +32,20 @@ function HomeSelector(props: IProps) {
       {!createAddressDisabled ? (
         <AccountSelectorActiveAccountHome num={num} />
       ) : null}
+      <Spotlight
+        visible={visible}
+        content={
+          <SizableText>
+            If you don’t see assets under ‘All Networks,’ click here to create
+            an address for that network.
+          </SizableText>
+        }
+        onConfirm={() => {
+          setVisible(false);
+        }}
+      >
+        <IconButton icon="Copy2Outline" />
+      </Spotlight>
       {!createAddressDisabled ? (
         <DeriveTypeSelectorTrigger
           renderTrigger={({ label }) => (
