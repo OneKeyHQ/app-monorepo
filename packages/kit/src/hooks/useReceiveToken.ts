@@ -83,6 +83,7 @@ function useReceiveToken({
             tokens,
             tokenListState,
             searchAll: true,
+            closeAfterSelect: false,
             onSelect: async (t: IToken) => {
               await timerUtils.wait(600);
               navigation.pushModal(EModalRoutes.ReceiveModal, {
