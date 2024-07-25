@@ -62,7 +62,7 @@ const SwapQuoteInput = ({
         onBalanceMaxPress={() => {
           let maxAmount = fromTokenBalance;
           if (fromToken?.reservationValue) {
-            const fromTokenBalanceBN = new BigNumber(fromTokenBalance);
+            const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
             const fromTokenReservationValueBN = new BigNumber(
               fromToken.reservationValue,
             );
