@@ -159,7 +159,7 @@ export function AccountEditButton({
               account={account}
               onClose={handleActionListClose}
               label={intl.formatMessage({
-                id: ETranslations.global_public_key,
+                id: ETranslations.global_public_key_export,
               })}
               exportType="publicKey"
             />

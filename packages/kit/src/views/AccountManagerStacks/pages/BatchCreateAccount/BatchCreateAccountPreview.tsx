@@ -30,10 +30,13 @@ import type {
 } from '@onekeyhq/kit-bg/src/services/ServiceBatchCreateAccount/ServiceBatchCreateAccount';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IAccountManagerStacksParamList } from '@onekeyhq/shared/src/routes';
-import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  EAccountManagerStacksRoutes,
+  IAccountManagerStacksParamList,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
@@ -42,17 +45,11 @@ import type {
 import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
 
 import { BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT } from './BatchCreateAccountFormBase';
-import { showBatchCreateAccountPreviewAdvancedDialog } from './showBatchCreateAccountPreviewAdvancedDialog';
-import { showBatchCreateAccountPreviewPageNumberDialog } from './showBatchCreateAccountPreviewPageNumberDialog';
+import { showBatchCreateAccountPreviewAdvancedDialog } from './PreviewAdvancedDialog';
+import { showBatchCreateAccountPreviewPageNumberDialog } from './PreviewPageNumberDialog';
+import { showBatchCreateAccountProcessingDialog } from './ProcessingDialog';
 
 import type { IBatchCreateAccountFormValues } from './BatchCreateAccountFormBase';
-
-type IFormValues = {
-  networkId?: string;
-  deriveType?: IAccountDeriveTypes;
-  from: string;
-  count: string;
-};
 
 function BatchCreateAccountPreviewPage({
   walletId,
@@ -233,6 +230,7 @@ function BatchCreateAccountPreviewPage({
                 networkId,
                 accountAddress: account?.address,
                 xpub: (account as IDBUtxoAccount)?.xpub,
+                withNetWorth: true,
               });
             // Process the balances here
             balancesToUpdate[buildBalanceMapKey({ account })] =
@@ -284,7 +282,9 @@ function BatchCreateAccountPreviewPage({
         setNormalSelectedIndexes((v) => {
           const newValue = { ...v };
           for (const a of accountsToSelect) {
-            newValue[a.pathIndex ?? -1] = !!val;
+            if (!a.existsInDb) {
+              newValue[a.pathIndex ?? -1] = !!val;
+            }
           }
           return newValue;
         });
@@ -297,8 +297,9 @@ function BatchCreateAccountPreviewPage({
       <Stack flexDirection="row" alignItems="center">
         {/* {isLoading ? <Spinner mr="$4" size="small" /> : null} */}
 
-        <Button
-          variant="tertiary"
+        <ListItem
+          ml="$4"
+          // variant="tertiary"
           onPress={async () => {
             showBatchCreateAccountPreviewAdvancedDialog({
               networkId,
@@ -312,29 +313,35 @@ function BatchCreateAccountPreviewPage({
           }}
         >
           <XStack alignItems="center">
-            {intl.formatMessage({
-              id: ETranslations.global_advanced,
-            })}
-            <Stack pl="$4">
-              <ListItem.DrillIn name="ChevronDownSmallSolid" />
-            </Stack>
+            <SizableText mr="$3">
+              {intl.formatMessage({
+                id: ETranslations.global_advanced,
+              })}
+            </SizableText>
+            <ListItem.DrillIn name="ChevronDownSmallSolid" />
           </XStack>
-        </Button>
+        </ListItem>
 
         <DeriveTypeSelectorTriggerStaticInput
+          hideIfItemsLTEOne
           value={deriveType}
-          onChange={(v) => setDeriveType(v)}
+          onChange={(v) => {
+            if (deriveType !== v) {
+              setDeriveType(v);
+            }
+          }}
           networkId={networkId || ''}
           defaultTriggerInputProps={{
             size: media.gtMd ? 'medium' : 'large',
           }}
           renderTrigger={({ label }) => (
             <ListItem
-              userSelect="none"
-              // title={title}
-              // avatarProps={{ src: icon, size: '$8' }}
+            // ml="$4"
+            // variant="tertiary"
+            // title={title}
+            // avatarProps={{ src: icon, size: '$8' }}
             >
-              <XStack>
+              <XStack alignItems="center">
                 <SizableText mr="$3">{label}</SizableText>
                 <ListItem.DrillIn name="ChevronDownSmallSolid" />
               </XStack>
@@ -362,8 +369,10 @@ function BatchCreateAccountPreviewPage({
     return '';
   }, [totalCount]);
 
+  const numWidth = '$20';
+
   return (
-    <Page scrollEnabled safeAreaEnabled={false}>
+    <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.send_preview_button,
@@ -371,21 +380,30 @@ function BatchCreateAccountPreviewPage({
         dismissOnOverlayPress={false}
         headerRight={headerRight}
       />
-      <Page.Body p="$4">
+      <Page.Body
+        px="$5"
+        py="$4"
+        // backgroundColor={'#eee'}
+      >
         <Stack flexDirection="row">
-          <SizableText w="80px" pr="$4" wordWrap="break-word">
+          <SizableText
+            size="$bodyMd"
+            w={numWidth}
+            pr="$4"
+            wordWrap="break-word"
+          >
             {intl.formatMessage({
               id: ETranslations.global_generate_amount_number,
             })}
             {/* TestVeryLongWordTestVeryLongWordTestVeryLongWord */}
           </SizableText>
-          <SizableText>
+          <SizableText size="$bodyMd">
             {intl.formatMessage({
               id: ETranslations.global_generate_amount_address,
             })}
           </SizableText>
-          <Stack flex={1}> </Stack>
-          <SizableText>
+          <Stack flex={1} />
+          <SizableText size="$bodyMd">
             {intl.formatMessage({
               id: ETranslations.global_generate_amount_balance,
             })}
@@ -393,7 +411,12 @@ function BatchCreateAccountPreviewPage({
         </Stack>
 
         {isLoading ? (
-          <Stack py="$8">
+          <Stack
+            py="$20"
+            flexDirection="column"
+            justifyContent="center"
+            alignItems="center"
+          >
             <Spinner size="large" />
           </Stack>
         ) : (
@@ -418,7 +441,7 @@ function BatchCreateAccountPreviewPage({
                 alignItems="center"
                 py="$1"
               >
-                <Stack w="80px" pr="$4">
+                <Stack w={numWidth} pr="$4">
                   <Checkbox
                     disabled={account.existsInDb}
                     value={checkedState}
@@ -430,23 +453,25 @@ function BatchCreateAccountPreviewPage({
                     }}
                     label={String((account.pathIndex ?? 0) + 1)}
                     labelProps={{
+                      size: '$bodyMd',
                       wordWrap: 'break-word', // TODO not working
                     }}
                   />
                 </Stack>
 
                 <Stack pr="$4" flex={1}>
-                  <SizableText>
+                  <SizableText size="$bodyMd">
                     {accountUtils.shortenAddress({
                       address: account.address,
                     })}
                   </SizableText>
-                  <SizableText>
+                  <SizableText size="$bodyMd" color="$textSubdued">
                     {account.path}
                     {account.relPath || ''}
                   </SizableText>
                 </Stack>
                 <NumberSizeableText
+                  size="$bodyMd"
                   formatter="balance"
                   formatterOptions={{ tokenSymbol: network?.symbol }}
                 >
@@ -477,10 +502,6 @@ function BatchCreateAccountPreviewPage({
             if (!deriveType) {
               return;
             }
-            void navigation.navigate(
-              EAccountManagerStacksRoutes.BatchCreateAccountProcessing,
-              undefined,
-            );
 
             let advancedParams:
               | IBatchBuildAccountsAdvancedFlowParams
@@ -512,6 +533,12 @@ function BatchCreateAccountPreviewPage({
                 'startBatchCreateAccountsFlow params is undefined',
               );
             }
+
+            showBatchCreateAccountProcessingDialog({
+              navigation,
+            });
+            await timerUtils.wait(600);
+
             await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
               isAdvancedMode
                 ? {
@@ -528,20 +555,34 @@ function BatchCreateAccountPreviewPage({
           <Stack
             $gtMd={{
               mr: '$4',
+              flex: 1,
             }}
             $md={{
               mb: '$4',
             }}
-            flex={1}
             flexDirection="row"
             alignItems="center"
           >
             <Stack>
               <Checkbox
+                onChange={(val) => {
+                  selectCheckBox({
+                    val,
+                    accountsToSelect: accounts,
+                  });
+                }}
+                label={intl.formatMessage({
+                  // selectAll
+                  id: ETranslations.global_generate_amount_select,
+                })}
                 value={(() => {
                   const notExistAccounts = accounts.filter(
                     (account) => !account.existsInDb,
                   );
+
+                  if (notExistAccounts.length === 0) {
+                    return 'indeterminate';
+                  }
 
                   // advanced mode
                   if (isAdvancedMode) {
@@ -572,16 +613,6 @@ function BatchCreateAccountPreviewPage({
                   }
                   return 'indeterminate';
                 })()}
-                onChange={(val) => {
-                  selectCheckBox({
-                    val,
-                    accountsToSelect: accounts,
-                  });
-                }}
-                label={intl.formatMessage({
-                  // selectAll
-                  id: ETranslations.global_generate_amount_select,
-                })}
               />
             </Stack>
 

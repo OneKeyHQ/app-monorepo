@@ -130,12 +130,14 @@ export function ControlledNetworkSelectorTrigger({
   value,
   onChange,
   networkIds,
+  forceDisabled,
   disabled,
   editable,
 }: {
   value?: string;
   onChange?: (networkId: string) => void;
   networkIds?: string[];
+  forceDisabled?: boolean;
   disabled?: boolean; // TODO not working in form
   editable?: boolean | undefined;
 }) {
@@ -147,7 +149,7 @@ export function ControlledNetworkSelectorTrigger({
       value={value}
       onChange={onChange}
       editable={editable}
-      disabled={disabled}
+      disabled={forceDisabled || disabled}
       // editable={false}
       // disabled
       networkIds={networkIds}

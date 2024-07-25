@@ -277,7 +277,7 @@ function ExportPrivateKeysPage({
   const keyLabel = useMemo(() => {
     let label = 'key';
     if (exportType === 'publicKey') {
-      label = intl.formatMessage({ id: ETranslations.form_public_key_title });
+      label = intl.formatMessage({ id: ETranslations.global_public_key });
     }
     if (exportType === 'privateKey') {
       label = intl.formatMessage({ id: ETranslations.global_private_key });
@@ -286,7 +286,7 @@ function ExportPrivateKeysPage({
   }, [exportType, intl]);
 
   return (
-    <Page scrollEnabled safeAreaEnabled={false}>
+    <Page scrollEnabled safeAreaEnabled>
       <Page.Header title={title} />
       <Page.Body p="$4">
         <Form form={form}>
@@ -314,9 +314,10 @@ function ExportPrivateKeysPage({
             <Input
               size={media.gtMd ? 'medium' : 'large'}
               editable={false}
-              placeholder={keyLabel}
+              placeholder="••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
               secureTextEntry={secureEntry}
               addOns={actions}
+              displayAsMaskWhenEmptyValue
             />
           </Form.Field>
         </Form>

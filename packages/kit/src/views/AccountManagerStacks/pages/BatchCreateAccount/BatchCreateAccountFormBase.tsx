@@ -17,7 +17,7 @@ import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/A
 import { DeriveTypeSelectorFormField } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type { UseFormReturn } from 'react-hook-form';
@@ -94,6 +94,7 @@ function AdvancedSettingsFormField({
       ) : null}
 
       <Stack
+        width={collapse ? 0 : undefined}
         height={collapse ? 0 : undefined}
         opacity={collapse ? 0 : undefined}
         overflow={collapse ? 'hidden' : undefined}
@@ -216,6 +217,7 @@ export function BatchCreateAccountFormBase({
         disabled={networkReadyOnly}
       >
         <ControlledNetworkSelectorTrigger
+          forceDisabled={networkReadyOnly}
           disabled={networkReadyOnly}
           editable={!networkReadyOnly}
         />
