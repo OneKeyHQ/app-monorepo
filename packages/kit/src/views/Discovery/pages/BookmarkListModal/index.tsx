@@ -21,6 +21,8 @@ import {
   useBrowserBookmarkAction,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
@@ -186,14 +188,20 @@ function BookmarkListModal() {
               h={CELL_HEIGHT}
               testID={`search-modal-${item.url.toLowerCase()}`}
               {...(!isEditing && {
-                onPress: () =>
+                onPress: () => {
                   handleOpenWebSite({
                     navigation,
                     webSite: {
                       url: item.url,
                       title: item.title,
                     },
-                  }),
+                  });
+                  defaultLogger.discovery.dapp.enterDapp({
+                    dappDomain: item.url,
+                    dappName: item.title,
+                    enterMethod: EEnterMethod.bookmark,
+                  });
+                },
               })}
             >
               {isEditing ? (

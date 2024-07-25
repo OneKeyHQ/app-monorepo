@@ -6,6 +6,7 @@ import { Image, Page, SizableText, Stack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { BIP39_DOT_MAP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -64,6 +65,10 @@ export function ImportKeyTag() {
     (mnemonic: string) => {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic,
+      });
+
+      defaultLogger.account.wallet.importWallet({
+        importMethod: 'keyTag',
       });
     },
     [navigation],

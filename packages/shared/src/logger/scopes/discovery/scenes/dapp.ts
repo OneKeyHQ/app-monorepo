@@ -1,13 +1,25 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../decorators';
 
+export enum EEnterMethod {
+  banner = 'banner',
+  dashboard = 'dashboard',
+  search = 'search',
+  addressBar = 'addressBar',
+  history = 'history',
+  bookmark = 'bookmark',
+  bookmarkInSearch = 'bookmarkInSearch',
+  historyInSearch = 'historyInSearch',
+}
+
 export class DappScene extends BaseScene {
   @LogToServer()
-  @LogToLocal({ level: 'info' })
+  @LogToLocal()
   public enterDapp(params: {
-    dappUrl: string;
-    dappTitle?: string;
-    isFavorite: boolean;
+    dappDomain: string;
+    dappName: string;
+    dappCatalog?: string;
+    enterMethod: EEnterMethod;
   }) {
     return params;
   }
