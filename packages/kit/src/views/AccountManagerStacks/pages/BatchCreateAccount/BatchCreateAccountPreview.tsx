@@ -230,6 +230,7 @@ function BatchCreateAccountPreviewPage({
                 networkId,
                 accountAddress: account?.address,
                 xpub: (account as IDBUtxoAccount)?.xpub,
+                withNetWorth: true,
               });
             // Process the balances here
             balancesToUpdate[buildBalanceMapKey({ account })] =
