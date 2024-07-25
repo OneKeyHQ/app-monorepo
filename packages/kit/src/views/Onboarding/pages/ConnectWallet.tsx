@@ -25,6 +25,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
@@ -313,6 +314,12 @@ function WalletItem({
       });
       navigation.popStack();
       await dialogRef.current?.close();
+
+      // Currently, there are only walletconnect and evm.
+      defaultLogger.account.wallet.connect3rdPartyWallet({
+        '3rdpartyConnectNetwork': 'evm',
+        '3rdpartyConnectType': 'walletconnect',
+      });
     } finally {
       hideLoading();
     }
