@@ -180,7 +180,8 @@ function useAllNetworkRequests<T>(params: {
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
-      overrideIsFocused: (isPageFocused) => isPageFocused || shouldAlwaysFetch,
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused || !!shouldAlwaysFetch,
     },
   );
 

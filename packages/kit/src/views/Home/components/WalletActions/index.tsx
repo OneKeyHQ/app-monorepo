@@ -71,7 +71,6 @@ function WalletActionSend() {
       params: {
         networkId: network.id,
         accountId: account.id,
-        networkName: network.name,
         tokens: {
           data: allTokens.tokens,
           keys: allTokens.keys,
@@ -90,7 +89,6 @@ function WalletActionSend() {
             },
           });
         },
-        isAllNetworks: network.isAllNetworks,
       },
     });
   }, [

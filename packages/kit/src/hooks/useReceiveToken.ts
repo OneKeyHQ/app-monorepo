@@ -28,7 +28,6 @@ function useReceiveToken({
   walletId,
   deriveInfo,
   deriveType,
-  token,
   tokens,
   tokenListState,
 }: {
@@ -37,7 +36,6 @@ function useReceiveToken({
   walletId: string;
   deriveInfo: IAccountDeriveInfo | undefined;
   deriveType: IAccountDeriveTypes;
-  token: IAccountToken | undefined;
   isAllNetworks?: boolean;
   tokens?: ITokenData;
   tokenListState?: {
@@ -45,77 +43,76 @@ function useReceiveToken({
     initialized: boolean;
   };
 }) {
-  const { vaultSettings, network } = useAccountData({ networkId, accountId });
+  const { vaultSettings } = useAccountData({ networkId, accountId });
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
-  const handleOnReceive = useCallback(() => {
-    if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
-      navigation.pushModal(EModalRoutes.ReceiveModal, {
-        screen: EModalReceiveRoutes.CreateInvoice,
-        params: {
-          networkId,
-          accountId,
-        },
-      });
-      return;
-    }
-
-    if (!deriveInfo) return;
-
-    if (vaultSettings?.isSingleToken || token) {
-      navigation.pushModal(EModalRoutes.ReceiveModal, {
-        screen: EModalReceiveRoutes.ReceiveToken,
-        params: {
-          networkId,
-          accountId,
-          walletId,
-          deriveInfo,
-          deriveType,
-          token,
-        },
-      });
-    } else {
-      navigation.pushModal(EModalRoutes.AssetSelectorModal, {
-        screen: EAssetSelectorRoutes.TokenSelector,
-        params: {
-          networkId,
-          accountId,
-          networkName: network?.name,
-          tokens,
-          tokenListState,
-          onSelect: async (t: IToken) => {
-            await timerUtils.wait(600);
-            navigation.pushModal(EModalRoutes.ReceiveModal, {
-              screen: EModalReceiveRoutes.ReceiveToken,
-              params: {
-                networkId,
-                accountId,
-                walletId,
-                deriveInfo,
-                deriveType,
-                token: t,
-              },
-            });
+  const handleOnReceive = useCallback(
+    (token?: IToken) => {
+      if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+        navigation.pushModal(EModalRoutes.ReceiveModal, {
+          screen: EModalReceiveRoutes.CreateInvoice,
+          params: {
+            networkId,
+            accountId,
           },
-          isAllNetworks: network?.isAllNetworks,
-        },
-      });
-    }
-  }, [
-    accountId,
-    deriveInfo,
-    deriveType,
-    navigation,
-    network?.isAllNetworks,
-    network?.name,
-    networkId,
-    token,
-    tokenListState,
-    tokens,
-    vaultSettings?.isSingleToken,
-    walletId,
-  ]);
+        });
+        return;
+      }
+
+      if (!deriveInfo) return;
+
+      if (vaultSettings?.isSingleToken || token) {
+        navigation.pushModal(EModalRoutes.ReceiveModal, {
+          screen: EModalReceiveRoutes.ReceiveToken,
+          params: {
+            networkId,
+            accountId,
+            walletId,
+            deriveInfo,
+            deriveType,
+            token,
+          },
+        });
+      } else {
+        navigation.pushModal(EModalRoutes.AssetSelectorModal, {
+          screen: EAssetSelectorRoutes.TokenSelector,
+          params: {
+            networkId,
+            accountId,
+            tokens,
+            tokenListState,
+            searchAll: true,
+            onSelect: async (t: IToken) => {
+              await timerUtils.wait(600);
+              navigation.pushModal(EModalRoutes.ReceiveModal, {
+                screen: EModalReceiveRoutes.ReceiveToken,
+                params: {
+                  networkId: t.networkId ?? networkId,
+                  accountId: t.accountId ?? accountId,
+                  walletId,
+                  deriveInfo,
+                  deriveType,
+                  token: t,
+                },
+              });
+            },
+          },
+        });
+      }
+    },
+    [
+      accountId,
+      deriveInfo,
+      deriveType,
+      navigation,
+      networkId,
+      tokenListState,
+      tokens,
+      vaultSettings?.isSingleToken,
+      walletId,
+    ],
+  );
 
   return { handleOnReceive };
 }

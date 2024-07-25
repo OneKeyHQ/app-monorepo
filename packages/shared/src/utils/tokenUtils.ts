@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
 import type { IAccountToken, ITokenData, ITokenFiat } from '../../types/token';
+import { uniqBy } from 'lodash';
 
 export function getMergedTokenData({
   tokens,
@@ -67,18 +68,31 @@ export function getEmptyTokenData() {
 export function getFilteredTokenBySearchKey({
   tokens,
   searchKey,
+  searchAll,
+  searchTokenList,
 }: {
   tokens: IAccountToken[];
   searchKey: string;
+  searchAll?: boolean;
+  searchTokenList?: IAccountToken[];
 }) {
+  let mergedTokens = tokens;
+
+  if (searchAll && searchTokenList) {
+    mergedTokens = mergedTokens.concat(searchTokenList);
+    mergedTokens = uniqBy(
+      mergedTokens,
+      (token) => `${token.address}_${token.networkId ?? ''}`,
+    );
+  }
   if (!searchKey || searchKey.length < SEARCH_KEY_MIN_LENGTH) {
-    return tokens;
+    return mergedTokens;
   }
 
   // eslint-disable-next-line no-param-reassign
   searchKey = searchKey.trim().toLowerCase();
 
-  const filteredTokens = tokens.filter(
+  const filteredTokens = mergedTokens.filter(
     (token) =>
       token.name?.toLowerCase().includes(searchKey) ||
       token.symbol?.toLowerCase().includes(searchKey) ||

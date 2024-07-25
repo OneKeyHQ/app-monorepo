@@ -155,9 +155,7 @@ function NFTListView(props: IProps) {
       data={filteredNfts}
       py="$3"
       renderItem={handleRenderItem}
-      ListHeaderComponent={
-        <NFTListHeader nfts={data} filteredNfts={filteredNfts} />
-      }
+      ListHeaderComponent={<NFTListHeader filteredNfts={filteredNfts} />}
       ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
     />
   );

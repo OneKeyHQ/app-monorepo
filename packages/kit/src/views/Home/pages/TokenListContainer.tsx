@@ -24,7 +24,6 @@ import {
 import {
   EAssetSelectorRoutes,
   EModalAssetDetailRoutes,
-  EModalAssetListRoutes,
   EModalRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
