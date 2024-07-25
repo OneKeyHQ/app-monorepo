@@ -4,20 +4,17 @@ import { LogToServer } from '../../../decorators';
 export class SendScene extends BaseScene {
   @LogToServer()
   public logTokenSelectorInfo({
-    address,
     network,
     tokenType,
     tokenSymbol,
     tokenAddress,
   }: {
-    address: string;
-    network: string;
-    tokenType: string;
-    tokenSymbol: string;
-    tokenAddress: string;
+    network: string | undefined;
+    tokenType: string | undefined;
+    tokenSymbol: string | undefined;
+    tokenAddress: string | undefined;
   }) {
     return {
-      address,
       network,
       tokenType,
       tokenSymbol,
@@ -33,11 +30,11 @@ export class SendScene extends BaseScene {
     tokenAmount,
     tokenValue,
   }: {
-    tokenType: string;
-    tokenSymbol: string;
-    tokenAddress: string;
-    tokenAmount: string;
-    tokenValue: string;
+    tokenType: string | undefined;
+    tokenSymbol: string | undefined;
+    tokenAddress: string | undefined;
+    tokenAmount: string | undefined;
+    tokenValue: string | undefined;
   }) {
     return {
       tokenType,
@@ -52,7 +49,7 @@ export class SendScene extends BaseScene {
   public logAddressInputInfo({
     addressInputMethod,
   }: {
-    addressInputMethod: string;
+    addressInputMethod: string | undefined;
   }) {
     return {
       addressInputMethod,
@@ -73,18 +70,18 @@ export class SendScene extends BaseScene {
     tokenAddress,
     tokenAmount,
   }: {
-    txnHash: string;
-    network: string;
-    txnType: string;
-    fromAddress: string;
-    toAddress: string;
-    fee: string;
-    interactContract: string;
-    tokenType: string;
-    tokenSymbol: string;
-    tokenAddress: string;
-    tokenAmount: string;
-    tokenValue: string;
+    txnHash: string | undefined;
+    network: string | undefined;
+    txnType: string | undefined;
+    fromAddress: string | undefined;
+    toAddress: string | undefined;
+    fee: string | undefined;
+    interactContract: string | undefined;
+    tokenType: string | undefined;
+    tokenSymbol: string | undefined;
+    tokenAddress: string | undefined;
+    tokenAmount: string | undefined;
+    tokenValue: string | undefined;
   }) {
     return {
       txnHash,

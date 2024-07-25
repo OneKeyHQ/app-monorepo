@@ -7,10 +7,15 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import type { IAddressPluginProps } from '../types';
 
-const ScanPluginContent: FC<IAddressPluginProps> = ({ onChange, testID }) => {
+const ScanPluginContent: FC<IAddressPluginProps> = ({
+  onChange,
+  onInputTypeChange,
+  testID,
+}) => {
   const { start } = useScanQrCode();
   const intl = useIntl();
   const onPress = useCallback(async () => {
@@ -19,7 +24,8 @@ const ScanPluginContent: FC<IAddressPluginProps> = ({ onChange, testID }) => {
       autoHandleResult: false,
     });
     onChange?.(address?.raw);
-  }, [onChange, start]);
+    onInputTypeChange?.(EInputAddressChangeType.Scan);
+  }, [onChange, onInputTypeChange, start]);
   return (
     <IconButton
       title={intl.formatMessage({ id: ETranslations.send_to_scan_tooltip })}

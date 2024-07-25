@@ -178,7 +178,7 @@ function ReceiveToken() {
       defaultLogger.transaction.receive.logShowReceiveAddressInfo({
         walletType: wallet?.type,
         isSuccess: false,
-        failedReason: e.message,
+        failedReason: (e as Error).message,
       });
       throw e;
     }
@@ -188,6 +188,7 @@ function ReceiveToken() {
     deriveType,
     intl,
     networkId,
+    wallet?.type,
     walletId,
   ]);
 
@@ -213,7 +214,7 @@ function ReceiveToken() {
         failedReason: '',
       });
     }
-  }, []);
+  }, [isHardwareWallet, wallet?.type]);
 
   const renderCopyAddressButton = useCallback(() => {
     if (isHardwareWallet) {
