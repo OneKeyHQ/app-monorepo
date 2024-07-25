@@ -211,9 +211,19 @@ function BasicActionList({
 const showActionList = (
   props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'>,
 ) => {
-  Portal.Render(
+  const ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-    <BasicActionList {...props} defaultOpen renderTrigger={null} />,
+    <BasicActionList
+      {...props}
+      defaultOpen
+      renderTrigger={null}
+      onOpenChange={(isOpen) => {
+        props.onOpenChange?.(isOpen);
+        if (!isOpen) {
+          ref.destroy();
+        }
+      }}
+    />,
   );
 };
 
