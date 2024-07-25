@@ -3,15 +3,21 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInAppNotificationAtom,
+  useSettingsAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EWrappedType } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IApproveInfo,
   ITransferInfo,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
+  EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -42,6 +48,7 @@ export function useSwapBuildTx() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
+  const [{ isFirstTimeSwap }, setSettings] = useSettingsPersistAtom();
   const { navigationToSendConfirm } = useSendConfirm({
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
     networkId: swapFromAddressInfo.networkId ?? '',
@@ -346,6 +353,25 @@ export function useSwapBuildTx() {
             onSuccess: handleBuildTxSuccess,
             onCancel: handleTxFail,
           });
+          defaultLogger.swap.createSwapOrder.swapCreateOrder({
+            swapType: EProtocolOfExchange.SWAP,
+            slippage: slippageItem.value.toString(),
+            sourceChain: fromToken.networkId,
+            receivedChain: toToken.networkId,
+            fromAddress: swapFromAddressInfo.address,
+            toAddress: swapToAddressInfo.address,
+            sourceTokenSymbol: fromToken.symbol,
+            receivedTokenSymbol: toToken.symbol,
+            swapAmount: selectQuote?.fromAmount,
+            swapValue: selectQuote?.toAmount,
+            feeType: selectQuote?.fee?.percentageFee?.toString() ?? '0',
+            router: JSON.stringify(selectQuote?.routesData ?? ''),
+            isFirstTime: isFirstTimeSwap,
+          });
+          setSettings((prev) => ({
+            ...prev,
+            isFirstTimeSwap: false,
+          }));
         } else {
           setSwapBuildTxFetching(false);
         }
@@ -354,12 +380,15 @@ export function useSwapBuildTx() {
       }
     }
   }, [
+    setSettings,
     fromToken,
     toToken,
     selectQuote?.fromAmount,
     selectQuote?.toAmount,
     selectQuote?.info.provider,
     selectQuote?.quoteResultCtx,
+    selectQuote?.fee?.percentageFee,
+    selectQuote?.routesData,
     slippageItem,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
@@ -369,6 +398,7 @@ export function useSwapBuildTx() {
     navigationToSendConfirm,
     handleBuildTxSuccess,
     handleTxFail,
+    isFirstTimeSwap,
   ]);
 
   return { buildTx, wrappedTx, approveTx };
