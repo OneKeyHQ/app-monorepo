@@ -11,6 +11,7 @@ export type IModalWalletAddressParamList = {
     indexedAccountId: string;
     walletId: string;
     accountId: string;
+    onUnmounted?: () => void;
   };
   [EModalWalletAddressRoutes.WalletAddress]: {
     accountId?: string;

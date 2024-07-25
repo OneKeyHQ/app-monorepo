@@ -8,7 +8,6 @@ import type {
 import { isValidElement, useCallback } from 'react';
 
 import {
-  AnimatePresence,
   Divider,
   Icon,
   IconButton,
@@ -34,7 +33,6 @@ import type {
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AccountAvatar } from '../AccountAvatar';
 
@@ -223,18 +221,9 @@ const ListItemIconButton = (props: IIconButtonProps) => (
   <IconButton variant="tertiary" size="medium" {...props} />
 );
 
-const listItemEnterAnimationStyle = platformEnv.isNativeAndroid
-  ? undefined
-  : {
-      animation: 'quick' as IStackProps['animation'],
-      enterStyle: {
-        opacity: 0,
-        scale: 0,
-      },
-    };
 // CheckMark
 const ListItemCheckMark = (props: IStackProps) => (
-  <Stack key="checkMarkIndicator" {...listItemEnterAnimationStyle} {...props}>
+  <Stack key="checkMarkIndicator" {...props}>
     <Icon name="CheckRadioSolid" color="$iconActive" />
   </Stack>
 );
@@ -389,9 +378,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
       {drillIn && !isLoading ? <ListItemDrillIn /> : null}
       {isLoading ? <Spinner /> : null}
       <Unspaced>
-        <AnimatePresence>
-          {checkMark ? <ListItemCheckMark key="checkmark" /> : null}
-        </AnimatePresence>
+        {checkMark ? <ListItemCheckMark key="checkmark" /> : null}
       </Unspaced>
     </Stack>
   );
@@ -407,5 +394,4 @@ export const ListItem = withStaticProperties(ListItemComponent, {
   CheckMark: ListItemCheckMark,
   Separator: ListItemSeparator,
   DrillIn: ListItemDrillIn,
-  EnterAnimationStyle: listItemEnterAnimationStyle,
 });
