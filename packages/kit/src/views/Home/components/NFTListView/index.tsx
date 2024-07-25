@@ -132,7 +132,6 @@ function NFTListView(props: IProps) {
   const contentContainerStyle = useMemo(
     () => ({
       pb: '$6',
-      pt: '$0.5',
     }),
     [],
   );

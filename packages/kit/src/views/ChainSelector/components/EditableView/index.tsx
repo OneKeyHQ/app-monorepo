@@ -108,7 +108,6 @@ const EditableViewListItem = ({
     >
       {sectionIndex !== 0 && isEditMode && !isDisabled ? (
         <ListItem.IconButton
-          {...ListItem.EnterAnimationStyle}
           onPress={() => {
             if (topNetworkIds.has(item.id)) {
               setTopNetworks?.([
@@ -134,7 +133,6 @@ const EditableViewListItem = ({
       {isDraggable ? (
         <ListItem.IconButton
           key="darg"
-          {...ListItem.EnterAnimationStyle}
           cursor="move"
           icon="DragOutline"
           onPressIn={drag}
