@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -21,6 +21,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
@@ -28,17 +29,31 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { handleWalletAddress, isEnable } = useWalletAddress({ activeAccount });
+  const [visible, setVisible] = useState(true);
   if (!isEnable) {
     return null;
   }
   return (
-    <IconButton
-      title={intl.formatMessage({ id: ETranslations.global_copy_address })}
-      variant="tertiary"
-      icon="Copy3Outline"
-      size="small"
-      onPress={handleWalletAddress}
-    />
+    <Spotlight
+      visible={visible}
+      content={
+        <SizableText>
+          If you don’t see assets under ‘All Networks,’ click here to create an
+          address for that network.
+        </SizableText>
+      }
+      onConfirm={() => {
+        setVisible(false);
+      }}
+    >
+      <IconButton
+        title={intl.formatMessage({ id: ETranslations.global_copy_address })}
+        variant="tertiary"
+        icon="Copy3Outline"
+        size="small"
+        onPress={handleWalletAddress}
+      />
+    </Spotlight>
   );
 };
 

@@ -1,29 +1,17 @@
-import { memo, useState } from 'react';
-
-import { useIntl } from 'react-intl';
+import { memo } from 'react';
 
 import type { IXStackProps } from '@onekeyhq/components';
-import {
-  Icon,
-  IconButton,
-  SizableText,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Icon, SizableText, XStack, useMedia } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
-import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IProps = { createAddressDisabled?: boolean } & IXStackProps;
 
 function HomeSelector(props: IProps) {
   const media = useMedia();
   const num = 0;
-  const intl = useIntl();
   const { createAddressDisabled, ...rest } = props;
-  const [visible, setVisible] = useState(true);
   return (
     <XStack
       testID="Wallet-Address-Generator"
@@ -32,32 +20,9 @@ function HomeSelector(props: IProps) {
       {...rest}
     >
       <NetworkSelectorTriggerHome num={num} />
-      <Spotlight
-        visible={visible}
-        content={
-          <SizableText>
-            If you don’t see assets under ‘All Networks,’ click here to create
-            an address for that network.
-          </SizableText>
-        }
-        onConfirm={() => {
-          setVisible(false);
-        }}
-        replaceChildren={
-          <IconButton
-            title={intl.formatMessage({
-              id: ETranslations.global_copy_address,
-            })}
-            variant="tertiary"
-            icon="Copy3Outline"
-            size="small"
-          />
-        }
-      >
-        {!createAddressDisabled ? (
-          <AccountSelectorActiveAccountHome num={num} />
-        ) : null}
-      </Spotlight>
+      {!createAddressDisabled ? (
+        <AccountSelectorActiveAccountHome num={num} />
+      ) : null}
       {!createAddressDisabled ? (
         <DeriveTypeSelectorTrigger
           renderTrigger={({ label }) => (
