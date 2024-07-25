@@ -26,6 +26,7 @@ export function AccountSelectorCreateAddressButton({
   autoCreateAddress,
   account,
   buttonRender,
+  onCreateDone,
 }: {
   num: number;
   children?: React.ReactNode;
@@ -38,6 +39,7 @@ export function AccountSelectorCreateAddressButton({
     deriveType: IAccountDeriveTypes;
   };
   buttonRender?: (props: IButtonProps) => React.ReactNode;
+  onCreateDone?: () => void;
 }) {
   const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
@@ -123,6 +125,7 @@ export function AccountSelectorCreateAddressButton({
         isLoading: false,
       }));
       setAccountIsAutoCreating(undefined);
+      onCreateDone?.();
     }
   }, [
     account,
@@ -133,6 +136,7 @@ export function AccountSelectorCreateAddressButton({
     serviceAccount,
     setAccountIsAutoCreating,
     setAccountManualCreatingAtom,
+    onCreateDone,
   ]);
 
   useEffect(() => {

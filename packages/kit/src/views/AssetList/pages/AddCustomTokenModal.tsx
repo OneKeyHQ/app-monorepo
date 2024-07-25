@@ -5,16 +5,25 @@ import BigNumber from 'bignumber.js';
 import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IButtonProps } from '@onekeyhq/components';
 import {
+  Button,
   Form,
   Input,
   Page,
   SizableText,
   Stack,
   Toast,
+  XStack,
+  YStack,
   useForm,
 } from '@onekeyhq/components';
-import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
+import { FooterAction } from '@onekeyhq/components/src/composite/Dialog/Footer';
+import { FooterConfirmButton } from '@onekeyhq/components/src/layouts/Page/PageFooterActions';
+import {
+  AccountSelectorProviderMirror,
+  ControlledNetworkSelectorTrigger,
+} from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -23,6 +32,7 @@ import type {
   IModalAssetListParamList,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
   IToken,
@@ -41,6 +51,24 @@ type IFormValues = {
   symbol: string;
   decimals: string;
 };
+
+function CreateAddressButton(props: IButtonProps) {
+  return (
+    <Button
+      $md={
+        {
+          flexGrow: 1,
+          flexBasis: 0,
+          size: 'large',
+        } as any
+      }
+      variant="primary"
+      {...props}
+    >
+      Create address
+    </Button>
+  );
+}
 
 function AddCustomTokenModal() {
   const intl = useIntl();
@@ -180,7 +208,7 @@ function AddCustomTokenModal() {
         const networkAccount = await serviceAccount.getNetworkAccount({
           accountId: undefined,
           indexedAccountId,
-          networkId,
+          networkId: selectedNetworkIdValue,
           deriveType,
         });
         accountIdForNetwork = networkAccount.id;
@@ -194,7 +222,20 @@ function AddCustomTokenModal() {
       hasExistAccountFlag,
       accountIdForNetwork,
     };
-  }, [accountId, indexedAccountId, networkId, isOthersWallet, deriveType]);
+  }, [
+    accountId,
+    indexedAccountId,
+    networkId,
+    isOthersWallet,
+    deriveType,
+    selectedNetworkIdValue,
+  ]);
+
+  const { result: hasExistAccount, run: recheckAccountExist } =
+    usePromiseResult(async () => {
+      const { hasExistAccountFlag } = await checkAccountIsExist();
+      return hasExistAccountFlag;
+    }, [checkAccountIsExist]);
 
   // MARK: - Fetch exist token list
   const tokenListFetchFinishedRef = useRef(false);
@@ -327,6 +368,12 @@ function AddCustomTokenModal() {
             <Input editable={false} />
           </Form.Field>
         </Form>
+        {hasExistAccount ? null : (
+          <XStack position="absolute" bottom={0} left="$5">
+            <SizableText>{`1. Create Address ->`}</SizableText>
+            <SizableText>2. Add</SizableText>
+          </XStack>
+        )}
       </Page.Body>
       <Page.Footer
         onConfirmText="Add"
@@ -335,18 +382,54 @@ function AddCustomTokenModal() {
           loading: isLoading,
         }}
       >
-        {/* <AccountSelectorCreateAddressButton
-          num={0}
-          account={{
-            walletId,
-            indexedAccountId,
-            networkId,
-            deriveType,
-          }}
-        /> */}
+        {hasExistAccount ? undefined : (
+          <Stack
+            p="$5"
+            $gtMd={{
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}
+            bg="$bgApp"
+          >
+            <XStack
+              space="$2.5"
+              $gtMd={{
+                ml: 'auto',
+              }}
+            >
+              <AccountSelectorCreateAddressButton
+                num={0}
+                account={{
+                  walletId,
+                  indexedAccountId,
+                  networkId: selectedNetworkIdValue,
+                  deriveType,
+                }}
+                buttonRender={CreateAddressButton}
+                onCreateDone={() => {
+                  console.log('=====>>>>ONCreateDONEEEEE');
+                  setTimeout(() => {
+                    void recheckAccountExist();
+                  });
+                }}
+              />
+            </XStack>
+          </Stack>
+        )}
       </Page.Footer>
     </Page>
   );
 }
 
-export default AddCustomTokenModal;
+function AddCustomTokenModalWithMirror() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{ sceneName: EAccountSelectorSceneName.home }}
+      enabledNum={[0]}
+    >
+      <AddCustomTokenModal />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default AddCustomTokenModalWithMirror;
