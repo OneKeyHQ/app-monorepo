@@ -9,8 +9,12 @@ export type IAssetSelectorParamList = {
     networkId: string;
     accountId: string;
     tokens?: ITokenData;
-    networkName?: string;
     onSelect: (token: IToken) => void | Promise<void>;
     closeAfterSelect?: boolean;
+    tokenListState?: {
+      isRefreshing: boolean;
+      initialized: boolean;
+    };
+    searchAll?: boolean;
   };
 };

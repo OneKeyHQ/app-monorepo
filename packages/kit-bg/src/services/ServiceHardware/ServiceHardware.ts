@@ -14,6 +14,7 @@ import {
   getHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -422,6 +423,23 @@ class ServiceHardware extends ServiceBase {
       forceInputPassphrase: false,
       useEmptyPassphrase: true,
     });
+  }
+
+  @backgroundMethod()
+  async cancelByWallet({ walletId }: { walletId: string | undefined }) {
+    try {
+      if (walletId && accountUtils.isHwWallet({ walletId })) {
+        const device =
+          await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+            walletId,
+          });
+        if (device?.connectId) {
+          await this.cancel(device.connectId);
+        }
+      }
+    } catch (error) {
+      //
+    }
   }
 
   @backgroundMethod()

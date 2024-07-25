@@ -192,10 +192,7 @@ function TxHistoryListView(props: IProps) {
       {...(showHeader &&
         data?.length > 0 && {
           ListHeaderComponent: (
-            <TxHistoryListHeader
-              filteredHistory={filteredHistory}
-              history={data}
-            />
+            <TxHistoryListHeader filteredHistory={filteredHistory} />
           ),
         })}
     />

@@ -4,7 +4,11 @@ import { isEqual, uniqBy } from 'lodash';
 
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { sortTokensByFiatValue } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -15,6 +19,8 @@ import {
   riskyTokenListAtom,
   riskyTokenListMapAtom,
   searchKeyAtom,
+  searchTokenListAtom,
+  searchTokenStateAtom,
   smallBalanceTokenListAtom,
   smallBalanceTokenListMapAtom,
   smallBalanceTokensFiatValueAtom,
@@ -24,6 +30,30 @@ import {
 } from './atoms';
 
 class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
+  updateSearchTokenState = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        isSearching: boolean;
+      },
+    ) => {
+      set(searchTokenStateAtom(), { isSearching: payload.isSearching });
+    },
+  );
+
+  refreshSearchTokenList = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        tokens: IAccountToken[];
+      },
+    ) => {
+      set(searchTokenListAtom(), { tokens: payload.tokens });
+    },
+  );
+
   refreshAllTokenList = contextAtomMethod(
     (
       get,
@@ -32,18 +62,33 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         tokens: IAccountToken[];
         keys: string;
         merge?: boolean;
+        map?: {
+          [key: string]: ITokenFiat;
+        };
       },
     ) => {
       const { keys, tokens } = payload;
-
       const allTokenList = get(allTokenListAtom());
 
       if (payload.merge) {
-        const newTokens = allTokenList.tokens.concat(tokens);
-        set(allTokenListAtom(), {
-          tokens: newTokens,
-          keys: `${allTokenList.keys}_${keys}`,
-        });
+        if (tokens.length) {
+          let newTokens = allTokenList.tokens.concat(tokens);
+
+          const tokenListMap = get(tokenListMapAtom());
+
+          newTokens = sortTokensByFiatValue({
+            tokens: newTokens,
+            map: {
+              ...tokenListMap,
+              ...(payload.map || {}),
+            },
+          });
+
+          set(allTokenListAtom(), {
+            tokens: newTokens,
+            keys: `${allTokenList.keys}_${keys}`,
+          });
+        }
       } else if (!isEqual(allTokenList.keys, keys)) {
         set(allTokenListAtom(), { tokens, keys });
       }
@@ -315,11 +360,16 @@ export function useTokenListActions() {
   const refreshSmallBalanceTokensFiatValue =
     actions.refreshSmallBalanceTokensFiatValue.use();
 
+  const refreshSearchTokenList = actions.refreshSearchTokenList.use();
+
   const updateSearchKey = actions.updateSearchKey.use();
 
   const updateTokenListState = actions.updateTokenListState.use();
 
+  const updateSearchTokenState = actions.updateSearchTokenState.use();
+
   return useRef({
+    refreshSearchTokenList,
     refreshAllTokenList,
     refreshAllTokenListMap,
     refreshTokenList,
@@ -331,5 +381,6 @@ export function useTokenListActions() {
     refreshSmallBalanceTokensFiatValue,
     updateSearchKey,
     updateTokenListState,
+    updateSearchTokenState,
   });
 }

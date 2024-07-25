@@ -32,6 +32,7 @@ export type IPromiseResultOptions<T> = {
 
 export type IUsePromiseResultReturn<T> = {
   result: T | undefined;
+  setResult: (value: T | undefined) => void;
   isLoading: boolean | undefined;
   run: (config?: IRunnerConfig) => Promise<void>;
 };
@@ -299,7 +300,7 @@ export function usePromiseResult<T>(
     }
   }, [isFocusedRefValue, resetDefer, resolveDefer]);
 
-  return { result, isLoading, run };
+  return { result, isLoading, run, setResult };
 }
 
 export const useAsyncCall = usePromiseResult;
