@@ -206,7 +206,6 @@ function BookmarkListModal() {
             >
               {isEditing ? (
                 <ListItem.IconButton
-                  {...ListItem.EnterAnimationStyle}
                   title={intl.formatMessage({
                     id: ETranslations.global_remove,
                   })}
@@ -245,7 +244,6 @@ function BookmarkListModal() {
               {isEditing ? (
                 <XStack space="$6">
                   <ListItem.IconButton
-                    {...ListItem.EnterAnimationStyle}
                     title={intl.formatMessage({
                       id: ETranslations.explore_rename,
                     })}
@@ -255,7 +253,6 @@ function BookmarkListModal() {
                     testID="action-list-item-rename"
                   />
                   <ListItem.IconButton
-                    {...ListItem.EnterAnimationStyle}
                     key="darg"
                     cursor="move"
                     icon="DragOutline"

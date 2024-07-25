@@ -11,18 +11,11 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useWalletAddress } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useWalletAddress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IModalReceiveParamList,
-  IModalWalletAddressParamList,
-} from '@onekeyhq/shared/src/routes';
-import {
-  EModalReceiveRoutes,
-  EModalRoutes,
-  EModalWalletAddressRoutes,
-} from '@onekeyhq/shared/src/routes';
+import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import {
   useActiveAccount,
@@ -32,33 +25,19 @@ import {
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
+  const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
-  const { account, wallet, indexedAccount, deriveType } = activeAccount;
-  const onPress = useCallback(() => {
-    if (!wallet || !indexedAccount) {
-      return;
-    }
-    navigation.pushModal(EModalRoutes.WalletAddress, {
-      screen: EModalWalletAddressRoutes.WalletAddress,
-      params: {
-        accountId: account?.id,
-        indexedAccountId: indexedAccount.id,
-        walletId: wallet.id,
-        deriveType,
-      },
-    });
-  }, [navigation, account, indexedAccount, wallet, deriveType]);
-  if (!indexedAccount || !wallet) {
+  const { handleWalletAddress, isEnable } = useWalletAddress({ activeAccount });
+  if (!isEnable) {
     return null;
   }
   return (
     <IconButton
+      title={intl.formatMessage({ id: ETranslations.global_copy_address })}
       variant="tertiary"
-      icon="Copy1Outline"
+      icon="Copy3Outline"
       size="small"
-      onPress={onPress}
+      onPress={handleWalletAddress}
     />
   );
 };
@@ -67,11 +46,10 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
-  const { account, wallet, network, deriveType, deriveInfo, indexedAccount } =
-    activeAccount;
+  const { account, wallet, network, deriveType, deriveInfo } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
-
+  const { isEnable: walletAddressEnable } = useWalletAddress({ activeAccount });
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
 
@@ -121,11 +99,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     wallet,
   ]);
 
-  if (
-    network &&
-    networkUtils.isAllNetwork({ networkId: network.id }) &&
-    indexedAccount
-  ) {
+  if (walletAddressEnable) {
     return <AllNetworkAccountSelector num={num} />;
   }
 
