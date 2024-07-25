@@ -1,7 +1,8 @@
 /* eslint-disable react/destructuring-assignment */
 /* eslint-disable react/static-property-placement */
 /* eslint-disable react/default-props-match-prop-types */
-import { Component, PropsWithChildren, ReactElement } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
+import { Component } from 'react';
 
 import {
   Animated,
@@ -11,8 +12,9 @@ import {
   Modal,
   StyleSheet,
   TouchableWithoutFeedback,
-  View,
 } from 'react-native';
+
+import { View } from '../../primitives';
 
 import {
   Point,
@@ -118,7 +120,6 @@ export class Spotlight extends Component<IProps, IState> {
     super(props);
 
     const { isVisible } = props;
-
 
     this.state = {
       // no need to wait for interactions if not visible initially
@@ -503,7 +504,10 @@ export class Spotlight extends Component<IProps, IState> {
 
     const childElement = (
       <View
-        pointerEvents={wrapInTouchable ? 'box-only' : 'auto'}
+        bg="$bg"
+        borderRadius="$fullWidth"
+        // pointerEvents={wrapInTouchable ? 'box-only' : 'auto'}
+        pointerEvents="none"
         style={{
           position: 'absolute',
           height,
@@ -599,7 +603,19 @@ export class Spotlight extends Component<IProps, IState> {
                   onLayout={this.measureContent}
                   style={contentStyle}
                 >
-                  {content}
+                  <View
+                    flex={1}
+                    bg="$bg"
+                    py="$3.5"
+                    px="$4"
+                    borderRadius="$3"
+                    borderWidth={StyleSheet.hairlineWidth}
+                    borderColor="$bgHover"
+                    shadowColor="rgba(0,0,0,0.9)"
+                    shadowOffset={{ height: 12, with: 0 }}
+                  >
+                    {content}
+                  </View>
                 </Animated.View>
               </Animated.View>
               {this.renderChildInTooltip()}

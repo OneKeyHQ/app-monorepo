@@ -25,7 +25,6 @@ const styles = StyleSheet.create({
   content: {
     borderRadius: 10,
     padding: 24,
-    backgroundColor: '#fff',
   },
   arrow: {
     position: 'absolute',

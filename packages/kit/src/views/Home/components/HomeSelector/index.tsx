@@ -3,6 +3,7 @@ import { memo } from 'react';
 import type { IXStackProps } from '@onekeyhq/components';
 import {
   Icon,
+  IconButton,
   SizableText,
   Spotlight,
   XStack,
@@ -29,19 +30,20 @@ function HomeSelector(props: IProps) {
     >
       <NetworkSelectorTriggerHome num={num} />
       {!createAddressDisabled ? (
-        <Spotlight
-          isVisible
-          placement="bottom"
-          content={
-            <SizableText>
-              If you don’t see assets under ‘All Networks,’ click here to create
-              an address for that network.
-            </SizableText>
-          }
-        >
-          <AccountSelectorActiveAccountHome num={num} />
-        </Spotlight>
+        <AccountSelectorActiveAccountHome num={num} />
       ) : null}
+      <Spotlight
+        isVisible
+        placement="bottom"
+        content={
+          <SizableText>
+            If you don’t see assets under ‘All Networks,’ click here to create
+            an address for that network.
+          </SizableText>
+        }
+      >
+        <IconButton icon="Copy2Outline" />
+      </Spotlight>
       {!createAddressDisabled ? (
         <DeriveTypeSelectorTrigger
           renderTrigger={({ label }) => (
