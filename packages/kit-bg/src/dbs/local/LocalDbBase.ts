@@ -586,13 +586,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       avatarInfo = parsedAvatar;
     }
     wallet.avatarInfo = avatarInfo;
-    wallet.walletOrder = wallet.walletNo;
+    wallet.walletOrder = wallet.walletOrderSaved ?? wallet.walletNo;
     if (accountUtils.isHwHiddenWallet({ wallet })) {
       const parentWallet = await this.getParentWalletOfHiddenWallet({
         dbDeviceId: wallet.associatedDevice || '',
         isQr: accountUtils.isQrWallet({ walletId: wallet.id }), // wallet.type === WALLET_TYPE_QR
       });
-      wallet.walletOrder = parentWallet.walletNo + wallet.walletNo / 1000000;
+      wallet.walletOrder =
+        (parentWallet.walletOrderSaved ?? parentWallet.walletNo) +
+        (wallet.walletOrderSaved ?? wallet.walletNo) / 1000000;
     }
 
     if (hiddenWallets && hiddenWallets.length > 0) {
@@ -632,12 +634,80 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return wallet;
   }
 
-  async getIndexedAccount({ id }: { id: string }) {
+  async updateWalletOrder({
+    walletId,
+    walletOrder,
+  }: {
+    walletId: string;
+    walletOrder: number;
+  }) {
     const db = await this.readyDb;
-    return db.getRecordById({
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateWallet({
+        tx,
+        walletId,
+        updater(item) {
+          if (!isNil(walletOrder)) {
+            item.walletOrderSaved = walletOrder;
+          }
+          return item;
+        },
+      });
+    });
+  }
+
+  async updateIndexedAccountOrder({
+    indexedAccountId,
+    order,
+  }: {
+    indexedAccountId: string;
+    order: number;
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.IndexedAccount,
+        ids: [indexedAccountId],
+        updater(item) {
+          if (!isNil(order)) {
+            item.orderSaved = order;
+          }
+          return item;
+        },
+      });
+    });
+  }
+
+  async getIndexedAccountSafe({
+    id,
+  }: {
+    id: string;
+  }): Promise<IDBIndexedAccount | undefined> {
+    try {
+      return await this.getIndexedAccount({ id });
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  async getIndexedAccount({ id }: { id: string }): Promise<IDBIndexedAccount> {
+    const db = await this.readyDb;
+    const indexedAccount = await db.getRecordById({
       name: ELocalDBStoreNames.IndexedAccount,
       id,
     });
+    return this.refillIndexedAccount({ indexedAccount });
+  }
+
+  refillIndexedAccount({
+    indexedAccount,
+  }: {
+    indexedAccount: IDBIndexedAccount;
+  }) {
+    indexedAccount.order =
+      indexedAccount.orderSaved ?? indexedAccount.index + 1;
+    return indexedAccount;
   }
 
   async getIndexedAccountByAccount({ account }: { account: IDBAccount }) {
@@ -681,10 +751,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     return {
-      accounts: accounts.sort((a, b) =>
-        // indexedAccount sort by index
-        natsort({ insensitive: true })(a.index, b.index),
-      ),
+      accounts: accounts
+        .map((a) => this.refillIndexedAccount({ indexedAccount: a }))
+        .sort((a, b) =>
+          // indexedAccount sort by index
+          natsort({ insensitive: true })(
+            a.order ?? a.index,
+            b.order ?? b.index,
+          ),
+        ),
     };
   }
 
@@ -2116,7 +2191,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           (item) =>
             item && !accountUtils.isUrlAccountFn({ accountId: item.id }),
         )
-        .map((account) => this.refillAccountInfo({ account })),
+        .map((account, walletAccountsIndex) =>
+          this.refillAccountInfo({ account, walletAccountsIndex }),
+        )
+        .sort((a, b) =>
+          natsort({ insensitive: true })(
+            a.accountOrder ?? 0,
+            b.accountOrder ?? 0,
+          ),
+        ),
     };
   }
 
@@ -2165,7 +2248,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  refillAccountInfo({ account }: { account: IDBAccount }) {
+  refillAccountInfo({
+    account,
+    walletAccountsIndex,
+  }: {
+    account: IDBAccount;
+    walletAccountsIndex?: number;
+  }) {
+    account.accountOrder = account?.accountOrderSaved;
+    if (!isNil(walletAccountsIndex)) {
+      account.accountOrder =
+        account?.accountOrderSaved ?? walletAccountsIndex + 1;
+    }
     const externalAccount = account as IDBExternalAccount;
     if (externalAccount && externalAccount.connectionInfoRaw) {
       externalAccount.connectionInfo = JSON.parse(
@@ -2173,6 +2267,29 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       );
     }
     return account;
+  }
+
+  async updateAccountOrder({
+    accountId,
+    order,
+  }: {
+    accountId: string;
+    order: number;
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        ids: [accountId],
+        updater(item) {
+          if (!isNil(order)) {
+            item.accountOrderSaved = order;
+          }
+          return item;
+        },
+      });
+    });
   }
 
   async getAllAccounts() {
@@ -2394,6 +2511,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
       return deviceIdMatched;
     });
+  }
+
+  async getWalletDeviceSafe({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<IDBDevice | undefined> {
+    try {
+      return await this.getWalletDevice({ walletId });
+    } catch (error) {
+      return undefined;
+    }
   }
 
   async getWalletDevice({

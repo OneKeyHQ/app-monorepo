@@ -5,22 +5,17 @@ import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
-import type {
-  IGetPrivateKeysResult,
-  IPrepareHdAccountsParams,
-} from '../../types';
+import type { IGetPrivateKeysResult } from '../../types';
 
 export class KeyringHd extends KeyringHdBase {
-  override coreApi = coreChainApi.all.hd;
+  override coreApi = coreChainApi.onekeyall.hd;
 
   override async getPrivateKeys(): Promise<IGetPrivateKeysResult> {
     throw new NotImplemented();
   }
 
-  override async prepareAccounts(
-    params: IPrepareHdAccountsParams,
-  ): Promise<IDBAccount[]> {
-    return this.basePrepareAccountsHd(params);
+  override async prepareAccounts(): Promise<IDBAccount[]> {
+    throw new NotImplemented();
   }
 
   override async signTransaction(): Promise<ISignedTxPro> {

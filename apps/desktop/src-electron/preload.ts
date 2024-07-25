@@ -29,6 +29,7 @@ export type IDesktopAPI = {
   hello: string;
   arch: string;
   platform: string;
+  systemVersion: string;
   isMas: boolean;
   channel?: string;
   reload: () => void;
@@ -162,6 +163,7 @@ const desktopApi = {
   hello: 'world',
   arch: process.arch,
   platform: process.platform,
+  systemVersion: process.getSystemVersion(),
   isMas: process.mas,
   channel: getChannel(),
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),

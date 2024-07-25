@@ -9,9 +9,9 @@ import {
   SizableText,
   Stack,
   XStack,
+  renderNestedScrollView,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getFilteredHistoryBySearchKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -29,7 +29,6 @@ import { TxHistoryListItem } from './TxHistoryListItem';
 type IProps = {
   data: IAccountHistoryTx[];
   isLoading?: boolean;
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   tableLayout?: boolean;
   ListHeaderComponent?: ReactElement;
   showHeader?: boolean;
@@ -51,7 +50,6 @@ function TxHistoryListView(props: IProps) {
     showIcon,
     onPressHistory,
     tableLayout,
-    onContentSizeChange,
     initialized,
     inTabList = false,
   } = props;
@@ -159,7 +157,6 @@ function TxHistoryListView(props: IProps) {
 
   const { listViewProps, listViewRef, onLayout } =
     useTabListScroll<IAccountHistoryTx>({
-      onContentSizeChange,
       inTabList,
     });
 
@@ -167,10 +164,7 @@ function TxHistoryListView(props: IProps) {
     return (
       <Stack py="$3">
         {ListHeaderComponent}
-        <HistoryLoadingView
-          tableLayout={tableLayout}
-          onContentSizeChange={onContentSizeChange}
-        />
+        <HistoryLoadingView tableLayout={tableLayout} />
       </Stack>
     );
   }
@@ -178,12 +172,11 @@ function TxHistoryListView(props: IProps) {
   return (
     <ListView
       {...listViewProps}
+      renderScrollComponent={renderNestedScrollView}
       ref={listViewRef}
       py="$3"
       h="100%"
       onLayout={onLayout}
-      scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
-      disableScrollViewPanResponder={!!onContentSizeChange}
       data={filteredHistory}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
       estimatedItemSize={60}
@@ -199,10 +192,7 @@ function TxHistoryListView(props: IProps) {
       {...(showHeader &&
         data?.length > 0 && {
           ListHeaderComponent: (
-            <TxHistoryListHeader
-              filteredHistory={filteredHistory}
-              history={data}
-            />
+            <TxHistoryListHeader filteredHistory={filteredHistory} />
           ),
         })}
     />

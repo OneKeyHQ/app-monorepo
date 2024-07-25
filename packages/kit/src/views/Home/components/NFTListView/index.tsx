@@ -1,7 +1,11 @@
 import { useCallback, useMemo } from 'react';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { ListView, useMedia } from '@onekeyhq/components';
+import {
+  ListView,
+  renderNestedScrollView,
+  useMedia,
+} from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -27,7 +31,7 @@ type IProps = {
   inTabList?: boolean;
   initialized?: boolean;
   onRefresh?: () => void;
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
+  isAllNetworks?: boolean;
 };
 
 const useMumColumns: () => {
@@ -76,8 +80,8 @@ function NFTListView(props: IProps) {
     data,
     isLoading,
     initialized,
-    onContentSizeChange,
     inTabList = false,
+    isAllNetworks,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -115,14 +119,14 @@ function NFTListView(props: IProps) {
         flexBasis={flexBasis}
         key={`${item.collectionAddress}-${item.itemId}`}
         onPress={handleOnPressNFT}
+        isAllNetworks={isAllNetworks}
       />
     ),
-    [flexBasis, handleOnPressNFT],
+    [flexBasis, handleOnPressNFT, isAllNetworks],
   );
 
   const { listViewProps, listViewRef, onLayout } =
     useTabListScroll<IAccountNFT>({
-      onContentSizeChange,
       inTabList,
     });
   const contentContainerStyle = useMemo(
@@ -134,27 +138,24 @@ function NFTListView(props: IProps) {
   );
 
   if (!initialized && isLoading) {
-    return <NFTListLoadingView onContentSizeChange={onContentSizeChange} />;
+    return <NFTListLoadingView />;
   }
 
   return (
     <ListView
       {...listViewProps}
       ref={listViewRef}
+      renderScrollComponent={renderNestedScrollView}
       // Changing numColumns on the fly is not supported.
       //  Change the key prop in FlatList when changing the number of columns to force a fresh render of the component.
       key={numColumns}
       onLayout={onLayout}
       contentContainerStyle={contentContainerStyle}
       numColumns={numColumns}
-      scrollEnabled={platformEnv.isWebTouchable}
-      disableScrollViewPanResponder
       data={filteredNfts}
       py="$3"
       renderItem={handleRenderItem}
-      ListHeaderComponent={
-        <NFTListHeader nfts={data} filteredNfts={filteredNfts} />
-      }
+      ListHeaderComponent={<NFTListHeader filteredNfts={filteredNfts} />}
       ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
     />
   );

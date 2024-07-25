@@ -15,6 +15,16 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { ChainSelectorPageView } from '../components/PageView';
 
+const defaultChainSelectorNetworks: {
+  networks: IServerNetwork[];
+  unavailableNetworks: IServerNetwork[];
+  frequentlyUsedNetworks: IServerNetwork[];
+} = {
+  networks: [],
+  unavailableNetworks: [],
+  frequentlyUsedNetworks: [],
+};
+
 function ChainSelector({
   num,
   networkIds,
@@ -25,38 +35,19 @@ function ChainSelector({
   editable?: boolean;
 }) {
   const {
-    activeAccount: { network },
+    activeAccount: { network, account },
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
-
-  const {
-    result: [{ networks }, pinnedNetworks],
-    run: refreshLocalData,
-  } = usePromiseResult(
-    () => {
-      let networkPromise: Promise<{ networks: IServerNetwork[] }>;
-      if (networkIds && networkIds.length > 0) {
-        networkPromise = backgroundApiProxy.serviceNetwork.getNetworksByIds({
-          networkIds: networkIds || [],
-        });
-      } else {
-        networkPromise = backgroundApiProxy.serviceNetwork.getAllNetworks();
-      }
-      const pinnedNetworksData =
-        backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks();
-      return Promise.all([networkPromise, pinnedNetworksData]);
-    },
-    [networkIds],
-    {
-      initResult: [
-        {
-          networks: [],
-        },
-        [],
-      ],
-    },
-  );
+  const { result: chainSelectorNetworks, run: refreshLocalData } =
+    usePromiseResult(
+      async () =>
+        backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+          { accountId: account?.id, networkIds, includeAllNetwork: true },
+        ),
+      [account?.id, networkIds],
+      { initResult: defaultChainSelectorNetworks },
+    );
 
   const handleListItemPress = (item: IServerNetwork) => {
     void actions.current.updateSelectedAccountNetwork({
@@ -69,10 +60,11 @@ function ChainSelector({
   return (
     <ChainSelectorPageView
       editable={editable}
-      networks={networks}
       networkId={network?.id}
+      networks={chainSelectorNetworks.networks}
+      unavailableNetworks={chainSelectorNetworks.unavailableNetworks}
+      defaultTopNetworks={chainSelectorNetworks.frequentlyUsedNetworks}
       onPressItem={handleListItemPress}
-      defaultTopNetworks={pinnedNetworks}
       onTopNetworksChange={async (items) => {
         await backgroundApiProxy.serviceNetwork.setNetworkSelectorPinnedNetworks(
           {

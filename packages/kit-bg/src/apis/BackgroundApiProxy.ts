@@ -12,10 +12,10 @@ import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
+import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
-import type ServiceCreateBatchAccount from '../services/ServiceCreateBatchAccount';
 import type ServiceCustomToken from '../services/ServiceCustomToken';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
@@ -150,9 +150,9 @@ class BackgroundApiProxy
     'serviceAccountProfile',
   ) as ServiceAccountProfile;
 
-  serviceCreateBatchAccount = this._createProxyService(
-    'serviceCreateBatchAccount',
-  ) as ServiceCreateBatchAccount;
+  serviceBatchCreateAccount = this._createProxyService(
+    'serviceBatchCreateAccount',
+  ) as ServiceBatchCreateAccount;
 
   serviceOnboarding = this._createProxyService(
     'serviceOnboarding',

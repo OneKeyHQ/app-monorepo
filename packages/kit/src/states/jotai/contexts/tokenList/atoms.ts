@@ -1,4 +1,8 @@
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -13,6 +17,20 @@ export {
   contextAtomMethod,
   withTokenListProvider,
 };
+
+export const { atom: searchTokenStateAtom, use: useSearchTokenStateAtom } =
+  contextAtom<{
+    isSearching: boolean;
+  }>({
+    isSearching: false,
+  });
+
+export const { atom: searchTokenListAtom, use: useSearchTokenListAtom } =
+  contextAtom<{
+    tokens: IAccountToken[];
+  }>({
+    tokens: [],
+  });
 
 export const { atom: allTokenListAtom, use: useAllTokenListAtom } =
   contextAtom<{

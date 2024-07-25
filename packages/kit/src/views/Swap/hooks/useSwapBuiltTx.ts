@@ -151,7 +151,6 @@ export function useSwapBuildTx() {
         wrappedInfo,
         swapInfo,
         onSuccess: handleBuildTxSuccess,
-        onFail: handleTxFail,
         onCancel: handleTxFail,
       });
     }
@@ -210,7 +209,6 @@ export function useSwapBuildTx() {
           await navigationToSendConfirm({
             approveInfo,
             onSuccess: handleApproveTxSuccess,
-            onFail: cancelApproveTx,
             onCancel: cancelApproveTx,
           });
         } catch (e) {
@@ -346,7 +344,6 @@ export function useSwapBuildTx() {
             encodedTx,
             swapInfo,
             onSuccess: handleBuildTxSuccess,
-            onFail: handleTxFail,
             onCancel: handleTxFail,
           });
         } else {

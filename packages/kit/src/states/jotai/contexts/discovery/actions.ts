@@ -511,7 +511,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             tabId,
           });
         }
-
         // close deep link tab after 1s
         if (maybeDeepLink) {
           if (browserTypeHandler === 'MultiTabBrowser' && tabId) {
@@ -520,6 +519,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             }, 1000);
           }
         }
+        defaultLogger.discovery.dapp.enterDapp({
+          dappUrl: url,
+          dappTitle: title,
+          isFavorite: isBookmark,
+        });
         return true;
       }
       return false;

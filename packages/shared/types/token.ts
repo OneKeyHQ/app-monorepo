@@ -6,6 +6,7 @@ export type IToken = {
   logoURI?: string;
   isNative: boolean | undefined;
   riskLevel?: number;
+  uniqueKey?: string;
   sendAddress?: string;
 
   // for all networks
@@ -65,6 +66,17 @@ export type IFetchTokenDetailParams = {
   contractList: string[];
   withFrozenBalance?: boolean;
   withCheckInscription?: boolean;
+};
+
+export type ISearchTokensParams = {
+  accountId: string;
+  networkId: string;
+  contractList?: string[];
+  keywords?: string;
+};
+
+export type ISearchTokenItem = {
+  info: IToken;
 };
 
 export type IFetchTokenDetailResp = IAccountToken[];

@@ -1,13 +1,17 @@
-import { AddressInputScope } from './scopes/AddressInput';
+import { AccountScope } from './scopes/account';
+import { AddressInputScope } from './scopes/addressInput';
 import { AppScope } from './scopes/app';
 import { DemoScope } from './scopes/demo';
 import { DiscoveryScope } from './scopes/discovery';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
+import { StakingScope } from './scopes/staking';
 import { TokenScope } from './scopes/token';
 import { UpdateScope } from './scopes/update';
 
 class Logger {
+  account = new AccountScope();
+
   app = new AppScope();
 
   demo = new DemoScope();
@@ -23,6 +27,8 @@ class Logger {
   discovery = new DiscoveryScope();
 
   token = new TokenScope();
+
+  staking = new StakingScope();
 }
 
 export const defaultLogger = new Logger();

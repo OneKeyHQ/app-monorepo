@@ -22,7 +22,6 @@ export default function ChainSelectorPage({
     defaultNetworkId,
     networkIds,
     title = 'Networks',
-    enableDangerNetwork,
   } = route.params ?? {};
   const { result } = usePromiseResult(async () => {
     let networks: IServerNetwork[] = [];
@@ -35,11 +34,8 @@ export default function ChainSelectorPage({
       const resp = await backgroundApiProxy.serviceNetwork.getAllNetworks();
       networks = resp.networks;
     }
-    if (enableDangerNetwork) {
-      networks = [dangerAllNetworkRepresent, ...networks];
-    }
     return networks;
-  }, [networkIds, enableDangerNetwork]);
+  }, [networkIds]);
 
   return (
     <ChainSelectorPageView

@@ -338,6 +338,18 @@ function parseIndexedAccountId({
   };
 }
 
+function buildAllNetworkIndexedAccountIdFromAccountId({
+  accountId,
+}: {
+  accountId: string;
+}) {
+  const { walletId, usedPath } = parseAccountId({ accountId });
+  return buildIndexedAccountId({
+    walletId,
+    index: parseInt(usedPath.split('/')[1], 10),
+  });
+}
+
 function buildHdWalletId({ nextHD }: { nextHD: number }) {
   return `${WALLET_TYPE_HD}-${nextHD}`;
 }
@@ -687,6 +699,7 @@ export default {
   buildHwWalletId,
   buildQrWalletId,
   buildExternalAccountId,
+  buildAllNetworkIndexedAccountIdFromAccountId,
   isHdWallet,
   isQrWallet,
   isHwWallet,

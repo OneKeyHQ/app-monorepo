@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { CreateOrEditContent } from '../../components/CreateOrEditContent';
@@ -14,7 +15,7 @@ import type { IAddressItem } from '../../type';
 const defaultValues: IAddressItem = {
   name: '',
   address: '',
-  networkId: 'btc--0',
+  networkId: getNetworkIdsMap().btc,
 };
 
 const AddItemPage = () => {

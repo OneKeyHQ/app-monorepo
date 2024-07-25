@@ -14,6 +14,7 @@ import {
   getHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -116,12 +117,17 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'usePreReleaseConfig',
       );
+    const debugMode =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'showDeviceDebugLogs',
+      );
     try {
       const instance = await getHardwareSDKInstance({
         // https://data.onekey.so/pre-config.json?noCache=1714090312200
         // https://data.onekey.so/config.json?nocache=0.8336416330053136
         isPreRelease: isPreRelease === true,
         hardwareConnectSrc,
+        debugMode,
       });
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
       await this.registerSdkEvents(instance);
@@ -208,7 +214,7 @@ class ServiceHardware extends ServiceBase {
       instance.on(UI_EVENT, async (e) => {
         const originEvent = e as UiEvent;
         const { type: uiRequestType, payload } = e;
-        console.log('=>>>> UI_EVENT: ', uiRequestType, payload);
+        // console.log('=>>>> UI_EVENT: ', uiRequestType, payload);
 
         const { device, type: eventType, passphraseState } = payload || {};
         const { deviceType, connectId, deviceId, features } = device || {};
@@ -417,6 +423,23 @@ class ServiceHardware extends ServiceBase {
       forceInputPassphrase: false,
       useEmptyPassphrase: true,
     });
+  }
+
+  @backgroundMethod()
+  async cancelByWallet({ walletId }: { walletId: string | undefined }) {
+    try {
+      if (walletId && accountUtils.isHwWallet({ walletId })) {
+        const device =
+          await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+            walletId,
+          });
+        if (device?.connectId) {
+          await this.cancel(device.connectId);
+        }
+      }
+    } catch (error) {
+      //
+    }
   }
 
   @backgroundMethod()
@@ -637,6 +660,19 @@ class ServiceHardware extends ServiceBase {
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUploadResource(connectId, params),
     );
+  }
+
+  @backgroundMethod()
+  async getLogs(): Promise<string[]> {
+    const logs: string[] = ['===== device logs ====='];
+    try {
+      const hardwareSDK = await this.getSDKInstance();
+      const messages = await convertDeviceResponse(() => hardwareSDK.getLogs());
+      logs.push(...messages);
+    } catch (error) {
+      // ignore
+    }
+    return logs;
   }
 }
 

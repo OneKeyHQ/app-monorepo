@@ -3,12 +3,14 @@ import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 
 import type { IQrcodeDrawType } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 
 import platformEnv from '../platformEnv';
 
 import type { EAccountSelectorSceneName } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
+import type { IAccountToken, ITokenFiat } from '../../types/token';
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -51,6 +53,7 @@ export enum EAppEventBusNames {
   CloseHardwareUiStateDialogManually = 'CloseHardwareUiStateDialogManually',
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
+  TokenListUpdate = 'TokenListUpdate',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -114,6 +117,8 @@ export interface IAppEventBusPayload {
     createdCount: number;
     progressTotal: number;
     progressCurrent: number;
+    networkId?: string;
+    deriveType?: string | IAccountDeriveTypes;
   };
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
   [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
@@ -138,6 +143,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CloseHardwareUiStateDialogManually]: undefined;
   [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
+  [EAppEventBusNames.TokenListUpdate]: {
+    tokens: IAccountToken[];
+    keys: string;
+    map: Record<string, ITokenFiat>;
+    merge?: boolean;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

@@ -490,7 +490,7 @@ export function TokenDetails() {
                     <RawActions.Send onPress={handleSendPress} />
                     <RawActions.Receive
                       disabled={isReceiveDisabled}
-                      onPress={handleOnReceive}
+                      onPress={() => handleOnReceive(tokenInfo)}
                     />
                     <ReviewControl>
                       <ActionSell

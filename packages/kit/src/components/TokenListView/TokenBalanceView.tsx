@@ -27,6 +27,11 @@ function TokenBalanceView(props: IProps) {
     ),
     [rest, symbol, token?.balanceParsed],
   );
+
+  if (!token) {
+    return null;
+  }
+
   return content;
 }
 

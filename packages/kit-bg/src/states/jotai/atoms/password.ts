@@ -2,6 +2,7 @@ import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
+import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { biologyAuthUtils } from '../../../services/ServicePassword/biologyAuthUtils';
 import { EAtomNames } from '../atomNames';
@@ -15,6 +16,10 @@ import type { AuthenticationType } from 'expo-local-authentication';
 
 export type IPasswordAtom = {
   unLock: boolean;
+  passwordVerifyStatus: {
+    value: EPasswordVerifyStatus;
+    message?: string;
+  };
 };
 export const { target: passwordAtom, use: usePasswordAtom } =
   globalAtom<IPasswordAtom>({
@@ -22,6 +27,7 @@ export const { target: passwordAtom, use: usePasswordAtom } =
     name: EAtomNames.passwordAtom,
     initialValue: {
       unLock: false,
+      passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
     },
   });
 

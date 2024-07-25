@@ -7,6 +7,7 @@ import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
 import { withStaticProperties } from 'tamagui';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { RootSiblingManager } from 'react-native-root-siblings/lib/wrapRootComponent';
@@ -43,33 +44,44 @@ export interface IPortalManager {
   destroy: (destroyCallback?: () => void) => void;
 }
 
+const MAX_RETRY_TIMES = 5;
+
 function renderToPortal(
   container: EPortalContainerConstantName,
   guest: ReactNode,
   callback?: () => void,
 ): IPortalManager {
-  const manager = portalManagers.get(container);
   const id = createPortalId(++portalUuid);
+  const manager: {
+    ref: RootSiblingManager | undefined;
+  } = { ref: undefined };
 
-  if (manager) {
-    manager.update(id, guest, callback);
-  } else {
-    throw new Error(
-      `react-native-root-portal: Can not find target PortalContainer named:'${container}'.`,
-    );
-  }
-
+  const retryUpdate = (retryTimes = 0) => {
+    manager.ref = portalManagers.get(container);
+    if (manager.ref) {
+      manager.ref.update(id, guest, callback);
+    } else if (retryTimes < MAX_RETRY_TIMES) {
+      // manager not exists, may be portalManagers not init yet,
+      // try again in 600ms
+      setTimeout(() => {
+        defaultLogger.app.component.renderPortalFailed(
+          'renderToPortal',
+          container,
+        );
+        retryUpdate(retryTimes + 1);
+      }, 80);
+    }
+  };
+  retryUpdate();
   return {
     update: (updater: ReactNode, updateCallback?: () => void) => {
-      manager.update(id, updater, updateCallback);
+      manager.ref?.update(id, updater, updateCallback);
     },
     destroy: (destroyCallback?: () => void) => {
-      manager.destroy(id, destroyCallback);
+      manager.ref?.destroy(id, destroyCallback);
     },
   };
 }
-
-const MAX_RETRY_TIMES = 5;
 
 function PortalRender(props: {
   children: ReactNode;
@@ -92,7 +104,7 @@ function PortalRender(props: {
         !isReactMemoElement(_owner?.child) &&
         !isReactMemoElement(_owner?.sibling)
       ) {
-        throw new Error(
+        console.error(
           `use React.memo or React.useMemo with a Component contains children in Portal.Body ${
             container || ''
           }`,
@@ -161,8 +173,9 @@ function PortalRender(props: {
       // manager not exists, may be portalManagers not init yet,
       // try again in 600ms
       setTimeout(() => {
-        console.error(
-          `react-native-root-portal: retry load PortalContainer:'${container}'.`,
+        defaultLogger.app.component.renderPortalFailed(
+          'PortalRender',
+          container,
         );
         updateRetryTimes((i) => i + 1);
       }, 80);

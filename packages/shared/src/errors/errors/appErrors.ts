@@ -101,6 +101,18 @@ export class OneKeyInternalError extends OneKeyError {
   }
 }
 
+export class PasswordPromptDialogCancel extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PasswordPromptDialogCancel',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PasswordPromptDialogCancel;
+}
+
 export class FailedToTransfer extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
@@ -752,6 +764,32 @@ export class Expect24WordsMnemonicError extends OneKeyError {
         defaultMessage: 'Expect24WordsMnemonicError',
         defaultKey:
           ETranslations.feedback_polkadot_supported_recover_phrases_type,
+      }),
+    );
+  }
+}
+
+export type IRemainingMinBalanceErrorInfo = {
+  miniAmount: string;
+};
+
+export class RemainingMinBalanceError extends OneKeyError<IRemainingMinBalanceErrorInfo> {
+  constructor(props?: IOneKeyError<IRemainingMinBalanceErrorInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'RemainingMinBalanceError',
+        defaultKey: ETranslations.feedback_transaction_ckb_error_less,
+      }),
+    );
+  }
+}
+
+export class ConvertTxError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ConvertTxError',
+        defaultKey: ETranslations.feedback_transaction_ckb_error_convert,
       }),
     );
   }
