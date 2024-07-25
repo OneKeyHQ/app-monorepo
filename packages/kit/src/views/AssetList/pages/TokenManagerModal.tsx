@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
   Divider,
   Empty,
   ListView,
@@ -19,13 +20,13 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TokenIconView } from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
-import { TokenNameView } from '@onekeyhq/kit/src/components/TokenListView/TokenNameView';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetListRoutes,
   EModalRoutes,
@@ -44,29 +45,92 @@ import type { RouteProp } from '@react-navigation/core';
 
 type ICustomTokenItem = IAccountToken & { canAdded?: boolean };
 
-function ListEmpty() {
+function ListEmptyComponent({
+  onAddCustomToken,
+}: {
+  onAddCustomToken: (token?: ICustomTokenItem) => void;
+}) {
   const intl = useIntl();
   return (
     <Empty
       flex={1}
-      icon="LinkSolid"
+      icon="SearchOutline"
       title={intl.formatMessage({
-        id: ETranslations.explore_no_dapps_connected,
+        id: ETranslations.global_no_results,
       })}
-      description={intl.formatMessage({
-        id: ETranslations.explore_no_dapps_connected_message,
-      })}
+      description="Cannot find the token? Try click the button below to add"
+      button={
+        <Button
+          mt="$6"
+          size="medium"
+          variant="primary"
+          onPress={() => onAddCustomToken()}
+        >
+          {intl.formatMessage({
+            id: ETranslations.manger_token_custom_token_button,
+          })}
+        </Button>
+      }
     />
   );
 }
 
+function ListFooterComponent({
+  searchValue,
+  searchResult,
+  onAddCustomToken,
+}: {
+  searchValue: string;
+  searchResult: ICustomTokenItem[] | null;
+  onAddCustomToken: (token?: ICustomTokenItem) => void;
+}) {
+  const intl = useIntl();
+  if (
+    searchValue.length &&
+    Array.isArray(searchResult) &&
+    searchResult.length
+  ) {
+    return (
+      <>
+        <Divider pt="$5" />
+        <YStack p="$5" alignItems="center">
+          <SizableText
+            textAlign="center"
+            size="$bodyMd"
+            maxWidth={platformEnv.isNative ? 256 : undefined}
+          >
+            Cannot find the token? Try click the button below to add
+          </SizableText>
+          <Button
+            mt="$6"
+            size="medium"
+            variant="primary"
+            onPress={() => onAddCustomToken()}
+          >
+            {intl.formatMessage({
+              id: ETranslations.manger_token_custom_token_button,
+            })}
+          </Button>
+        </YStack>
+      </>
+    );
+  }
+
+  return null;
+}
+
 function SkeletonList() {
-  return (
-    <ListItem>
-      <Skeleton width="$10" height="$10" radius="round" />
-      <Skeleton w={118} h={14} />
+  return Array.from({ length: 5 }).map((_, index) => (
+    <ListItem key={index}>
+      <XStack alignItems="center" space="$3">
+        <Skeleton width="$10" height="$10" radius="round" />
+        <YStack space="$2">
+          <Skeleton w={120} h={12} borderRadius="$3" />
+          <Skeleton w={80} h={12} borderRadius="$3" />
+        </YStack>
+      </XStack>
     </ListItem>
-  );
+  ));
 }
 
 function TokenManagerModal() {
@@ -352,19 +416,18 @@ function TokenManagerModal() {
                     item.canAdded ? onAddCustomToken(item) : onHiddenToken(item)
                   }
                 />
-                {/* {item.isNative ? null : (
-                  <ListItem.IconButton
-                    icon={item.canAdded ? 'PlusCircleOutline' : 'DeleteOutline'}
-                    onPress={() =>
-                      item.canAdded
-                        ? onAddCustomToken(item)
-                        : onHiddenToken(item)
-                    }
-                  />
-                )} */}
               </ListItem>
             )}
-            ListEmptyComponent={ListEmpty}
+            ListFooterComponent={
+              <ListFooterComponent
+                searchValue={searchValue}
+                searchResult={searchResult}
+                onAddCustomToken={onAddCustomToken}
+              />
+            }
+            ListEmptyComponent={
+              <ListEmptyComponent onAddCustomToken={onAddCustomToken} />
+            }
           />
         )}
       </Page.Body>

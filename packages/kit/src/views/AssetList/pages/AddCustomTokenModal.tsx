@@ -73,6 +73,7 @@ function AddCustomTokenModal() {
             walletId,
             networkId,
             contractAddress: value,
+            isNative: token?.isNative ?? false,
           },
         );
       if (Array.isArray(searchResult) && searchResult.length > 0) {
@@ -170,7 +171,7 @@ function AddCustomTokenModal() {
       }
       const values = form.getValues();
       const { contractAddress, symbol, decimals } = values;
-      if (!contractAddress) {
+      if (!contractAddress && !token?.isNative) {
         setIsLoading(false);
         throw new Error('Contract address is empty');
       }
@@ -234,6 +235,7 @@ function AddCustomTokenModal() {
       fetchTokenList,
       existTokenList,
       networkId,
+      token?.isNative,
       intl,
       onSuccess,
     ],
@@ -252,7 +254,7 @@ function AddCustomTokenModal() {
             <ControlledNetworkSelectorTrigger networkIds={[networkId]} />
           </Form.Field>
           <Form.Field label="Contract Address" name="contractAddress">
-            <Input />
+            <Input editable={!token?.isNative} />
           </Form.Field>
           <Form.Field label="Symbol" name="symbol">
             <Input editable={false} />

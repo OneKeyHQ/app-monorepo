@@ -79,12 +79,14 @@ class ServiceCustomToken extends ServiceBase {
     walletId,
     networkId,
     contractAddress,
+    isNative,
   }: {
     walletId: string;
     networkId: string;
     contractAddress: string;
+    isNative: boolean;
   }) {
-    if (!contractAddress) {
+    if (!contractAddress && !isNative) {
       return [];
     }
     return this._searchTokens({
