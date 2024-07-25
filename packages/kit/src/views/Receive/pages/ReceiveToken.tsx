@@ -30,6 +30,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
@@ -147,6 +148,17 @@ function ReceiveToken() {
 
       const isSameAddress =
         addresses?.[0]?.toLowerCase() === account?.address?.toLowerCase();
+
+      defaultLogger.transaction.receive.logShowReceiveAddressInfo({
+        walletType: wallet?.type,
+        isSuccess: isSameAddress,
+        failedReason: isSameAddress
+          ? ''
+          : intl.formatMessage({
+              id: ETranslations.feedback_address_mismatch,
+            }),
+      });
+
       if (!isSameAddress) {
         Toast.error({
           title: intl.formatMessage({
@@ -163,6 +175,11 @@ function ReceiveToken() {
     } catch (e: any) {
       setAddressState(EAddressState.Unverified);
       // verifyHWAccountAddresses handler error toast
+      defaultLogger.transaction.receive.logShowReceiveAddressInfo({
+        walletType: wallet?.type,
+        isSuccess: false,
+        failedReason: e.message,
+      });
       throw e;
     }
   }, [
@@ -186,6 +203,16 @@ function ReceiveToken() {
         callback,
       );
     };
+  }, []);
+
+  useEffect(() => {
+    if (!isHardwareWallet) {
+      defaultLogger.transaction.receive.logShowReceiveAddressInfo({
+        walletType: wallet?.type,
+        isSuccess: true,
+        failedReason: '',
+      });
+    }
   }, []);
 
   const renderCopyAddressButton = useCallback(() => {
