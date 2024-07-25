@@ -4,6 +4,8 @@ import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type { IGetPrivateKeysResult } from '../../types';
 
@@ -15,7 +17,11 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async prepareAccounts(): Promise<IDBAccount[]> {
-    throw new NotImplemented('Method not implemented');
+    throw new Error(
+      appLocale.intl.formatMessage({
+        id: ETranslations.coming_soon,
+      }),
+    );
   }
 
   override async signTransaction(): Promise<ISignedTxPro> {
