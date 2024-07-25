@@ -24,8 +24,11 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useDeferredPromise } from '../../hooks/useDeferredPromise';
 
 import type { IDeferredPromise } from '../../hooks/useDeferredPromise';
@@ -231,3 +234,18 @@ export function Spotlight({
     </>
   );
 }
+
+export const useSpotlight = (tourName: ESpotlightTour) => {
+  const [{ data }] = useSpotlightPersistAtom();
+  const times = data[tourName];
+  const tourVisited = useCallback(async () => {
+    void backgroundApiProxy.serviceSpotlight.updateTourTimes(tourName);
+  }, [tourName]);
+  return useMemo(
+    () => ({
+      isFirstVisit: times > 0,
+      tourVisited,
+    }),
+    [times, tourVisited],
+  );
+};

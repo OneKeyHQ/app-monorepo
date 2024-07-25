@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,13 +15,14 @@ import { useWalletAddress } from '@onekeyhq/kit/src/views/WalletAddress/hooks/us
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import { Spotlight } from '../Spotlight';
+import { Spotlight, useSpotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
@@ -29,22 +30,22 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { handleWalletAddress, isEnable } = useWalletAddress({ activeAccount });
-  const [visible, setVisible] = useState(true);
+  const { isFirstVisit, tourVisited } = useSpotlight(
+    ESpotlightTour.createAllNetworks,
+  );
   if (!isEnable) {
     return null;
   }
   return (
     <Spotlight
-      visible={visible}
+      visible={isFirstVisit}
       content={
         <SizableText>
           If you don’t see assets under ‘All Networks,’ click here to create an
           address for that network.
         </SizableText>
       }
-      onConfirm={() => {
-        setVisible(false);
-      }}
+      onConfirm={tourVisited}
     >
       <IconButton
         title={intl.formatMessage({ id: ETranslations.global_copy_address })}
