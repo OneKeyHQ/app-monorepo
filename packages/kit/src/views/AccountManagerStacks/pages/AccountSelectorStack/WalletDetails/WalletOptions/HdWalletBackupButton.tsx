@@ -10,6 +10,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalKeyTagRoutes,
@@ -47,10 +48,13 @@ export function HdWalletBackupButton({
         isBackup: true,
       },
     });
+
+    defaultLogger.account.wallet.backupWallet('manualBackup');
   }, [navigation, wallet?.id]);
 
   const handleBackupLiteCard = useCallback(() => {
     void liteCard.backupWallet(wallet?.id);
+    defaultLogger.account.wallet.backupWallet('liteCard');
   }, [liteCard, wallet?.id]);
 
   const handleBackupKeyTag = useCallback(async () => {
@@ -68,6 +72,7 @@ export function HdWalletBackupButton({
           title: wallet.name,
         },
       });
+      defaultLogger.account.wallet.backupWallet('keyTag');
     }
   }, [navigation, wallet]);
 

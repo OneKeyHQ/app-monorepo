@@ -29,6 +29,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IPublicBackupData } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 import { ERestoreResult } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ECloudBackupRoutes,
@@ -301,6 +302,7 @@ export default function Detail() {
     } finally {
       setSubmitLoading(false);
     }
+    defaultLogger.account.wallet.importWallet({ importMethod: 'cloud' });
   }, [
     intl,
     restorePasswordVerifyDialog,

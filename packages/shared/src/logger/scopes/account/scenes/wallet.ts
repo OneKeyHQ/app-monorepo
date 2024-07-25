@@ -3,18 +3,45 @@ import { LogToLocal, LogToServer } from '../../../decorators';
 
 export class WalletScene extends BaseScene {
   @LogToServer()
-  @LogToLocal({ level: 'info' })
+  @LogToLocal()
   public createWallet(params: { isBiometricVerificationSet: boolean }) {
     return params;
   }
 
   @LogToServer()
-  @LogToLocal({ level: 'info' })
+  @LogToLocal()
   public deleteWallet() {}
 
   @LogToServer()
-  @LogToLocal({ level: 'info' })
+  @LogToLocal()
   public importWallet(params: { importMethod: string }) {
     return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public connectHWWallet(params: {
+    connectType: string;
+    deviceType: string;
+    deviceFmVersion?: string;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public connect3rdPartyWallet(params: {
+    ['3rdpartyConnectNetwork']: string;
+    ['3rdpartyConnectType']: string;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public backupWallet(backupMethod: string) {
+    return {
+      backupMethod,
+    };
   }
 }

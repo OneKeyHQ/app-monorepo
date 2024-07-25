@@ -8,6 +8,8 @@ import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusSta
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -109,6 +111,11 @@ function DashboardContent({
                 shouldPopNavigation: false,
               });
             }
+            defaultLogger.discovery.dapp.enterDapp({
+              dappDomain: webSite?.url || '',
+              dappName: webSite?.title || '',
+              enterMethod: EEnterMethod.banner,
+            });
           }}
           isLoading={isLoading}
         />
@@ -118,13 +125,18 @@ function DashboardContent({
             bookmarksData={bookmarksData}
             historiesData={historiesData}
             onPressMore={onPressMore}
-            handleOpenWebSite={({ webSite }) =>
+            handleOpenWebSite={({ webSite }) => {
               handleOpenWebSite({
                 webSite,
                 navigation,
                 shouldPopNavigation: false,
-              })
-            }
+              });
+              defaultLogger.discovery.dapp.enterDapp({
+                dappDomain: webSite?.url || '',
+                dappName: webSite?.title || '',
+                enterMethod: EEnterMethod.dashboard,
+              });
+            }}
           />
         )}
         <ReviewControl>
@@ -135,13 +147,18 @@ function DashboardContent({
                 ? homePageData.categories
                 : []
             }
-            handleOpenWebSite={({ webSite }) =>
+            handleOpenWebSite={({ webSite }) => {
               handleOpenWebSite({
                 webSite,
                 navigation,
                 shouldPopNavigation: false,
-              })
-            }
+              });
+              defaultLogger.discovery.dapp.enterDapp({
+                dappDomain: webSite?.url || '',
+                dappName: webSite?.title || '',
+                enterMethod: EEnterMethod.dashboard,
+              });
+            }}
             isLoading={isLoading}
           />
         </ReviewControl>

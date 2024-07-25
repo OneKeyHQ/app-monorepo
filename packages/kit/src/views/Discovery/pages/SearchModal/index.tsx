@@ -22,6 +22,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -167,12 +169,22 @@ function SearchModal() {
                   title: searchValue,
                 },
               });
+              defaultLogger.discovery.dapp.enterDapp({
+                dappDomain: searchValue,
+                dappName: searchValue,
+                enterMethod: EEnterMethod.search,
+              });
             } else {
               handleOpenWebSite({
                 navigation,
                 useCurrentWindow,
                 tabId,
                 dApp: item,
+              });
+              defaultLogger.discovery.dapp.enterDapp({
+                dappDomain: item.name,
+                dappName: item.url,
+                enterMethod: EEnterMethod.search,
               });
             }
           }}
@@ -206,6 +218,12 @@ function SearchModal() {
                   url: searchValue,
                   title: searchValue,
                 },
+              });
+
+              defaultLogger.discovery.dapp.enterDapp({
+                dappDomain: searchValue,
+                dappName: searchValue,
+                enterMethod: EEnterMethod.addressBar,
               });
             }}
           />
@@ -251,6 +269,12 @@ function SearchModal() {
                           url: item.url,
                           title: item.title,
                         },
+                      });
+
+                      defaultLogger.discovery.dapp.enterDapp({
+                        dappDomain: item.url,
+                        dappName: item.title,
+                        enterMethod: EEnterMethod.bookmarkInSearch,
                       });
                     }}
                   >
@@ -324,6 +348,12 @@ function SearchModal() {
                         url: item.url,
                         title: item.title,
                       },
+                    });
+
+                    defaultLogger.discovery.dapp.enterDapp({
+                      dappDomain: item.url,
+                      dappName: item.title,
+                      enterMethod: EEnterMethod.historyInSearch,
                     });
                   }}
                 />

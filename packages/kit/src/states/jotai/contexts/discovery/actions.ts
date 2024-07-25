@@ -519,11 +519,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             }, 1000);
           }
         }
-        defaultLogger.discovery.dapp.enterDapp({
-          dappUrl: url,
-          dappTitle: title,
-          isFavorite: isBookmark,
-        });
         return true;
       }
       return false;
