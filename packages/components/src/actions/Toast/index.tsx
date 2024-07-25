@@ -16,6 +16,7 @@ import type { IPortalManager } from '../../hocs';
 import type { ISizableTextProps } from '../../primitives';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+
 export interface IToastProps {
   toastId?: string;
   title: string;
