@@ -391,6 +391,7 @@ function ReceiveToken() {
     shouldShowAddress,
     addressState,
     renderCopyAddressButton,
+    token?.symbol,
   ]);
 
   return (
