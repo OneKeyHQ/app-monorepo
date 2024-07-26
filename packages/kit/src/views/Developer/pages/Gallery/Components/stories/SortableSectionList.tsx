@@ -52,7 +52,7 @@ const SortableSectionListGallery = () => {
         bg="$bgApp"
         sections={sections}
         enabled={isEditing}
-        keyExtractor={(item: { index: number }) => `${item?.index}`}
+        keyExtractor={(item) => `${(item as { index: number }).index}`}
         getItemLayout={(_, index) => ({
           offset: CELL_HEIGHT,
           length: CELL_HEIGHT * index,
@@ -64,7 +64,7 @@ const SortableSectionListGallery = () => {
             title={`Section ${index}`}
           />
         )}
-        renderItem={({ item, getIndex, section, drag }) => (
+        renderItem={({ item, section, drag }) => (
           <SwipeableCell
             swipeEnabled={!isEditing}
             rightItemList={[
@@ -74,7 +74,7 @@ const SortableSectionListGallery = () => {
                 backgroundColor: '$bgCriticalStrong',
                 onPress: ({ close }) => {
                   close?.();
-                  deleteCell(getIndex, section);
+                  deleteCell(() => (item as { index: number }).index, section);
                 },
               },
             ]}
@@ -102,7 +102,13 @@ const SortableSectionListGallery = () => {
             </ListItem>
           </SwipeableCell>
         )}
-        onDragEnd={(result) => setSections(result.sections)}
+        onDragEnd={(result) =>
+          setSections(
+            result.sections as {
+              data: { index: number; backgroundColor: string }[];
+            }[],
+          )
+        }
         stickySectionHeadersEnabled
       />
     </Page>

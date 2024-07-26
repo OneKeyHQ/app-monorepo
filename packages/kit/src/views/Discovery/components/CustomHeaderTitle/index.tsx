@@ -70,7 +70,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
         {displayUrl
           ? hiddenHttpsUrl
           : intl.formatMessage({
-              id: ETranslations.explore_search_placeholder,
+              id: ETranslations.explore_search_dapps,
             })}
       </SizableText>
       {platformEnv.isDesktop ? (

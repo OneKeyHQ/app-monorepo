@@ -2,13 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps, ISectionListRef } from '@onekeyhq/components';
+import type {
+  IButtonProps,
+  ISortableSectionListRef,
+} from '@onekeyhq/components';
 import {
   ActionList,
   Empty,
   Icon,
   IconButton,
-  SectionList,
+  SortableSectionList,
   Stack,
   useSafeAreaInsets,
   useSafelyScrollToLocation,
@@ -80,7 +83,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { activeAccount } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
-  const listRef = useRef<ISectionListRef<any> | null>(null);
+  const listRef = useRef<ISortableSectionListRef<any> | null>(null);
   const route = useAccountSelectorRoute();
   const linkNetwork = route.params?.linkNetwork;
   const isEditableRouteParams = route.params?.editable;
@@ -171,7 +174,11 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     };
   }, [reloadFocusedWalletInfo]);
 
-  const { result: sectionData, run: reloadAccounts } = usePromiseResult(
+  const {
+    result: sectionData,
+    run: reloadAccounts,
+    setResult,
+  } = usePromiseResult(
     async () => {
       if (!selectedAccount?.focusedWallet) {
         return Promise.resolve(undefined);
@@ -209,27 +216,104 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   }, [reloadAccounts]);
 
   const { scrollToLocation, onLayout } = useSafelyScrollToLocation(listRef);
-  // scroll into selected account
-  const scrollToSelectedAccount = useCallback(() => {
+
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const layoutList = useMemo(() => {
+    let offset = 0;
+    const layouts: { offset: number; length: number; index: number }[] = [];
+    layouts.push({ offset, length: headerHeight, index: layouts.length });
+    offset += headerHeight;
+    sectionData?.forEach?.((section, sectionIndex) => {
+      if (sectionIndex !== 0) {
+        layouts.push({ offset, length: 0, index: layouts.length });
+        offset += 0;
+      }
+      layouts.push({ offset, length: 0, index: layouts.length });
+      offset += 0;
+      section.data.forEach(() => {
+        layouts.push({ offset, length: 56, index: layouts.length });
+        offset += 56;
+      });
+      const footerHeight = 0;
+      layouts.push({ offset, length: footerHeight, index: layouts.length });
+      offset += footerHeight;
+    });
+    layouts.push({ offset, length: 0, index: layouts.length });
+    return layouts;
+  }, [sectionData, headerHeight]);
+
+  const initialScrollIndex = useMemo(() => {
     if (sectionData?.[0]?.data) {
       const itemIndex = sectionData[0].data?.findIndex(({ id }) =>
         isOthers
           ? selectedAccount.othersWalletAccountId === id
           : selectedAccount.indexedAccountId === id,
       );
-      scrollToLocation({
-        animated: true,
-        sectionIndex: 0,
-        itemIndex: Math.max(itemIndex, 0),
-      });
+      if (itemIndex <= 10) {
+        return undefined;
+      }
+      return { sectionIndex: 0, itemIndex: Math.max(itemIndex, 0) };
     }
   }, [
     isOthers,
-    scrollToLocation,
     sectionData,
     selectedAccount.indexedAccountId,
     selectedAccount.othersWalletAccountId,
   ]);
+
+  const onDragEnd = useCallback(
+    async (result: {
+      sections: any;
+      from?: { sectionIndex: number; itemIndex: number };
+      to?: { sectionIndex: number; itemIndex: number };
+    }) => {
+      const sectionIndex = result?.from?.sectionIndex;
+      if (!sectionData) {
+        return;
+      }
+      if (
+        sectionIndex === undefined ||
+        sectionIndex !== result?.to?.sectionIndex
+      ) {
+        return;
+      }
+
+      const fromIndex = result?.from?.itemIndex;
+      let toIndex = result?.to?.itemIndex;
+      if (fromIndex === undefined || toIndex === undefined) {
+        return;
+      }
+
+      if (toIndex > fromIndex) {
+        toIndex += 1;
+      }
+      const sectionDataList = sectionData[sectionIndex].data;
+      if (
+        sectionIndex === sectionData.length - 1 &&
+        toIndex === sectionDataList.length - 1
+      ) {
+        return;
+      }
+      setResult(result.sections);
+
+      if (isOthersUniversal) {
+        await serviceAccount.insertAccountOrder({
+          targetAccountId: sectionDataList?.[fromIndex]?.id,
+          startAccountId: sectionDataList?.[toIndex - 1]?.id,
+          endAccountId: sectionDataList?.[toIndex]?.id,
+          emitEvent: true,
+        });
+      } else {
+        await serviceAccount.insertIndexedAccountOrder({
+          targetIndexedAccountId: sectionDataList?.[fromIndex]?.id,
+          startIndexedAccountId: sectionDataList?.[toIndex - 1]?.id,
+          endIndexedAccountId: sectionDataList?.[toIndex]?.id,
+          emitEvent: true,
+        });
+      }
+    },
+    [isOthersUniversal, serviceAccount, sectionData, setResult],
+  );
 
   const scrollToTop = useCallback(() => {
     if (sectionData?.length) {
@@ -240,21 +324,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       });
     }
   }, [scrollToLocation, sectionData]);
-
-  useEffect(() => {
-    if (editMode) {
-      // Scrolling to the top makes it inconvenient for users to edit the name,
-      // and not scrolling to the top makes it difficult for users to see the batch create address
-      //
-      // scrollToTop();
-    } else {
-      // scrollToSelectedAccount();
-    }
-  }, [editMode, scrollToSelectedAccount, scrollToTop]);
-
-  useEffect(() => {
-    scrollToSelectedAccount();
-  }, [scrollToSelectedAccount]);
 
   const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
@@ -358,9 +427,19 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         })}
       />
 
-      <SectionList
+      <SortableSectionList
         ref={listRef}
         onLayout={onLayout}
+        enabled={editMode}
+        onDragEnd={onDragEnd}
+        initialScrollIndex={initialScrollIndex}
+        getItemLayout={(item, index) => {
+          if (index === -1) {
+            return { index, offset: 0, length: 0 };
+          }
+          return layoutList[index];
+        }}
+        keyExtractor={(item) => (item as IDBIndexedAccount | IDBAccount).id}
         ListEmptyComponent={
           <Empty
             mt="$24"
@@ -385,7 +464,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           />
         }
         contentContainerStyle={{ pb: '$3' }}
-        estimatedItemSize="$14"
         extraData={[selectedAccount.indexedAccountId, editMode, remember]}
         // {...(wallet?.type !== 'others' && {
         //   ListHeaderComponent: (
@@ -394,10 +472,20 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         // })}
         ListHeaderComponent={
           isOthersUniversal ? null : (
-            <WalletOptions
-              wallet={focusedWalletInfo?.wallet}
-              device={focusedWalletInfo?.device}
-            />
+            <Stack
+              onLayout={({
+                nativeEvent: {
+                  layout: { height },
+                },
+              }) => {
+                setHeaderHeight(height);
+              }}
+            >
+              <WalletOptions
+                wallet={focusedWalletInfo?.wallet}
+                device={focusedWalletInfo?.device}
+              />
+            </Stack>
           )
         }
         sections={sectionData ?? (emptyArray as any)}
@@ -410,7 +498,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
             {/* If better performance is needed,  */
             /*  a header component should be extracted and data updates should be subscribed to through context" */}
             {section.title ? (
-              <SectionList.SectionHeader title={section.title}>
+              <SortableSectionList.SectionHeader title={section.title}>
                 {section.isHiddenWalletData && editMode ? (
                   <ActionList
                     title={section.title}
@@ -460,7 +548,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                     ]}
                   />
                 ) : null}
-              </SectionList.SectionHeader>
+              </SortableSectionList.SectionHeader>
             ) : null}
             {section.data.length === 0 && section.emptyText ? (
               <ListItem
@@ -474,10 +562,12 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         )}
         renderItem={({
           item,
+          drag,
           section,
         }: {
           item: IDBIndexedAccount | IDBAccount;
           section: IAccountSelectorAccountsListSectionData;
+          drag?: () => void;
         }) => {
           const account = isOthersUniversal ? (item as IDBAccount) : undefined;
           const indexedAccount = isOthersUniversal
@@ -597,6 +687,13 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 })(),
               })}
             >
+              {editMode ? (
+                <ListItem.IconButton
+                  cursor="move"
+                  icon="DragOutline"
+                  onPressIn={drag}
+                />
+              ) : null}
               {actionButton}
             </ListItem>
           );

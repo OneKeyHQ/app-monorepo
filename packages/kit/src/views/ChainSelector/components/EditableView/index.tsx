@@ -5,7 +5,6 @@ import {
   useContext,
   useLayoutEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 
@@ -18,13 +17,11 @@ import {
   SortableSectionList,
   Stack,
 } from '@onekeyhq/components';
-import type { ISortableSectionListRef } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { networkFuseSearch } from '../../utils';
@@ -62,7 +59,7 @@ const EditableViewListItem = ({
 }: {
   item: IServerNetworkMatch;
   sectionIndex: number;
-  drag: () => void;
+  drag?: () => void;
   isDisabled?: boolean;
 }) => {
   const intl = useIntl();
@@ -178,8 +175,6 @@ export const EditableView: FC<IEditableViewProps> = ({
   const intl = useIntl();
   const lastIsEditMode = usePrevious(isEditMode);
   const trimSearchText = searchText.trim();
-  const scrollView = useRef<ISortableSectionListRef>(null);
-  const scrollViewHeight = useRef(0);
 
   useLayoutEffect(() => {
     if (!isEditMode && lastIsEditMode) {
@@ -226,37 +221,53 @@ export const EditableView: FC<IEditableViewProps> = ({
     }
     return _sections;
   }, [allNetworks, trimSearchText, topNetworks, unavailableNetworks, intl]);
-
-  const hasScrollToSelectedCell = useRef(false);
-  useLayoutEffect(() => {
-    if (sections.length <= 1 || hasScrollToSelectedCell.current) {
-      return;
-    }
-    let y = 0;
-    for (const section of sections) {
-      const index = section.data.findIndex((item) => item.id === networkId);
-      if (index !== -1) {
-        const timer = setTimeout(
-          // Scrolling animations need to be enabled on Android devices to prevent the list from flickering.
-          // eslint-disable-next-line no-loop-func, @typescript-eslint/no-loop-func
-          () => {
-            y += index * CELL_HEIGHT;
-            y -= section.title ? 20 : 0;
-            if (y >= scrollViewHeight.current - CELL_HEIGHT) {
-              scrollView?.current?.scrollTo?.({
-                y,
-                animated: platformEnv.isNativeAndroid,
-              });
-            }
-            hasScrollToSelectedCell.current = true;
-          },
-          !platformEnv.isNativeIOS ? 100 : 0,
-        );
-        return () => clearTimeout(timer);
+  const layoutList = useMemo(() => {
+    let offset = 0;
+    const layouts: { offset: number; length: number; index: number }[] = [];
+    sections.forEach((section, sectionIndex) => {
+      if (sectionIndex !== 0) {
+        layouts.push({ offset, length: 20, index: layouts.length });
+        offset += 20;
       }
-      y += 36 + 20;
-      y += section.data.length * CELL_HEIGHT;
+      const headerHeight = section.title ? 36 : 8;
+      layouts.push({ offset, length: headerHeight, index: layouts.length });
+      offset += headerHeight;
+      section.data.forEach(() => {
+        layouts.push({ offset, length: CELL_HEIGHT, index: layouts.length });
+        offset += CELL_HEIGHT;
+      });
+      const footerHeight = 0;
+      layouts.push({ offset, length: footerHeight, index: layouts.length });
+      offset += footerHeight;
+    });
+    layouts.push({ offset, length: 8, index: layouts.length });
+    return layouts;
+  }, [sections]);
+
+  const initialScrollIndex = useMemo(() => {
+    let _initialScrollIndex:
+      | { sectionIndex: number; itemIndex?: number }
+      | undefined;
+    sections.forEach((section, sectionIndex) => {
+      section.data.forEach((item, itemIndex) => {
+        if (item.id === networkId && _initialScrollIndex === undefined) {
+          _initialScrollIndex = { sectionIndex, itemIndex: itemIndex - 1 };
+          if (
+            _initialScrollIndex &&
+            (_initialScrollIndex?.itemIndex ?? 0) <= 0
+          ) {
+            _initialScrollIndex.itemIndex = undefined;
+          }
+        }
+      });
+    });
+    if (
+      _initialScrollIndex?.sectionIndex === 0 &&
+      (_initialScrollIndex?.itemIndex ?? 0) <= 10
+    ) {
+      _initialScrollIndex.itemIndex = undefined;
     }
+    return _initialScrollIndex;
   }, [sections, networkId]);
 
   const context = useMemo<IEditableViewContext>(
@@ -286,7 +297,7 @@ export const EditableView: FC<IEditableViewProps> = ({
     }: {
       item: IServerNetwork;
       section: ISectionItem;
-      drag: () => void;
+      drag?: () => void;
     }) => (
       <EditableViewListItem
         item={item}
@@ -324,29 +335,26 @@ export const EditableView: FC<IEditableViewProps> = ({
             onChangeText={(text) => setSearchText(text.trim())}
           />
         </Stack>
-        <Stack
-          flex={1}
-          onLayout={({
-            nativeEvent: {
-              layout: { height },
-            },
-          }) => (scrollViewHeight.current = height)}
-        >
+        <Stack flex={1}>
           {sections.length > 0 ? (
             <SortableSectionList
-              // @ts-ignore
-              ref={scrollView}
               enabled={isEditMode}
               stickySectionHeadersEnabled
               sections={sections}
               renderItem={renderItem}
               keyExtractor={(item) => (item as IServerNetwork).id}
-              onDragEnd={(result) => setTopNetworks(result.sections[0].data)}
-              getItemLayout={(_, index) => ({
-                length: CELL_HEIGHT,
-                offset: index * CELL_HEIGHT,
-                index,
-              })}
+              onDragEnd={(result) => {
+                const itemList = result?.sections?.[0]
+                  ?.data as IServerNetwork[];
+                setTopNetworks(itemList);
+              }}
+              initialScrollIndex={initialScrollIndex}
+              getItemLayout={(item, index) => {
+                if (index === -1) {
+                  return { index, offset: 0, length: 0 };
+                }
+                return layoutList[index];
+              }}
               renderSectionHeader={renderSectionHeader}
               ListFooterComponent={<Stack h="$2" />} // Act as padding bottom
             />

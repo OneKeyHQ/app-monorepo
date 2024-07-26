@@ -8,6 +8,8 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 type IWalletListItemProps = {
   isOthers?: boolean;
   focusedWallet: IAccountSelectorFocusedWallet;
@@ -59,7 +61,7 @@ export function WalletListItem({
 
   const basicComponent = (
     <Pressable
-      pointerEvents="box-only"
+      pointerEvents={platformEnv.isNative ? 'box-only' : 'box-none'}
       onLongPress={onLongPress}
       onPress={onPress}
     >
