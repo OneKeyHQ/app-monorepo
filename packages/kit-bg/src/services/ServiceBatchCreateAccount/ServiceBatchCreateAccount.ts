@@ -8,10 +8,12 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   isHardwareErrorByCode,
   isHardwareInterruptErrorByCode,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -339,8 +341,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
     }> = [];
 
     for (const networkParams of networksParams) {
-      this.checkIfCancelled({ saveToDb });
       try {
+        this.checkIfCancelled({ saveToDb });
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { accountsForCreate } = await this.batchBuildAccounts({
           ...params,
@@ -354,21 +356,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
           deriveType: networkParams.deriveType,
         });
       } catch (error: any) {
-        // Some high priority errors need to interrupt the process
-        if (accountUtils.isHwWallet({ walletId: params.walletId })) {
-          if (isHardwareInterruptErrorByCode({ error })) {
-            throw error;
-          }
-          // Unplug device?
-          if (
-            isHardwareErrorByCode({
-              error,
-              code: HardwareErrorCode.DeviceNotFound,
-            })
-          ) {
-            throw error;
-          }
-        }
+        this.forceExitFlowWhenErrorMatched({
+          error,
+          walletId: params.walletId,
+          saveToDb,
+        });
       }
     }
 
@@ -377,6 +369,43 @@ class ServiceBatchCreateAccount extends ServiceBase {
       walletId: params?.walletId,
     });
     return { addedAccounts };
+  }
+
+  forceExitFlowWhenErrorMatched({
+    walletId,
+    error,
+    saveToDb,
+  }: {
+    walletId: string;
+    error: any;
+    saveToDb: boolean | undefined;
+  }) {
+    if (!saveToDb) {
+      throw error;
+    }
+    // Some high priority errors need to interrupt the process
+    if (accountUtils.isHwWallet({ walletId })) {
+      if (isHardwareInterruptErrorByCode({ error })) {
+        throw error;
+      }
+      // Unplug device?
+      if (
+        isHardwareErrorByCode({
+          error,
+          code: HardwareErrorCode.DeviceNotFound,
+        })
+      ) {
+        throw error;
+      }
+    }
+    if (
+      errorUtils.isErrorByClassName({
+        error,
+        className: EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+      })
+    ) {
+      throw error;
+    }
   }
 
   async emitBatchCreateDoneEvents({ saveToDb }: { saveToDb?: boolean } = {}) {
@@ -518,82 +547,106 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     // for loop indexes
     for (const index of indexes) {
-      this.checkIfCancelled({ saveToDb });
-      if (excludedIndexes?.[index] === true) {
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-      const key = this.buildNetworkAccountCacheKey({
-        walletId,
-        networkId,
-        deriveType,
-        index,
-      });
-      const cacheAccount = this.networkAccountsCache[key];
-      if (cacheAccount) {
+      try {
         this.checkIfCancelled({ saveToDb });
-        await processAccountForCreate({
-          key,
-          accountForCreate: cacheAccount,
+        if (excludedIndexes?.[index] === true) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        const key = this.buildNetworkAccountCacheKey({
+          walletId,
+          networkId,
+          deriveType,
+          index,
         });
-      } else {
-        indexesForRebuild.push(index);
+        const cacheAccount = this.networkAccountsCache[key];
+        if (cacheAccount) {
+          this.checkIfCancelled({ saveToDb });
+          await processAccountForCreate({
+            key,
+            accountForCreate: cacheAccount,
+          });
+        } else {
+          indexesForRebuild.push(index);
+        }
+      } catch (error) {
+        this.forceExitFlowWhenErrorMatched({
+          error,
+          walletId,
+          saveToDb,
+        });
       }
     }
 
     if (indexesForRebuild.length) {
       const indexesChunks = chunk(indexesForRebuild, 10);
       for (const indexesForRebuildChunk of indexesChunks) {
-        this.checkIfCancelled({ saveToDb });
-        const { vault, accounts } =
-          await this.backgroundApi.serviceAccount.prepareHdOrHwAccounts({
-            walletId,
-            networkId,
-            deriveType,
-            indexes: indexesForRebuildChunk,
-            indexedAccountId: undefined,
-            skipDeviceCancel: true, // always skip cancel for batch create
-            hideCheckingDeviceLoading,
-          });
-        const networkInfo = await vault.getNetworkInfo();
-        for (const account of accounts) {
+        try {
           this.checkIfCancelled({ saveToDb });
-          if (isNil(account.pathIndex)) {
-            throw new Error(
-              'batchBuildNetworkAccounts ERROR: pathIndex is required',
-            );
-          }
-          if (excludedIndexes?.[account.pathIndex] === true) {
-            // eslint-disable-next-line no-continue
-            continue;
-          }
-          const key = this.buildNetworkAccountCacheKey({
-            walletId,
-            networkId,
-            deriveType,
-            index: account.pathIndex,
-          });
-          this.checkIfCancelled({ saveToDb });
+          const { vault, accounts } =
+            await this.backgroundApi.serviceAccount.prepareHdOrHwAccounts({
+              walletId,
+              networkId,
+              deriveType,
+              indexes: indexesForRebuildChunk,
+              indexedAccountId: undefined,
+              skipDeviceCancel: true, // always skip cancel for batch create
+              hideCheckingDeviceLoading,
+            });
+          const networkInfo = await vault.getNetworkInfo();
+          for (const account of accounts) {
+            try {
+              this.checkIfCancelled({ saveToDb });
+              if (isNil(account.pathIndex)) {
+                throw new Error(
+                  'batchBuildNetworkAccounts ERROR: pathIndex is required',
+                );
+              }
+              if (excludedIndexes?.[account.pathIndex] === true) {
+                // eslint-disable-next-line no-continue
+                continue;
+              }
+              const key = this.buildNetworkAccountCacheKey({
+                walletId,
+                networkId,
+                deriveType,
+                index: account.pathIndex,
+              });
+              this.checkIfCancelled({ saveToDb });
 
-          const addressDetail = await vault?.buildAccountAddressDetail({
-            account,
-            networkId,
-            networkInfo,
-          });
-          const accountForCreate: IBatchCreateAccount = {
-            ...account,
-            addressDetail,
-            existsInDb: false,
-          };
-          accountForCreate.address =
-            addressDetail?.displayAddress ||
-            addressDetail?.address ||
-            accountForCreate.address;
-          this.checkIfCancelled({ saveToDb });
+              const addressDetail = await vault?.buildAccountAddressDetail({
+                account,
+                networkId,
+                networkInfo,
+              });
+              const accountForCreate: IBatchCreateAccount = {
+                ...account,
+                addressDetail,
+                existsInDb: false,
+              };
+              accountForCreate.address =
+                addressDetail?.displayAddress ||
+                addressDetail?.address ||
+                accountForCreate.address;
+              this.checkIfCancelled({ saveToDb });
 
-          await processAccountForCreate({
-            key,
-            accountForCreate,
+              await processAccountForCreate({
+                key,
+                accountForCreate,
+              });
+            } catch (error) {
+              this.forceExitFlowWhenErrorMatched({
+                error,
+                walletId,
+                saveToDb,
+              });
+            }
+          }
+        } catch (error) {
+          this.forceExitFlowWhenErrorMatched({
+            error,
+            walletId,
+            saveToDb,
           });
         }
       }
