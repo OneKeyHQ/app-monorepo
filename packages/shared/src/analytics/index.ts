@@ -88,10 +88,10 @@ class Analytics {
     });
   }
 
-  public async requestAttributes(attributes: Record<string, any>) {
+  public async requestUserProfile(attributes: Record<string, any>) {
     const axios = this.lazyAxios();
     await axios.post('/utility/v1/track/attributes', {
-      distinct_id: this.instanceId,
+      distinctId: this.instanceId,
       attributes: {
         ...attributes,
         ...(await this.lazyDeviceInfo()),
@@ -99,12 +99,12 @@ class Analytics {
     });
   }
 
-  public updateAttributes(attributes: {
+  public updateUserProfile(attributes: {
     walletCount?: number;
     appWalletCount?: number;
     hwWalletCount?: number;
   }) {
-    void this.requestAttributes(attributes);
+    void this.requestUserProfile(attributes);
   }
 }
 
