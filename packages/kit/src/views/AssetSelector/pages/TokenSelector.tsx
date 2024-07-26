@@ -62,6 +62,7 @@ function TokenSelector() {
     onSelect,
     tokenListState,
     searchAll,
+    isAllNetworks,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -290,8 +291,8 @@ function TokenSelector() {
         <TokenListView
           withPresetVerticalPadding={false}
           onPressToken={handleTokenOnPress}
-          isAllNetworks={network?.isAllNetworks}
-          withNetwork={network?.isAllNetworks}
+          isAllNetworks={isAllNetworks ?? network?.isAllNetworks}
+          withNetwork={isAllNetworks ?? network?.isAllNetworks}
           searchAll={searchAll}
           isTokenSelectorLayout
         />

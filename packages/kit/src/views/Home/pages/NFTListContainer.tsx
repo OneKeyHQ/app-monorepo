@@ -8,6 +8,11 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_NFT,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountNFT,
   IFetchAccountNFTsResp,
@@ -44,6 +49,11 @@ function NFTListContainer(props: ITabPageProps) {
 
       if (network.isAllNetworks) return;
 
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: true,
+        type: EHomeTab.NFT,
+      });
+
       await backgroundApiProxy.serviceNFT.abortFetchAccountNFTs();
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         accountId: account.id,
@@ -57,6 +67,11 @@ function NFTListContainer(props: ITabPageProps) {
       setIsHeaderRefreshing(false);
 
       setNftList(r.data);
+
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: false,
+        type: EHomeTab.NFT,
+      });
 
       return r.data;
     },
@@ -97,17 +112,41 @@ function NFTListContainer(props: ITabPageProps) {
     [],
   );
 
+  const handleAllNetworkRequestsFinished = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+      isRefreshing: false,
+      type: EHomeTab.NFT,
+    });
+  }, []);
+
+  const handleAllNetworkRequestsStarted = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+      isRefreshing: true,
+      type: EHomeTab.NFT,
+    });
+  }, []);
+
   const handleClearAllNetworkData = useCallback(() => setNftList([]), []);
 
-  const { result: allNetworksResult, isEmptyAccount } =
-    useAllNetworkRequests<IFetchAccountNFTsResp>({
-      account,
-      network,
-      wallet,
-      allNetworkRequests: handleAllNetworkRequests,
-      clearAllNetworkData: handleClearAllNetworkData,
-      isNFTRequests: true,
-    });
+  const {
+    run: runAllNetworkRequests,
+    result: allNetworksResult,
+    isEmptyAccount,
+  } = useAllNetworkRequests<IFetchAccountNFTsResp>({
+    account,
+    network,
+    wallet,
+    allNetworkRequests: handleAllNetworkRequests,
+    clearAllNetworkData: handleClearAllNetworkData,
+    isNFTRequests: true,
+    onStarted: handleAllNetworkRequestsStarted,
+    onFinished: handleAllNetworkRequestsFinished,
+  });
+
+  const handleRefreshAllNetworkData = useCallback(() => {
+    refreshAllNetworksNftList.current = true;
+    void runAllNetworkRequests();
+  }, [runAllNetworkRequests]);
 
   useEffect(() => {
     if (refreshAllNetworksNftList.current && allNetworksResult) {
@@ -149,6 +188,26 @@ function NFTListContainer(props: ITabPageProps) {
       });
     }
   }, [isEmptyAccount]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (network?.isAllNetworks) {
+        void handleRefreshAllNetworkData();
+      } else {
+        void run();
+      }
+    };
+
+    const fn = () => {
+      if (isFocused) {
+        refresh();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
+    };
+  }, [handleRefreshAllNetworkData, isFocused, network?.isAllNetworks, run]);
 
   return (
     <NFTListView

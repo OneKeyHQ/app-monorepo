@@ -25,6 +25,7 @@ import { Icon } from '../../primitives';
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
 import { getSharedInputStyles } from './sharedStyles';
 
+import type { IGroupProps, IKeyOfIcons } from '../../primitives';
 import type {
   HostComponent,
   MeasureLayoutOnSuccessCallback,
@@ -34,7 +35,6 @@ import type {
   TextInputFocusEventData,
 } from 'react-native';
 import type { GetProps } from 'tamagui';
-import type { IGroupProps, IKeyOfIcons } from '../../primitives';
 
 type ITMInputProps = GetProps<typeof TMInput>;
 

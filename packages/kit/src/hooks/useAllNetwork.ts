@@ -35,6 +35,8 @@ function useAllNetworkRequests<T>(params: {
   disabled?: boolean;
   interval?: number;
   shouldAlwaysFetch?: boolean;
+  onStarted?: () => void;
+  onFinished?: () => void;
 }) {
   const {
     account,
@@ -47,6 +49,8 @@ function useAllNetworkRequests<T>(params: {
     disabled,
     interval = 0,
     shouldAlwaysFetch,
+    onStarted,
+    onFinished,
   } = params;
   const allNetworkDataInit = useRef(false);
   const isFetching = useRef(false);
@@ -112,6 +116,8 @@ function useAllNetworkRequests<T>(params: {
 
       setIsEmptyAccount(false);
 
+      onStarted?.();
+
       if (allNetworkDataInit.current) {
         const allNetworks = [
           ...Array.from(sequentialNetworks),
@@ -164,6 +170,7 @@ function useAllNetworkRequests<T>(params: {
 
       allNetworkDataInit.current = true;
       isFetching.current = false;
+      onFinished?.();
 
       return resp;
     },
@@ -173,6 +180,8 @@ function useAllNetworkRequests<T>(params: {
       network,
       wallet,
       abortAllNetworkRequests,
+      onStarted,
+      onFinished,
       clearAllNetworkData,
       isNFTRequests,
       allNetworkRequests,

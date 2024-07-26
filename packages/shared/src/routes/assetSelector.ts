@@ -15,6 +15,7 @@ export type ITokenSelectorParamList = {
     initialized: boolean;
   };
   searchAll?: boolean;
+  isAllNetworks?: boolean;
 };
 
 export type IAssetSelectorParamList = {
