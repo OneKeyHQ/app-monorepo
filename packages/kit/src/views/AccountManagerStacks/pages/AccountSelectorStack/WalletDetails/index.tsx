@@ -475,9 +475,11 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         renderItem={({
           item,
           section,
+          index,
         }: {
           item: IDBIndexedAccount | IDBAccount;
           section: IAccountSelectorAccountsListSectionData;
+          index: number;
         }) => {
           const account = isOthersUniversal ? (item as IDBAccount) : undefined;
           const indexedAccount = isOthersUniversal
@@ -544,6 +546,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
           return (
             <ListItem
+              testID={`account-item-index-${index}`}
               key={item.id}
               renderAvatar={
                 <AccountAvatar
