@@ -11,6 +11,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useSupportNetworkId } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { useWalletAddress } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useWalletAddress';
@@ -58,6 +62,9 @@ export function WalletActionMore() {
     return false;
   }, [isSupported, wallet?.type]);
 
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
+
   const handleCopyAddress = useCallback(() => {
     if (walletAddressEnable) {
       handleWalletAddress();
@@ -78,9 +85,14 @@ export function WalletActionMore() {
   const sellCrypto = useCallback(() => {
     navigation.pushModal(EModalRoutes.FiatCryptoModal, {
       screen: EModalFiatCryptoRoutes.SellModal,
-      params: { networkId: network?.id ?? '', accountId: account?.id ?? '' },
+      params: {
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        tokens: allTokens.tokens,
+        map,
+      },
     });
-  }, [navigation, network, account]);
+  }, [navigation, network, account, allTokens, map]);
   const show = useReviewControl();
 
   const vaultSettings = usePromiseResult(async () => {
