@@ -208,6 +208,9 @@ function SearchModal() {
             selectTextOnFocus
             value={searchValue}
             onSearchTextChange={setSearchValue}
+            placeholder={intl.formatMessage({
+              id: ETranslations.browser_search_dapp_or_enter_url,
+            })}
             onSubmitEditing={() => {
               handleOpenWebSite({
                 navigation,
