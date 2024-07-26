@@ -21,15 +21,9 @@ function EmptyAccount(props: IProps) {
   let description: string | undefined;
   if (activeAccount?.canCreateAddress) {
     const showDerivationType = activeAccount.deriveInfoItems.length > 1;
-    description = intl.formatMessage(
-      {
-        id: ETranslations.wallet_no_address_desc,
-      },
-      {
-        name,
-        chain: `${chain} ${showDerivationType && type ? `(${type})` : ''}`,
-      },
-    );
+    description = intl.formatMessage({
+      id: ETranslations.wallet_no_address_desc,
+    });
   } else if (activeAccount?.isNetworkNotMatched) {
     description = intl.formatMessage({
       id: ETranslations.global_network_not_matched,

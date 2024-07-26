@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';

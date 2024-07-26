@@ -69,6 +69,7 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+import ServiceSpotlight from '../services/ServiceSpotlight';
 // import type ServiceCronJob from '../services/ServiceCronJob';
 
 export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
@@ -154,6 +155,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
   serviceAddressBook: ServiceAddressBook;
   serviceAppUpdate: ServiceAppUpdate;
+  serviceSpotlight: ServiceSpotlight;
   serviceMarket: ServiceMarket;
   serviceContextMenu: ServiceContextMenu;
   serviceExplorer: ServiceExplorer;

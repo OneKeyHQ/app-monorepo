@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   IconButton,
   NumberSizeableText,
   Skeleton,
@@ -124,31 +125,48 @@ function HomeOverviewContainer() {
     formatterOptions: { currency: settings.currencyInfo.symbol },
   };
 
+  const basicTextElement = (
+    <NumberSizeableText
+      flexShrink={1}
+      minWidth={0}
+      {...numberFormatter}
+      size={
+        md
+          ? balanceSizeList.find(
+              (item) =>
+                numberFormat(String(balanceString), numberFormatter, true)
+                  .length >= item.length,
+            )?.size ?? defaultBalanceSize
+          : defaultBalanceSize
+      }
+    >
+      {balanceString}
+    </NumberSizeableText>
+  );
+
   return (
-    <XStack alignItems="center" space="$2">
-      <NumberSizeableText
-        flexShrink={1}
-        minWidth={0}
-        {...numberFormatter}
-        size={
-          md
-            ? balanceSizeList.find(
-                (item) =>
-                  numberFormat(String(balanceString), numberFormatter, true)
-                    .length >= item.length,
-              )?.size ?? defaultBalanceSize
-            : defaultBalanceSize
-        }
-      >
-        {balanceString}
-      </NumberSizeableText>
+    <XStack alignItems="center" space="$2.5">
       {vaultSettings?.hasFrozenBalance ? (
-        <IconButton
-          title={intl.formatMessage({
-            id: ETranslations.balance_detail_button_balance,
-          })}
-          icon="InfoCircleOutline"
-          variant="tertiary"
+        <XStack
+          borderRadius="$3"
+          px="$1"
+          py="$0.5"
+          mx="$-1"
+          my="$-0.5"
+          cursor="default"
+          focusable
+          hoverStyle={{
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            bg: '$bgActive',
+          }}
+          focusStyle={{
+            outlineColor: '$focusRing',
+            outlineWidth: 2,
+            outlineOffset: 0,
+            outlineStyle: 'solid',
+          }}
           onPress={() => {
             if (balanceDialogInstance?.current) {
               return;
@@ -161,8 +179,38 @@ function HomeOverviewContainer() {
               },
             });
           }}
-        />
-      ) : null}
+        >
+          {basicTextElement}
+          <Icon
+            name="InfoCircleOutline"
+            size="$4"
+            color="$iconSubdued"
+            ml="$-1"
+          />
+        </XStack>
+      ) : (
+        // <IconButton
+        //   title={intl.formatMessage({
+        //     id: ETranslations.balance_detail_button_balance,
+        //   })}
+        //   icon="InfoCircleOutline"
+        //   variant="tertiary"
+        //   onPress={() => {
+        //     if (balanceDialogInstance?.current) {
+        //       return;
+        //     }
+        //     balanceDialogInstance.current = showBalanceDetailsDialog({
+        //       accountId: account?.id ?? '',
+        //       networkId: network?.id ?? '',
+        //       onClose: () => {
+        //         balanceDialogInstance.current = null;
+        //       },
+        //     });
+        //   }}
+        // />
+        basicTextElement
+      )}
+      <IconButton icon="RefreshCcwOutline" variant="tertiary" />
     </XStack>
   );
 }
