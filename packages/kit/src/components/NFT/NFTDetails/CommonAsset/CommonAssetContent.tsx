@@ -58,7 +58,10 @@ function CommonAssetContent(props: IProps) {
         },
         {
           label: intl.formatMessage({ id: ETranslations.nft_token_id }),
-          value: nft.itemId,
+          value: accountUtils.shortenAddress({
+            address: nft.itemId,
+            leadingLength: 6,
+          }),
         },
         {
           label: intl.formatMessage({ id: ETranslations.nft_nft_standard }),

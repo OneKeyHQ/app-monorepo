@@ -14,6 +14,10 @@ const ReceiveInvoice = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Receive/pages/ReceiveInvoice'),
 );
 
+const TokenSelector = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/AssetSelector/pages/TokenSelector'),
+);
+
 export const ModalReceiveStack: IModalFlowNavigatorConfig<
   EModalReceiveRoutes,
   IModalReceiveParamList
@@ -29,5 +33,9 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
   {
     name: EModalReceiveRoutes.ReceiveInvoice,
     component: ReceiveInvoice,
+  },
+  {
+    name: EModalReceiveRoutes.ReceiveSelectToken,
+    component: TokenSelector,
   },
 ];

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -23,6 +23,7 @@ import type {
   EAssetSelectorRoutes,
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   IAccountToken,
   IToken,
@@ -43,6 +44,7 @@ function TokenSelector() {
     updateTokenListState,
     updateSearchTokenState,
     refreshSearchTokenList,
+    updateCreateAccountState,
   } = useTokenListActions().current;
 
   const route =
@@ -62,18 +64,68 @@ function TokenSelector() {
     searchAll,
   } = route.params;
 
-  const { network } = useAccountData({ networkId });
+  const { network, account } = useAccountData({ networkId, accountId });
 
   const [searchKey] = useSearchKeyAtom();
 
   const handleTokenOnPress = useCallback(
-    (token: IToken) => {
+    async (token: IAccountToken) => {
+      const networkAccounts =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+          {
+            networkIds: [token.networkId ?? ''],
+            indexedAccountId: account?.indexedAccountId ?? '',
+          },
+        );
+
+      const networkAccount = networkAccounts[0];
+
+      if (networkAccount.account) {
+        void onSelect?.({
+          ...token,
+          accountId: networkAccount.account.id,
+        });
+      } else if (account) {
+        updateCreateAccountState({
+          isCreating: true,
+          token,
+        });
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId: account.id,
+        });
+        try {
+          const resp =
+            await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
+              walletId,
+              indexedAccountId: account?.indexedAccountId,
+              deriveType: 'default',
+              networkId: token.networkId,
+            });
+
+          updateCreateAccountState({
+            isCreatingAccount: false,
+            token: null,
+          });
+
+          if (resp) {
+            void onSelect?.({
+              ...token,
+              accountId: resp.accounts[0].id,
+            });
+          }
+        } catch (e) {
+          updateCreateAccountState({
+            isCreatingAccount: false,
+            token: null,
+          });
+        }
+      }
+
       if (closeAfterSelect) {
         navigation.pop();
       }
-      void onSelect?.(token);
     },
-    [closeAfterSelect, navigation, onSelect],
+    [account, closeAfterSelect, navigation, onSelect, updateCreateAccountState],
   );
 
   const fetchAccountTokens = useCallback(async () => {

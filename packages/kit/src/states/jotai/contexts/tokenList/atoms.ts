@@ -106,3 +106,12 @@ export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
     isRefreshing: true,
     initialized: false,
   });
+
+export const { atom: createAccountStateAtom, use: useCreateAccountStateAtom } =
+  contextAtom<{
+    token: IAccountToken | null;
+    isCreating: boolean;
+  }>({
+    token: null,
+    isCreating: false,
+  });

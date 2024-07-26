@@ -6,6 +6,14 @@ import type {
 
 import type { IInvoiceDecodedResponse, ILNURLDetails } from './lightning';
 
+export enum EInputAddressChangeType {
+  Manual = 'manual',
+  Paste = 'paste',
+  Scan = 'scan',
+  AddressBook = 'AddressBook',
+  AccountSelector = 'AccountSelector',
+}
+
 // TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
 export type IAddressValidation = {
   isValid: boolean;

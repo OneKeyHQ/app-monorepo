@@ -66,8 +66,8 @@ function WalletActionSend() {
       return;
     }
 
-    navigation.pushModal(EModalRoutes.AssetSelectorModal, {
-      screen: EAssetSelectorRoutes.TokenSelector,
+    navigation.pushModal(EModalRoutes.SendModal, {
+      screen: EModalSendRoutes.SendSelectToken,
       params: {
         networkId: network.id,
         accountId: account.id,
@@ -77,16 +77,13 @@ function WalletActionSend() {
           map,
         },
         tokenListState,
+        closeAfterSelect: false,
         onSelect: async (token: IToken) => {
-          await timerUtils.wait(600);
-          navigation.pushModal(EModalRoutes.SendModal, {
-            screen: EModalSendRoutes.SendDataInput,
-            params: {
-              accountId: token.accountId ?? account.id,
-              networkId: token.networkId ?? network.id,
-              isNFT: false,
-              token,
-            },
+          navigation.push(EModalSendRoutes.SendDataInput, {
+            accountId: token.accountId ?? account.id,
+            networkId: token.networkId ?? network.id,
+            isNFT: false,
+            token,
           });
         },
       },

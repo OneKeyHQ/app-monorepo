@@ -5,6 +5,7 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import { CreateAccountView } from './CreateAccountView';
 import { TokenBalanceView } from './TokenBalanceView';
 import { TokenIconView } from './TokenIconView';
 import { TokenNameView } from './TokenNameView';
@@ -119,6 +120,10 @@ function BasicTokenListItem(props: ITokenListItemProps) {
           flexBasis: 0,
         })}
       >
+        <CreateAccountView
+          networkId={token.networkId ?? ''}
+          $key={token.$key ?? ''}
+        />
         {withPrice ? (
           <XStack
             space="$2"
