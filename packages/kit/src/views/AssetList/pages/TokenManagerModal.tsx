@@ -323,20 +323,17 @@ function TokenManagerModal() {
   const isEditRef = useRef(false);
   const onAddCustomToken = useCallback(
     (token?: ICustomTokenItem) => {
-      navigation.pushModal(EModalRoutes.MainModal, {
-        screen: EModalAssetListRoutes.AddCustomTokenModal,
-        params: {
-          walletId,
-          isOthersWallet,
-          indexedAccountId,
-          networkId,
-          accountId,
-          deriveType,
-          token,
-          onSuccess: () => {
-            void run();
-            isEditRef.current = true;
-          },
+      navigation.push(EModalAssetListRoutes.AddCustomTokenModal, {
+        walletId,
+        isOthersWallet,
+        indexedAccountId,
+        networkId,
+        accountId,
+        deriveType,
+        token,
+        onSuccess: () => {
+          void run();
+          isEditRef.current = true;
         },
       });
     },

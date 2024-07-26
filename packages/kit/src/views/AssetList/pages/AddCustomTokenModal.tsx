@@ -403,27 +403,6 @@ function AddCustomTokenModal() {
             <Input editable={false} />
           </Form.Field>
         </Form>
-        {hasExistAccount ? null : (
-          <XStack
-            position="absolute"
-            bottom={0}
-            left="$5"
-            alignItems="center"
-            space="$2"
-          >
-            <SizableText color="$text">
-              {intl.formatMessage({
-                id: ETranslations.manage_token_custom_token_create_address,
-              })}
-            </SizableText>
-            <Icon name="ArrowRightOutline" color="$iconSubdued" size="$5" />
-            <SizableText color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.manage_token_custom_token_add,
-              })}
-            </SizableText>
-          </XStack>
-        )}
       </Page.Body>
       <Page.Footer
         onConfirmText={intl.formatMessage({
@@ -448,7 +427,22 @@ function AddCustomTokenModal() {
               $gtMd={{
                 ml: 'auto',
               }}
+              flex={1}
+              justifyContent="space-between"
             >
+              <XStack alignItems="center" space="$2">
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {intl.formatMessage({
+                    id: ETranslations.manage_token_custom_token_create_address,
+                  })}
+                </SizableText>
+                <Icon name="ArrowRightOutline" color="$iconSubdued" size="$5" />
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.manage_token_custom_token_add,
+                  })}
+                </SizableText>
+              </XStack>
               <AccountSelectorCreateAddressButton
                 num={0}
                 account={{
