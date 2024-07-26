@@ -183,6 +183,7 @@ function HomeOverviewContainer() {
     <XStack alignItems="center" space="$2.5">
       {vaultSettings?.hasFrozenBalance ? (
         <XStack
+          flexShrink={1}
           borderRadius="$3"
           px="$1"
           py="$0.5"
@@ -217,6 +218,7 @@ function HomeOverviewContainer() {
         >
           {basicTextElement}
           <Icon
+            flexShrink={0}
             name="InfoCircleOutline"
             size="$4"
             color="$iconSubdued"
@@ -224,25 +226,6 @@ function HomeOverviewContainer() {
           />
         </XStack>
       ) : (
-        // <IconButton
-        //   title={intl.formatMessage({
-        //     id: ETranslations.balance_detail_button_balance,
-        //   })}
-        //   icon="InfoCircleOutline"
-        //   variant="tertiary"
-        //   onPress={() => {
-        //     if (balanceDialogInstance?.current) {
-        //       return;
-        //     }
-        //     balanceDialogInstance.current = showBalanceDetailsDialog({
-        //       accountId: account?.id ?? '',
-        //       networkId: network?.id ?? '',
-        //       onClose: () => {
-        //         balanceDialogInstance.current = null;
-        //       },
-        //     });
-        //   }}
-        // />
         basicTextElement
       )}
       <IconButton
