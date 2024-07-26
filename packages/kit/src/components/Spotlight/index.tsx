@@ -22,7 +22,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
