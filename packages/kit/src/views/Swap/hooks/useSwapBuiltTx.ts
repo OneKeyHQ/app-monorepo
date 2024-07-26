@@ -5,7 +5,6 @@ import BigNumber from 'bignumber.js';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   useInAppNotificationAtom,
-  useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EWrappedType } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -31,6 +30,7 @@ import {
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapShouldRefreshQuoteAtom,
   useSwapSlippagePercentageAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -45,6 +45,7 @@ export function useSwapBuildTx() {
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
@@ -101,6 +102,11 @@ export function useSwapBuildTx() {
   const handleTxFail = useCallback(() => {
     setSwapBuildTxFetching(false);
   }, [setSwapBuildTxFetching]);
+
+  const cancelBuildTx = useCallback(() => {
+    handleTxFail();
+    setSwapShouldRefreshQuote(true);
+  }, [handleTxFail, setSwapShouldRefreshQuote]);
 
   const cancelApproveTx = useCallback(() => {
     handleTxFail();
@@ -351,7 +357,7 @@ export function useSwapBuildTx() {
             encodedTx,
             swapInfo,
             onSuccess: handleBuildTxSuccess,
-            onCancel: handleTxFail,
+            onCancel: cancelBuildTx,
           });
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
             swapType: EProtocolOfExchange.SWAP,
@@ -397,7 +403,7 @@ export function useSwapBuildTx() {
     setSwapBuildTxFetching,
     navigationToSendConfirm,
     handleBuildTxSuccess,
-    handleTxFail,
+    cancelBuildTx,
     isFirstTimeSwap,
   ]);
 

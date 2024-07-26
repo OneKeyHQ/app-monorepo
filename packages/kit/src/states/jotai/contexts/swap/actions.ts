@@ -54,6 +54,7 @@ import {
   swapSelectTokenDetailFetchingAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
+  swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
   swapSlippagePercentageAtom,
   swapSlippagePercentageModeAtom,
@@ -271,6 +272,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       this.cleanQuoteInterval();
       this.quoteIntervalCount = 0;
       set(swapBuildTxFetchingAtom(), false);
+      set(swapShouldRefreshQuoteAtom(), false);
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -395,6 +397,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         this.quoteIntervalCount = 0;
       }
       set(swapBuildTxFetchingAtom(), false);
+      set(swapShouldRefreshQuoteAtom(), false);
       set(swapQuoteFetchingAtom(), false);
       const currentApproveTx =
         await backgroundApiProxy.serviceSwap.getApprovingTransaction();
