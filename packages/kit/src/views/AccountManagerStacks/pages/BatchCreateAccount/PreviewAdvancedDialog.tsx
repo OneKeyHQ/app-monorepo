@@ -60,8 +60,8 @@ function DialogContentView({
           }
           await formRef?.current?.handleSubmit(async (values) => {
             await onSubmit?.(values);
+            await close();
           })();
-          await close();
         }}
       />
     </Stack>
