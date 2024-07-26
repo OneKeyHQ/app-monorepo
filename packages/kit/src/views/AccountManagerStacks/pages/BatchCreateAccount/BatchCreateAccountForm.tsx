@@ -23,8 +23,8 @@ import {
 } from './BatchCreateAccountFormBase';
 import { showBatchCreateAccountProcessingDialog } from './ProcessingDialog';
 
-import type { IBatchCreateAccountFormValues } from './BatchCreateAccountFormBase';
 import type { UseFormReturn } from 'react-hook-form';
+import type { IBatchCreateAccountFormValues } from './BatchCreateAccountFormBase';
 
 function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -38,19 +38,19 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
 
   const navigateToPreview = useCallback(
     async ({ replace }: { replace: boolean }) => {
-      await formRef?.current?.handleSubmit(async (values) => {
-        console.log(values);
-        const actionType = replace ? 'replace' : 'push';
-        navigation[actionType](
-          EAccountManagerStacksRoutes.BatchCreateAccountPreview,
-          {
-            walletId,
-            networkId: values.networkId,
-            from: values.from,
-            count: values.count,
-          },
-        );
-      })();
+      const values = formRef?.current?.getValues();
+      if (!values) return;
+      console.log(values);
+      const actionType = replace ? 'replace' : 'push';
+      navigation[actionType](
+        EAccountManagerStacksRoutes.BatchCreateAccountPreview,
+        {
+          walletId,
+          networkId: values.networkId,
+          from: values.from,
+          count: values.count,
+        },
+      );
     },
     [navigation, walletId],
   );
@@ -108,6 +108,7 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
             }
             const values = formRef?.current?.getValues();
             const networkId = values?.networkId;
+
             if (networkUtils.isAllNetwork({ networkId })) {
               await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
                 {
@@ -127,6 +128,9 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
 
               showBatchCreateAccountProcessingDialog({
                 navigation,
+                allNetworkInfo: {
+                  count: countInt,
+                },
               });
               await timerUtils.wait(600);
 
