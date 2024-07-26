@@ -300,6 +300,7 @@ function BatchCreateAccountPreviewPage({
 
         <ListItem
           ml="$4"
+          mr={0}
           // variant="tertiary"
           onPress={async () => {
             showBatchCreateAccountPreviewAdvancedDialog({
@@ -337,6 +338,7 @@ function BatchCreateAccountPreviewPage({
           }}
           renderTrigger={({ label }) => (
             <ListItem
+              mx={0}
               pr={0}
               // ml="$4"
               // variant="tertiary"
