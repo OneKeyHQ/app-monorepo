@@ -44,6 +44,7 @@ export type IModalSendParamList = {
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
+    isAllNetworks?: boolean;
   };
   [EModalSendRoutes.SendConfirm]: {
     networkId: string;

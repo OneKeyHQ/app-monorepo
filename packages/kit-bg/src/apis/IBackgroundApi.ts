@@ -20,6 +20,7 @@ import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccoun
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
+import type ServiceCustomToken from '../services/ServiceCustomToken';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
@@ -50,6 +51,7 @@ import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSignature from '../services/ServiceSignature';
+import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
@@ -69,7 +71,6 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
-import ServiceSpotlight from '../services/ServiceSpotlight';
 // import type ServiceCronJob from '../services/ServiceCronJob';
 
 export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
@@ -159,6 +160,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceMarket: ServiceMarket;
   serviceContextMenu: ServiceContextMenu;
   serviceExplorer: ServiceExplorer;
+  serviceCustomToken: ServiceCustomToken;
 
   serviceE2E: ServiceE2E;
   serviceLogger: ServiceLogger;

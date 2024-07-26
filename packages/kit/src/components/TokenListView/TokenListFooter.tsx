@@ -32,7 +32,15 @@ function TokenListFooter(props: IProps) {
   const { tableLayout } = props;
   const navigation = useAppNavigation();
   const {
-    activeAccount: { account, network, wallet, deriveType, deriveInfo },
+    activeAccount: {
+      account,
+      network,
+      wallet,
+      isOthersWallet,
+      indexedAccount,
+      deriveType,
+      deriveInfo,
+    },
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
@@ -122,13 +130,31 @@ function TokenListFooter(props: IProps) {
     riskyTokens,
     wallet,
   ]);
+
+  const handleOnPressManageToken = useCallback(() => {
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.TokenManagerModal,
+      params: {
+        walletId: wallet?.id ?? '',
+        isOthersWallet,
+        indexedAccountId: indexedAccount?.id,
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        deriveType,
+      },
+    });
+  }, [
+    navigation,
+    wallet?.id,
+    isOthersWallet,
+    indexedAccount?.id,
+    network?.id,
+    account?.id,
+    deriveType,
+  ]);
+
   return (
     <Stack>
-      {tableLayout &&
-      !isSearchMode &&
-      (smallBalanceTokens.length > 0 || riskyTokens.length > 0) ? (
-        <Divider mx="$5" my="$2" />
-      ) : null}
       {!isSearchMode && smallBalanceTokens.length > 0 ? (
         <ListItem onPress={handleOnPressLowValueTokens} userSelect="none">
           <Stack
@@ -160,6 +186,7 @@ function TokenListFooter(props: IProps) {
           </NumberSizeableText>
         </ListItem>
       ) : null}
+      {!isSearchMode ? <Divider mx="$5" my="$2" /> : null}
       {!isSearchMode && riskyTokens.length > 0 ? (
         <ListItem onPress={handleOnPressBlockedTokens} userSelect="none">
           <Stack
@@ -187,6 +214,28 @@ function TokenListFooter(props: IProps) {
           />
         </ListItem>
       ) : null}
+      <ListItem onPress={handleOnPressManageToken} userSelect="none">
+        <Stack
+          p={tableLayout ? '$1' : '$1.5'}
+          borderRadius="$full"
+          bg="$bgStrong"
+        >
+          <Icon
+            name="SettingsOutline"
+            color="$iconSubdued"
+            size={tableLayout ? '$6' : '$7'}
+          />
+        </Stack>
+        <ListItem.Text
+          flex={1}
+          primary={intl.formatMessage({
+            id: ETranslations.manage_token_title,
+          })}
+          {...(tableLayout && {
+            primaryTextProps: { size: '$bodyMdMedium' },
+          })}
+        />
+      </ListItem>
     </Stack>
   );
 }

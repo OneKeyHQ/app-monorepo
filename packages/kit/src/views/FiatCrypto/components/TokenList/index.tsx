@@ -1,9 +1,15 @@
 import { type FC, useCallback, useMemo, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Empty, ListView, SearchBar, Stack } from '@onekeyhq/components';
+import {
+  Empty,
+  ListView,
+  NumberSizeableText,
+  SearchBar,
+  Stack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -59,22 +65,30 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
           data={data}
           renderItem={({ item }) => (
             <ListItem
-              renderAvatar={<Token size="md" tokenImageUri={item.icon} />}
+              renderAvatar={<Token size="lg" tokenImageUri={item.icon} />}
               title={item.symbol.toUpperCase()}
               subtitle={item.name}
               onPress={() => onPress?.(item)}
             >
-              {item.balanceParsed || item.fiatValue ? (
-                <ListItem.Text
-                  alignItems="flex-end"
-                  primary={item.balanceParsed}
-                  secondary={
-                    item.fiatValue
-                      ? `${symbol}${new BigNumber(item.fiatValue).toFixed(2)}`
-                      : undefined
-                  }
-                />
-              ) : null}
+              <YStack alignItems="flex-end">
+                {item.balanceParsed ? (
+                  <NumberSizeableText size="$bodyLgMedium" formatter="balance">
+                    {item.balanceParsed}
+                  </NumberSizeableText>
+                ) : null}
+                {item.fiatValue ? (
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    formatter="balance"
+                    color="$textSubdued"
+                    formatterOptions={{
+                      currency: symbol,
+                    }}
+                  >
+                    {item.fiatValue}
+                  </NumberSizeableText>
+                ) : null}
+              </YStack>
             </ListItem>
           )}
           keyExtractor={keyExtractor}

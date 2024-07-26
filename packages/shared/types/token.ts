@@ -12,6 +12,7 @@ export type IToken = {
   // for all networks
   networkId?: string;
   accountId?: string;
+  allNetworkAccountId?: string;
 };
 
 export type ITokenFiat = {
@@ -40,6 +41,7 @@ export type IFetchAccountTokensParams = {
   contractList?: string[];
   blockedTokens?: string[];
   unblockedTokens?: string[];
+  hiddenTokens?: string[];
   flag?: string;
   isAllNetworks?: boolean;
 };

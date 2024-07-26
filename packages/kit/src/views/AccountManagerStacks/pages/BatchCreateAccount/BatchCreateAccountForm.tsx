@@ -38,19 +38,19 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
 
   const navigateToPreview = useCallback(
     async ({ replace }: { replace: boolean }) => {
-      await formRef?.current?.handleSubmit(async (values) => {
-        console.log(values);
-        const actionType = replace ? 'replace' : 'push';
-        navigation[actionType](
-          EAccountManagerStacksRoutes.BatchCreateAccountPreview,
-          {
-            walletId,
-            networkId: values.networkId,
-            from: values.from,
-            count: values.count,
-          },
-        );
-      })();
+      const values = formRef?.current?.getValues();
+      if (!values) return;
+      console.log(values);
+      const actionType = replace ? 'replace' : 'push';
+      navigation[actionType](
+        EAccountManagerStacksRoutes.BatchCreateAccountPreview,
+        {
+          walletId,
+          networkId: values.networkId,
+          // from: values.from,
+          // count: values.count,
+        },
+      );
     },
     [navigation, walletId],
   );
@@ -106,42 +106,47 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
               isProcessingRef.current = false;
               return;
             }
-            const values = formRef?.current?.getValues();
-            const networkId = values?.networkId;
-            if (networkUtils.isAllNetwork({ networkId })) {
-              await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
-                {
-                  walletId,
-                  reason: EReasonForNeedPassword.CreateOrRemoveWallet,
-                },
-              );
 
-              const from = values?.from ?? '1';
-              const count =
-                values?.count ??
-                String(BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT);
-              const fromInt = parseInt(from, 10);
-              const countInt = parseInt(count, 10);
-              const beginIndex = fromInt - 1;
-              const endIndex = beginIndex + countInt - 1;
+            await formRef.current?.handleSubmit(async (values) => {
+              const networkId = values?.networkId;
+              if (networkUtils.isAllNetwork({ networkId })) {
+                await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
+                  {
+                    walletId,
+                    reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+                  },
+                );
 
-              showBatchCreateAccountProcessingDialog({
-                navigation,
-              });
-              await timerUtils.wait(600);
+                const from = values?.from ?? '1';
+                const count =
+                  values?.count ??
+                  String(BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT);
+                const fromInt = parseInt(from, 10);
+                const countInt = parseInt(count, 10);
+                const beginIndex = fromInt - 1;
+                const endIndex = beginIndex + countInt - 1;
 
-              await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
-                {
-                  walletId,
-                  fromIndex: beginIndex,
-                  toIndex: endIndex,
-                  excludedIndexes: {},
-                  saveToDb: true,
-                },
-              );
-            } else {
-              await navigateToPreview({ replace: false });
-            }
+                showBatchCreateAccountProcessingDialog({
+                  navigation,
+                  allNetworkInfo: {
+                    count: countInt,
+                  },
+                });
+                await timerUtils.wait(600);
+
+                await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
+                  {
+                    walletId,
+                    fromIndex: beginIndex,
+                    toIndex: endIndex,
+                    excludedIndexes: {},
+                    saveToDb: true,
+                  },
+                );
+              } else {
+                await navigateToPreview({ replace: false });
+              }
+            })();
           } finally {
             isProcessingRef.current = false;
           }
