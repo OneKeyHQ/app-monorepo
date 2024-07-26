@@ -104,7 +104,9 @@ const SortableSectionListGallery = () => {
         )}
         onDragEnd={(result) =>
           setSections(
-            result.sections as { index: number; backgroundColor: string }[],
+            result.sections as {
+              data: { index: number; backgroundColor: string }[];
+            }[],
           )
         }
         stickySectionHeadersEnabled
