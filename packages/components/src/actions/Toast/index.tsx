@@ -3,55 +3,51 @@ import { createRef } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
 import { useWindowDimensions } from 'react-native';
-import { SizableText, YStack } from 'tamagui';
+import { SizableText, View, YStack, useMedia } from 'tamagui';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Portal } from '../../hocs';
-import { Button, Icon, XStack } from '../../primitives';
+import { Icon, XStack } from '../../primitives';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { showMessage } from './showMessage';
 
 import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IPortalManager } from '../../hocs';
-import type { IButtonProps, ISizableTextProps } from '../../primitives';
+import type { ISizableTextProps } from '../../primitives';
 
 export interface IToastProps {
   toastId?: string;
   title: string;
   message?: string;
-  /**
-   * Duration in seconds.
-   */
   duration?: number;
-  actionsProps?: IButtonProps;
+  actions?: JSX.Element | JSX.Element[];
 }
 
 export interface IToastBaseProps extends IToastProps {
   title: string;
   message?: string;
-  /**
-   * Duration in seconds.
-   */
   duration?: number;
-  haptic?: 'success' | 'warning' | 'error' | 'none';
+  haptic?: 'success' | 'warning' | 'info' | 'error' | 'none';
   preset?: 'done' | 'error' | 'none' | 'custom';
 }
 
 const iconMap = {
   success: <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />,
   error: <Icon name="XCircleSolid" color="$iconCritical" size="$5" />,
+  info: <Icon name="InfoCircleSolid" color="$iconInfo" size="$5" />,
+  warning: <Icon name="ErrorSolid" color="$iconCaution" size="$5" />,
 };
 
 const RenderLines = ({
-  icon,
   size,
   children: text,
-  hasMessage = false,
+  color,
 }: {
   children?: string;
   size: ISizableTextProps['size'];
-  icon?: JSX.Element;
-  hasMessage?: boolean;
+  color: ISizableTextProps['color'];
 }) => {
   if (!text) {
     return null;
@@ -59,45 +55,20 @@ const RenderLines = ({
   const lines = text?.split('\n') || [];
   return lines.length > 0 ? (
     <YStack>
-      {lines.map((v, index) =>
-        index === 0 ? (
-          <XStack
-            $platform-native={{
-              justifyContent: hasMessage ? 'flex-start' : 'center',
-            }}
-            alignItems="center"
-            key={index}
-            space="$1.5"
-          >
-            <XStack flexShrink={0}>{icon}</XStack>
-            <SizableText
-              flexShrink={1}
-              selectable={false}
-              size={size}
-              wordWrap="break-word"
-            >
-              {v}
-            </SizableText>
-          </XStack>
-        ) : (
-          <SizableText
-            selectable={false}
-            $platform-native={{
-              textAlign: 'center',
-            }}
-            size={size}
-            wordWrap="break-word"
-            width="100%"
-            key={index}
-          >
-            {v}
-          </SizableText>
-        ),
-      )}
+      {lines.map((v, index) => (
+        <SizableText
+          color={color}
+          textTransform="none"
+          selectable={false}
+          size={size}
+          wordWrap="break-word"
+          key={index}
+        >
+          {v}
+        </SizableText>
+      ))}
     </YStack>
-  ) : (
-    icon
-  );
+  ) : null;
 };
 
 function Title({
@@ -105,15 +76,17 @@ function Title({
   message,
   icon,
   maxWidth,
-  actionsProps,
+  actions,
 }: {
   title: string;
   message?: string;
   maxWidth?: number;
   icon?: JSX.Element;
-  actionsProps?: IToastProps['actionsProps'];
+  actions?: IToastProps['actions'];
 }) {
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
+  const media = useMedia();
+
   return (
     <YStack
       flex={1}
@@ -121,18 +94,54 @@ function Title({
       maxHeight={height - 100}
       $platform-native={{
         maxHeight: height - 200,
+        width: media.md ? width - 64 : 640,
       }}
       $platform-web={{
         overflow: 'hidden',
       }}
     >
-      <YStack>
-        <RenderLines size="$headingSm" icon={icon} hasMessage={!!message}>
-          {title}
-        </RenderLines>
-        <RenderLines size="$bodySm">{message}</RenderLines>
-        {actionsProps ? <Button {...actionsProps} /> : null}
-      </YStack>
+      <XStack space={icon ? '$2' : 0}>
+        {icon ? (
+          <View
+            $platform-android={{
+              paddingTop: '$0.5',
+            }}
+            width="$5.5"
+            height="$5.5"
+          >
+            {icon}
+          </View>
+        ) : null}
+
+        <YStack flex={1} space="$1">
+          {title ? (
+            <RenderLines color="$text" size="$headingSm">
+              {title}
+            </RenderLines>
+          ) : null}
+
+          {message ? (
+            <RenderLines
+              color="$textSubdued"
+              size={media.md ? '$bodySm' : '$bodyMd'}
+            >
+              {message}
+            </RenderLines>
+          ) : null}
+
+          {actions ? (
+            <XStack
+              space="$2"
+              justifyContent="flex-end"
+              paddingTop="$3"
+              paddingRight="$0.5"
+              paddingBottom="$0.5"
+            >
+              {actions}
+            </XStack>
+          ) : null}
+        </YStack>
+      </XStack>
     </YStack>
   );
 }
@@ -145,8 +154,13 @@ function toastMessage({
   duration = 5000,
   haptic,
   preset = 'custom',
-  actionsProps,
+  actions,
 }: IToastBaseProps) {
+  if (platformEnv.isDev) {
+    if (title.length === 0) {
+      throw new Error(`The parameter 'title' cannot be an empty string`);
+    }
+  }
   if (toastId) {
     if (toastIdMap.has(toastId)) {
       const [createdAt, toastDuration] = toastIdMap.get(toastId) as [
@@ -168,7 +182,7 @@ function toastMessage({
         maxWidth={props?.width}
         message={message}
         icon={iconMap[haptic as keyof typeof iconMap]}
-        actionsProps={actionsProps}
+        actions={actions}
       />
     ),
     duration,
@@ -189,8 +203,11 @@ export const Toast = {
   error: (props: IToastProps) => {
     toastMessage({ haptic: 'error', ...props });
   },
+  warning: (props: IToastProps) => {
+    toastMessage({ haptic: 'warning', ...props });
+  },
   message: (props: IToastProps) => {
-    toastMessage({ haptic: 'warning', preset: 'none', ...props });
+    toastMessage({ haptic: 'info', preset: 'none', ...props });
   },
   /* show custom view on Toast */
   show: ({

@@ -6,19 +6,10 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import {
-  EAssetSelectorRoutes,
-  EModalReceiveRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type {
-  IAccountToken,
-  IToken,
-  ITokenData,
-} from '@onekeyhq/shared/types/token';
+import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
 
 import { useAccountData } from './useAccountData';
 
@@ -75,26 +66,23 @@ function useReceiveToken({
           },
         });
       } else {
-        navigation.pushModal(EModalRoutes.AssetSelectorModal, {
-          screen: EAssetSelectorRoutes.TokenSelector,
+        navigation.pushModal(EModalRoutes.ReceiveModal, {
+          screen: EModalReceiveRoutes.ReceiveSelectToken,
           params: {
             networkId,
             accountId,
             tokens,
             tokenListState,
             searchAll: true,
+            closeAfterSelect: false,
             onSelect: async (t: IToken) => {
-              await timerUtils.wait(600);
-              navigation.pushModal(EModalRoutes.ReceiveModal, {
-                screen: EModalReceiveRoutes.ReceiveToken,
-                params: {
-                  networkId: t.networkId ?? networkId,
-                  accountId: t.accountId ?? accountId,
-                  walletId,
-                  deriveInfo,
-                  deriveType,
-                  token: t,
-                },
+              navigation.push(EModalReceiveRoutes.ReceiveToken, {
+                networkId: t.networkId ?? networkId,
+                accountId: t.accountId ?? accountId,
+                walletId,
+                deriveInfo,
+                deriveType,
+                token: t,
               });
             },
           },

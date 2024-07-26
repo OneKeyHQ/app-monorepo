@@ -14,14 +14,15 @@ import type { AsyncStorageStatic } from '@react-native-async-storage/async-stora
 const appStorage: AsyncStorageStatic = // iOS/Android AsyncStorage
   nativeAsyncStorageInstance;
 
+const originalClear = appStorage.clear;
 // https://stackoverflow.com/questions/46736268/react-native-asyncstorage-clear-is-failing-on-ios
 appStorage.clear = async () => {
-  const asyncStorageKeys = await nativeAsyncStorageInstance.getAllKeys();
+  const asyncStorageKeys = await appStorage.getAllKeys();
   if (asyncStorageKeys.length > 0) {
     if (platformEnv.isNativeAndroid) {
-      await nativeAsyncStorageInstance.clear();
+      await originalClear.call(appStorage);
     } else if (platformEnv.isNativeIOS) {
-      await nativeAsyncStorageInstance.multiRemove(asyncStorageKeys);
+      await appStorage.multiRemove(asyncStorageKeys);
     }
   }
 };

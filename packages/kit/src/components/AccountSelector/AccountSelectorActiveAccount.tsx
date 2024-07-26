@@ -11,55 +11,50 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useWalletAddress } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useWalletAddress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IModalReceiveParamList,
-  IModalWalletAddressParamList,
-} from '@onekeyhq/shared/src/routes';
-import {
-  EModalReceiveRoutes,
-  EModalRoutes,
-  EModalWalletAddressRoutes,
-} from '@onekeyhq/shared/src/routes';
+import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import { Spotlight, useSpotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
+  const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
-  const { account, wallet, indexedAccount, deriveType } = activeAccount;
-  const onPress = useCallback(() => {
-    if (!wallet || !indexedAccount) {
-      return;
-    }
-    navigation.pushModal(EModalRoutes.WalletAddress, {
-      screen: EModalWalletAddressRoutes.WalletAddress,
-      params: {
-        accountId: account?.id,
-        indexedAccountId: indexedAccount.id,
-        walletId: wallet.id,
-        deriveType,
-      },
-    });
-  }, [navigation, account, indexedAccount, wallet, deriveType]);
-  if (!indexedAccount || !wallet) {
+  const { handleWalletAddress, isEnable } = useWalletAddress({ activeAccount });
+  const { isFirstVisit, tourVisited } = useSpotlight(
+    ESpotlightTour.createAllNetworks,
+  );
+  if (!isEnable) {
     return null;
   }
   return (
-    <IconButton
-      variant="tertiary"
-      icon="Copy1Outline"
-      size="small"
-      onPress={onPress}
-    />
+    <Spotlight
+      visible={isFirstVisit}
+      content={
+        <SizableText>
+          If you don’t see assets under ‘All Networks,’ click here to create an
+          address for that network.
+        </SizableText>
+      }
+      onConfirm={tourVisited}
+    >
+      <IconButton
+        title={intl.formatMessage({ id: ETranslations.global_copy_address })}
+        variant="tertiary"
+        icon="Copy3Outline"
+        size="small"
+        onPress={handleWalletAddress}
+      />
+    </Spotlight>
   );
 };
 
@@ -67,11 +62,10 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
-  const { account, wallet, network, deriveType, deriveInfo, indexedAccount } =
-    activeAccount;
+  const { account, wallet, network, deriveType, deriveInfo } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
-
+  const { isEnable: walletAddressEnable } = useWalletAddress({ activeAccount });
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
 
@@ -121,11 +115,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     wallet,
   ]);
 
-  if (
-    network &&
-    networkUtils.isAllNetwork({ networkId: network.id }) &&
-    indexedAccount
-  ) {
+  if (walletAddressEnable) {
     return <AllNetworkAccountSelector num={num} />;
   }
 

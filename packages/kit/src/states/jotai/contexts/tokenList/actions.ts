@@ -16,6 +16,7 @@ import {
   allTokenListAtom,
   allTokenListMapAtom,
   contextAtomMethod,
+  createAccountStateAtom,
   riskyTokenListAtom,
   riskyTokenListMapAtom,
   searchKeyAtom,
@@ -337,6 +338,22 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       });
     },
   );
+
+  updateCreateAccountState = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        isCreating?: boolean;
+        token?: IAccountToken | null;
+      },
+    ) => {
+      set(createAccountStateAtom(), {
+        ...get(createAccountStateAtom()),
+        ...payload,
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -368,6 +385,8 @@ export function useTokenListActions() {
 
   const updateSearchTokenState = actions.updateSearchTokenState.use();
 
+  const updateCreateAccountState = actions.updateCreateAccountState.use();
+
   return useRef({
     refreshSearchTokenList,
     refreshAllTokenList,
@@ -382,5 +401,6 @@ export function useTokenListActions() {
     updateSearchKey,
     updateTokenListState,
     updateSearchTokenState,
+    updateCreateAccountState,
   });
 }

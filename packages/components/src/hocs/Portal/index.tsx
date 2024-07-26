@@ -30,6 +30,7 @@ function isPortalExisted(name: string): boolean {
 export enum EPortalContainerConstantName {
   WEB_TAB_BAR = 'ONEKEY_WEB_TAB_BAR',
   APP_STATE_LOCK_CONTAINER_OVERLAY = 'APP_STATE_LOCK_CONTAINER_OVERLAY',
+  SPOTLIGHT_OVERLAY_PORTAL = 'ONEKEY-Root-SPOTLIGHT_OVERLAY_PORTAL',
   FULL_WINDOW_OVERLAY_PORTAL = 'ONEKEY-Root-FullWindowOverlay',
   TOASTER_OVERLAY_PORTAL = 'ONEKEY_TOASTER_OVERLAY_PORTAL',
   ACCOUNT_SELECTOR = 'ONEKEY_ACCOUNT_SELECTOR',
@@ -86,8 +87,9 @@ function renderToPortal(
 function PortalRender(props: {
   children: ReactNode;
   container?: EPortalContainerConstantName;
+  destroyDelayMs?: number;
 }) {
-  const { children, container } = props;
+  const { children, container, destroyDelayMs = 0 } = props;
 
   if (platformEnv.isDev) {
     if (children) {
@@ -155,9 +157,11 @@ function PortalRender(props: {
   useEffect(
     () => () => {
       // * destroy component
-      managerController.destroy();
+      setTimeout(() => {
+        managerController.destroy();
+      }, destroyDelayMs);
     },
-    [managerController],
+    [destroyDelayMs, managerController],
   );
 
   useEffect(() => {

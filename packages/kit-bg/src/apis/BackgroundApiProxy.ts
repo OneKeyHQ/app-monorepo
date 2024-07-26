@@ -48,6 +48,7 @@ import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSignature from '../services/ServiceSignature';
+import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
@@ -183,6 +184,10 @@ class BackgroundApiProxy
   serviceAppUpdate = this._createProxyService(
     'serviceAppUpdate',
   ) as ServiceAppUpdate;
+
+  serviceSpotlight = this._createProxyService(
+    'serviceSpotlight',
+  ) as ServiceSpotlight;
 
   serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
 

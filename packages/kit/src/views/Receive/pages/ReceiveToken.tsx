@@ -30,6 +30,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
@@ -147,6 +148,17 @@ function ReceiveToken() {
 
       const isSameAddress =
         addresses?.[0]?.toLowerCase() === account?.address?.toLowerCase();
+
+      defaultLogger.transaction.receive.logShowReceiveAddressInfo({
+        walletType: wallet?.type,
+        isSuccess: isSameAddress,
+        failedReason: isSameAddress
+          ? ''
+          : intl.formatMessage({
+              id: ETranslations.feedback_address_mismatch,
+            }),
+      });
+
       if (!isSameAddress) {
         Toast.error({
           title: intl.formatMessage({
@@ -163,6 +175,11 @@ function ReceiveToken() {
     } catch (e: any) {
       setAddressState(EAddressState.Unverified);
       // verifyHWAccountAddresses handler error toast
+      defaultLogger.transaction.receive.logShowReceiveAddressInfo({
+        walletType: wallet?.type,
+        isSuccess: false,
+        failedReason: (e as Error).message,
+      });
       throw e;
     }
   }, [
@@ -171,6 +188,7 @@ function ReceiveToken() {
     deriveType,
     intl,
     networkId,
+    wallet?.type,
     walletId,
   ]);
 
@@ -187,6 +205,16 @@ function ReceiveToken() {
       );
     };
   }, []);
+
+  useEffect(() => {
+    if (!isHardwareWallet) {
+      defaultLogger.transaction.receive.logShowReceiveAddressInfo({
+        walletType: wallet?.type,
+        isSuccess: true,
+        failedReason: '',
+      });
+    }
+  }, [isHardwareWallet, wallet?.type]);
 
   const renderCopyAddressButton = useCallback(() => {
     if (isHardwareWallet) {
@@ -258,7 +286,9 @@ function ReceiveToken() {
       <>
         <Stack mb="$5">
           <XStack space="$2" alignItems="center" justifyContent="center">
-            <Heading size="$headingMd">{network.name}</Heading>
+            <Heading size="$headingMd">
+              {token?.symbol ?? network.symbol}
+            </Heading>
             {vaultSettings?.showAddressType && addressType ? (
               <Badge>{addressType}</Badge>
             ) : null}
@@ -269,9 +299,14 @@ function ReceiveToken() {
             color="$textSubdued"
             textAlign="center"
           >
-            {intl.formatMessage({
-              id: ETranslations.receive_send_asset_warning_message,
-            })}
+            {intl.formatMessage(
+              {
+                id: ETranslations.receive_send_asset_warning_message,
+              },
+              {
+                network: network.name,
+              },
+            )}
           </SizableText>
         </Stack>
         <Stack
@@ -384,6 +419,7 @@ function ReceiveToken() {
     shouldShowAddress,
     addressState,
     renderCopyAddressButton,
+    token?.symbol,
   ]);
 
   return (

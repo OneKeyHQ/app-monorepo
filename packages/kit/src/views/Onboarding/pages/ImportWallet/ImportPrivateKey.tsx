@@ -11,6 +11,7 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import type { IValidateGeneralInputParams } from '@onekeyhq/kit-bg/src/vaults/types';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Tutorials } from '../../components';
@@ -91,6 +92,9 @@ function ImportPrivateKey() {
           othersWalletAccountId: accountId,
         });
         navigation.popStack();
+        defaultLogger.account.wallet.importWallet({
+          importMethod: 'privatekey',
+        });
       }}
       networkIds={networkIds}
     >
