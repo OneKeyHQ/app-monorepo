@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -39,6 +39,7 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -50,6 +51,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -71,6 +73,8 @@ function SendDataInputContainer() {
 
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
+
+  const addressInputChangeType = useRef(EInputAddressChangeType.Manual);
 
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendDataInput>>();
@@ -305,6 +309,12 @@ function SendDataInputContainer() {
           map,
         },
         onSelect: (data: IToken) => {
+          defaultLogger.transaction.send.logTokenSelectorInfo({
+            network: networkId,
+            tokenAddress: data.address,
+            tokenSymbol: data.symbol,
+            tokenType: 'Token',
+          });
           setTokenInfo(data);
         },
       },
@@ -367,6 +377,23 @@ function SendDataInputContainer() {
               paymentId: paymentIdValue,
             },
           ];
+
+          defaultLogger.transaction.send.logAddressInputInfo({
+            addressInputMethod: addressInputChangeType.current,
+          });
+
+          defaultLogger.transaction.send.logAmountInputInfo({
+            tokenType: isNFT ? 'NFT' : 'Token',
+            tokenSymbol: isNFT
+              ? nft?.metadata?.name
+              : tokenDetails?.info.symbol,
+            tokenAddress: isNFT
+              ? `${nft?.collectionAddress ?? ''}:${nft?.itemId ?? ''}`
+              : tokenInfo?.address,
+            tokenAmount: realAmount,
+            tokenValue: linkedAmount.originalAmount,
+          });
+
           await sendConfirm.navigationToSendConfirm({
             transfersInfo,
             sameModal: true,
@@ -407,6 +434,9 @@ function SendDataInputContainer() {
       isNFT,
       isUseFiat,
       linkedAmount.originalAmount,
+      nft?.collectionAddress,
+      nft?.itemId,
+      nft?.metadata?.name,
       nftAmount,
       nftDetails,
       onCancel,
@@ -414,6 +444,7 @@ function SendDataInputContainer() {
       onSuccess,
       sendConfirm,
       tokenDetails,
+      tokenInfo?.address,
     ],
   );
   const handleValidateTokenAmount = useCallback(
@@ -817,6 +848,19 @@ function SendDataInputContainer() {
     renderPaymentIdForm,
   ]);
 
+  useEffect(() => {
+    if (token || nft) {
+      defaultLogger.transaction.send.logTokenSelectorInfo({
+        network: networkId,
+        tokenAddress:
+          token?.address ??
+          `${nft?.collectionAddress ?? ''}:${nft?.itemId ?? ''}`,
+        tokenSymbol: token?.symbol,
+        tokenType: isNFT ? 'NFT' : 'Token',
+      });
+    }
+  }, [networkId, token, nft, isNFT]);
+
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>
       addressBookEnabledNetworkIds.includes(networkId)
@@ -913,6 +957,9 @@ function SendDataInputContainer() {
                 enableAddressInteractionStatus
                 contacts={addressBookEnabledNetworkIds.includes(networkId)}
                 accountSelector={addressInputAccountSelectorArgs}
+                onInputTypeChange={(type) => {
+                  addressInputChangeType.current = type;
+                }}
               />
             </Form.Field>
             {renderDataInput()}

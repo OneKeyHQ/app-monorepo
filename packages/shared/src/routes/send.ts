@@ -7,6 +7,7 @@ import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import type { ITokenSelectorParamList } from './assetSelector';
 import type { IAccountHistoryTx } from '../../types/history';
 import type {
   ILNURLAuthServiceResponse,
@@ -21,6 +22,7 @@ export enum EModalSendRoutes {
   SendConfirm = 'SendConfirm',
   SendFeedback = 'SendFeedback',
   SendReplaceTx = 'SendReplaceTx',
+  SendSelectToken = 'SendSelectToken',
 
   // Lightning Network
   LnurlPayRequest = 'LnurlPayRequest',
@@ -30,6 +32,7 @@ export enum EModalSendRoutes {
 }
 
 export type IModalSendParamList = {
+  [EModalSendRoutes.SendSelectToken]: ITokenSelectorParamList;
   [EModalSendRoutes.SendDataInput]: {
     networkId: string;
     accountId: string;

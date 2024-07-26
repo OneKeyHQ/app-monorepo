@@ -38,6 +38,10 @@ const WeblnSendPaymentModal = LazyLoadPage(
     ),
 );
 
+const TokenSelector = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/AssetSelector/pages/TokenSelector'),
+);
+
 export const ModalSendStack: IModalFlowNavigatorConfig<
   EModalSendRoutes,
   IModalSendParamList
@@ -73,5 +77,9 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.WeblnSendPayment,
     component: WeblnSendPaymentModal,
+  },
+  {
+    name: EModalSendRoutes.SendSelectToken,
+    component: TokenSelector,
   },
 ];
