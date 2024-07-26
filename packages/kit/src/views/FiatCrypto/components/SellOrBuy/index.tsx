@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Page } from '@onekeyhq/components';
+import { Page, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -18,6 +18,7 @@ import type {
   IFiatCryptoType,
 } from '@onekeyhq/shared/types/fiatCrypto';
 
+import { NetworkContainer } from '../NetworkContainer';
 import { useGetTokenFiatValue } from '../TokenDataContainer';
 
 type ISellOrBuyProps = {
@@ -29,7 +30,7 @@ type ISellOrBuyProps = {
 
 const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
   const appNavigation = useAppNavigation();
-  const { result: tokens } = useGetTokensList({
+  const { result: tokens, isLoading } = useGetTokensList({
     networkId,
     accountId: networkUtils.isAllNetwork({ networkId }) ? undefined : accountId,
     type,
@@ -104,11 +105,24 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
     [appNavigation, type, accountId, networkId, account],
   );
 
+  const networkIds = useMemo(
+    () => Array.from(new Set(fiatValueTokens.map((o) => o.networkId))),
+    [fiatValueTokens],
+  );
+
   return (
     <Page>
       <Page.Header title={title} />
       <Page.Body>
-        <TokenList items={fiatValueTokens} onPress={onPress} />
+        <NetworkContainer networkIds={networkIds}>
+          {isLoading ? (
+            <Stack minHeight={120} justifyContent="center" alignItems="center">
+              <Spinner size="large" />
+            </Stack>
+          ) : (
+            <TokenList items={fiatValueTokens} onPress={onPress} />
+          )}
+        </NetworkContainer>
       </Page.Body>
     </Page>
   );
