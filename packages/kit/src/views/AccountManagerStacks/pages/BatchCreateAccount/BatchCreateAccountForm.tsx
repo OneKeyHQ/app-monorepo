@@ -47,8 +47,8 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
         {
           walletId,
           networkId: values.networkId,
-          from: values.from,
-          count: values.count,
+          // from: values.from,
+          // count: values.count,
         },
       );
     },
