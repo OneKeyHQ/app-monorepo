@@ -625,6 +625,18 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getCustomTokenEnabledNetworks() {
+    const settings = await this._getNetworkVaultSettings();
+    return settings
+      .filter(
+        (o) =>
+          !o.vaultSetting.isSingleToken &&
+          o.network.id !== getNetworkIdsMap().onekeyall,
+      )
+      .map((o) => o.network);
+  }
+
+  @backgroundMethod()
   async getChainSelectorNetworksCompatibleWithAccountId({
     accountId,
     networkIds,

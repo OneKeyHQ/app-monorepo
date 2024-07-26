@@ -54,6 +54,7 @@ export enum EAppEventBusNames {
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
   TokenListUpdate = 'TokenListUpdate',
+  RefreshTokenList = 'RefreshTokenList',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -149,6 +150,7 @@ export interface IAppEventBusPayload {
     map: Record<string, ITokenFiat>;
     merge?: boolean;
   };
+  [EAppEventBusNames.RefreshTokenList]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

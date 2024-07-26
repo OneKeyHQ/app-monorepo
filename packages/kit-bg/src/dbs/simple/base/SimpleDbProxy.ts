@@ -8,6 +8,7 @@ import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBro
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import type { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
@@ -112,6 +113,10 @@ export class SimpleDbProxy
   universalSearch = this._createProxyService(
     'universalSearch',
   ) as SimpleDbEntityUniversalSearch;
+
+  customTokens = this._createProxyService(
+    'customTokens',
+  ) as SimpleDbEntityCustomTokens;
 
   v4MigrationResult = this._createProxyService(
     'v4MigrationResult',
