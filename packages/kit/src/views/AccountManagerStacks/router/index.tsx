@@ -19,10 +19,6 @@ const BatchCreateAccountPreview = LazyLoadPage(
   () => import('../pages/BatchCreateAccount/BatchCreateAccountPreview'),
 );
 
-const BatchCreateAccountProcessing = LazyLoadPage(
-  () => import('../pages/BatchCreateAccount/BatchCreateAccountProcessing'),
-);
-
 export const AccountManagerStacks: IModalFlowNavigatorConfig<
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList
@@ -42,9 +38,5 @@ export const AccountManagerStacks: IModalFlowNavigatorConfig<
   {
     name: EAccountManagerStacksRoutes.BatchCreateAccountPreview,
     component: BatchCreateAccountPreview,
-  },
-  {
-    name: EAccountManagerStacksRoutes.BatchCreateAccountProcessing,
-    component: BatchCreateAccountProcessing,
   },
 ];
