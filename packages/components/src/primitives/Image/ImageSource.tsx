@@ -27,7 +27,7 @@ const retryFetchImage = async (
   } catch (error) {
     setTimeout(() => {
       void retryFetchImage(imageSource, onLoadSuccess, times + 1);
-    }, timerUtils.getTimeDurationMs({ seconds: 30 }) * Math.random());
+    }, timerUtils.getTimeDurationMs({ seconds: 60 }) * Math.random());
   }
 };
 
@@ -85,7 +85,11 @@ export function ImageSource({
       return;
     }
     isRetry.current = true;
-    if (imageSource && (imageSource as ImageURISource).uri) {
+    if (
+      imageSource &&
+      (imageSource as ImageURISource).uri &&
+      (imageSource as ImageURISource).uri?.startsWith('https:')
+    ) {
       setTimeout(() => {
         void retryFetchImage(imageSource as ImageURISource, () => {
           // reload image when loaded successfully
