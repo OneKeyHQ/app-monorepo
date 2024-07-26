@@ -41,8 +41,9 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       visible={isFirstVisit}
       content={
         <SizableText size="$bodyMd">
-          If you don’t see assets under ‘All Networks,’ click here to create an
-          address for that network.
+          {intl.formatMessage({
+            id: ETranslations.spotlight_enable_network_message,
+          })}
         </SizableText>
       }
       onConfirm={tourVisited}
