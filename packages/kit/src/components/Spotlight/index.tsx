@@ -13,7 +13,6 @@ import { useIntl } from 'react-intl';
 
 import type { IElement } from '@onekeyhq/components';
 import {
-  AnimatePresence,
   Button,
   EPortalContainerConstantName,
   Portal,
@@ -36,7 +35,8 @@ import type { View as NativeView } from 'react-native';
 
 export type ISpotlight = PropsWithChildren<{
   content: ReactElement;
-  offset?: number;
+  childrenPadding?: number;
+  floatingOffset?: number;
   visible: boolean;
   onConfirm?: () => void;
   replaceChildren?: ReactElement;
@@ -51,7 +51,8 @@ interface IFloatingPosition {
 
 type ISpotlightContentEvent = ISpotlight & {
   floatingPosition: IFloatingPosition;
-  offset: number;
+  floatingOffset: number;
+  childrenPadding: number;
 };
 function SpotlightContent({
   initProps,
@@ -79,77 +80,98 @@ function SpotlightContent({
       }
     }
   }, [triggerPropsRef]);
-  const { visible, children, floatingPosition, content, onConfirm, offset } =
-    props;
+  const {
+    visible,
+    children,
+    floatingPosition,
+    content,
+    onConfirm,
+    floatingOffset,
+    childrenPadding,
+  } = props;
 
   const floatingStyle = useMemo(
     () =>
       floatingPosition
         ? {
-            top: floatingPosition.y + floatingPosition.height + offset,
-            left: gtMd ? floatingPosition.x : '$4',
+            top:
+              floatingPosition.y +
+              floatingPosition.height +
+              floatingOffset +
+              childrenPadding,
+            left: gtMd ? floatingPosition.x - childrenPadding : '$4',
             right: gtMd ? undefined : '$4',
             maxWidth: gtMd ? 354 : undefined,
           }
         : undefined,
-    [floatingPosition, gtMd, offset],
+    [floatingPosition, floatingOffset, childrenPadding, gtMd],
   );
 
   const isRendered = floatingPosition.width > 0;
-  return (
-    <AnimatePresence>
-      {visible && isRendered && !isLocked ? (
+
+  if (visible && isRendered && !isLocked)
+    return (
+      <Stack
+        animation="quick"
+        bg="rgba(0,0,0,0.3)"
+        position="absolute"
+        top={0}
+        left={0}
+        bottom={0}
+        right={0}
+        enterStyle={{
+          opacity: 0,
+        }}
+        exitStyle={{ opacity: 0 }}
+      >
         <Stack
-          flex={1}
-          bg="rgba(0,0,0,0.2)"
           position="absolute"
-          top={0}
-          left={0}
-          bottom={0}
-          right={0}
-          enterStyle={{
-            scale: 0.95,
-            opacity: 0,
-          }}
-          exitStyle={{ scale: 0.95, opacity: 0 }}
+          pointerEvents="none"
+          bg="$bg"
+          top={floatingPosition.y - childrenPadding}
+          left={floatingPosition.x - childrenPadding}
+          borderRadius="$3"
+          padding={childrenPadding}
         >
-          <Stack
-            position="absolute"
-            pointerEvents="none"
-            bg="$bg"
-            top={floatingPosition.y}
-            left={floatingPosition.x}
-            borderRadius="$full"
-          >
-            {children}
-          </Stack>
-          <YStack
-            position="absolute"
-            bg="$bg"
-            px="$4"
-            py="$3.5"
-            space="$2"
-            borderRadius="$3"
-            {...floatingStyle}
-          >
-            <Stack>{content}</Stack>
-            <XStack jc="flex-end">
-              <Button borderRadius="$2" size="small" onPress={onConfirm}>
-                {intl.formatMessage({ id: ETranslations.global_got_it })}
-              </Button>
-            </XStack>
-          </YStack>
+          {children}
         </Stack>
-      ) : null}
-    </AnimatePresence>
-  );
+        <YStack
+          position="absolute"
+          bg="$bg"
+          px="$4"
+          py="$3.5"
+          space="$3.5"
+          borderRadius="$3"
+          outlineColor="$borderSubdued"
+          outlineStyle="solid"
+          outlineWidth="$px"
+          elevation={20}
+          {...floatingStyle}
+        >
+          <Stack>{content}</Stack>
+          <XStack jc="flex-end">
+            <Button
+              variant="primary"
+              borderRadius="$2"
+              size="small"
+              onPress={onConfirm}
+            >
+              {intl.formatMessage({ id: ETranslations.global_done })}
+            </Button>
+          </XStack>
+        </YStack>
+      </Stack>
+    );
+
+  return null;
 }
 
 export function Spotlight({
   children,
   replaceChildren,
   content,
-  offset = 12,
+  childrenPadding = 8,
+  floatingOffset = 12,
   visible = false,
   onConfirm,
 }: ISpotlight) {
@@ -182,7 +204,8 @@ export function Spotlight({
         floatingPosition,
         content,
         onConfirm,
-        offset,
+        floatingOffset,
+        childrenPadding,
       });
     });
   }, [
@@ -190,10 +213,11 @@ export function Spotlight({
     content,
     defer,
     floatingPosition,
-    offset,
+    floatingOffset,
     onConfirm,
     replaceChildren,
     visible,
+    childrenPadding,
   ]);
   const handleLayout = useCallback(() => {
     (triggerRef?.current as any as NativeView)?.measureInWindow(
@@ -226,7 +250,8 @@ export function Spotlight({
               floatingPosition,
               content,
               onConfirm,
-              offset,
+              floatingOffset,
+              childrenPadding,
             }}
           />
         </Portal.Body>

@@ -40,7 +40,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
     <Spotlight
       visible={isFirstVisit}
       content={
-        <SizableText>
+        <SizableText size="$bodyMd">
           If you don’t see assets under ‘All Networks,’ click here to create an
           address for that network.
         </SizableText>
