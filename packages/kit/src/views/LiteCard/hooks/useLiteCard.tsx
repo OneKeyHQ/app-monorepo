@@ -5,6 +5,7 @@ import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -116,6 +117,8 @@ export default function useLiteCard() {
       });
     });
     await createGetMnemonicConnection();
+
+    defaultLogger.account.wallet.importWallet({ importMethod: 'liteCard' });
   }, [nfc, showPINFormDialog, navigation]);
   const changePIN = useCallback(async () => {
     await nfc.checkNFCEnabledPermission();

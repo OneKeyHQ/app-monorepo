@@ -131,7 +131,7 @@ function WalletActionSwap({ networkId }: { networkId?: string }) {
 
 function WalletActions({ ...rest }: IXStackProps) {
   const {
-    activeAccount: { network, account },
+    activeAccount: { network },
   } = useActiveAccount({ num: 0 });
 
   return (
