@@ -66,8 +66,8 @@ export type ISortableSectionListProps<T> = Omit<
     sections: Array<{
       data?: any[];
     }>;
-    form: { sectionIndex: number; itemIndex?: number };
-    to: { sectionIndex: number; itemIndex?: number };
+    from?: { sectionIndex: number; itemIndex: number };
+    to?: { sectionIndex: number; itemIndex: number };
   }) => void;
   initialScrollIndex?: { sectionIndex: number; itemIndex?: number };
 };
@@ -247,18 +247,22 @@ function BaseSortableSectionList<T>(
 
   const reloadOnDragEnd = useCallback(
     (result: { data: T[]; from: number; to: number }) => {
-      const dragSections = [...sections];
+      const dragSections = sections.map((section) => ({ ...section }));
       dragSections.forEach((section) => {
         section.data = [];
       });
       let fromIndex: { sectionIndex: number; itemIndex: number } | undefined;
       let toIndex: { sectionIndex: number; itemIndex: number } | undefined;
-      result.data.forEach((item, index) => {
+      result.data.forEach((item) => {
         const layoutItem = item as ISectionLayoutItem;
         if (layoutItem.type === ESectionLayoutType.Item) {
           dragSections?.[layoutItem.sectionIndex]?.data?.push?.(
             layoutItem.value,
           );
+        }
+      });
+      reloadSections.forEach((layoutItem, index) => {
+        if (layoutItem.type === ESectionLayoutType.Item) {
           if (result.from === index) {
             fromIndex = {
               sectionIndex: layoutItem.sectionIndex,
@@ -275,7 +279,7 @@ function BaseSortableSectionList<T>(
       });
       onDragEnd?.({ sections: dragSections, from: fromIndex, to: toIndex });
     },
-    [onDragEnd, sections],
+    [onDragEnd, sections, reloadSections],
   );
 
   const reloadInitialScrollIndex = useMemo(() => {

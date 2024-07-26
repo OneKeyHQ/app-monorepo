@@ -174,7 +174,11 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     };
   }, [reloadFocusedWalletInfo]);
 
-  const { result: sectionData, run: reloadAccounts } = usePromiseResult(
+  const {
+    result: sectionData,
+    run: reloadAccounts,
+    setResult,
+  } = usePromiseResult(
     async () => {
       if (!selectedAccount?.focusedWallet) {
         return Promise.resolve(undefined);
@@ -212,41 +216,20 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   }, [reloadAccounts]);
 
   const { scrollToLocation, onLayout } = useSafelyScrollToLocation(listRef);
-  // scroll into selected account
-  const scrollToSelectedAccount = useCallback(() => {
-    if (sectionData?.[0]?.data) {
-      const itemIndex = sectionData[0].data?.findIndex(({ id }) =>
-        isOthers
-          ? selectedAccount.othersWalletAccountId === id
-          : selectedAccount.indexedAccountId === id,
-      );
-      scrollToLocation({
-        animated: true,
-        sectionIndex: 0,
-        itemIndex: Math.max(itemIndex, 0),
-      });
-    }
-  }, [
-    isOthers,
-    scrollToLocation,
-    sectionData,
-    selectedAccount.indexedAccountId,
-    selectedAccount.othersWalletAccountId,
-  ]);
 
+  const [headerHeight, setHeaderHeight] = useState(0);
   const layoutList = useMemo(() => {
     let offset = 0;
     const layouts: { offset: number; length: number; index: number }[] = [];
-    layouts.push({ offset, length: 0, index: layouts.length });
-    offset += 0;
+    layouts.push({ offset, length: headerHeight, index: layouts.length });
+    offset += headerHeight;
     sectionData?.forEach?.((section, sectionIndex) => {
       if (sectionIndex !== 0) {
         layouts.push({ offset, length: 0, index: layouts.length });
         offset += 0;
       }
-      const headerHeight = 0;
-      layouts.push({ offset, length: headerHeight, index: layouts.length });
-      offset += headerHeight;
+      layouts.push({ offset, length: 0, index: layouts.length });
+      offset += 0;
       section.data.forEach(() => {
         layouts.push({ offset, length: 56, index: layouts.length });
         offset += 56;
@@ -257,7 +240,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     });
     layouts.push({ offset, length: 0, index: layouts.length });
     return layouts;
-  }, [sectionData]);
+  }, [sectionData, headerHeight]);
 
   const initialScrollIndex = useMemo(() => {
     if (sectionData?.[0]?.data) {
@@ -279,14 +262,57 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   ]);
 
   const onDragEnd = useCallback(
-    (result: {
+    async (result: {
       sections: any;
       from?: { sectionIndex: number; itemIndex: number };
       to?: { sectionIndex: number; itemIndex: number };
     }) => {
-      // sectionData
+      const sectionIndex = result?.from?.sectionIndex;
+      if (!sectionData) {
+        return;
+      }
+      if (
+        sectionIndex === undefined ||
+        sectionIndex !== result?.to?.sectionIndex
+      ) {
+        return;
+      }
+
+      const fromIndex = result?.from?.itemIndex;
+      let toIndex = result?.to?.itemIndex;
+      if (fromIndex === undefined || toIndex === undefined) {
+        return;
+      }
+
+      if (toIndex > fromIndex) {
+        toIndex += 1;
+      }
+      const sectionDataList = sectionData[sectionIndex].data;
+      if (
+        sectionIndex === sectionData.length - 1 &&
+        toIndex === sectionDataList.length - 1
+      ) {
+        return;
+      }
+      setResult(result.sections);
+
+      if (isOthersUniversal) {
+        await serviceAccount.insertAccountOrder({
+          targetAccountId: sectionDataList?.[fromIndex]?.id,
+          startAccountId: sectionDataList?.[toIndex - 1]?.id,
+          endAccountId: sectionDataList?.[toIndex]?.id,
+          emitEvent: true,
+        });
+      } else {
+        await serviceAccount.insertIndexedAccountOrder({
+          targetIndexedAccountId: sectionDataList?.[fromIndex]?.id,
+          startIndexedAccountId: sectionDataList?.[toIndex - 1]?.id,
+          endIndexedAccountId: sectionDataList?.[toIndex]?.id,
+          emitEvent: true,
+        });
+      }
     },
-    [],
+    [isOthersUniversal, serviceAccount, sectionData, setResult],
   );
 
   const scrollToTop = useCallback(() => {
@@ -298,21 +324,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       });
     }
   }, [scrollToLocation, sectionData]);
-
-  useEffect(() => {
-    if (editMode) {
-      // Scrolling to the top makes it inconvenient for users to edit the name,
-      // and not scrolling to the top makes it difficult for users to see the batch create address
-      //
-      // scrollToTop();
-    } else {
-      // scrollToSelectedAccount();
-    }
-  }, [editMode, scrollToSelectedAccount, scrollToTop]);
-
-  useEffect(() => {
-    scrollToSelectedAccount();
-  }, [scrollToSelectedAccount]);
 
   const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
@@ -461,10 +472,20 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         // })}
         ListHeaderComponent={
           isOthersUniversal ? null : (
-            <WalletOptions
-              wallet={focusedWalletInfo?.wallet}
-              device={focusedWalletInfo?.device}
-            />
+            <Stack
+              onLayout={({
+                nativeEvent: {
+                  layout: { height },
+                },
+              }) => {
+                setHeaderHeight(height);
+              }}
+            >
+              <WalletOptions
+                wallet={focusedWalletInfo?.wallet}
+                device={focusedWalletInfo?.device}
+              />
+            </Stack>
           )
         }
         sections={sectionData ?? (emptyArray as any)}
@@ -668,8 +689,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
             >
               {editMode ? (
                 <ListItem.IconButton
-                  key="darg"
-                  {...ListItem.EnterAnimationStyle}
                   cursor="move"
                   icon="DragOutline"
                   onPressIn={drag}
