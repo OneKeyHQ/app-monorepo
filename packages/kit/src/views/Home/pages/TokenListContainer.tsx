@@ -215,7 +215,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         (isPageFocused && isFocused) || shouldAlwaysFetch,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
-      checkIsFocused: false,
     },
   );
 

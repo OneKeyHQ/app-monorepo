@@ -13,6 +13,7 @@ import type {
   IPageScreenProps,
 } from '@onekeyhq/components';
 import {
+  Empty,
   Icon,
   Page,
   SearchBar,
@@ -276,6 +277,12 @@ const WalletAddressContent = ({
         sections={sections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}
+        ListEmptyComponent={
+          <Empty
+            icon="SearchOutline"
+            title={intl.formatMessage({ id: ETranslations.global_no_results })}
+          />
+        }
       />
     </Stack>
   );

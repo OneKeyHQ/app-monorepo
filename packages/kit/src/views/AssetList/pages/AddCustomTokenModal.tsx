@@ -240,37 +240,11 @@ function AddCustomTokenModal() {
     selectedNetworkIdValue,
   ]);
 
-  const [createAddressStep, setCreateAddressStep] = useState(1);
-  const [showCreateAddressStep, setShowCreateAddressStep] = useState(false);
-
-  const prevoutSelectedNetworkId = usePrevious(selectedNetworkIdValue);
   const { result: hasExistAccount, run: runCheckAccountExist } =
     usePromiseResult(async () => {
       const { hasExistAccountFlag } = await checkAccountIsExist();
-      setCreateAddressStep(hasExistAccountFlag ? 2 : 1);
-      if (!hasExistAccountFlag) {
-        setShowCreateAddressStep(true);
-      }
       return hasExistAccountFlag;
     }, [checkAccountIsExist]);
-
-  useEffect(() => {
-    const check = async () => {
-      const { hasExistAccountFlag } = await checkAccountIsExist();
-      setCreateAddressStep(hasExistAccountFlag ? 2 : 1);
-      setShowCreateAddressStep(!hasExistAccountFlag);
-    };
-    if (prevoutSelectedNetworkId !== selectedNetworkIdValue) {
-      void check();
-    }
-  }, [checkAccountIsExist, prevoutSelectedNetworkId, selectedNetworkIdValue]);
-
-  const recheckAccountExistAfterCreate = useCallback(async () => {
-    const { hasExistAccountFlag } = await checkAccountIsExist();
-    if (hasExistAccountFlag) {
-      setCreateAddressStep(2);
-    }
-  }, [checkAccountIsExist]);
 
   // MARK: - Fetch exist token list
   const tokenListFetchFinishedRef = useRef(false);
@@ -313,21 +287,25 @@ function AddCustomTokenModal() {
       const { hasExistAccountFlag, accountIdForNetwork } =
         await checkAccountIsExist();
       if (!hasExistAccountFlag) {
-        throw new Error('Account not exist');
+        Toast.error({ title: 'Account not exist' });
+        return;
       }
       const values = form.getValues();
       const { contractAddress, symbol, decimals } = values;
       if (!contractAddress && !token?.isNative) {
         setIsLoading(false);
-        throw new Error('Contract address is empty');
+        Toast.error({ title: 'Contract address is required' });
+        return;
       }
       if (!symbol) {
         setIsLoading(false);
-        throw new Error('Symbol is empty');
+        Toast.error({ title: 'Symbol is required' });
+        return;
       }
       if (!new BigNumber(decimals).isInteger()) {
         setIsLoading(false);
-        throw new Error('Decimals is invalid');
+        Toast.error({ title: 'Decimal is required' });
+        return;
       }
       let tokenList = existTokenList?.allTokens;
       if (!tokenListFetchFinishedRef.current) {
@@ -359,6 +337,7 @@ function AddCustomTokenModal() {
           ...searchedTokenRef.current,
           accountId: accountIdForNetwork,
           networkId: selectedNetworkIdValue,
+          allNetworkAccountId: isAllNetwork ? accountId : undefined,
           name: searchedTokenRef.current?.name ?? '',
           isNative: searchedTokenRef.current?.isNative ?? false,
           $key: `${selectedNetworkIdValue}_${contractAddress}`,
@@ -384,6 +363,8 @@ function AddCustomTokenModal() {
       token?.isNative,
       intl,
       onSuccess,
+      isAllNetwork,
+      accountId,
     ],
   );
 
@@ -422,7 +403,7 @@ function AddCustomTokenModal() {
             <Input editable={false} />
           </Form.Field>
         </Form>
-        {showCreateAddressStep ? (
+        {hasExistAccount ? null : (
           <XStack
             position="absolute"
             bottom={0}
@@ -430,23 +411,19 @@ function AddCustomTokenModal() {
             alignItems="center"
             space="$2"
           >
-            <SizableText
-              color={createAddressStep === 1 ? '$text' : '$textSubdued'}
-            >
+            <SizableText color="$text">
               {intl.formatMessage({
                 id: ETranslations.manage_token_custom_token_create_address,
               })}
             </SizableText>
             <Icon name="ArrowRightOutline" color="$iconSubdued" size="$5" />
-            <SizableText
-              color={createAddressStep === 2 ? '$text' : '$textSubdued'}
-            >
+            <SizableText color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.manage_token_custom_token_add,
               })}
             </SizableText>
           </XStack>
-        ) : null}
+        )}
       </Page.Body>
       <Page.Footer
         onConfirmText={intl.formatMessage({
@@ -482,10 +459,8 @@ function AddCustomTokenModal() {
                 }}
                 buttonRender={CreateAddressButton}
                 onCreateDone={() => {
-                  console.log('=====>>>>ONCreateDONEEEEE');
                   setTimeout(() => {
                     void runCheckAccountExist();
-                    void recheckAccountExistAfterCreate();
                   });
                 }}
               />

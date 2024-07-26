@@ -630,7 +630,7 @@ class ServiceNetwork extends ServiceBase {
     return settings
       .filter(
         (o) =>
-          !o.vaultSetting.isSingleToken &&
+          // !o.vaultSetting.isSingleToken &&
           o.network.id !== getNetworkIdsMap().onekeyall,
       )
       .map((o) => o.network);

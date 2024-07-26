@@ -16,6 +16,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -174,10 +175,12 @@ function TokenManagerModal() {
         backgroundApiProxy.serviceCustomToken.getHiddenTokens({
           accountId,
           networkId,
+          allNetworkAccountId: isAllNetwork ? accountId : undefined,
         }),
         backgroundApiProxy.serviceCustomToken.getCustomTokens({
           accountId,
           networkId,
+          allNetworkAccountId: isAllNetwork ? accountId : undefined,
         }),
       ]);
       const allTokens = [...tokenList.tokens, ...customTokens];
@@ -199,7 +202,7 @@ function TokenManagerModal() {
           ),
       );
     },
-    [tokenList, accountId, networkId],
+    [tokenList, accountId, networkId, isAllNetwork],
     {
       checkIsFocused: false,
       watchLoading: true,
@@ -354,27 +357,37 @@ function TokenManagerModal() {
       await backgroundApiProxy.serviceCustomToken.hideToken({
         token: {
           ...token,
-          accountId: accountId ?? token.accountId ?? '',
-          networkId: networkId ?? token.networkId,
+          accountId: token.accountId ?? accountId ?? '',
+          networkId: token.networkId ?? networkId,
+          allNetworkAccountId: isAllNetwork ? accountId : undefined,
         },
       });
       isEditRef.current = true;
-      setTimeout(() => run(), 200);
+      setTimeout(() => {
+        void run();
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.address_book_add_address_toast_delete_success,
+          }),
+        });
+      }, 200);
     },
-    [run, accountId, networkId],
+    [run, accountId, networkId, intl, isAllNetwork],
   );
 
   const headerRight = useCallback(
     () =>
       isSearchMode ? null : (
         <IconButton
+          variant="tertiary"
           icon="PlusCircleOutline"
-          iconColor="$iconSubdued"
-          bg="$bgApp"
           onPress={() => onAddCustomToken()}
+          title={intl.formatMessage({
+            id: ETranslations.manage_token_custom_token_title,
+          })}
         />
       ),
-    [isSearchMode, onAddCustomToken],
+    [intl, isSearchMode, onAddCustomToken],
   );
 
   return (
@@ -393,7 +406,7 @@ function TokenManagerModal() {
         headerRight={headerRight}
       />
       <Page.Body>
-        <Stack mx="$4">
+        <Stack px="$5" pb="$4">
           <SearchBar
             placeholder={intl.formatMessage({
               id: ETranslations.token_selector_search_placeholder,
@@ -451,7 +464,7 @@ function TokenManagerModal() {
                 <ListItem.IconButton
                   icon={
                     checkTokenExistInTokenList(item)
-                      ? 'DeleteOutline'
+                      ? 'MinusCircleOutline'
                       : 'PlusCircleOutline'
                   }
                   onPress={() =>
