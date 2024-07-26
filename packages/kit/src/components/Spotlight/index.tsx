@@ -62,6 +62,7 @@ function SpotlightContent({
     trigger: ((props: ISpotlightContentEvent) => void) | undefined;
   }>;
 }) {
+  const padding = 8;
   const intl = useIntl();
 
   const [isLocked] = useAppIsLockedAtom();
@@ -85,8 +86,9 @@ function SpotlightContent({
     () =>
       floatingPosition
         ? {
-            top: floatingPosition.y + floatingPosition.height + offset,
-            left: gtMd ? floatingPosition.x : '$4',
+            top:
+              floatingPosition.y + floatingPosition.height + offset + padding,
+            left: gtMd ? floatingPosition.x - padding : '$4',
             right: gtMd ? undefined : '$4',
             maxWidth: gtMd ? 354 : undefined,
           }
@@ -114,10 +116,11 @@ function SpotlightContent({
         <Stack
           position="absolute"
           pointerEvents="none"
-          bg="$bgApp"
-          top={floatingPosition.y}
-          left={floatingPosition.x}
-          borderRadius="$2"
+          bg="$bg"
+          top={floatingPosition.y - padding}
+          left={floatingPosition.x - padding}
+          borderRadius="$3"
+          padding={padding}
         >
           {children}
         </Stack>
