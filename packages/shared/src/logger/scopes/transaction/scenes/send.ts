@@ -1,9 +1,9 @@
 import { BaseScene } from '../../../base/baseScene';
-import { LogToServer } from '../../../decorators';
+import { LogToLocal, LogToServer } from '../../../decorators';
 
 export class SendScene extends BaseScene {
   @LogToServer()
-  public logTokenSelectorInfo({
+  public sendSelect({
     network,
     tokenType,
     tokenSymbol,
@@ -23,7 +23,7 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
-  public logAmountInputInfo({
+  public amountInput({
     tokenType,
     tokenSymbol,
     tokenAddress,
@@ -46,7 +46,7 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
-  public logAddressInputInfo({
+  public addressInput({
     addressInputMethod,
   }: {
     addressInputMethod: string | undefined;
@@ -57,7 +57,7 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
-  public logSendTxInfo({
+  public sendConfim({
     txnHash,
     network,
     txnType,

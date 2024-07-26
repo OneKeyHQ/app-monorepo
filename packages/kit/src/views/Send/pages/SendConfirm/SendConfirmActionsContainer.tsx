@@ -161,7 +161,7 @@ function SendConfirmActionsContainer(props: IProps) {
         });
 
       const transferInfo = newUnsignedTxs?.[0].transfersInfo?.[0];
-      defaultLogger.transaction.send.logSendTxInfo({
+      defaultLogger.transaction.send.sendConfim({
         txnHash: result?.[0].signedTx.txid,
         network: networkId,
         txnType: getTxnType(result?.[0].decodedTx.actions),
