@@ -47,10 +47,7 @@ class Analytics {
     if (!this.instanceId || !this.baseURL) {
       this.cacheEvents.push([eventName, eventProps]);
     } else {
-      void this.requestEvent(eventName, {
-        distinctId: this.instanceId,
-        ...eventProps,
-      });
+      void this.requestEvent(eventName, eventProps);
     }
   }
 
@@ -70,8 +67,9 @@ class Analytics {
   ) {
     const event = {
       ...eventProps,
+      distinct_id: this.instanceId,
       ...(await this.lazyDeviceInfo()),
-    };
+    } as Record<string, string>;
     if (
       !platformEnv.isNative &&
       typeof window !== 'undefined' &&
@@ -88,6 +86,25 @@ class Analytics {
       eventName,
       eventProps: event,
     });
+  }
+
+  public async requestAttributes(attributes: Record<string, any>) {
+    const axios = this.lazyAxios();
+    await axios.post('/utility/v1/track/attributes', {
+      distinct_id: this.instanceId,
+      attributes: {
+        ...attributes,
+        ...(await this.lazyDeviceInfo()),
+      },
+    });
+  }
+
+  public updateAttributes(attributes: {
+    walletCount?: number;
+    appwalletCount?: number;
+    hwwalletCount?: number;
+  }) {
+    void this.requestAttributes(attributes);
   }
 }
 
