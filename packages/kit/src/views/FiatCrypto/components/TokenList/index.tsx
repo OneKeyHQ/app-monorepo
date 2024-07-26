@@ -65,7 +65,7 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
           data={data}
           renderItem={({ item }) => (
             <ListItem
-              renderAvatar={<Token size="md" tokenImageUri={item.icon} />}
+              renderAvatar={<Token size="lg" tokenImageUri={item.icon} />}
               title={item.symbol.toUpperCase()}
               subtitle={item.name}
               onPress={() => onPress?.(item)}
