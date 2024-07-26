@@ -155,11 +155,6 @@ function TokenListFooter(props: IProps) {
 
   return (
     <Stack>
-      {tableLayout &&
-      !isSearchMode &&
-      (smallBalanceTokens.length > 0 || riskyTokens.length > 0) ? (
-        <Divider mx="$5" my="$2" />
-      ) : null}
       {!isSearchMode && smallBalanceTokens.length > 0 ? (
         <ListItem onPress={handleOnPressLowValueTokens} userSelect="none">
           <Stack
@@ -191,6 +186,7 @@ function TokenListFooter(props: IProps) {
           </NumberSizeableText>
         </ListItem>
       ) : null}
+      {!isSearchMode ? <Divider mx="$5" my="$2" /> : null}
       {!isSearchMode && riskyTokens.length > 0 ? (
         <ListItem onPress={handleOnPressBlockedTokens} userSelect="none">
           <Stack

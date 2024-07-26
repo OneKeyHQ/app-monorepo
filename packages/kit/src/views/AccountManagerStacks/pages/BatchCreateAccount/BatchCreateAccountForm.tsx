@@ -47,8 +47,8 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
         {
           walletId,
           networkId: values.networkId,
-          from: values.from,
-          count: values.count,
+          // from: values.from,
+          // count: values.count,
         },
       );
     },
@@ -106,46 +106,47 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
               isProcessingRef.current = false;
               return;
             }
-            const values = formRef?.current?.getValues();
-            const networkId = values?.networkId;
 
-            if (networkUtils.isAllNetwork({ networkId })) {
-              await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
-                {
-                  walletId,
-                  reason: EReasonForNeedPassword.CreateOrRemoveWallet,
-                },
-              );
+            await formRef.current?.handleSubmit(async (values) => {
+              const networkId = values?.networkId;
+              if (networkUtils.isAllNetwork({ networkId })) {
+                await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
+                  {
+                    walletId,
+                    reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+                  },
+                );
 
-              const from = values?.from ?? '1';
-              const count =
-                values?.count ??
-                String(BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT);
-              const fromInt = parseInt(from, 10);
-              const countInt = parseInt(count, 10);
-              const beginIndex = fromInt - 1;
-              const endIndex = beginIndex + countInt - 1;
+                const from = values?.from ?? '1';
+                const count =
+                  values?.count ??
+                  String(BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT);
+                const fromInt = parseInt(from, 10);
+                const countInt = parseInt(count, 10);
+                const beginIndex = fromInt - 1;
+                const endIndex = beginIndex + countInt - 1;
 
-              showBatchCreateAccountProcessingDialog({
-                navigation,
-                allNetworkInfo: {
-                  count: countInt,
-                },
-              });
-              await timerUtils.wait(600);
+                showBatchCreateAccountProcessingDialog({
+                  navigation,
+                  allNetworkInfo: {
+                    count: countInt,
+                  },
+                });
+                await timerUtils.wait(600);
 
-              await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
-                {
-                  walletId,
-                  fromIndex: beginIndex,
-                  toIndex: endIndex,
-                  excludedIndexes: {},
-                  saveToDb: true,
-                },
-              );
-            } else {
-              await navigateToPreview({ replace: false });
-            }
+                await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
+                  {
+                    walletId,
+                    fromIndex: beginIndex,
+                    toIndex: endIndex,
+                    excludedIndexes: {},
+                    saveToDb: true,
+                  },
+                );
+              } else {
+                await navigateToPreview({ replace: false });
+              }
+            })();
           } finally {
             isProcessingRef.current = false;
           }
