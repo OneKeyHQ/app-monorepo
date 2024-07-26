@@ -101,8 +101,8 @@ class Analytics {
 
   public updateAttributes(attributes: {
     walletCount?: number;
-    appwalletCount?: number;
-    hwwalletCount?: number;
+    appWalletCount?: number;
+    hwWalletCount?: number;
   }) {
     void this.requestAttributes(attributes);
   }
