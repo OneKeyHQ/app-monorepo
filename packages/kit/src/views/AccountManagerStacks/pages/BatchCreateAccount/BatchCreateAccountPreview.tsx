@@ -81,8 +81,8 @@ function BatchCreateAccountPreviewPage({
     if (isAdvancedMode) {
       return parseInt(count, 10);
     }
-    return 2 ** 32 - 1 - fromInt;
-  }, [count, fromInt, isAdvancedMode]);
+    return 2 ** 31;
+  }, [count, isAdvancedMode]);
   const [advanceExcludedIndexes, setAdvancedExcludedIndexes] = useState<{
     [pathIndex: number]: true;
   }>({});
@@ -130,13 +130,13 @@ function BatchCreateAccountPreviewPage({
 
   const enableAdvancedMode = useCallback(
     (values: IBatchCreateAccountFormValues) => {
-      setIsAdvancedMode(true);
+      setPage(minPage);
       setAdvancedExcludedIndexes({});
       setNormalSelectedIndexes({});
       setFrom(values.from);
       setCount(values.count);
       setDeriveType(values.deriveType);
-      setPage(minPage);
+      setIsAdvancedMode(true);
     },
     [],
   );
@@ -199,6 +199,7 @@ function BatchCreateAccountPreviewPage({
     [deriveType, endIndex, fromInt, navigation, networkId, page, walletId],
     {
       watchLoading: true,
+      debounced: 300,
     },
   );
 
