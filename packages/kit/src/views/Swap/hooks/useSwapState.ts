@@ -29,6 +29,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
 } from '../../../states/jotai/contexts/swap';
 
@@ -89,6 +90,7 @@ export function useSwapActionState() {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [shouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [swapQuoteApproveAllowanceUnLimit] =
     useSwapQuoteApproveAllowanceUnLimitAtom();
   useSwapWarningCheck();
@@ -98,7 +100,8 @@ export function useSwapActionState() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { getQuoteIntervalCount } = useSwapActions().current;
-  const isRefreshQuote = getQuoteIntervalCount() >= swapQuoteIntervalMaxCount;
+  const isRefreshQuote =
+    getQuoteIntervalCount() >= swapQuoteIntervalMaxCount || shouldRefreshQuote;
   const hasError = alerts.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );

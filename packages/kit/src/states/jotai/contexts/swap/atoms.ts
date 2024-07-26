@@ -105,6 +105,11 @@ export const { atom: swapProviderSortAtom, use: useSwapProviderSortAtom } =
   contextAtom<ESwapProviderSort>(ESwapProviderSort.RECOMMENDED);
 
 export const {
+  atom: swapShouldRefreshQuoteAtom,
+  use: useSwapShouldRefreshQuoteAtom,
+} = contextAtom<boolean>(false);
+
+export const {
   atom: swapSortedQuoteListAtom,
   use: useSwapSortedQuoteListAtom,
 } = contextAtomComputed<IFetchQuoteResult[]>((get) => {
