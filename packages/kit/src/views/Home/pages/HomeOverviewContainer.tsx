@@ -122,6 +122,7 @@ function HomeOverviewContainer() {
       } else if (type === EHomeTab.HISTORY) {
         setIsRefreshingHistoryList(isRefreshing);
       }
+      setIsRefreshingWorth(isRefreshing);
     };
     appEventBus.on(EAppEventBusNames.TabListStateUpdate, fn);
     return () => {
