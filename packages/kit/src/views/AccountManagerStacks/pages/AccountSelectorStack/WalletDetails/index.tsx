@@ -29,6 +29,7 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
+import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/pages';
 import type {
   IDBAccount,
   IDBDevice,
@@ -50,7 +51,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { useToOnBoardingPage } from '../../../../Onboarding/pages';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 import { WalletDetailsHeader } from './WalletDetailsHeader';

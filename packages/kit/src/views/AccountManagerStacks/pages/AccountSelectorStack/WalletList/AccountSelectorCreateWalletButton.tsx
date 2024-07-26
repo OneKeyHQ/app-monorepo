@@ -8,10 +8,9 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/pages';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
-import { useToOnBoardingPage } from '../../../../Onboarding/pages';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 export function AccountSelectorCreateWalletButton() {
