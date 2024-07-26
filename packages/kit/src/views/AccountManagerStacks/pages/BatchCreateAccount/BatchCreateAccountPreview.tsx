@@ -383,10 +383,9 @@ function BatchCreateAccountPreviewPage({
       />
       <Page.Body
         px="$5"
-        py="$4"
         // backgroundColor={'#eee'}
       >
-        <Stack flexDirection="row">
+        <Stack flexDirection="row" pb="$4">
           <SizableText
             size="$bodyMd"
             w={numWidth}
