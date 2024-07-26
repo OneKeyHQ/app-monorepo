@@ -35,7 +35,8 @@ import type { View as NativeView } from 'react-native';
 
 export type ISpotlight = PropsWithChildren<{
   content: ReactElement;
-  offset?: number;
+  childrenPadding?: number;
+  floatingOffset?: number;
   visible: boolean;
   onConfirm?: () => void;
   replaceChildren?: ReactElement;
@@ -50,7 +51,8 @@ interface IFloatingPosition {
 
 type ISpotlightContentEvent = ISpotlight & {
   floatingPosition: IFloatingPosition;
-  offset: number;
+  floatingOffset: number;
+  childrenPadding: number;
 };
 function SpotlightContent({
   initProps,
@@ -62,7 +64,6 @@ function SpotlightContent({
     trigger: ((props: ISpotlightContentEvent) => void) | undefined;
   }>;
 }) {
-  const padding = 8;
   const intl = useIntl();
 
   const [isLocked] = useAppIsLockedAtom();
@@ -79,21 +80,31 @@ function SpotlightContent({
       }
     }
   }, [triggerPropsRef]);
-  const { visible, children, floatingPosition, content, onConfirm, offset } =
-    props;
+  const {
+    visible,
+    children,
+    floatingPosition,
+    content,
+    onConfirm,
+    floatingOffset,
+    childrenPadding,
+  } = props;
 
   const floatingStyle = useMemo(
     () =>
       floatingPosition
         ? {
             top:
-              floatingPosition.y + floatingPosition.height + offset + padding,
-            left: gtMd ? floatingPosition.x - padding : '$4',
+              floatingPosition.y +
+              floatingPosition.height +
+              floatingOffset +
+              childrenPadding,
+            left: gtMd ? floatingPosition.x - childrenPadding : '$4',
             right: gtMd ? undefined : '$4',
             maxWidth: gtMd ? 354 : undefined,
           }
         : undefined,
-    [floatingPosition, gtMd, offset],
+    [floatingPosition, floatingOffset, childrenPadding, gtMd],
   );
 
   const isRendered = floatingPosition.width > 0;
@@ -117,10 +128,10 @@ function SpotlightContent({
           position="absolute"
           pointerEvents="none"
           bg="$bg"
-          top={floatingPosition.y - padding}
-          left={floatingPosition.x - padding}
+          top={floatingPosition.y - childrenPadding}
+          left={floatingPosition.x - childrenPadding}
           borderRadius="$3"
-          padding={padding}
+          padding={childrenPadding}
         >
           {children}
         </Stack>
@@ -159,7 +170,8 @@ export function Spotlight({
   children,
   replaceChildren,
   content,
-  offset = 12,
+  childrenPadding = 8,
+  floatingOffset = 12,
   visible = false,
   onConfirm,
 }: ISpotlight) {
@@ -192,7 +204,8 @@ export function Spotlight({
         floatingPosition,
         content,
         onConfirm,
-        offset,
+        floatingOffset,
+        childrenPadding,
       });
     });
   }, [
@@ -200,10 +213,11 @@ export function Spotlight({
     content,
     defer,
     floatingPosition,
-    offset,
+    floatingOffset,
     onConfirm,
     replaceChildren,
     visible,
+    childrenPadding,
   ]);
   const handleLayout = useCallback(() => {
     (triggerRef?.current as any as NativeView)?.measureInWindow(
@@ -236,7 +250,8 @@ export function Spotlight({
               floatingPosition,
               content,
               onConfirm,
-              offset,
+              floatingOffset,
+              childrenPadding,
             }}
           />
         </Portal.Body>
