@@ -16,6 +16,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -174,10 +175,12 @@ function TokenManagerModal() {
         backgroundApiProxy.serviceCustomToken.getHiddenTokens({
           accountId,
           networkId,
+          allNetworkAccountId: isAllNetwork ? accountId : undefined,
         }),
         backgroundApiProxy.serviceCustomToken.getCustomTokens({
           accountId,
           networkId,
+          allNetworkAccountId: isAllNetwork ? accountId : undefined,
         }),
       ]);
       const allTokens = [...tokenList.tokens, ...customTokens];
@@ -199,7 +202,7 @@ function TokenManagerModal() {
           ),
       );
     },
-    [tokenList, accountId, networkId],
+    [tokenList, accountId, networkId, isAllNetwork],
     {
       checkIsFocused: false,
       watchLoading: true,
@@ -354,14 +357,22 @@ function TokenManagerModal() {
       await backgroundApiProxy.serviceCustomToken.hideToken({
         token: {
           ...token,
-          accountId: accountId ?? token.accountId ?? '',
-          networkId: networkId ?? token.networkId,
+          accountId: token.accountId ?? accountId ?? '',
+          networkId: token.networkId ?? networkId,
+          allNetworkAccountId: isAllNetwork ? accountId : undefined,
         },
       });
       isEditRef.current = true;
-      setTimeout(() => run(), 200);
+      setTimeout(() => {
+        void run();
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.address_book_add_address_toast_delete_success,
+          }),
+        });
+      }, 200);
     },
-    [run, accountId, networkId],
+    [run, accountId, networkId, intl, isAllNetwork],
   );
 
   const headerRight = useCallback(

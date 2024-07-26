@@ -359,6 +359,7 @@ function AddCustomTokenModal() {
           ...searchedTokenRef.current,
           accountId: accountIdForNetwork,
           networkId: selectedNetworkIdValue,
+          allNetworkAccountId: isAllNetwork ? accountId : undefined,
           name: searchedTokenRef.current?.name ?? '',
           isNative: searchedTokenRef.current?.isNative ?? false,
           $key: `${selectedNetworkIdValue}_${contractAddress}`,
@@ -384,6 +385,8 @@ function AddCustomTokenModal() {
       token?.isNative,
       intl,
       onSuccess,
+      isAllNetwork,
+      accountId,
     ],
   );
 
