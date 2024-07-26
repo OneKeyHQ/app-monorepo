@@ -106,7 +106,6 @@ function SearchModal() {
       setSearchList([
         {
           dappId: SEARCH_ITEM_ID,
-          // TODO: i18n
           name: `${intl.formatMessage({
             id: ETranslations.explore_search_placeholder,
           })} "${searchValue}"`,
@@ -209,6 +208,9 @@ function SearchModal() {
             selectTextOnFocus
             value={searchValue}
             onSearchTextChange={setSearchValue}
+            placeholder={intl.formatMessage({
+              id: ETranslations.browser_search_dapp_or_enter_url,
+            })}
             onSubmitEditing={() => {
               handleOpenWebSite({
                 navigation,
