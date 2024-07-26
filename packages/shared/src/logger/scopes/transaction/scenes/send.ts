@@ -57,7 +57,7 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
-  public sendConfim({
+  public sendConfirm({
     txnHash,
     network,
     txnType,
