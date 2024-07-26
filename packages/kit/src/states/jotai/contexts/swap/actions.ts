@@ -217,6 +217,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       loadingDelayEnable?: boolean,
       blockNumber?: number,
     ) => {
+      const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
+      if (shouldRefreshQuote) {
+        this.cleanQuoteInterval();
+        return;
+      }
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
       let enableInterval = true;
       try {

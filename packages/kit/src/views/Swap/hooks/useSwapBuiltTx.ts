@@ -380,9 +380,11 @@ export function useSwapBuildTx() {
           }));
         } else {
           setSwapBuildTxFetching(false);
+          setSwapShouldRefreshQuote(true);
         }
       } catch (e) {
         setSwapBuildTxFetching(false);
+        setSwapShouldRefreshQuote(true);
       }
     }
   }, [
@@ -405,6 +407,7 @@ export function useSwapBuildTx() {
     handleBuildTxSuccess,
     cancelBuildTx,
     isFirstTimeSwap,
+    setSwapShouldRefreshQuote,
   ]);
 
   return { buildTx, wrappedTx, approveTx };
