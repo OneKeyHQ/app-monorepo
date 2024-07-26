@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Page } from '@onekeyhq/components';
+import { Page, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -30,7 +30,7 @@ type ISellOrBuyProps = {
 
 const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
   const appNavigation = useAppNavigation();
-  const { result: tokens } = useGetTokensList({
+  const { result: tokens, isLoading } = useGetTokensList({
     networkId,
     accountId: networkUtils.isAllNetwork({ networkId }) ? undefined : accountId,
     type,
@@ -115,7 +115,13 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
       <Page.Header title={title} />
       <Page.Body>
         <NetworkContainer networkIds={networkIds}>
-          <TokenList items={fiatValueTokens} onPress={onPress} />
+          {isLoading ? (
+            <Stack minHeight={120} justifyContent="center" alignItems="center">
+              <Spinner size="large" />
+            </Stack>
+          ) : (
+            <TokenList items={fiatValueTokens} onPress={onPress} />
+          )}
         </NetworkContainer>
       </Page.Body>
     </Page>
