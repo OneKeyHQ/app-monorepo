@@ -20,7 +20,9 @@ function EmptyWallet() {
         children: intl.formatMessage({
           id: ETranslations.global_create_wallet,
         }),
-        onPress: toOnBoardingPage,
+        onPress: () => {
+          void toOnBoardingPage();
+        },
       }}
     />
   );
