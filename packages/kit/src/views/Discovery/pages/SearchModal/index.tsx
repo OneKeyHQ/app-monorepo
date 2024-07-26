@@ -106,7 +106,6 @@ function SearchModal() {
       setSearchList([
         {
           dappId: SEARCH_ITEM_ID,
-          // TODO: i18n
           name: `${intl.formatMessage({
             id: ETranslations.explore_search_placeholder,
           })} "${searchValue}"`,
