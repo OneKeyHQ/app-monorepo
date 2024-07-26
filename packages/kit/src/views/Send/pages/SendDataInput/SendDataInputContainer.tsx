@@ -92,6 +92,7 @@ function SendDataInputContainer() {
     onSuccess,
     onFail,
     onCancel,
+    isAllNetworks,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -317,12 +318,14 @@ function SendDataInputContainer() {
           });
           setTokenInfo(data);
         },
+        isAllNetworks,
       },
     });
   }, [
     accountId,
     allTokens.keys,
     allTokens.tokens,
+    isAllNetworks,
     isSelectTokenDisabled,
     map,
     navigation,

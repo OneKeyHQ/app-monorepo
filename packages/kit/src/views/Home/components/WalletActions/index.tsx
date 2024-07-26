@@ -84,6 +84,7 @@ function WalletActionSend() {
             networkId: token.networkId ?? network.id,
             isNFT: false,
             token,
+            isAllNetworks: network?.isAllNetworks,
           });
         },
       },
