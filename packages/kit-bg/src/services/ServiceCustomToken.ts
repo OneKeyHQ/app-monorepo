@@ -30,13 +30,16 @@ class ServiceCustomToken extends ServiceBase {
   public async getCustomTokens({
     accountId,
     networkId,
+    allNetworkAccountId,
   }: {
     accountId: string;
     networkId: string;
+    allNetworkAccountId?: string;
   }) {
     return this.backgroundApi.simpleDb.customTokens.getCustomTokens({
       accountId,
       networkId,
+      allNetworkAccountId,
     });
   }
 
@@ -44,13 +47,16 @@ class ServiceCustomToken extends ServiceBase {
   public async getHiddenTokens({
     accountId,
     networkId,
+    allNetworkAccountId,
   }: {
     accountId: string;
     networkId: string;
+    allNetworkAccountId?: string;
   }) {
     return this.backgroundApi.simpleDb.customTokens.getHiddenTokens({
       accountId,
       networkId,
+      allNetworkAccountId,
     });
   }
 
