@@ -9,6 +9,7 @@ import {
   Button,
   Divider,
   Empty,
+  IconButton,
   ListView,
   Page,
   SearchBar,
@@ -47,10 +48,15 @@ type ICustomTokenItem = IAccountToken & { canAdded?: boolean };
 
 function ListEmptyComponent({
   onAddCustomToken,
+  isLoading,
 }: {
   onAddCustomToken: (token?: ICustomTokenItem) => void;
+  isLoading: boolean;
 }) {
   const intl = useIntl();
+  if (isLoading) {
+    return null;
+  }
   return (
     <Empty
       flex={1}
@@ -153,7 +159,11 @@ function TokenManagerModal() {
   const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
   const [tokenList] = useTokenListAtom();
 
-  const { result, run } = usePromiseResult(
+  const {
+    result,
+    run,
+    isLoading: isLoadingHomePageData,
+  } = usePromiseResult(
     async () => {
       const [hiddenTokens, customTokens] = await Promise.all([
         backgroundApiProxy.serviceCustomToken.getHiddenTokens({
@@ -187,6 +197,7 @@ function TokenManagerModal() {
     [tokenList, accountId, networkId],
     {
       checkIsFocused: false,
+      watchLoading: true,
     },
   );
 
@@ -343,9 +354,21 @@ function TokenManagerModal() {
     [run, accountId, networkId],
   );
 
+  const headerRight = useCallback(
+    () => (
+      <IconButton
+        icon="PlusCircleOutline"
+        iconColor="$iconSubdued"
+        bg="$bgApp"
+        onPress={() => onAddCustomToken()}
+      />
+    ),
+    [onAddCustomToken],
+  );
+
   return (
     <Page safeAreaEnabled>
-      <Page.Header title="Manage Token" />
+      <Page.Header title="Manage Token" headerRight={headerRight} />
       <Page.Body>
         <Stack mx="$4">
           <SearchBar
@@ -363,30 +386,6 @@ function TokenManagerModal() {
         ) : (
           <ListView
             data={dataSource}
-            ListHeaderComponent={
-              isSearchMode ? null : (
-                <>
-                  <ListItem
-                    mt="$4"
-                    title="Manually add a token"
-                    onPress={() => {
-                      onAddCustomToken();
-                    }}
-                  >
-                    <ListItem.IconButton icon="ChevronRightSmallOutline" />
-                  </ListItem>
-                  <Divider />
-                  <SizableText
-                    mt={10}
-                    px="$5"
-                    size="$bodyMd"
-                    color="$textSubdued"
-                  >
-                    Added token
-                  </SizableText>
-                </>
-              )
-            }
             keyExtractor={(item) => item.$key}
             renderItem={({ item }) => (
               <ListItem>
@@ -426,7 +425,10 @@ function TokenManagerModal() {
               />
             }
             ListEmptyComponent={
-              <ListEmptyComponent onAddCustomToken={onAddCustomToken} />
+              <ListEmptyComponent
+                onAddCustomToken={onAddCustomToken}
+                isLoading={isLoadingHomePageData || isLoading}
+              />
             }
           />
         )}
