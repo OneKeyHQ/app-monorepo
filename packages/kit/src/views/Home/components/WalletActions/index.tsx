@@ -16,12 +16,10 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
-  EAssetSelectorRoutes,
   EModalRoutes,
   EModalSendRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
