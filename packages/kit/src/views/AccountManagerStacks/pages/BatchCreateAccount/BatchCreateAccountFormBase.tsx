@@ -30,6 +30,7 @@ export type IBatchCreateAccountFormValues = {
 };
 
 export const BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT = 15;
+export const BATCH_CREATE_ACCONT_SINGLE_NETWORK_MAX_COUNT = 100;
 
 function AdvancedSettingsFormField({
   form,
@@ -244,21 +245,18 @@ export function BatchCreateAccountFormBase({
                 id: ETranslations.global_bulk_accounts_page_number_error,
               });
             }
-            if (isAllNetwork) {
-              if (
-                valueNum.isGreaterThan(
-                  BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT,
-                )
-              ) {
-                return intl.formatMessage(
-                  {
-                    id: ETranslations.global_generate_amount_information,
-                  },
-                  {
-                    max: BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT,
-                  },
-                );
-              }
+            const max = isAllNetwork
+              ? BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT
+              : BATCH_CREATE_ACCONT_SINGLE_NETWORK_MAX_COUNT;
+            if (valueNum.isGreaterThan(max)) {
+              return intl.formatMessage(
+                {
+                  id: ETranslations.global_generate_amount_information,
+                },
+                {
+                  max,
+                },
+              );
             }
             if (valueNum.isLessThan(1)) {
               return 'The minimum number of accounts is 1';

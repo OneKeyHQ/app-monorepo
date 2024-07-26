@@ -11,7 +11,6 @@ import {
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -21,10 +20,16 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+export type IBatchCreateAccountAllNetworkInfo = {
+  count: number;
+};
+
 function ProcessingDialogContent({
   navigation,
+  allNetworkInfo,
 }: {
   navigation?: IAppNavigation;
+  allNetworkInfo?: IBatchCreateAccountAllNetworkInfo;
 }) {
   const intl = useIntl();
 
@@ -99,6 +104,19 @@ function ProcessingDialogContent({
             )}
           </SizableText>
 
+          {allNetworkInfo ? (
+            <SizableText size="$bodyLg" textAlign="center">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.global_bulk_accounts_loading_subtitle,
+                },
+                {
+                  amount: allNetworkInfo.count ?? 0,
+                },
+              )}
+            </SizableText>
+          ) : null}
+
           {platformEnv.isDev ? (
             <SizableText>
               DebugProgress: {state?.progressCurrent} / {state?.progressTotal} :
@@ -140,15 +158,22 @@ function ProcessingDialogContent({
 
 export function showBatchCreateAccountProcessingDialog({
   navigation,
+  allNetworkInfo,
   ...dialogProps
 }: IDialogShowProps & {
   navigation?: IAppNavigation;
+  allNetworkInfo?: IBatchCreateAccountAllNetworkInfo;
 }) {
   Dialog.show({
     showExitButton: false,
     dismissOnOverlayPress: false,
     // title: '',
-    renderContent: <ProcessingDialogContent navigation={navigation} />,
+    renderContent: (
+      <ProcessingDialogContent
+        allNetworkInfo={allNetworkInfo}
+        navigation={navigation}
+      />
+    ),
     ...dialogProps,
   });
 }
