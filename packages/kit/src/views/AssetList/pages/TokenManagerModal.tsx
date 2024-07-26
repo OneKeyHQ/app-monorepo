@@ -379,13 +379,15 @@ function TokenManagerModal() {
     () =>
       isSearchMode ? null : (
         <IconButton
+          variant="tertiary"
           icon="PlusCircleOutline"
-          iconColor="$iconSubdued"
-          bg="$bgApp"
           onPress={() => onAddCustomToken()}
+          title={intl.formatMessage({
+            id: ETranslations.manage_token_custom_token_title,
+          })}
         />
       ),
-    [isSearchMode, onAddCustomToken],
+    [intl, isSearchMode, onAddCustomToken],
   );
 
   return (
@@ -404,7 +406,7 @@ function TokenManagerModal() {
         headerRight={headerRight}
       />
       <Page.Body>
-        <Stack mx="$4">
+        <Stack px="$5" pb="$4">
           <SearchBar
             placeholder={intl.formatMessage({
               id: ETranslations.token_selector_search_placeholder,
@@ -462,7 +464,7 @@ function TokenManagerModal() {
                 <ListItem.IconButton
                   icon={
                     checkTokenExistInTokenList(item)
-                      ? 'DeleteOutline'
+                      ? 'MinusCircleOutline'
                       : 'PlusCircleOutline'
                   }
                   onPress={() =>

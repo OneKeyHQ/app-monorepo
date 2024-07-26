@@ -19,7 +19,7 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(): Promise<IDBAccount[]> {
     throw new Error(
       appLocale.intl.formatMessage({
-        id: ETranslations.coming_soon,
+        id: ETranslations.global_bulk_add_account_dnx_error,
       }),
     );
   }
