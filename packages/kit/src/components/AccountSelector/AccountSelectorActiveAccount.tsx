@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,10 +14,15 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useWalletAddress } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useWalletAddress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
-import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalReceiveRoutes,
+  EModalRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -29,16 +34,25 @@ import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddre
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
+  const [isFocus, setIsFocus] = useState(false);
   const { handleWalletAddress, isEnable } = useWalletAddress({ activeAccount });
   const { isFirstVisit, tourVisited } = useSpotlight(
     ESpotlightTour.createAllNetworks,
   );
+  useListenTabFocusState(
+    ETabRoutes.Home,
+    async (focus: boolean, hideByModal: boolean) => {
+      setIsFocus(focus && !hideByModal);
+    },
+  );
   if (!isEnable) {
     return null;
   }
+
+  const visible = isFirstVisit && isFocus;
   return (
     <Spotlight
-      visible={isFirstVisit}
+      visible={visible}
       content={
         <SizableText size="$bodyMd">
           {intl.formatMessage({
