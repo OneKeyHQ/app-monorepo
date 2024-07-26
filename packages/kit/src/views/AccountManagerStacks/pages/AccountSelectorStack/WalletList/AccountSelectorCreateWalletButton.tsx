@@ -11,6 +11,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
+import { useToOnBoardingPage } from '../../../../Onboarding/pages';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 export function AccountSelectorCreateWalletButton() {
@@ -19,6 +20,7 @@ export function AccountSelectorCreateWalletButton() {
 
   const navigation = useAppNavigation();
   const route = useAccountSelectorRoute();
+  const toOnBoardingPage = useToOnBoardingPage();
   // const linkNetwork = route.params?.linkNetwork;
   const isEditableRouteParams = route.params?.editable;
 
@@ -29,8 +31,7 @@ export function AccountSelectorCreateWalletButton() {
   const onboardingButton = (
     <IconButton
       onPress={() => {
-        navigation.pushModal(EModalRoutes.OnboardingModal, {
-          screen: EOnboardingPages.GetStarted,
+        void toOnBoardingPage({
           params: {
             showCloseButton: true,
           },

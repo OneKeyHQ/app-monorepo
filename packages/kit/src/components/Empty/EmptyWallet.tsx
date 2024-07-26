@@ -2,14 +2,12 @@ import { useIntl } from 'react-intl';
 
 import { Empty } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
-import useAppNavigation from '../../hooks/useAppNavigation';
+import { useToOnBoardingPage } from '../../views/Onboarding/pages';
 
 function EmptyWallet() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
-
+  const toOnBoardingPage = useToOnBoardingPage();
   return (
     <Empty
       testID="Wallet-No-Wallet-Empty"
@@ -22,10 +20,7 @@ function EmptyWallet() {
         children: intl.formatMessage({
           id: ETranslations.global_create_wallet,
         }),
-        onPress: () =>
-          navigation.pushFullModal(EModalRoutes.OnboardingModal, {
-            screen: EOnboardingPages.GetStarted,
-          }),
+        onPress: toOnBoardingPage,
       }}
     />
   );

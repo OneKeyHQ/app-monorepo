@@ -9,12 +9,12 @@ import {
   EDAppConnectionModal,
   EModalRoutes,
   EModalSettingRoutes,
-  EOnboardingPages,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useToOnBoardingPage } from '../../../views/Onboarding/pages';
 import { useV4MigrationActions } from '../../../views/Onboarding/pages/V4Migration/hooks/useV4MigrationActions';
 
 const TabMe = () => {
@@ -27,7 +27,7 @@ const TabMe = () => {
   const onExpand = useCallback(() => {
     extUtils.openUrlInTab(EXT_HTML_FILES.uiExpandTab).catch(console.error);
   }, []);
-
+  const toOnBoardingPage = useToOnBoardingPage();
   const { navigateToV4MigrationPage } = useV4MigrationActions();
 
   return (
@@ -43,9 +43,7 @@ const TabMe = () => {
           </Button>
           <Button
             onPress={() => {
-              navigation.pushFullModal(EModalRoutes.OnboardingModal, {
-                screen: EOnboardingPages.GetStarted,
-              });
+              void toOnBoardingPage({ isFullModal: true });
             }}
           >
             Onboarding

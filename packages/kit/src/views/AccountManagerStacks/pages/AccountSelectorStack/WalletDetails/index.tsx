@@ -50,6 +50,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { useToOnBoardingPage } from '../../../../Onboarding/pages';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 import { WalletDetailsHeader } from './WalletDetailsHeader';
@@ -409,6 +410,8 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     return focusedWalletInfo?.wallet?.name || '';
   }, [focusedWalletInfo, isOthers]);
 
+  const toOnBoardingPage = useToOnBoardingPage();
+
   return (
     <Stack flex={1} pb={bottom} testID="account-selector-accountList">
       <WalletDetailsHeader
@@ -453,8 +456,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 id: ETranslations.global_create_wallet,
               }),
               onPress: () => {
-                navigation.pushModal(EModalRoutes.OnboardingModal, {
-                  screen: EOnboardingPages.GetStarted,
+                void toOnBoardingPage({
                   params: {
                     showCloseButton: true,
                   },

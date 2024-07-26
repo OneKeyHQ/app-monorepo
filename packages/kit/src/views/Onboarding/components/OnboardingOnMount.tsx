@@ -16,6 +16,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useToOnBoardingPage } from '../pages';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
 let lastAutoStartV4MigrationTime = 0;
@@ -76,6 +77,7 @@ function DowngradeWarningDialogContent({
 
 function OnboardingOnMountCmp() {
   const intl = useIntl();
+  const toOnBoardingPage = useToOnBoardingPage();
   const navigation = useAppNavigation();
   const v4migrationActions = useV4MigrationActions();
   const [v4migrationPersistData, setV4MigrationPersistAtom] =
@@ -136,8 +138,8 @@ function OnboardingOnMountCmp() {
       const { isOnboardingDone } =
         await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
       if (!isOnboardingDone) {
-        navigation.pushFullModal(EModalRoutes.OnboardingModal, {
-          screen: EOnboardingPages.GetStarted,
+        void toOnBoardingPage({
+          isFullModal: true,
           params: {
             showCloseButton: true,
           },
@@ -146,8 +148,8 @@ function OnboardingOnMountCmp() {
     },
     [
       migrateBaseSettings,
-      navigation,
       setV4MigrationPersistAtom,
+      toOnBoardingPage,
       v4migrationActions,
     ],
   );
