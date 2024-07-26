@@ -237,6 +237,16 @@ async function withErrorAutoToast<T>(
   }
 }
 
+function isErrorByClassName({
+  error,
+  className,
+}: {
+  error: unknown;
+  className: EOneKeyErrorClassNames;
+}): boolean {
+  return Boolean((error as IOneKeyError)?.className === className && className);
+}
+
 export default {
   autoPrintErrorIgnore,
   normalizeErrorProps,
@@ -249,4 +259,5 @@ export default {
   toastIfErrorDisable,
   showToastOfError,
   withErrorAutoToast,
+  isErrorByClassName,
 };
