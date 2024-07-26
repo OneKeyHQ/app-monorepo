@@ -8,7 +8,7 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 
 import platformEnv from '../platformEnv';
 
-import type { EAccountSelectorSceneName } from '../../types';
+import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 
@@ -54,7 +54,9 @@ export enum EAppEventBusNames {
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
   TokenListUpdate = 'TokenListUpdate',
+  TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
+  AccountDataUpdate = 'AccountDataUpdate',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -151,6 +153,11 @@ export interface IAppEventBusPayload {
     merge?: boolean;
   };
   [EAppEventBusNames.RefreshTokenList]: undefined;
+  [EAppEventBusNames.TabListStateUpdate]: {
+    isRefreshing: boolean;
+    type: EHomeTab;
+  };
+  [EAppEventBusNames.AccountDataUpdate]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

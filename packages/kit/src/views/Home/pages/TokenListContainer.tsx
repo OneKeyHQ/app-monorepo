@@ -32,6 +32,7 @@ import {
   getEmptyTokenData,
   sortTokensByFiatValue,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
   IFetchAccountTokensResp,
@@ -125,6 +126,11 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
         if (network.isAllNetworks) return;
 
+        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+          isRefreshing: true,
+          type: EHomeTab.TOKENS,
+        });
+
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
         const blockedTokens =
           await backgroundApiProxy.serviceToken.getBlockedTokens({
@@ -184,8 +190,16 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
             initialized: true,
             isRefreshing: false,
           });
+          appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+            isRefreshing: false,
+            type: EHomeTab.TOKENS,
+          });
         }
       } catch (e) {
+        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+          isRefreshing: false,
+          type: EHomeTab.TOKENS,
+        });
         if (e instanceof CanceledError) {
           console.log('fetchAccountTokens canceled');
         } else {
@@ -377,13 +391,29 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     refreshTokenListMap,
   ]);
 
-  const { run: runAllNetworkRequest, result: allNetworksResult } =
+  const handleAllNetworkRequestsFinished = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+      isRefreshing: false,
+      type: EHomeTab.TOKENS,
+    });
+  }, []);
+
+  const handleAllNetworkRequestsStarted = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+      isRefreshing: true,
+      type: EHomeTab.TOKENS,
+    });
+  }, []);
+
+  const { run: runAllNetworksRequests, result: allNetworksResult } =
     useAllNetworkRequests<IFetchAccountTokensResp>({
       account,
       network,
       wallet,
       allNetworkRequests: handleAllNetworkRequests,
       clearAllNetworkData: handleClearAllNetworkData,
+      onStarted: handleAllNetworkRequestsStarted,
+      onFinished: handleAllNetworkRequestsFinished,
       interval: 200,
       shouldAlwaysFetch,
     });
@@ -424,6 +454,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     const riskyTokenListMap: {
       [key: string]: ITokenFiat;
     } = {};
+    let accountWorth = new BigNumber(0);
+
     if (refreshAllNetworksTokenList.current && allNetworksResult) {
       for (const r of allNetworksResult) {
         tokenList.tokens = tokenList.tokens.concat(r.tokens.data);
@@ -442,6 +474,11 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         );
         riskyTokenList.keys = `${riskyTokenList.keys}_${r.riskTokens.keys}`;
         Object.assign(riskyTokenListMap, r.riskTokens.map);
+
+        accountWorth = accountWorth
+          .plus(r.tokens.fiatValue ?? '0')
+          .plus(r.riskTokens.fiatValue ?? '0')
+          .plus(r.smallBalanceTokens.fiatValue ?? '0');
       }
 
       tokenList.tokens = sortTokensByFiatValue({
@@ -458,12 +495,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         tokens: riskyTokenList.riskyTokens,
         map: riskyTokenListMap,
       });
-
-      let accountWorth = new BigNumber(0);
-      accountWorth = accountWorth
-        .plus(allNetworksResult[0].tokens.fiatValue ?? '0')
-        .plus(allNetworksResult[0].riskTokens.fiatValue ?? '0')
-        .plus(allNetworksResult[0].smallBalanceTokens.fiatValue ?? '0');
 
       updateAccountWorth({ worth: accountWorth.toFixed() });
 
@@ -553,22 +584,36 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
   const handleRefreshAllNetworkData = useCallback(() => {
     refreshAllNetworksTokenList.current = true;
-    void runAllNetworkRequest();
-  }, [runAllNetworkRequest]);
+    void runAllNetworksRequests();
+  }, [runAllNetworksRequests]);
 
   useEffect(() => {
-    const fn = () => {
+    const refresh = () => {
       if (network?.isAllNetworks) {
-        void runAllNetworkRequest();
+        void handleRefreshAllNetworkData();
       } else {
         void run();
       }
     };
-    appEventBus.on(EAppEventBusNames.RefreshTokenList, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.RefreshTokenList, fn);
+
+    const fn = () => {
+      if (isFocused) {
+        refresh();
+      }
     };
-  }, [network?.isAllNetworks, run, runAllNetworkRequest]);
+    appEventBus.on(EAppEventBusNames.RefreshTokenList, refresh);
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshTokenList, refresh);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
+    };
+  }, [
+    handleRefreshAllNetworkData,
+    isFocused,
+    network?.isAllNetworks,
+    run,
+    runAllNetworksRequests,
+  ]);
 
   return (
     <>
