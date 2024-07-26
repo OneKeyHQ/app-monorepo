@@ -44,7 +44,7 @@ import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenList
 
 import type { RouteProp } from '@react-navigation/core';
 
-type ICustomTokenItem = IAccountToken & { canAdded?: boolean };
+type ICustomTokenItem = IAccountToken;
 
 function ListEmptyComponent({
   onAddCustomToken,
@@ -64,7 +64,9 @@ function ListEmptyComponent({
       title={intl.formatMessage({
         id: ETranslations.global_no_results,
       })}
-      description="Cannot find the token? Try click the button below to add"
+      description={intl.formatMessage({
+        id: ETranslations.manage_token_empty_msg,
+      })}
       button={
         <Button
           mt="$6"
@@ -73,7 +75,7 @@ function ListEmptyComponent({
           onPress={() => onAddCustomToken()}
         >
           {intl.formatMessage({
-            id: ETranslations.manger_token_custom_token_button,
+            id: ETranslations.manage_token_custom_token_button,
           })}
         </Button>
       }
@@ -105,7 +107,9 @@ function ListFooterComponent({
             size="$bodyMd"
             maxWidth={platformEnv.isNative ? 256 : undefined}
           >
-            Cannot find the token? Try click the button below to add
+            {intl.formatMessage({
+              id: ETranslations.manage_token_empty_msg,
+            })}
           </SizableText>
           <Button
             mt="$6"
@@ -114,7 +118,7 @@ function ListFooterComponent({
             onPress={() => onAddCustomToken()}
           >
             {intl.formatMessage({
-              id: ETranslations.manger_token_custom_token_button,
+              id: ETranslations.manage_token_custom_token_button,
             })}
           </Button>
         </YStack>
@@ -140,6 +144,7 @@ function SkeletonList() {
 }
 
 function TokenManagerModal() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const route =
     useRoute<
@@ -192,7 +197,7 @@ function TokenManagerModal() {
             (t) =>
               t.address === token.address && t.networkId === token.networkId,
           ),
-      ) as ICustomTokenItem[];
+      );
     },
     [tokenList, accountId, networkId],
     {
@@ -212,7 +217,6 @@ function TokenManagerModal() {
         walletId: string;
         networkId: string;
         searchValue: string;
-        existTokens: ICustomTokenItem[] | undefined;
       }) => {
         setIsLoading(true);
         try {
@@ -240,9 +244,6 @@ function TokenManagerModal() {
               // Add price info
               price,
               price24h,
-              canAdded: !params.existTokens?.find(
-                (n) => n.address === info.address,
-              ),
             } as ICustomTokenItem;
           });
           setSearchResult(formattedResult);
@@ -256,6 +257,14 @@ function TokenManagerModal() {
     ),
   ).current;
 
+  const checkTokenExistInTokenList = useCallback(
+    (token: ICustomTokenItem) =>
+      result?.find(
+        (t) => t.address === token.address && t.networkId === token.networkId,
+      ),
+    [result],
+  );
+
   useEffect(() => {
     if (!searchValue) {
       setSearchResult(null);
@@ -265,12 +274,11 @@ function TokenManagerModal() {
       walletId,
       networkId,
       searchValue,
-      existTokens: result,
     });
     return () => {
       debouncedFetchDataRef.cancel();
     };
-  }, [result, searchValue, networkId, walletId, debouncedFetchDataRef]);
+  }, [searchValue, networkId, walletId, debouncedFetchDataRef]);
   const isSearchMode = useMemo(
     () => searchValue && searchValue.length > 0,
     [searchValue],
@@ -368,11 +376,18 @@ function TokenManagerModal() {
 
   return (
     <Page safeAreaEnabled>
-      <Page.Header title="Manage Token" headerRight={headerRight} />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.manage_token_title,
+        })}
+        headerRight={headerRight}
+      />
       <Page.Body>
         <Stack mx="$4">
           <SearchBar
-            placeholder="Search symbol or contract"
+            placeholder={intl.formatMessage({
+              id: ETranslations.token_selector_search_placeholder,
+            })}
             autoFocus
             zIndex={20}
             selectTextOnFocus
@@ -386,6 +401,20 @@ function TokenManagerModal() {
         ) : (
           <ListView
             data={dataSource}
+            ListHeaderComponent={
+              isSearchMode ? null : (
+                <SizableText
+                  mt={10}
+                  px="$5"
+                  size="$bodyMd"
+                  color="$textSubdued"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.manage_token_added_token,
+                  })}
+                </SizableText>
+              )
+            }
             keyExtractor={(item) => item.$key}
             renderItem={({ item }) => (
               <ListItem>
@@ -410,9 +439,15 @@ function TokenManagerModal() {
                   </SizableText>
                 </YStack>
                 <ListItem.IconButton
-                  icon={item.canAdded ? 'PlusCircleOutline' : 'DeleteOutline'}
+                  icon={
+                    checkTokenExistInTokenList(item)
+                      ? 'DeleteOutline'
+                      : 'PlusCircleOutline'
+                  }
                   onPress={() =>
-                    item.canAdded ? onAddCustomToken(item) : onHiddenToken(item)
+                    checkTokenExistInTokenList(item)
+                      ? onHiddenToken(item)
+                      : onAddCustomToken(item)
                   }
                 />
               </ListItem>

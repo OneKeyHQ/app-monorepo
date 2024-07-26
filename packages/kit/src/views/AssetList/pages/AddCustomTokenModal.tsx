@@ -9,17 +9,15 @@ import type { IButtonProps } from '@onekeyhq/components';
 import {
   Button,
   Form,
+  Icon,
   Input,
   Page,
   SizableText,
   Stack,
   Toast,
   XStack,
-  YStack,
   useForm,
 } from '@onekeyhq/components';
-import { FooterAction } from '@onekeyhq/components/src/composite/Dialog/Footer';
-import { FooterConfirmButton } from '@onekeyhq/components/src/layouts/Page/PageFooterActions';
 import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorTrigger,
@@ -53,6 +51,7 @@ type IFormValues = {
 };
 
 function CreateAddressButton(props: IButtonProps) {
+  const intl = useIntl();
   return (
     <Button
       $md={
@@ -65,7 +64,7 @@ function CreateAddressButton(props: IButtonProps) {
       variant="primary"
       {...props}
     >
-      Create address
+      {intl.formatMessage({ id: ETranslations.global_create_address })}
     </Button>
   );
 }
@@ -153,7 +152,7 @@ function AddCustomTokenModal() {
     if (isAllNetwork) {
       return (
         <Form.Field
-          label={intl.formatMessage({ id: ETranslations.global_network })}
+          label={intl.formatMessage({ id: ETranslations.global_chain })}
           name="networkId"
         >
           <ControlledNetworkSelectorTrigger
@@ -354,29 +353,65 @@ function AddCustomTokenModal() {
 
   return (
     <Page>
-      <Page.Header title="Custom Token" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.manage_token_custom_token_title,
+        })}
+      />
       <Page.Body px="$5">
         <Form form={form}>
           {renderNetworkSelectorFormItem()}
-          <Form.Field label="Contract Address" name="contractAddress">
+          <Form.Field
+            label={intl.formatMessage({
+              id: ETranslations.manage_token_custom_token_contract_address,
+            })}
+            name="contractAddress"
+          >
             <Input editable={!token?.isNative} />
           </Form.Field>
-          <Form.Field label="Symbol" name="symbol">
+          <Form.Field
+            label={intl.formatMessage({
+              id: ETranslations.manage_token_custom_token_symbol,
+            })}
+            name="symbol"
+          >
             <Input editable={false} />
           </Form.Field>
-          <Form.Field label="Decimals" name="decimals">
+          <Form.Field
+            label={intl.formatMessage({
+              id: ETranslations.manage_token_custom_token_decimal,
+            })}
+            name="decimals"
+          >
             <Input editable={false} />
           </Form.Field>
         </Form>
         {hasExistAccount ? null : (
-          <XStack position="absolute" bottom={0} left="$5">
-            <SizableText>{`1. Create Address ->`}</SizableText>
-            <SizableText>2. Add</SizableText>
+          <XStack
+            position="absolute"
+            bottom={0}
+            left="$5"
+            alignItems="center"
+            space="$2"
+          >
+            <SizableText>
+              {intl.formatMessage({
+                id: ETranslations.manage_token_custom_token_create_address,
+              })}
+            </SizableText>
+            <Icon name="ArrowRightOutline" color="$iconSubdued" size="$5" />
+            <SizableText>
+              {intl.formatMessage({
+                id: ETranslations.manage_token_custom_token_add,
+              })}
+            </SizableText>
           </XStack>
         )}
       </Page.Body>
       <Page.Footer
-        onConfirmText="Add"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.manage_token_custom_token_add_btn,
+        })}
         onConfirm={onConfirm}
         confirmButtonProps={{
           loading: isLoading,

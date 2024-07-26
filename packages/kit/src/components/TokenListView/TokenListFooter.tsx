@@ -233,7 +233,7 @@ function TokenListFooter(props: IProps) {
         <ListItem.Text
           flex={1}
           primary={intl.formatMessage({
-            id: ETranslations.manger_token_titile,
+            id: ETranslations.manage_token_title,
           })}
           {...(tableLayout && {
             primaryTextProps: { size: '$bodyMdMedium' },
