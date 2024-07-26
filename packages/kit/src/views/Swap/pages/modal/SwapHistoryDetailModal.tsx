@@ -276,7 +276,7 @@ const SwapHistoryDetailModal = () => {
               })}
               renderContent={durationTime}
             />
-            {!isNil(txHistory.swapInfo.oneKeyFee) ? (
+            {/* {!isNil(txHistory.swapInfo.oneKeyFee) ? (
               <InfoItem
                 disabledCopy
                 label={intl.formatMessage({
@@ -284,7 +284,7 @@ const SwapHistoryDetailModal = () => {
                 })}
                 renderContent={`${txHistory.swapInfo.oneKeyFee} %`}
               />
-            ) : null}
+            ) : null} */}
             {!isNil(txHistory.swapInfo.protocolFee) ? (
               <InfoItem
                 disabledCopy
@@ -343,6 +343,20 @@ const SwapHistoryDetailModal = () => {
         })}
       />
       <Page.Body>{renderSwapHistoryDetails()}</Page.Body>
+      {txHistory.swapInfo.supportUrl ? (
+        <Page.Footer
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_support,
+          })}
+          confirmButtonProps={{
+            icon: 'BubbleAnnotationOutline',
+            variant: 'secondary',
+          }}
+          onConfirm={() => {
+            onViewInBrowser(txHistory.swapInfo.supportUrl ?? '');
+          }}
+        />
+      ) : null}
     </Page>
   );
 };

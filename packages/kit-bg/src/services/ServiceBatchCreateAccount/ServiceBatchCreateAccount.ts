@@ -16,6 +16,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -399,7 +401,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
   checkIfCancelled({ saveToDb }: { saveToDb: boolean | undefined }) {
     if (saveToDb && this.isCreateFlowCancelled) {
-      throw new Error('Batch Create Accounts Cancelled');
+      throw new Error(
+        appLocale.intl.formatMessage({
+          id: ETranslations.global_bulk_accounts_loading_error,
+        }),
+      );
     }
   }
 

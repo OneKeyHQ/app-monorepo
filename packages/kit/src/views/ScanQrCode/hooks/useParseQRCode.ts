@@ -127,7 +127,6 @@ const useParseQRCode = () => {
                 networkId: network.id,
                 accountId: account.id,
 
-                networkName: network.name,
                 tokens: options?.tokens,
                 onSelect: async (token) => {
                   await timerUtils.wait(600);

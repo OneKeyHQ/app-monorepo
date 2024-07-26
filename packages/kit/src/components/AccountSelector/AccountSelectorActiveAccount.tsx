@@ -4,12 +4,14 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
+  IconButton,
   SizableText,
   Tooltip,
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useWalletAddress } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useWalletAddress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -22,6 +24,24 @@ import {
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
+const AllNetworkAccountSelector = ({ num }: { num: number }) => {
+  const intl = useIntl();
+  const { activeAccount } = useActiveAccount({ num });
+  const { handleWalletAddress, isEnable } = useWalletAddress({ activeAccount });
+  if (!isEnable) {
+    return null;
+  }
+  return (
+    <IconButton
+      title={intl.formatMessage({ id: ETranslations.global_copy_address })}
+      variant="tertiary"
+      icon="Copy3Outline"
+      size="small"
+      onPress={handleWalletAddress}
+    />
+  );
+};
+
 export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
@@ -29,7 +49,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const { account, wallet, network, deriveType, deriveInfo } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
-
+  const { isEnable: walletAddressEnable } = useWalletAddress({ activeAccount });
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
 
@@ -78,6 +98,10 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     network,
     wallet,
   ]);
+
+  if (walletAddressEnable) {
+    return <AllNetworkAccountSelector num={num} />;
+  }
 
   // show address if account has an address
   if (account?.address) {

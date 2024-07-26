@@ -114,7 +114,7 @@ function BatchCreateAccountProcessingPage({
   );
 
   return (
-    <Page scrollEnabled={false} safeAreaEnabled={false}>
+    <Page scrollEnabled={false} safeAreaEnabled>
       <Page.Header disableClose dismissOnOverlayPress={false} />
       <Page.Body
         py="$2.5"

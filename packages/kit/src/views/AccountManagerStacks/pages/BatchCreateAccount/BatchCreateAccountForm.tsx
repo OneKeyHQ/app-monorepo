@@ -1,6 +1,5 @@
 import { useCallback, useRef } from 'react';
 
-import { StackActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -10,10 +9,11 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountManagerStacksParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -21,6 +21,7 @@ import {
   BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT,
   BatchCreateAccountFormBase,
 } from './BatchCreateAccountFormBase';
+import { showBatchCreateAccountProcessingDialog } from './ProcessingDialog';
 
 import type { IBatchCreateAccountFormValues } from './BatchCreateAccountFormBase';
 import type { UseFormReturn } from 'react-hook-form';
@@ -40,27 +41,27 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
       await formRef?.current?.handleSubmit(async (values) => {
         console.log(values);
         const actionType = replace ? 'replace' : 'push';
-        navigation.dispatch(
-          StackActions[actionType](
-            EAccountManagerStacksRoutes.BatchCreateAccountPreview,
-            {
-              walletId,
-              networkId: values.networkId,
-              from: values.from,
-              count: values.count,
-            },
-          ),
+        navigation[actionType](
+          EAccountManagerStacksRoutes.BatchCreateAccountPreview,
+          {
+            walletId,
+            networkId: values.networkId,
+            from: values.from,
+            count: values.count,
+          },
         );
       })();
     },
     [navigation, walletId],
   );
 
+  const isProcessingRef = useRef(false);
+
   return (
-    <Page scrollEnabled safeAreaEnabled={false}>
+    <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({
-          id: ETranslationsMock.batch_create_account,
+          id: ETranslations.global_bulk_add_accounts,
         })}
       />
       <Page.Body p="$4">
@@ -83,16 +84,6 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
             <SizableText>walletId: {walletId}</SizableText>
             <SizableText>networkId: {activeAccount.network?.id}</SizableText>
             <SizableText>deriveType: {activeAccount.deriveType}</SizableText>
-            <SizableText>
-              {intl.formatMessage(
-                {
-                  id: ETranslationsMock.batch_create_account_preview_added,
-                },
-                {
-                  count: '12',
-                },
-              )}
-            </SizableText>
           </Stack>
         ) : null}
       </Page.Body>
@@ -104,43 +95,55 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
           disabled: false,
         }}
         onConfirm={async () => {
-          if (Object.keys(formRef?.current?.formState?.errors ?? {}).length) {
-            return;
-          }
-          const values = formRef?.current?.getValues();
-          const networkId = values?.networkId;
-          if (networkUtils.isAllNetwork({ networkId })) {
-            await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
-              {
-                walletId,
-                reason: EReasonForNeedPassword.CreateOrRemoveWallet,
-              },
-            );
+          try {
+            if (isProcessingRef.current) {
+              console.error('batch create is processing, exit');
+              return;
+            }
+            isProcessingRef.current = true;
 
-            void navigation.navigate(
-              EAccountManagerStacksRoutes.BatchCreateAccountProcessing,
-              undefined,
-            );
-            const from = values?.from ?? '1';
-            const count =
-              values?.count ??
-              String(BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT);
-            const fromInt = parseInt(from, 10);
-            const countInt = parseInt(count, 10);
-            const beginIndex = fromInt - 1;
-            const endIndex = beginIndex + countInt - 1;
+            if (Object.keys(formRef?.current?.formState?.errors ?? {}).length) {
+              isProcessingRef.current = false;
+              return;
+            }
+            const values = formRef?.current?.getValues();
+            const networkId = values?.networkId;
+            if (networkUtils.isAllNetwork({ networkId })) {
+              await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
+                {
+                  walletId,
+                  reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+                },
+              );
 
-            await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
-              {
-                walletId,
-                fromIndex: beginIndex,
-                toIndex: endIndex,
-                excludedIndexes: {},
-                saveToDb: true,
-              },
-            );
-          } else {
-            await navigateToPreview({ replace: false });
+              const from = values?.from ?? '1';
+              const count =
+                values?.count ??
+                String(BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT);
+              const fromInt = parseInt(from, 10);
+              const countInt = parseInt(count, 10);
+              const beginIndex = fromInt - 1;
+              const endIndex = beginIndex + countInt - 1;
+
+              showBatchCreateAccountProcessingDialog({
+                navigation,
+              });
+              await timerUtils.wait(600);
+
+              await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
+                {
+                  walletId,
+                  fromIndex: beginIndex,
+                  toIndex: endIndex,
+                  excludedIndexes: {},
+                  saveToDb: true,
+                },
+              );
+            } else {
+              await navigateToPreview({ replace: false });
+            }
+          } finally {
+            isProcessingRef.current = false;
           }
         }}
       />

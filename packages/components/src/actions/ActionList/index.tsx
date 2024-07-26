@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { withStaticProperties } from 'tamagui';
+import { useMedia, withStaticProperties } from 'tamagui';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
@@ -207,12 +208,46 @@ function BasicActionList({
   );
 }
 
-export const ActionList = withStaticProperties(BasicActionList, {
-  show: (props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'>) => {
-    Portal.Render(
-      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-      <BasicActionList {...props} defaultOpen renderTrigger={null} />,
-    );
-  },
+const showActionList = (
+  props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'>,
+) => {
+  const ref = Portal.Render(
+    Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
+    <BasicActionList
+      {...props}
+      defaultOpen
+      renderTrigger={null}
+      onOpenChange={(isOpen) => {
+        props.onOpenChange?.(isOpen);
+        if (!isOpen) {
+          // delay the destruction of the reference to allow for the completion of the animation transition.
+          setTimeout(() => {
+            ref.destroy();
+          }, 500);
+        }
+      }}
+    />,
+  );
+};
+
+function ActionListFrame(props: IActionListProps) {
+  const { gtMd } = useMedia();
+  const { disabled, renderTrigger, ...popoverProps } = props;
+  const handleActionListOpen = useDebouncedCallback(() => {
+    showActionList(popoverProps);
+  }, 250);
+
+  if (gtMd) {
+    return <BasicActionList {...props} />;
+  }
+  return (
+    <Trigger onPress={handleActionListOpen} disabled={disabled}>
+      {renderTrigger}
+    </Trigger>
+  );
+}
+
+export const ActionList = withStaticProperties(ActionListFrame, {
+  show: showActionList,
   Item: ActionListItem,
 });

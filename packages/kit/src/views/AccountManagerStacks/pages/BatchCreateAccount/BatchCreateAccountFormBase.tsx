@@ -17,7 +17,7 @@ import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/A
 import { DeriveTypeSelectorFormField } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type { UseFormReturn } from 'react-hook-form';
@@ -54,8 +54,11 @@ function AdvancedSettingsFormField({
   const fromError = form.formState.errors.from;
 
   const calculateAddressRange = useMemo(() => {
-    const from = parseInt(fromValue) || 2;
-    const count = parseInt(countValue) || 16;
+    if (!fromValue || !countValue) {
+      return '';
+    }
+    const from = parseInt(fromValue, 10);
+    const count = parseInt(countValue, 10);
     const to = from + count - 1;
     const text = intl.formatMessage(
       {
@@ -66,8 +69,7 @@ function AdvancedSettingsFormField({
         to,
       },
     );
-    // return text;
-    return `${text} >>> Adding address from ${from} to ${to}.`;
+    return `${text}`;
   }, [countValue, fromValue, intl]);
 
   return (
@@ -92,6 +94,7 @@ function AdvancedSettingsFormField({
       ) : null}
 
       <Stack
+        width={collapse ? 0 : undefined}
         height={collapse ? 0 : undefined}
         opacity={collapse ? 0 : undefined}
         overflow={collapse ? 'hidden' : undefined}
@@ -108,13 +111,11 @@ function AdvancedSettingsFormField({
                 const valueNum = new BigNumber(value);
                 if (!value || valueNum.isNaN()) {
                   return intl.formatMessage({
-                    id: ETranslationsMock.batch_create_page_number_invalid,
+                    id: ETranslations.global_bulk_accounts_page_number_error,
                   });
                 }
                 if (valueNum.isLessThan(1)) {
-                  return intl.formatMessage({
-                    id: ETranslationsMock.batch_create_account_count_min,
-                  });
+                  return 'The minimum number of accounts is 1';
                 }
                 return true;
               },
@@ -216,6 +217,7 @@ export function BatchCreateAccountFormBase({
         disabled={networkReadyOnly}
       >
         <ControlledNetworkSelectorTrigger
+          forceDisabled={networkReadyOnly}
           disabled={networkReadyOnly}
           editable={!networkReadyOnly}
         />
@@ -239,7 +241,7 @@ export function BatchCreateAccountFormBase({
             const valueNum = new BigNumber(value);
             if (!value || valueNum.isNaN()) {
               return intl.formatMessage({
-                id: ETranslationsMock.batch_create_page_number_invalid,
+                id: ETranslations.global_bulk_accounts_page_number_error,
               });
             }
             if (isAllNetwork) {
@@ -250,18 +252,16 @@ export function BatchCreateAccountFormBase({
               ) {
                 return intl.formatMessage(
                   {
-                    id: ETranslationsMock.batch_create_account_count_max,
+                    id: ETranslations.global_generate_amount_information,
                   },
                   {
-                    maxCount: BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT,
+                    max: BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT,
                   },
                 );
               }
             }
             if (valueNum.isLessThan(1)) {
-              return intl.formatMessage({
-                id: ETranslationsMock.batch_create_account_count_min,
-              });
+              return 'The minimum number of accounts is 1';
             }
             return true;
           },

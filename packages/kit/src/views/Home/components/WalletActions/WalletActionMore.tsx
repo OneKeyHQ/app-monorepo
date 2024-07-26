@@ -13,6 +13,7 @@ import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useSupportNetworkId } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { useWalletAddress } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useWalletAddress';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   WALLET_TYPE_HW,
@@ -29,9 +30,8 @@ import { RawActions } from './RawActions';
 
 export function WalletActionMore() {
   const [devSettings] = useDevSettingsPersistAtom();
-  const {
-    activeAccount: { account, network, wallet, deriveInfo, deriveType },
-  } = useActiveAccount({ num: 0 });
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { account, network, wallet, deriveInfo, deriveType } = activeAccount;
   const intl = useIntl();
   const { copyText } = useClipboard();
   const navigation = useAppNavigation();
@@ -42,6 +42,8 @@ export function WalletActionMore() {
     deriveInfo,
     deriveType,
   });
+  const { isEnable: walletAddressEnable, handleWalletAddress } =
+    useWalletAddress({ activeAccount });
   const { result: isSupported } = useSupportNetworkId('sell', network?.id);
 
   const isSellDisabled = useMemo(() => {
@@ -57,12 +59,21 @@ export function WalletActionMore() {
   }, [isSupported, wallet?.type]);
 
   const handleCopyAddress = useCallback(() => {
-    if (wallet?.type === WALLET_TYPE_HW) {
+    if (walletAddressEnable) {
+      handleWalletAddress();
+    } else if (wallet?.type === WALLET_TYPE_HW) {
       handleOnReceive();
     } else {
       copyText(account?.address || '');
     }
-  }, [account?.address, copyText, handleOnReceive, wallet?.type]);
+  }, [
+    account?.address,
+    copyText,
+    handleOnReceive,
+    wallet?.type,
+    walletAddressEnable,
+    handleWalletAddress,
+  ]);
 
   const sellCrypto = useCallback(() => {
     navigation.pushModal(EModalRoutes.FiatCryptoModal, {

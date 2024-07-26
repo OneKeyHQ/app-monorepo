@@ -54,7 +54,7 @@ function ReceiveToken() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
     >();
 
-  const { networkId, accountId, walletId, deriveInfo, deriveType } =
+  const { networkId, accountId, walletId, deriveInfo, deriveType, token } =
     route.params;
 
   const addressType = deriveInfo?.labelKey
@@ -283,7 +283,7 @@ function ReceiveToken() {
           <QRCode
             value={account.address}
             logo={{
-              uri: network.logoURI,
+              uri: token?.logoURI ?? network.logoURI,
             }}
             logoSize={40}
             size={240}
@@ -378,6 +378,7 @@ function ReceiveToken() {
     vaultSettings?.showAddressType,
     addressType,
     intl,
+    token?.logoURI,
     isShowQRCode,
     shouldHighLightAddress,
     shouldShowAddress,

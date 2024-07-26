@@ -280,8 +280,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
   const onDragEnd = useCallback(
     (result: {
-      fromIndex: { sectionIndex: number; itemIndex: number };
-      toIndex: { sectionIndex: number; itemIndex: number };
+      sections: any;
+      from?: { sectionIndex: number; itemIndex: number };
+      to?: { sectionIndex: number; itemIndex: number };
     }) => {
       // sectionData
     },
@@ -541,6 +542,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         renderItem={({
           item,
           drag,
+          section,
         }: {
           item: IDBIndexedAccount | IDBAccount;
           section: IAccountSelectorAccountsListSectionData;
@@ -561,8 +563,18 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 <>
                   {/* TODO rename to AccountEditTrigger */}
                   <AccountEditButton
-                    account={account}
                     indexedAccount={indexedAccount}
+                    firstIndexedAccount={
+                      isOthersUniversal
+                        ? undefined
+                        : (section?.data?.[0] as IDBIndexedAccount)
+                    }
+                    account={account}
+                    firstAccount={
+                      isOthersUniversal
+                        ? (section?.data?.[0] as IDBAccount)
+                        : undefined
+                    }
                     wallet={focusedWalletInfo?.wallet}
                   />
                 </>

@@ -71,19 +71,19 @@ function WalletActionSend() {
       params: {
         networkId: network.id,
         accountId: account.id,
-        networkName: network.name,
         tokens: {
           data: allTokens.tokens,
           keys: allTokens.keys,
           map,
         },
+        tokenListState,
         onSelect: async (token: IToken) => {
           await timerUtils.wait(600);
           navigation.pushModal(EModalRoutes.SendModal, {
             screen: EModalSendRoutes.SendDataInput,
             params: {
-              accountId: account.id,
-              networkId: network.id,
+              accountId: token.accountId ?? account.id,
+              networkId: token.networkId ?? network.id,
               isNFT: false,
               token,
             },
@@ -93,20 +93,18 @@ function WalletActionSend() {
     });
   }, [
     account,
-    allTokens.keys,
-    allTokens.tokens,
-    vaultSettings,
-    map,
-    navigation,
     network,
+    vaultSettings?.isSingleToken,
+    allTokens,
+    navigation,
+    map,
+    tokenListState,
   ]);
 
   return (
     <RawActions.Send
       onPress={handleOnSend}
-      disabled={
-        vaultSettings?.disabledSendAction || !tokenListState.initialized
-      }
+      disabled={vaultSettings?.disabledSendAction}
     />
   );
 }
@@ -136,7 +134,7 @@ function WalletActionSwap({ networkId }: { networkId?: string }) {
 
 function WalletActions({ ...rest }: IXStackProps) {
   const {
-    activeAccount: { network, account },
+    activeAccount: { network },
   } = useActiveAccount({ num: 0 });
 
   return (

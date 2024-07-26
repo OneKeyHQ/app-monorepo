@@ -66,6 +66,28 @@ export const swapDefaultSetTokens: Record<
   string,
   { fromToken?: ISwapToken; toToken?: ISwapToken }
 > = {
+  'onekeyall--0': {
+    fromToken: {
+      'networkId': 'evm--1',
+      'contractAddress': '',
+      'name': 'Ethereum',
+      'symbol': 'ETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
+      'isNative': true,
+    },
+    toToken: {
+      'networkId': 'evm--1',
+      'contractAddress': '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      'name': 'USD Coin',
+      'symbol': 'USDC',
+      'decimals': 6,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
+      'isNative': false,
+    },
+  },
   'evm--1': {
     fromToken: {
       'networkId': 'evm--1',
@@ -74,7 +96,7 @@ export const swapDefaultSetTokens: Record<
       'symbol': 'ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
       'isNative': true,
     },
     toToken: {
