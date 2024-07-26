@@ -8,6 +8,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import SellOrBuy from '../../components/SellOrBuy';
+import { TokenDataContainer } from '../../components/TokenDataContainer';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -16,15 +17,21 @@ const SellPage = () => {
     useRoute<
       RouteProp<IModalFiatCryptoParamList, EModalFiatCryptoRoutes.BuyModal>
     >();
-  const { networkId, accountId } = route.params;
+  const { networkId, accountId, tokens = [], map = {} } = route.params;
   const intl = useIntl();
   return (
-    <SellOrBuy
-      title={intl.formatMessage({ id: ETranslations.global_sell })}
-      type="sell"
+    <TokenDataContainer
+      initialMap={map}
+      initialTokens={tokens}
       networkId={networkId}
-      accountId={accountId}
-    />
+    >
+      <SellOrBuy
+        title={intl.formatMessage({ id: ETranslations.global_sell })}
+        type="sell"
+        networkId={networkId}
+        accountId={accountId}
+      />
+    </TokenDataContainer>
   );
 };
 

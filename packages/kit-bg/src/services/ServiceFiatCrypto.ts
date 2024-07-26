@@ -45,12 +45,15 @@ class ServiceFiatCrypto extends ServiceBase {
     const { accountId, ...rest } = params;
     let address: string | undefined;
     if (accountId) {
-      address = await this.backgroundApi.serviceAccount.getAccountAddressForApi(
-        {
-          networkId: rest.networkId,
-          accountId,
-        },
-      );
+      try {
+        address =
+          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            networkId: rest.networkId,
+            accountId,
+          });
+      } catch (e) {
+        console.error('generateWidgetUrl', e);
+      }
     }
     return this._buildUriForFiatToken({ ...rest, address });
   }
