@@ -6,7 +6,7 @@ import { LogToLocal, LogToServer } from '../../../decorators';
 export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
-  public stake({
+  public staking({
     token,
     amount,
     stakingProtocol,
