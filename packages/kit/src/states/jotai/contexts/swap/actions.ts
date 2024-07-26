@@ -402,7 +402,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         this.quoteIntervalCount = 0;
       }
       set(swapBuildTxFetchingAtom(), false);
-      set(swapShouldRefreshQuoteAtom(), false);
       set(swapQuoteFetchingAtom(), false);
       const currentApproveTx =
         await backgroundApiProxy.serviceSwap.getApprovingTransaction();
