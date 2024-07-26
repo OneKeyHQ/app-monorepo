@@ -18,6 +18,7 @@ import type {
   IFiatCryptoType,
 } from '@onekeyhq/shared/types/fiatCrypto';
 
+import { NetworkContainer } from '../NetworkContainer';
 import { useGetTokenFiatValue } from '../TokenDataContainer';
 
 type ISellOrBuyProps = {
@@ -104,11 +105,18 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
     [appNavigation, type, accountId, networkId, account],
   );
 
+  const networkIds = useMemo(
+    () => Array.from(new Set(fiatValueTokens.map((o) => o.networkId))),
+    [fiatValueTokens],
+  );
+
   return (
     <Page>
       <Page.Header title={title} />
       <Page.Body>
-        <TokenList items={fiatValueTokens} onPress={onPress} />
+        <NetworkContainer networkIds={networkIds}>
+          <TokenList items={fiatValueTokens} onPress={onPress} />
+        </NetworkContainer>
       </Page.Body>
     </Page>
   );

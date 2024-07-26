@@ -16,14 +16,28 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
 
+import { useGetNetwork } from '../NetworkContainer';
+
 type ITokenListProps = {
   items: IFiatCryptoToken[];
   onPress?: (network: IFiatCryptoToken) => void;
 };
 
 const keyExtractor = (item: unknown) => {
-  const key = (item as IFiatCryptoToken).address;
-  return key || 'main';
+  const address = (item as IFiatCryptoToken).address;
+  const networkId = (item as IFiatCryptoToken).networkId;
+  return `${networkId}--${address || 'main'}`;
+};
+
+const ListItemAvatar = ({ item }: { item: IFiatCryptoToken }) => {
+  const network = useGetNetwork({ networkId: item.networkId });
+  return (
+    <Token
+      size="lg"
+      tokenImageUri={item.icon}
+      networkImageUri={network?.logoURI}
+    />
+  );
 };
 
 export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
@@ -65,7 +79,7 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
           data={data}
           renderItem={({ item }) => (
             <ListItem
-              renderAvatar={<Token size="lg" tokenImageUri={item.icon} />}
+              renderAvatar={<ListItemAvatar item={item} />}
               title={item.symbol.toUpperCase()}
               subtitle={item.name}
               onPress={() => onPress?.(item)}
