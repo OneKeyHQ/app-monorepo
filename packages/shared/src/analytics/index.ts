@@ -65,6 +65,9 @@ class Analytics {
     eventName: string,
     eventProps?: Record<string, any>,
   ) {
+    if (platformEnv.isDev) {
+      return;
+    }
     const event = {
       ...eventProps,
       distinct_id: this.instanceId,
@@ -77,10 +80,6 @@ class Analytics {
     ) {
       event.currentUrl = window.location.href;
     }
-    // if (platformEnv.isDev) {
-    //   console.log('trackEvent', event);
-    //   return;
-    // }
     const axios = this.lazyAxios();
     await axios.post('/utility/v1/track/event', {
       eventName,
@@ -88,7 +87,10 @@ class Analytics {
     });
   }
 
-  public async requestUserProfile(attributes: Record<string, any>) {
+  private async requestUserProfile(attributes: Record<string, any>) {
+    if (platformEnv.isDev) {
+      return;
+    }
     const axios = this.lazyAxios();
     await axios.post('/utility/v1/track/attributes', {
       distinctId: this.instanceId,
