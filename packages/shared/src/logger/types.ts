@@ -21,6 +21,7 @@ export enum EScopeName {
   discovery = 'discovery',
   token = 'token',
   swap = 'swap',
+  transaction = 'transaction',
 }
 export interface IScope {
   getName: () => EScopeName;
