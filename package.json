@@ -117,6 +117,7 @@
     "superagent": "6.1.0",
     "tamagui": "1.108.0",
     "timeout-signal": "^2.0.0",
+    "tonweb": "^0.0.66",
     "use-suspender": "^2.0.0-beta.0",
     "viem": "^2.9.2"
   },

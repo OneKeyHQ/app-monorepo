@@ -2405,8 +2405,47 @@ const ckb: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const ton = {
+  'balance2FeeDecimals': 9,
+  'chainId': '607',
+  'code': 'ton',
+  'decimals': 9,
+  'id': 'ton--0',
+  'impl': 'ton',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/cosmos.png',
+  'name': 'Toncoin',
+  'shortcode': 'ton',
+  'shortname': 'ton',
+  'symbol': 'TON',
+  'feeMeta': {
+    'code': 'TON',
+    'decimals': 9,
+    'symbol': 'TON',
+  },
+  'defaultEnabled': true,
+  'priceConfigs': [
+    {
+      'channel': 'coingecko',
+      'native': 'toncoin',
+    },
+  ],
+  'explorers': [
+    {
+      'address': 'https://tonscan.com/{address}',
+      'block': 'https://tonscan.com/blocks/-1/{block}',
+      'name': 'https://tonscan.com/',
+      'transaction': 'https://tonscan.com/transactions/{transaction}',
+    },
+  ],
+  'status': ENetworkStatus.LISTED,
+  'createdAt': '2024-07-26T03:44:22.510Z',
+  'updatedAt': '2024-07-26T03:44:22.510Z',
+};
+
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
+  ton,
 ];
 
 export const presetNetworksMap = {
