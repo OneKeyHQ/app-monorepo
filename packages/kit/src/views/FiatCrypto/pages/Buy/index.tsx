@@ -17,10 +17,14 @@ const BuyPage = () => {
     useRoute<
       RouteProp<IModalFiatCryptoParamList, EModalFiatCryptoRoutes.BuyModal>
     >();
-  const { networkId, accountId } = route.params;
+  const { networkId, accountId, tokens = [], map = {} } = route.params;
   const intl = useIntl();
   return (
-    <TokenDataContainer initialMap={{}} initialTokens={[]}>
+    <TokenDataContainer
+      networkId={networkId}
+      initialMap={map}
+      initialTokens={tokens}
+    >
       <SellOrBuy
         title={intl.formatMessage({ id: ETranslations.global_buy })}
         type="buy"
