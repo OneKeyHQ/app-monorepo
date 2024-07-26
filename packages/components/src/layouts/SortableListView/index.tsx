@@ -102,13 +102,12 @@ function BaseSortableListView<T>(
       resolveValues: 'auto',
     },
   );
+  const activeDistance = platformEnv.isNativeAndroid ? 5 : 1;
   return (
     <DraggableFlatList<T>
       ref={ref}
       style={style as StyleProp<ViewStyle>}
-      activationDistance={
-        enabled ? (platformEnv.isNativeAndroid ? 5 : 1) : 100000
-      }
+      activationDistance={enabled ? activeDistance : 100000}
       containerStyle={[{ flex: 1 }, rawContainerStyle]}
       columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
       ListHeaderComponentStyle={listHeaderStyle}
