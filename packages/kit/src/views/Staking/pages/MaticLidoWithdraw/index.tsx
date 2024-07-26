@@ -38,7 +38,7 @@ const MaticLidoWithdraw = () => {
         },
         onSuccess: (txs) => {
           appNavigation.pop();
-          defaultLogger.staking.page.unstake({
+          defaultLogger.staking.page.unstaking({
             token,
             amount: value,
             stakingProtocol: 'lido',

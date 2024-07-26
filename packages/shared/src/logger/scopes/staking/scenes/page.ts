@@ -31,7 +31,7 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  public unstake({
+  public unstaking({
     token,
     amount,
     stakingProtocol,
