@@ -317,6 +317,7 @@ function TokenManagerModal() {
     },
   );
 
+  const isEditRef = useRef(false);
   const onAddCustomToken = useCallback(
     (token?: ICustomTokenItem) => {
       navigation.pushModal(EModalRoutes.MainModal, {
@@ -331,7 +332,7 @@ function TokenManagerModal() {
           token,
           onSuccess: () => {
             void run();
-            appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+            isEditRef.current = true;
           },
         },
       });
@@ -357,25 +358,34 @@ function TokenManagerModal() {
           networkId: networkId ?? token.networkId,
         },
       });
+      isEditRef.current = true;
       setTimeout(() => run(), 200);
     },
     [run, accountId, networkId],
   );
 
   const headerRight = useCallback(
-    () => (
-      <IconButton
-        icon="PlusCircleOutline"
-        iconColor="$iconSubdued"
-        bg="$bgApp"
-        onPress={() => onAddCustomToken()}
-      />
-    ),
-    [onAddCustomToken],
+    () =>
+      isSearchMode ? null : (
+        <IconButton
+          icon="PlusCircleOutline"
+          iconColor="$iconSubdued"
+          bg="$bgApp"
+          onPress={() => onAddCustomToken()}
+        />
+      ),
+    [isSearchMode, onAddCustomToken],
   );
 
   return (
-    <Page safeAreaEnabled>
+    <Page
+      safeAreaEnabled
+      onClose={() => {
+        if (isEditRef.current && networkId !== getNetworkIdsMap().onekeyall) {
+          appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+        }
+      }}
+    >
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.manage_token_title,

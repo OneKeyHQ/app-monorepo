@@ -39,6 +39,7 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar/NetworkAvatar';
+import { usePrevious } from '../../../hooks/usePrevious';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -90,9 +91,18 @@ function AddCustomTokenModal() {
   } = route.params;
 
   const isAllNetwork = networkUtils.isAllNetwork({ networkId });
+  const getDefaultNetwork = useCallback(() => {
+    if (token && token.networkId) {
+      return token.networkId;
+    }
+    if (isAllNetwork) {
+      return getNetworkIdsMap().eth;
+    }
+    return networkId;
+  }, [isAllNetwork, networkId, token]);
   const form = useForm<IFormValues>({
     values: {
-      networkId: isAllNetwork ? getNetworkIdsMap().eth : networkId,
+      networkId: getDefaultNetwork(),
       contractAddress: token?.address || '',
       symbol: token?.symbol || '',
       decimals: token?.decimals ? new BigNumber(token.decimals).toString() : '',
@@ -230,11 +240,37 @@ function AddCustomTokenModal() {
     selectedNetworkIdValue,
   ]);
 
-  const { result: hasExistAccount, run: recheckAccountExist } =
+  const [createAddressStep, setCreateAddressStep] = useState(1);
+  const [showCreateAddressStep, setShowCreateAddressStep] = useState(false);
+
+  const prevoutSelectedNetworkId = usePrevious(selectedNetworkIdValue);
+  const { result: hasExistAccount, run: runCheckAccountExist } =
     usePromiseResult(async () => {
       const { hasExistAccountFlag } = await checkAccountIsExist();
+      setCreateAddressStep(hasExistAccountFlag ? 2 : 1);
+      if (!hasExistAccountFlag) {
+        setShowCreateAddressStep(true);
+      }
       return hasExistAccountFlag;
     }, [checkAccountIsExist]);
+
+  useEffect(() => {
+    const check = async () => {
+      const { hasExistAccountFlag } = await checkAccountIsExist();
+      setCreateAddressStep(hasExistAccountFlag ? 2 : 1);
+      setShowCreateAddressStep(!hasExistAccountFlag);
+    };
+    if (prevoutSelectedNetworkId !== selectedNetworkIdValue) {
+      void check();
+    }
+  }, [checkAccountIsExist, prevoutSelectedNetworkId, selectedNetworkIdValue]);
+
+  const recheckAccountExistAfterCreate = useCallback(async () => {
+    const { hasExistAccountFlag } = await checkAccountIsExist();
+    if (hasExistAccountFlag) {
+      setCreateAddressStep(2);
+    }
+  }, [checkAccountIsExist]);
 
   // MARK: - Fetch exist token list
   const tokenListFetchFinishedRef = useRef(false);
@@ -386,7 +422,7 @@ function AddCustomTokenModal() {
             <Input editable={false} />
           </Form.Field>
         </Form>
-        {hasExistAccount ? null : (
+        {showCreateAddressStep ? (
           <XStack
             position="absolute"
             bottom={0}
@@ -394,19 +430,23 @@ function AddCustomTokenModal() {
             alignItems="center"
             space="$2"
           >
-            <SizableText>
+            <SizableText
+              color={createAddressStep === 1 ? '$text' : '$textSubdued'}
+            >
               {intl.formatMessage({
                 id: ETranslations.manage_token_custom_token_create_address,
               })}
             </SizableText>
             <Icon name="ArrowRightOutline" color="$iconSubdued" size="$5" />
-            <SizableText>
+            <SizableText
+              color={createAddressStep === 2 ? '$text' : '$textSubdued'}
+            >
               {intl.formatMessage({
                 id: ETranslations.manage_token_custom_token_add,
               })}
             </SizableText>
           </XStack>
-        )}
+        ) : null}
       </Page.Body>
       <Page.Footer
         onConfirmText={intl.formatMessage({
@@ -444,7 +484,8 @@ function AddCustomTokenModal() {
                 onCreateDone={() => {
                   console.log('=====>>>>ONCreateDONEEEEE');
                   setTimeout(() => {
-                    void recheckAccountExist();
+                    void runCheckAccountExist();
+                    void recheckAccountExistAfterCreate();
                   });
                 }}
               />
