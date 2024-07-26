@@ -72,6 +72,13 @@ class Analytics {
       ...eventProps,
       ...(await this.lazyDeviceInfo()),
     };
+    if (
+      !platformEnv.isNative &&
+      typeof window !== 'undefined' &&
+      'location' in window
+    ) {
+      event.currentUrl = window.location.href;
+    }
     // if (platformEnv.isDev) {
     //   console.log('trackEvent', event);
     //   return;
