@@ -136,6 +136,7 @@ export enum ETranslations {
   browser_bookmark = 'browser.bookmark',
   browser_import = 'browser.import',
   browser_invalid_url = 'browser.invalid_url',
+  browser_search_dapp_or_enter_url = 'browser.search_dapp_or_enter_url',
   coming_soon = 'coming_soon',
   confirm_exit_dialog_desc = 'confirm_exit_dialog_desc',
   confirm_exit_dialog_title = 'confirm_exit_dialog_title',

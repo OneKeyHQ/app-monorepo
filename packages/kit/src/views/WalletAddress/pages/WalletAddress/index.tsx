@@ -143,7 +143,7 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
 
   const onPress = useCallback(async () => {
     if (!deriveType) {
-      throw Error('deriveType / deriveInfo must not be empty');
+      throw Error('deriveType must not be empty');
     }
     if (account) {
       await copyAccountAddress({
@@ -272,6 +272,7 @@ const WalletAddressContent = ({
         />
       </Stack>
       <SectionList
+        pb="$3"
         sections={sections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}

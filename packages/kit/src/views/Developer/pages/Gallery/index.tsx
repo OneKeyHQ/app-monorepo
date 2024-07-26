@@ -293,10 +293,10 @@ const SortableSectionListGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableSectionList'
     ),
 );
-const SpotlightTourGallery = LazyLoadPage(
+const SpotlightGallery = LazyLoadPage(
   () =>
     import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SpotlightTour'
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Spotlight'
     ),
 );
 const SwipeableCellGallery = LazyLoadPage(
@@ -488,7 +488,7 @@ export const galleryScreenList: {
   },
   {
     name: EGalleryRoutes.ComponentSpotlightTour,
-    component: SpotlightTourGallery,
+    component: SpotlightGallery,
   },
   {
     name: EGalleryRoutes.ComponentSortableSectionList,
