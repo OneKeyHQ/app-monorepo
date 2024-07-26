@@ -115,8 +115,8 @@ function BatchCreateAccountFormPage({
             }
 
             await formRef.current?.handleSubmit(async (values) => {
-              const networkId = values?.networkId;
-              if (networkUtils.isAllNetwork({ networkId })) {
+              const networkIdValue = values?.networkId;
+              if (networkUtils.isAllNetwork({ networkId: networkIdValue })) {
                 await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
                   {
                     walletId,
