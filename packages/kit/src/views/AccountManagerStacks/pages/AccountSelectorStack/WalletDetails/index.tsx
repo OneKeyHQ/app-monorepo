@@ -442,7 +442,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
             (item as IDBIndexedAccount | IDBAccount).id
           }`
         }
-        dragHitSlop={{ top: 0, left: 0, right: 80, bottom: 0 }}
         ListEmptyComponent={
           <Empty
             mt="$24"

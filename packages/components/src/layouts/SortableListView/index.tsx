@@ -17,6 +17,8 @@ import type {
 } from 'react-native-draggable-flatlist';
 import type { FlatList } from 'react-native-gesture-handler';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 export type ISortableListViewRef<T> = FlatList<T>;
 
 export type ISortableListViewProps<T> = Omit<
@@ -104,7 +106,9 @@ function BaseSortableListView<T>(
     <DraggableFlatList<T>
       ref={ref}
       style={style as StyleProp<ViewStyle>}
-      activationDistance={enabled ? 1 : 100000}
+      activationDistance={
+        enabled ? (platformEnv.isNativeAndroid ? 5 : 1) : 100000
+      }
       containerStyle={[{ flex: 1 }, rawContainerStyle]}
       columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
       ListHeaderComponentStyle={listHeaderStyle}
