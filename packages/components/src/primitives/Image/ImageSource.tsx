@@ -12,6 +12,10 @@ import { preloadImage } from './ImageNet';
 import type { IImageSourceProps } from './type';
 import type { ImageStyle, ImageURISource, StyleProp } from 'react-native';
 
+const buildDelayMs = () =>
+  timerUtils.getTimeDurationMs({ seconds: 5 }) +
+  timerUtils.getTimeDurationMs({ seconds: 40 }) * Math.random();
+
 const MAX_TIMES = 5;
 const retryFetchImage = async (
   imageSource: { uri?: string },
@@ -27,7 +31,7 @@ const retryFetchImage = async (
   } catch (error) {
     setTimeout(() => {
       void retryFetchImage(imageSource, onLoadSuccess, times + 1);
-    }, timerUtils.getTimeDurationMs({ seconds: 60 }) * Math.random());
+    }, buildDelayMs());
   }
 };
 
@@ -98,7 +102,7 @@ export function ImageSource({
             setIsVisible(true);
           }, 50);
         });
-      }, 0);
+      }, buildDelayMs());
     }
   }, [handleLoadEnd, imageSource]);
 
