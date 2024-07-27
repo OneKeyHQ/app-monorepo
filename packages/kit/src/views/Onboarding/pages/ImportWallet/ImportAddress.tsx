@@ -16,10 +16,6 @@ import {
   useFormWatch,
   useMedia,
 } from '@onekeyhq/components';
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '@onekeyhq/kit-bg/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
@@ -37,6 +33,10 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

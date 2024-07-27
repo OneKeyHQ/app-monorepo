@@ -22,13 +22,13 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useDeferredPromise } from '../../hooks/useDeferredPromise';
+import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
 
 import type { IDeferredPromise } from '../../hooks/useDeferredPromise';
 import type { View as NativeView } from 'react-native';
@@ -66,7 +66,7 @@ function SpotlightContent({
 }) {
   const intl = useIntl();
 
-  const [isLocked] = useAppIsLockedAtom();
+  const IsFocused = useRouteIsFocused();
   const { gtMd } = useMedia();
   const [props, setProps] = useState(initProps);
 
@@ -109,7 +109,7 @@ function SpotlightContent({
 
   const isRendered = floatingPosition.width > 0;
 
-  if (visible && isRendered && !isLocked)
+  if (visible && isRendered && IsFocused)
     return (
       <Stack
         animation="quick"

@@ -41,14 +41,20 @@ export const useSupportToken = (
     { initResult: false, debounced: 100 },
   );
 
-export const useGetTokensList = (params: IGetTokensListParams) =>
+export const useGetTokensList = ({
+  networkId,
+  type,
+  accountId,
+}: IGetTokensListParams) =>
   usePromiseResult(
     async () => {
-      const data = await backgroundApiProxy.serviceFiatCrypto.getTokensList(
-        params,
-      );
+      const data = await backgroundApiProxy.serviceFiatCrypto.getTokensList({
+        networkId,
+        type,
+        accountId,
+      });
       return data;
     },
-    [params],
-    { initResult: [] },
+    [networkId, type, accountId],
+    { initResult: [], watchLoading: true },
   );
