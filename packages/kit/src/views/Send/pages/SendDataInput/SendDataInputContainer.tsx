@@ -310,7 +310,7 @@ function SendDataInputContainer() {
           map,
         },
         onSelect: (data: IToken) => {
-          defaultLogger.transaction.send.logTokenSelectorInfo({
+          defaultLogger.transaction.send.sendSelect({
             network: networkId,
             tokenAddress: data.address,
             tokenSymbol: data.symbol,
@@ -381,11 +381,11 @@ function SendDataInputContainer() {
             },
           ];
 
-          defaultLogger.transaction.send.logAddressInputInfo({
+          defaultLogger.transaction.send.addressInput({
             addressInputMethod: addressInputChangeType.current,
           });
 
-          defaultLogger.transaction.send.logAmountInputInfo({
+          defaultLogger.transaction.send.amountInput({
             tokenType: isNFT ? 'NFT' : 'Token',
             tokenSymbol: isNFT
               ? nft?.metadata?.name
@@ -853,7 +853,7 @@ function SendDataInputContainer() {
 
   useEffect(() => {
     if (token || nft) {
-      defaultLogger.transaction.send.logTokenSelectorInfo({
+      defaultLogger.transaction.send.sendSelect({
         network: networkId,
         tokenAddress:
           token?.address ??

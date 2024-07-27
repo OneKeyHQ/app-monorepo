@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { analytics } from '@onekeyhq/shared/src/analytics';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   EAppEventBusNames,
@@ -86,6 +87,21 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     },
   );
   const wallets = walletsResult?.wallets ?? emptyArray;
+
+  useEffect(() => {
+    const walletCount = wallets.length;
+    if (walletCount > 0) {
+      const hwWalletCount = wallets.filter(
+        (wallet) => wallet.type === 'hw',
+      ).length;
+      const appWalletCount = walletCount - hwWalletCount;
+      analytics.updateUserProfile({
+        walletCount,
+        hwWalletCount,
+        appWalletCount,
+      });
+    }
+  }, [wallets]);
 
   useEffect(() => {
     const fn = async () => {
