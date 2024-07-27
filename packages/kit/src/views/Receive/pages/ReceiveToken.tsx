@@ -149,7 +149,7 @@ function ReceiveToken() {
       const isSameAddress =
         addresses?.[0]?.toLowerCase() === account?.address?.toLowerCase();
 
-      defaultLogger.transaction.receive.logShowReceiveAddressInfo({
+      defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
         isSuccess: isSameAddress,
         failedReason: isSameAddress
@@ -175,7 +175,7 @@ function ReceiveToken() {
     } catch (e: any) {
       setAddressState(EAddressState.Unverified);
       // verifyHWAccountAddresses handler error toast
-      defaultLogger.transaction.receive.logShowReceiveAddressInfo({
+      defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
         isSuccess: false,
         failedReason: (e as Error).message,
@@ -208,7 +208,7 @@ function ReceiveToken() {
 
   useEffect(() => {
     if (!isHardwareWallet) {
-      defaultLogger.transaction.receive.logShowReceiveAddressInfo({
+      defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
         isSuccess: true,
         failedReason: '',
