@@ -39,7 +39,6 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar/NetworkAvatar';
-import { usePrevious } from '../../../hooks/usePrevious';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -148,7 +147,9 @@ function AddCustomTokenModal() {
 
   const { result: availableNetworks } = usePromiseResult(async () => {
     const resp =
-      await backgroundApiProxy.serviceNetwork.getCustomTokenEnabledNetworks();
+      await backgroundApiProxy.serviceNetwork.getCustomTokenEnabledNetworks({
+        currentNetworkId: networkId,
+      });
     const networkIds = resp.map((o) => o.id);
     const network = await backgroundApiProxy.serviceNetwork.getNetwork({
       networkId,
