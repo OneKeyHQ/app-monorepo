@@ -6,6 +6,7 @@ const deviceInfo = {
   deviceId: generateUUID(),
   screenHeight: typeof window !== 'undefined' ? window.innerHeight : undefined,
   screenWidth: typeof window !== 'undefined' ? window.innerWidth : undefined,
+  referrer: typeof document !== 'undefined' ? document.referrer : undefined,
 } as IDeviceInfo;
 
 if (typeof window !== 'undefined' && window.addEventListener) {
