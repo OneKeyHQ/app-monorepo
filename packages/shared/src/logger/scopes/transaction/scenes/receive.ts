@@ -3,7 +3,7 @@ import { LogToServer } from '../../../decorators';
 
 export class ReceiveScene extends BaseScene {
   @LogToServer()
-  public logShowReceiveAddressInfo({
+  public showReceived({
     walletType,
     isSuccess,
     failedReason,

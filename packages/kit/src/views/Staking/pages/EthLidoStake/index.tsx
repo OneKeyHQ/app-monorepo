@@ -48,7 +48,7 @@ const EthLidoStake = () => {
         },
         onSuccess: (txs) => {
           appNavigation.pop();
-          defaultLogger.staking.page.stake({
+          defaultLogger.staking.page.staking({
             token,
             amount: value,
             stakingProtocol: 'lido',
