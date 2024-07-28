@@ -298,14 +298,13 @@ function AddCustomTokenModal() {
         Toast.error({ title: 'Contract address is required' });
         return;
       }
-      if (!symbol) {
+      if (!symbol || !new BigNumber(decimals).isInteger()) {
         setIsLoading(false);
-        Toast.error({ title: 'Symbol is required' });
-        return;
-      }
-      if (!new BigNumber(decimals).isInteger()) {
-        setIsLoading(false);
-        Toast.error({ title: 'Decimal is required' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.send_engine_incorrect_address,
+          }),
+        });
         return;
       }
       let tokenList = existTokenList?.allTokens;
