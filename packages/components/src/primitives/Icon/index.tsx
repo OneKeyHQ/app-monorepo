@@ -140,4 +140,5 @@ export const Icon = withStaticProperties(BasicIcon, {
 });
 
 export type { IKeyOfIcons };
-export type IIconProps = GetProps<typeof Icon> & IIconContainerProps;
+export type IIconProps = Omit<GetProps<typeof Icon>, 'name' | 'style'> &
+  IIconContainerProps;
