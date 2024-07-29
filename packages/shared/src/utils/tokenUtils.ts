@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { uniqBy } from 'lodash';
+import { forEach, uniqBy } from 'lodash';
 
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
@@ -117,4 +117,111 @@ export function sortTokensByFiatValue({
 
     return new BigNumber(bFiat).comparedTo(aFiat);
   });
+}
+
+export function mergeDeriveTokenListMap({
+  sourceMap,
+  targetMap,
+  mergeDeriveAssets,
+}: {
+  sourceMap: {
+    [key: string]: ITokenFiat;
+  };
+  targetMap: {
+    [key: string]: ITokenFiat;
+  };
+  mergeDeriveAssets?: boolean;
+}) {
+  if (mergeDeriveAssets) {
+    forEach(sourceMap, (value, key) => {
+      const keyArr = key.split('_');
+      const groupDeriveKey = `${keyArr[0]}_${keyArr[keyArr.length - 1]}`;
+      const mergedToken = targetMap[groupDeriveKey];
+
+      if (mergedToken) {
+        mergedToken.balance = new BigNumber(mergedToken.balance)
+          .plus(value.balance)
+          .toFixed();
+        mergedToken.balanceParsed = new BigNumber(mergedToken.balanceParsed)
+          .plus(value.balanceParsed)
+          .toFixed();
+        mergedToken.frozenBalance = new BigNumber(
+          mergedToken.frozenBalance ?? 0,
+        )
+          .plus(value.frozenBalance ?? 0)
+          .toFixed();
+
+        mergedToken.frozenBalanceParsed = new BigNumber(
+          mergedToken.frozenBalanceParsed ?? 0,
+        )
+          .plus(value.frozenBalanceParsed ?? 0)
+          .toFixed();
+
+        mergedToken.totalBalance = new BigNumber(mergedToken.totalBalance ?? 0)
+          .plus(value.totalBalance ?? 0)
+          .toFixed();
+
+        mergedToken.totalBalanceParsed = new BigNumber(
+          mergedToken.totalBalanceParsed ?? 0,
+        )
+          .plus(value.totalBalanceParsed ?? 0)
+          .toFixed();
+
+        mergedToken.fiatValue = new BigNumber(mergedToken.fiatValue)
+          .plus(value.fiatValue)
+          .toFixed();
+
+        mergedToken.frozenBalanceFiatValue = new BigNumber(
+          mergedToken.frozenBalanceFiatValue ?? 0,
+        )
+          .plus(value.frozenBalanceFiatValue ?? 0)
+          .toFixed();
+
+        mergedToken.totalBalanceFiatValue = new BigNumber(
+          mergedToken.totalBalanceFiatValue ?? 0,
+        )
+          .plus(value.totalBalanceFiatValue ?? 0)
+          .toFixed();
+
+        targetMap[groupDeriveKey] = mergedToken;
+      } else {
+        targetMap[groupDeriveKey] = value;
+      }
+    });
+  }
+
+  return {
+    ...targetMap,
+    ...sourceMap,
+  };
+}
+
+export function mergeDeriveTokenList({
+  sourceTokens,
+  targetTokens,
+  mergeDeriveAssets,
+}: {
+  sourceTokens: IAccountToken[];
+  targetTokens: IAccountToken[];
+  mergeDeriveAssets?: boolean;
+}) {
+  let newTokens = targetTokens;
+
+  if (mergeDeriveAssets) {
+    forEach(sourceTokens, (token) => {
+      const keyArr = token.$key.split('_');
+      const mergedDeriveKey = `${keyArr[0]}_${keyArr[keyArr.length - 1]}`;
+
+      if (!newTokens.find((item) => item.$key === mergedDeriveKey)) {
+        newTokens.push({
+          ...token,
+          $key: mergedDeriveKey,
+        });
+      }
+    });
+  } else {
+    newTokens = newTokens.concat(sourceTokens);
+  }
+
+  return newTokens;
 }
