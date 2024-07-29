@@ -35,6 +35,7 @@ import {
   RequireBlePermissionDialog,
 } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -79,7 +80,6 @@ import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
-import { MultipleClickStack } from '../../../../components/MultipleClickStack';
 
 type IConnectYourDeviceItem = {
   title: string;
