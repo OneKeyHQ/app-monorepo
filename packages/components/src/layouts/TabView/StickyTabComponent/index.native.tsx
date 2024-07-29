@@ -136,9 +136,7 @@ export const TabComponent = (
         'activeColor': convertColor(rawSelectedColor),
         'activeLabelColor': convertColor(rawSelectedColor),
         'labelColor': convertColor(rawNormalColor),
-        'bottomLineColor': platformEnv.isNativeAndroid
-          ? convertColor('#888888FF')
-          : convertColor(rawBottomBorderColor),
+        'bottomLineColor': convertColor(rawBottomBorderColor),
         // 'bottomLineColor': '#FFFFFFFF',
         'height': 54,
         'inactiveColor': convertColor(rawNormalColor),
