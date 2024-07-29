@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { useDebouncedCallback } from 'use-debounce';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
@@ -16,14 +15,12 @@ import {
   Stack,
   Toast,
   XStack,
-  useForm,
 } from '@onekeyhq/components';
 import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorTrigger,
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAssetListRoutes,
@@ -31,24 +28,16 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  IAccountToken,
-  IToken,
-  ITokenData,
-} from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar/NetworkAvatar';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import {
+  useAddToken,
+  useAddTokenForm,
+  useCheckAccountExist,
+} from '../hooks/useAddToken';
 
 import type { RouteProp } from '@react-navigation/core';
-
-type IFormValues = {
-  networkId: string;
-  contractAddress: string;
-  symbol: string;
-  decimals: string;
-};
 
 function CreateAddressButton(props: IButtonProps) {
   const intl = useIntl();
@@ -90,227 +79,62 @@ function AddCustomTokenModal() {
   } = route.params;
 
   const isAllNetwork = networkUtils.isAllNetwork({ networkId });
-  const getDefaultNetwork = useCallback(() => {
-    if (token && token.networkId) {
-      return token.networkId;
-    }
-    if (isAllNetwork) {
-      return getNetworkIdsMap().eth;
-    }
-    return networkId;
-  }, [isAllNetwork, networkId, token]);
-  const form = useForm<IFormValues>({
-    values: {
-      networkId: getDefaultNetwork(),
-      contractAddress: token?.address || '',
-      symbol: token?.symbol || '',
-      decimals: token?.decimals ? new BigNumber(token.decimals).toString() : '',
-    },
-    mode: 'onChange',
-    reValidateMode: 'onBlur',
-  });
-  const selectedNetworkIdValue = form.watch('networkId');
-  const contractAddressValue = form.watch('contractAddress');
-  const [isEmptyContract, setIsEmptyContract] = useState(false);
 
-  const firstRenderRef = useRef(true);
-  const setIsEmptyContractState = useCallback(
-    (value: boolean) => {
-      if (firstRenderRef.current) {
-        return;
-      }
-      if (!token?.address && !contractAddressValue) {
-        return;
-      }
-      setIsEmptyContract(value);
-    },
-    [contractAddressValue, token?.address],
-  );
-  const searchedTokenRef = useRef<IToken>();
-  const fetchContractList = useDebouncedCallback(
-    async (params: { value: string; networkId: string }) => {
-      const searchResult =
-        await backgroundApiProxy.serviceCustomToken.searchTokenByContractAddress(
-          {
-            walletId,
-            networkId: params.networkId,
-            contractAddress: params.value,
-            isNative: token?.isNative ?? false,
-          },
-        );
-      if (
-        Array.isArray(searchResult) &&
-        searchResult.length > 0 &&
-        searchResult[0]?.info
-      ) {
-        const [firstToken] = searchResult;
-        form.setValue('symbol', firstToken.info.symbol);
-        form.setValue(
-          'decimals',
-          new BigNumber(firstToken.info.decimals).toString(),
-        );
-        searchedTokenRef.current = firstToken.info;
-        setIsEmptyContractState(false);
-      } else {
-        form.setValue('symbol', '');
-        form.setValue('decimals', '');
-        setIsEmptyContractState(true);
-      }
-    },
-    300,
-  );
-
-  useEffect(() => {
-    void fetchContractList({
-      value: contractAddressValue,
-      networkId: selectedNetworkIdValue,
-    });
-  }, [contractAddressValue, selectedNetworkIdValue, fetchContractList]);
-
-  useEffect(() => {
-    if (firstRenderRef.current) {
-      firstRenderRef.current = false;
-      return;
-    }
-    void form.trigger('contractAddress');
-  }, [isEmptyContract, form]);
-
-  const { result: availableNetworks } = usePromiseResult(async () => {
-    const resp =
-      await backgroundApiProxy.serviceNetwork.getCustomTokenEnabledNetworks({
-        currentNetworkId: networkId,
-      });
-    const networkIds = resp.map((o) => o.id);
-    const network = await backgroundApiProxy.serviceNetwork.getNetwork({
-      networkId,
-    });
-    return {
-      networkIds,
-      network,
-    };
-  }, [networkId]);
-  const renderNetworkSelectorFormItem = useCallback(() => {
-    if (isAllNetwork) {
-      return (
-        <Form.Field
-          label={intl.formatMessage({ id: ETranslations.global_chain })}
-          name="networkId"
-        >
-          <ControlledNetworkSelectorTrigger
-            networkIds={availableNetworks?.networkIds}
-          />
-        </Form.Field>
-      );
-    }
-    return (
-      <Form.Field
-        label={intl.formatMessage({ id: ETranslations.global_network })}
-        name="networkId"
-      >
-        <Stack
-          userSelect="none"
-          flexDirection="row"
-          alignItems="center"
-          borderRadius="$3"
-          borderWidth={1}
-          borderCurve="continuous"
-          borderColor="$borderStrong"
-          px="$3"
-          py="$2.5"
-          $gtMd={{
-            borderRadius: '$2',
-            py: '$2',
-          }}
-          testID="network-selector-input"
-        >
-          <NetworkAvatar networkId={networkId} size="$6" />
-          <SizableText px={14} flex={1} size="$bodyLg">
-            {availableNetworks?.network.name ?? ''}
-          </SizableText>
-        </Stack>
-      </Form.Field>
-    );
-  }, [availableNetworks, intl, isAllNetwork, networkId]);
-
-  // MARK: - Check account if exist
-  const checkAccountIsExist = useCallback(async () => {
-    const { serviceAccount } = backgroundApiProxy;
-    let hasExistAccountFlag = false;
-    let accountIdForNetwork = '';
-    try {
-      if (isOthersWallet) {
-        const r = await serviceAccount.getAccount({
-          accountId,
-          networkId,
-        });
-        accountIdForNetwork = r.id;
-      } else {
-        const networkAccount = await serviceAccount.getNetworkAccount({
-          accountId: undefined,
-          indexedAccountId,
-          networkId: selectedNetworkIdValue,
-          deriveType,
-        });
-        accountIdForNetwork = networkAccount.id;
-      }
-      hasExistAccountFlag = true;
-    } catch (e) {
-      hasExistAccountFlag = false;
-    }
-
-    return {
-      hasExistAccountFlag,
-      accountIdForNetwork,
-    };
-  }, [
-    accountId,
-    indexedAccountId,
-    networkId,
-    isOthersWallet,
-    deriveType,
+  const {
+    form,
+    isEmptyContract,
+    setIsEmptyContractState,
     selectedNetworkIdValue,
-  ]);
+    contractAddressValue,
+  } = useAddTokenForm({
+    token,
+    networkId,
+  });
 
-  const { result: hasExistAccount, run: runCheckAccountExist } =
-    usePromiseResult(async () => {
-      const { hasExistAccountFlag } = await checkAccountIsExist();
-      return hasExistAccountFlag;
-    }, [checkAccountIsExist]);
+  const { hasExistAccount, runCheckAccountExist, checkAccountIsExist } =
+    useCheckAccountExist({
+      accountId,
+      networkId,
+      isOthersWallet,
+      indexedAccountId,
+      deriveType,
+      selectedNetworkIdValue,
+    });
 
-  // MARK: - Fetch exist token list
-  const tokenListFetchFinishedRef = useRef(false);
-  const fetchTokenList = useCallback(
-    async (params: { accountId: string }) => {
-      const { serviceToken } = backgroundApiProxy;
-      const t = await serviceToken.fetchAccountTokens({
-        accountId: params.accountId,
-        networkId: selectedNetworkIdValue,
-        mergeTokens: true,
-        flag: 'custom-token',
-      });
-      return t.allTokens;
-    },
-    [selectedNetworkIdValue],
-  );
-  const { result: existTokenList } = usePromiseResult(async () => {
-    const { hasExistAccountFlag, accountIdForNetwork } =
-      await checkAccountIsExist();
-    let allTokens: ITokenData | undefined;
-    let hiddenTokens: IAccountToken[] = [];
-    tokenListFetchFinishedRef.current = false;
-    if (hasExistAccountFlag) {
-      allTokens = await fetchTokenList({ accountId: accountIdForNetwork });
-      hiddenTokens =
-        await backgroundApiProxy.serviceCustomToken.getHiddenTokens({
-          accountId: accountIdForNetwork,
-          networkId,
-        });
-      tokenListFetchFinishedRef.current = true;
-    }
-    return { allTokens, hiddenTokens };
-  }, [checkAccountIsExist, fetchTokenList, networkId]);
+  const {
+    availableNetworks,
+    existTokenList,
+    searchedTokenRef,
+    tokenListFetchFinishedRef,
+    fetchTokenList,
+  } = useAddToken({
+    token,
+    walletId,
+    networkId,
+    form,
+    selectedNetworkIdValue,
+    contractAddressValue,
+    setIsEmptyContractState,
+    checkAccountIsExist,
+  });
 
   const [isLoading, setIsLoading] = useState(false);
+  const disabled = useMemo(() => {
+    if (!hasExistAccount) {
+      return true;
+    }
+    if (isEmptyContract) {
+      return true;
+    }
+    if (!form.getValues().symbol || !form.getValues().decimals) {
+      return true;
+    }
+    if (isLoading) {
+      return true;
+    }
+    return false;
+  }, [form, isEmptyContract, isLoading, hasExistAccount]);
+
   const onConfirm = useCallback(
     async (close?: () => void) => {
       setIsLoading(true);
@@ -399,8 +223,53 @@ function AddCustomTokenModal() {
       onSuccess,
       isAllNetwork,
       accountId,
+      searchedTokenRef,
+      tokenListFetchFinishedRef,
     ],
   );
+
+  const renderNetworkSelectorFormItem = useCallback(() => {
+    if (isAllNetwork) {
+      return (
+        <Form.Field
+          label={intl.formatMessage({ id: ETranslations.global_chain })}
+          name="networkId"
+        >
+          <ControlledNetworkSelectorTrigger
+            networkIds={availableNetworks?.networkIds}
+          />
+        </Form.Field>
+      );
+    }
+    return (
+      <Form.Field
+        label={intl.formatMessage({ id: ETranslations.global_network })}
+        name="networkId"
+      >
+        <Stack
+          userSelect="none"
+          flexDirection="row"
+          alignItems="center"
+          borderRadius="$3"
+          borderWidth={1}
+          borderCurve="continuous"
+          borderColor="$borderStrong"
+          px="$3"
+          py="$2.5"
+          $gtMd={{
+            borderRadius: '$2',
+            py: '$2',
+          }}
+          testID="network-selector-input"
+        >
+          <NetworkAvatar networkId={networkId} size="$6" />
+          <SizableText px={14} flex={1} size="$bodyLg">
+            {availableNetworks?.network.name ?? ''}
+          </SizableText>
+        </Stack>
+      </Form.Field>
+    );
+  }, [availableNetworks, intl, isAllNetwork, networkId]);
 
   return (
     <Page>
@@ -454,6 +323,7 @@ function AddCustomTokenModal() {
         onConfirm={onConfirm}
         confirmButtonProps={{
           loading: isLoading,
+          disabled,
         }}
       >
         {hasExistAccount ? undefined : (
