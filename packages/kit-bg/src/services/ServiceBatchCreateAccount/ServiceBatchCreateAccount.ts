@@ -1,4 +1,3 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { chunk, isNil, range } from 'lodash';
 
 import {
@@ -8,12 +7,6 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import {
-  isHardwareErrorByCode,
-  isHardwareInterruptErrorByCode,
-} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -372,40 +365,49 @@ class ServiceBatchCreateAccount extends ServiceBase {
   }
 
   forceExitFlowWhenErrorMatched({
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     walletId,
     error,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     saveToDb,
   }: {
     walletId: string;
     error: any;
     saveToDb: boolean | undefined;
   }) {
-    if (!saveToDb) {
-      throw error;
-    }
-    // Some high priority errors need to interrupt the process
-    if (accountUtils.isHwWallet({ walletId })) {
-      if (isHardwareInterruptErrorByCode({ error })) {
-        throw error;
-      }
-      // Unplug device?
-      if (
-        isHardwareErrorByCode({
-          error,
-          code: HardwareErrorCode.DeviceNotFound,
-        })
-      ) {
-        throw error;
-      }
-    }
-    if (
-      errorUtils.isErrorByClassName({
-        error,
-        className: EOneKeyErrorClassNames.PasswordPromptDialogCancel,
-      })
-    ) {
-      throw error;
-    }
+    // always exit flow if any error,
+    throw error;
+
+    // if (!saveToDb) {
+    //   throw error;
+    // }
+    // // **** hardware terminated errors ****
+    // // Some high priority errors need to interrupt the process
+    // if (accountUtils.isHwWallet({ walletId })) {
+    //   if (isHardwareInterruptErrorByCode({ error })) {
+    //     throw error;
+    //   }
+    //   // Unplug device?
+    //   if (
+    //     isHardwareErrorByCode({
+    //       error,
+    //       code: HardwareErrorCode.DeviceNotFound,
+    //     })
+    //   ) {
+    //     throw error;
+    //   }
+    // }
+    // // **** flow cancel action
+    // // **** PIN\passphrase cancel
+    // // **** password cancel
+    // if (
+    //   errorUtils.isErrorByClassName({
+    //     error,
+    //     className: EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+    //   })
+    // ) {
+    //   throw error;
+    // }
   }
 
   async emitBatchCreateDoneEvents({ saveToDb }: { saveToDb?: boolean } = {}) {
