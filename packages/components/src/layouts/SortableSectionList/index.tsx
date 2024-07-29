@@ -56,7 +56,8 @@ export type ISortableSectionListProps<T> = Omit<
     item: any;
     section: any;
     index: number;
-    drag?: () => void;
+    drag: () => void;
+    isActive: boolean;
   }) => ReactNode | null;
   renderSectionHeader?: ISectionRenderInfo;
   renderSectionFooter?: ISectionRenderInfo;
@@ -193,7 +194,15 @@ function BaseSortableSectionList<T>(
     },
   }));
   const renderSectionAndItem = useCallback(
-    ({ item, drag }: { item: T; drag: () => void }) => {
+    ({
+      item,
+      drag,
+      isActive,
+    }: {
+      item: T;
+      drag: () => void;
+      isActive: boolean;
+    }) => {
       const { type, value, section, index } = item as ISectionLayoutItem;
       switch (type) {
         case ESectionLayoutType.SectionSeparator: {
@@ -211,6 +220,7 @@ function BaseSortableSectionList<T>(
             section,
             index,
             drag,
+            isActive,
           });
         }
         case ESectionLayoutType.Footer: {
