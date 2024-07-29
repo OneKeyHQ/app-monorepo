@@ -32,6 +32,8 @@ type IProps = {
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
   isBuyTokenSupported?: boolean;
+  onManageToken?: () => void;
+  manageTokenEnabled?: boolean;
   isAllNetworks?: boolean;
   searchAll?: boolean;
   isTokenSelectorLayout?: boolean;
@@ -50,6 +52,8 @@ function TokenListView(props: IProps) {
     onReceiveToken,
     onBuyToken,
     isBuyTokenSupported,
+    onManageToken,
+    manageTokenEnabled,
     withPresetVerticalPadding = true,
     isAllNetworks,
     searchAll,
@@ -96,12 +100,17 @@ function TokenListView(props: IProps) {
           <TokenListHeader
             filteredTokens={filteredTokens}
             tableLayout={tableLayout}
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
           />
         ) : null
       }
       ListEmptyComponent={
         searchKey ? (
-          EmptySearch
+          <EmptySearch
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
+          />
         ) : (
           <EmptyToken
             withBuyAndReceive={withBuyAndReceive}

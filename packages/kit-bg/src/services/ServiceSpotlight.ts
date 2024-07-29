@@ -34,6 +34,7 @@ class ServiceSpotlight extends ServiceBase {
     await spotlightPersistAtom.set({
       data: {
         [ESpotlightTour.createAllNetworks]: 0,
+        [ESpotlightTour.oneKeyProBanner]: 0,
       },
     });
   }

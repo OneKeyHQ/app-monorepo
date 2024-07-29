@@ -4,7 +4,7 @@ import { Portal, useMedia } from '@onekeyhq/components';
 
 import DesktopCustomTabBar from '../../../views/Discovery/pages/DesktopCustomTabBar';
 
-export function PortalBodyContainer() {
+export function WebPageTabBar() {
   const { md } = useMedia();
   const memoDesktopCustomTabBar = useMemo(() => <DesktopCustomTabBar />, []);
   return md ? null : (
