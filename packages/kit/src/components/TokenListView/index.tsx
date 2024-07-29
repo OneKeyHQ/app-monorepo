@@ -31,8 +31,9 @@ type IProps = {
   inTabList?: boolean;
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
-  onManageToken?: () => void;
   isBuyTokenSupported?: boolean;
+  onManageToken?: () => void;
+  manageTokenEnabled?: boolean;
   isAllNetworks?: boolean;
   searchAll?: boolean;
   isTokenSelectorLayout?: boolean;
@@ -50,8 +51,9 @@ function TokenListView(props: IProps) {
     withNetwork,
     onReceiveToken,
     onBuyToken,
-    onManageToken,
     isBuyTokenSupported,
+    onManageToken,
+    manageTokenEnabled,
     withPresetVerticalPadding = true,
     isAllNetworks,
     searchAll,
@@ -98,12 +100,17 @@ function TokenListView(props: IProps) {
           <TokenListHeader
             filteredTokens={filteredTokens}
             tableLayout={tableLayout}
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
           />
         ) : null
       }
       ListEmptyComponent={
         searchKey ? (
-          <EmptySearch onManageToken={onManageToken} />
+          <EmptySearch
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
+          />
         ) : (
           <EmptyToken
             withBuyAndReceive={withBuyAndReceive}
@@ -127,12 +134,7 @@ function TokenListView(props: IProps) {
       )}
       ListFooterComponent={
         <Stack pb="$5">
-          {withFooter ? (
-            <TokenListFooter
-              tableLayout={tableLayout}
-              onManageToken={onManageToken}
-            />
-          ) : null}
+          {withFooter ? <TokenListFooter tableLayout={tableLayout} /> : null}
         </Stack>
       }
     />

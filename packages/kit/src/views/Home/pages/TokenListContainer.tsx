@@ -88,7 +88,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     deriveType,
   });
 
-  const { handleOnManageToken } = useManageToken({
+  const { handleOnManageToken, manageTokenEnabled } = useManageToken({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
     walletId: wallet?.id ?? '',
@@ -653,6 +653,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         isBuyTokenSupported={isSupported}
         onBuyToken={handleOnBuy}
         onReceiveToken={handleOnReceive}
+        manageTokenEnabled={manageTokenEnabled}
         onManageToken={handleOnManageToken}
         onPressToken={handleOnPressToken}
         isAllNetworks={network?.isAllNetworks}
