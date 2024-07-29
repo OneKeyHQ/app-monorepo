@@ -2,10 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Button, SizableText, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/pages';
 import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
-  EOnboardingPages,
   ETabDeveloperRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
@@ -56,6 +56,8 @@ export default function DemoHomePageHeaderView() {
     });
   }, [navigation]);
 
+  const toOnBoardingPage = useToOnBoardingPage();
+
   const navigateTestSimpleModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.TestModal, {
       screen: ETestModalPages.TestSimpleModal,
@@ -63,16 +65,12 @@ export default function DemoHomePageHeaderView() {
   }, [navigation]);
 
   const navigateFullScreenSimpleModal = useCallback(() => {
-    navigation.pushFullModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.GetStarted,
-    });
-  }, [navigation]);
+    void toOnBoardingPage({ isFullModal: true });
+  }, [toOnBoardingPage]);
 
   const navigateOnboardingModal = useCallback(() => {
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.GetStarted,
-    });
-  }, [navigation]);
+    void toOnBoardingPage();
+  }, [toOnBoardingPage]);
 
   return useMemo(
     () => (
