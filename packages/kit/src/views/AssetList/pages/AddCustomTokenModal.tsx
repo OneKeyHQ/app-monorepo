@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
@@ -111,10 +111,24 @@ function AddCustomTokenModal() {
   });
   const selectedNetworkIdValue = form.watch('networkId');
   const contractAddressValue = form.watch('contractAddress');
+  const [isEmptyContract, setIsEmptyContract] = useState(false);
 
+  const firstRenderRef = useRef(true);
+  const setIsEmptyContractState = useCallback(
+    (value: boolean) => {
+      if (firstRenderRef.current) {
+        return;
+      }
+      if (!token?.address && !contractAddressValue) {
+        return;
+      }
+      setIsEmptyContract(value);
+    },
+    [contractAddressValue, token?.address],
+  );
   const searchedTokenRef = useRef<IToken>();
-  const throttledSearchContractRef = useRef(
-    throttle(async (params: { value: string; networkId: string }) => {
+  const fetchContractList = useDebouncedCallback(
+    async (params: { value: string; networkId: string }) => {
       const searchResult =
         await backgroundApiProxy.serviceCustomToken.searchTokenByContractAddress(
           {
@@ -124,7 +138,11 @@ function AddCustomTokenModal() {
             isNative: token?.isNative ?? false,
           },
         );
-      if (Array.isArray(searchResult) && searchResult.length > 0) {
+      if (
+        Array.isArray(searchResult) &&
+        searchResult.length > 0 &&
+        searchResult[0]?.info
+      ) {
         const [firstToken] = searchResult;
         form.setValue('symbol', firstToken.info.symbol);
         form.setValue(
@@ -132,18 +150,30 @@ function AddCustomTokenModal() {
           new BigNumber(firstToken.info.decimals).toString(),
         );
         searchedTokenRef.current = firstToken.info;
+        setIsEmptyContractState(false);
       } else {
         form.setValue('symbol', '');
         form.setValue('decimals', '');
+        setIsEmptyContractState(true);
       }
-    }, 300),
+    },
+    300,
   );
+
   useEffect(() => {
-    void throttledSearchContractRef.current({
+    void fetchContractList({
       value: contractAddressValue,
       networkId: selectedNetworkIdValue,
     });
-  }, [contractAddressValue, selectedNetworkIdValue]);
+  }, [contractAddressValue, selectedNetworkIdValue, fetchContractList]);
+
+  useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false;
+      return;
+    }
+    void form.trigger('contractAddress');
+  }, [isEmptyContract, form]);
 
   const { result: availableNetworks } = usePromiseResult(async () => {
     const resp =
@@ -295,7 +325,11 @@ function AddCustomTokenModal() {
       const { contractAddress, symbol, decimals } = values;
       if (!contractAddress && !token?.isNative) {
         setIsLoading(false);
-        Toast.error({ title: 'Contract address is required' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.manger_token_custom_token_address_required,
+          }),
+        });
         return;
       }
       if (!symbol || !new BigNumber(decimals).isInteger()) {
@@ -382,6 +416,15 @@ function AddCustomTokenModal() {
             label={intl.formatMessage({
               id: ETranslations.manage_token_custom_token_contract_address,
             })}
+            rules={{
+              validate: () => {
+                if (isEmptyContract) {
+                  return intl.formatMessage({
+                    id: ETranslations.Token_manage_custom_token_address_faild,
+                  });
+                }
+              },
+            }}
             name="contractAddress"
           >
             <Input editable={!token?.isNative} />
