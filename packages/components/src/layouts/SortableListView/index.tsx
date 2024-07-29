@@ -9,6 +9,8 @@ import DraggableFlatList, {
 } from 'react-native-draggable-flatlist';
 import { withStaticProperties } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { StyleProp, ViewStyle } from 'react-native';
 import type {
@@ -16,8 +18,6 @@ import type {
   RenderItem,
 } from 'react-native-draggable-flatlist';
 import type { FlatList } from 'react-native-gesture-handler';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export type ISortableListViewRef<T> = FlatList<T>;
 

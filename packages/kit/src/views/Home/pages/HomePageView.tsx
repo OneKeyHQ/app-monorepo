@@ -201,7 +201,9 @@ export function HomePageView({
   ]);
 
   const renderHomePage = useCallback(() => {
-    if (!ready) return null;
+    if (!ready) {
+      return <TabPageHeader showHeaderRight sceneName={sceneName} />;
+    }
 
     let content = (
       <Stack h="100%" justifyContent="center">
