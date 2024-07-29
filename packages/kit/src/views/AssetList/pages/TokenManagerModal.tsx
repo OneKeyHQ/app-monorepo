@@ -163,7 +163,7 @@ function TokenManagerModal() {
         headerRight={headerRight}
       />
       <Page.Body>
-        <Stack px="$5" pb="$4">
+        <Stack px="$5">
           <SearchBar
             placeholder={intl.formatMessage({
               id: ETranslations.token_selector_search_placeholder,
@@ -175,20 +175,20 @@ function TokenManagerModal() {
             onSearchTextChange={setSearchValue}
             onSubmitEditing={() => {}}
           />
-          <TokenManagerList
-            dataSource={dataSource}
-            onAddCustomToken={onAddCustomToken}
-            onHiddenToken={onHiddenToken}
-            isLoadingRemoteData={isLoadingRemoteData}
-            isLoadingLocalData={isLoadingLocalData}
-            networkId={networkId}
-            isAllNetwork={isAllNetwork}
-            networkMaps={networkMaps}
-            checkTokenExistInTokenList={checkTokenExistInTokenList}
-            searchValue={searchValue}
-            searchResult={searchResult}
-          />
         </Stack>
+        <TokenManagerList
+          dataSource={dataSource}
+          onAddCustomToken={onAddCustomToken}
+          onHiddenToken={onHiddenToken}
+          isLoadingRemoteData={isLoadingRemoteData}
+          isLoadingLocalData={isLoadingLocalData}
+          networkId={networkId}
+          isAllNetwork={isAllNetwork}
+          networkMaps={networkMaps}
+          checkTokenExistInTokenList={checkTokenExistInTokenList}
+          searchValue={searchValue}
+          searchResult={searchResult}
+        />
       </Page.Body>
     </Page>
   );

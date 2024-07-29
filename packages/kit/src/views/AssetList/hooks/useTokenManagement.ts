@@ -65,13 +65,16 @@ export function useTokenManagement({
           }),
           data: addedTokens,
         },
-        {
+      ];
+
+      if (hiddenTokens.length) {
+        sectionTokens.push({
           title: intl.formatMessage({
             id: ETranslations.manage_token_popular_token,
           }),
           data: hiddenTokens,
-        },
-      ];
+        });
+      }
 
       return {
         sectionTokens,
@@ -87,17 +90,7 @@ export function useTokenManagement({
 
   const { result: networkMaps } = usePromiseResult(
     async () => {
-      const networkIds: string[] = Array.from(
-        new Set((result?.addedTokens ?? []).map((i) => i.networkId ?? '')),
-      );
-      if ((networkIds && !Array.isArray(networkIds)) || !networkIds.length) {
-        return {};
-      }
-      const networks = await backgroundApiProxy.serviceNetwork.getNetworksByIds(
-        {
-          networkIds,
-        },
-      );
+      const networks = await backgroundApiProxy.serviceNetwork.getAllNetworks();
       return networks.networks.reduce<Record<string, IServerNetwork>>(
         (acc, network) => {
           acc[network.id] = network;
@@ -106,7 +99,7 @@ export function useTokenManagement({
         {},
       );
     },
-    [result?.addedTokens],
+    [],
     {
       initResult: {},
     },

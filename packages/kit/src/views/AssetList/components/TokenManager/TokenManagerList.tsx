@@ -187,18 +187,20 @@ function TokenManagerList({
               {item.name}
             </SizableText>
           </YStack>
-          <ListItem.IconButton
-            icon={
-              checkTokenExistInTokenList(item)
-                ? 'MinusCircleOutline'
-                : 'PlusCircleOutline'
-            }
-            onPress={() =>
-              checkTokenExistInTokenList(item)
-                ? onHiddenToken(item)
-                : onAddCustomToken(item)
-            }
-          />
+          {checkTokenExistInTokenList(item) && item.isNative ? null : (
+            <ListItem.IconButton
+              icon={
+                checkTokenExistInTokenList(item)
+                  ? 'MinusCircleOutline'
+                  : 'PlusCircleOutline'
+              }
+              onPress={() =>
+                checkTokenExistInTokenList(item)
+                  ? onHiddenToken(item)
+                  : onAddCustomToken(item)
+              }
+            />
+          )}
         </ListItem>
       )}
       ListFooterComponent={
