@@ -55,6 +55,8 @@ export function useAddTokenForm({
   });
   const selectedNetworkIdValue = form.watch('networkId');
   const contractAddressValue = form.watch('contractAddress');
+  const symbolValue = form.watch('symbol');
+  const decimalsValue = form.watch('decimals');
   const [isEmptyContract, setIsEmptyContract] = useState(false);
 
   const firstRenderRef = useRef(true);
@@ -85,6 +87,8 @@ export function useAddTokenForm({
     setIsEmptyContractState,
     selectedNetworkIdValue,
     contractAddressValue,
+    symbolValue,
+    decimalsValue,
   };
 }
 

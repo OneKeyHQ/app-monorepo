@@ -638,9 +638,9 @@ class ServiceNetwork extends ServiceBase {
           return false;
         }
         if (currentNetworkId === allNetworkId) {
-          return !o.network.isTestnet;
+          return !o.network.isTestnet && !o.vaultSetting.isSingleToken;
         }
-        return true;
+        return !o.vaultSetting.isSingleToken;
       })
       .map((o) => o.network);
   }
