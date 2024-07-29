@@ -1,11 +1,11 @@
-import { Transaction } from '@kaspa/core-lib';
+import { Transaction } from '@onekeyfe/kaspacore-lib';
 
 export interface IKaspaUnspentOutputInfo {
   txid: string;
   address: string;
   vout: number;
   scriptPubKey: string;
-  satoshis: number;
+  satoshis: number | string;
   blockDaaScore: number;
   scriptPublicKeyVersion: number;
 }

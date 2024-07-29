@@ -40,4 +40,5 @@ describe('Kaspa Address Tests', () => {
   });
 });
 
+
 export {};
