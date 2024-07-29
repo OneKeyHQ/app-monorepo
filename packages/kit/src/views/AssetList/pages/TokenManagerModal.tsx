@@ -10,9 +10,9 @@ import {
   Divider,
   Empty,
   IconButton,
-  ListView,
   Page,
   SearchBar,
+  SectionList,
   SizableText,
   Skeleton,
   Stack,
@@ -40,8 +40,9 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useTokenListAtom } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { useTokenManagement } from '../hooks/useTokenManagement';
+import { useTokenSearch } from '../hooks/useTokenSearch';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -163,162 +164,29 @@ function TokenManagerModal() {
     deriveType,
   } = route.params;
   const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
-  const [tokenList] = useTokenListAtom();
 
   const {
-    result,
-    run,
-    isLoading: isLoadingHomePageData,
-  } = usePromiseResult(
-    async () => {
-      const [hiddenTokens, customTokens] = await Promise.all([
-        backgroundApiProxy.serviceCustomToken.getHiddenTokens({
-          accountId,
-          networkId,
-          allNetworkAccountId: isAllNetwork ? accountId : undefined,
-        }),
-        backgroundApiProxy.serviceCustomToken.getCustomTokens({
-          accountId,
-          networkId,
-          allNetworkAccountId: isAllNetwork ? accountId : undefined,
-        }),
-      ]);
-      const allTokens = [...tokenList.tokens, ...customTokens];
-      const uniqueTokens = allTokens.filter(
-        (token, index, self) =>
-          index ===
-          self.findIndex(
-            (t) =>
-              t.networkId === token.networkId &&
-              t.accountId === token.accountId &&
-              t.address === token.address,
-          ),
-      );
-      return uniqueTokens.filter(
-        (token) =>
-          !hiddenTokens.find(
-            (t) =>
-              t.address === token.address && t.networkId === token.networkId,
-          ),
-      );
-    },
-    [tokenList, accountId, networkId, isAllNetwork],
-    {
-      checkIsFocused: false,
-      watchLoading: true,
-    },
-  );
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
-  const [searchResult, setSearchResult] = useState<ICustomTokenItem[] | null>(
-    null,
-  );
-  const debouncedFetchDataRef = useRef(
-    debounce(
-      async (params: {
-        walletId: string;
-        networkId: string;
-        searchValue: string;
-      }) => {
-        setIsLoading(true);
-        try {
-          const r =
-            await backgroundApiProxy.serviceCustomToken.searchTokenByKeywords({
-              walletId: params.walletId,
-              networkId: params.networkId,
-              keywords: params.searchValue,
-            });
-          const formattedResult = r?.map((t) => {
-            const { price, price24h, info } = t;
-
-            return {
-              $key: `search__${info.networkId ?? ''}_${info.address}_${
-                info.isNative ? 'native' : 'token'
-              }`,
-              address: info.address,
-              decimals: info.decimals,
-              isNative: info.isNative,
-              logoURI: info.logoURI,
-              name: info.name,
-              symbol: info.symbol,
-              riskLevel: info.riskLevel,
-              networkId: info.networkId,
-              // Add price info
-              price,
-              price24h,
-            } as ICustomTokenItem;
-          });
-          setSearchResult(formattedResult);
-        } catch (error) {
-          console.error('Error fetching search response:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      },
-      500,
-    ),
-  ).current;
-
-  const checkTokenExistInTokenList = useCallback(
-    (token: ICustomTokenItem) =>
-      result?.find(
-        (t) => t.address === token.address && t.networkId === token.networkId,
-      ),
-    [result],
-  );
-
-  useEffect(() => {
-    if (!searchValue) {
-      setSearchResult(null);
-      return;
-    }
-    void debouncedFetchDataRef({
+    sectionTokens,
+    refreshTokenLists,
+    isLoadingHomePageData,
+    networkMaps,
+    checkTokenExistInTokenList,
+  } = useTokenManagement({
+    networkId,
+    accountId,
+  });
+  const { searchValue, searchResult, isSearchMode, setSearchValue, isLoading } =
+    useTokenSearch({
       walletId,
       networkId,
-      searchValue,
     });
-    return () => {
-      debouncedFetchDataRef.cancel();
-    };
-  }, [searchValue, networkId, walletId, debouncedFetchDataRef]);
-  const isSearchMode = useMemo(
-    () => searchValue && searchValue.length > 0,
-    [searchValue],
-  );
+
   const dataSource = useMemo(() => {
     if (isSearchMode && Array.isArray(searchResult)) {
-      return searchResult;
+      return [{ title: '', data: searchResult }];
     }
-    return result;
-  }, [isSearchMode, searchResult, result]);
-
-  const { result: networkMaps } = usePromiseResult(
-    async () => {
-      const networkIds: string[] = Array.from(
-        new Set((dataSource ?? []).map((i) => i.networkId ?? '')),
-      );
-      if ((networkIds && !Array.isArray(networkIds)) || !networkIds.length) {
-        return {};
-      }
-      const networks = await backgroundApiProxy.serviceNetwork.getNetworksByIds(
-        {
-          networkIds,
-        },
-      );
-      return networks.networks.reduce<Record<string, IServerNetwork>>(
-        (acc, network) => {
-          acc[network.id] = network;
-          return acc;
-        },
-        {},
-      );
-    },
-    [dataSource],
-    {
-      initResult: {},
-    },
-  );
+    return sectionTokens;
+  }, [isSearchMode, searchResult, sectionTokens]);
 
   const isEditRef = useRef(false);
   const onAddCustomToken = useCallback(
@@ -332,7 +200,7 @@ function TokenManagerModal() {
         deriveType,
         token,
         onSuccess: () => {
-          void run();
+          void refreshTokenLists();
           isEditRef.current = true;
         },
       });
@@ -345,7 +213,7 @@ function TokenManagerModal() {
       networkId,
       accountId,
       deriveType,
-      run,
+      refreshTokenLists,
     ],
   );
 
@@ -361,7 +229,7 @@ function TokenManagerModal() {
       });
       isEditRef.current = true;
       setTimeout(() => {
-        void run();
+        void refreshTokenLists();
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.address_book_add_address_toast_delete_success,
@@ -369,7 +237,7 @@ function TokenManagerModal() {
         });
       }, 200);
     },
-    [run, accountId, networkId, intl, isAllNetwork],
+    [refreshTokenLists, accountId, networkId, intl, isAllNetwork],
   );
 
   const headerRight = useCallback(
@@ -416,27 +284,31 @@ function TokenManagerModal() {
             onSubmitEditing={() => {}}
           />
         </Stack>
-        {isLoading ? (
+        {isLoading || !dataSource ? (
           <SkeletonList />
         ) : (
-          <ListView
-            data={dataSource}
-            ListHeaderComponent={
-              isSearchMode ? null : (
+          <SectionList
+            sections={dataSource}
+            renderSectionHeader={({ section: { title, data } }) => (
+              <>
                 <SizableText
                   mt={10}
                   px="$5"
                   size="$bodyMd"
                   color="$textSubdued"
                 >
-                  {intl.formatMessage({
-                    id: ETranslations.manage_token_added_token,
-                  })}
+                  {title}
                 </SizableText>
-              )
-            }
-            keyExtractor={(item) => item.$key}
-            renderItem={({ item }) => (
+                {Array.isArray(data) && !data.length ? (
+                  <ListEmptyComponent
+                    onAddCustomToken={onAddCustomToken}
+                    isLoading={isLoadingHomePageData || isLoading}
+                  />
+                ) : null}
+              </>
+            )}
+            keyExtractor={(item) => (item as ICustomTokenItem).$key}
+            renderItem={({ item }: { item: ICustomTokenItem }) => (
               <ListItem>
                 <TokenIconView
                   icon={item.logoURI}
