@@ -7,15 +7,16 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { networkFuseSearch } from '../../utils';
-import { BaseListView } from '../BaseView';
 
-type IImmutableViewProps = {
+import { ChainSelectorListView } from './ChainSelectorListView';
+
+type IPureChainSelectorContentProps = {
   networks: IServerNetwork[];
   networkId?: string;
   onPressItem?: (network: IServerNetwork) => void;
 };
 
-export const ImmutableView: FC<IImmutableViewProps> = ({
+export const PureChainSelectorContent: FC<IPureChainSelectorContentProps> = ({
   networks,
   networkId,
   onPressItem,
@@ -41,7 +42,7 @@ export const ImmutableView: FC<IImmutableViewProps> = ({
           onChangeText={onChangeText}
         />
       </Stack>
-      <BaseListView
+      <ChainSelectorListView
         networkId={networkId}
         networks={data}
         onPressItem={onPressItem}

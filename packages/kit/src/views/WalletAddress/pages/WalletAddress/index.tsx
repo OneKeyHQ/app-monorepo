@@ -31,7 +31,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { networkFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/utils';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import {
   EModalWalletAddressRoutes,
   type IModalWalletAddressParamList,
@@ -206,10 +206,12 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
 };
 
 const WalletAddressContent = ({
-  networks,
+  mainnetItems,
+  testnetItems,
   frequentlyUsedNetworks,
 }: {
-  networks: IServerNetwork[];
+  mainnetItems: IServerNetwork[];
+  testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
 }) => {
   const intl = useIntl();
@@ -217,7 +219,7 @@ const WalletAddressContent = ({
   const sections = useMemo<ISectionItem[]>(() => {
     const searchTextTrim = searchText.trim();
     if (searchTextTrim) {
-      const data = networkFuseSearch(networks, searchTextTrim);
+      const data = networkFuseSearch(mainnetItems, searchTextTrim);
       return data.length === 0
         ? []
         : [
@@ -226,7 +228,7 @@ const WalletAddressContent = ({
             },
           ];
     }
-    const data = networks.reduce((result, item) => {
+    const data = mainnetItems.reduce((result, item) => {
       const char = item.name[0].toUpperCase();
       if (!result[char]) {
         result[char] = [];
@@ -242,8 +244,16 @@ const WalletAddressContent = ({
       { data: frequentlyUsedNetworks },
       ...sectionList,
     ];
+    if (testnetItems.length > 0) {
+      _sections.push({
+        title: intl.formatMessage({
+          id: ETranslationsMock.testnet,
+        }),
+        data: testnetItems,
+      });
+    }
     return _sections;
-  }, [networks, frequentlyUsedNetworks, searchText]);
+  }, [mainnetItems, frequentlyUsedNetworks, searchText, testnetItems, intl]);
 
   const renderSectionHeader = useCallback(
     (item: { section: { title: string } }) => {
@@ -289,10 +299,12 @@ const WalletAddressContent = ({
 };
 
 const WalletAddress = ({
-  networks,
+  mainnetItems,
+  testnetItems,
   frequentlyUsedNetworks,
 }: {
-  networks: IServerNetwork[];
+  mainnetItems: IServerNetwork[];
+  testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
 }) => {
   const intl = useIntl();
@@ -306,7 +318,8 @@ const WalletAddress = ({
       />
       <Page.Body>
         <WalletAddressContent
-          networks={networks}
+          testnetItems={testnetItems}
+          mainnetItems={mainnetItems}
           frequentlyUsedNetworks={frequentlyUsedNetworks}
         />
       </Page.Body>
@@ -329,9 +342,11 @@ export default function WalletAddressPage({
         );
       const networkIds = Array.from(
         new Set(
-          [...networks.networks, ...networks.frequentlyUsedNetworks].map(
-            (o) => o.id,
-          ),
+          [
+            ...networks.mainnetItems,
+            ...networks.testnetItems,
+            ...networks.frequentlyUsedItems,
+          ].map((o) => o.id),
         ),
       );
       const networksAccount =
@@ -345,9 +360,10 @@ export default function WalletAddressPage({
       initResult: {
         networksAccount: [],
         networks: {
-          networks: [],
-          unavailableNetworks: [],
-          frequentlyUsedNetworks: [],
+          mainnetItems: [],
+          testnetItems: [],
+          unavailableItems: [],
+          frequentlyUsedItems: [],
         },
       },
     },
@@ -381,8 +397,9 @@ export default function WalletAddressPage({
   return (
     <WalletAddressContext.Provider value={context}>
       <WalletAddress
-        networks={result.networks.networks}
-        frequentlyUsedNetworks={result.networks.frequentlyUsedNetworks}
+        testnetItems={result.networks.testnetItems}
+        mainnetItems={result.networks.mainnetItems}
+        frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
       />
     </WalletAddressContext.Provider>
   );
