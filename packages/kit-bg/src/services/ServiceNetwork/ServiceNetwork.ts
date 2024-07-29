@@ -625,14 +625,23 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getCustomTokenEnabledNetworks() {
+  async getCustomTokenEnabledNetworks({
+    currentNetworkId,
+  }: {
+    currentNetworkId: string;
+  }) {
     const settings = await this._getNetworkVaultSettings();
+    const allNetworkId = getNetworkIdsMap().onekeyall;
     return settings
-      .filter(
-        (o) =>
-          // !o.vaultSetting.isSingleToken &&
-          o.network.id !== getNetworkIdsMap().onekeyall,
-      )
+      .filter((o) => {
+        if (o.network.id === allNetworkId) {
+          return false;
+        }
+        if (currentNetworkId === allNetworkId) {
+          return !o.network.isTestnet && !o.vaultSetting.isSingleToken;
+        }
+        return !o.vaultSetting.isSingleToken;
+      })
       .map((o) => o.network);
   }
 

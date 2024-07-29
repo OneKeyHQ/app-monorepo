@@ -30,6 +30,7 @@ export type ITokenFiat = {
 };
 
 export type IAccountToken = { $key: string } & IToken;
+export type ICustomTokenItem = IAccountToken;
 
 export type IFetchAccountTokensParams = {
   accountId: string;

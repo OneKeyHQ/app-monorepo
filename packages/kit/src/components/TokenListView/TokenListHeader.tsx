@@ -1,7 +1,7 @@
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import { IconButton, SizableText, Stack, XStack } from '@onekeyhq/components';
 import {
   SEARCH_DEBOUNCE_INTERVAL,
   SEARCH_KEY_MIN_LENGTH,
@@ -18,9 +18,16 @@ import { ListToolToolBar } from '../ListToolBar';
 type IProps = {
   filteredTokens: IAccountToken[];
   tableLayout?: boolean;
+  onManageToken?: () => void;
+  manageTokenEnabled?: boolean;
 };
 
-function TokenListHeader({ tableLayout, filteredTokens }: IProps) {
+function TokenListHeader({
+  tableLayout,
+  filteredTokens,
+  onManageToken,
+  manageTokenEnabled,
+}: IProps) {
   const intl = useIntl();
   const { updateSearchKey } = useTokenListActions().current;
   const [searchKey] = useSearchKeyAtom();
@@ -38,6 +45,15 @@ function TokenListHeader({ tableLayout, filteredTokens }: IProps) {
               ? filteredTokens.length
               : 0,
         }}
+        headerRight={
+          manageTokenEnabled ? (
+            <IconButton
+              icon="SliderHorOutline"
+              onPress={onManageToken}
+              bg="$bgApp"
+            />
+          ) : null
+        }
       />
 
       {tableLayout ? (
