@@ -86,6 +86,8 @@ function AddCustomTokenModal() {
     setIsEmptyContractState,
     selectedNetworkIdValue,
     contractAddressValue,
+    symbolValue,
+    decimalsValue,
   } = useAddTokenForm({
     token,
     networkId,
@@ -126,14 +128,14 @@ function AddCustomTokenModal() {
     if (isEmptyContract) {
       return true;
     }
-    if (!form.getValues().symbol || !form.getValues().decimals) {
+    if (!symbolValue || !new BigNumber(decimalsValue).isInteger()) {
       return true;
     }
     if (isLoading) {
       return true;
     }
     return false;
-  }, [form, isEmptyContract, isLoading, hasExistAccount]);
+  }, [symbolValue, decimalsValue, isEmptyContract, isLoading, hasExistAccount]);
 
   const onConfirm = useCallback(
     async (close?: () => void) => {

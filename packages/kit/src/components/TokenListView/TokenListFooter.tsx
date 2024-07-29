@@ -27,22 +27,15 @@ import {
 
 type IProps = {
   tableLayout?: boolean;
+  onManageToken?: () => void;
 };
 
 function TokenListFooter(props: IProps) {
   const intl = useIntl();
-  const { tableLayout } = props;
+  const { tableLayout, onManageToken } = props;
   const navigation = useAppNavigation();
   const {
-    activeAccount: {
-      account,
-      network,
-      wallet,
-      isOthersWallet,
-      indexedAccount,
-      deriveType,
-      deriveInfo,
-    },
+    activeAccount: { account, network, wallet, deriveType, deriveInfo },
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
@@ -140,28 +133,6 @@ function TokenListFooter(props: IProps) {
     wallet,
   ]);
 
-  const handleOnPressManageToken = useCallback(() => {
-    navigation.pushModal(EModalRoutes.MainModal, {
-      screen: EModalAssetListRoutes.TokenManagerModal,
-      params: {
-        walletId: wallet?.id ?? '',
-        isOthersWallet,
-        indexedAccountId: indexedAccount?.id,
-        networkId: network?.id ?? '',
-        accountId: account?.id ?? '',
-        deriveType,
-      },
-    });
-  }, [
-    navigation,
-    wallet?.id,
-    isOthersWallet,
-    indexedAccount?.id,
-    network?.id,
-    account?.id,
-    deriveType,
-  ]);
-
   return (
     <Stack>
       {!isSearchMode && smallBalanceTokens.length > 0 ? (
@@ -196,9 +167,10 @@ function TokenListFooter(props: IProps) {
         </ListItem>
       ) : null}
 
-      {smallBalanceTokens.length > 0 ||
-      riskyTokens.length > 0 ||
-      !vaultSettings?.isSingleToken ? (
+      {!isSearchMode &&
+      (smallBalanceTokens.length > 0 ||
+        riskyTokens.length > 0 ||
+        !vaultSettings?.isSingleToken) ? (
         <Divider mx="$5" my="$2" />
       ) : null}
       {!isSearchMode && riskyTokens.length > 0 ? (
@@ -228,8 +200,8 @@ function TokenListFooter(props: IProps) {
           />
         </ListItem>
       ) : null}
-      {vaultSettings?.isSingleToken ? null : (
-        <ListItem onPress={handleOnPressManageToken} userSelect="none">
+      {isSearchMode || vaultSettings?.isSingleToken ? null : (
+        <ListItem onPress={onManageToken} userSelect="none">
           <Stack
             p={tableLayout ? '$1' : '$1.5'}
             borderRadius="$full"

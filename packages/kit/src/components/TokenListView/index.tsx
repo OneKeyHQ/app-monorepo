@@ -31,6 +31,7 @@ type IProps = {
   inTabList?: boolean;
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
+  onManageToken?: () => void;
   isBuyTokenSupported?: boolean;
   isAllNetworks?: boolean;
   searchAll?: boolean;
@@ -49,6 +50,7 @@ function TokenListView(props: IProps) {
     withNetwork,
     onReceiveToken,
     onBuyToken,
+    onManageToken,
     isBuyTokenSupported,
     withPresetVerticalPadding = true,
     isAllNetworks,
@@ -101,7 +103,7 @@ function TokenListView(props: IProps) {
       }
       ListEmptyComponent={
         searchKey ? (
-          EmptySearch
+          <EmptySearch onManageToken={onManageToken} />
         ) : (
           <EmptyToken
             withBuyAndReceive={withBuyAndReceive}
@@ -125,7 +127,12 @@ function TokenListView(props: IProps) {
       )}
       ListFooterComponent={
         <Stack pb="$5">
-          {withFooter ? <TokenListFooter tableLayout={tableLayout} /> : null}
+          {withFooter ? (
+            <TokenListFooter
+              tableLayout={tableLayout}
+              onManageToken={onManageToken}
+            />
+          ) : null}
         </Stack>
       }
     />

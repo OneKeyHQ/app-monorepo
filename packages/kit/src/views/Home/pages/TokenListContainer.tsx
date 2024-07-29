@@ -45,6 +45,7 @@ import { useAccountData } from '../../../hooks/useAccountData';
 import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useBuyToken } from '../../../hooks/useBuyToken';
+import { useManageToken } from '../../../hooks/useManageToken';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useReceiveToken } from '../../../hooks/useReceiveToken';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
@@ -61,7 +62,15 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     useTabIsRefreshingFocused();
 
   const {
-    activeAccount: { account, network, wallet, deriveInfo, deriveType },
+    activeAccount: {
+      account,
+      network,
+      wallet,
+      indexedAccount,
+      isOthersWallet,
+      deriveInfo,
+      deriveType,
+    },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
 
@@ -77,6 +86,15 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     walletId: wallet?.id ?? '',
     deriveInfo,
     deriveType,
+  });
+
+  const { handleOnManageToken } = useManageToken({
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+    walletId: wallet?.id ?? '',
+    deriveType,
+    indexedAccountId: indexedAccount?.id,
+    isOthersWallet,
   });
 
   const refreshAllNetworksTokenList = useRef(false);
@@ -635,6 +653,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         isBuyTokenSupported={isSupported}
         onBuyToken={handleOnBuy}
         onReceiveToken={handleOnReceive}
+        onManageToken={handleOnManageToken}
         onPressToken={handleOnPressToken}
         isAllNetworks={network?.isAllNetworks}
         {...(media.gtLg && {
