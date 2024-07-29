@@ -83,15 +83,18 @@ function ProcessingDialogContent({
           ) : null}
 
           {/* <SizableText mb="$4">Adding Accounts</SizableText> */}
-          <Progress
-            mt="$4"
-            w="100%"
-            size="medium"
-            value={Math.ceil(
-              ((state?.progressCurrent ?? 0) / (state?.progressTotal ?? 1)) *
-                100,
-            )}
-          />
+          {!isDone ? (
+            <Progress
+              mt="$4"
+              w="100%"
+              size="medium"
+              value={Math.ceil(
+                ((state?.progressCurrent ?? 0) / (state?.progressTotal ?? 1)) *
+                  100,
+              )}
+            />
+          ) : null}
+
           <SizableText mt="$5" size="$bodyLg" textAlign="center">
             {intl.formatMessage(
               {

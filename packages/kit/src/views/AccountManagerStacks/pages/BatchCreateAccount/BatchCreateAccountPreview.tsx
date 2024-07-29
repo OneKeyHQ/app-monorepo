@@ -300,6 +300,7 @@ function BatchCreateAccountPreviewPage({
 
         <ListItem
           ml="$4"
+          mr={0}
           // variant="tertiary"
           onPress={async () => {
             showBatchCreateAccountPreviewAdvancedDialog({
@@ -337,10 +338,12 @@ function BatchCreateAccountPreviewPage({
           }}
           renderTrigger={({ label }) => (
             <ListItem
-            // ml="$4"
-            // variant="tertiary"
-            // title={title}
-            // avatarProps={{ src: icon, size: '$8' }}
+              mx={0}
+              pr={0}
+              // ml="$4"
+              // variant="tertiary"
+              // title={title}
+              // avatarProps={{ src: icon, size: '$8' }}
             >
               <XStack alignItems="center">
                 <SizableText mr="$3">{label}</SizableText>
@@ -385,7 +388,7 @@ function BatchCreateAccountPreviewPage({
         px="$5"
         // backgroundColor={'#eee'}
       >
-        <Stack flexDirection="row" pb="$4">
+        <Stack flexDirection="row" py="$2">
           <SizableText
             size="$bodyMd"
             w={numWidth}
