@@ -24,13 +24,13 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
-import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 
 function groupDataByDate(data: IBrowserHistory[]) {
   const groups = data.reduce<{ [date: string]: IBrowserHistory[] }>(

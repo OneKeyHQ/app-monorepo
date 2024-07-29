@@ -1,4 +1,4 @@
-import { Spinner } from '@onekeyhq/components';
+import { SizableText, Spinner, XStack } from '@onekeyhq/components';
 
 import { useCreateAccountStateAtom } from '../../states/jotai/contexts/tokenList';
 
@@ -16,7 +16,14 @@ function CreateAccountView(props: IProps) {
     createAccountState.token?.$key === $key &&
     createAccountState.token?.networkId === networkId
   ) {
-    return <Spinner />;
+    return (
+      <XStack alignItems="center">
+        <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
+          Creating address
+        </SizableText>
+        <Spinner size="small" />
+      </XStack>
+    );
   }
 
   return null;

@@ -92,6 +92,7 @@ function SendDataInputContainer() {
     onSuccess,
     onFail,
     onCancel,
+    isAllNetworks,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -309,7 +310,7 @@ function SendDataInputContainer() {
           map,
         },
         onSelect: (data: IToken) => {
-          defaultLogger.transaction.send.logTokenSelectorInfo({
+          defaultLogger.transaction.send.sendSelect({
             network: networkId,
             tokenAddress: data.address,
             tokenSymbol: data.symbol,
@@ -317,12 +318,14 @@ function SendDataInputContainer() {
           });
           setTokenInfo(data);
         },
+        isAllNetworks,
       },
     });
   }, [
     accountId,
     allTokens.keys,
     allTokens.tokens,
+    isAllNetworks,
     isSelectTokenDisabled,
     map,
     navigation,
@@ -378,11 +381,11 @@ function SendDataInputContainer() {
             },
           ];
 
-          defaultLogger.transaction.send.logAddressInputInfo({
+          defaultLogger.transaction.send.addressInput({
             addressInputMethod: addressInputChangeType.current,
           });
 
-          defaultLogger.transaction.send.logAmountInputInfo({
+          defaultLogger.transaction.send.amountInput({
             tokenType: isNFT ? 'NFT' : 'Token',
             tokenSymbol: isNFT
               ? nft?.metadata?.name
@@ -850,7 +853,7 @@ function SendDataInputContainer() {
 
   useEffect(() => {
     if (token || nft) {
-      defaultLogger.transaction.send.logTokenSelectorInfo({
+      defaultLogger.transaction.send.sendSelect({
         network: networkId,
         tokenAddress:
           token?.address ??

@@ -1,7 +1,4 @@
-import { useEffect, useRef } from 'react';
-
-import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   Icon,
@@ -18,9 +15,13 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOTAL_VALUE,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -35,11 +36,15 @@ import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 import type { FontSizeTokens } from 'tamagui';
 
 function HomeOverviewContainer() {
-  const intl = useIntl();
   const num = 0;
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num });
+
+  const [isRefreshingWorth, setIsRefreshingWorth] = useState(false);
+  const [isRefreshingTokenList, setIsRefreshingTokenList] = useState(false);
+  const [isRefreshingNftList, setIsRefreshingNftList] = useState(false);
+  const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
 
   const [accountWorth] = useAccountWorthAtom();
   const [overviewState] = useAccountOverviewStateAtom();
@@ -48,7 +53,7 @@ function HomeOverviewContainer() {
 
   const [settings] = useSettingsPersistAtom();
 
-  const { result: overview } = usePromiseResult(
+  const { run, result: overview } = usePromiseResult(
     async () => {
       if (!account || !network) return;
       if (network.isAllNetworks) return;
@@ -102,8 +107,38 @@ function HomeOverviewContainer() {
     wallet?.id,
   ]);
 
+  useEffect(() => {
+    const fn = ({
+      isRefreshing,
+      type,
+    }: {
+      isRefreshing: boolean;
+      type: EHomeTab;
+    }) => {
+      if (type === EHomeTab.TOKENS) {
+        setIsRefreshingTokenList(isRefreshing);
+      } else if (type === EHomeTab.NFT) {
+        setIsRefreshingNftList(isRefreshing);
+      } else if (type === EHomeTab.HISTORY) {
+        setIsRefreshingHistoryList(isRefreshing);
+      }
+      setIsRefreshingWorth(isRefreshing);
+    };
+    appEventBus.on(EAppEventBusNames.TabListStateUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.TabListStateUpdate, fn);
+    };
+  }, []);
+
   const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
+
+  const handleRefreshWorth = useCallback(() => {
+    if (isRefreshingWorth) return;
+    void run();
+    setIsRefreshingWorth(true);
+    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+  }, [isRefreshingWorth, run]);
 
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
@@ -148,6 +183,7 @@ function HomeOverviewContainer() {
     <XStack alignItems="center" space="$2.5">
       {vaultSettings?.hasFrozenBalance ? (
         <XStack
+          flexShrink={1}
           borderRadius="$3"
           px="$1"
           py="$0.5"
@@ -182,6 +218,7 @@ function HomeOverviewContainer() {
         >
           {basicTextElement}
           <Icon
+            flexShrink={0}
             name="InfoCircleOutline"
             size="$4"
             color="$iconSubdued"
@@ -189,28 +226,19 @@ function HomeOverviewContainer() {
           />
         </XStack>
       ) : (
-        // <IconButton
-        //   title={intl.formatMessage({
-        //     id: ETranslations.balance_detail_button_balance,
-        //   })}
-        //   icon="InfoCircleOutline"
-        //   variant="tertiary"
-        //   onPress={() => {
-        //     if (balanceDialogInstance?.current) {
-        //       return;
-        //     }
-        //     balanceDialogInstance.current = showBalanceDetailsDialog({
-        //       accountId: account?.id ?? '',
-        //       networkId: network?.id ?? '',
-        //       onClose: () => {
-        //         balanceDialogInstance.current = null;
-        //       },
-        //     });
-        //   }}
-        // />
         basicTextElement
       )}
-      <IconButton icon="RefreshCcwOutline" variant="tertiary" />
+      <IconButton
+        icon="RefreshCcwOutline"
+        variant="tertiary"
+        loading={
+          isRefreshingWorth ||
+          isRefreshingTokenList ||
+          isRefreshingNftList ||
+          isRefreshingHistoryList
+        }
+        onPress={handleRefreshWorth}
+      />
     </XStack>
   );
 }
