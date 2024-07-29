@@ -1,5 +1,4 @@
 import { TransactionTypes } from '@ethersproject/transactions';
-import { verifyMessage } from '@ethersproject/wallet';
 import HDKey from 'hdkey';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
@@ -201,7 +200,12 @@ export class KeyringQr extends KeyringQrBase {
 
         const r = hexUtils.addHexPrefix(signatureHex.slice(0, 32 * 2));
         const s = hexUtils.addHexPrefix(signatureHex.slice(32 * 2, 64 * 2));
-        const v = signatureHex.slice(64 * 2); // do not add prefix 0x for v
+
+        // do not add prefix 0x for v if EIP1559 typedTransaction
+        let v = signatureHex.slice(64 * 2);
+        if (dataType === EAirGapDataTypeEvm.transaction) {
+          v = `0x${v}`; // add 0x if legacy transaction
+        }
 
         const { rawTx, txid } = buildSignedTxFromSignatureEvm({
           tx,
