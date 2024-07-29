@@ -6,7 +6,7 @@ import { SearchBar, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { networkFuseSearch } from '../../utils';
+import { useFuseSearch } from '../../hooks/useFuseSearch';
 
 import { ChainSelectorListView } from './ChainSelectorListView';
 
@@ -27,12 +27,14 @@ export const PureChainSelectorContent: FC<IPureChainSelectorContentProps> = ({
     setText(value.trim());
   }, []);
 
+  const networkFuseSearch = useFuseSearch(networks);
+
   const data = useMemo(() => {
     if (!text) {
       return networks;
     }
-    return networkFuseSearch(networks, text);
-  }, [networks, text]);
+    return networkFuseSearch(text);
+  }, [networkFuseSearch, text, networks]);
   return (
     <Stack flex={1}>
       <Stack px="$5" pb="$4">
