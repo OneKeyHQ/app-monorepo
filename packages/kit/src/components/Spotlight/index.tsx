@@ -96,12 +96,11 @@ function SpotlightContent({
     }
   }, [initProps.triggerRef]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     measureTriggerInWindow();
   }, [md, measureTriggerInWindow]);
 
   useLayoutEffect(() => {
-    measureTriggerInWindow();
     if (triggerPropsRef.current) {
       triggerPropsRef.current.trigger = (params) => {
         setProps(params);
