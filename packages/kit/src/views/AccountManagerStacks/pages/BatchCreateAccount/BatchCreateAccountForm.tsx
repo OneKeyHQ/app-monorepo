@@ -26,7 +26,13 @@ import { showBatchCreateAccountProcessingDialog } from './ProcessingDialog';
 import type { IBatchCreateAccountFormValues } from './BatchCreateAccountFormBase';
 import type { UseFormReturn } from 'react-hook-form';
 
-function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
+function BatchCreateAccountFormPage({
+  walletId,
+  networkId,
+}: {
+  walletId: string;
+  networkId: string | undefined;
+}) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
 
@@ -66,8 +72,9 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
       />
       <Page.Body p="$4">
         <BatchCreateAccountFormBase
+          alwaysShowAdvancedSettings
           // activeAccount?.network?.id ?? getNetworkIdsMap().onekeyall
-          defaultNetworkId={getNetworkIdsMap().onekeyall}
+          defaultNetworkId={networkId || getNetworkIdsMap().onekeyall}
           defaultDeriveType={undefined}
           defaultFrom="1"
           defaultCount={String(BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT)}
@@ -108,8 +115,8 @@ function BatchCreateAccountFormPage({ walletId }: { walletId: string }) {
             }
 
             await formRef.current?.handleSubmit(async (values) => {
-              const networkId = values?.networkId;
-              if (networkUtils.isAllNetwork({ networkId })) {
+              const networkIdValue = values?.networkId;
+              if (networkUtils.isAllNetwork({ networkId: networkIdValue })) {
                 await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
                   {
                     walletId,
@@ -162,7 +169,7 @@ export default function BatchCreateAccountForm({
   IAccountManagerStacksParamList,
   EAccountManagerStacksRoutes.BatchCreateAccountForm
 >) {
-  const { walletId } = route.params ?? {};
+  const { walletId, networkId } = route.params ?? {};
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
@@ -171,7 +178,7 @@ export default function BatchCreateAccountForm({
         sceneUrl: '',
       }}
     >
-      <BatchCreateAccountFormPage walletId={walletId} />
+      <BatchCreateAccountFormPage walletId={walletId} networkId={networkId} />
     </AccountSelectorProviderMirror>
   );
 }
