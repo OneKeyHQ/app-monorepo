@@ -1679,7 +1679,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   isTempWalletRemoved({ wallet }: { wallet: IDBWallet }): boolean {
-    return Boolean(wallet.isTemp && !this.tempWallets[wallet.id]);
+    return Boolean(wallet?.isTemp && !this?.tempWallets?.[wallet.id]);
   }
 
   async setWalletTempStatus({

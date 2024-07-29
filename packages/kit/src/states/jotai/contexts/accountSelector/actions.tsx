@@ -138,13 +138,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         console.log('buildActiveAccountInfoFromSelectedAccount', {
           selectedAccount,
         });
-        const { activeAccount } =
-          await serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
-            {
-              selectedAccount,
-            },
-          );
-
+        let activeAccount: IAccountSelectorActiveAccountInfo | undefined;
+        try {
+          ({ activeAccount } =
+            await serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
+              {
+                selectedAccount,
+              },
+            ));
+        } catch (error) {
+          //
+          activeAccount = {
+            ...defaultActiveAccountInfo(),
+            ready: true,
+          };
+        }
         console.log('buildActiveAccountInfoFromSelectedAccount update state', {
           selectedAccount,
           activeAccount,
