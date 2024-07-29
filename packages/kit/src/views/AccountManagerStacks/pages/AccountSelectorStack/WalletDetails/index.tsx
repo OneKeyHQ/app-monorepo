@@ -29,6 +29,7 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
+import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/pages';
 import type {
   IDBAccount,
   IDBDevice,
@@ -221,7 +222,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   const layoutList = useMemo(() => {
     let offset = 0;
     const layouts: { offset: number; length: number; index: number }[] = [];
-    layouts.push({ offset, length: headerHeight, index: layouts.length });
     offset += headerHeight;
     sectionData?.forEach?.((section, sectionIndex) => {
       if (sectionIndex !== 0) {
@@ -234,11 +234,10 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         layouts.push({ offset, length: 56, index: layouts.length });
         offset += 56;
       });
-      const footerHeight = 0;
+      const footerHeight = 56;
       layouts.push({ offset, length: footerHeight, index: layouts.length });
       offset += footerHeight;
     });
-    layouts.push({ offset, length: 0, index: layouts.length });
     return layouts;
   }, [sectionData, headerHeight]);
 
@@ -409,6 +408,8 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     return focusedWalletInfo?.wallet?.name || '';
   }, [focusedWalletInfo, isOthers]);
 
+  const toOnBoardingPage = useToOnBoardingPage();
+
   return (
     <Stack flex={1} pb={bottom} testID="account-selector-accountList">
       <WalletDetailsHeader
@@ -439,7 +440,11 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           }
           return layoutList[index];
         }}
-        keyExtractor={(item) => (item as IDBIndexedAccount | IDBAccount).id}
+        keyExtractor={(item) =>
+          `${editable ? '1' : '0'}_${
+            (item as IDBIndexedAccount | IDBAccount).id
+          }`
+        }
         ListEmptyComponent={
           <Empty
             mt="$24"
@@ -453,8 +458,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 id: ETranslations.global_create_wallet,
               }),
               onPress: () => {
-                navigation.pushModal(EModalRoutes.OnboardingModal, {
-                  screen: EOnboardingPages.GetStarted,
+                void toOnBoardingPage({
                   params: {
                     showCloseButton: true,
                   },
@@ -653,6 +657,16 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   ? '$textCaution'
                   : '$textSubdued',
               }}
+              childrenBefore={
+                editMode ? (
+                  <ListItem.IconButton
+                    mr="$1"
+                    cursor="move"
+                    icon="DragOutline"
+                    onPressIn={drag}
+                  />
+                ) : null
+              }
               {...(!editMode && {
                 onPress: async () => {
                   // show CreateAddress Button here, disabled confirmAccountSelect()
@@ -687,13 +701,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 })(),
               })}
             >
-              {editMode ? (
-                <ListItem.IconButton
-                  cursor="move"
-                  icon="DragOutline"
-                  onPressIn={drag}
-                />
-              ) : null}
               {actionButton}
             </ListItem>
           );
