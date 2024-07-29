@@ -29,6 +29,7 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
+import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/pages';
 import type {
   IDBAccount,
   IDBDevice,
@@ -407,6 +408,8 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     return focusedWalletInfo?.wallet?.name || '';
   }, [focusedWalletInfo, isOthers]);
 
+  const toOnBoardingPage = useToOnBoardingPage();
+
   return (
     <Stack flex={1} pb={bottom} testID="account-selector-accountList">
       <WalletDetailsHeader
@@ -455,8 +458,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 id: ETranslations.global_create_wallet,
               }),
               onPress: () => {
-                navigation.pushModal(EModalRoutes.OnboardingModal, {
-                  screen: EOnboardingPages.GetStarted,
+                void toOnBoardingPage({
                   params: {
                     showCloseButton: true,
                   },
