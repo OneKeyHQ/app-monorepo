@@ -28,7 +28,7 @@ import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { networkFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/utils';
+import { useFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useFuseSearch';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
@@ -216,10 +216,12 @@ const WalletAddressContent = ({
 }) => {
   const intl = useIntl();
   const [searchText, setSearchText] = useState('');
+
+  const networkFuseSearch = useFuseSearch(mainnetItems);
   const sections = useMemo<ISectionItem[]>(() => {
     const searchTextTrim = searchText.trim();
     if (searchTextTrim) {
-      const data = networkFuseSearch(mainnetItems, searchTextTrim);
+      const data = networkFuseSearch(searchTextTrim);
       return data.length === 0
         ? []
         : [
@@ -253,7 +255,14 @@ const WalletAddressContent = ({
       });
     }
     return _sections;
-  }, [mainnetItems, frequentlyUsedNetworks, searchText, testnetItems, intl]);
+  }, [
+    mainnetItems,
+    frequentlyUsedNetworks,
+    searchText,
+    testnetItems,
+    intl,
+    networkFuseSearch,
+  ]);
 
   const renderSectionHeader = useCallback(
     (item: { section: { title: string } }) => {

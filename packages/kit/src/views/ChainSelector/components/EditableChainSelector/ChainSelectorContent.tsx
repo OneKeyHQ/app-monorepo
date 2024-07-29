@@ -13,7 +13,7 @@ import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { networkFuseSearch } from '../../utils';
+import { useFuseSearch } from '../../hooks/useFuseSearch';
 
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
@@ -90,13 +90,19 @@ export const EditableChainSelectorContent = ({
     setTempFrequentlyUsedItems(frequentlyUsedItems);
   }, [frequentlyUsedItems]);
 
+  const networksToSearch = useMemo<IServerNetwork[]>(() => {
+    const networks = [...mainnetItems, ...testnetItems];
+    if (allNetworkItem) {
+      networks.unshift(allNetworkItem);
+    }
+    return networks;
+  }, [mainnetItems, testnetItems, allNetworkItem]);
+
+  const networkFuseSearch = useFuseSearch(networksToSearch);
+
   const sections = useMemo<IEditableChainSelectorSection[]>(() => {
     if (searchTextTrim) {
-      const networks = [...mainnetItems, ...testnetItems];
-      if (allNetworkItem) {
-        networks.unshift(allNetworkItem);
-      }
-      const data = networkFuseSearch(networks, searchTextTrim);
+      const data = networkFuseSearch(searchTextTrim);
       return data.length === 0
         ? []
         : [
@@ -149,7 +155,7 @@ export const EditableChainSelectorContent = ({
     unavailableItems,
     searchTextTrim,
     intl,
-    allNetworkItem,
+    networkFuseSearch,
   ]);
 
   const layoutList = useMemo(() => {
@@ -287,7 +293,6 @@ export const EditableChainSelectorContent = ({
                 }
                 return layoutList[index];
               }}
-              SectionSeparatorComponent={null}
               ListHeaderComponent={ListHeaderComponent}
               renderSectionHeader={renderSectionHeader}
               ListFooterComponent={<Stack h="$2" />} // Act as padding bottom

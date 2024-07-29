@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import Fuse from 'fuse.js';
 
 import type {
+  Expression,
   FuseIndex,
   FuseResult,
   FuseResultMatch,
@@ -26,6 +27,7 @@ const defaultFuseOptions: IFuseOptions<any> = {
 
 export type IFuseResult<T> = FuseResult<T>;
 export type IFuseResultMatch = FuseResultMatch;
+export type IFuseExpression = Expression;
 
 export function buildFuse<T>(
   list: ReadonlyArray<T>,
@@ -43,6 +45,22 @@ export function buildFuse<T>(
   fuse.search = function (pattern: string) {
     return Fuse.prototype.search.bind(fuse)(`'"${pattern}"`);
   };
+  return fuse;
+}
+
+export function buildBaseFuse<T>(
+  list: ReadonlyArray<T>,
+  options?: IFuseOptions<T>,
+  index?: FuseIndex<T>,
+) {
+  const fuse = new Fuse(
+    list,
+    {
+      ...defaultFuseOptions,
+      ...options,
+    },
+    index,
+  );
   return fuse;
 }
 
