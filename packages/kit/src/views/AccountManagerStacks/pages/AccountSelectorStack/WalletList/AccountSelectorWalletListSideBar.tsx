@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -7,6 +7,7 @@ import {
   SortableListView,
   Stack,
   XStack,
+  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
@@ -125,6 +126,27 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     [actions, num],
   );
 
+  const CELL_HEIGHT = useMedia().gtMd ? 68 : 48;
+
+  const layoutList = useMemo(() => {
+    let offset = 0;
+    const layouts: { offset: number; length: number; index: number }[] = [];
+    wallets?.forEach?.((wallet, index) => {
+      if (index !== 0) {
+        offset += 12;
+      }
+      const hiddenWalletsLength = wallet?.hiddenWallets?.length ?? 0;
+      const height =
+        (1 + hiddenWalletsLength) * CELL_HEIGHT + hiddenWalletsLength * 12;
+      layouts.push({ offset, length: height, index: layouts.length });
+      offset += height;
+      if (hiddenWalletsLength > 0) {
+        offset += 2;
+      }
+    });
+    return layouts;
+  }, [wallets, CELL_HEIGHT]);
+
   return (
     <Stack
       testID="account-selector-wallet-list"
@@ -146,13 +168,23 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
       ) : null}
       {/* Primary wallets */}
       <SortableListView
+        px="$2"
+        contentContainerStyle={{ py: '$2' }}
         showsVerticalScrollIndicator={false}
-        p="$2"
-        getItemLayout={(_, index) => ({
-          length: 80,
-          offset: index * 80,
-          index,
-        })}
+        getItemLayout={(_, index) => layoutList[index]}
+        renderPlaceholder={({ item }) => (
+          <Stack
+            h={
+              (1 + (item?.hiddenWallets?.length ?? 0)) * CELL_HEIGHT +
+              (item?.hiddenWallets?.length ?? 0) * 12
+            }
+            mx="$2"
+            bg="$bgActive"
+            p="$1"
+            borderRadius="$3"
+            borderCurve="continuous"
+          />
+        )}
         keyExtractor={(item) => `${item.id}`}
         data={wallets as IDBWallet[]}
         onDragEnd={async (result) => {
@@ -183,7 +215,7 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
               wallet={item}
               focusedWallet={selectedAccount.focusedWallet}
               onWalletPress={onWalletPress}
-              onWalletLongPress={drag}
+              onWalletPressIn={drag}
               testID={`wallet-${item.id}`}
               badge={badge}
             />
