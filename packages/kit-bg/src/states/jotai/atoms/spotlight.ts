@@ -13,6 +13,7 @@ export const { target: spotlightPersistAtom, use: useSpotlightPersistAtom } =
     initialValue: {
       data: {
         [ESpotlightTour.createAllNetworks]: 0,
+        [ESpotlightTour.oneKeyProBanner]: 0,
       },
     },
   });

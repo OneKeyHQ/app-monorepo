@@ -1,5 +1,6 @@
 {
   "Toast_web_auth": "설정 실패",
+  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
   "account_model.watched": "시청함",
   "action_save": "저장",
   "address.verify_address_instruction": "주소 대체 공격을 방지하기 위해 장치에서 확인하세요",
@@ -942,6 +943,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "하드웨어 지갑 연결은 공식 앱에서만 가능합니다",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "하드웨어 지갑 연결은 서드파티 앱에서만 가능합니다",
   "hidden_assets": "숨겨진 자산",
+  "hw_banner_description": "가장 강력한 하드웨어 지갑으로 귀하의 암호화폐를 보호하세요",
   "interact_with_contract": "(~와) 상호 작용하기",
   "lighting_invoice": "번개 인보이스",
   "litecoin_legacy_desc": "\"L\"로 시작합니다. BIP44, P2PKH, Base58",
@@ -967,6 +969,7 @@
   "manage_token.empty_msg": "토큰을 찾을 수 없나요? 아래 버튼을 클릭하여 추가해 보세요",
   "manage_token.popular_token": "인기 있는 토큰",
   "manage_token.title": "토큰 관리",
+  "manger_token.custom_token_address_required": "Contract address required.",
   "manual_backup": "수동 백업",
   "market.1d": "1일",
   "market.1h": "1시간",

@@ -6,8 +6,11 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { getTokens, useTheme } from 'tamagui';
 
-import type { IActionListSection } from '@onekeyhq/components/src/actions';
-import { Portal } from '@onekeyhq/components/src/hocs';
+import { type IActionListSection } from '@onekeyhq/components/src/actions';
+import {
+  EPortalContainerConstantName,
+  Portal,
+} from '@onekeyhq/components/src/hocs';
 import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type {
@@ -17,6 +20,7 @@ import type {
 import {
   Icon,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
@@ -88,23 +92,29 @@ function DownloadButton(props: IXStackProps) {
   }
   return (
     <XStack
-      borderWidth="$px"
+      mt="$2"
       px="$3"
       py="$2"
       backgroundColor="$bgStrong"
-      borderColor="$borderSubdued"
       borderRadius="$2"
+      borderCurve="continuous"
       userSelect="none"
       onPress={onPress}
+      hoverStyle={{
+        bg: '$gray6',
+      }}
+      pressStyle={{
+        bg: '$gray7',
+      }}
       {...props}
     >
       <SizableText size="$bodyMdMedium" flex={1}>
         {intl.formatMessage({ id: ETranslations.global_download })}
       </SizableText>
-      <XStack space="$1">
-        <Icon name="AppleBrand" color="$iconSubdued" size="$5" />
-        <Icon name="GooglePlayBrand" color="$iconSubdued" size="$5" />
-        <Icon name="ChromeBrand" color="$iconSubdued" size="$5" />
+      <XStack space="$1" alignItems="center">
+        <Icon name="AppleBrand" size="$5" y={-2} color="$iconSubdued" />
+        <Icon name="GooglePlayBrand" size="$4.5" color="$iconSubdued" />
+        <Icon name="ChromeBrand" size="$4.5" color="$iconSubdued" />
       </XStack>
     </XStack>
   );
@@ -217,7 +227,11 @@ export function DesktopLeftSideBar({
         <OneKeyLogo />
         <YStack flex={1} p="$3">
           {tabs}
-          <DownloadButton mt="auto" />
+
+          <Stack mt="auto">
+            <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
+            <DownloadButton />
+          </Stack>
         </YStack>
       </YStack>
     </MotiView>

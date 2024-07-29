@@ -1,6 +1,7 @@
 // This file is automatically created by `yarn fetch:locale`.
 export enum ETranslations {
   Toast_web_auth = 'Toast_web_auth',
+  Token_manage_custom_token_address_faild = 'Token_manage.custom_token_address_faild',
   account_model_watched = 'account_model.watched',
   action_save = 'action_save',
   address_verify_address_instruction = 'address.verify_address_instruction',
@@ -943,6 +944,7 @@ export enum ETranslations {
   hardware_wallet_connection_is_only_available_on_the_official_app = 'hardware.wallet_connection_is_only_available_on_the_official_app',
   hardware_wallet_connection_is_only_available_on_the_third_party_apps = 'hardware.wallet_connection_is_only_available_on_the_third_party_apps',
   hidden_assets = 'hidden_assets',
+  hw_banner_description = 'hw_banner_description',
   interact_with_contract = 'interact_with_contract',
   lighting_invoice = 'lighting_invoice',
   litecoin_legacy_desc = 'litecoin_legacy_desc',
@@ -968,6 +970,7 @@ export enum ETranslations {
   manage_token_empty_msg = 'manage_token.empty_msg',
   manage_token_popular_token = 'manage_token.popular_token',
   manage_token_title = 'manage_token.title',
+  manger_token_custom_token_address_required = 'manger_token.custom_token_address_required',
   manual_backup = 'manual_backup',
   market_1d = 'market.1d',
   market_1h = 'market.1h',
