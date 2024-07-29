@@ -244,7 +244,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   const initialScrollIndex = useMemo(() => {
     if (sectionData?.[0]?.data) {
       const itemIndex = sectionData[0].data?.findIndex(({ id }) =>
-        isOthers
+        isOthersWallet
           ? selectedAccount.othersWalletAccountId === id
           : selectedAccount.indexedAccountId === id,
       );
@@ -254,7 +254,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       return { sectionIndex: 0, itemIndex: Math.max(itemIndex, 0) };
     }
   }, [
-    isOthers,
+    isOthersWallet,
     sectionData,
     selectedAccount.indexedAccountId,
     selectedAccount.othersWalletAccountId,
