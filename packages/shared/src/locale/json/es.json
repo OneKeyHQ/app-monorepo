@@ -1,5 +1,6 @@
 {
   "Toast_web_auth": "Error en la configuración",
+  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
   "account_model.watched": "Visto",
   "action_save": "Guardar",
   "address.verify_address_instruction": "Verifique en el dispositivo para prevenir ataques de reemplazo de dirección",
@@ -942,6 +943,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "La conexión con la cartera de hardware solo está disponible en la aplicación oficial",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "La conexión a la cartera de hardware solo está disponible en aplicaciones de terceros",
   "hidden_assets": "Activos ocultos",
+  "hw_banner_description": "Asegura tu cripto con la cartera de hardware más potente",
   "interact_with_contract": "Interactuar con (Para)",
   "lighting_invoice": "Factura de Rayo",
   "litecoin_legacy_desc": "Comienza con \"L\". BIP44, P2PKH, Base58",
@@ -967,6 +969,7 @@
   "manage_token.empty_msg": "¿No puede encontrar el token? Intente hacer clic en el botón de abajo para agregar",
   "manage_token.popular_token": "Token popular",
   "manage_token.title": "Administrar token",
+  "manger_token.custom_token_address_required": "Contract address required.",
   "manual_backup": "Respaldo manual",
   "market.1d": "1D",
   "market.1h": "1H",

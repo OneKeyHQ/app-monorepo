@@ -1,5 +1,6 @@
 {
   "Toast_web_auth": "Установка не удалась",
+  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
   "account_model.watched": "Просмотрено",
   "action_save": "Сохранить",
   "address.verify_address_instruction": "Проверьте на устройстве, чтобы предотвратить атаки с заменой адреса",
@@ -942,6 +943,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "Подключение аппаратного кошелька доступно только в официальном приложении",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "Подключение аппаратного кошелька доступно только в сторонних приложениях",
   "hidden_assets": "Скрытые активы",
+  "hw_banner_description": "Защитите свою криптовалюту с помощью самого мощного аппаратного кошелька",
   "interact_with_contract": "Взаимодействовать с (К)",
   "lighting_invoice": "Счет по молнии",
   "litecoin_legacy_desc": "Начинается с \"L\". BIP44, P2PKH, Base58",
@@ -967,6 +969,7 @@
   "manage_token.empty_msg": "Не можете найти токен? Попробуйте нажать кнопку ниже, чтобы добавить",
   "manage_token.popular_token": "Популярный токен",
   "manage_token.title": "Управление токеном",
+  "manger_token.custom_token_address_required": "Contract address required.",
   "manual_backup": "Ручное резервное копирование",
   "market.1d": "1д",
   "market.1h": "1ч",

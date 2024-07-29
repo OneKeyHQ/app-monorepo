@@ -1,5 +1,6 @@
 {
   "Toast_web_auth": "सेट करना विफल रहा",
+  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
   "account_model.watched": "देखा",
   "action_save": "सहेजें",
   "address.verify_address_instruction": "डिवाइस पर सत्यापित करें ताकि पते के प्रतिस्थापन हमलों से बचा जा सके",
@@ -942,6 +943,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "हार्डवेयर वॉलेट कनेक्शन केवल आधिकारिक ऐप पर ही उपलब्ध है",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "हार्डवेयर वॉलेट कनेक्शन केवल तीसरे पक्ष के ऐप्स पर उपलब्ध है",
   "hidden_assets": "छिपे हुए संपत्ति",
+  "hw_banner_description": "अपने क्रिप्टो को सबसे शक्तिशाली हार्डवेयर वॉलेट के साथ सुरक्षित करें",
   "interact_with_contract": "(से) संवाद करें",
   "lighting_invoice": "लाइटनिंग इनवॉइस",
   "litecoin_legacy_desc": "\"L\" से शुरू होता है। BIP44, P2PKH, Base58",
@@ -967,6 +969,7 @@
   "manage_token.empty_msg": "टोकन नहीं मिल रहा है? नीचे दिए गए बटन पर क्लिक करके जोड़ने की कोशिश करें",
   "manage_token.popular_token": "लोकप्रिय टोकन",
   "manage_token.title": "टोकन प्रबंधित करें",
+  "manger_token.custom_token_address_required": "Contract address required.",
   "manual_backup": "मैनुअल बैकअप",
   "market.1d": "1 दिन",
   "market.1h": "1 घंटा",

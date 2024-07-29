@@ -1,5 +1,6 @@
 {
   "Toast_web_auth": "設定に失敗しました",
+  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
   "account_model.watched": "視聴済み",
   "action_save": "保存",
   "address.verify_address_instruction": "アドレス置換攻撃を防ぐためにデバイスで確認してください",
@@ -942,6 +943,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "ハードウェアウォレットの接続は公式アプリでのみ利用可能です",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "ハードウェアウォレットの接続は、サードパーティのアプリでのみ利用可能です",
   "hidden_assets": "隠された資産",
+  "hw_banner_description": "最強力なハードウェアウォレットであなたの暗号を保護します",
   "interact_with_contract": "(に)交流する",
   "lighting_invoice": "ライトニングインボイス",
   "litecoin_legacy_desc": "\"L\"で始まります。 BIP44、P2PKH、Base58",
@@ -967,6 +969,7 @@
   "manage_token.empty_msg": "トークンが見つかりませんか？以下のボタンをクリックして追加してみてください",
   "manage_token.popular_token": "人気のトークン",
   "manage_token.title": "トークンを管理する",
+  "manger_token.custom_token_address_required": "Contract address required.",
   "manual_backup": "手動バックアップ",
   "market.1d": "1日",
   "market.1h": "1時間",
