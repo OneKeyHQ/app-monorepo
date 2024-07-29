@@ -926,4 +926,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }): Promise<IEncodedTx> {
     return Promise.resolve(params.encodedTx);
   }
+
+  async activateToken(params: { tokenAddress: string }): Promise<boolean> {
+    throw new NotImplemented();
+  }
 }

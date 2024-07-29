@@ -44,7 +44,10 @@ import sdkAlgo from './sdkAlgo';
 import ClientAlgo from './sdkAlgo/ClientAlog';
 import { encodeTransaction } from './utils';
 
-import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
+import type {
+  ISdkAlgoAccountInformation,
+  ISdkAlgoEncodedTransaction,
+} from './sdkAlgo';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -463,5 +466,15 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async activateToken(params: {
+    tokenAddress: string;
+  }): Promise<boolean> {
+    const dbAccount = await this.getAccount();
+    const client = await this.getClient();
+    const { assets } = await client.accountInformation(dbAccount.address);
+    console.log('======>>>>: ', assets);
+    return false;
   }
 }
