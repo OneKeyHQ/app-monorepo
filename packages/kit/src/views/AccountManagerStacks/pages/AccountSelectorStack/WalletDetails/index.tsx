@@ -314,15 +314,15 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     [isOthersUniversal, serviceAccount, sectionData, setResult],
   );
 
-  const scrollToTop = useCallback(() => {
-    if (sectionData?.length) {
-      scrollToLocation({
-        animated: true,
-        sectionIndex: 0,
-        itemIndex: 0,
-      });
-    }
-  }, [scrollToLocation, sectionData]);
+  // const scrollToTop = useCallback(() => {
+  //   if (sectionData?.length) {
+  //     scrollToLocation({
+  //       animated: true,
+  //       sectionIndex: 0,
+  //       itemIndex: 0,
+  //     });
+  //   }
+  // }, [scrollToLocation, sectionData]);
 
   const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
