@@ -1,5 +1,10 @@
 /* eslint-disable react/prop-types */
-import type { MutableRefObject, PropsWithChildren, ReactElement } from 'react';
+import type {
+  MutableRefObject,
+  PropsWithChildren,
+  ReactElement,
+  RefObject,
+} from 'react';
 import {
   useCallback,
   useEffect,
@@ -50,7 +55,7 @@ interface IFloatingPosition {
 }
 
 type ISpotlightContentEvent = ISpotlight & {
-  floatingPosition: IFloatingPosition;
+  triggerRef: RefObject<NativeView>;
   floatingOffset: number;
   childrenPadding: number;
 };
@@ -69,8 +74,34 @@ function SpotlightContent({
   const IsFocused = useRouteIsFocused();
   const { gtMd } = useMedia();
   const [props, setProps] = useState(initProps);
+  const [floatingPosition, setFloatingPosition] = useState<IFloatingPosition>({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
+
+  const md = useMedia();
+
+  const measureTriggerInWindow = useCallback(() => {
+    if (initProps.triggerRef) {
+      initProps.triggerRef.current?.measureInWindow((x, y, width, height) => {
+        setFloatingPosition({
+          x,
+          y,
+          width,
+          height,
+        });
+      });
+    }
+  }, [initProps.triggerRef]);
+
+  useEffect(() => {
+    measureTriggerInWindow();
+  }, [md, measureTriggerInWindow]);
 
   useLayoutEffect(() => {
+    measureTriggerInWindow();
     if (triggerPropsRef.current) {
       triggerPropsRef.current.trigger = (params) => {
         setProps(params);
@@ -79,20 +110,21 @@ function SpotlightContent({
         triggerPropsRef.current.defer.resolve(undefined);
       }
     }
-  }, [triggerPropsRef]);
+  }, [initProps.triggerRef, measureTriggerInWindow, triggerPropsRef]);
   const {
     visible,
     children,
-    floatingPosition,
     content,
     onConfirm,
     floatingOffset,
     childrenPadding,
   } = props;
 
+  const isRendered = floatingPosition.width > 0;
+
   const floatingStyle = useMemo(
     () =>
-      floatingPosition
+      isRendered
         ? {
             top:
               floatingPosition.y +
@@ -104,10 +136,16 @@ function SpotlightContent({
             maxWidth: gtMd ? 354 : undefined,
           }
         : undefined,
-    [floatingPosition, floatingOffset, childrenPadding, gtMd],
+    [
+      isRendered,
+      floatingPosition.y,
+      floatingPosition.height,
+      floatingPosition.x,
+      floatingOffset,
+      childrenPadding,
+      gtMd,
+    ],
   );
-
-  const isRendered = floatingPosition.width > 0;
 
   if (visible && isRendered && IsFocused)
     return (
@@ -184,26 +222,15 @@ export function Spotlight({
     trigger: undefined,
     defer,
   });
-  const [floatingPosition, setFloatingPosition] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }>({
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0,
-  });
   useEffect(() => {
     setTimeout(async () => {
       await defer.promise;
       triggerPropsRef.current.trigger?.({
         visible,
         children: replaceChildren || children,
-        floatingPosition,
         content,
         onConfirm,
+        triggerRef: triggerRef as any,
         floatingOffset,
         childrenPadding,
       });
@@ -212,29 +239,23 @@ export function Spotlight({
     children,
     content,
     defer,
-    floatingPosition,
     floatingOffset,
     onConfirm,
     replaceChildren,
     visible,
     childrenPadding,
   ]);
-  const handleLayout = useCallback(() => {
-    (triggerRef?.current as any as NativeView)?.measureInWindow(
-      (x, y, width, height) => {
-        setFloatingPosition({
-          x,
-          y,
-          width,
-          height,
-        });
-      },
-    );
-  }, [setFloatingPosition]);
+  // const handleLayout = useCallback(() => {
+  //   (triggerRef?.current as any as NativeView)?.measureInWindow(
+  //     (x, y, width, height) => {
+  //       console.log('onlayout---', x, y, width, height);x
+  //     },
+  //   );
+  // }, []);
 
   return (
     <>
-      <View ref={triggerRef} collapsable={false} onLayout={handleLayout}>
+      <View ref={triggerRef} collapsable={false}>
         {children}
       </View>
       {visible ? (
@@ -247,11 +268,11 @@ export function Spotlight({
             initProps={{
               visible,
               children: replaceChildren || children,
-              floatingPosition,
               content,
               onConfirm,
               floatingOffset,
               childrenPadding,
+              triggerRef: triggerRef as any,
             }}
           />
         </Portal.Body>
