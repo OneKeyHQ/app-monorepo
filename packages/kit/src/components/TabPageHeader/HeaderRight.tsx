@@ -59,10 +59,14 @@ export function HeaderRight({
   );
 
   const openExtensionExpandTab = useCallback(async () => {
+    // This is a trick.
+    // If you open the webpage first and then close the side panel, you will never be able to close the side panel.
+    if (platformEnv.isExtensionUiSidePanel) {
+      window.close();
+    }
     await backgroundApiProxy.serviceApp.openExtensionExpandTab({
       routes: '',
     });
-    window.close();
   }, []);
 
   const expandExtView = useMemo(
