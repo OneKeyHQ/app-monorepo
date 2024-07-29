@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import { Button } from '@onekeyhq/components';
@@ -139,21 +140,27 @@ export function AccountSelectorCreateAddressButton({
     onCreateDone,
   ]);
 
-  useEffect(() => {
-    void (async () => {
+  const doAutoCreate = useDebouncedCallback(
+    async (params: {
+      isFocused: boolean;
+      walletId: string | undefined;
+      networkId: string | undefined;
+      deriveType: IAccountDeriveTypes;
+      autoCreateAddress: boolean | undefined;
+    }) => {
       if (
-        isFocused &&
-        walletId &&
-        networkId &&
-        deriveType &&
-        autoCreateAddress
+        params.isFocused &&
+        params.walletId &&
+        params.networkId &&
+        params.deriveType &&
+        params.autoCreateAddress
       ) {
         const canAutoCreate =
           await backgroundApiProxy.serviceAccount.canAutoCreateAddressInSilentMode(
             {
-              walletId,
-              networkId,
-              deriveType,
+              walletId: params.walletId,
+              networkId: params.networkId,
+              deriveType: params.deriveType,
             },
           );
         if (canAutoCreate) {
@@ -168,8 +175,26 @@ export function AccountSelectorCreateAddressButton({
           }
         }
       }
-    })();
-  }, [isFocused, autoCreateAddress, deriveType, doCreate, networkId, walletId]);
+    },
+    300,
+  );
+
+  useEffect(() => {
+    void doAutoCreate({
+      isFocused,
+      walletId,
+      networkId,
+      deriveType,
+      autoCreateAddress,
+    });
+  }, [
+    isFocused,
+    walletId,
+    networkId,
+    deriveType,
+    autoCreateAddress,
+    doAutoCreate,
+  ]);
 
   return buttonRender({
     loading: isLoading,

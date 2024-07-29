@@ -260,6 +260,7 @@ export type IListItemProps = PropsWithChildren<{
   isLoading?: boolean;
   checkMark?: boolean;
   onPress?: () => void | Promise<void>;
+  childrenBefore?: ComponentType | ReactNode;
 }>;
 
 export const listItemPressStyle = {
@@ -306,6 +307,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
     iconProps,
     checkMark,
     onPress,
+    childrenBefore,
     children,
     renderAvatar,
     renderIcon,
@@ -334,6 +336,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
       {...(onPress && !props.disabled && listItemPressStyle)}
       {...rest}
     >
+      {childrenBefore}
       {renderWithFallback(
         ListItemAvatar,
         avatarProps && {
