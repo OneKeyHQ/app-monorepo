@@ -36,7 +36,11 @@ import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
 } from '../dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { IAccountDeriveInfo, IAccountDeriveTypes } from '../vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveInfoItems,
+  IAccountDeriveTypes,
+} from '../vaults/types';
 
 @backgroundClass()
 class ServiceAccountSelector extends ServiceBase {
@@ -292,22 +296,36 @@ class ServiceAccountSelector extends ServiceBase {
     let canCreateAddress = false;
     if (networkId && networkUtils.isAllNetwork({ networkId })) {
       if (!isOthersWallet && indexedAccountId) {
-        const dbAccounts =
-          await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
-            {
-              indexedAccountId,
-            },
-          );
+        let dbAccounts: IDBAccount[] = [];
+
+        try {
+          dbAccounts =
+            await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+              {
+                indexedAccountId,
+              },
+            );
+        } catch (error) {
+          //
+        }
+
         if (dbAccounts.length) {
           allNetworkDbAccounts = dbAccounts;
-          account =
-            await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount({
-              indexedAccountId,
-            });
-          canCreateAddress = false;
+          try {
+            account =
+              await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount(
+                {
+                  indexedAccountId,
+                },
+              );
+            canCreateAddress = false;
+          } catch (error) {
+            account = undefined;
+            canCreateAddress = true;
+          }
         } else {
-          canCreateAddress = true;
           account = undefined;
+          canCreateAddress = true;
         }
       }
     } else {
@@ -315,6 +333,14 @@ class ServiceAccountSelector extends ServiceBase {
     }
 
     const isNetworkNotMatched = isOthersWallet && !account && !indexedAccount;
+    let deriveInfoItems: IAccountDeriveInfoItems[] = [];
+    try {
+      deriveInfoItems = await serviceNetwork.getDeriveInfoItemsOfNetwork({
+        networkId,
+      });
+    } catch (error) {
+      //
+    }
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
       dbAccount,
@@ -326,24 +352,39 @@ class ServiceAccountSelector extends ServiceBase {
       network,
       deriveType,
       deriveInfo,
-      deriveInfoItems: await serviceNetwork.getDeriveInfoItemsOfNetwork({
-        networkId,
-      }),
+      deriveInfoItems,
       ready: true,
       isOthersWallet,
       canCreateAddress,
       isNetworkNotMatched,
     };
+
+    // const activeAccount0: IAccountSelectorActiveAccountInfo = {
+    //   account: undefined,
+    //   indexedAccount: undefined,
+    //   dbAccount: undefined,
+    //   network: undefined,
+    //   wallet: undefined,
+    //   device: undefined,
+    //   deriveType: 'default',
+    //   deriveInfo: undefined,
+    //   deriveInfoItems: [],
+    //   ready: false,
+    //   accountName: '',
+    // };
+
     const selectedAccountFixed: IAccountSelectorSelectedAccount = {
       othersWalletAccountId: isOthersWallet
         ? activeAccount?.account?.id
         : undefined,
-      indexedAccountId: activeAccount.indexedAccount?.id,
-      deriveType: activeAccount.deriveType,
-      networkId: activeAccount.network?.id,
-      walletId: activeAccount.wallet?.id,
-      focusedWallet: activeAccount.wallet?.id,
+      indexedAccountId: activeAccount?.indexedAccount?.id,
+      deriveType: activeAccount?.deriveType,
+      networkId: activeAccount?.network?.id,
+      walletId: activeAccount?.wallet?.id,
+      focusedWallet: activeAccount?.wallet?.id,
     };
+
+    // throw new Error('Method not implemented.');
     return { activeAccount, selectedAccount: selectedAccountFixed, nonce };
   }
 
