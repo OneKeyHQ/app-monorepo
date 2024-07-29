@@ -61,9 +61,7 @@ export function HeaderRight({
   const openExtensionExpandTab = useCallback(async () => {
     // This is a trick.
     // If you open the webpage first and then close the side panel, you will never be able to close the side panel.
-    if (platformEnv.isExtensionUiSidePanel) {
-      window.close();
-    }
+    window.close();
     await backgroundApiProxy.serviceApp.openExtensionExpandTab({
       routes: '',
     });
@@ -82,9 +80,6 @@ export function HeaderRight({
   );
 
   const openLayoutTab = useCallback(async () => {
-    const routeInfo: IOpenUrlRouteInfo = {
-      routes: '',
-    };
     ActionList.show({
       title: intl.formatMessage({
         id: ETranslations.global_layout,
@@ -96,9 +91,9 @@ export function HeaderRight({
           }),
           icon: 'LayoutRightOutline',
           onPress: async () => {
-            await backgroundApiProxy.serviceApp.openExtensionSidePanel(
-              routeInfo,
-            );
+            await backgroundApiProxy.serviceApp.openExtensionSidePanel({
+              routes: '',
+            });
             window.close();
           },
         },
@@ -107,15 +102,11 @@ export function HeaderRight({
             id: ETranslations.global_expand_view,
           }),
           icon: 'ExpandOutline',
-          onPress: () => {
-            void backgroundApiProxy.serviceApp.openExtensionExpandTab(
-              routeInfo,
-            );
-          },
+          onPress: openExtensionExpandTab,
         },
       ],
     });
-  }, [intl]);
+  }, [intl, openExtensionExpandTab]);
 
   const media = useMedia();
   const items = useMemo(() => {
