@@ -79,6 +79,7 @@ import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
+import { MultipleClickStack } from '../../../../components/MultipleClickStack';
 
 type IConnectYourDeviceItem = {
   title: string;
@@ -170,22 +171,29 @@ function ConnectByQrCode() {
 
 function ConnectByQrCodeComingSoon() {
   const intl = useIntl();
-  if (process.env.NODE_ENV !== 'production') {
+  const [showConnectQr, setShowConnectQr] = useState(false);
+  if (showConnectQr) {
     return <ConnectByQrCode />;
   }
 
   return (
     <Stack flex={1} alignItems="center" justifyContent="center">
-      <SizableText
-        textAlign="center"
-        color="$textSubdued"
-        maxWidth="$80"
-        pb="$5"
+      <MultipleClickStack
+        onPress={() => {
+          setShowConnectQr(true);
+        }}
       >
-        {intl.formatMessage({
-          id: ETranslations.coming_soon,
-        })}
-      </SizableText>
+        <SizableText
+          textAlign="center"
+          color="$textSubdued"
+          maxWidth="$80"
+          pb="$5"
+        >
+          {intl.formatMessage({
+            id: ETranslations.coming_soon,
+          })}
+        </SizableText>
+      </MultipleClickStack>
     </Stack>
   );
 }
