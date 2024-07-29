@@ -87,7 +87,7 @@ export function HeaderRight({
       items: [
         {
           label: intl.formatMessage({
-            id: ETranslations.global_layout,
+            id: ETranslations.open_as_sidebar,
           }),
           icon: 'LayoutRightOutline',
           onPress: async () => {
