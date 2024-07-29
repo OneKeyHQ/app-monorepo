@@ -15,7 +15,7 @@ export function useTokenSearch({
   walletId: string;
   networkId: string;
 }) {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingRemoteData, setIsLoadingRemoteData] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [searchResult, setSearchResult] = useState<ICustomTokenItem[] | null>(
     null,
@@ -27,7 +27,7 @@ export function useTokenSearch({
         networkId: string;
         searchValue: string;
       }) => {
-        setIsLoading(true);
+        setIsLoadingRemoteData(true);
         try {
           const r =
             await backgroundApiProxy.serviceCustomToken.searchTokenByKeywords({
@@ -59,7 +59,7 @@ export function useTokenSearch({
         } catch (error) {
           console.error('Error fetching search response:', error);
         } finally {
-          setIsLoading(false);
+          setIsLoadingRemoteData(false);
         }
       },
       500,
@@ -90,6 +90,6 @@ export function useTokenSearch({
     searchResult,
     isSearchMode,
     setSearchValue,
-    isLoading,
+    isLoadingRemoteData,
   };
 }

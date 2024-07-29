@@ -24,7 +24,7 @@ export function useTokenManagement({
   const {
     result,
     run,
-    isLoading: isLoadingHomePageData,
+    isLoading: isLoadingLocalData,
   } = usePromiseResult(
     async () => {
       const [hiddenTokens, customTokens] = await Promise.all([
@@ -124,7 +124,7 @@ export function useTokenManagement({
     sectionTokens: result?.sectionTokens,
     tokenList: result?.addedTokens,
     refreshTokenLists: run,
-    isLoadingHomePageData,
+    isLoadingLocalData,
     networkMaps,
     checkTokenExistInTokenList,
   };
