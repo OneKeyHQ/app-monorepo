@@ -187,7 +187,7 @@ const PasswordVerify = ({
           textContentType="oneTimeCode"
           onSubmitEditing={form.handleSubmit(onInputPasswordAuth)}
           addOns={rightActions}
-          testID="enter-password"
+          testID="password-input"
         />
       </Form.Field>
     </Form>

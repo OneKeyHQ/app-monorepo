@@ -198,6 +198,7 @@ function ExportPrivateKeysPage({
 
             {
               iconName: 'Copy3Outline',
+              testID: 'account-key-copy-btn',
               onPress: async () => {
                 if (exportType === 'privateKey') {
                   showCopyPrivateKeysDialog({
@@ -220,6 +221,7 @@ function ExportPrivateKeysPage({
         : [
             {
               iconName: 'RefreshCcwOutline',
+              testID: 'account-key-show-btn',
               onPress: () => {
                 void refreshKey({ noDebouncedCall: true });
               },

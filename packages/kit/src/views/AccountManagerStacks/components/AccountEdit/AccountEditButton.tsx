@@ -103,7 +103,12 @@ export function AccountEditButton({
   return (
     <ActionList
       title={name}
-      renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
+      renderTrigger={
+        <ListItem.IconButton
+          testID={'account-item-edit-button-' + name}
+          icon="DotHorOutline"
+        />
+      }
       renderItems={({ handleActionListClose }) => (
         <>
           <AccountRenameButton
@@ -114,6 +119,7 @@ export function AccountEditButton({
           />
           {exportKeysVisible?.showExportPrivateKey ? (
             <AccountExportPrivateKeyButton
+              testID={'popover-export-private-key-' + name}
               icon="KeyOutline"
               accountName={name}
               indexedAccount={indexedAccount}
@@ -127,6 +133,7 @@ export function AccountEditButton({
           ) : null}
           {exportKeysVisible?.showExportPublicKey ? (
             <AccountExportPrivateKeyButton
+              testID={'popover-export-public-key-' + name}
               icon="PasswordOutline"
               accountName={name}
               indexedAccount={indexedAccount}

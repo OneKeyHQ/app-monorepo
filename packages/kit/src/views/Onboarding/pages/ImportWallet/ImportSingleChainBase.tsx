@@ -185,6 +185,7 @@ export function ImportSingleChainBase({
                 enabledItems={validateResult?.deriveInfoItems || []}
                 renderTrigger={({ label }) => (
                   <Stack
+                    testID="wallet-derivation-path-selector-trigger"
                     userSelect="none"
                     flexDirection="row"
                     px="$3.5"
