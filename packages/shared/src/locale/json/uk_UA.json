@@ -1,5 +1,6 @@
 {
   "Toast_web_auth": "Налаштування не вдалося",
+  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
   "account_model.watched": "Переглянуто",
   "action_save": "Зберегти",
   "address.verify_address_instruction": "Перевірте на пристрої, щоб запобігти атакам заміни адреси",
@@ -942,6 +943,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "Підключення апаратного гаманця доступне лише в офіційному додатку",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "Підключення апаратного гаманця доступне лише в додатках від третіх сторін",
   "hidden_assets": "Приховані активи",
+  "hw_banner_description": "Захистіть свою криптовалюту за допомогою найпотужнішого апаратного гаманця",
   "interact_with_contract": "Взаємодіяти з (До)",
   "lighting_invoice": "Рахунок-фактура за блискавку",
   "litecoin_legacy_desc": "Починається з \"L\". BIP44, P2PKH, Base58",
@@ -967,6 +969,7 @@
   "manage_token.empty_msg": "Не можете знайти токен? Спробуйте натиснути кнопку нижче, щоб додати",
   "manage_token.popular_token": "Популярний токен",
   "manage_token.title": "Керування токеном",
+  "manger_token.custom_token_address_required": "Contract address required.",
   "manual_backup": "Ручне резервне копіювання",
   "market.1d": "1д",
   "market.1h": "1 год",

@@ -1,5 +1,6 @@
 {
   "Toast_web_auth": "সেট ব্যর্থ হয়েছে",
+  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
   "account_model.watched": "দেখা হয়েছে",
   "action_save": "সংরক্ষণ করুন",
   "address.verify_address_instruction": "ঠিকানা প্রতিস্থাপন হামলা রোধ করতে ডিভাইসে যাচাই করুন",
@@ -942,6 +943,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "হার্ডওয়্যার ওয়ালেট সংযোগ কেবল অফিসিয়াল অ্যাপে পাওয়া যায়",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "হার্ডওয়্যার ওয়ালেট সংযোগ কেবল তৃতীয় পক্ষের অ্যাপসে উপলব্ধ",
   "hidden_assets": "গোপন সম্পত্তি",
+  "hw_banner_description": "আপনার ক্রিপ্টো সংরক্ষণ করুন সবচেয়ে শক্তিশালী হার্ডওয়্যার ওয়ালেটের সাহায্যে",
   "interact_with_contract": "(এর সাথে) যোগাযোগ করুন (প্রতি)",
   "lighting_invoice": "লাইটনিং ইনভয়েস",
   "litecoin_legacy_desc": "\"L\" দিয়ে শুরু হয়। BIP44, P2PKH, Base58",
@@ -967,6 +969,7 @@
   "manage_token.empty_msg": "টোকেনটি খুঁজে পাচ্ছেন না? যোগ করার জন্য নিচের বোতামটি ক্লিক করার চেষ্টা করুন",
   "manage_token.popular_token": "জনপ্রিয় টোকেন",
   "manage_token.title": "টোকেন পরিচালনা করুন",
+  "manger_token.custom_token_address_required": "Contract address required.",
   "manual_backup": "ম্যানুয়াল ব্যাকআপ",
   "market.1d": "১ দিন",
   "market.1h": "১ ঘণ্টা",

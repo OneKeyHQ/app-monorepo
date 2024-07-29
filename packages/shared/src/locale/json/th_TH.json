@@ -1,5 +1,6 @@
 {
   "Toast_web_auth": "การตั้งค่าล้มเหลว",
+  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
   "account_model.watched": "ดูแล้ว",
   "action_save": "บันทึก",
   "address.verify_address_instruction": "ตรวจสอบบนอุปกรณ์เพื่อป้องกันการโจมตีโดยการแทนที่ที่อยู่",
@@ -942,6 +943,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "การเชื่อมต่อกระเป๋าเงินฮาร์ดแวร์สามารถทำได้เฉพาะบนแอปพลิเคชันอย่างเป็นทางการเท่านั้น",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "การเชื่อมต่อกระเป๋าเงินฮาร์ดแวร์สามารถทำได้เฉพาะบนแอปพลิเคชันของบุคคลที่สามเท่านั้น",
   "hidden_assets": "สินทรัพย์ที่ซ่อนอยู่",
+  "hw_banner_description": "รักษาความปลอดภัยสำหรับคริปโตของคุณด้วยกระเป๋าเงินฮาร์ดแวร์ที่ทรงพลังที่สุด",
   "interact_with_contract": "ติดต่อกับ (ถึง)",
   "lighting_invoice": "ใบแจ้งหนี้แสงฟ้า",
   "litecoin_legacy_desc": "เริ่มต้นด้วย \"L\". BIP44, P2PKH, Base58",
@@ -967,6 +969,7 @@
   "manage_token.empty_msg": "ไม่พบโทเค็นหรือไม่? ลองคลิกปุ่มด้านล่างเพื่อเพิ่ม",
   "manage_token.popular_token": "โทเค็นที่นิยม",
   "manage_token.title": "จัดการโทเค็น",
+  "manger_token.custom_token_address_required": "Contract address required.",
   "manual_backup": "การสำรองข้อมูลด้วยตนเอง",
   "market.1d": "1 วัน",
   "market.1h": "1 ชั่วโมง",
