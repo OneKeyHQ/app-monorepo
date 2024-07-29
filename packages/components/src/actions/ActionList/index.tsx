@@ -1,7 +1,11 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
+import { type GestureResponderEvent } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
@@ -17,7 +21,6 @@ import { Trigger } from '../Trigger';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../Popover';
-import type { GestureResponderEvent } from 'react-native';
 
 export interface IActionListItemProps {
   icon?: IKeyOfIcons;
@@ -121,6 +124,27 @@ export interface IActionListProps
   }) => React.ReactNode;
 }
 
+const useDefaultOpen = (defaultOpen: boolean) => {
+  const [isOpen, setOpenStatus] = useState(
+    platformEnv.isNativeAndroid ? false : defaultOpen,
+  );
+  // Fix the crash on Android where the view node cannot be found.
+  useEffect(() => {
+    if (platformEnv.isNativeAndroid) {
+      if (defaultOpen) {
+        setTimeout(() => {
+          setOpenStatus(defaultOpen);
+        }, 0);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return [isOpen, setOpenStatus] as [
+    boolean,
+    Dispatch<SetStateAction<boolean>>,
+  ];
+};
+
 function BasicActionList({
   items,
   sections,
@@ -131,23 +155,14 @@ function BasicActionList({
   renderItems,
   ...props
 }: IActionListProps) {
-  const [isOpen, setOpenStatus] = useState(false);
+  const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
   const handleOpenStatusChange = useCallback(
     (openStatus: boolean) => {
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
     },
-    [onOpenChange],
+    [onOpenChange, setOpenStatus],
   );
-  // Fix the crash on Android where the view node cannot be found.
-  useEffect(() => {
-    if (defaultOpen) {
-      setTimeout(() => {
-        setOpenStatus(defaultOpen);
-      }, 0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const handleActionListOpen = useCallback(() => {
     handleOpenStatusChange(true);
   }, [handleOpenStatusChange]);
