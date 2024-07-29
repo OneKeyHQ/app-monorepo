@@ -649,12 +649,17 @@ class ServiceNetwork extends ServiceBase {
   async getChainSelectorNetworksCompatibleWithAccountId({
     accountId,
     networkIds,
-    includeAllNetwork,
   }: {
     accountId?: string;
     networkIds?: string[];
     includeAllNetwork?: boolean;
-  }) {
+  }): Promise<{
+    mainnetItems: IServerNetwork[];
+    testnetItems: IServerNetwork[];
+    unavailableItems: IServerNetwork[];
+    frequentlyUsedItems: IServerNetwork[];
+    allNetworkItem?: IServerNetwork;
+  }> {
     let networksResp: { networks: IServerNetwork[] } = { networks: [] };
     if (networkIds) {
       networksResp = await this.backgroundApi.serviceNetwork.getNetworksByIds({
@@ -675,25 +680,21 @@ class ServiceNetwork extends ServiceBase {
       await this.backgroundApi.serviceNetwork.getNetworkSafe({
         networkId: getNetworkIdsMap().onekeyall,
       });
-    let dbAccount: IDBAccount | undefined;
 
-    if (accountId) {
-      dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
-        accountId,
-      });
-    }
+    let dbAccount: IDBAccount | undefined;
 
     let unavailableNetworks: IServerNetwork[] = [];
     let frequentlyUsedNetworks: IServerNetwork[] = [];
     let networks: IServerNetwork[] = [];
+
     if (
       accountId &&
-      dbAccount &&
       accountUtils.isOthersWallet({
         walletId: accountUtils.getWalletIdFromAccountId({
           accountId,
         }),
-      })
+      }) &&
+      dbAccount
     ) {
       for (let i = 0; i < _frequentlyUsed.length; i += 1) {
         const item = _frequentlyUsed[i];
@@ -734,12 +735,11 @@ class ServiceNetwork extends ServiceBase {
       return !isDuplicate;
     });
     return {
-      networks,
-      unavailableNetworks,
-      frequentlyUsedNetworks:
-        includeAllNetwork && allNetworkItem
-          ? [allNetworkItem, ...frequentlyUsedNetworks]
-          : frequentlyUsedNetworks,
+      mainnetItems: networks.filter((o) => !o.isTestnet),
+      testnetItems: networks.filter((o) => o.isTestnet),
+      frequentlyUsedItems: frequentlyUsedNetworks,
+      unavailableItems: unavailableNetworks,
+      allNetworkItem,
     };
   }
 }

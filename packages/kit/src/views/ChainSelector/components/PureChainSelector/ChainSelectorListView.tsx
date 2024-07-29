@@ -19,17 +19,17 @@ const ListEmptyComponent = () => {
   );
 };
 
-export type IBaseListViewProps = {
+export type IChainSelectorListViewProps = {
   networks: IServerNetworkMatch[];
   onPressItem?: (item: IServerNetworkMatch) => void;
   networkId?: string;
 };
 
-export const BaseListView = ({
+export const ChainSelectorListView = ({
   networks,
   onPressItem,
   networkId,
-}: IBaseListViewProps) => (
+}: IChainSelectorListViewProps) => (
   <ListView
     ListEmptyComponent={ListEmptyComponent}
     ListFooterComponent={<Stack h="$2" />}
