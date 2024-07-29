@@ -381,6 +381,36 @@ class ServiceV4Migration extends ServiceBase {
   }
 
   @backgroundMethod()
+  async shouldMigratePassword(): Promise<{
+    isV4PasswordSet: boolean;
+    isV4AddressBookAvailable: boolean;
+    shouldMigratePassword: boolean;
+  }> {
+    return v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        // this.migrationAccount.is
+        const isV4PasswordSet = await v4dbHubs.v4localDb.isPasswordSet();
+        const addressBookItems =
+          await this.migrationAddressBook.getV4AddressBookItems();
+        const isV4AddressBookAvailable = Boolean(addressBookItems.length);
+        return {
+          isV4PasswordSet,
+          isV4AddressBookAvailable,
+          shouldMigratePassword: isV4PasswordSet || isV4AddressBookAvailable,
+        };
+      },
+      {
+        name: 'should migrate password check',
+        errorResultFn: () => ({
+          isV4AddressBookAvailable: false,
+          isV4PasswordSet: true,
+          shouldMigratePassword: true,
+        }),
+      },
+    );
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async prepareMigration({
     isAutoStartOnMount,
@@ -394,7 +424,6 @@ class ServiceV4Migration extends ServiceBase {
     let migrateV4SecurePasswordOk = false;
 
     migrateV4PasswordOk = await v4dbHubs.logger.runAsyncWithCatch(
-      // TODO if v4 not set password, should not prompt password
       async () => this.migrationAccount.migrateV4PasswordToV5(),
       {
         name: 'migrate v4 password to v5',
@@ -410,28 +439,34 @@ class ServiceV4Migration extends ServiceBase {
       },
     );
 
+    const { shouldMigratePassword } = await this.shouldMigratePassword();
+
     let v5password = '';
-    v5password = await v4dbHubs.logger.runAsyncWithCatch(
-      async () => {
-        const passwordRes =
-          await this.backgroundApi.servicePassword.promptPasswordVerify({
-            reason: EReasonForNeedPassword.Security,
-          });
+    let isV4PasswordEqualToV5: 'not-set' | boolean = 'not-set';
 
-        if (!passwordRes?.password) {
-          throw new Error('password not set');
-        }
-        return passwordRes?.password || '';
-      },
-      {
-        name: 'prompt password verify',
-        errorResultFn: 'throwError',
-      },
-    );
+    if (shouldMigratePassword) {
+      v5password = await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          const passwordRes =
+            await this.backgroundApi.servicePassword.promptPasswordVerify({
+              reason: EReasonForNeedPassword.Security,
+            });
 
-    const isV4PasswordEqualToV5 = await this.verifyV4PasswordEqualToV5({
-      v5password,
-    });
+          if (!passwordRes?.password) {
+            throw new Error('password not set');
+          }
+          return passwordRes?.password || '';
+        },
+        {
+          name: 'prompt password verify',
+          errorResultFn: 'throwError',
+        },
+      );
+
+      isV4PasswordEqualToV5 = await this.verifyV4PasswordEqualToV5({
+        v5password,
+      });
+    }
 
     const wallets = await v4dbHubs.logger.runAsyncWithCatch(
       async () => this.migrationAccount.getV4Wallets(),
@@ -910,17 +945,13 @@ class ServiceV4Migration extends ServiceBase {
 
       // **** migrate address book
       await timerUtils.wait(600);
-      const v5password = await this.getMigrationPasswordV5();
-      if (v5password) {
-        await v4dbHubs.logger.runAsyncWithCatch(
-          async () =>
-            this.migrationAddressBook.convertV4ContactsToV5(v5password),
-          {
-            name: 'convert v4 contacts to v5',
-            errorResultFn: () => undefined,
-          },
-        );
-      }
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => this.migrationAddressBook.convertV4ContactsToV5(),
+        {
+          name: 'convert v4 contacts to v5',
+          errorResultFn: () => undefined,
+        },
+      );
       await v4migrationAtom.set((v) => ({
         ...v,
         progress: maxProgress.addressBook,
