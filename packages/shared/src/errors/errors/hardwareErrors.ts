@@ -404,7 +404,7 @@ export class ForbiddenKeyPathError extends OneKeyHardwareError {
     );
   }
 
-  override code = HardwareErrorCode.BlindSignDisabled;
+  override code = HardwareErrorCode.RuntimeError;
 }
 
 export class FirmwareVersionTooLow extends OneKeyHardwareError {
