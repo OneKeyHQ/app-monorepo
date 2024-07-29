@@ -1,5 +1,6 @@
 {
   "Toast_web_auth": "Thiết lập thất bại",
+  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
   "account_model.watched": "Đã xem",
   "action_save": "Lưu",
   "address.verify_address_instruction": "Xác minh trên thiết bị để ngăn chặn các cuộc tấn công thay thế địa chỉ",
@@ -942,6 +943,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "Kết nối ví cứng chỉ có sẵn trên ứng dụng chính thức",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "Kết nối ví cứng chỉ có sẵn trên các ứng dụng của bên thứ ba",
   "hidden_assets": "Tài sản ẩn",
+  "hw_banner_description": "Bảo mật tiền điện tử của bạn với ví cứng mạnh mẽ nhất",
   "interact_with_contract": "Tương tác với (Đến)",
   "lighting_invoice": "Hóa đơn Lightning",
   "litecoin_legacy_desc": "Bắt đầu bằng \"L\". BIP44, P2PKH, Base58",
@@ -967,6 +969,7 @@
   "manage_token.empty_msg": "Không thể tìm thấy mã token? Hãy nhấn nút dưới đây để thêm",
   "manage_token.popular_token": "Token phổ biến",
   "manage_token.title": "Quản lý token",
+  "manger_token.custom_token_address_required": "Contract address required.",
   "manual_backup": "Sao lưu thủ công",
   "market.1d": "1ng",
   "market.1h": "1 giờ",

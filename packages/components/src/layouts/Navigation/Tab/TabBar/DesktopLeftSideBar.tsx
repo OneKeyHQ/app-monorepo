@@ -15,11 +15,15 @@ import type {
   IXStackProps,
 } from '@onekeyhq/components/src/primitives';
 import {
+  Heading,
   Icon,
+  Image,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
+import SidebarBannerImage from '@onekeyhq/kit/assets/sidebar-banner.png';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -78,6 +82,53 @@ function TabItemView({
   return contentMemo;
 }
 
+function SidebarBanner() {
+  const intl = useIntl();
+
+  return (
+    <Stack
+      borderRadius="$2"
+      borderCurve="continuous"
+      bg="$bgStrong"
+      overflow="hidden"
+      userSelect="none"
+      hoverStyle={{
+        bg: '$gray6',
+      }}
+      pressStyle={{
+        bg: '$gray7',
+      }}
+    >
+      <Stack>
+        <Image h={103} source={SidebarBannerImage} />
+        <Stack
+          position="absolute"
+          top="$2"
+          right="$2"
+          bg="$whiteA3"
+          borderRadius="$full"
+          hoverStyle={{
+            bg: '$whiteA4',
+          }}
+          pressStyle={{
+            bg: '$whiteA5',
+          }}
+        >
+          <Icon name="CrossedSmallOutline" size="$5" color="$whiteA7" />
+        </Stack>
+      </Stack>
+      <Stack px="$3" py="$2.5">
+        <Heading size="$bodySmMedium" pb="$0.5">
+          OneKey Pro
+        </Heading>
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.hw_banner_description })}
+        </SizableText>
+      </Stack>
+    </Stack>
+  );
+}
+
 function DownloadButton(props: IXStackProps) {
   const intl = useIntl();
   const onPress = useCallback(() => {
@@ -88,23 +139,29 @@ function DownloadButton(props: IXStackProps) {
   }
   return (
     <XStack
-      borderWidth="$px"
+      mt="$2"
       px="$3"
       py="$2"
       backgroundColor="$bgStrong"
-      borderColor="$borderSubdued"
       borderRadius="$2"
+      borderCurve="continuous"
       userSelect="none"
       onPress={onPress}
+      hoverStyle={{
+        bg: '$gray6',
+      }}
+      pressStyle={{
+        bg: '$gray7',
+      }}
       {...props}
     >
       <SizableText size="$bodyMdMedium" flex={1}>
         {intl.formatMessage({ id: ETranslations.global_download })}
       </SizableText>
-      <XStack space="$1">
-        <Icon name="AppleBrand" color="$iconSubdued" size="$5" />
-        <Icon name="GooglePlayBrand" color="$iconSubdued" size="$5" />
-        <Icon name="ChromeBrand" color="$iconSubdued" size="$5" />
+      <XStack space="$1" alignItems="center">
+        <Icon name="AppleBrand" size="$5" y={-2} color="$iconSubdued" />
+        <Icon name="GooglePlayBrand" size="$4.5" color="$iconSubdued" />
+        <Icon name="ChromeBrand" size="$4.5" color="$iconSubdued" />
       </XStack>
     </XStack>
   );
@@ -217,7 +274,11 @@ export function DesktopLeftSideBar({
         <OneKeyLogo />
         <YStack flex={1} p="$3">
           {tabs}
-          <DownloadButton mt="auto" />
+
+          <Stack mt="auto">
+            <SidebarBanner />
+            <DownloadButton />
+          </Stack>
         </YStack>
       </YStack>
     </MotiView>
