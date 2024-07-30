@@ -298,7 +298,13 @@ function AddCustomTokenModal() {
             }}
             name="contractAddress"
           >
-            <Input editable={!token?.isNative} />
+            <Input
+              size="large"
+              $gtMd={{
+                size: 'medium',
+              }}
+              editable={!token?.isNative}
+            />
           </Form.Field>
           <Form.Field
             label={intl.formatMessage({
@@ -306,7 +312,13 @@ function AddCustomTokenModal() {
             })}
             name="symbol"
           >
-            <Input editable={false} />
+            <Input
+              size="large"
+              $gtMd={{
+                size: 'medium',
+              }}
+              editable={false}
+            />
           </Form.Field>
           <Form.Field
             label={intl.formatMessage({
@@ -314,7 +326,13 @@ function AddCustomTokenModal() {
             })}
             name="decimals"
           >
-            <Input editable={false} />
+            <Input
+              size="large"
+              $gtMd={{
+                size: 'medium',
+              }}
+              editable={false}
+            />
           </Form.Field>
         </Form>
       </Page.Body>

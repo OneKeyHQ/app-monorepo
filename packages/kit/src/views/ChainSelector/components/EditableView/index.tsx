@@ -16,6 +16,7 @@ import {
   SectionList,
   SortableSectionList,
   Stack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
@@ -175,6 +176,7 @@ export const EditableView: FC<IEditableViewProps> = ({
   const intl = useIntl();
   const lastIsEditMode = usePrevious(isEditMode);
   const trimSearchText = searchText.trim();
+  const { bottom } = useSafeAreaInsets();
 
   useLayoutEffect(() => {
     if (!isEditMode && lastIsEditMode) {
@@ -356,7 +358,7 @@ export const EditableView: FC<IEditableViewProps> = ({
                 return layoutList[index];
               }}
               renderSectionHeader={renderSectionHeader}
-              ListFooterComponent={<Stack h="$2" />} // Act as padding bottom
+              ListFooterComponent={<Stack h={bottom || '$2'} />} // Act as padding bottom
             />
           ) : (
             <ListEmptyComponent />

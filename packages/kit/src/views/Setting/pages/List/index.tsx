@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useWebAuthActions } from '@onekeyhq/kit/src/components/BiologyAuthComponent/hooks/useWebAuthActions';
@@ -140,23 +141,24 @@ export default function SettingListModal() {
     }
   }, [flag, setWebAuthEnable, credId]);
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
+
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.settings_settings,
         })}
       />
       <Page.Body>
-        <Stack pb="$2">
-          <DefaultSection />
-          <PreferenceSection />
-          <SecuritySection />
-          <AdvancedSection />
-          <ResourceSection />
-          <DevSettingsSection />
-          <SocialButtonGroup />
-        </Stack>
+        <DefaultSection />
+        <PreferenceSection />
+        <SecuritySection />
+        <AdvancedSection />
+        <ResourceSection />
+        <DevSettingsSection />
+        <SocialButtonGroup />
+        {bottom > 0 ? <Stack height={bottom || '$2'} /> : null}
       </Page.Body>
     </Page>
   );

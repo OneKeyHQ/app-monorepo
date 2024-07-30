@@ -85,7 +85,7 @@ const ChainSelectorEditableView: FC<IChainSelectorEditableViewProps> = ({
       );
   }, [intl, isEditMode, unavailableNetworks]);
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_networks })}
         headerRight={headerRight}
