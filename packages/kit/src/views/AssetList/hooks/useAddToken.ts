@@ -1,18 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { values } from 'lodash';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useForm } from '@onekeyhq/components';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type {
-  IAccountToken,
-  IToken,
-  ITokenData,
-} from '@onekeyhq/shared/types/token';
+import type { IAccountToken, IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -101,7 +96,6 @@ export function useAddToken({
   selectedNetworkIdValue,
   contractAddressValue,
   setIsEmptyContractState,
-  checkAccountIsExist,
 }: {
   token?: IAccountToken;
   walletId: string;
@@ -124,11 +118,15 @@ export function useAddToken({
     const network = await backgroundApiProxy.serviceNetwork.getNetwork({
       networkId,
     });
+    // merge network for unsupported network, e.g. btc
+    if (token?.networkId && !networkIds.includes(token.networkId)) {
+      networkIds.push(token.networkId);
+    }
     return {
       networkIds,
       network,
     };
-  }, [networkId]);
+  }, [networkId, token?.networkId]);
 
   const searchedTokenRef = useRef<IToken>();
   const fetchContractList = useDebouncedCallback(
