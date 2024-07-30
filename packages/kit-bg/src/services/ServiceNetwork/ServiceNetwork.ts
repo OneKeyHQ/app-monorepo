@@ -687,6 +687,12 @@ class ServiceNetwork extends ServiceBase {
     let frequentlyUsedNetworks: IServerNetwork[] = [];
     let networks: IServerNetwork[] = [];
 
+    if (accountId) {
+      dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
+        accountId,
+      });
+    }
+
     if (
       accountId &&
       accountUtils.isOthersWallet({

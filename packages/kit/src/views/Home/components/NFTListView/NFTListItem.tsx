@@ -102,7 +102,7 @@ function BasicNFTListItem(props: IProps) {
         </Stack>
       </Stack>
       <Stack mt="$2">
-        <XStack alignItems="center">
+        <XStack alignItems="center" justifyContent="space-between">
           <SizableText
             size="$bodySm"
             color="$textSubdued"
@@ -111,7 +111,7 @@ function BasicNFTListItem(props: IProps) {
             numberOfLines={1}
             pr="$2"
           >
-            {nft.collectionName}
+            {nft.collectionName || '-'}
           </SizableText>
           {isAllNetworks ? (
             <Token
@@ -122,7 +122,7 @@ function BasicNFTListItem(props: IProps) {
           ) : null}
         </XStack>
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
-          {nft.metadata?.name ?? '-'}
+          {nft.metadata?.name || '-'}
         </SizableText>
       </Stack>
     </Stack>

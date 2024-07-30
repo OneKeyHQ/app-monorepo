@@ -118,6 +118,7 @@ const settings: IVaultSettings = {
   showAddressType: true,
 
   dappInteractionEnabled: true,
+  mergeDeriveAssetsEnabled: true,
 };
 
 export default Object.freeze(settings);
