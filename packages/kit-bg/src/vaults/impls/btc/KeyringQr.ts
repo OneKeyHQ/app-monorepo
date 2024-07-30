@@ -1,6 +1,7 @@
 import { Psbt } from 'bitcoinjs-lib';
 
 import {
+  convertBtcForkXpub,
   convertBtcScriptTypeForHardware,
   getBtcForkNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
@@ -19,7 +20,6 @@ import {
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import localDb from '../../../dbs/local/localDb';
 import { KeyringQrBase } from '../../base/KeyringQrBase';
@@ -212,7 +212,11 @@ export class KeyringQr extends KeyringQrBase {
             if (!extendedPublicKey) {
               throw new Error('xpub not found');
             }
-            xpub = extendedPublicKey;
+            xpub = convertBtcForkXpub({
+              btcForkNetwork: network,
+              addressEncoding,
+              xpub: extendedPublicKey,
+            });
           }
 
           if (!xpub) {

@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface ISecureQRToastBaseProps {
@@ -97,7 +98,17 @@ const SecureQRToastBase = ({
           </Stack>
         ) : null}
       </HeightTransition>
-      <SizableText size="$bodyLg" pb="$5">
+      <SizableText
+        size="$bodyLg"
+        pb="$5"
+        onPress={() => {
+          console.log('SecureQRToastContent', value, valueUr);
+          if (valueUr) {
+            const qrcodeDetails = airGapUrUtils.urToQrcode(valueUr);
+            console.log(qrcodeDetails);
+          }
+        }}
+      >
         {message ||
           intl.formatMessage({
             id: ETranslations.san_qr_code_to_verify_details,

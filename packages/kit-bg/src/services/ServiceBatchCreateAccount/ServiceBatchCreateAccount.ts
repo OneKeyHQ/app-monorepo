@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -14,7 +15,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
@@ -312,6 +312,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
         })),
       );
     }
+    networksParams = networksParams.filter(
+      (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
+    );
 
     const { saveToDb } = params;
     const indexes = await this.buildIndexesByFromAndTo({
@@ -375,6 +378,22 @@ class ServiceBatchCreateAccount extends ServiceBase {
     error: any;
     saveToDb: boolean | undefined;
   }) {
+    if (saveToDb) {
+      if (this.progressInfo) {
+        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+          totalCount: this.progressInfo.totalCount,
+          createdCount: this.progressInfo.createdCount,
+          progressTotal: this.progressInfo.progressTotal,
+          progressCurrent: this.progressInfo.progressCurrent,
+          error: errorUtils.toPlainErrorObject(error),
+        });
+      }
+    }
+
+    if (this.isCreateFlowCancelled || !this.progressInfo) {
+      throw error;
+    }
+
     // always exit flow if any error,
     throw error;
 
@@ -412,12 +431,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
   async emitBatchCreateDoneEvents({ saveToDb }: { saveToDb?: boolean } = {}) {
     if (saveToDb) {
-      appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-        totalCount: checkIsDefined(this.progressInfo).totalCount,
-        createdCount: checkIsDefined(this.progressInfo).createdCount,
-        progressTotal: checkIsDefined(this.progressInfo).progressTotal,
-        progressCurrent: checkIsDefined(this.progressInfo).progressTotal,
-      });
+      if (this.progressInfo) {
+        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+          totalCount: this.progressInfo.totalCount,
+          createdCount: this.progressInfo.createdCount,
+          progressTotal: this.progressInfo.progressTotal,
+          progressCurrent: this.progressInfo.progressTotal,
+        });
+      }
       await timerUtils.wait(600);
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
       void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
@@ -531,18 +552,22 @@ class ServiceBatchCreateAccount extends ServiceBase {
             networkId,
             account: accountForCreate,
           });
-          checkIsDefined(this.progressInfo).createdCount += 1;
+          if (this.progressInfo) {
+            this.progressInfo.createdCount += 1;
+          }
           await timerUtils.wait(100);
         }
-        checkIsDefined(this.progressInfo).progressCurrent += 1;
-        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-          totalCount: checkIsDefined(this.progressInfo).totalCount,
-          createdCount: checkIsDefined(this.progressInfo).createdCount,
-          progressTotal: checkIsDefined(this.progressInfo).progressTotal,
-          progressCurrent: checkIsDefined(this.progressInfo).progressCurrent,
-          networkId,
-          deriveType,
-        });
+        if (this.progressInfo) {
+          this.progressInfo.progressCurrent += 1;
+          appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+            totalCount: this.progressInfo.totalCount,
+            createdCount: this.progressInfo.createdCount,
+            progressTotal: this.progressInfo.progressTotal,
+            progressCurrent: this.progressInfo.progressCurrent,
+            networkId,
+            deriveType,
+          });
+        }
         await timerUtils.wait(100);
       }
     };
@@ -593,6 +618,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               indexes: indexesForRebuildChunk,
               indexedAccountId: undefined,
               skipDeviceCancel: true, // always skip cancel for batch create
+              skipDeviceCancelAtFirst: true,
               hideCheckingDeviceLoading,
             });
           const networkInfo = await vault.getNetworkInfo();

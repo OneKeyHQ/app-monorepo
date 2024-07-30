@@ -684,6 +684,14 @@ function removePathLastSegment({
   return arr.slice(0, -removeCount).filter(Boolean).join('/');
 }
 
+function buildHiddenWalletName({
+  parentWallet,
+}: {
+  parentWallet: IDBWallet | undefined;
+}) {
+  return `Hidden #${parentWallet?.nextIds?.hiddenWalletNum || 1}`;
+}
+
 export default {
   buildUtxoAddressRelPath,
   buildBaseAccountName,
@@ -733,4 +741,5 @@ export default {
   buildPathFromTemplate,
   findIndexFromTemplate,
   removePathLastSegment,
+  buildHiddenWalletName,
 };

@@ -28,6 +28,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyErrorNotImplemented = 'OneKeyErrorNotImplemented',
   OneKeyErrorAirGapAccountNotFound = 'OneKeyErrorAirGapAccountNotFound',
   OneKeyErrorScanQrCodeCancel = 'OneKeyErrorScanQrCodeCancel',
+  SecureQRCodeDialogCancel = 'SecureQRCodeDialogCancel',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

@@ -11,7 +11,7 @@ import {
   Spinner,
   Stack,
 } from '@onekeyhq/components';
-import { useBackupToggleDialog } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupToggleDialog';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -20,11 +20,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -46,6 +46,13 @@ function FinalizeWalletSetupPage({
   const [showStep, setShowStep] = useState(false);
   const navigation = useAppNavigation();
   const mnemonic = route?.params?.mnemonic;
+  const [onboardingError, setOnboardingError] = useState<
+    IOneKeyError | undefined
+  >(undefined);
+
+  useEffect(() => {
+    setOnboardingError(undefined);
+  }, []);
 
   const actions = useAccountSelectorActions();
   const steps: Record<EFinalizeWalletSetupSteps, string> = {
@@ -100,6 +107,19 @@ function FinalizeWalletSetupPage({
     appEventBus.on(EAppEventBusNames.FinalizeWalletSetupStep, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.FinalizeWalletSetupStep, fn);
+    };
+  }, []);
+
+  useEffect(() => {
+    const fn = (
+      event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupError],
+    ) => {
+      setOnboardingError(event.error);
+    };
+
+    appEventBus.on(EAppEventBusNames.FinalizeWalletSetupError, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.FinalizeWalletSetupError, fn);
     };
   }, []);
 
@@ -190,6 +210,14 @@ function FinalizeWalletSetupPage({
           </Stack>
         </AnimatePresence>
       </Page.Body>
+      {onboardingError ? (
+        <Page.Footer
+          onCancel={() => {
+            //
+            navigation.pop();
+          }}
+        />
+      ) : null}
     </Page>
   );
 }

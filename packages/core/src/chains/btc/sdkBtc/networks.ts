@@ -57,28 +57,6 @@ const rbtc: IBtcForkNetwork = {
   },
 };
 
-const ltc: IBtcForkNetwork = {
-  messagePrefix: '\x19Litecoin Signed Message:\n',
-  bech32: 'ltc',
-  bip32: {
-    public: 0x019da462,
-    private: 0x019d9cfe,
-  },
-  segwitVersionBytes: {
-    [EAddressEncodings.P2SH_P2WPKH]: {
-      public: 0x01b26ef6,
-      private: 0x01b26792,
-    },
-    [EAddressEncodings.P2WPKH]: {
-      public: 0x04b24746,
-      private: 0x04b2430c,
-    },
-  },
-  pubKeyHash: 0x30,
-  scriptHash: 0x32,
-  wif: 0xb0,
-};
-
 const bch: IBtcForkNetwork = {
   messagePrefix: '\x18Bitcoin Signed Message:\n',
   bech32: '',
@@ -102,6 +80,30 @@ const doge: IBtcForkNetwork = {
   pubKeyHash: 0x1e,
   scriptHash: 0x16,
   wif: 0x9e,
+};
+
+const ltc: IBtcForkNetwork = {
+  messagePrefix: '\x19Litecoin Signed Message:\n',
+  bech32: 'ltc',
+  // TODO getVersionBytesByAddressEncoding
+  // EAddressEncodings.P2PKH read .bip32, others read .segwitVersionBytes
+  bip32: {
+    public: 0x019da462,
+    private: 0x019d9cfe,
+  },
+  segwitVersionBytes: {
+    [EAddressEncodings.P2SH_P2WPKH]: {
+      public: 0x01b26ef6,
+      private: 0x01b26792,
+    },
+    [EAddressEncodings.P2WPKH]: {
+      public: 0x04b24746,
+      private: 0x04b2430c,
+    },
+  },
+  pubKeyHash: 0x30,
+  scriptHash: 0x32,
+  wif: 0xb0,
 };
 
 const btg: IBtcForkNetwork = {

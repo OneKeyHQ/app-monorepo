@@ -104,6 +104,7 @@ export type IAddHDOrHWAccountsParams = {
   indexedAccountId: string | undefined; // single add by indexedAccountId
   deriveType: IAccountDeriveTypes;
   skipDeviceCancel?: boolean;
+  skipDeviceCancelAtFirst?: boolean;
   hideCheckingDeviceLoading?: boolean;
   // purpose?: number;
   // skipRepeat?: boolean;
@@ -372,6 +373,7 @@ class ServiceAccount extends ServiceBase {
       indexedAccountId,
       deriveType,
       skipDeviceCancel,
+      skipDeviceCancelAtFirst,
       hideCheckingDeviceLoading,
     } = params;
 
@@ -397,6 +399,7 @@ class ServiceAccount extends ServiceBase {
       {
         deviceParams,
         skipDeviceCancel,
+        skipDeviceCancelAtFirst,
         hideCheckingDeviceLoading,
         debugMethodName: 'keyring.prepareAccounts',
       },

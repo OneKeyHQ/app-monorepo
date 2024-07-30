@@ -41,6 +41,7 @@ function ProcessingDialogContent({
     () => Boolean(state && state?.progressCurrent === state?.progressTotal),
     [state],
   );
+  const isError = useMemo(() => Boolean(state && !!state?.error), [state]);
   const [isCancelled, setIsCancelled] = useState(false);
 
   useEffect(() => {
@@ -56,6 +57,7 @@ function ProcessingDialogContent({
     };
   }, []);
 
+  const isFlowEnded = isDone || isCancelled || isError;
   return (
     <Stack>
       <Stack
@@ -78,7 +80,7 @@ function ProcessingDialogContent({
             <Icon name="CheckRadioSolid" size="$12" color="$iconSuccess" />
           ) : null}
 
-          {isCancelled && !isDone ? (
+          {(isCancelled || isError) && !isDone ? (
             <Icon name="XCircleSolid" size="$12" color="$iconCritical" />
           ) : null}
 
@@ -134,19 +136,20 @@ function ProcessingDialogContent({
         showCancelButton={false}
         showConfirmButton
         confirmButtonProps={{
-          variant: isDone || isCancelled ? 'primary' : 'secondary',
+          variant: isFlowEnded ? 'primary' : 'secondary',
         }}
         onConfirmText={
-          isDone || isCancelled
+          isFlowEnded
             ? intl.formatMessage({ id: ETranslations.global_done })
             : intl.formatMessage({ id: ETranslations.global_cancel })
         }
         onConfirm={
-          isDone || isCancelled
-            ? () => {
+          isFlowEnded
+            ? async () => {
                 if (!isCancelled) {
                   navigation?.popStack();
                 }
+                await backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
               }
             : async ({ preventClose }) => {
                 preventClose();
@@ -170,6 +173,12 @@ export function showBatchCreateAccountProcessingDialog({
   Dialog.show({
     showExitButton: false,
     dismissOnOverlayPress: false,
+    onCancel() {
+      void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
+    },
+    onClose() {
+      void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
+    },
     // title: '',
     renderContent: (
       <ProcessingDialogContent
