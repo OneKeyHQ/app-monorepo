@@ -5,6 +5,7 @@ import type {
 
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
+import type { IToken, ITokenFiat } from '../../types/token';
 
 export enum EModalWalletAddressRoutes {
   DeriveTypesAddress = 'DeriveTypesAddress',
@@ -18,6 +19,8 @@ export type IModalWalletAddressParamList = {
     walletId: string;
     accountId: string;
     actionType?: EDeriveAddressActionType;
+    token?: IToken;
+    tokenMap?: Record<string, ITokenFiat>;
     onSelected?: ({
       account,
       deriveInfo,

@@ -7,7 +7,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import type { ITokenSelectorParamList } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
@@ -116,5 +116,7 @@ export type IModalSendParamList = {
       deriveType: IAccountDeriveTypes;
     }) => void;
     onUnmounted?: () => void;
+    tokenMap?: Record<string, ITokenFiat>;
+    token?: IToken;
   };
 };

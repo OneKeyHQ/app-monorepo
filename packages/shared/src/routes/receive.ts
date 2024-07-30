@@ -6,7 +6,7 @@ import type {
 import type { ITokenSelectorParamList } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
-import type { IToken } from '../../types/token';
+import type { IToken, ITokenFiat } from '../../types/token';
 
 export enum EModalReceiveRoutes {
   ReceiveToken = 'ReceiveToken',
@@ -52,5 +52,7 @@ export type IModalReceiveParamList = {
       deriveType: IAccountDeriveTypes;
     }) => void;
     onUnmounted?: () => void;
+    tokenMap?: Record<string, ITokenFiat>;
+    token?: IToken;
   };
 };

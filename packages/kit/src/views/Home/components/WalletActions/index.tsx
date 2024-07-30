@@ -96,6 +96,8 @@ function WalletActionSend() {
               walletId,
               accountId: token.accountId ?? '',
               actionType: EDeriveAddressActionType.Select,
+              token,
+              tokenMap: map,
               onUnmounted: () => {},
               onSelected: ({ account: a }: { account: INetworkAccount }) => {
                 navigation.push(EModalSendRoutes.SendDataInput, {
