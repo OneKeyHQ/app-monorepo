@@ -40,11 +40,13 @@ import { EAddressEncodings, ECoreApiExportedSecretKeyType } from '../../types';
 import { slicePathTemplate } from '../../utils';
 
 import {
+  btcForkVersionBytesToBuffer,
   buildBtcXpubSegwit,
   getAddressFromXpub,
   getBitcoinBip32,
   getBitcoinECPair,
   getBtcForkNetwork,
+  getBtcForkVersionBytesByAddressEncoding,
   getBtcXpubFromXprvt,
   getInputsToSignFromPsbt,
   getPublicKeyFromXpub,
@@ -213,27 +215,20 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
           throw new Error('xpub is required');
         }
         const network = getBtcForkNetwork(networkInfo?.networkChainCode);
-        const networkVersionBytesMap = {
-          ...network.segwitVersionBytes,
-        };
-        if (!networkVersionBytesMap[EAddressEncodings.P2PKH]) {
-          networkVersionBytesMap[EAddressEncodings.P2PKH] = network.bip32;
-        }
-        const bip32Info = networkVersionBytesMap?.[addressEncoding];
-        if (!bip32Info) {
-          throw new Error(`Unsupported address encoding:${addressEncoding}`);
-        }
-        const xprvVersionBytes = bip32Info.private;
+
+        const versionByte = getBtcForkVersionBytesByAddressEncoding({
+          addressEncoding,
+          btcForkNetwork: network,
+        });
+
+        const xprvVersionBytes = versionByte.private;
         if (!xprvVersionBytes) {
           throw new Error('xprvVersionBytes not found');
         }
         return bs58check.encode(
           Buffer.from(bs58check.decode(account.xpub))
             .fill(
-              Buffer.from(
-                xprvVersionBytes.toString(16).padStart(8, '0'),
-                'hex',
-              ),
+              btcForkVersionBytesToBuffer({ versionBytes: xprvVersionBytes }),
               0,
               4,
             )
