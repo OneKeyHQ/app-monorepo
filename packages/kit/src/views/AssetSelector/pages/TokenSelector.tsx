@@ -273,7 +273,7 @@ function TokenSelector() {
   ]);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_select_crypto,
