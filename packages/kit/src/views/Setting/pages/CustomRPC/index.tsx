@@ -14,11 +14,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { TokenIconView } from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -55,8 +55,62 @@ function ListEmptyComponent({
   );
 }
 
-function CustomRPC() {
+function DialogContent({ network }: { network: IServerNetwork }) {
   const [isLoading, setIsLoading] = useState(false);
+  return (
+    <>
+      <Dialog.Header>
+        <NetworkAvatar networkId={network.id} size="$8" />
+        <Dialog.Title>{`Custom ${network.name} RPC URL`}</Dialog.Title>
+      </Dialog.Header>
+      <Dialog.Form
+        formProps={{
+          defaultValues: { rpc: '' },
+        }}
+      >
+        <Dialog.FormField
+          label="RPC URL"
+          name="rpc"
+          rules={{
+            required: {
+              value: true,
+              message: 'Invalid RPC',
+            },
+            validate: (value) => {
+              if (!uriUtils.parseUrl(value)) {
+                return 'Invalid RPC';
+              }
+            },
+          }}
+        >
+          <Input autoFocus flex={1} />
+        </Dialog.FormField>
+      </Dialog.Form>
+      <Dialog.Footer
+        onConfirm={async (values) => {
+          const { serviceCustomRpc } = backgroundApiProxy;
+          setIsLoading(true);
+          const rpcUrl: string = values.getForm()?.getValues('rpc');
+          const networkId = network.id;
+          await serviceCustomRpc.measureRpcStatus({
+            rpcUrl,
+            networkId,
+          });
+          await serviceCustomRpc.addCustomRpc({
+            rpc: rpcUrl,
+            networkId,
+          });
+          setIsLoading(false);
+        }}
+        confirmButtonProps={{
+          loading: isLoading,
+        }}
+      />
+    </>
+  );
+}
+
+function CustomRPC() {
   const { result: customRpcNetworks } = usePromiseResult(
     () => backgroundApiProxy.serviceNetwork.getCustomRpcEnabledNetworks(),
     [],
@@ -67,58 +121,11 @@ function CustomRPC() {
       networkIds: customRpcNetworks?.map((i) => i.id),
       onSelect: (network: IServerNetwork) => {
         Dialog.show({
-          renderContent: (
-            <>
-              <Dialog.Header>
-                <Dialog.Title>{`Custom ${network.name} RPC URL`}</Dialog.Title>
-              </Dialog.Header>
-              <Dialog.Form
-                formProps={{
-                  defaultValues: { rpc: '' },
-                }}
-              >
-                <Dialog.FormField
-                  label="RPC URL"
-                  name="rpc"
-                  rules={{
-                    required: {
-                      value: true,
-                      message: 'Invalid RPC',
-                    },
-                    validate: (value) => {
-                      if (!uriUtils.parseUrl(value)) {
-                        return 'Invalid RPC';
-                      }
-                    },
-                  }}
-                >
-                  <Input autoFocus flex={1} />
-                </Dialog.FormField>
-              </Dialog.Form>
-            </>
-          ),
-          onConfirm: async (values) => {
-            const { serviceCustomRpc } = backgroundApiProxy;
-            setIsLoading(true);
-            const rpcUrl: string = values.getForm()?.getValues('rpc');
-            const networkId = network.id;
-            await serviceCustomRpc.measureRpcStatus({
-              rpcUrl,
-              networkId,
-            });
-            await serviceCustomRpc.addCustomRpc({
-              rpc: rpcUrl,
-              networkId,
-            });
-            setIsLoading(false);
-          },
-          confirmButtonProps: {
-            loading: isLoading,
-          },
+          renderContent: <DialogContent network={network} />,
         });
       },
     });
-  }, [showChainSelector, customRpcNetworks, isLoading]);
+  }, [showChainSelector, customRpcNetworks]);
 
   return (
     <Page>
