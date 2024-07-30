@@ -10,7 +10,7 @@ import {
   Stack,
 } from '@onekeyhq/components';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
@@ -133,7 +133,7 @@ export const EditableChainSelectorContent = ({
     if (testnetItems && testnetItems.length > 0) {
       _sections.push({
         title: intl.formatMessage({
-          id: ETranslationsMock.testnet,
+          id: ETranslations.global_testnet,
         }),
         data: testnetItems,
       });
@@ -141,7 +141,7 @@ export const EditableChainSelectorContent = ({
     if (unavailableItems.length > 0) {
       _sections.push({
         title: intl.formatMessage({
-          id: ETranslationsMock.unavailable_networks_for_selected_account,
+          id: ETranslations.network_selector_unavailable_networks,
         }),
         data: unavailableItems,
         unavailable: true,

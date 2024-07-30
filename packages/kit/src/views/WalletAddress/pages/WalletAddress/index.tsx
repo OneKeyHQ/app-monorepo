@@ -31,7 +31,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useFuseSearch';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalWalletAddressRoutes,
   type IModalWalletAddressParamList,
@@ -248,7 +248,7 @@ const WalletAddressContent = ({
     if (testnetItems.length > 0) {
       _sections.push({
         title: intl.formatMessage({
-          id: ETranslationsMock.testnet,
+          id: ETranslations.global_testnet,
         }),
         data: testnetItems,
       });
