@@ -117,6 +117,17 @@ export function UniversalSearch({
     IUniversalSection[]
   >([]);
 
+  const searchText = useMemo(
+    () =>
+      intl.formatMessage({
+        id:
+          searchType === EUniversalSearchType.MarketToken
+            ? ETranslations.global_search_tokens
+            : ETranslations.global_search,
+      }),
+    [intl, searchType],
+  );
+
   const fetchRecommendList = useCallback(async () => {
     const searchResultSections: {
       title: string;
@@ -333,9 +344,7 @@ export function UniversalSearch({
         <View p="$5" pt={0}>
           <SearchBar
             autoFocus
-            placeholder={intl.formatMessage({
-              id: ETranslations.global_search,
-            })}
+            placeholder={searchText}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
           />
