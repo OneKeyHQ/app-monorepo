@@ -180,7 +180,7 @@ function TokenSelector() {
   ]);
 
   useEffect(() => {
-    const updateTokenList = ({
+    const updateTokenList = async ({
       tokens: tokensFromOut,
       keys,
       map,
@@ -191,9 +191,24 @@ function TokenSelector() {
       map: Record<string, ITokenFiat>;
       merge?: boolean;
     }) => {
+      const mergeDeriveAssetsEnabled = (
+        await backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: tokensFromOut[0].networkId ?? '',
+        })
+      ).mergeDeriveAssetsEnabled;
+
       updateTokenListState({ initialized: true, isRefreshing: false });
-      refreshTokenList({ tokens: tokensFromOut, keys, merge });
-      refreshTokenListMap({ tokens: map, merge });
+      refreshTokenList({
+        tokens: tokensFromOut,
+        keys,
+        merge,
+        mergeDerive: mergeDeriveAssetsEnabled,
+      });
+      refreshTokenListMap({
+        tokens: map,
+        merge,
+        mergeDerive: mergeDeriveAssetsEnabled,
+      });
     };
     appEventBus.on(EAppEventBusNames.TokenListUpdate, updateTokenList);
     return () => {
@@ -258,7 +273,7 @@ function TokenSelector() {
   ]);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_select_crypto,

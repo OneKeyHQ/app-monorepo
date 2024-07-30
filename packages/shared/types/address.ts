@@ -14,6 +14,11 @@ export enum EInputAddressChangeType {
   AccountSelector = 'AccountSelector',
 }
 
+export enum EDeriveAddressActionType {
+  Copy = 'copy',
+  Select = 'select',
+}
+
 // TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
 export type IAddressValidation = {
   isValid: boolean;

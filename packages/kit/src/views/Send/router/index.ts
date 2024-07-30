@@ -42,6 +42,11 @@ const TokenSelector = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AssetSelector/pages/TokenSelector'),
 );
 
+const DeriveTypesAddress = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/WalletAddress/pages/DeriveTypesAddress'),
+);
+
 export const ModalSendStack: IModalFlowNavigatorConfig<
   EModalSendRoutes,
   IModalSendParamList
@@ -81,5 +86,9 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.SendSelectToken,
     component: TokenSelector,
+  },
+  {
+    name: EModalSendRoutes.SendSelectDeriveAddress,
+    component: DeriveTypesAddress,
   },
 ];

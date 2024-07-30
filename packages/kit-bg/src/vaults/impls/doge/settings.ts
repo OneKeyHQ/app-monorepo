@@ -34,6 +34,7 @@ const settings: IVaultSettings = {
   estimatedFeePollingInterval: 60,
 
   dappInteractionEnabled: false,
+  mergeDeriveAssetsEnabled: false,
 };
 
 export default Object.freeze(settings);
