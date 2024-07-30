@@ -117,10 +117,6 @@ function TokenListFooter(props: IProps) {
           </NumberSizeableText>
         </ListItem>
       ) : null}
-
-      {!isSearchMode && smallBalanceTokens.length > 0 ? (
-        <Divider mx="$5" my="$2" />
-      ) : null}
     </Stack>
   );
 }

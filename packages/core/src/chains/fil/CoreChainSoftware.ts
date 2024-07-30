@@ -80,7 +80,7 @@ async function signTransaction(
 
     if (!validateNetworkPrefix(networkPrefix))
       throw new OneKeyInternalError('Invalid filecoin network.');
-    if (parseInt(protocolIndicator) !== EFilProtocolIndicator.SECP256K1)
+    if (parseInt(protocolIndicator, 10) !== EFilProtocolIndicator.SECP256K1)
       throw new OneKeyInternalError('Invalid filecoin protocol indicator.');
 
     const decodedData = Buffer.from(
