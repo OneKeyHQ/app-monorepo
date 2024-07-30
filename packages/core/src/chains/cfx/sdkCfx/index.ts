@@ -25,7 +25,7 @@ export function pubkeyToCfxAddress(
 ): Promise<string> {
   const pubkey = uncompressPubKey.slice(1);
   const ethAddress = ethAddressToCfxAddress(keccak256(pubkey).slice(-40));
-  const networkID = parseInt(chainId);
+  const networkID = parseInt(chainId, 10);
   return Promise.resolve(toCfxAddress(ethAddress, networkID));
 }
 
