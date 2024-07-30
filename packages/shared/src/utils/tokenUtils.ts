@@ -133,7 +133,6 @@ export function mergeDeriveTokenListMap({
   mergeDeriveAssets?: boolean;
 }) {
   if (mergeDeriveAssets) {
-    console.log('sourceMap', sourceMap);
     forEach(sourceMap, (value, key) => {
       const keyArr = key.split('_');
       const groupDeriveKey = `${keyArr[0]}_${keyArr[keyArr.length - 1]}`;
