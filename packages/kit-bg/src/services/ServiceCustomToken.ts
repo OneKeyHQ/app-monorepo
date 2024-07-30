@@ -1,12 +1,15 @@
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountToken,
   IFetchTokenDetailItem,
 } from '@onekeyhq/shared/types/token';
+
+import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
@@ -127,6 +130,29 @@ class ServiceCustomToken extends ServiceBase {
       },
     );
     return response.data.data ?? [];
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async activateToken({
+    accountId,
+    networkId,
+    token,
+  }: {
+    accountId: string;
+    networkId: string;
+    token: IAccountToken;
+  }): Promise<boolean> {
+    const vaultSetting =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    if (!vaultSetting.activateTokenRequired) return true;
+    const vault = await vaultFactory.getVault({
+      accountId,
+      networkId,
+    });
+    return vault.activateToken({
+      token,
+    });
   }
 }
 

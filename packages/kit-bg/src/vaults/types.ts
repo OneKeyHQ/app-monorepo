@@ -210,6 +210,8 @@ export type IVaultSettings = {
   };
 
   preCheckDappTxFeeInfoRequired?: boolean;
+
+  activateTokenRequired?: boolean;
 };
 
 export type IVaultFactoryOptions = {

@@ -49,6 +49,7 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   transferZeroNativeTokenEnabled: true,
   estimatedFeePollingInterval: 120,
+  activateTokenRequired: true,
 
   accountDeriveInfo,
   networkInfo: {
