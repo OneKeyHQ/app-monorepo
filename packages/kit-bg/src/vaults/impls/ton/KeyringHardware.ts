@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { genAddressFromPublicKey } from '@onekeyhq/core/src/chains/ton/sdkTon';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  ICoreApiGetAddressItem,
+  ISignedMessagePro,
+  ISignedTxPro,
+} from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
@@ -15,10 +20,75 @@ import type {
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.ton.hd;
 
-  override prepareAccounts(
+  override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    throw new NotImplemented();
+    const { deriveInfo } = params;
+    // const chainId = await this.getNetworkChainId();
+
+    return this.basePrepareHdNormalAccounts(params, {
+      buildAddressesInfo: async ({ usedIndexes }) => {
+        const publicKeys = await this.baseGetDeviceAccountAddresses({
+          params,
+          usedIndexes,
+          sdkGetAddressFn: async ({
+            connectId,
+            deviceId,
+            pathPrefix,
+            pathSuffix,
+            showOnOnekeyFn,
+          }) => {
+            // const sdk = await this.getHardwareSDKInstance();
+
+            // const response = await sdk.aptosGetAddress(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams,
+            //   bundle: usedIndexes.map((index, arrIndex) => ({
+            //     path: `${pathPrefix}/${pathSuffix.replace(
+            //       '{index}',
+            //       `${index}`,
+            //     )}`,
+            //     showOnOneKey: showOnOnekeyFn(arrIndex),
+            //     chainId: Number(chainId),
+            //   })),
+            // });
+            // return response;
+
+            console.log('ton-getAddress', { connectId, deviceId });
+            return {
+              'event': 'RESPONSE_EVENT',
+              'type': 'RESPONSE_EVENT',
+              'id': 3,
+              'success': true,
+              'payload': [
+                {
+                  'path': "m/44'/607'/0'/0'/0'/0'",
+                  'publicKey':
+                    '899f2de9fb2472a17520575be94b2e6754bea1de95f0a79e5dfe9008c5898c2e',
+                  'address': 'UQDuFJXD0qeh7XRgHIIshHVH7uh-IeF9v_f8Id4LqwoTXffI',
+                },
+              ],
+            };
+          },
+        });
+
+        const ret: ICoreApiGetAddressItem[] = [];
+        for (let i = 0; i < publicKeys.length; i += 1) {
+          const item = publicKeys[i];
+          const { path, publicKey } = item;
+          const addr = await genAddressFromPublicKey(
+            publicKey,
+            deriveInfo.addressEncoding as 'v4R2',
+          );
+          const addressInfo: ICoreApiGetAddressItem = {
+            address: addr.nonBounceAddress,
+            path,
+            publicKey: publicKey || '',
+          };
+          ret.push(addressInfo);
+        }
+        return ret;
+      },
+    });
   }
 
   override signTransaction(

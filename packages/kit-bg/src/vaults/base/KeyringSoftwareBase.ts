@@ -218,6 +218,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       await this.coreApi.getAddressFromPrivate({
         networkInfo,
         privateKeyRaw,
+        addressEncoding: params.deriveInfo?.addressEncoding,
       });
 
     let addressUsed = '';
@@ -234,6 +235,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       coinType,
       pub: publicKey,
       address: addressUsed,
+      addressEncoding: params.deriveInfo?.addressEncoding,
     });
     return Promise.resolve([
       {
