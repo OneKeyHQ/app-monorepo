@@ -6,22 +6,30 @@ import {
   useState,
 } from 'react';
 
+import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Icon,
   ListView,
+  NumberSizeableText,
   Page,
   Spinner,
   Stack,
   Toast,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type {
+  IDBAccount,
+  IDBUtxoAccount,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -34,13 +42,32 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 const DeriveTypesAddressContent = createContext<{
   network?: IServerNetwork;
   refreshLocalData?: () => void;
   walletId: string;
   indexedAccountId: string;
-}>({ walletId: '', indexedAccountId: '' });
+  actionType?: EDeriveAddressActionType;
+  onSelected?: ({
+    account,
+    deriveInfo,
+    deriveType,
+  }: {
+    account: INetworkAccount;
+    deriveInfo: IAccountDeriveInfo;
+    deriveType: IAccountDeriveTypes;
+  }) => void;
+  token?: IToken;
+  tokenMap?: Record<string, ITokenFiat>;
+}>({
+  walletId: '',
+  indexedAccountId: '',
+  actionType: EDeriveAddressActionType.Copy,
+  tokenMap: {},
+});
 
 type IDeriveTypesAddressItemType = {
   account?: INetworkAccount;
@@ -56,9 +83,29 @@ const DeriveTypesAddressItem = ({
   const intl = useIntl();
   const copyAccountAddress = useCopyAccountAddress();
   const [loading, setLoading] = useState(false);
-  const { network, refreshLocalData, walletId, indexedAccountId } = useContext(
-    DeriveTypesAddressContent,
-  );
+  const {
+    network,
+    refreshLocalData,
+    walletId,
+    indexedAccountId,
+    actionType,
+    onSelected,
+    token,
+    tokenMap,
+  } = useContext(DeriveTypesAddressContent);
+
+  const [settings] = useSettingsPersistAtom();
+  let tokenFiat: ITokenFiat | undefined;
+
+  if (tokenMap) {
+    tokenFiat = find(
+      tokenMap,
+      (_, key) =>
+        key.includes((item.account as IDBUtxoAccount)?.xpub ?? '') ||
+        key.includes(item.account?.address ?? ''),
+    );
+  }
+
   const subtitle = item.account
     ? accountUtils.shortenAddress({ address: item.account.address })
     : intl.formatMessage({ id: ETranslations.wallet_no_address });
@@ -68,11 +115,20 @@ const DeriveTypesAddressItem = ({
       if (!network) {
         throw new Error('network is empty');
       }
-      await copyAccountAddress({
-        accountId: item.account.id,
-        networkId: network.id,
-        deriveType: item.deriveType,
-      });
+
+      if (actionType === EDeriveAddressActionType.Copy) {
+        await copyAccountAddress({
+          accountId: item.account.id,
+          networkId: network.id,
+          deriveType: item.deriveType,
+        });
+      } else if (actionType === EDeriveAddressActionType.Select) {
+        onSelected?.({
+          account: item.account,
+          deriveInfo: item.deriveInfo,
+          deriveType: item.deriveType,
+        });
+      }
     } else {
       try {
         setLoading(true);
@@ -94,13 +150,17 @@ const DeriveTypesAddressItem = ({
       }
     }
   }, [
-    item,
-    copyAccountAddress,
-    refreshLocalData,
-    indexedAccountId,
+    item.account,
+    item.deriveType,
+    item.deriveInfo,
     network,
+    actionType,
+    copyAccountAddress,
+    onSelected,
     walletId,
+    indexedAccountId,
     intl,
+    refreshLocalData,
   ]);
   return (
     <ListItem
@@ -116,12 +176,35 @@ const DeriveTypesAddressItem = ({
         <Stack p="$0.5">
           <Spinner />
         </Stack>
-      ) : (
+      ) : null}
+      {!loading && actionType === EDeriveAddressActionType.Copy ? (
         <Icon
           name={item.account ? 'Copy3Outline' : 'PlusLargeOutline'}
           color="$iconSubdued"
         />
-      )}
+      ) : null}
+      {!loading && actionType === EDeriveAddressActionType.Select ? (
+        <YStack>
+          <NumberSizeableText
+            formatter="balance"
+            formatterOptions={{ tokenSymbol: token?.symbol }}
+            numberOfLines={1}
+            textAlign="right"
+            size="$bodyLgMedium"
+          >
+            {tokenFiat?.balanceParsed ?? 0}
+          </NumberSizeableText>
+          <NumberSizeableText
+            formatter="value"
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            size="$bodyMd"
+            color="$textSubdued"
+            textAlign="right"
+          >
+            {tokenFiat?.fiatValue ?? 0}
+          </NumberSizeableText>
+        </YStack>
+      ) : null}
     </ListItem>
   );
 };
@@ -151,7 +234,16 @@ export default function DeriveTypesAddressPage({
   EModalWalletAddressRoutes.DeriveTypesAddress
 >) {
   const intl = useIntl();
-  const { indexedAccountId, networkId, walletId, onUnmounted } = route.params;
+  const {
+    indexedAccountId,
+    networkId,
+    walletId,
+    actionType,
+    onUnmounted,
+    onSelected,
+    token,
+    tokenMap,
+  } = route.params;
   const { result, run: refreshLocalData } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
@@ -168,8 +260,21 @@ export default function DeriveTypesAddressPage({
       refreshLocalData,
       walletId,
       indexedAccountId,
+      actionType,
+      onSelected,
+      tokenMap,
+      token,
     }),
-    [result?.network, refreshLocalData, walletId, indexedAccountId],
+    [
+      result?.network,
+      refreshLocalData,
+      walletId,
+      indexedAccountId,
+      actionType,
+      onSelected,
+      tokenMap,
+      token,
+    ],
   );
   return (
     <DeriveTypesAddressContent.Provider value={context}>
