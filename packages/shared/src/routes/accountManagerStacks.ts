@@ -29,6 +29,7 @@ export type IAccountManagerStacksParamList = {
   [EAccountManagerStacksRoutes.ExportPrivateKeysPage]: IExportAccountSecretKeysRouteParams;
   [EAccountManagerStacksRoutes.BatchCreateAccountForm]: {
     walletId: string;
+    networkId: string | undefined;
   };
   [EAccountManagerStacksRoutes.BatchCreateAccountPreview]: {
     walletId: string;
