@@ -103,6 +103,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       }),
   );
   const isOthersUniversal = isOthers || isOthersWallet;
+  // const isOthersUniversal = true;
 
   const handleImportWatchingAccount = useCallback(() => {
     navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -143,7 +144,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
           let device: IDBDevice | undefined;
           if (isHw) {
-            device = await serviceAccount.getWalletDevice({
+            device = await serviceAccount.getWalletDeviceSafe({
               walletId: selectedAccount?.focusedWallet,
             });
           }
@@ -250,7 +251,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   const initialScrollIndex = useMemo(() => {
     if (sectionData?.[0]?.data) {
       const itemIndex = sectionData[0].data?.findIndex(({ id }) =>
-        isOthersWallet
+        isOthersUniversal
           ? selectedAccount.othersWalletAccountId === id
           : selectedAccount.indexedAccountId === id,
       );
@@ -263,7 +264,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       return { sectionIndex: 0, itemIndex: Math.max(itemIndex, 0) };
     }
   }, [
-    isOthersWallet,
+    isOthersUniversal,
     listViewLayout.height,
     sectionData,
     selectedAccount.indexedAccountId,
