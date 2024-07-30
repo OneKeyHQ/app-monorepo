@@ -683,8 +683,8 @@ export function getAddressFromXpub({
       }
 
       const index = part.endsWith("'")
-        ? parseInt(part.slice(0, -1)) + 2 ** 31
-        : parseInt(part);
+        ? parseInt(part.slice(0, -1), 10) + 2 ** 31
+        : parseInt(part, 10);
       extendedKey = CKDPub(curve, extendedKey, index);
       cache.set(relPath, extendedKey);
     }
