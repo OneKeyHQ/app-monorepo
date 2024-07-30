@@ -9,6 +9,7 @@ import {
   ListView,
   Page,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -60,7 +61,9 @@ function DialogContent({ network }: { network: IServerNetwork }) {
   return (
     <>
       <Dialog.Header>
-        <NetworkAvatar networkId={network.id} size="$8" />
+        <Stack mb="$5">
+          <NetworkAvatar networkId={network.id} size="$8" />
+        </Stack>
         <Dialog.Title>{`Custom ${network.name} RPC URL`}</Dialog.Title>
       </Dialog.Header>
       <Dialog.Form
