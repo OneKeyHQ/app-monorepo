@@ -38,6 +38,9 @@ export type ICoreApiGetAddressesQueryHdEvm = ICoreApiGetAddressesQueryHdBase;
 export type ICoreApiGetAddressesQueryHdBtc = ICoreApiGetAddressesQueryHdBase & {
   addressEncoding: EAddressEncodings;
 };
+export type ICoreApiGetAddressesQueryHdTon = ICoreApiGetAddressesQueryHdBase & {
+  addressEncoding: EAddressEncodings;
+};
 
 export type ICoreApiGetAddressesQueryHd =
   | ICoreApiGetAddressesQueryHdBase

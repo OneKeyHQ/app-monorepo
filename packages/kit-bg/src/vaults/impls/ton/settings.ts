@@ -1,20 +1,57 @@
+import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_TON,
   IMPL_TON,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
-import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveInfoMapBase,
+  IVaultSettings,
+} from '../../types';
 
-const accountDeriveInfo: IAccountDeriveInfoMapBase = {
-  default: {
+export type IAccountDeriveInfoMapTon = IAccountDeriveInfoMapBase & {
+  default: IAccountDeriveInfo;
+  v3R1: IAccountDeriveInfo;
+  v4R1: IAccountDeriveInfo;
+  v4R2: IAccountDeriveInfo;
+};
+
+const accountDeriveInfo: IAccountDeriveInfoMapTon = {
+  v3R1: {
     namePrefix: '',
-    labelKey: ETranslations.bip44__standard,
+    label: EAddressEncodings.V3R1,
     template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
     coinType: COINTYPE_TON,
+    addressEncoding: EAddressEncodings.V3R1,
+    idSuffix: EAddressEncodings.V3R1,
+  },
+  default: {
+    namePrefix: '',
+    label: EAddressEncodings.V3R2,
+    template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
+    coinType: COINTYPE_TON,
+    addressEncoding: EAddressEncodings.V3R2,
+    idSuffix: EAddressEncodings.V3R2,
+  },
+  v4R1: {
+    namePrefix: '',
+    label: EAddressEncodings.V4R1,
+    template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
+    coinType: COINTYPE_TON,
+    addressEncoding: EAddressEncodings.V4R1,
+    idSuffix: EAddressEncodings.V4R1,
+  },
+  v4R2: {
+    namePrefix: '',
+    label: EAddressEncodings.V4R2,
+    template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
+    coinType: COINTYPE_TON,
+    addressEncoding: EAddressEncodings.V4R2,
+    idSuffix: EAddressEncodings.V4R2,
   },
 };
 

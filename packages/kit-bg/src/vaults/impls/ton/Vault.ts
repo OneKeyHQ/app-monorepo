@@ -2,6 +2,7 @@
 import TonWeb from 'tonweb';
 
 import { genAddressFromAddress } from '@onekeyhq/core/src/chains/ton/sdkTon';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import type {
@@ -21,6 +22,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -36,6 +38,8 @@ import type {
 } from '../../types';
 
 export default class Vault extends VaultBase {
+  override coreApi = coreChainApi.ton.hd;
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: undefined, // KeyringQr,
@@ -99,29 +103,35 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new NotImplemented();
+  override async validateXpub(xpub: string): Promise<IXpubValidation> {
+    return {
+      isValid: false,
+    };
   }
 
   override getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    throw new NotImplemented();
+    return this.baseGetPrivateKeyFromImported(params);
   }
 
-  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    throw new NotImplemented();
+  override async validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+    return {
+      isValid: false,
+    };
   }
 
   override validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    throw new NotImplemented();
+    return this.baseValidatePrivateKey(privateKey);
   }
 
-  override validateGeneralInput(
+  override async validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
-    throw new NotImplemented();
+    const { result } = await this.baseValidateGeneralInput(params);
+    result.deriveInfoItems = Object.values(settings.accountDeriveInfo);
+    return result;
   }
 }

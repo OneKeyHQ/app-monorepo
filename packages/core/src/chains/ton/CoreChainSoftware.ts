@@ -10,9 +10,9 @@ import { genAddressFromPublicKey } from './sdkTon';
 
 import type {
   ICoreApiGetAddressItem,
-  ICoreApiGetAddressQueryImported,
+  ICoreApiGetAddressQueryImportedTon,
   ICoreApiGetAddressQueryPublicKey,
-  ICoreApiGetAddressesQueryHd,
+  ICoreApiGetAddressesQueryHdTon,
   ICoreApiGetAddressesResult,
   ICoreApiGetExportedSecretKey,
   ICoreApiPrivateKeysMap,
@@ -36,7 +36,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    // throw new NotImplemented();;
     return this.baseGetPrivateKeys({
       payload,
       curve,
@@ -79,46 +78,35 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async getAddressFromPrivate(
-    query: ICoreApiGetAddressQueryImported,
+    query: ICoreApiGetAddressQueryImportedTon,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new NotImplemented();;
     const { privateKeyRaw } = query;
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
     const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
     return this.getAddressFromPublic({
       publicKey: bufferUtils.bytesToHex(pub),
       networkInfo: query.networkInfo,
+      addressEncoding: query.addressEncoding,
     });
   }
 
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    const { publicKey } = query;
-    const addr = await genAddressFromPublicKey(publicKey, 'v3R1');
-    const versions: Array<keyof typeof TonWeb.Wallets.all> = [
-      'v3R1',
-      'v3R2',
-      'v4R1',
-      'v4R2',
-    ];
-    const addresses: Record<keyof typeof TonWeb.Wallets.all | string, string> =
-      {};
-    await Promise.all(
-      versions.map(async (version) => {
-        const genAddr = await genAddressFromPublicKey(publicKey, version);
-        addresses[version] = genAddr.nonBounceAddress;
-      }),
+    const { publicKey, addressEncoding } = query;
+    const addr = await genAddressFromPublicKey(
+      publicKey,
+      addressEncoding as keyof typeof TonWeb.Wallets.all,
     );
     return {
-      address: addr.normalAddress,
+      address: addr.nonBounceAddress,
       publicKey,
-      addresses,
+      addresses: {},
     };
   }
 
   override async getAddressesFromHd(
-    query: ICoreApiGetAddressesQueryHd,
+    query: ICoreApiGetAddressesQueryHdTon,
   ): Promise<ICoreApiGetAddressesResult> {
     const { addresses } = await this.baseGetAddressesFromHd(query, {
       curve,
@@ -128,6 +116,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         const addrInfo = await this.getAddressFromPublic({
           publicKey: item.publicKey,
           networkInfo: query.networkInfo,
+          addressEncoding: query.addressEncoding,
         });
         Object.assign(item, addrInfo);
       }),
