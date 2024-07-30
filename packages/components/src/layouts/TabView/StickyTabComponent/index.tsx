@@ -53,6 +53,7 @@ export const TabComponent = (
     contentWidth,
     onSelectedPageIndex,
     shouldSelectedPageIndex,
+    tabContentContainerStyle,
     ...props
   }: ITabProps,
   // fix missing forwardRef warnings.
@@ -165,7 +166,12 @@ export const TabComponent = (
             pageManager?.contentView?.current?.scrollPageIndex(pageIndex);
           }}
         />
-        <Stack ref={pageContainerRef} w={contentWidth} h={contentHeight}>
+        <Stack
+          ref={pageContainerRef}
+          w={contentWidth}
+          h={contentHeight}
+          {...tabContentContainerStyle}
+        >
           <Content
             windowSize={5}
             scrollEnabled={platformEnv.isNative}

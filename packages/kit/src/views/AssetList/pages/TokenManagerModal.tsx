@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   IconButton,
   Page,
   SearchBar,
@@ -158,21 +159,18 @@ function TokenManagerModal() {
   const headerRight = useCallback(
     () =>
       isSearchMode ? null : (
-        <IconButton
-          variant="tertiary"
-          icon="PlusCircleOutline"
-          onPress={() => onAddCustomToken()}
-          title={intl.formatMessage({
-            id: ETranslations.manage_token_custom_token_title,
+        <Button variant="tertiary" onPress={() => onAddCustomToken()}>
+          {intl.formatMessage({
+            id: ETranslations.content__custom,
           })}
-        />
+        </Button>
       ),
     [intl, isSearchMode, onAddCustomToken],
   );
 
   return (
     <Page
-      safeAreaEnabled
+      safeAreaEnabled={false}
       onClose={() => {
         if (isEditRef.current) {
           appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
@@ -186,7 +184,7 @@ function TokenManagerModal() {
         headerRight={headerRight}
       />
       <Page.Body>
-        <Stack px="$5">
+        <Stack px="$5" pb="$4">
           <SearchBar
             placeholder={intl.formatMessage({
               id: ETranslations.token_selector_search_placeholder,

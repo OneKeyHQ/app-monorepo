@@ -21,6 +21,7 @@ function NFTListHeader(props: IProps) {
   const { updateSearchKey } = useNFTListActions().current;
   return (
     <ListToolToolBar
+      px="$2.5"
       searchProps={{
         onChangeText: debounce(
           (text) => updateSearchKey(text),

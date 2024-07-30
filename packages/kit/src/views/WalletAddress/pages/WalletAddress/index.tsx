@@ -22,6 +22,7 @@ import {
   Spinner,
   Stack,
   Toast,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -232,6 +233,7 @@ const WalletAddressContent = ({
 }) => {
   const intl = useIntl();
   const [searchText, setSearchText] = useState('');
+  const { bottom } = useSafeAreaInsets();
 
   const networkFuseSearch = useFuseSearch(mainnetItems);
   const sections = useMemo<ISectionItem[]>(() => {
@@ -285,6 +287,8 @@ const WalletAddressContent = ({
       if (item?.section?.title) {
         return <SectionList.SectionHeader title={item?.section?.title} />;
       }
+
+      return <Stack h="$3" />;
     },
     [],
   );
@@ -298,7 +302,7 @@ const WalletAddressContent = ({
 
   return (
     <Stack flex={1}>
-      <Stack px="$5" pb="$4">
+      <Stack px="$5">
         <SearchBar
           placeholder={intl.formatMessage({
             id: ETranslations.form_search_network_placeholder,
@@ -308,7 +312,7 @@ const WalletAddressContent = ({
         />
       </Stack>
       <SectionList
-        pb="$3"
+        stickySectionHeadersEnabled
         sections={sections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}
@@ -318,6 +322,7 @@ const WalletAddressContent = ({
             title={intl.formatMessage({ id: ETranslations.global_no_results })}
           />
         }
+        ListFooterComponent={<Stack h={bottom || '$3'} />}
       />
     </Stack>
   );
@@ -335,7 +340,7 @@ const WalletAddress = ({
   const intl = useIntl();
 
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.copy_address_modal_title,

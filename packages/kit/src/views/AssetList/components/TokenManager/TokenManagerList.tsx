@@ -8,8 +8,10 @@ import {
   SectionList,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TokenIconView } from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
@@ -65,6 +67,7 @@ function ListFooterComponent({
   onAddCustomToken: (token?: ICustomTokenItem) => void;
 }) {
   const intl = useIntl();
+
   if (
     searchValue.length &&
     Array.isArray(searchResult) &&
@@ -147,6 +150,8 @@ function TokenManagerList({
   searchValue: string;
   searchResult: ICustomTokenItem[] | null;
 }) {
+  const { bottom } = useSafeAreaInsets();
+
   if (isLoadingRemoteData || !dataSource) {
     return <SkeletonList />;
   }
@@ -187,28 +192,35 @@ function TokenManagerList({
               {item.name}
             </SizableText>
           </YStack>
-          {checkTokenExistInTokenList(item) && item.isNative ? null : (
-            <ListItem.IconButton
-              icon={
-                checkTokenExistInTokenList(item)
-                  ? 'MinusCircleOutline'
-                  : 'PlusCircleOutline'
-              }
-              onPress={() =>
-                checkTokenExistInTokenList(item)
-                  ? onHiddenToken(item)
-                  : onAddCustomToken(item)
-              }
-            />
-          )}
+          <ListItem.IconButton
+            disabled={!!(checkTokenExistInTokenList(item) && item.isNative)}
+            icon={
+              checkTokenExistInTokenList(item)
+                ? 'MinusCircleOutline'
+                : 'PlusCircleOutline'
+            }
+            onPress={() =>
+              checkTokenExistInTokenList(item)
+                ? onHiddenToken(item)
+                : onAddCustomToken(item)
+            }
+            {...(checkTokenExistInTokenList(item) && {
+              iconProps: {
+                color: '$iconCritical',
+              },
+            })}
+          />
         </ListItem>
       )}
       ListFooterComponent={
-        <ListFooterComponent
-          searchValue={searchValue}
-          searchResult={searchResult}
-          onAddCustomToken={onAddCustomToken}
-        />
+        <>
+          <ListFooterComponent
+            searchValue={searchValue}
+            searchResult={searchResult}
+            onAddCustomToken={onAddCustomToken}
+          />
+          {bottom ? <Stack h={bottom} /> : null}
+        </>
       }
       ListEmptyComponent={
         <ListEmptyComponent

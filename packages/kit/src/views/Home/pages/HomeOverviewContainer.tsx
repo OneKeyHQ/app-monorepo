@@ -180,7 +180,7 @@ function HomeOverviewContainer() {
   );
 
   return (
-    <XStack alignItems="center" space="$2.5">
+    <XStack alignItems="center" space="$3">
       {vaultSettings?.hasFrozenBalance ? (
         <XStack
           flexShrink={1}
@@ -222,7 +222,6 @@ function HomeOverviewContainer() {
             name="InfoCircleOutline"
             size="$4"
             color="$iconSubdued"
-            ml="$-1"
           />
         </XStack>
       ) : (

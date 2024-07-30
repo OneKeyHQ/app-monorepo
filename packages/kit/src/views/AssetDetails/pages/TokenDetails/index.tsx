@@ -161,6 +161,9 @@ export function TokenDetails() {
             data={tabs}
             initialScrollIndex={0}
             showsVerticalScrollIndicator={false}
+            tabContentContainerStyle={{
+              pt: '$5',
+            }}
           />
         );
       }

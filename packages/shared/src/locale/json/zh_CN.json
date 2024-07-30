@@ -1553,7 +1553,7 @@
   "update.hardware_update": "硬件更新",
   "update.hardware_update_requires_bridge": "硬件更新需要最新的 OneKey Bridge 软件，请访问我们的在线教程<url>[下载并更新 OneKey Bridge]</url>以获取详细的安装指南。",
   "update.hardware_wallet_in_bootloader_mode": "您的硬件钱包目前处于 bootloader 模式，这是用于软件更新的模式，您现在想要更新吗？\n如果您不想更新，请手动重启设备以返回正常模式。",
-  "update.hardware_wallet_in_bootloader_mode_restart": "您的硬件钱包目前处于 bootloader 模式，这是用于软件更新的模式。\n检测到设备中已有固件，请先重启设备到正常模式后再连接 App 使用。",
+  "update.hardware_wallet_in_bootloader_mode_restart": "您的硬件钱包目前处于 bootloader 模式，这是用于硬件更新的模式。\n检测到设备中已有固件，请先重启设备到正常模式后再连接 App 使用。",
   "update.i_have_backed_up_my_recovery_phrase": "我已备份了我的助记词",
   "update.i_have_backed_up_my_recovery_phrase_emoji": "我已备份了我的助记词 ✅",
   "update.init_iframe_load_fail": "初始化 iframe 加载失败",
