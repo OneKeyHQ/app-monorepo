@@ -9,7 +9,7 @@ export function buildMarketFullUrl({ coinGeckoId }: { coinGeckoId: string }) {
     platformEnv.isWeb && !platformEnv.isDev
       ? window.location.origin
       : WEB_APP_URL;
-  const path = `/market/market_detail?coinGeckoId=${coinGeckoId}`;
+  const path = `/market/tokens/${coinGeckoId}`;
   return `${origin}${path}`;
 }
 
@@ -25,7 +25,7 @@ export const marketNavigation = {
     navigation.navigate(ETabRoutes.Market, {
       screen: ETabMarketRoutes.MarketDetail,
       params: {
-        coinGeckoId,
+        token: coinGeckoId,
       },
     });
   },

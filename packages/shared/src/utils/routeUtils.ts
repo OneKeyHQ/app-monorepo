@@ -72,7 +72,9 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       if (nextScreenConfig) {
         screenConfig = nextScreenConfig;
       }
-      const screenPath = removeExtraSlash(screen.path);
+      const paths = screen.path.split('/:');
+      const rawPath = removeExtraSlash(paths[0]);
+      const screenPath = paths.length > 1 ? `${rawPath}/.` : rawPath;
       // if the path is rewritten path, the full path will be rewritten.
       return screen.exact ? screenPath : addPath(prev, screenPath);
     }, '');

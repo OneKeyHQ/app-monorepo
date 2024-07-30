@@ -227,8 +227,7 @@ export function UniversalSearch({
                 navigation.pop();
                 setTimeout(async () => {
                   navigation.push(ETabMarketRoutes.MarketDetail, {
-                    coinGeckoId: coingeckoId,
-                    symbol,
+                    token: coingeckoId,
                   });
                   setTimeout(() => {
                     universalSearchActions.current.addIntoRecentSearchList({

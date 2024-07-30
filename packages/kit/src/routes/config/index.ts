@@ -70,6 +70,7 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
     return { prefixes: [routerPrefix] };
   }
   const allowList = buildAllowList(screenHierarchyConfig);
+  const allowListKeys = Object.keys(allowList);
   return {
     enabled: true,
 
@@ -83,12 +84,20 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
      */
     getPathFromState(state, options) {
       const defaultPath = getPathFromStateDefault(state, options);
+      console.log('---defaultPath---allowList', defaultPath, allowList);
       const defaultPathWithoutQuery = (defaultPath.split('?')[0] || '').replace(
         FULL_SCREEN_MODAL_PATH,
         MODAL_PATH,
       );
 
-      const rule = allowList[defaultPathWithoutQuery];
+      let rule = allowList[defaultPathWithoutQuery];
+
+      if (!rule) {
+        const key = allowListKeys.find((k) => new RegExp(k).test(defaultPath));
+        if (key) {
+          rule = allowList[key];
+        }
+      }
 
       if (!rule?.showUrl) {
         return ROOT_PATH;
