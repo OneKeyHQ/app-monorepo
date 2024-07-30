@@ -318,7 +318,9 @@ export const DevSettingsSection = () => {
                         await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts(
                           params,
                         );
-                        backgroundApiProxy.serviceApp.restartApp();
+                        if (platformEnv.isExtension) {
+                          backgroundApiProxy.serviceApp.restartApp();
+                        }
                         Toast.success({
                           title: 'Success',
                         });
