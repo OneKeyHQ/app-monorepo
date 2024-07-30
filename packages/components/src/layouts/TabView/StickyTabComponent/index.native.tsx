@@ -22,6 +22,7 @@ export const TabComponent = (
     initialScrollIndex = 0,
     ListHeaderComponent,
     onSelectedPageIndex,
+    tabContentContainerStyle,
     style,
   }: ITabProps,
   // fix missing forwardRef warnings.
@@ -82,7 +83,12 @@ export const TabComponent = (
   const renderPageContent = useMemo(
     () =>
       data.map((item, index) => (
-        <Stack h="100%" collapsable={false} key={index}>
+        <Stack
+          h="100%"
+          collapsable={false}
+          key={index}
+          {...tabContentContainerStyle}
+        >
           <RefreshingFocusedContainer
             initialFocused={index === initialScrollIndex}
             ref={stickyConfig.data[index].refreshingFocusedRef}
@@ -97,7 +103,7 @@ export const TabComponent = (
           </RefreshingFocusedContainer>
         </Stack>
       )),
-    [data, stickyConfig.data, initialScrollIndex],
+    [data, stickyConfig.data, initialScrollIndex, tabContentContainerStyle],
   );
   const key = useMemo(
     () => `${rawBackgroundColor}${Math.random()}`,

@@ -1553,7 +1553,7 @@
   "update.hardware_update": "Hardware update",
   "update.hardware_update_requires_bridge": "Hardware update requires the latest bridge software. Please visit our online tutorial <url>[Download and update OneKey Bridge]</url> for detailed installation instructions.",
   "update.hardware_wallet_in_bootloader_mode": "Your hardware wallet is in bootloader mode, which is used for software updates. Would you like to update now?\nIf you prefer not to update, please manually restart the device to return to normal mode.",
-  "update.hardware_wallet_in_bootloader_mode_restart": "Your hardware wallet is currently in boot mode, which is used for software updates.\nDetected existing firmware on the device. Please restart the device to normal mode before connecting to the app.",
+  "update.hardware_wallet_in_bootloader_mode_restart": "Your hardware wallet is currently in boot mode, which is used for hardware updates.\nDetected existing firmware on the device. Please restart the device to normal mode before connecting to the app.",
   "update.i_have_backed_up_my_recovery_phrase": "I’ve backed up my recovery phrase.",
   "update.i_have_backed_up_my_recovery_phrase_emoji": "I’ve backed up my recovery phrase. ✅",
   "update.init_iframe_load_fail": "Init iframe load fail",
