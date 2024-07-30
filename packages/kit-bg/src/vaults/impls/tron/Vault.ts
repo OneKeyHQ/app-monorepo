@@ -180,6 +180,7 @@ export default class Vault extends VaultBase {
                         new BigNumber(amount)
                           .shiftedBy(tokenInfo.decimals)
                           .toFixed(),
+                        10,
                       ),
                       from,
                     ],

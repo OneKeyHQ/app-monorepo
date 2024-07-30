@@ -173,7 +173,7 @@ export default class Vault extends VaultBase {
       amount: BigInt(
         new BigNumber(amount).shiftedBy(tokenInfo.decimals).toFixed(),
       ),
-      assetIndex: parseInt(tokenInfo.address),
+      assetIndex: parseInt(tokenInfo.address, 10),
       from,
       to,
       suggestedParams,

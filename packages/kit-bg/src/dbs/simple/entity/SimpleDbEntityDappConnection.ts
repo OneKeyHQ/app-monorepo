@@ -477,7 +477,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     value: string; // hd--0
   }) {
     Object.keys(connectionItem.connectionMap).forEach((i) => {
-      const index = parseInt(i);
+      const index = parseInt(i, 10);
       const item = connectionItem.connectionMap[index];
       if (item[key] === value) {
         this.removeFromNetworkImplMap(connectionItem, item.networkImpl, index);

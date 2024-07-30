@@ -188,7 +188,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const encodeKey = encodePrivateKey(privateKey);
 
-    const index = parseInt(encodeKey.index);
+    const index = parseInt(encodeKey.index, 10);
     const addressInfos = batchGetShelleyAddressByRootKey(
       encodeKey.rootKey,
       [index],

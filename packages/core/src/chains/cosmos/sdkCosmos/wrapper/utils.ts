@@ -229,7 +229,7 @@ export function getGas(signDoc: TransactionWrapper): number {
     if (limit == null) {
       return 0;
     }
-    return parseInt(limit);
+    return parseInt(limit, 10);
   }
 
   const directSignDoc = getDirectSignDoc(signDoc);

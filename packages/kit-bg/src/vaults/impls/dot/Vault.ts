@@ -204,7 +204,7 @@ export default class VaultDot extends VaultBase {
       if (keepAlive) {
         unsigned = methods.assets.transferKeepAlive(
           {
-            id: parseInt(tokenInfo.address),
+            id: parseInt(tokenInfo.address, 10),
             target: to,
             amount: amountValue,
           },
@@ -214,7 +214,7 @@ export default class VaultDot extends VaultBase {
       } else {
         unsigned = methods.assets.transfer(
           {
-            id: parseInt(tokenInfo.address),
+            id: parseInt(tokenInfo.address, 10),
             target: to,
             amount: amountValue,
           },

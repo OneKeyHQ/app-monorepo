@@ -33,7 +33,7 @@ function formatUtxo(entries: IKaspaUTXOResponse[]): IKaspaUnspentOutputInfo[] {
       scriptPubKey: scriptPublicKey.scriptPublicKey,
       scriptPublicKeyVersion: scriptPublicKey.version ?? 0,
       satoshis: +amount,
-      blockDaaScore: parseInt(blockDaaScore),
+      blockDaaScore: parseInt(blockDaaScore, 10),
     };
     result.push(item);
   }

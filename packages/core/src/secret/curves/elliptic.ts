@@ -64,7 +64,7 @@ class EllipticECWrapper implements ICurveForKD {
     return this.curve.keyFromPublic(publicKey).verify(digest, {
       r: signature.slice(0, 32),
       s: signature.slice(32, 64),
-      recoveryParam: parseInt(signature[64].toString()),
+      recoveryParam: parseInt(signature[64].toString(), 10),
     });
   }
 
