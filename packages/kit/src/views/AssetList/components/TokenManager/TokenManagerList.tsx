@@ -192,25 +192,24 @@ function TokenManagerList({
               {item.name}
             </SizableText>
           </YStack>
-          {checkTokenExistInTokenList(item) && item.isNative ? null : (
-            <ListItem.IconButton
-              icon={
-                checkTokenExistInTokenList(item)
-                  ? 'MinusCircleOutline'
-                  : 'PlusCircleOutline'
-              }
-              onPress={() =>
-                checkTokenExistInTokenList(item)
-                  ? onHiddenToken(item)
-                  : onAddCustomToken(item)
-              }
-              {...(checkTokenExistInTokenList(item) && {
-                iconProps: {
-                  color: '$iconCritical',
-                },
-              })}
-            />
-          )}
+          <ListItem.IconButton
+            disabled={!!(checkTokenExistInTokenList(item) && item.isNative)}
+            icon={
+              checkTokenExistInTokenList(item)
+                ? 'MinusCircleOutline'
+                : 'PlusCircleOutline'
+            }
+            onPress={() =>
+              checkTokenExistInTokenList(item)
+                ? onHiddenToken(item)
+                : onAddCustomToken(item)
+            }
+            {...(checkTokenExistInTokenList(item) && {
+              iconProps: {
+                color: '$iconCritical',
+              },
+            })}
+          />
         </ListItem>
       )}
       ListFooterComponent={
