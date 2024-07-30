@@ -28,6 +28,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { NetworkAvatar } from '../../../../components/NetworkAvatar';
+
 function ListHeaderComponent() {
   return (
     <SizableText px="$5" size="$bodyLg" color="$textSubdued">
@@ -61,10 +63,54 @@ function ListEmptyComponent({
   );
 }
 
+function DialogContent({ network }: { network: IServerNetwork }) {
+  const [isLoading, setIsLoading] = useState(false);
+  return (
+    <>
+      <Dialog.Header>
+        <NetworkAvatar networkId={network.id} size="$8" />
+        <Dialog.Title>{`Custom ${network.name} RPC URL`}</Dialog.Title>
+      </Dialog.Header>
+      <Dialog.Form
+        formProps={{
+          defaultValues: { rpc: '' },
+        }}
+      >
+        <Dialog.FormField
+          label="RPC URL"
+          name="rpc"
+          rules={{
+            required: {
+              value: true,
+              message: 'Invalid RPC',
+            },
+            validate: (value) => {
+              if (!uriUtils.parseUrl(value)) {
+                return 'Invalid RPC';
+              }
+            },
+          }}
+        >
+          <Input autoFocus flex={1} />
+        </Dialog.FormField>
+      </Dialog.Form>
+      <Dialog.Footer
+        onConfirm={async (values) => {
+          setIsLoading(true);
+          await timerUtils.wait(2000);
+          console.log('====>>>values: ', values);
+          setIsLoading(false);
+        }}
+        confirmButtonProps={{
+          loading: isLoading,
+        }}
+      />
+    </>
+  );
+}
+
 function CustomRPC() {
   const content = useMemo(() => [], []);
-
-  const [isLoading, setIsLoading] = useState(false);
   const [networkId, setNetworkId] = useState<string>();
   const showChainSelector = useConfigurableChainSelector();
   const { result: customRpcNetworks } = usePromiseResult(
@@ -76,49 +122,11 @@ function CustomRPC() {
       networkIds: customRpcNetworks?.map((i) => i.id),
       onSelect: (network: IServerNetwork) => {
         Dialog.show({
-          renderContent: (
-            <>
-              <Dialog.Header>
-                <Dialog.Title>{`Custom ${network.name} RPC URL`}</Dialog.Title>
-              </Dialog.Header>
-              <Dialog.Form
-                formProps={{
-                  defaultValues: { rpc: '' },
-                }}
-              >
-                <Dialog.FormField
-                  label="RPC URL"
-                  name="rpc"
-                  rules={{
-                    required: {
-                      value: true,
-                      message: 'Invalid RPC',
-                    },
-                    validate: (value) => {
-                      if (!uriUtils.parseUrl(value)) {
-                        return 'Invalid RPC';
-                      }
-                    },
-                  }}
-                >
-                  <Input autoFocus flex={1} />
-                </Dialog.FormField>
-              </Dialog.Form>
-            </>
-          ),
-          onConfirm: async (values) => {
-            setIsLoading(true);
-            await timerUtils.wait(2000);
-            console.log('====>>>values: ', values);
-            setIsLoading(false);
-          },
-          confirmButtonProps: {
-            loading: isLoading,
-          },
+          renderContent: <DialogContent network={network} />,
         });
       },
     });
-  }, [showChainSelector, customRpcNetworks, isLoading]);
+  }, [showChainSelector, customRpcNetworks]);
 
   return (
     <Page>
