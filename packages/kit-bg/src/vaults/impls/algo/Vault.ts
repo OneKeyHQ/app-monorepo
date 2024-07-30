@@ -478,7 +478,7 @@ export default class Vault extends VaultBase {
     const { assets } = await client.accountInformation(dbAccount.address);
 
     for (const { 'asset-id': assetId } of assets) {
-      if (assetId === parseInt(token.address)) {
+      if (assetId === parseInt(token.address, 10)) {
         return Promise.resolve(true);
       }
     }
