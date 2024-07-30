@@ -657,16 +657,17 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   ? '$textCaution'
                   : '$textSubdued',
               }}
-              childrenBefore={
-                editMode ? (
-                  <ListItem.IconButton
-                    mr="$1"
-                    cursor="move"
-                    icon="DragOutline"
-                    onPressIn={drag}
-                  />
-                ) : null
-              }
+              // childrenBefore={
+              //   editMode ? (
+              //     <ListItem.IconButton
+              //       mr="$1"
+              //       ml="$.5"
+              //       cursor="move"
+              //       icon="DragOutline"
+              //       onPressIn={drag}
+              //     />
+              //   ) : null
+              // }
               {...(!editMode && {
                 onPress: async () => {
                   // show CreateAddress Button here, disabled confirmAccountSelect()
