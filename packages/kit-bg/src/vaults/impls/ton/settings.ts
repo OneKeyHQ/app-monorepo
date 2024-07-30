@@ -14,44 +14,25 @@ import type {
 } from '../../types';
 
 export type IAccountDeriveInfoMapTon = IAccountDeriveInfoMapBase & {
-  default: IAccountDeriveInfo;
-  v3R1: IAccountDeriveInfo;
-  v4R1: IAccountDeriveInfo;
-  v4R2: IAccountDeriveInfo;
+  v3R2?: IAccountDeriveInfo;
 };
 
 const accountDeriveInfo: IAccountDeriveInfoMapTon = {
-  v3R1: {
-    namePrefix: '',
-    label: EAddressEncodings.V3R1,
-    template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
-    coinType: COINTYPE_TON,
-    addressEncoding: EAddressEncodings.V3R1,
-    idSuffix: EAddressEncodings.V3R1,
-  },
   default: {
-    namePrefix: '',
-    label: EAddressEncodings.V3R2,
-    template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
-    coinType: COINTYPE_TON,
-    addressEncoding: EAddressEncodings.V3R2,
-    idSuffix: EAddressEncodings.V3R2,
-  },
-  v4R1: {
-    namePrefix: '',
-    label: EAddressEncodings.V4R1,
-    template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
-    coinType: COINTYPE_TON,
-    addressEncoding: EAddressEncodings.V4R1,
-    idSuffix: EAddressEncodings.V4R1,
-  },
-  v4R2: {
     namePrefix: '',
     label: EAddressEncodings.V4R2,
     template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
     coinType: COINTYPE_TON,
     addressEncoding: EAddressEncodings.V4R2,
     idSuffix: EAddressEncodings.V4R2,
+  },
+  v3R2: {
+    namePrefix: '',
+    label: EAddressEncodings.V3R2,
+    template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
+    coinType: COINTYPE_TON,
+    addressEncoding: EAddressEncodings.V3R2,
+    idSuffix: EAddressEncodings.V3R2,
   },
 };
 
