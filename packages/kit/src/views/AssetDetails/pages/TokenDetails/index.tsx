@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import type { IActionListSection } from '@onekeyhq/components';
 import {
   ActionList,
-  Alert,
   Divider,
   NumberSizeableText,
   Page,
@@ -78,11 +77,9 @@ export function TokenDetails() {
     deriveInfo,
     deriveType,
     tokenInfo,
-    isBlocked: tokenIsBlocked,
     isAllNetworks,
   } = route.params;
 
-  const [isBlocked, setIsBlocked] = useState(!!tokenIsBlocked);
   const [initialized, setInitialized] = useState(false);
 
   const { network, wallet } = useAccountData({
@@ -217,21 +214,6 @@ export function TokenDetails() {
     });
   }, [accountId, navigation, networkId, tokenDetails?.info, tokenInfo]);
 
-  const handleToggleBlockedToken = useCallback(async () => {
-    setIsBlocked(!isBlocked);
-    if (isBlocked) {
-      await backgroundApiProxy.serviceToken.unblockToken({
-        networkId,
-        tokenId: tokenInfo.address,
-      });
-    } else {
-      await backgroundApiProxy.serviceToken.blockToken({
-        networkId,
-        tokenId: tokenInfo.address,
-      });
-    }
-  }, [isBlocked, networkId, tokenInfo.address]);
-
   const headerRight = useCallback(() => {
     const sections: IActionListSection[] = [];
 
@@ -263,20 +245,6 @@ export function TokenDetails() {
       }
     }
 
-    if (!tokenInfo.isNative) {
-      sections.push({
-        items: [
-          {
-            label: isBlocked
-              ? intl.formatMessage({ id: ETranslations.global_unhide })
-              : intl.formatMessage({ id: ETranslations.global_hide }),
-            icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
-            onPress: handleToggleBlockedToken,
-          },
-        ],
-      });
-    }
-
     return isEmpty(sections) ? null : (
       <ActionList
         title={intl.formatMessage({ id: ETranslations.global_more })}
@@ -284,15 +252,7 @@ export function TokenDetails() {
         sections={sections}
       />
     );
-  }, [
-    copyText,
-    handleToggleBlockedToken,
-    intl,
-    isBlocked,
-    network,
-    tokenInfo.address,
-    tokenInfo.isNative,
-  ]);
+  }, [copyText, intl, network, tokenInfo.address, tokenInfo.isNative]);
   //   if (!tokenInfo.address) return null;
   //   return (
   //     <XGroup
@@ -412,24 +372,6 @@ export function TokenDetails() {
             onPressHistory={handleHistoryItemPress}
             ListHeaderComponent={
               <>
-                {isBlocked ? (
-                  <Alert
-                    icon="EyeOffOutline"
-                    fullBleed
-                    type="warning"
-                    title={intl.formatMessage({
-                      id: ETranslations.token_hidden_message,
-                    })}
-                    action={{
-                      primary: intl.formatMessage({
-                        id: ETranslations.global_unhide,
-                      }),
-                      onPrimaryPress: handleToggleBlockedToken,
-                    }}
-                    mb="$5"
-                  />
-                ) : null}
-
                 {/* Overview */}
                 <Stack px="$5" pb="$5">
                   {/* Balance */}
