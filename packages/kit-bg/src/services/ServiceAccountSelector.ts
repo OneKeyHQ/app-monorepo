@@ -11,6 +11,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
@@ -24,7 +25,6 @@ import { settingsAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
-import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import type {
   IDBAccount,
   IDBDevice,

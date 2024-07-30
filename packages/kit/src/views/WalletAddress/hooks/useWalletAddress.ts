@@ -13,8 +13,7 @@ export const useWalletAddress = ({
 }: {
   activeAccount: IAccountSelectorActiveAccountInfo;
 }) => {
-  const { account, indexedAccount, wallet, network } =
-    activeAccount;
+  const { account, indexedAccount, wallet, network } = activeAccount;
   const activeAccountRef = useRef(activeAccount);
   activeAccountRef.current = activeAccount;
 

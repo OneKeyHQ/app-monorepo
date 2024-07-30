@@ -68,6 +68,11 @@ import {
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
 
 import type {
+  IPromiseContainerCallbackCreate,
+  IPromiseContainerReject,
+  IPromiseContainerResolve,
+} from '../ServicePromise';
+import type {
   CoreApi,
   Success as CoreSuccess,
   DeviceUploadResourceParams,
@@ -75,11 +80,6 @@ import type {
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
-import type {
-  IPromiseContainerCallbackCreate,
-  IPromiseContainerReject,
-  IPromiseContainerResolve,
-} from '../ServicePromise';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
