@@ -27,6 +27,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { TokenManagerList } from '../components/TokenManager/TokenManagerList';
+import {
+  useAccountInfoForManageToken,
+  useCheckAccountExist,
+} from '../hooks/useAddToken';
 import { useTokenManagement } from '../hooks/useTokenManagement';
 import { useTokenSearch } from '../hooks/useTokenSearch';
 
@@ -109,12 +113,21 @@ function TokenManagerModal() {
     ],
   );
 
+  const { findAccountInfoForNetwork } = useAccountInfoForManageToken();
   const onHiddenToken = useCallback(
     async (token: IAccountToken) => {
+      const { accountIdForNetwork } = await findAccountInfoForNetwork({
+        accountId,
+        networkId,
+        isOthersWallet,
+        indexedAccountId,
+        deriveType,
+        selectedNetworkId: token.networkId ?? networkId,
+      });
       await backgroundApiProxy.serviceCustomToken.hideToken({
         token: {
           ...token,
-          accountId: token.accountId ?? accountId ?? '',
+          accountId: accountIdForNetwork,
           networkId: token.networkId ?? networkId,
           allNetworkAccountId: isAllNetwork ? accountId : undefined,
         },
@@ -129,7 +142,17 @@ function TokenManagerModal() {
         });
       }, 200);
     },
-    [refreshTokenLists, accountId, networkId, intl, isAllNetwork],
+    [
+      refreshTokenLists,
+      accountId,
+      networkId,
+      isOthersWallet,
+      indexedAccountId,
+      deriveType,
+      intl,
+      isAllNetwork,
+      findAccountInfoForNetwork,
+    ],
   );
 
   const headerRight = useCallback(
@@ -151,7 +174,7 @@ function TokenManagerModal() {
     <Page
       safeAreaEnabled
       onClose={() => {
-        if (isEditRef.current && networkId !== getNetworkIdsMap().onekeyall) {
+        if (isEditRef.current) {
           appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
         }
       }}
