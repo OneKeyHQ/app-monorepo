@@ -42,15 +42,16 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 type IWalletAddressContext = {
   networkAccountMap: Record<string, INetworkAccount>;
+  networkDeriveTypeMap: Record<string, IAccountDeriveTypes>;
   accountId?: string;
   indexedAccountId: string;
   walletId: string;
-  deriveType?: IAccountDeriveTypes;
   refreshLocalData: () => void;
 };
 
 const WalletAddressContext = createContext<IWalletAddressContext>({
   networkAccountMap: {},
+  networkDeriveTypeMap: {},
   accountId: '',
   indexedAccountId: '',
   walletId: '',
@@ -130,11 +131,12 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
   const copyAccountAddress = useCopyAccountAddress();
   const {
     networkAccountMap,
+    networkDeriveTypeMap,
     walletId,
     indexedAccountId,
-    deriveType,
     refreshLocalData,
   } = useContext(WalletAddressContext);
+  const deriveType = networkDeriveTypeMap[item.id] || 'default';
   const account = networkAccountMap[item.id] as INetworkAccount | undefined;
   const subtitle = account
     ? accountUtils.shortenAddress({ address: account.address })
@@ -143,9 +145,6 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
       });
 
   const onPress = useCallback(async () => {
-    if (!deriveType) {
-      throw Error('deriveType must not be empty');
-    }
     if (account) {
       await copyAccountAddress({
         accountId: account.id,
@@ -342,7 +341,7 @@ export default function WalletAddressPage({
   IModalWalletAddressParamList,
   EModalWalletAddressRoutes.WalletAddress
 >) {
-  const { accountId, indexedAccountId, walletId, deriveType } = route.params;
+  const { accountId, indexedAccountId, walletId } = route.params;
   const { result, run: refreshLocalData } = usePromiseResult(
     async () => {
       const networks =
@@ -379,17 +378,20 @@ export default function WalletAddressPage({
   );
 
   const context = useMemo(() => {
-    const networkAccountMap = result.networksAccount.reduce((acc, item) => {
-      const { network, account } = item;
+    const networkAccountMap: Record<string, INetworkAccount> = {};
+    const networkDeriveTypeMap: Record<string, IAccountDeriveTypes> = {};
+    for (let i = 0; i < result.networksAccount.length; i += 1) {
+      const item = result.networksAccount[i];
+      const { network, account, accountDeriveType } = item;
       if (account) {
-        acc[network.id] = account;
+        networkAccountMap[network.id] = account;
       }
-      return acc;
-    }, {} as Record<string, INetworkAccount>);
+      networkDeriveTypeMap[network.id] = accountDeriveType;
+    }
     return {
       networkAccountMap,
+      networkDeriveTypeMap,
       walletId,
-      deriveType,
       accountId,
       indexedAccountId,
       refreshLocalData,
@@ -397,7 +399,6 @@ export default function WalletAddressPage({
   }, [
     result.networksAccount,
     walletId,
-    deriveType,
     indexedAccountId,
     accountId,
     refreshLocalData,
