@@ -84,7 +84,6 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
      */
     getPathFromState(state, options) {
       const defaultPath = getPathFromStateDefault(state, options);
-      console.log('---defaultPath---allowList', defaultPath, allowList);
       const defaultPathWithoutQuery = (defaultPath.split('?')[0] || '').replace(
         FULL_SCREEN_MODAL_PATH,
         MODAL_PATH,
