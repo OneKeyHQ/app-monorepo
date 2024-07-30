@@ -25,6 +25,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
@@ -1000,5 +1004,15 @@ export default class Vault extends VaultBase {
     }
 
     return encodedTxEvm;
+  }
+
+  override getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    console.log('====>>>rpc url: ', params.rpcUrl);
+    return Promise.resolve({
+      bestBlockNumber: 10000,
+      responseTime: 1000,
+    });
   }
 }

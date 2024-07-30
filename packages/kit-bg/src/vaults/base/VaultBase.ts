@@ -38,6 +38,10 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
+import type {
   IEstimateFeeParams,
   IFeeInfoUnit,
 } from '@onekeyhq/shared/types/fee';
@@ -257,6 +261,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     name: string;
   }): Promise<IResolveNameResp | null> {
     return null;
+  }
+
+  async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    throw new NotImplemented();
   }
 }
 

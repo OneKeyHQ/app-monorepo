@@ -1,28 +1,22 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import {
   Button,
   Dialog,
   Divider,
   Empty,
-  Form,
   Input,
   ListView,
   Page,
   SizableText,
   XStack,
   YStack,
-  useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TokenIconView } from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
-import {
-  getNetworkIds,
-  getNetworkIdsMap,
-} from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -62,15 +56,12 @@ function ListEmptyComponent({
 }
 
 function CustomRPC() {
-  const content = useMemo(() => [], []);
-
   const [isLoading, setIsLoading] = useState(false);
-  const [networkId, setNetworkId] = useState<string>();
-  const showChainSelector = useConfigurableChainSelector();
   const { result: customRpcNetworks } = usePromiseResult(
     () => backgroundApiProxy.serviceNetwork.getCustomRpcEnabledNetworks(),
     [],
   );
+  const showChainSelector = useConfigurableChainSelector();
   const onSelectNetwork = useCallback(() => {
     showChainSelector({
       networkIds: customRpcNetworks?.map((i) => i.id),
@@ -107,9 +98,18 @@ function CustomRPC() {
             </>
           ),
           onConfirm: async (values) => {
+            const { serviceCustomRpc } = backgroundApiProxy;
             setIsLoading(true);
-            await timerUtils.wait(2000);
-            console.log('====>>>values: ', values);
+            const rpcUrl: string = values.getForm()?.getValues('rpc');
+            const networkId = network.id;
+            await serviceCustomRpc.measureRpcStatus({
+              rpcUrl,
+              networkId,
+            });
+            await serviceCustomRpc.addCustomRpc({
+              rpc: rpcUrl,
+              networkId,
+            });
             setIsLoading(false);
           },
           confirmButtonProps: {
@@ -125,7 +125,7 @@ function CustomRPC() {
       <Page.Header title="Custom RPC" />
       <Page.Body>
         <ListView
-          data={content}
+          data={[]}
           estimatedItemSize={60}
           keyExtractor={(item: string) => item}
           renderItem={({ item }) => (
