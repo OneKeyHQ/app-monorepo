@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { swapQuoteIntervalMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapCheckWarningDef,
@@ -154,27 +153,9 @@ export function useSwapActionState() {
         });
       }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
-        infoRes.label = swapQuoteApproveAllowanceUnLimit
-          ? `${intl.formatMessage(
-              { id: ETranslations.swap_page_approve_button },
-              {
-                token: intl.formatMessage({
-                  id: ETranslations.swap_page_provider_approve_amount_un_limit,
-                }),
-                target: quoteCurrentSelect?.info.providerName ?? '',
-              },
-            )}`
-          : `${intl.formatMessage(
-              { id: ETranslations.swap_page_approve_button },
-              {
-                token: `${
-                  numberFormat(fromTokenAmount, {
-                    formatter: 'balance',
-                  }) as string
-                } ${fromToken?.symbol ?? ''}`,
-                target: quoteCurrentSelect?.info.providerName ?? '',
-              },
-            )}`;
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.global_approve,
+        });
       }
       if (
         quoteCurrentSelect &&
@@ -243,7 +224,6 @@ export function useSwapActionState() {
     quoteResultNoMatchDebounce,
     selectedFromTokenBalance,
     swapFromAddressInfo.address,
-    swapQuoteApproveAllowanceUnLimit,
     swapToAddressInfo.address,
     toToken,
   ]);
