@@ -103,13 +103,7 @@ function AddCustomTokenModal() {
       selectedNetworkIdValue,
     });
 
-  const {
-    availableNetworks,
-    existTokenList,
-    searchedTokenRef,
-    tokenListFetchFinishedRef,
-    fetchTokenList,
-  } = useAddToken({
+  const { availableNetworks, searchedTokenRef } = useAddToken({
     token,
     walletId,
     networkId,
@@ -167,28 +161,6 @@ function AddCustomTokenModal() {
         });
         return;
       }
-      let tokenList = existTokenList?.allTokens;
-      if (!tokenListFetchFinishedRef.current) {
-        tokenList = await fetchTokenList({ accountId: accountIdForNetwork });
-      }
-      const tokenWithoutHidden = tokenList?.data.filter(
-        (t) =>
-          !existTokenList?.hiddenTokens.find(
-            (hideToken) =>
-              t.address.toLowerCase() === hideToken.address.toLowerCase(),
-          ),
-      );
-      if (
-        tokenWithoutHidden?.find(
-          (t) => t.address.toLowerCase() === contractAddress.toLowerCase(),
-        )
-      ) {
-        setIsLoading(false);
-        Toast.error({
-          title: 'Token already exists',
-        });
-        return;
-      }
       try {
         const tokenInfo = {
           address: contractAddress,
@@ -226,8 +198,6 @@ function AddCustomTokenModal() {
     [
       form,
       checkAccountIsExist,
-      fetchTokenList,
-      existTokenList,
       selectedNetworkIdValue,
       token?.isNative,
       intl,
@@ -235,7 +205,6 @@ function AddCustomTokenModal() {
       isAllNetwork,
       accountId,
       searchedTokenRef,
-      tokenListFetchFinishedRef,
     ],
   );
 

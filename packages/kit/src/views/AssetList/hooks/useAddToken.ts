@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { values } from 'lodash';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useForm } from '@onekeyhq/components';
@@ -132,6 +133,12 @@ export function useAddToken({
   const searchedTokenRef = useRef<IToken>();
   const fetchContractList = useDebouncedCallback(
     async (params: { value: string; networkId: string }) => {
+      if (!token && !params.value.trim()) {
+        form.setValue('symbol', '');
+        form.setValue('decimals', '');
+        setIsEmptyContractState(true);
+        return;
+      }
       const searchResult =
         await backgroundApiProxy.serviceCustomToken.searchTokenByContractAddress(
           {
@@ -170,44 +177,9 @@ export function useAddToken({
     });
   }, [contractAddressValue, selectedNetworkIdValue, fetchContractList]);
 
-  const tokenListFetchFinishedRef = useRef(false);
-  const fetchTokenList = useCallback(
-    async (params: { accountId: string }) => {
-      const { serviceToken } = backgroundApiProxy;
-      const t = await serviceToken.fetchAccountTokens({
-        accountId: params.accountId,
-        networkId: selectedNetworkIdValue,
-        mergeTokens: true,
-        flag: 'custom-token',
-      });
-      return t.allTokens;
-    },
-    [selectedNetworkIdValue],
-  );
-  const { result: existTokenList } = usePromiseResult(async () => {
-    const { hasExistAccountFlag, accountIdForNetwork } =
-      await checkAccountIsExist();
-    let allTokens: ITokenData | undefined;
-    let hiddenTokens: IAccountToken[] = [];
-    tokenListFetchFinishedRef.current = false;
-    if (hasExistAccountFlag) {
-      allTokens = await fetchTokenList({ accountId: accountIdForNetwork });
-      hiddenTokens =
-        await backgroundApiProxy.serviceCustomToken.getHiddenTokens({
-          accountId: accountIdForNetwork,
-          networkId,
-        });
-      tokenListFetchFinishedRef.current = true;
-    }
-    return { allTokens, hiddenTokens };
-  }, [checkAccountIsExist, fetchTokenList, networkId]);
-
   return {
     availableNetworks,
-    existTokenList,
     searchedTokenRef,
-    tokenListFetchFinishedRef,
-    fetchTokenList,
   };
 }
 
