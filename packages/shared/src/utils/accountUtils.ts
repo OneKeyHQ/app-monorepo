@@ -31,9 +31,9 @@ import { CoreSDKLoader } from '../hardware/instance';
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
+import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
-import type { SearchDevice } from '@onekeyfe/hd-core';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -417,7 +417,11 @@ function getAccountCompatibleNetwork({
   account: IDBAccount;
   networkId: string | undefined;
 }) {
-  let accountNetworkId = networkId;
+  let accountNetworkId = networkId || account.createAtNetwork;
+
+  if (networkUtils.isAllNetwork({ networkId: accountNetworkId })) {
+    return accountNetworkId;
+  }
 
   if (networkId) {
     const activeNetworkImpl = networkUtils.getNetworkImpl({
@@ -447,6 +451,7 @@ function getAccountCompatibleNetwork({
     }
   }
 
+  // recheck chainId available
   if (
     accountNetworkId &&
     !networkUtils.parseNetworkId({ networkId: accountNetworkId }).chainId

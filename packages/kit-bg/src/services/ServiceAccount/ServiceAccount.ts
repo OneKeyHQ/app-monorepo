@@ -1257,6 +1257,26 @@ class ServiceAccount extends ServiceBase {
     checkIsDefined(accountId);
     checkIsDefined(networkId);
     if (networkUtils.isAllNetwork({ networkId })) {
+      if (
+        accountUtils.isOthersWallet({
+          walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
+        })
+      ) {
+        const dbAccount = await localDb.getAccount({ accountId });
+        const realNetworkId = accountUtils.getAccountCompatibleNetwork({
+          account: dbAccount,
+          networkId: undefined,
+        });
+        if (realNetworkId === getNetworkIdsMap().onekeyall) {
+          throw new Error(
+            'getAccount ERROR: realNetworkId can not be allnetwork',
+          );
+        }
+        return this.getAccount({
+          accountId,
+          networkId: checkIsDefined(realNetworkId),
+        });
+      }
       const indexedAccountId =
         accountUtils.buildAllNetworkIndexedAccountIdFromAccountId({
           accountId,

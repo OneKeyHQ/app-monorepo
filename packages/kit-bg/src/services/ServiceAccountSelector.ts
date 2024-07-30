@@ -24,6 +24,7 @@ import { settingsAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
+import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import type {
   IDBAccount,
   IDBDevice,
@@ -294,7 +295,8 @@ class ServiceAccountSelector extends ServiceBase {
     }
     let allNetworkDbAccounts: IDBAccount[] | undefined;
     let canCreateAddress = false;
-    if (networkId && networkUtils.isAllNetwork({ networkId })) {
+    const isAllNetwork = networkId && networkUtils.isAllNetwork({ networkId });
+    if (isAllNetwork) {
       if (!isOthersWallet && indexedAccountId) {
         let dbAccounts: IDBAccount[] = [];
 
@@ -327,6 +329,14 @@ class ServiceAccountSelector extends ServiceBase {
           account = undefined;
           canCreateAddress = true;
         }
+      }
+      if (isOthersWallet && dbAccount) {
+        allNetworkDbAccounts = [dbAccount];
+      }
+      if (allNetworkDbAccounts) {
+        allNetworkDbAccounts = allNetworkDbAccounts.filter(
+          (acc) => acc.impl !== IMPL_ALLNETWORKS,
+        );
       }
     } else {
       canCreateAddress = !isOthersWallet && !account?.address;

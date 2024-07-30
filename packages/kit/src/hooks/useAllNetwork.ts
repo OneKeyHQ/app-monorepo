@@ -2,15 +2,14 @@ import { useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
-import {
-  IMPL_ALLNETWORKS,
-  getEnabledNFTNetworkIds,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -19,7 +18,7 @@ import { usePromiseResult } from './usePromiseResult';
 const enableNFTNetworkIds = getEnabledNFTNetworkIds();
 
 function useAllNetworkRequests<T>(params: {
-  account: INetworkAccount | undefined;
+  allNetworkDbAccounts?: IDBAccount[] | undefined;
   network: IServerNetwork | undefined;
   wallet: IDBWallet | undefined;
   allNetworkRequests: ({
@@ -41,7 +40,7 @@ function useAllNetworkRequests<T>(params: {
   onFinished?: () => void;
 }) {
   const {
-    account,
+    allNetworkDbAccounts,
     network,
     wallet,
     allNetworkRequests,
@@ -62,7 +61,7 @@ function useAllNetworkRequests<T>(params: {
     async () => {
       if (disabled) return;
       if (isFetching.current) return;
-      if (!account || !network || !wallet) return;
+      if (!allNetworkDbAccounts?.length || !network || !wallet) return;
       if (!network.isAllNetworks) return;
       isFetching.current = true;
 
@@ -72,13 +71,7 @@ function useAllNetworkRequests<T>(params: {
 
       abortAllNetworkRequests?.();
 
-      const allAccounts = (
-        await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
-          {
-            indexedAccountId: account.indexedAccountId ?? '',
-          },
-        )
-      ).filter((a) => a.impl !== IMPL_ALLNETWORKS);
+      const allAccounts = allNetworkDbAccounts;
 
       if (!allAccounts || isEmpty(allAccounts)) {
         setIsEmptyAccount(true);
@@ -185,7 +178,7 @@ function useAllNetworkRequests<T>(params: {
     },
     [
       disabled,
-      account,
+      allNetworkDbAccounts,
       network,
       wallet,
       abortAllNetworkRequests,

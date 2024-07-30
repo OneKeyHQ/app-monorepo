@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -13,7 +13,11 @@ export const useWalletAddress = ({
 }: {
   activeAccount: IAccountSelectorActiveAccountInfo;
 }) => {
-  const { account, indexedAccount, wallet, network } = activeAccount;
+  const { account, indexedAccount, wallet, network } =
+    activeAccount;
+  const activeAccountRef = useRef(activeAccount);
+  activeAccountRef.current = activeAccount;
+
   const appNavigation = useAppNavigation();
   const isEnable =
     network &&
@@ -21,6 +25,7 @@ export const useWalletAddress = ({
     indexedAccount !== undefined;
 
   const handleWalletAddress = useCallback(() => {
+    console.log(activeAccountRef.current);
     if (!indexedAccount || !wallet) {
       return;
     }
