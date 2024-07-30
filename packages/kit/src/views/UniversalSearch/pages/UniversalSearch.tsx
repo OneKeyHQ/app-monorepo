@@ -117,7 +117,7 @@ export function UniversalSearch({
     IUniversalSection[]
   >([]);
 
-  const searchText = useMemo(
+  const searchPlaceholderText = useMemo(
     () =>
       intl.formatMessage({
         id:
@@ -344,7 +344,7 @@ export function UniversalSearch({
         <View p="$5" pt={0}>
           <SearchBar
             autoFocus
-            placeholder={searchText}
+            placeholder={searchPlaceholderText}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
           />
