@@ -11,6 +11,8 @@ import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUt
 import {
   BridgeTimeoutError,
   FirmwareUpdateBatteryTooLow,
+  FirmwareUpdateExit,
+  FirmwareUpdateTasksClear,
   InitIframeLoadFail,
   InitIframeTimeout,
   NeedFirmwareUpgradeFromWeb,
@@ -66,11 +68,6 @@ import {
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
 
 import type {
-  IPromiseContainerCallbackCreate,
-  IPromiseContainerReject,
-  IPromiseContainerResolve,
-} from '../ServicePromise';
-import type {
   CoreApi,
   Success as CoreSuccess,
   DeviceUploadResourceParams,
@@ -78,6 +75,11 @@ import type {
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
+import type {
+  IPromiseContainerCallbackCreate,
+  IPromiseContainerReject,
+  IPromiseContainerResolve,
+} from '../ServicePromise';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -1092,7 +1094,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       Object.keys(this.updateTasks).map(async (id) => {
         await this.updateTasksReject({
           id,
-          error: new Error(`updateTasksClear: ${reason}`),
+          error: new FirmwareUpdateTasksClear({
+            message: `updateTasksClear: ${reason}`,
+          }),
         });
       }),
     ]);
@@ -1108,7 +1112,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async cancelUpdateWorkflowIfExit() {
     const isRunning = await firmwareUpdateWorkflowRunningAtom.get();
     if (!isRunning) {
-      throw new Error('FirmwareUpdateWorkflow Exit');
+      throw new FirmwareUpdateExit();
     }
   }
 
