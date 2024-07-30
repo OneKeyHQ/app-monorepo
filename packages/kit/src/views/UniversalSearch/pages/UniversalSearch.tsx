@@ -279,18 +279,14 @@ export function UniversalSearch({
     switch (searchStatus) {
       case ESearchStatus.init:
         return (
-          <>
-            <RecentSearched searchType={searchType} />
-            <SectionList
-              renderSectionHeader={renderSectionHeader}
-              sections={recommendSections}
-              renderItem={renderItem}
-              ListEmptyComponent={
-                <ListEmptyComponent searchType={searchType} />
-              }
-              estimatedItemSize="$16"
-            />
-          </>
+          <SectionList
+            renderSectionHeader={renderSectionHeader}
+            sections={recommendSections}
+            renderItem={renderItem}
+            ListHeaderComponent={<RecentSearched searchType={searchType} />}
+            ListEmptyComponent={<ListEmptyComponent searchType={searchType} />}
+            estimatedItemSize="$16"
+          />
         );
 
       case ESearchStatus.loading:
