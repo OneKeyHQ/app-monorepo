@@ -262,6 +262,10 @@ export function UniversalSearch({
               renderAvatar={<MarketTokenIcon uri={image} size="$10" />}
               title={symbol.toUpperCase()}
               subtitle={name}
+              subtitleProps={{
+                numberOfLines: 1,
+              }}
+              
             >
               <XStack>
                 <NumberSizeableText
@@ -271,7 +275,7 @@ export function UniversalSearch({
                 >
                   {price}
                 </NumberSizeableText>
-                <MarketStar coingeckoId={coingeckoId} mx="$3" />
+                <MarketStar coingeckoId={coingeckoId} ml="$3" />
               </XStack>
             </ListItem>
           );
