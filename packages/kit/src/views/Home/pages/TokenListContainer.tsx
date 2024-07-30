@@ -150,16 +150,11 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         });
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
-        const blockedTokens =
-          await backgroundApiProxy.serviceToken.getBlockedTokens({
-            networkId: network.id,
-          });
         const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
           accountId: account.id,
           mergeTokens: true,
           networkId: network.id,
           flag: 'home-token-list',
-          blockedTokens: Object.keys(blockedTokens),
         });
 
         refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });

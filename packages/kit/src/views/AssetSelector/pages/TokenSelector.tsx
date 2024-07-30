@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -24,11 +24,7 @@ import type {
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type {
-  IAccountToken,
-  IToken,
-  ITokenFiat,
-} from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { useAccountData } from '../../../hooks/useAccountData';
 
@@ -144,16 +140,7 @@ function TokenSelector() {
       throw new Error('allTokens not found from fetchAccountTokensWithMemo ');
     }
 
-    const blockedTokens =
-      await backgroundApiProxy.serviceToken.getBlockedTokens({
-        networkId,
-      });
-
-    const filteredTokens = allTokens.data.filter(
-      (token) => !blockedTokens[token.address],
-    );
-
-    refreshTokenList({ keys: allTokens.keys, tokens: filteredTokens });
+    refreshTokenList({ keys: allTokens.keys, tokens: allTokens.data });
     refreshTokenListMap({
       tokens: allTokens.map,
     });
@@ -170,16 +157,7 @@ function TokenSelector() {
     // use route params token
     const updateTokenList = async () => {
       if (tokens && tokens.data.length) {
-        const blockedTokens =
-          await backgroundApiProxy.serviceToken.getBlockedTokens({
-            networkId,
-          });
-
-        const filteredTokens = tokens.data.filter(
-          (token) => !blockedTokens[token.address],
-        );
-
-        refreshTokenList({ tokens: filteredTokens, keys: tokens.keys });
+        refreshTokenList({ tokens: tokens.data, keys: tokens.keys });
         refreshTokenListMap({
           tokens: tokens.map,
         });
