@@ -3,6 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
+  ICustomRpcItem,
   IDBCustomRpc,
   IMeasureRpcStatusParams,
 } from '@onekeyhq/shared/types/customRpc';
@@ -30,8 +31,17 @@ class ServiceCustomRpc extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async getAllCustomRpc() {
-    return this.backgroundApi.simpleDb.customRpc.getAllCustomRpc();
+  public async getAllCustomRpc(): Promise<ICustomRpcItem[]> {
+    const result =
+      await this.backgroundApi.simpleDb.customRpc.getAllCustomRpc();
+    return Promise.all(
+      result.map(async (r) => ({
+        ...r,
+        network: await this.backgroundApi.serviceNetwork.getNetwork({
+          networkId: r.networkId,
+        }),
+      })),
+    );
   }
 
   @backgroundMethod()
