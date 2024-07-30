@@ -76,8 +76,17 @@ export const AdvancedSection = () => {
   const onAccountDerivation = useCallback(() => {
     navigation.push(EModalSettingRoutes.SettingAccountDerivationModal);
   }, [navigation]);
+  const onCustomRPC = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingCustomRPC);
+  }, [navigation]);
   return (
     <Section title={intl.formatMessage({ id: ETranslations.global_advanced })}>
+      <ListItem
+        onPress={onCustomRPC}
+        icon="BezierNodesOutline"
+        title="Custom RPC"
+        drillIn
+      />
       <ListItem
         onPress={onAccountDerivation}
         icon="BranchesOutline"
