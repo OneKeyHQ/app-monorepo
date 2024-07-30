@@ -66,7 +66,13 @@ function ListEmptyComponent({
   );
 }
 
-function DialogContent({ network }: { network: IServerNetwork }) {
+function DialogContent({
+  network,
+  onConfirm,
+}: {
+  network: IServerNetwork;
+  onConfirm: () => void;
+}) {
   const [isLoading, setIsLoading] = useState(false);
   const { close } = useDialogInstance();
   return (
@@ -117,6 +123,7 @@ function DialogContent({ network }: { network: IServerNetwork }) {
           });
           setIsLoading(false);
           await close();
+          onConfirm();
         }}
         confirmButtonProps={{
           loading: isLoading,
@@ -127,7 +134,11 @@ function DialogContent({ network }: { network: IServerNetwork }) {
 }
 
 function CustomRPC() {
-  const { result: customRpcData, isLoading } = usePromiseResult(
+  const {
+    result: customRpcData,
+    isLoading,
+    run,
+  } = usePromiseResult(
     async () => {
       const { serviceNetwork, serviceCustomRpc } = backgroundApiProxy;
       const _supportNetworks =
@@ -149,11 +160,11 @@ function CustomRPC() {
       networkIds: customRpcData?.supportNetworks?.map((i) => i.id),
       onSelect: (network: IServerNetwork) => {
         Dialog.show({
-          renderContent: <DialogContent network={network} />,
+          renderContent: <DialogContent network={network} onConfirm={run} />,
         });
       },
     });
-  }, [showChainSelector, customRpcData?.supportNetworks]);
+  }, [showChainSelector, customRpcData?.supportNetworks, run]);
 
   if (isLoading || !customRpcData?.customRpcNetworks) {
     return (
@@ -179,7 +190,7 @@ function CustomRPC() {
                 alignItems="center"
                 justifyContent="space-between"
               >
-                <XStack alignItems="center" space="$3">
+                <XStack alignItems="center" space="$3"  flexShrink={1}>
                   <Switch
                     value={item.enabled}
                     onChange={() => {
@@ -194,7 +205,7 @@ function CustomRPC() {
                     icon={item.network.logoURI}
                     networkId={item.networkId}
                   />
-                  <YStack>
+                  <YStack flexShrink={1}>
                     <XStack alignItems="center" space="$2">
                       <SizableText size="$bodyLgMedium" color="$text">
                         {item.network.name}
@@ -203,7 +214,12 @@ function CustomRPC() {
                         3400ms
                       </Badge>
                     </XStack>
-                    <SizableText size="$bodyMd" color="$textSubdued">
+                    <SizableText
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      flexShrink={1}
+                    >
                       {item.rpc}
                     </SizableText>
                   </YStack>
