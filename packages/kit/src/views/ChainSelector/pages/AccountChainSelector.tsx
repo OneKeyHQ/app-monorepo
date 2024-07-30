@@ -36,7 +36,7 @@ function ChainSelector({
   networkIds?: string[];
 }) {
   const {
-    activeAccount: { network, account },
+    activeAccount: { network, dbAccount },
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
@@ -44,9 +44,9 @@ function ChainSelector({
     usePromiseResult(
       async () =>
         backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          { accountId: account?.id, networkIds, includeAllNetwork: true },
+          { accountId: dbAccount?.id, networkIds, includeAllNetwork: true },
         ),
-      [account?.id, networkIds],
+      [dbAccount?.id, networkIds],
       { initResult: defaultChainSelectorNetworks },
     );
 
