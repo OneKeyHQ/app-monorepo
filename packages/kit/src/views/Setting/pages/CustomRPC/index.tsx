@@ -1,17 +1,23 @@
 import { useCallback, useState } from 'react';
 
 import {
+  ActionList,
+  Badge,
   Button,
   Dialog,
   Divider,
   Empty,
+  IconButton,
   Input,
   ListView,
   Page,
   SizableText,
   Stack,
+  Spinner,
+  Switch,
   XStack,
   YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -22,13 +28,17 @@ import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { ICustomRpcItem } from '@onekeyhq/shared/types/customRpc';
 
-function ListHeaderComponent() {
+function ListHeaderComponent({ data }: { data: ICustomRpcItem[] }) {
   return (
-    <SizableText px="$5" size="$bodyLg" color="$textSubdued">
-      When modified, the custom RPC will replace OneKey’s node. To revert to
-      OneKey’s node, disabled or delete the custom RPC.
-    </SizableText>
+    <>
+      <SizableText px="$5" size="$bodyLg" color="$textSubdued">
+        When modified, the custom RPC will replace OneKey’s node. To revert to
+        OneKey’s node, disabled or delete the custom RPC.
+      </SizableText>
+      {data.length > 0 ? <Divider my="$5" /> : null}
+    </>
   );
 }
 
@@ -58,6 +68,7 @@ function ListEmptyComponent({
 
 function DialogContent({ network }: { network: IServerNetwork }) {
   const [isLoading, setIsLoading] = useState(false);
+  const { close } = useDialogInstance();
   return (
     <>
       <Dialog.Header>
@@ -102,8 +113,10 @@ function DialogContent({ network }: { network: IServerNetwork }) {
           await serviceCustomRpc.addCustomRpc({
             rpc: rpcUrl,
             networkId,
+            enabled: true,
           });
           setIsLoading(false);
+          await close();
         }}
         confirmButtonProps={{
           loading: isLoading,
@@ -114,36 +127,116 @@ function DialogContent({ network }: { network: IServerNetwork }) {
 }
 
 function CustomRPC() {
-  const { result: customRpcNetworks } = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getCustomRpcEnabledNetworks(),
+  const { result: customRpcData, isLoading } = usePromiseResult(
+    async () => {
+      const { serviceNetwork, serviceCustomRpc } = backgroundApiProxy;
+      const _supportNetworks =
+        await serviceNetwork.getCustomRpcEnabledNetworks();
+      const _customRpcNetworks = await serviceCustomRpc.getAllCustomRpc();
+      return {
+        supportNetworks: _supportNetworks,
+        customRpcNetworks: _customRpcNetworks,
+      };
+    },
     [],
+    {
+      watchLoading: true,
+    },
   );
   const showChainSelector = useConfigurableChainSelector();
   const onSelectNetwork = useCallback(() => {
     showChainSelector({
-      networkIds: customRpcNetworks?.map((i) => i.id),
+      networkIds: customRpcData?.supportNetworks?.map((i) => i.id),
       onSelect: (network: IServerNetwork) => {
         Dialog.show({
           renderContent: <DialogContent network={network} />,
         });
       },
     });
-  }, [showChainSelector, customRpcNetworks]);
+  }, [showChainSelector, customRpcData?.supportNetworks]);
+
+  if (isLoading || !customRpcData?.customRpcNetworks) {
+    return (
+      <YStack flex={1} alignItems="center" justifyContent="center">
+        <Spinner />
+      </YStack>
+    );
+  }
 
   return (
     <Page>
       <Page.Header title="Custom RPC" />
       <Page.Body>
         <ListView
-          data={[]}
+          data={customRpcData.customRpcNetworks}
           estimatedItemSize={60}
-          keyExtractor={(item: string) => item}
+          keyExtractor={(item) => item.networkId}
           renderItem={({ item }) => (
             <ListItem>
-              <SizableText>{item}</SizableText>
+              <XStack
+                testID="CustomRpcItemContainer"
+                flex={1}
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <XStack alignItems="center" space="$3">
+                  <Switch
+                    value={item.enabled}
+                    onChange={() => {
+                      void backgroundApiProxy.serviceCustomRpc.addCustomRpc({
+                        rpc: item.rpc,
+                        networkId: item.networkId,
+                        enabled: !item.enabled,
+                      });
+                    }}
+                  />
+                  <TokenIconView
+                    icon={item.network.logoURI}
+                    networkId={item.networkId}
+                  />
+                  <YStack>
+                    <XStack alignItems="center" space="$2">
+                      <SizableText size="$bodyLgMedium" color="$text">
+                        {item.network.name}
+                      </SizableText>
+                      <Badge badgeType="success" badgeSize="sm">
+                        3400ms
+                      </Badge>
+                    </XStack>
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {item.rpc}
+                    </SizableText>
+                  </YStack>
+                </XStack>
+                <ActionList
+                  title="More"
+                  renderTrigger={
+                    <IconButton icon="DotHorOutline" bg="$bgApp" />
+                  }
+                  items={[
+                    {
+                      label: 'Edit',
+                      icon: 'PencilOutline',
+                      onPress: () => {
+                        console.log('action1');
+                      },
+                    },
+                    {
+                      label: 'Delete',
+                      destructive: true,
+                      icon: 'DeleteOutline',
+                      onPress: () => {
+                        console.log('action2');
+                      },
+                    },
+                  ]}
+                />
+              </XStack>
             </ListItem>
           )}
-          ListHeaderComponent={ListHeaderComponent}
+          ListHeaderComponent={
+            <ListHeaderComponent data={customRpcData.customRpcNetworks} />
+          }
           ListEmptyComponent={
             <ListEmptyComponent onAddCustomRpc={() => onSelectNetwork()} />
           }
