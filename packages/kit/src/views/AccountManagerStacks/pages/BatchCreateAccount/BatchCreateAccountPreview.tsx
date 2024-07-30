@@ -519,6 +519,7 @@ function BatchCreateAccountPreviewPage({
                 toIndex: endIndex,
                 excludedIndexes: advanceExcludedIndexes,
                 saveToDb: true,
+                hideCheckingDeviceLoading: true,
               };
             } else {
               normalParams = {
@@ -529,6 +530,7 @@ function BatchCreateAccountPreviewPage({
                   .filter(([, v]) => v)
                   .map(([k]) => parseInt(k, 10)),
                 saveToDb: true,
+                hideCheckingDeviceLoading: true,
               };
             }
             if (!normalParams && !advancedParams) {

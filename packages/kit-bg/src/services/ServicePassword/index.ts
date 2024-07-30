@@ -472,10 +472,14 @@ export default class ServicePassword extends ServiceBase {
     let deviceParams: IDeviceSharedCallParams | undefined;
 
     if (isHardware) {
-      deviceParams =
-        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
-          walletId,
-        });
+      try {
+        deviceParams =
+          await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+            walletId,
+          });
+      } catch (error) {
+        //
+      }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
