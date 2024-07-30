@@ -186,7 +186,10 @@ const SwapActionsState = ({
         {...(pageType === EPageType.modal && !md
           ? {
               flexDirection: 'row',
-              justifyContent: 'space-between',
+              justifyContent:
+                swapActionState.isApprove && !quoteLoading
+                  ? 'space-between'
+                  : 'flex-end',
               alignItems: 'center',
             }
           : {})}
@@ -208,7 +211,9 @@ const SwapActionsState = ({
       md,
       onActionHandler,
       pageType,
+      quoteLoading,
       swapActionState.disabled,
+      swapActionState.isApprove,
       swapActionState.isLoading,
       swapActionState.label,
     ],
