@@ -265,7 +265,6 @@ export function UniversalSearch({
               subtitleProps={{
                 numberOfLines: 1,
               }}
-              
             >
               <XStack>
                 <NumberSizeableText
