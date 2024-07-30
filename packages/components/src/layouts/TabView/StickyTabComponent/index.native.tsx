@@ -74,7 +74,7 @@ export const TabComponent = (
       ? color.replace(/#(.{6})(.{2})/, '#$2$1')
       : color;
   }, []);
-  const [headerHeight, setHeaderHeight] = useState(1);
+  const [headerHeight, setHeaderHeight] = useState(209);
   const values = useMemo(
     () => data.map((item) => ({ name: item.title, label: item.title })),
     [data],
