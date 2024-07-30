@@ -21,7 +21,9 @@ const marketDetail: IQRCodeHandler<IMarketDetailValue> = async (
       [WEB_APP_URL, WEB_APP_URL_DEV].includes(origin) &&
       urlValue?.data?.pathname.startsWith('/market/tokens/')
     ) {
-      const coinGeckoId = urlValue?.data?.pathname.split('/market/tokens/')[0];
+      const coinGeckoId = urlValue?.data?.pathname
+        .split('/market/tokens/')
+        .pop();
       return {
         type: EQRCodeHandlerType.MARKET_DETAIL,
         data: {
