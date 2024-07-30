@@ -212,6 +212,7 @@ export type IVaultSettings = {
   preCheckDappTxFeeInfoRequired?: boolean;
 
   activateTokenRequired?: boolean;
+  customRpcEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {

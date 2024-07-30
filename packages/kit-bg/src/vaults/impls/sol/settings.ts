@@ -76,6 +76,7 @@ const settings: IVaultSettings = {
   hasFrozenBalance: true,
 
   preCheckDappTxFeeInfoRequired: true,
+  customRpcEnabled: false,
 };
 
 export default Object.freeze(settings);

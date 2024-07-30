@@ -32,6 +32,7 @@ const settings: IVaultSettings = {
   showAddressType: false,
 
   dappInteractionEnabled: false,
+  customRpcEnabled: false,
 };
 
 export default Object.freeze(settings);

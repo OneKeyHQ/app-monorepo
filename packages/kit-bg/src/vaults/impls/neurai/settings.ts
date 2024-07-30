@@ -39,6 +39,7 @@ const settings: IVaultSettings = {
   hasFrozenBalance: false,
   showAddressType: false,
   estimatedFeePollingInterval: 60,
+  customRpcEnabled: false,
 };
 
 export default Object.freeze(settings);

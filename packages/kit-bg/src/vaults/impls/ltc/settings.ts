@@ -70,6 +70,7 @@ const settings: IVaultSettings = {
   estimatedFeePollingInterval: 60,
 
   dappInteractionEnabled: false,
+  customRpcEnabled: false,
 };
 
 export default Object.freeze(settings);
