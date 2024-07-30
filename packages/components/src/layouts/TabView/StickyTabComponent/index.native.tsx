@@ -103,7 +103,7 @@ export const TabComponent = (
           </RefreshingFocusedContainer>
         </Stack>
       )),
-    [data, stickyConfig.data, initialScrollIndex],
+    [data, stickyConfig.data, initialScrollIndex, tabContentContainerStyle],
   );
   const key = useMemo(
     () => `${rawBackgroundColor}${Math.random()}`,
