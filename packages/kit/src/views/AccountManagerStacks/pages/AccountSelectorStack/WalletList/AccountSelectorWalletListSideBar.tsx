@@ -33,10 +33,6 @@ import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute
 import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
 import { WalletListItem } from './WalletListItem';
 
-function ListItemSeparator() {
-  return <Stack h="$3" />;
-}
-
 interface IWalletListProps {
   num: number;
 }
@@ -210,18 +206,19 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
           }
 
           return (
-            <WalletListItem
-              key={item.id}
-              wallet={item}
-              focusedWallet={selectedAccount.focusedWallet}
-              onWalletPress={onWalletPress}
-              onWalletPressIn={drag}
-              testID={`wallet-${item.id}`}
-              badge={badge}
-            />
+            <Stack mb="$3">
+              <WalletListItem
+                key={item.id}
+                wallet={item}
+                focusedWallet={selectedAccount.focusedWallet}
+                onWalletPress={onWalletPress}
+                onWalletLongPress={drag}
+                testID={`wallet-${item.id}`}
+                badge={badge}
+              />
+            </Stack>
           );
         }}
-        ItemSeparatorComponent={ListItemSeparator}
       />
       {/* Others */}
       {isEditableRouteParams ? (

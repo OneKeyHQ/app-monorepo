@@ -102,7 +102,7 @@ function BaseSortableListView<T>(
       resolveValues: 'auto',
     },
   );
-  const activeDistance = platformEnv.isNativeAndroid ? 5 : 1;
+  const activeDistance = platformEnv.isNativeAndroid ? 5 : 5;
   return (
     <DraggableFlatList<T>
       ref={ref}
