@@ -189,8 +189,8 @@ function AddCustomTokenModal() {
         });
         return;
       }
-      await backgroundApiProxy.serviceCustomToken.addCustomToken({
-        token: {
+      try {
+        const tokenInfo = {
           address: contractAddress,
           symbol,
           decimals: new BigNumber(decimals).toNumber(),
@@ -201,8 +201,18 @@ function AddCustomTokenModal() {
           name: searchedTokenRef.current?.name ?? '',
           isNative: searchedTokenRef.current?.isNative ?? false,
           $key: `${selectedNetworkIdValue}_${contractAddress}`,
-        },
-      });
+        };
+        await backgroundApiProxy.serviceCustomToken.activateToken({
+          accountId: accountIdForNetwork,
+          networkId: selectedNetworkIdValue,
+          token: tokenInfo,
+        });
+        await backgroundApiProxy.serviceCustomToken.addCustomToken({
+          token: tokenInfo,
+        });
+      } finally {
+        setIsLoading(false);
+      }
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.address_book_add_address_toast_add_success,
@@ -211,7 +221,6 @@ function AddCustomTokenModal() {
       setTimeout(() => {
         onSuccess?.();
         close?.();
-        setIsLoading(false);
       }, 300);
     },
     [

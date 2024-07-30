@@ -211,6 +211,57 @@ export function useAddToken({
   };
 }
 
+export function useAccountInfoForManageToken() {
+  const findAccountInfoForNetwork = useCallback(
+    async ({
+      accountId,
+      networkId,
+      isOthersWallet,
+      indexedAccountId,
+      deriveType,
+      selectedNetworkId,
+    }: {
+      accountId: string;
+      networkId: string;
+      isOthersWallet?: boolean;
+      indexedAccountId?: string;
+      deriveType: IAccountDeriveTypes;
+      selectedNetworkId: string;
+    }) => {
+      const { serviceAccount } = backgroundApiProxy;
+      let hasExistAccountFlag = false;
+      let accountIdForNetwork = '';
+      try {
+        if (isOthersWallet) {
+          const r = await serviceAccount.getAccount({
+            accountId,
+            networkId,
+          });
+          accountIdForNetwork = r.id;
+        } else {
+          const networkAccount = await serviceAccount.getNetworkAccount({
+            accountId: undefined,
+            indexedAccountId,
+            networkId: selectedNetworkId,
+            deriveType,
+          });
+          accountIdForNetwork = networkAccount.id;
+        }
+        hasExistAccountFlag = true;
+      } catch (e) {
+        hasExistAccountFlag = false;
+      }
+
+      return {
+        hasExistAccountFlag,
+        accountIdForNetwork,
+      };
+    },
+    [],
+  );
+  return { findAccountInfoForNetwork };
+}
+
 export function useCheckAccountExist({
   accountId,
   networkId,
@@ -226,43 +277,27 @@ export function useCheckAccountExist({
   deriveType: IAccountDeriveTypes;
   selectedNetworkIdValue: string;
 }) {
-  const checkAccountIsExist = useCallback(async () => {
-    const { serviceAccount } = backgroundApiProxy;
-    let hasExistAccountFlag = false;
-    let accountIdForNetwork = '';
-    try {
-      if (isOthersWallet) {
-        const r = await serviceAccount.getAccount({
-          accountId,
-          networkId,
-        });
-        accountIdForNetwork = r.id;
-      } else {
-        const networkAccount = await serviceAccount.getNetworkAccount({
-          accountId: undefined,
-          indexedAccountId,
-          networkId: selectedNetworkIdValue,
-          deriveType,
-        });
-        accountIdForNetwork = networkAccount.id;
-      }
-      hasExistAccountFlag = true;
-    } catch (e) {
-      hasExistAccountFlag = false;
-    }
-
-    return {
-      hasExistAccountFlag,
-      accountIdForNetwork,
-    };
-  }, [
-    accountId,
-    indexedAccountId,
-    networkId,
-    isOthersWallet,
-    deriveType,
-    selectedNetworkIdValue,
-  ]);
+  const { findAccountInfoForNetwork } = useAccountInfoForManageToken();
+  const checkAccountIsExist = useCallback(
+    async () =>
+      findAccountInfoForNetwork({
+        accountId,
+        networkId,
+        isOthersWallet,
+        indexedAccountId,
+        deriveType,
+        selectedNetworkId: selectedNetworkIdValue,
+      }),
+    [
+      accountId,
+      indexedAccountId,
+      networkId,
+      isOthersWallet,
+      deriveType,
+      selectedNetworkIdValue,
+      findAccountInfoForNetwork,
+    ],
+  );
 
   const { result: hasExistAccount, run: runCheckAccountExist } =
     usePromiseResult(async () => {
