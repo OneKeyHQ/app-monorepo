@@ -284,7 +284,7 @@ const WalletAddressContent = ({
       <Stack px="$5" pb="$4">
         <SearchBar
           placeholder={intl.formatMessage({
-            id: ETranslations.global_search,
+            id: ETranslations.form_search_network_placeholder,
           })}
           value={searchText}
           onChangeText={(text) => setSearchText(text)}
