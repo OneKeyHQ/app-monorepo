@@ -394,6 +394,19 @@ export class OpenBlindSign extends OneKeyHardwareError {
   override code = HardwareErrorCode.BlindSignDisabled;
 }
 
+export class ForbiddenKeyPathError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ForbiddenKeyPath',
+        defaultKey: ETranslations.feedback_forbidden_key_path_error,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.RuntimeError;
+}
+
 export class FirmwareVersionTooLow extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
