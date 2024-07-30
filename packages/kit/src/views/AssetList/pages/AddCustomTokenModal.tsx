@@ -190,24 +190,25 @@ function AddCustomTokenModal() {
         return;
       }
       try {
+        const tokenInfo = {
+          address: contractAddress,
+          symbol,
+          decimals: new BigNumber(decimals).toNumber(),
+          ...searchedTokenRef.current,
+          accountId: accountIdForNetwork,
+          networkId: selectedNetworkIdValue,
+          allNetworkAccountId: isAllNetwork ? accountId : undefined,
+          name: searchedTokenRef.current?.name ?? '',
+          isNative: searchedTokenRef.current?.isNative ?? false,
+          $key: `${selectedNetworkIdValue}_${contractAddress}`,
+        };
         await backgroundApiProxy.serviceCustomToken.activateToken({
           accountId: accountIdForNetwork,
           networkId: selectedNetworkIdValue,
-          tokenAddress: contractAddress,
+          token: tokenInfo,
         });
         await backgroundApiProxy.serviceCustomToken.addCustomToken({
-          token: {
-            address: contractAddress,
-            symbol,
-            decimals: new BigNumber(decimals).toNumber(),
-            ...searchedTokenRef.current,
-            accountId: accountIdForNetwork,
-            networkId: selectedNetworkIdValue,
-            allNetworkAccountId: isAllNetwork ? accountId : undefined,
-            name: searchedTokenRef.current?.name ?? '',
-            isNative: searchedTokenRef.current?.isNative ?? false,
-            $key: `${selectedNetworkIdValue}_${contractAddress}`,
-          },
+          token: tokenInfo,
         });
       } finally {
         setIsLoading(false);

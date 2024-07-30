@@ -23,6 +23,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -469,12 +470,36 @@ export default class Vault extends VaultBase {
   }
 
   override async activateToken(params: {
-    tokenAddress: string;
+    token: IAccountToken;
   }): Promise<boolean> {
+    const { token } = params;
     const dbAccount = await this.getAccount();
     const client = await this.getClient();
     const { assets } = await client.accountInformation(dbAccount.address);
-    console.log('======>>>>: ', assets);
-    return false;
+
+    for (const { 'asset-id': assetId } of assets) {
+      if (assetId === parseInt(token.address)) {
+        return Promise.resolve(true);
+      }
+    }
+
+    const unsignedTx = await this.buildUnsignedTx({
+      transfersInfo: [
+        {
+          from: dbAccount.address,
+          to: dbAccount.address,
+          amount: '0',
+          tokenInfo: token,
+        },
+      ],
+    });
+    const signedTx =
+      await this.backgroundApi.serviceSend.signAndSendTransaction({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        unsignedTx,
+        signOnly: false,
+      });
+    return !!signedTx.txid;
   }
 }

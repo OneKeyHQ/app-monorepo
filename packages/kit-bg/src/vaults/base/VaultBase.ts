@@ -53,7 +53,10 @@ import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
-import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IFetchTokenDetailItem,
+} from '@onekeyhq/shared/types/token';
 import type {
   EReplaceTxType,
   IDecodedTx,
@@ -927,7 +930,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(params.encodedTx);
   }
 
-  async activateToken(params: { tokenAddress: string }): Promise<boolean> {
+  async activateToken(params: { token: IAccountToken }): Promise<boolean> {
     throw new NotImplemented();
   }
 }

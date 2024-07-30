@@ -137,11 +137,11 @@ class ServiceCustomToken extends ServiceBase {
   async activateToken({
     accountId,
     networkId,
-    tokenAddress,
+    token,
   }: {
     accountId: string;
     networkId: string;
-    tokenAddress: string;
+    token: IAccountToken;
   }): Promise<boolean> {
     const vaultSetting =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
@@ -151,7 +151,7 @@ class ServiceCustomToken extends ServiceBase {
       networkId,
     });
     return vault.activateToken({
-      tokenAddress,
+      token,
     });
   }
 }
