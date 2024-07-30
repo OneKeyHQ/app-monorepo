@@ -2029,7 +2029,13 @@ class ServiceAccount extends ServiceBase {
   }: {
     indexedAccountId: string;
     networkIds: string[];
-  }): Promise<{ network: IServerNetwork; account?: INetworkAccount }[]> {
+  }): Promise<
+    {
+      network: IServerNetwork;
+      accountDeriveType: IAccountDeriveTypes;
+      account?: INetworkAccount;
+    }[]
+  > {
     const { serviceNetwork } = this.backgroundApi;
     const dbAccounts = await this.getAccountsInSameIndexedAccountId({
       indexedAccountId,
@@ -2043,14 +2049,18 @@ class ServiceAccount extends ServiceBase {
           }),
         );
         let account: INetworkAccount | undefined;
+        const network = await serviceNetwork.getNetwork({ networkId });
+        const accountDeriveType =
+          await serviceNetwork.getGlobalDeriveTypeOfNetwork({ networkId });
         if (dbAccount) {
-          account = await this.getAccount({
-            accountId: dbAccount.id,
+          account = await this.getNetworkAccount({
+            accountId: undefined,
             networkId,
+            deriveType: accountDeriveType,
+            indexedAccountId: dbAccount.indexedAccountId,
           });
         }
-        const network = await serviceNetwork.getNetwork({ networkId });
-        return { network, account };
+        return { network, accountDeriveType, account };
       }),
     );
   }

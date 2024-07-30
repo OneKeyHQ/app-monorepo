@@ -6,4 +6,5 @@ export enum ETranslationsMock {
   v4_migration_input_v4_password_desc = 'Your v5 password has been changed, please enter your v4 password to continue',
   // ----------------------------------------------
   unavailable_networks_for_selected_account = 'Unavailable networks for selected account',
+  testnet = 'Testnet',
 }

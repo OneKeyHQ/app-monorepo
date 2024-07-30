@@ -6,16 +6,17 @@ import { SearchBar, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { networkFuseSearch } from '../../utils';
-import { BaseListView } from '../BaseView';
+import { useFuseSearch } from '../../hooks/useFuseSearch';
 
-type IImmutableViewProps = {
+import { ChainSelectorListView } from './ChainSelectorListView';
+
+type IPureChainSelectorContentProps = {
   networks: IServerNetwork[];
   networkId?: string;
   onPressItem?: (network: IServerNetwork) => void;
 };
 
-export const ImmutableView: FC<IImmutableViewProps> = ({
+export const PureChainSelectorContent: FC<IPureChainSelectorContentProps> = ({
   networks,
   networkId,
   onPressItem,
@@ -26,12 +27,14 @@ export const ImmutableView: FC<IImmutableViewProps> = ({
     setText(value.trim());
   }, []);
 
+  const networkFuseSearch = useFuseSearch(networks);
+
   const data = useMemo(() => {
     if (!text) {
       return networks;
     }
-    return networkFuseSearch(networks, text);
-  }, [networks, text]);
+    return networkFuseSearch(text);
+  }, [networkFuseSearch, text, networks]);
   return (
     <Stack flex={1}>
       <Stack px="$5" pb="$4">
@@ -41,7 +44,7 @@ export const ImmutableView: FC<IImmutableViewProps> = ({
           onChangeText={onChangeText}
         />
       </Stack>
-      <BaseListView
+      <ChainSelectorListView
         networkId={networkId}
         networks={data}
         onPressItem={onPressItem}
