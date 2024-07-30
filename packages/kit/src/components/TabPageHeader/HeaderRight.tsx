@@ -58,55 +58,58 @@ export function HeaderRight({
     [scanQrCode, account, allTokens, map],
   );
 
-  const openExtensionExpandTab = useCallback(async () => {
-    // This is a trick.
-    // If you open the webpage first and then close the side panel, you will never be able to close the side panel.
-    window.close();
-    await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-      routes: '',
-    });
-  }, []);
-
-  const expandExtView = useMemo(
-    () => (
-      <HeaderIconButton
-        key="expandExtView"
-        title={intl.formatMessage({ id: ETranslations.global_expand_view })}
-        icon="ExpandOutline"
-        onPress={openExtensionExpandTab}
-      />
-    ),
-    [intl, openExtensionExpandTab],
-  );
-
   const openLayoutTab = useCallback(async () => {
+    const routeInfo = {
+      routes: '',
+    };
     ActionList.show({
       title: intl.formatMessage({
         id: ETranslations.global_layout,
       }),
       items: [
-        {
-          label: intl.formatMessage({
-            id: ETranslations.open_as_sidebar,
-          }),
-          icon: 'LayoutRightOutline',
-          onPress: async () => {
-            await backgroundApiProxy.serviceApp.openExtensionSidePanel({
-              routes: '',
-            });
-            window.close();
-          },
-        },
+        platformEnv.isExtensionUiPopup
+          ? {
+              label: intl.formatMessage({
+                id: ETranslations.open_as_sidebar,
+              }),
+              icon: 'LayoutRightOutline',
+              onPress: async () => {
+                await backgroundApiProxy.serviceApp.openExtensionSidePanelOnActionClick(
+                  true,
+                );
+                await backgroundApiProxy.serviceApp.openExtensionSidePanel(
+                  routeInfo,
+                );
+                window.close();
+              },
+            }
+          : {
+              label: intl.formatMessage({
+                id: ETranslations.open_as_popup,
+              }),
+              icon: 'LayoutTopOutline',
+              onPress: async () => {
+                await backgroundApiProxy.serviceApp.openExtensionSidePanelOnActionClick(
+                  false,
+                );
+                window.close();
+              },
+            },
         {
           label: intl.formatMessage({
             id: ETranslations.global_expand_view,
           }),
           icon: 'ExpandOutline',
-          onPress: openExtensionExpandTab,
+          onPress: async () => {
+            window.close();
+            await backgroundApiProxy.serviceApp.openExtensionExpandTab(
+              routeInfo,
+            );
+          },
         },
       ],
     });
-  }, [intl, openExtensionExpandTab]);
+  }, [intl]);
 
   const media = useMedia();
   const items = useMemo(() => {
@@ -149,17 +152,12 @@ export function HeaderRight({
       ].filter(Boolean);
     }
 
-    if (platformEnv.isExtensionUiPopup) {
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
       return [layoutExtView, settingsButton];
-    }
-
-    if (platformEnv.isExtensionUiSidePanel) {
-      return [expandExtView, settingsButton];
     }
 
     return [scanButton, settingsButton, searchInput];
   }, [
-    expandExtView,
     intl,
     media.gtMd,
     onScanButtonPressed,
