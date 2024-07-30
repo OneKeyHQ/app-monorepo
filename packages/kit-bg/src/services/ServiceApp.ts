@@ -145,6 +145,11 @@ class ServiceApp extends ServiceBase {
   async openExtensionExpandTab(routeInfo: IOpenUrlRouteInfo) {
     await extUtils.openExpandTab(routeInfo);
   }
+
+  @backgroundMethod()
+  async openExtensionSidePanelOnActionClick(isOpenPanelOnActionClick: boolean) {
+    await extUtils.openPanelOnActionClick(isOpenPanelOnActionClick);
+  }
 }
 
 export default ServiceApp;
