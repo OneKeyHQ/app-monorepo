@@ -344,6 +344,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
             tokens: r.allTokens.data,
             map: r.allTokens.map,
             merge: true,
+            mergeDerive: mergeDeriveAssetsEnabled,
           });
 
           appEventBus.emit(EAppEventBusNames.TokenListUpdate, {

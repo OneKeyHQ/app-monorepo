@@ -20,6 +20,9 @@ import {
   EModalSendRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
@@ -47,6 +50,7 @@ function WalletActionSend() {
 
   const handleOnSend = useCallback(async () => {
     if (!account || !network) return;
+
     if (vaultSettings?.isSingleToken) {
       const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
         networkId: network.id,
@@ -77,6 +81,35 @@ function WalletActionSend() {
         tokenListState,
         closeAfterSelect: false,
         onSelect: async (token: IToken) => {
+          const settings =
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: token.networkId ?? '',
+            });
+
+          if (settings.mergeDeriveAssetsEnabled && network.isAllNetworks) {
+            const walletId = accountUtils.getWalletIdFromAccountId({
+              accountId: token.accountId ?? '',
+            });
+            navigation.push(EModalSendRoutes.SendSelectDeriveAddress, {
+              networkId: token.networkId ?? '',
+              indexedAccountId: account.indexedAccountId ?? '',
+              walletId,
+              accountId: token.accountId ?? '',
+              actionType: EDeriveAddressActionType.Select,
+              onUnmounted: () => {},
+              onSelected: ({ account: a }: { account: INetworkAccount }) => {
+                navigation.push(EModalSendRoutes.SendDataInput, {
+                  accountId: a.id,
+                  networkId: token.networkId ?? network.id,
+                  isNFT: false,
+                  token,
+                  isAllNetworks: network?.isAllNetworks,
+                });
+              },
+            });
+            return;
+          }
+
           navigation.push(EModalSendRoutes.SendDataInput, {
             accountId: token.accountId ?? account.id,
             networkId: token.networkId ?? network.id,

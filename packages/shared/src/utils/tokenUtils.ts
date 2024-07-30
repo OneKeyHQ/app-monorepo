@@ -133,12 +133,13 @@ export function mergeDeriveTokenListMap({
   mergeDeriveAssets?: boolean;
 }) {
   if (mergeDeriveAssets) {
+    console.log('sourceMap', sourceMap);
     forEach(sourceMap, (value, key) => {
       const keyArr = key.split('_');
       const groupDeriveKey = `${keyArr[0]}_${keyArr[keyArr.length - 1]}`;
       const mergedToken = targetMap[groupDeriveKey];
 
-      if (mergedToken) {
+      if (mergedToken && !targetMap[key]) {
         mergedToken.balance = new BigNumber(mergedToken.balance)
           .plus(value.balance)
           .toFixed();
@@ -183,9 +184,13 @@ export function mergeDeriveTokenListMap({
           .plus(value.totalBalanceFiatValue ?? 0)
           .toFixed();
 
-        targetMap[groupDeriveKey] = mergedToken;
+        targetMap[groupDeriveKey] = {
+          ...mergedToken,
+        };
       } else {
-        targetMap[groupDeriveKey] = value;
+        targetMap[groupDeriveKey] = {
+          ...value,
+        };
       }
     });
   }

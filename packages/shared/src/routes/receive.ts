@@ -4,6 +4,8 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import type { ITokenSelectorParamList } from './assetSelector';
+import type { INetworkAccount } from '../../types/account';
+import type { EDeriveAddressActionType } from '../../types/address';
 import type { IToken } from '../../types/token';
 
 export enum EModalReceiveRoutes {
@@ -11,6 +13,7 @@ export enum EModalReceiveRoutes {
   CreateInvoice = 'CreateInvoice',
   ReceiveInvoice = 'ReceiveInvoice',
   ReceiveSelectToken = 'ReceiveSelectToken',
+  ReceiveSelectDeriveAddress = 'ReceiveSelectDeriveAddress',
 }
 
 export type IModalReceiveParamList = {
@@ -33,4 +36,21 @@ export type IModalReceiveParamList = {
     paymentHash: string;
   };
   [EModalReceiveRoutes.ReceiveSelectToken]: ITokenSelectorParamList;
+  [EModalReceiveRoutes.ReceiveSelectDeriveAddress]: {
+    networkId: string;
+    indexedAccountId: string;
+    walletId: string;
+    accountId: string;
+    actionType?: EDeriveAddressActionType;
+    onSelected?: ({
+      account,
+      deriveInfo,
+      deriveType,
+    }: {
+      account: INetworkAccount;
+      deriveInfo: IAccountDeriveInfo;
+      deriveType: IAccountDeriveTypes;
+    }) => void;
+    onUnmounted?: () => void;
+  };
 };

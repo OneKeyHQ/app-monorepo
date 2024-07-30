@@ -66,16 +66,23 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         map?: {
           [key: string]: ITokenFiat;
         };
+        mergeDerive?: boolean;
       },
     ) => {
-      const { keys, tokens } = payload;
+      const { keys, tokens, merge, mergeDerive } = payload;
       const allTokenList = get(allTokenListAtom());
 
-      if (payload.merge) {
+      if (merge) {
         if (tokens.length) {
-          let newTokens = allTokenList.tokens.concat(tokens);
+          let newTokens = allTokenList.tokens;
 
-          const tokenListMap = get(tokenListMapAtom());
+          newTokens = mergeDeriveTokenList({
+            sourceTokens: tokens,
+            targetTokens: newTokens,
+            mergeDeriveAssets: mergeDerive,
+          });
+
+          const tokenListMap = get(allTokenListMapAtom());
 
           newTokens = sortTokensByFiatValue({
             tokens: newTokens,
@@ -111,24 +118,19 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       const { tokens, merge, mergeDerive } = payload;
       if (merge) {
         const tokenListMap = get(allTokenListMapAtom());
-        if (mergeDerive && !isEmpty(tokens)) {
-          set(
-            allTokenListMapAtom(),
-            mergeDeriveTokenListMap({
-              sourceMap: tokens,
-              targetMap: tokenListMap,
-              mergeDeriveAssets: true,
-            }),
-          );
-        } else {
-          const mergedTokenListMap = { ...tokenListMap, ...payload.tokens };
-          set(allTokenListMapAtom(), mergedTokenListMap);
-        }
+        set(
+          allTokenListMapAtom(),
+          mergeDeriveTokenListMap({
+            sourceMap: tokens,
+            targetMap: tokenListMap,
+            mergeDeriveAssets: mergeDerive,
+          }),
+        );
 
         return;
       }
 
-      set(allTokenListMapAtom(), payload.tokens);
+      set(allTokenListMapAtom(), tokens);
     },
   );
 
