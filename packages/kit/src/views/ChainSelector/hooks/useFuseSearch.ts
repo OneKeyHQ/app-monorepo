@@ -29,11 +29,11 @@ export const useFuseSearch = (networks: IServerNetwork[]) => {
       if (implArr.includes(lowerSearchText)) {
         exp.$or?.push({ impl: `=${lowerSearchText}` });
       }
-      if (symbolSet.has(searchText)) {
-        exp.$or?.push({ symbol: `=${searchText}` });
+      if (symbolSet.has(lowerSearchText)) {
+        exp.$or?.push({ symbol: `=${lowerSearchText}` });
       }
-      if (shortnameSet.has(searchText)) {
-        exp.$or?.push({ shortname: `=${searchText}` });
+      if (shortnameSet.has(lowerSearchText)) {
+        exp.$or?.push({ shortname: `=${lowerSearchText}` });
       }
       const searchResult = fuse.search(exp);
       const result = searchResult.map((o) => ({
