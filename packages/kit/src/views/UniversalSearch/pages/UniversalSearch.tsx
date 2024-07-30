@@ -82,7 +82,7 @@ function ListEmptyComponent({
     case EUniversalSearchType.MarketToken: {
       return (
         <YStack px="$5">
-          <SizableText numberOfLines={1} size="$headingSm">
+          <SizableText numberOfLines={1} size="$headingSm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.market_trending })}
           </SizableText>
           <SkeletonItem />
@@ -191,12 +191,21 @@ export function UniversalSearch({
   }, []);
 
   const renderSectionHeader = useCallback(
-    ({ section }: { section: IUniversalSection }) => (
-      <SizableText px="$5" pb={0} size="$headingSm">
-        {section.title}
-      </SizableText>
-    ),
-    [],
+    ({ section }: { section: IUniversalSection }) => {
+      if (searchType === EUniversalSearchType.MarketToken) {
+        return (
+          <SizableText px="$5" pb={0} size="$headingSm" color="$textSubdued">
+            {section.title}
+          </SizableText>
+        );
+      }
+      return (
+        <SizableText px="$5" pb={0} size="$headingSm">
+          {section.title}
+        </SizableText>
+      );
+    },
+    [searchType],
   );
 
   const renderItem = useCallback(
