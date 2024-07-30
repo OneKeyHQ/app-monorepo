@@ -9,6 +9,7 @@ import {
 import { useIntl } from 'react-intl';
 
 import type {
+  IKeyOfIcons,
   IPageNavigationProp,
   IPageScreenProps,
 } from '@onekeyhq/components';
@@ -125,6 +126,25 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   );
 };
 
+const WalletAddressListItemIcon = ({
+  account,
+}: {
+  account?: INetworkAccount;
+}) => {
+  let name: IKeyOfIcons | undefined;
+  if (!account) {
+    name = 'PlusLargeOutline';
+  } else if (account && account.address) {
+    name = 'Copy3Outline';
+  }
+  return name ? (
+    <Icon
+      name={account ? 'Copy3Outline' : 'PlusLargeOutline'}
+      color="$iconSubdued"
+    />
+  ) : null;
+};
+
 const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
@@ -145,13 +165,7 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
       });
 
   const onPress = useCallback(async () => {
-    if (account) {
-      await copyAccountAddress({
-        accountId: account.id,
-        networkId: item.id,
-        deriveType,
-      });
-    } else {
+    if (!account) {
       try {
         setLoading(true);
         await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
@@ -167,6 +181,12 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
       } finally {
         setLoading(false);
       }
+    } else if (account && account.address) {
+      await copyAccountAddress({
+        accountId: account.id,
+        networkId: item.id,
+        deriveType,
+      });
     }
   }, [
     account,
@@ -195,10 +215,7 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
           <Spinner />
         </Stack>
       ) : (
-        <Icon
-          name={account ? 'Copy3Outline' : 'PlusLargeOutline'}
-          color="$iconSubdued"
-        />
+        <WalletAddressListItemIcon account={account} />
       )}
     </ListItem>
   );

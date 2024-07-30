@@ -277,7 +277,7 @@ export const EditableChainSelectorContent = ({
           {sections.length > 0 ? (
             <SortableSectionList
               enabled={isEditMode}
-              stickySectionHeadersEnabled
+              // stickySectionHeadersEnabled
               sections={sections}
               renderItem={renderItem}
               keyExtractor={(item) => (item as IServerNetwork).id}
