@@ -18,4 +18,12 @@ export class ClientEvm {
 
     return { bestBlockNumber, isReady };
   }
+
+  async getChainId(): Promise<{
+    chainId: number;
+  }> {
+    const chainIdHex: any = await this.rpc.call('eth_chainId');
+    const chainId = new BigNumber(chainIdHex)?.toNumber();
+    return { chainId };
+  }
 }

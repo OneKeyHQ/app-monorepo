@@ -20,8 +20,8 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
       };
       let updatedAt = Date.now();
       if (
-        data.data[rpcInfo.networkId].updatedAt &&
-        data.data[rpcInfo.networkId].rpc === rpcInfo.rpc
+        data.data[rpcInfo.networkId]?.updatedAt &&
+        data.data[rpcInfo.networkId]?.rpc === rpcInfo.rpc
       ) {
         updatedAt = data.data[rpcInfo.networkId].updatedAt || updatedAt;
       }

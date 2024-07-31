@@ -1012,6 +1012,10 @@ export default class Vault extends VaultBase {
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
     const client = new ClientEvm(params.rpcUrl);
+    const { chainId } = await client.getChainId();
+    if (Number(chainId) !== Number(await this.getNetworkChainId())) {
+      throw new OneKeyError('Invalid chainId');
+    }
     const start = performance.now();
     const result = await client.getInfo();
     return {
