@@ -109,6 +109,12 @@ const TouchableContainer = platformEnv.isNative
   ? Fragment
   : TouchableWithoutFeedback;
 
+const ROW_PROPS = {
+  space: '$3',
+  px: '$3',
+  mx: '$2',
+};
+
 function BasicMarketHomeList({
   category,
   tabIndex = 0,
@@ -261,6 +267,7 @@ function BasicMarketHomeList({
             justifyContent="space-between"
             userSelect="none"
             space="$2"
+            px="$5"
             {...listItemPressStyle}
             {...(platformEnv.isNative ? pressEvents : undefined)}
           >
@@ -836,6 +843,7 @@ function BasicMarketHomeList({
           stickyHeaderHiddenOnScroll
           onRow={onRow}
           onHeaderRow={onHeaderRow}
+          rowProps={gtMd ? ROW_PROPS : undefined}
           showHeader={gtMd}
           columns={columns}
           dataSource={sortedListData as unknown as IMarketToken[]}
