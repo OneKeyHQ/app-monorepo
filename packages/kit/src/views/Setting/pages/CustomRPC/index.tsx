@@ -321,16 +321,18 @@ function CustomRPC() {
   );
 
   const headerRight = useCallback(
-    () => (
-      <IconButton
-        bg="$bgApp"
-        icon="PlusCircleOutline"
-        onPress={() => {
-          onAddCustomRpc();
-        }}
-      />
-    ),
-    [onAddCustomRpc],
+    () =>
+      Array.isArray(customRpcData?.customRpcNetworks) &&
+      customRpcData.customRpcNetworks.length > 0 ? (
+        <IconButton
+          bg="$bgApp"
+          icon="PlusCircleOutline"
+          onPress={() => {
+            onAddCustomRpc();
+          }}
+        />
+      ) : null,
+    [onAddCustomRpc, customRpcData?.customRpcNetworks],
   );
 
   if (!customRpcData?.customRpcNetworks) {

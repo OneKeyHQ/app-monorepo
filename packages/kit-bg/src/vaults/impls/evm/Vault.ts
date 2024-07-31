@@ -16,6 +16,7 @@ import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { mergeAssetTransferActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
@@ -83,6 +84,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
+import { ClientEvm } from './sdkEvm/ClientEvm';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -1006,13 +1008,15 @@ export default class Vault extends VaultBase {
     return encodedTxEvm;
   }
 
-  override getCustomRpcEndpointStatus(
+  override async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
-    console.log('====>>>rpc url: ', params.rpcUrl);
-    return Promise.resolve({
-      bestBlockNumber: 10000,
-      responseTime: 1000,
-    });
+    const client = new ClientEvm(params.rpcUrl);
+    const start = performance.now();
+    const result = await client.getInfo();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: result.bestBlockNumber,
+    };
   }
 }

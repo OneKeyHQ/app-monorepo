@@ -19,3 +19,8 @@ export interface IMeasureRpcStatusResult {
 export interface ICustomRpcItem extends IDBCustomRpc {
   network: IServerNetwork;
 }
+
+export interface IEvmClientInfo {
+  bestBlockNumber: number;
+  isReady: boolean;
+}
