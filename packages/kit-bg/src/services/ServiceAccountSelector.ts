@@ -311,6 +311,10 @@ class ServiceAccountSelector extends ServiceBase {
 
       // build mocked networkAccount of all network
       if (!isOthersWallet && indexedAccountId) {
+        const updateCanCreateAddressForAllNetwork = async () => {
+          account = undefined;
+          canCreateAddress = true;
+        };
         if (allNetworkDbAccounts?.length) {
           try {
             account =
@@ -321,12 +325,10 @@ class ServiceAccountSelector extends ServiceBase {
               );
             canCreateAddress = false;
           } catch (error) {
-            account = undefined;
-            canCreateAddress = true;
+            await updateCanCreateAddressForAllNetwork();
           }
         } else {
-          account = undefined;
-          canCreateAddress = true;
+          await updateCanCreateAddressForAllNetwork();
         }
       }
     } else {

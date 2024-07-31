@@ -5,6 +5,7 @@ import { isEmpty } from 'lodash';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -14,6 +15,9 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { usePromiseResult } from './usePromiseResult';
 
 const enableNFTNetworkIds = getEnabledNFTNetworkIds();
+
+// useRef not working as expected, so use a global object
+const currentRequestsUUID = { current: '' };
 
 function useAllNetworkRequests<T>(params: {
   account: INetworkAccount | undefined;
@@ -57,6 +61,8 @@ function useAllNetworkRequests<T>(params: {
 
   const { run, result } = usePromiseResult(
     async () => {
+      const requestsUUID = generateUUID();
+
       if (disabled) return;
       if (isFetching.current) return;
       if (!account || !network || !wallet) return;
@@ -100,6 +106,12 @@ function useAllNetworkRequests<T>(params: {
 
       onStarted?.();
 
+      currentRequestsUUID.current = requestsUUID;
+      console.log(
+        'currentRequestsUUID set: =====>>>>>: ',
+        currentRequestsUUID.current,
+      );
+
       if (allNetworkDataInit.current) {
         const allNetworks = accountsInfo;
 
@@ -122,11 +134,12 @@ function useAllNetworkRequests<T>(params: {
         // 处理并发请求的网络
         const concurrentRequests = Array.from(concurrentNetworks).map(
           (networkDataString) => {
-            const { accountId, networkId } = networkDataString;
+            const { accountId, networkId, apiAddress } = networkDataString;
             console.log(
               'concurrentRequests: =====>>>>>: ',
               accountId,
               networkId,
+              apiAddress,
             );
             return allNetworkRequests({
               accountId,
@@ -143,16 +156,31 @@ function useAllNetworkRequests<T>(params: {
         }
 
         // 处理顺序请求的网络
-        for (const networkDataString of sequentialNetworks) {
-          const { accountId, networkId } = networkDataString;
-          try {
-            await allNetworkRequests({ accountId, networkId });
-          } catch (e) {
-            console.error(e);
-            // pass
+        await (async (uuid: string) => {
+          for (const networkDataString of sequentialNetworks) {
+            console.log(
+              'currentRequestsUUID for: =====>>>>>: ',
+              currentRequestsUUID.current,
+              uuid,
+              networkDataString.networkId,
+              networkDataString.apiAddress,
+            );
+            if (
+              currentRequestsUUID.current &&
+              currentRequestsUUID.current !== uuid
+            ) {
+              break;
+            }
+            const { accountId, networkId } = networkDataString;
+            try {
+              await allNetworkRequests({ accountId, networkId });
+            } catch (e) {
+              console.error(e);
+              // pass
+            }
+            await waitAsync(interval);
           }
-          await waitAsync(interval);
-        }
+        })(requestsUUID);
       }
 
       allNetworkDataInit.current = true;
