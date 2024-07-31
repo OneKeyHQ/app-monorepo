@@ -18,6 +18,7 @@ import type {
   IElement,
   IListViewRef,
   IStackProps,
+  ITableColumn,
   ITableProps,
 } from '@onekeyhq/components';
 import {
@@ -1315,6 +1316,24 @@ function BasicMarketHomeList({
     [colors, currency, gtLg, gtXl, intl, lineColors, showMoreAction, tabIndex],
   );
 
+  const onRow = useCallback(
+    (record: IMarketToken) => ({
+      onPress: () => toDetailPage(record),
+    }),
+    [toDetailPage],
+  );
+
+  const onHeaderRow = useCallback((column: ITableColumn<IMarketToken>) => {
+    if (['sparkline', 'action'].includes(column.dataIndex)) {
+      return undefined;
+    }
+    return {
+      onSortTypeChange: (sortOrder: 'asc' | 'desc' | undefined) => {
+        console.log(sortOrder);
+      },
+    };
+  }, []);
+
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
       <YStack flex={1} ai="center" jc="center">
@@ -1368,6 +1387,8 @@ function BasicMarketHomeList({
       <YStack flex={1} ref={containerRef} $gtMd={{ pt: '$3' }}>
         <Table
           stickyHeaderHiddenOnScroll
+          onRow={onRow}
+          onHeaderRow={onHeaderRow}
           showHeader={gtMd}
           columns={columns}
           dataSource={sortedListData as unknown as IMarketToken[]}
