@@ -331,8 +331,7 @@ function BasicTable<T>({
   showBackToTopButton = false,
 }: ITableProps<T>) {
   const { gtMd } = useMedia();
-  const [isShowBackToTopButton, setIsShowBackToTopButton] =
-    useState(showBackToTopButton);
+  const [isShowBackToTopButton, setIsShowBackToTopButton] = useState(false);
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) =>
@@ -359,6 +358,7 @@ function BasicTable<T>({
     [columns, onRow],
   );
 
+  const enableBackToTopButton = showBackToTopButton && isShowBackToTopButton;
   return (
     <YStack flex={1}>
       {showHeader ? (
@@ -378,7 +378,7 @@ function BasicTable<T>({
         ListEmptyComponent={TableEmptyComponent}
         extraData={extraData}
       />
-      {isShowBackToTopButton ? (
+      {enableBackToTopButton ? (
         <Stack
           position="absolute"
           bg="$bg"
