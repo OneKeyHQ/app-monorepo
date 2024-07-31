@@ -862,18 +862,20 @@ function BasicMarketHomeList({
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   const renderMdItem = useCallback(
-    ({ item }: { item: IMarketToken }) => {
+    (item: IMarketToken) => {
       const pressEvents = {
         onPress: () => toDetailPage(item),
         onLongPress: () => handleMdItemAction(item),
       };
       return (
         <TouchableContainer
+          containerStyle={{ flex: 1 }}
+          style={{ flex: 1 }}
           {...(platformEnv.isNative ? undefined : pressEvents)}
         >
           <XStack
-            px="$5"
             height={60}
+            flex={1}
             justifyContent="space-between"
             userSelect="none"
             space="$2"
@@ -1071,42 +1073,47 @@ function BasicMarketHomeList({
 
   const columns = useMemo(
     () =>
-      [
-        {
-          title: '#',
-          dataIndex: 'serialNumber',
-          columnWidth: 40,
-          render: (serialNumber: string) => (
-            <SizableText size="$bodyMd" color="$textSubdued" selectable={false}>
-              {serialNumber ?? '-'}
-            </SizableText>
-          ),
-        },
-        {
-          title: intl.formatMessage({ id: ETranslations.global_name }),
-          dataIndex: 'symbol',
-          columnWidth: 140,
-          render: (symbol: string, record: IMarketToken) => (
-            <XStack space="$3" ai="center">
-              <MarketTokenIcon uri={record.image} size="$8" />
-              <YStack width="$24">
+      gtMd
+        ? ([
+            {
+              title: '#',
+              dataIndex: 'serialNumber',
+              columnWidth: 40,
+              render: (serialNumber: string) => (
                 <SizableText
-                  size="$bodyLgMedium"
-                  numberOfLines={1}
-                  selectable={false}
-                >
-                  {symbol.toUpperCase()}
-                </SizableText>
-                <SizableText
-                  size="$bodySm"
+                  size="$bodyMd"
                   color="$textSubdued"
-                  numberOfLines={1}
                   selectable={false}
                 >
-                  {record.name}
+                  {serialNumber ?? '-'}
                 </SizableText>
-              </YStack>
-              {/* <Button
+              ),
+            },
+            {
+              title: intl.formatMessage({ id: ETranslations.global_name }),
+              dataIndex: 'symbol',
+              columnWidth: 140,
+              render: (symbol: string, record: IMarketToken) => (
+                <XStack space="$3" ai="center">
+                  <MarketTokenIcon uri={record.image} size="$8" />
+                  <YStack width="$24">
+                    <SizableText
+                      size="$bodyLgMedium"
+                      numberOfLines={1}
+                      selectable={false}
+                    >
+                      {symbol.toUpperCase()}
+                    </SizableText>
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      selectable={false}
+                    >
+                      {record.name}
+                    </SizableText>
+                  </YStack>
+                  {/* <Button
                   size="small"
                   onPress={async () => {
                     console.log('----log', item);
@@ -1136,184 +1143,208 @@ function BasicMarketHomeList({
                 >
                   Swap
                 </Button> */}
-            </XStack>
-          ),
-        },
-        {
-          title: intl.formatMessage({ id: ETranslations.global_price }),
-          dataIndex: 'price',
-          align: 'right',
-          columnProps: {
-            flexGrow: 1,
-            flexBasis: 0,
-          },
-          render: (price: string) => (
-            <NumberSizeableText
-              selectable={false}
-              size="$bodyMd"
-              formatter="price"
-              formatterOptions={{ currency }}
-            >
-              {price}
-            </NumberSizeableText>
-          ),
-        },
-        gtLg
-          ? {
-              title: intl.formatMessage({
-                id: ETranslations.market_one_hour_percentage,
-              }),
+                </XStack>
+              ),
+            },
+            {
+              title: intl.formatMessage({ id: ETranslations.global_price }),
+              dataIndex: 'price',
               align: 'right',
-              dataIndex: 'priceChangePercentage1H',
               columnProps: {
                 flexGrow: 1,
                 flexBasis: 0,
               },
-              render: (priceChangePercentage1H: string) => (
+              render: (price: string) => (
+                <NumberSizeableText
+                  selectable={false}
+                  size="$bodyMd"
+                  formatter="price"
+                  formatterOptions={{ currency }}
+                >
+                  {price}
+                </NumberSizeableText>
+              ),
+            },
+            gtLg
+              ? {
+                  title: intl.formatMessage({
+                    id: ETranslations.market_one_hour_percentage,
+                  }),
+                  align: 'right',
+                  dataIndex: 'priceChangePercentage1H',
+                  columnProps: {
+                    flexGrow: 1,
+                    flexBasis: 0,
+                  },
+                  render: (priceChangePercentage1H: string) => (
+                    <PriceChangePercentage>
+                      {priceChangePercentage1H}
+                    </PriceChangePercentage>
+                  ),
+                }
+              : undefined,
+            {
+              title: intl.formatMessage({
+                id: ETranslations.market_twenty_four_hour_percentage,
+              }),
+              columnProps: {
+                flexGrow: 1,
+                flexBasis: 0,
+              },
+              align: 'right',
+              dataIndex: 'priceChangePercentage24H',
+              render: (priceChangePercentage24H: string) => (
                 <PriceChangePercentage>
-                  {priceChangePercentage1H}
+                  {priceChangePercentage24H}
                 </PriceChangePercentage>
               ),
-            }
-          : undefined,
-        {
-          title: intl.formatMessage({
-            id: ETranslations.market_twenty_four_hour_percentage,
-          }),
-          columnProps: {
-            flexGrow: 1,
-            flexBasis: 0,
-          },
-          align: 'right',
-          dataIndex: 'priceChangePercentage24H',
-          render: (priceChangePercentage24H: string) => (
-            <PriceChangePercentage>
-              {priceChangePercentage24H}
-            </PriceChangePercentage>
-          ),
-        },
-        gtLg
-          ? {
+            },
+            gtLg
+              ? {
+                  title: intl.formatMessage({
+                    id: ETranslations.market_seven_day_percentage,
+                  }),
+                  align: 'right',
+                  columnProps: {
+                    flexGrow: 1,
+                    flexBasis: 0,
+                  },
+                  dataIndex: 'priceChangePercentage7D',
+                  render: (priceChangePercentage7D: string) => (
+                    <PriceChangePercentage>
+                      {priceChangePercentage7D}
+                    </PriceChangePercentage>
+                  ),
+                }
+              : undefined,
+            {
               title: intl.formatMessage({
                 id: ETranslations.market_seven_day_percentage,
               }),
-              align: 'right',
+              dataIndex: 'totalVolume',
               columnProps: {
                 flexGrow: 1,
                 flexBasis: 0,
               },
-              dataIndex: 'priceChangePercentage7D',
-              render: (priceChangePercentage7D: string) => (
-                <PriceChangePercentage>
-                  {priceChangePercentage7D}
-                </PriceChangePercentage>
+              align: 'right',
+              render: (totalVolume: string) => (
+                <NumberSizeableText
+                  selectable={false}
+                  size="$bodyMd"
+                  formatter="marketCap"
+                  formatterOptions={{ currency }}
+                >
+                  {totalVolume || '-'}
+                </NumberSizeableText>
               ),
-            }
-          : undefined,
-        {
-          title: intl.formatMessage({
-            id: ETranslations.market_seven_day_percentage,
-          }),
-          dataIndex: 'totalVolume',
-          columnProps: {
-            flexGrow: 1,
-            flexBasis: 0,
-          },
-          align: 'right',
-          render: (totalVolume: string) => (
-            <NumberSizeableText
-              selectable={false}
-              size="$bodyMd"
-              formatter="marketCap"
-              formatterOptions={{ currency }}
-            >
-              {totalVolume || '-'}
-            </NumberSizeableText>
-          ),
-        },
-        {
-          title: intl.formatMessage({
-            id: ETranslations.global_market_cap,
-          }),
-          dataIndex: 'marketCap',
-          columnProps: {
-            flexGrow: 1,
-            flexBasis: 0,
-          },
-          align: 'right',
-          render: (marketCap: string) => (
-            <NumberSizeableText
-              selectable={false}
-              size="$bodyMd"
-              formatter="marketCap"
-              formatterOptions={{ currency }}
-            >
-              {marketCap || '-'}
-            </NumberSizeableText>
-          ),
-        },
-        gtXl
-          ? {
+            },
+            {
               title: intl.formatMessage({
-                id: ETranslations.market_last_seven_days,
+                id: ETranslations.global_market_cap,
               }),
-              dataIndex: 'sparkline',
+              dataIndex: 'marketCap',
               columnProps: {
                 flexGrow: 1,
                 flexBasis: 0,
-                minWidth: 100,
               },
               align: 'right',
-              render: (
-                sparkline: IMarketToken['sparkline'],
-                record: IMarketToken,
-              ) => (
-                <View>
-                  <SparklineChart
-                    data={sparkline}
-                    width={100}
-                    height={40}
-                    lineColor={
-                      record.priceChangePercentage7D &&
-                      Number(record.priceChangePercentage7D) >= 0
-                        ? lineColors[0]
-                        : lineColors[1]
-                    }
-                    linearGradientColor={
-                      record.priceChangePercentage7D &&
-                      Number(record.priceChangePercentage7D) >= 0
-                        ? colors[0]
-                        : colors[1]
-                    }
-                  />
-                </View>
+              render: (marketCap: string) => (
+                <NumberSizeableText
+                  selectable={false}
+                  size="$bodyMd"
+                  formatter="marketCap"
+                  formatterOptions={{ currency }}
+                >
+                  {marketCap || '-'}
+                </NumberSizeableText>
               ),
-            }
-          : undefined,
-        {
-          title: '',
-          dataIndex: 'action',
-          columnWidth: showMoreAction ? 88 : 64,
-          align: 'center',
-          render: (_: unknown, record: IMarketToken) => (
-            <XStack flex={1}>
-              <Stack flex={1} ai="center">
-                <MarketStar
-                  key={record.coingeckoId}
-                  coingeckoId={record.coingeckoId}
-                  tabIndex={tabIndex}
-                />
-              </Stack>
-              {showMoreAction ? (
-                <Stack flex={1} ai="center">
-                  <MarketMore coingeckoId={record.coingeckoId} />
-                </Stack>
-              ) : null}
-            </XStack>
-          ),
-        },
-      ].filter(Boolean) as ITableProps<IMarketToken>['columns'],
-    [colors, currency, gtLg, gtXl, intl, lineColors, showMoreAction, tabIndex],
+            },
+            gtXl
+              ? {
+                  title: intl.formatMessage({
+                    id: ETranslations.market_last_seven_days,
+                  }),
+                  dataIndex: 'sparkline',
+                  columnProps: {
+                    flexGrow: 1,
+                    flexBasis: 0,
+                    minWidth: 100,
+                  },
+                  align: 'right',
+                  render: (
+                    sparkline: IMarketToken['sparkline'],
+                    record: IMarketToken,
+                  ) => (
+                    <View>
+                      <SparklineChart
+                        data={sparkline}
+                        width={100}
+                        height={40}
+                        lineColor={
+                          record.priceChangePercentage7D &&
+                          Number(record.priceChangePercentage7D) >= 0
+                            ? lineColors[0]
+                            : lineColors[1]
+                        }
+                        linearGradientColor={
+                          record.priceChangePercentage7D &&
+                          Number(record.priceChangePercentage7D) >= 0
+                            ? colors[0]
+                            : colors[1]
+                        }
+                      />
+                    </View>
+                  ),
+                }
+              : undefined,
+            {
+              title: '',
+              dataIndex: 'action',
+              columnWidth: showMoreAction ? 88 : 64,
+              align: 'center',
+              render: (_: unknown, record: IMarketToken) => (
+                <XStack flex={1}>
+                  <Stack flex={1} ai="center">
+                    <MarketStar
+                      key={record.coingeckoId}
+                      coingeckoId={record.coingeckoId}
+                      tabIndex={tabIndex}
+                    />
+                  </Stack>
+                  {showMoreAction ? (
+                    <Stack flex={1} ai="center">
+                      <MarketMore coingeckoId={record.coingeckoId} />
+                    </Stack>
+                  ) : null}
+                </XStack>
+              ),
+            },
+          ].filter(Boolean) as ITableProps<IMarketToken>['columns'])
+        : [
+            {
+              title: '',
+              dataIndex: 'serialNumber',
+              columnProps: {
+                flex: 1,
+                width: undefined,
+                px: 0,
+              },
+              render: (_: unknown, record: IMarketToken) =>
+                renderMdItem(record),
+            },
+          ],
+    [
+      colors,
+      currency,
+      gtLg,
+      gtMd,
+      gtXl,
+      intl,
+      lineColors,
+      renderMdItem,
+      showMoreAction,
+      tabIndex,
+    ],
   );
 
   const onRow = useCallback(
@@ -1404,23 +1435,6 @@ function BasicMarketHomeList({
             <ListEmptyComponent showMoreAction={showMoreAction} />
           }
         />
-        {/* 
-        <ListView
-          ref={listViewRef}
-          stickyHeaderHiddenOnScroll
-          estimatedItemSize={60}
-          // @ts-ignore
-          estimatedListSize={{ width: 370, height: 525 }}
-          onScroll={handleScroll}
-          scrollEventThrottle={100}
-          data={sortedListData as unknown as IMarketToken[]}
-          renderItem={gtMd ? renderItem : renderMdItem}
-          ListFooterComponent={gtMd ? <Stack height={60} /> : undefined}
-          ListEmptyComponent={
-            <ListEmptyComponent showMoreAction={showMoreAction} />
-          }
-          extraData={gtMd ? undefined : mdColumnKeys}
-        /> */}
       </YStack>
     </>
   );
