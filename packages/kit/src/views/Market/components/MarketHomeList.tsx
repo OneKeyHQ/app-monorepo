@@ -89,31 +89,6 @@ function TableMdSkeletonRow() {
   );
 }
 
-// function ListEmptyComponent({ showMoreAction }: { showMoreAction: boolean }) {
-//   const { gtMd } = useMedia();
-//   if (platformEnv.isNativeAndroid) {
-//     return null;
-//   }
-//   return gtMd ? (
-//     <YStack>
-//       {new Array(6).fill(0).map((i) => (
-//         <TableRow
-//           key={i}
-//           isLoading
-//           showMoreAction={showMoreAction}
-//           tableConfig={{}}
-//         />
-//       ))}
-//     </YStack>
-//   ) : (
-//     <YStack px="$5">
-//       {new Array(6).fill(0).map((_, index) => (
-//         <TableMdSkeletonRow key={index} />
-//       ))}
-//     </YStack>
-//   );
-// }
-
 function MdPlaceholder() {
   return (
     <Stack
