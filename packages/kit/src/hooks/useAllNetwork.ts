@@ -25,9 +25,11 @@ function useAllNetworkRequests<T>(params: {
   allNetworkRequests: ({
     accountId,
     networkId,
+    allNetworkDataInit,
   }: {
     accountId: string;
     networkId: string;
+    allNetworkDataInit?: boolean;
   }) => Promise<T | undefined>;
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
@@ -62,7 +64,6 @@ function useAllNetworkRequests<T>(params: {
       if (isFetching.current) return;
       if (!account || !network || !wallet) return;
       if (!network.isAllNetworks) return;
-
       isFetching.current = true;
 
       if (!allNetworkDataInit.current) {
@@ -126,7 +127,11 @@ function useAllNetworkRequests<T>(params: {
 
         const requests = allNetworks.map((networkDataString) => {
           const { accountId, networkId } = JSON.parse(networkDataString);
-          return allNetworkRequests({ accountId, networkId });
+          return allNetworkRequests({
+            accountId,
+            networkId,
+            allNetworkDataInit: allNetworkDataInit.current,
+          });
         });
 
         try {
@@ -145,7 +150,11 @@ function useAllNetworkRequests<T>(params: {
               accountId,
               networkId,
             );
-            return allNetworkRequests({ accountId, networkId });
+            return allNetworkRequests({
+              accountId,
+              networkId,
+              allNetworkDataInit: allNetworkDataInit.current,
+            });
           },
         );
         try {
@@ -198,6 +207,7 @@ function useAllNetworkRequests<T>(params: {
     run,
     result,
     isEmptyAccount,
+    allNetworkDataInit,
   };
 }
 

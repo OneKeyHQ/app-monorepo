@@ -37,6 +37,7 @@ export type IModalAssetDetailsParamList = {
     accountId: string;
     networkId: string;
     historyTx: IAccountHistoryTx;
+    isAllNetworks?: boolean;
   };
   [EModalAssetDetailRoutes.UTXODetails]: {
     accountId: string;
