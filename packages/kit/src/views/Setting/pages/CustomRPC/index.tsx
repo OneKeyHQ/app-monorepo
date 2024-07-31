@@ -1,4 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   ActionList,
@@ -12,6 +14,7 @@ import {
   ListView,
   Page,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   Switch,
@@ -33,6 +36,17 @@ import type { ICustomRpcItem } from '@onekeyhq/shared/types/customRpc';
 type IEditRpcParams = {
   network: IServerNetwork;
   rpcInfo?: ICustomRpcItem;
+};
+
+enum ECustomStatus {
+  'Fast' = 'Fast',
+  'Normal' = 'Normal',
+  'NotAvailable' = 'NotAvailable',
+}
+
+type IMeasureRpcItem = {
+  responseTime: number;
+  status: ECustomStatus;
 };
 
 function ListHeaderComponent({ data }: { data: ICustomRpcItem[] }) {
@@ -161,6 +175,62 @@ function CustomRPC() {
       watchLoading: true,
     },
   );
+  const [rpcSpeedMap, setRpcSpeedMap] = useState<
+    Record<string, IMeasureRpcItem>
+  >({});
+  const previousRpcInfosRef = useRef<ICustomRpcItem[] | undefined>();
+  const measureRpcSpeed = useCallback(async (rpcInfo: ICustomRpcItem) => {
+    try {
+      const { responseTime } =
+        await backgroundApiProxy.serviceCustomRpc.measureRpcStatus({
+          rpcUrl: rpcInfo.rpc,
+          networkId: rpcInfo.networkId,
+        });
+      return {
+        responseTime,
+        status: responseTime < 1000 ? ECustomStatus.Fast : ECustomStatus.Normal,
+      };
+    } catch (e) {
+      console.error(`Error testing RPC: ${rpcInfo.rpc}: `, e);
+      return { responseTime: -1, status: ECustomStatus.NotAvailable };
+    }
+  }, []);
+  const updateRpcMeasureData = useDebouncedCallback(
+    async ({
+      currentRpcInfos,
+      previousRpcInfos,
+    }: {
+      currentRpcInfos: ICustomRpcItem[];
+      previousRpcInfos: ICustomRpcItem[] | undefined;
+    }) => {
+      const updatedOrNewRpcInfos = currentRpcInfos.filter((current) => {
+        const previous = previousRpcInfos?.find(
+          (prev) => prev.networkId === current.networkId,
+        );
+        return !previous || previous.rpc !== current.rpc;
+      });
+
+      for (const rpcInfo of updatedOrNewRpcInfos) {
+        const measureData = await measureRpcSpeed(rpcInfo);
+        setRpcSpeedMap((prev) => ({
+          ...prev,
+          [rpcInfo.networkId]: measureData,
+        }));
+      }
+    },
+    300,
+  );
+  useEffect(() => {
+    if (customRpcData?.customRpcNetworks) {
+      const currentRpcInfos = customRpcData.customRpcNetworks;
+      const previousRpcInfos = previousRpcInfosRef.current || [];
+
+      void updateRpcMeasureData({ currentRpcInfos, previousRpcInfos });
+
+      previousRpcInfosRef.current = currentRpcInfos;
+    }
+  }, [customRpcData?.customRpcNetworks, updateRpcMeasureData]);
+
   const onAddOrEditRpc = useCallback(
     ({ network, rpcInfo }: IEditRpcParams) => {
       Dialog.show({
@@ -171,6 +241,7 @@ function CustomRPC() {
     },
     [run],
   );
+
   const showChainSelector = useConfigurableChainSelector();
   const onSelectNetwork = useCallback(
     (params?: { rpcInfo: ICustomRpcItem }) => {
@@ -182,6 +253,38 @@ function CustomRPC() {
       });
     },
     [showChainSelector, customRpcData?.supportNetworks, onAddOrEditRpc],
+  );
+
+  const renderRpcStatus = useCallback(
+    (item: ICustomRpcItem) => {
+      if (!rpcSpeedMap[item.networkId]) {
+        return <Skeleton w={42} h="$5" />;
+      }
+      let badgeType = 'success';
+      switch (rpcSpeedMap[item.networkId].status) {
+        case ECustomStatus.Fast:
+          badgeType = 'success';
+          break;
+        case ECustomStatus.Normal:
+          badgeType = 'warning';
+          break;
+        case ECustomStatus.NotAvailable:
+          badgeType = 'critical';
+          break;
+        default:
+          break;
+      }
+      const text =
+        rpcSpeedMap[item.networkId].status === ECustomStatus.NotAvailable
+          ? 'Not Available'
+          : `${rpcSpeedMap[item.networkId].responseTime}ms`;
+      return (
+        <Badge badgeType={badgeType} badgeSize="sm">
+          {text}
+        </Badge>
+      );
+    },
+    [rpcSpeedMap],
   );
 
   if (isLoading || !customRpcData?.customRpcNetworks) {
@@ -228,9 +331,7 @@ function CustomRPC() {
                       <SizableText size="$bodyLgMedium" color="$text">
                         {item.network.name}
                       </SizableText>
-                      <Badge badgeType="success" badgeSize="sm">
-                        3400ms
-                      </Badge>
+                      {renderRpcStatus(item)}
                     </XStack>
                     <SizableText
                       size="$bodyMd"
