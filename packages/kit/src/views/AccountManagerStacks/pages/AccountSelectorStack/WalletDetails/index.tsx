@@ -50,6 +50,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
@@ -170,6 +171,13 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     const fn = async () => {
       // await wait(300);
       await reloadFocusedWalletInfo();
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (listRef?.current?._listRef?._hasDoneInitialScroll) {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        listRef.current._listRef._hasDoneInitialScroll = false;
+      }
     };
     // TODO sync device features to DB and reload data
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
@@ -690,11 +698,22 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                         return;
                       }
                       if (isOthersUniversal) {
+                        let autoChangeToAccountMatchedNetworkId =
+                          avatarNetworkId;
+                        if (
+                          selectedAccount?.networkId &&
+                          networkUtils.isAllNetwork({
+                            networkId: selectedAccount?.networkId,
+                          })
+                        ) {
+                          autoChangeToAccountMatchedNetworkId =
+                            selectedAccount?.networkId;
+                        }
                         await actions.current.confirmAccountSelect({
                           num,
                           indexedAccount: undefined,
                           othersWalletAccount: account,
-                          autoChangeToAccountMatchedNetworkId: avatarNetworkId,
+                          autoChangeToAccountMatchedNetworkId,
                         });
                       } else if (focusedWalletInfo) {
                         await actions.current.confirmAccountSelect({

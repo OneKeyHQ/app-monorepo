@@ -259,6 +259,30 @@ export class InvalidAddress extends OneKeyError {
   }
 }
 
+export class FirmwareUpdateExit extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateExit',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.FirmwareUpdateExit;
+}
+
+export class FirmwareUpdateTasksClear extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateTasksClear',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.FirmwareUpdateTasksClear;
+}
+
 export class InvalidAccount extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(

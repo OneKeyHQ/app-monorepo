@@ -66,6 +66,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   const {
     activeAccount: {
       account,
+      allNetworkDbAccounts,
       network,
       wallet,
       indexedAccount,
@@ -251,9 +252,11 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     async ({
       accountId,
       networkId,
+      allNetworkDataInit,
     }: {
       accountId: string;
       networkId: string;
+      allNetworkDataInit?: boolean;
     }) => {
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         networkId,
@@ -264,6 +267,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       });
 
       if (
+        !allNetworkDataInit &&
         !refreshAllNetworksTokenList.current &&
         r.networkId === networkIdsMap.onekeyall
       ) {

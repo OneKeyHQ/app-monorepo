@@ -10,6 +10,7 @@ import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
+import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
@@ -154,6 +155,10 @@ class BackgroundApiProxy
   serviceBatchCreateAccount = this._createProxyService(
     'serviceBatchCreateAccount',
   ) as ServiceBatchCreateAccount;
+
+  serviceAllNetwork = this._createProxyService(
+    'serviceAllNetwork',
+  ) as ServiceAllNetwork;
 
   serviceOnboarding = this._createProxyService(
     'serviceOnboarding',

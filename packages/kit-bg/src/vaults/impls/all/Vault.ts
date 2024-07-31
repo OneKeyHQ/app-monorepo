@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import type {
   IAddressValidation,
@@ -102,48 +101,16 @@ export default class Vault extends VaultBase {
   override async buildFetchHistoryListParams(params: {
     accountId: string;
     networkId: string;
-    accountAddress: string;
   }): Promise<{
     allNetworkAccounts: Array<{ networkId: string; accountAddress: string }>;
   }> {
-    const { accountId, networkId } = params;
-    const account = await this.backgroundApi.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
-    const allAccounts = (
-      await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
-        {
-          indexedAccountId: account.indexedAccountId ?? '',
-        },
-      )
-    ).filter((a) => a.impl !== IMPL_ALLNETWORKS);
-
-    const allNetworkAccounts: Array<{
-      accountId: string;
-      networkId: string;
-      accountAddress: string;
-    }> = [];
-    for (const a of allAccounts) {
-      const networks = (
-        await this.backgroundApi.serviceNetwork.getNetworksByImpls({
-          impls: [a.impl],
-        })
-      ).networks.filter((i) => !i.isTestnet);
-
-      for (const n of networks) {
-        const accountAddress =
-          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-            accountId: a.id,
-            networkId: n.id,
-          });
-        allNetworkAccounts.push({
-          accountId: a.id,
-          networkId: n.id,
-          accountAddress,
-        });
-      }
-    }
-    return { allNetworkAccounts };
+    const { accountsInfo } =
+      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts(params);
+    return {
+      allNetworkAccounts: accountsInfo.map((acc) => ({
+        networkId: acc.networkId,
+        accountAddress: acc.apiAddress,
+      })),
+    };
   }
 }
