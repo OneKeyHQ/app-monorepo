@@ -122,6 +122,7 @@ function TableRow<T>({
   index,
   columns,
   onRow,
+  rowProps,
   pressStyle = false,
   showSkeleton = false,
 }: {
@@ -132,6 +133,7 @@ function TableRow<T>({
   onHeaderRow?: ITableProps<T>['onHeaderRow'];
   showSkeleton?: boolean;
   onRow?: ITableProps<T>['onRow'];
+  rowProps?: ITableProps<T>['rowProps'];
 }) {
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
   const handlePress = useCallback(() => {
@@ -140,13 +142,11 @@ function TableRow<T>({
   const itemPressStyle = pressStyle ? listItemPressStyle : undefined;
   return (
     <XStack
-      space="$3"
-      px="$3"
-      mx="$2"
       minHeight={60}
       onPress={handlePress}
       borderRadius="$3"
       {...itemPressStyle}
+      {...rowProps}
     >
       {columns.map(
         ({
@@ -208,6 +208,7 @@ export interface ITableProps<T> {
   stickyHeaderHiddenOnScroll: IListViewProps<T>['stickyHeaderHiddenOnScroll'];
   estimatedListSize?: { width: number; height: number };
   estimatedItemSize?: IListViewProps<T>['estimatedItemSize'];
+  rowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   onHeaderRow?: (
     column: ITableColumn<T>,
     index: number,
@@ -324,6 +325,7 @@ function BasicTable<T>({
   TableEmptyComponent,
   onHeaderRow,
   onRow,
+  rowProps,
   showHeader = true,
   estimatedItemSize = 60,
   estimatedListSize = { width: 370, height: 525 },
@@ -353,9 +355,10 @@ function BasicTable<T>({
         index={index}
         columns={columns}
         onRow={onRow}
+        rowProps={rowProps}
       />
     ),
-    [columns, onRow],
+    [columns, onRow, rowProps],
   );
 
   const enableBackToTopButton = showBackToTopButton && isShowBackToTopButton;
