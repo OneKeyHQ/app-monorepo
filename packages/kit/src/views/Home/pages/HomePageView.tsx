@@ -123,6 +123,7 @@ export function HomePageView({
   const renderTabs = useCallback(
     () => (
       <Tab
+        disableRefresh
         data={tabs}
         ListHeaderComponent={<HomeHeaderContainer />}
         initialScrollIndex={0}
