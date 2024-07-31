@@ -230,18 +230,19 @@ export function DesktopLeftSideBar({
       >
         <MotiView
           animate={{ left: isCollapse ? -sidebarWidth : 0 }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: sidebarWidth,
+            bottom: 0,
+          }}
           transition={{
             duration: 200,
             type: 'timing',
           }}
         >
-          <YStack
-            position="absolute"
-            top={0}
-            left={0}
-            width={sidebarWidth}
-            bottom={0}
-          >
+          <YStack flex={1}>
             <OneKeyLogo />
             <YStack flex={1} p="$3">
               {tabs}
