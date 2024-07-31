@@ -102,7 +102,6 @@ function DialogContent({
   });
   const rpcValidRef = useRef(true);
   const [isLoading, setIsLoading] = useState(false);
-  const { close } = useDialogInstance();
   const intl = useIntl();
 
   return (
@@ -142,7 +141,7 @@ function DialogContent({
         </Form.Field>
       </Form>
       <Dialog.Footer
-        onConfirm={async () => {
+        onConfirm={async ({ preventClose, close }) => {
           const { serviceCustomRpc } = backgroundApiProxy;
           setIsLoading(true);
           const rpcUrl: string = form.getValues('rpc');
@@ -159,8 +158,9 @@ function DialogContent({
               enabled: rpcInfo?.enabled ?? true,
             });
           } catch (e: any) {
-            rpcValidRef.current = true;
+            rpcValidRef.current = false;
             void form.trigger('rpc');
+            preventClose();
             return;
           } finally {
             setIsLoading(false);
