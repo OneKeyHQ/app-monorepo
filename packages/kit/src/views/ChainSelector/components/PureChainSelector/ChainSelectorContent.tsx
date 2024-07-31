@@ -42,6 +42,7 @@ export const PureChainSelectorContent: FC<IPureChainSelectorContentProps> = ({
           placeholder={intl.formatMessage({ id: ETranslations.global_search })}
           value={text}
           onChangeText={onChangeText}
+          testID="chain-selector"
         />
       </Stack>
       <ChainSelectorListView

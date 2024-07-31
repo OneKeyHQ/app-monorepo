@@ -62,6 +62,7 @@ export const EditableListItem = ({
 
   return (
     <ListItem
+      testID={item.id}
       title={item.name}
       titleMatch={item.titleMatch}
       h={CELL_HEIGHT}

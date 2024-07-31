@@ -30,6 +30,7 @@ import {
 import { Spotlight, useSpotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
@@ -52,7 +53,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const visible = isFirstVisit && isFocus;
   return (
     <Spotlight
-      visible={visible}
+      visible={visible && !platformEnv.isE2E}
       content={
         <SizableText size="$bodyMd">
           {intl.formatMessage({
