@@ -1,5 +1,6 @@
 import { StackActions } from '@react-navigation/native';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -15,9 +16,14 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+type IUrlAccountRouteBuildParams = {
+  account: INetworkAccount | undefined;
+  address: string | undefined;
+  networkId: string | undefined;
+};
 
 const localStorageKey = '$onekeyPrevSelectedUrlAccount';
+
 export function savePrevUrlAccount({
   address,
   networkId,
@@ -55,12 +61,36 @@ export function getPrevUrlAccount() {
   }
 }
 
-type IUrlAccountRouteBuildParams = {
-  account: INetworkAccount | undefined;
-  address: string | undefined;
-  networkId: string | undefined;
-  networkCode: string | undefined;
-};
+async function buildUrlNetworkSegment({
+  realNetworkId,
+  realNetworkIdFallback,
+  contextNetworkId,
+}: {
+  realNetworkId: string;
+  realNetworkIdFallback: string;
+  contextNetworkId: string;
+}) {
+  if (networkUtils.isAllNetwork({ networkId: realNetworkId })) {
+    // eslint-disable-next-line no-param-reassign
+    realNetworkId = realNetworkIdFallback;
+  }
+
+  const isAllNetworkContext = networkUtils.isAllNetwork({
+    networkId: contextNetworkId,
+  });
+
+  if (isAllNetworkContext) {
+    const isEvm = networkUtils.isEvmNetwork({ networkId: realNetworkId });
+    if (isEvm) {
+      return IMPL_EVM;
+    }
+  }
+
+  const realNetwork = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+    networkId: realNetworkId,
+  });
+  return realNetwork?.code || realNetworkId || '';
+}
 
 // http://localhost:3000/wallet/account/evm--1/0xF907eBC4348b02F4b808Ec84591AAfD281c4422D
 // export const urlAccountLandingRewrite = '/wallet/account/:address/:networkId?';
@@ -70,31 +100,15 @@ export async function buildUrlAccountLandingRoute({
   account,
   address,
   networkId,
-  networkCode,
   includingOrigin,
 }: IUrlAccountRouteBuildParams & {
   includingOrigin?: boolean;
 }) {
-  const isAllNetwork = networkUtils.isAllNetwork({ networkId });
-  let networkSegment = networkCode || networkId || '';
-  if (isAllNetwork) {
-    let createAtNetworkCode = '';
-    networkSegment = account?.createAtNetwork || '';
-    if (account?.createAtNetwork) {
-      const createAtNetworkInfo =
-        await backgroundApiProxy.serviceNetwork.getNetworkSafe({
-          networkId: account?.createAtNetwork,
-        });
-      createAtNetworkCode = createAtNetworkInfo?.code || '';
-    }
-    const isEvm = networkUtils.isEvmNetwork({ networkId: networkSegment });
-    if (isEvm) {
-      networkSegment = IMPL_EVM;
-    } else {
-      networkSegment =
-        createAtNetworkCode || account?.createAtNetwork || networkSegment;
-    }
-  }
+  const networkSegment = await buildUrlNetworkSegment({
+    realNetworkId: networkId || '',
+    realNetworkIdFallback: account?.createAtNetwork || '',
+    contextNetworkId: networkId || '',
+  });
   const path = `/${networkSegment || '--'}/${address || '--'}`;
   if (includingOrigin) {
     const origin =
@@ -117,7 +131,6 @@ export async function buildUrlAccountFullUrl({
     account,
     address: account.address,
     networkId: network.id,
-    networkCode: network.code,
     includingOrigin: true,
   });
 }
@@ -126,17 +139,15 @@ export async function replaceUrlAccountLandingRoute({
   account,
   address,
   networkId,
-  networkCode,
 }: IUrlAccountRouteBuildParams) {
   if (!platformEnv.isWeb) {
     return;
   }
-  if (address && (networkId || networkCode)) {
+  if (address && networkId) {
     const url = await buildUrlAccountLandingRoute({
       account,
       address,
       networkId,
-      networkCode,
     });
     window.history.replaceState(null, '', url);
   } else {
@@ -161,16 +172,24 @@ export const urlAccountNavigation = {
       StackActions.replace(ETabHomeRoutes.TabHome, params),
     );
   },
-  pushUrlAccountPage(
+  async pushUrlAccountPage(
     navigation: IAppNavigation,
     params: {
       address: string | undefined;
       networkId: string | undefined;
-      activeAccountNetworkId?: string;
+      contextNetworkId?: string;
     },
   ) {
+    const networkSegment = await buildUrlNetworkSegment({
+      realNetworkId: params.networkId || '',
+      realNetworkIdFallback: params.networkId || '',
+      contextNetworkId: params.contextNetworkId || '',
+    });
     navigation.dispatch(
-      StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, params),
+      StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, {
+        address: params.address,
+        networkId: networkSegment,
+      }),
     );
   },
   pushUrlAccountPageLanding(

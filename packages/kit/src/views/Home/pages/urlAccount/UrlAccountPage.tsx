@@ -9,7 +9,6 @@ import {
   SizableText,
   Spinner,
   Stack,
-  Toast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -32,6 +31,7 @@ import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import { HomePageView } from '../HomePageView';
 
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { UrlAccountAutoReplaceHistory } from './UrlAccountAutoReplaceHistory';
 import { getPrevUrlAccount, urlAccountNavigation } from './urlAccountUtils';
 
@@ -185,16 +185,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
           }, 600);
         } catch (error) {
           console.error('UrlAccountAutoCreate error: ', error);
-          Toast.error({
-            title: intl.formatMessage(
-              {
-                id: ETranslations.feedback_unsupported_address_or_network,
-              },
-              {
-                routeAddress,
-              },
-            ),
-          });
+          errorUtils.toastIfErrorDisable(error);
           hasError = true;
         }
       }
@@ -208,7 +199,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
           urlAccountNavigation.replaceHomePage(navigation);
           if (routeAddress) {
             await timerUtils.wait(1);
-            urlAccountNavigation.pushUrlAccountPage(navigation, {
+            await urlAccountNavigation.pushUrlAccountPage(navigation, {
               address: routeAddress,
               networkId: networkCode,
             });
