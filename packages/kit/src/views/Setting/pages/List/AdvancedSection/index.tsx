@@ -84,7 +84,7 @@ export const AdvancedSection = () => {
       <ListItem
         onPress={onCustomRPC}
         icon="BezierNodesOutline"
-        title="Custom RPC"
+        title={intl.formatMessage({ id: ETranslations.custom_rpc_title })}
         drillIn
       />
       <ListItem

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
   ActionList,
   Badge,
-  Button,
   Dialog,
   Divider,
   Empty,
@@ -50,14 +50,15 @@ type IMeasureRpcItem = {
   loading: boolean;
 };
 
-function ListHeaderComponent({ data }: { data: ICustomRpcItem[] }) {
+function ListHeaderComponent() {
+  const intl = useIntl();
+
   return (
     <>
       <SizableText px="$5" size="$bodyLg" color="$textSubdued">
-        When modified, the custom RPC will replace OneKey’s node. To revert to
-        OneKey’s node, disabled or delete the custom RPC.
+        {intl.formatMessage({ id: ETranslations.custom_rpc_desc })}
       </SizableText>
-      {data.length > 0 ? <Divider my="$5" /> : null}
+      <Divider my="$5" />
     </>
   );
 }
@@ -67,21 +68,19 @@ function ListEmptyComponent({
 }: {
   onAddCustomRpc: () => void;
 }) {
+  const intl = useIntl();
+
   return (
     <Empty
-      flex={1}
+      mt="$24"
       icon="BezierNodesOutline"
-      title="No custom RPC"
-      button={
-        <Button
-          mt="$6"
-          size="medium"
-          variant="primary"
-          onPress={() => onAddCustomRpc()}
-        >
-          Add custom RPC
-        </Button>
-      }
+      title={intl.formatMessage({ id: ETranslations.custom_rpc_empty_title })}
+      buttonProps={{
+        onPress: () => onAddCustomRpc(),
+        children: intl.formatMessage({
+          id: ETranslations.custom_rpc_cta_label,
+        }),
+      }}
     />
   );
 }
@@ -97,13 +96,22 @@ function DialogContent({
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const { close } = useDialogInstance();
+  const intl = useIntl();
+
   return (
     <>
       <Dialog.Header>
         <Stack mb="$5">
-          <NetworkAvatar networkId={network.id} size="$8" />
+          <NetworkAvatar networkId={network.id} size="$12" />
         </Stack>
-        <Dialog.Title>{`Custom ${network.name} RPC URL`}</Dialog.Title>
+        <Dialog.Title>
+          {intl.formatMessage(
+            { id: ETranslations.custom_rpc_edit_dialog_title },
+            {
+              network: network.name,
+            },
+          )}
+        </Dialog.Title>
       </Dialog.Header>
       <Dialog.Form
         formProps={{
@@ -120,7 +128,9 @@ function DialogContent({
             },
             validate: (value) => {
               if (!uriUtils.parseUrl(value)) {
-                return 'Invalid RPC';
+                return intl.formatMessage({
+                  id: ETranslations.form_custom_rpc_error_invalid,
+                });
               }
             },
           }}
@@ -156,6 +166,7 @@ function DialogContent({
 }
 
 function CustomRPC() {
+  const intl = useIntl();
   const { result: customRpcData, run } = usePromiseResult(async () => {
     const { serviceNetwork, serviceCustomRpc } = backgroundApiProxy;
     const _supportNetworks = await serviceNetwork.getCustomRpcEnabledNetworks();
@@ -325,14 +336,15 @@ function CustomRPC() {
       Array.isArray(customRpcData?.customRpcNetworks) &&
       customRpcData.customRpcNetworks.length > 0 ? (
         <IconButton
-          bg="$bgApp"
-          icon="PlusCircleOutline"
+          title={intl.formatMessage({ id: ETranslations.custom_rpc_cta_label })}
+          variant="tertiary"
+          icon="PlusLargeOutline"
           onPress={() => {
             onAddCustomRpc();
           }}
         />
       ) : null,
-    [onAddCustomRpc, customRpcData?.customRpcNetworks],
+    [customRpcData?.customRpcNetworks, intl, onAddCustomRpc],
   );
 
   if (!customRpcData?.customRpcNetworks) {
@@ -345,7 +357,10 @@ function CustomRPC() {
 
   return (
     <Page>
-      <Page.Header title="Custom RPC" headerRight={headerRight} />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.custom_rpc_title })}
+        headerRight={headerRight}
+      />
       <Page.Body>
         <ListView
           data={customRpcData.customRpcNetworks}
@@ -388,11 +403,13 @@ function CustomRPC() {
                 <ActionList
                   title="More"
                   renderTrigger={
-                    <IconButton icon="DotHorOutline" bg="$bgApp" />
+                    <IconButton icon="DotHorOutline" variant="tertiary" />
                   }
                   items={[
                     {
-                      label: 'Edit',
+                      label: intl.formatMessage({
+                        id: ETranslations.global_edit,
+                      }),
                       icon: 'PencilOutline',
                       onPress: () =>
                         onAddOrEditRpc({
@@ -401,7 +418,9 @@ function CustomRPC() {
                         }),
                     },
                     {
-                      label: 'Delete',
+                      label: intl.formatMessage({
+                        id: ETranslations.global_delete,
+                      }),
                       destructive: true,
                       icon: 'DeleteOutline',
                       onPress: async () => onDeleteCustomRpc(item),
@@ -411,9 +430,7 @@ function CustomRPC() {
               </XStack>
             </ListItem>
           )}
-          ListHeaderComponent={
-            <ListHeaderComponent data={customRpcData.customRpcNetworks} />
-          }
+          ListHeaderComponent={<ListHeaderComponent />}
           ListEmptyComponent={
             <ListEmptyComponent onAddCustomRpc={() => onSelectNetwork()} />
           }
