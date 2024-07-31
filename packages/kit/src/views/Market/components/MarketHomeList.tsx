@@ -837,7 +837,7 @@ function BasicMarketHomeList({
           onHeaderRow={onHeaderRow}
           showHeader={gtMd}
           columns={columns}
-          // dataSource={sortedListData as unknown as IMarketToken[]}
+          dataSource={sortedListData as unknown as IMarketToken[]}
           TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
           extraData={gtMd ? undefined : mdColumnKeys}
           TableEmptyComponent={listEmptyComponent}
