@@ -134,8 +134,7 @@ function TableRow<T>({
       space="$3"
       px="$3"
       mx="$2"
-      //   py={py}
-      //   minHeight={minHeight}
+      minHeight={60}
       onPress={handlePress}
       borderRadius="$3"
       {...listItemPressStyle}
@@ -243,14 +242,7 @@ function TableHeaderRow<T>({
   onHeaderRow?: ITableProps<T>['onHeaderRow'];
 }) {
   return (
-    <XStack
-      space="$3"
-      px="$3"
-      mx="$2"
-      //   py={py}
-      //   minHeight={minHeight}
-      borderRadius="$3"
-    >
+    <XStack space="$3" px="$3" mx="$2" minHeight="$4" py="$2" borderRadius="$3">
       {columns.map((column, index) => (
         <MemoHeaderColumn
           key={column.dataIndex}
