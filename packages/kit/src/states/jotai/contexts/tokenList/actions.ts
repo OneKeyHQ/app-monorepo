@@ -98,7 +98,10 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
         }
       } else if (!isEqual(allTokenList.keys, keys)) {
-        set(allTokenListAtom(), { tokens, keys });
+        set(allTokenListAtom(), {
+          tokens: uniqBy(tokens, (item) => item.$key),
+          keys,
+        });
       }
     },
   );
@@ -176,7 +179,10 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
         }
       } else if (!isEqual(get(tokenListAtom()).keys, keys)) {
-        set(tokenListAtom(), { tokens, keys });
+        set(tokenListAtom(), {
+          tokens: uniqBy(tokens, (item) => item.$key),
+          keys,
+        });
       }
     },
   );
@@ -245,7 +251,10 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
         }
       } else if (!isEqual(get(riskyTokenListAtom()).keys, keys)) {
-        set(riskyTokenListAtom(), { riskyTokens, keys });
+        set(riskyTokenListAtom(), {
+          riskyTokens: uniqBy(riskyTokens, (item) => item.$key),
+          keys,
+        });
       }
     },
   );
@@ -313,7 +322,10 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
         }
       } else if (!isEqual(get(smallBalanceTokenListAtom()).keys, keys)) {
-        set(smallBalanceTokenListAtom(), { smallBalanceTokens, keys });
+        set(smallBalanceTokenListAtom(), {
+          smallBalanceTokens: uniqBy(smallBalanceTokens, (item) => item.$key),
+          keys,
+        });
       }
     },
   );

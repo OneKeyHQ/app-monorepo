@@ -78,6 +78,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
           networkId: history.decodedTx.networkId,
           accountId: history.decodedTx.accountId,
           historyTx: history,
+          isAllNetworks: network.isAllNetworks,
         },
       });
     },

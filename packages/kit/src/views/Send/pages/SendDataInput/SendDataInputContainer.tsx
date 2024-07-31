@@ -873,7 +873,7 @@ function SendDataInputContainer() {
   );
 
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.send_title })}
       />

@@ -594,7 +594,10 @@ export default class Vault extends VaultBase {
 
   override async addressFromBase(account: IDBAccount) {
     const chainId = await this.getNetworkChainId();
-    return confluxAddress.encodeCfxAddress(account.address, parseInt(chainId, 10));
+    return confluxAddress.encodeCfxAddress(
+      account.address,
+      parseInt(chainId, 10),
+    );
   }
 
   override async addressToBase(address: string) {
