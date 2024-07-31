@@ -10,6 +10,7 @@ import {
   openBLESettings,
 } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function OpenBleSettingDialogContainer(
   props: any,
@@ -41,6 +42,41 @@ function OpenBleSettingDialogContainer(
 }
 
 export const OpenBleSettingsDialog = forwardRef(OpenBleSettingDialogContainer);
+
+function OpenBleNotifyChangeErrorDialogContainer(
+  props: any,
+  ref: ForwardedRef<IDialogInstance>,
+) {
+  const intl = useIntl();
+
+  return (
+    <DialogContainer
+      ref={ref}
+      icon="BluetoothOutline"
+      title={intl.formatMessage({
+        id: ETranslations.feedback_bluetooth_issue,
+      })}
+      description={intl.formatMessage({
+        id: platformEnv.isNativeIOS
+          ? ETranslations.feedback_try_toggling_bluetooth
+          : ETranslations.feedback_try_repairing_device_in_settings,
+      })}
+      onConfirmText={intl.formatMessage({
+        id: ETranslations.global_go_to_settings,
+      })}
+      onConfirm={async ({ close }) => {
+        await close?.();
+        await openBLESettings();
+      }}
+      showCancelButton={false}
+      {...props} // pass down cloneElement props
+    />
+  );
+}
+
+export const OpenBleNotifyChangeErrorDialog = forwardRef(
+  OpenBleNotifyChangeErrorDialogContainer,
+);
 
 function RequireBlePermissionDialogContainer(
   props: any,
