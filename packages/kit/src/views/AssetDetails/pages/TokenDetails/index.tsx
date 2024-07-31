@@ -192,7 +192,7 @@ export function TokenDetails() {
   ]);
 
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         headerTitle={tokenInfo.name}
         headerTitleStyle={headerTitleStyle}

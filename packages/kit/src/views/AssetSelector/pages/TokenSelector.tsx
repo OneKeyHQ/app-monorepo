@@ -273,7 +273,7 @@ function TokenSelector() {
   ]);
 
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_select_crypto,
