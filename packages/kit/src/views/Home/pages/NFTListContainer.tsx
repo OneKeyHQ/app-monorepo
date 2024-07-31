@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
+import { uniqBy } from 'lodash';
+
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -26,7 +28,6 @@ import {
   withNFTListProvider,
 } from '../../../states/jotai/contexts/nftList';
 import { NFTListView } from '../components/NFTListView';
-import { uniqBy } from 'lodash';
 
 const networkIdsMap = getNetworkIdsMap();
 
