@@ -308,7 +308,7 @@ export function TokenDetailsViews(props: IProps) {
             />
 
             {/* History */}
-            <Divider />
+            <Divider mb="$3" />
           </>
         }
       />

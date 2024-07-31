@@ -161,9 +161,6 @@ export function TokenDetails() {
             data={tabs}
             initialScrollIndex={0}
             showsVerticalScrollIndicator={false}
-            tabContentContainerStyle={{
-              pt: '$5',
-            }}
           />
         );
       }
@@ -194,7 +191,7 @@ export function TokenDetails() {
   ]);
 
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         headerTitle={tokenInfo.name}
         headerTitleStyle={headerTitleStyle}
