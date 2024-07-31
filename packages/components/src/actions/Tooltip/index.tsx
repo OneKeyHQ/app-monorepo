@@ -46,7 +46,7 @@ export function TooltipText({
         mouseMoving = true;
       };
       const onMouseUp = () => {
-        document.removeEventListener('mousemove', onMouseMove, true);
+        document.removeEventListener('mouseup', onMouseMove, true);
         if (!mouseMoving) {
           return;
         }
