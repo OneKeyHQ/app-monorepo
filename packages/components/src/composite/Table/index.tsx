@@ -325,9 +325,15 @@ function BasicTable<T>({
   const { gtMd } = useMedia();
   const [isShowBackToTopButton, setIsShowBackToTopButton] = useState(false);
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
+  const isShowBackToTopButtonRef = useRef(isShowBackToTopButton);
+  isShowBackToTopButtonRef.current = isShowBackToTopButton;
   const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) =>
-      setIsShowBackToTopButton(event.nativeEvent.contentOffset.y > 0),
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const isShow = event.nativeEvent.contentOffset.y > 0;
+      if (isShowBackToTopButtonRef.current !== isShow) {
+        setIsShowBackToTopButton(isShow);
+      }
+    },
     [],
   );
 
