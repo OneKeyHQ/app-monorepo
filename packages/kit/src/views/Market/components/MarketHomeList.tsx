@@ -709,8 +709,7 @@ function BasicMarketHomeList({
   const toDetailPage = useCallback(
     (item: IMarketToken) => {
       navigation.push(ETabMarketRoutes.MarketDetail, {
-        coinGeckoId: item.coingeckoId,
-        symbol: item.symbol,
+        token: item.coingeckoId,
       });
     },
     [navigation],

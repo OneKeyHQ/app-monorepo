@@ -76,10 +76,12 @@ const useParseQRCode = () => {
         }
         case EQRCodeHandlerType.MARKET_DETAIL:
           {
-            const marketDetailData = result.data as IMarketDetailValue;
-            void marketNavigation.pushDetailPageFromDeeplink(navigation, {
-              coinGeckoId: marketDetailData.coinGeckoId,
-            });
+            const { coinGeckoId } = result.data as IMarketDetailValue;
+            if (coinGeckoId) {
+              void marketNavigation.pushDetailPageFromDeeplink(navigation, {
+                coinGeckoId,
+              });
+            }
           }
           break;
         case EQRCodeHandlerType.BITCOIN:

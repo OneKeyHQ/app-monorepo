@@ -82,7 +82,7 @@ function ListEmptyComponent({
     case EUniversalSearchType.MarketToken: {
       return (
         <YStack px="$5">
-          <SizableText numberOfLines={1} size="$headingSm">
+          <SizableText numberOfLines={1} size="$headingSm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.market_trending })}
           </SizableText>
           <SkeletonItem />
@@ -116,6 +116,17 @@ export function UniversalSearch({
   const [recommendSections, setRecommendSections] = useState<
     IUniversalSection[]
   >([]);
+
+  const searchPlaceholderText = useMemo(
+    () =>
+      intl.formatMessage({
+        id:
+          searchType === EUniversalSearchType.MarketToken
+            ? ETranslations.global_search_tokens
+            : ETranslations.global_search,
+      }),
+    [intl, searchType],
+  );
 
   const fetchRecommendList = useCallback(async () => {
     const searchResultSections: {
@@ -180,12 +191,21 @@ export function UniversalSearch({
   }, []);
 
   const renderSectionHeader = useCallback(
-    ({ section }: { section: IUniversalSection }) => (
-      <SizableText px="$5" pb={0} size="$headingSm">
-        {section.title}
-      </SizableText>
-    ),
-    [],
+    ({ section }: { section: IUniversalSection }) => {
+      if (searchType === EUniversalSearchType.MarketToken) {
+        return (
+          <SizableText px="$5" pb={0} size="$headingSm" color="$textSubdued">
+            {section.title}
+          </SizableText>
+        );
+      }
+      return (
+        <SizableText px="$5" pb={0} size="$headingSm">
+          {section.title}
+        </SizableText>
+      );
+    },
+    [searchType],
   );
 
   const renderItem = useCallback(
@@ -227,8 +247,7 @@ export function UniversalSearch({
                 navigation.pop();
                 setTimeout(async () => {
                   navigation.push(ETabMarketRoutes.MarketDetail, {
-                    coinGeckoId: coingeckoId,
-                    symbol,
+                    token: coingeckoId,
                   });
                   setTimeout(() => {
                     universalSearchActions.current.addIntoRecentSearchList({
@@ -243,6 +262,9 @@ export function UniversalSearch({
               renderAvatar={<MarketTokenIcon uri={image} size="$10" />}
               title={symbol.toUpperCase()}
               subtitle={name}
+              subtitleProps={{
+                numberOfLines: 1,
+              }}
             >
               <XStack>
                 <NumberSizeableText
@@ -252,7 +274,7 @@ export function UniversalSearch({
                 >
                   {price}
                 </NumberSizeableText>
-                <MarketStar coingeckoId={coingeckoId} mx="$3" />
+                <MarketStar coingeckoId={coingeckoId} ml="$3" />
               </XStack>
             </ListItem>
           );
@@ -269,18 +291,14 @@ export function UniversalSearch({
     switch (searchStatus) {
       case ESearchStatus.init:
         return (
-          <>
-            <RecentSearched searchType={searchType} />
-            <SectionList
-              renderSectionHeader={renderSectionHeader}
-              sections={recommendSections}
-              renderItem={renderItem}
-              ListEmptyComponent={
-                <ListEmptyComponent searchType={searchType} />
-              }
-              estimatedItemSize="$16"
-            />
-          </>
+          <SectionList
+            renderSectionHeader={renderSectionHeader}
+            sections={recommendSections}
+            renderItem={renderItem}
+            ListHeaderComponent={<RecentSearched searchType={searchType} />}
+            ListEmptyComponent={<ListEmptyComponent searchType={searchType} />}
+            estimatedItemSize="$16"
+          />
         );
 
       case ESearchStatus.loading:
@@ -334,9 +352,7 @@ export function UniversalSearch({
         <View p="$5" pt={0}>
           <SearchBar
             autoFocus
-            placeholder={intl.formatMessage({
-              id: ETranslations.global_search,
-            })}
+            placeholder={searchPlaceholderText}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
           />

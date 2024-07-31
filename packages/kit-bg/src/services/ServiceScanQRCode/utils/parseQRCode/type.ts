@@ -75,7 +75,7 @@ export interface IUrlAccountValue extends IBaseValue {
 }
 export interface IMarketDetailValue extends IBaseValue {
   origin: string;
-  coinGeckoId: string;
+  coinGeckoId?: string;
 }
 export interface IMigrateValue extends IBaseValue {
   address?: string;

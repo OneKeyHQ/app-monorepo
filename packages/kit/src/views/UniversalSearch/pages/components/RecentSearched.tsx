@@ -67,8 +67,7 @@ export function RecentSearched({
           navigation.pop();
           setTimeout(() => {
             navigation.push(ETabMarketRoutes.MarketDetail, {
-              coinGeckoId: item.id,
-              symbol: item.text,
+              token: item.id,
             });
           }, 80);
           break;
