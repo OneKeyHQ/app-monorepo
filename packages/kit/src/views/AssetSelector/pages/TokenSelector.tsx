@@ -67,62 +67,72 @@ function TokenSelector() {
 
   const handleTokenOnPress = useCallback(
     async (token: IAccountToken) => {
-      const networkAccounts =
-        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-          {
-            networkIds: [token.networkId ?? ''],
-            indexedAccountId: account?.indexedAccountId ?? '',
-          },
-        );
+      if (network?.isAllNetworks) {
+        const networkAccounts =
+          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+            {
+              networkIds: [token.networkId ?? ''],
+              indexedAccountId: account?.indexedAccountId ?? '',
+            },
+          );
+        const networkAccount = networkAccounts[0];
 
-      const networkAccount = networkAccounts[0];
+        if (networkAccount.account) {
+          void onSelect?.({
+            ...token,
+            accountId: networkAccount.account.id,
+          });
+        } else if (account) {
+          updateCreateAccountState({
+            isCreating: true,
+            token,
+          });
+          const walletId = accountUtils.getWalletIdFromAccountId({
+            accountId: account.id,
+          });
+          try {
+            const resp =
+              await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
+                walletId,
+                indexedAccountId: account?.indexedAccountId,
+                deriveType: 'default',
+                networkId: token.networkId,
+              });
 
-      if (networkAccount.account) {
-        void onSelect?.({
-          ...token,
-          accountId: networkAccount.account.id,
-        });
-      } else if (account) {
-        updateCreateAccountState({
-          isCreating: true,
-          token,
-        });
-        const walletId = accountUtils.getWalletIdFromAccountId({
-          accountId: account.id,
-        });
-        try {
-          const resp =
-            await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
-              walletId,
-              indexedAccountId: account?.indexedAccountId,
-              deriveType: 'default',
-              networkId: token.networkId,
+            updateCreateAccountState({
+              isCreatingAccount: false,
+              token: null,
             });
 
-          updateCreateAccountState({
-            isCreatingAccount: false,
-            token: null,
-          });
-
-          if (resp) {
-            void onSelect?.({
-              ...token,
-              accountId: resp.accounts[0].id,
+            if (resp) {
+              void onSelect?.({
+                ...token,
+                accountId: resp.accounts[0].id,
+              });
+            }
+          } catch (e) {
+            updateCreateAccountState({
+              isCreatingAccount: false,
+              token: null,
             });
           }
-        } catch (e) {
-          updateCreateAccountState({
-            isCreatingAccount: false,
-            token: null,
-          });
         }
+      } else {
+        void onSelect?.(token);
       }
 
       if (closeAfterSelect) {
         navigation.pop();
       }
     },
-    [account, closeAfterSelect, navigation, onSelect, updateCreateAccountState],
+    [
+      account,
+      closeAfterSelect,
+      navigation,
+      network?.isAllNetworks,
+      onSelect,
+      updateCreateAccountState,
+    ],
   );
 
   const fetchAccountTokens = useCallback(async () => {
