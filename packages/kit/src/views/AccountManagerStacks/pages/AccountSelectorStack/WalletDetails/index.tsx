@@ -50,6 +50,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
@@ -690,11 +691,22 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                         return;
                       }
                       if (isOthersUniversal) {
+                        let autoChangeToAccountMatchedNetworkId =
+                          avatarNetworkId;
+                        if (
+                          selectedAccount?.networkId &&
+                          networkUtils.isAllNetwork({
+                            networkId: selectedAccount?.networkId,
+                          })
+                        ) {
+                          autoChangeToAccountMatchedNetworkId =
+                            selectedAccount?.networkId;
+                        }
                         await actions.current.confirmAccountSelect({
                           num,
                           indexedAccount: undefined,
                           othersWalletAccount: account,
-                          autoChangeToAccountMatchedNetworkId: avatarNetworkId,
+                          autoChangeToAccountMatchedNetworkId,
                         });
                       } else if (focusedWalletInfo) {
                         await actions.current.confirmAccountSelect({

@@ -17,7 +17,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
-import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
@@ -180,7 +180,7 @@ export function ImportSingleChainBase({
               label={intl.formatMessage({ id: ETranslations.derivation_path })}
               name="deriveType"
             >
-              <DeriveTypeSelectorTriggerStaticInput
+              <DeriveTypeSelectorFormInput
                 networkId={form.getValues().networkId || ''}
                 enabledItems={validateResult?.deriveInfoItems || []}
                 renderTrigger={({ label }) => (

@@ -294,23 +294,28 @@ class ServiceAccountSelector extends ServiceBase {
     }
     let allNetworkDbAccounts: IDBAccount[] | undefined;
     let canCreateAddress = false;
-    if (networkId && networkUtils.isAllNetwork({ networkId })) {
+    const isAllNetwork = networkId && networkUtils.isAllNetwork({ networkId });
+    // isAllNetwork
+    if (isAllNetwork) {
+      try {
+        allNetworkDbAccounts =
+          await this.backgroundApi.serviceAllNetwork.getAllNetworkDbAccounts({
+            networkId,
+            singleNetworkDeriveType: undefined,
+            indexedAccountId,
+            othersWalletAccountId,
+          });
+      } catch (error) {
+        //
+      }
+
+      // build mocked networkAccount of all network
       if (!isOthersWallet && indexedAccountId) {
-        let dbAccounts: IDBAccount[] = [];
-
-        try {
-          dbAccounts =
-            await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
-              {
-                indexedAccountId,
-              },
-            );
-        } catch (error) {
-          //
-        }
-
-        if (dbAccounts.length) {
-          allNetworkDbAccounts = dbAccounts;
+        const updateCanCreateAddressForAllNetwork = async () => {
+          account = undefined;
+          canCreateAddress = true;
+        };
+        if (allNetworkDbAccounts?.length) {
           try {
             account =
               await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount(
@@ -320,15 +325,14 @@ class ServiceAccountSelector extends ServiceBase {
               );
             canCreateAddress = false;
           } catch (error) {
-            account = undefined;
-            canCreateAddress = true;
+            await updateCanCreateAddressForAllNetwork();
           }
         } else {
-          account = undefined;
-          canCreateAddress = true;
+          await updateCanCreateAddressForAllNetwork();
         }
       }
     } else {
+      // single network
       canCreateAddress = !isOthersWallet && !account?.address;
     }
 

@@ -85,7 +85,7 @@ function ProcessingDialogContent({
           ) : null}
 
           {/* <SizableText mb="$4">Adding Accounts</SizableText> */}
-          {!isDone ? (
+          {!isFlowEnded ? (
             <Progress
               mt="$4"
               w="100%"

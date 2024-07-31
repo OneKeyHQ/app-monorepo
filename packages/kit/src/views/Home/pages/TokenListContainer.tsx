@@ -66,6 +66,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   const {
     activeAccount: {
       account,
+      allNetworkDbAccounts,
       network,
       wallet,
       indexedAccount,

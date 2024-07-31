@@ -28,6 +28,8 @@ type IDeriveTypeSelectorTriggerPropsBase = {
   defaultTriggerInputProps?: ISelectProps<ISelectItem>['defaultTriggerInputProps'];
   placement?: ComponentProps<typeof Select>['placement'];
   offset?: ISelectProps<ISelectItem>['offset'];
+  visibleOnNetworks?: string[];
+  networkId?: string;
 };
 type IDeriveTypeSelectorTriggerProps = IDeriveTypeSelectorTriggerPropsBase & {
   items: IAccountDeriveInfoItems[];
@@ -35,7 +37,43 @@ type IDeriveTypeSelectorTriggerProps = IDeriveTypeSelectorTriggerPropsBase & {
   onChange?: (type: IAccountDeriveTypes) => void;
 };
 
-function DeriveTypeSelectorTriggerView({
+function DeriveTypeVisibleController({
+  networkId,
+  visibleOnNetworks,
+  children,
+}: {
+  networkId: string | undefined;
+  visibleOnNetworks?: string[];
+  children: (params: {
+    visible: boolean;
+    setVisible: (v: boolean) => void;
+  }) => React.ReactNode;
+}) {
+  const [visible, setVisible] = useState(true);
+
+  const usedVisible = useMemo(() => {
+    if (networkUtils.isAllNetwork({ networkId })) {
+      return false;
+    }
+    if (visibleOnNetworks?.length && networkId) {
+      return visibleOnNetworks.includes(networkId);
+    }
+    return visible;
+  }, [networkId, visible, visibleOnNetworks]);
+
+  return (
+    <Stack
+      height={!usedVisible ? 0 : undefined}
+      width={!usedVisible ? 0 : undefined}
+      opacity={!usedVisible ? 0 : undefined}
+      overflow={!usedVisible ? 'hidden' : undefined}
+    >
+      {children({ visible, setVisible })}
+    </Stack>
+  );
+}
+
+function DeriveTypeSelectorTriggerBaseView({
   items,
   value: deriveType,
   onChange: onDeriveTypeChange,
@@ -44,32 +82,153 @@ function DeriveTypeSelectorTriggerView({
   testID,
   offset,
   defaultTriggerInputProps,
+  visibleOnNetworks,
+  networkId,
 }: IDeriveTypeSelectorTriggerProps & {
   testID?: string;
 }) {
   const intl = useIntl();
 
   return (
-    <>
-      <Select
-        offset={offset}
-        testID={testID}
-        items={items}
-        floatingPanelProps={{
-          width: '$78',
-        }}
-        placement={placement}
-        value={deriveType}
-        onChange={onDeriveTypeChange}
-        title={intl.formatMessage({ id: ETranslations.derivation_path })}
-        renderTrigger={renderTrigger}
-        defaultTriggerInputProps={defaultTriggerInputProps}
-      />
-    </>
+    <DeriveTypeVisibleController
+      networkId={networkId}
+      visibleOnNetworks={visibleOnNetworks}
+    >
+      {() => (
+        <Select
+          offset={offset}
+          testID={testID}
+          items={items}
+          floatingPanelProps={{
+            width: '$78',
+          }}
+          placement={placement}
+          value={deriveType}
+          onChange={onDeriveTypeChange}
+          title={intl.formatMessage({ id: ETranslations.derivation_path })}
+          renderTrigger={renderTrigger}
+          defaultTriggerInputProps={defaultTriggerInputProps}
+        />
+      )}
+    </DeriveTypeVisibleController>
   );
 }
 
-export function DeriveTypeSelectorTriggerStaticInput(
+// for AccountSelector Jotai Context
+export function DeriveTypeSelectorTrigger({
+  num,
+  renderTrigger,
+  placement,
+}: IDeriveTypeSelectorTriggerPropsBase & {
+  num: number;
+}) {
+  const intl = useIntl();
+  const actions = useAccountSelectorActions();
+  const [isStorageReady] = useAccountSelectorStorageReadyAtom();
+  const { activeAccount } = useActiveAccount({ num });
+  const { deriveInfoItems, deriveInfo, deriveType, wallet, network } =
+    activeAccount;
+  const walletId = wallet?.id;
+  const networkId = network?.id;
+
+  const options = useMemo(
+    () =>
+      deriveInfoItems.map(({ value, label, item, description, descI18n }) => ({
+        value,
+        label: item.labelKey
+          ? intl.formatMessage({ id: item.labelKey })
+          : label,
+        item,
+        description: descI18n
+          ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
+          : description,
+      })),
+    [deriveInfoItems, intl],
+  );
+
+  if (!isStorageReady) {
+    return null;
+  }
+
+  if (options.length <= 1) {
+    return null;
+  }
+
+  if (!walletId) {
+    return null;
+  }
+
+  if (walletId && accountUtils.isOthersWallet({ walletId })) {
+    return null;
+  }
+
+  return (
+    <DeriveTypeSelectorTriggerBaseView
+      networkId={networkId}
+      visibleOnNetworks={networkUtils.getDefaultDeriveTypeVisibleNetworks()}
+      key={`${deriveType || ''}-${networkId || ''}-${
+        deriveInfo?.template || ''
+      }`}
+      testID={`derive-type-selector-trigger-${accountUtils.beautifyPathTemplate(
+        { template: deriveInfo?.template || '' },
+      )}`}
+      value={deriveType}
+      items={options}
+      onChange={async (type) => {
+        await actions.current.updateSelectedAccountDeriveType({
+          num,
+          deriveType: type,
+        });
+      }}
+      renderTrigger={renderTrigger}
+      placement={placement}
+    />
+  );
+}
+
+export function DeriveTypeSelectorTriggerGlobalStandAlone({
+  networkId,
+  renderTrigger,
+  placement,
+  offset,
+}: {
+  networkId: string;
+} & IDeriveTypeSelectorTriggerPropsBase) {
+  const [deriveTypeChangedTs, setDeriveTypeChangedTs] = useState(0);
+  const { result: options = [] } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
+        networkId,
+      }),
+    [networkId],
+  );
+  const { result: deriveType = undefined } = usePromiseResult(async () => {
+    noopObject(deriveTypeChangedTs);
+    const globalDeriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId,
+      });
+    return globalDeriveType;
+  }, [networkId, deriveTypeChangedTs]);
+  return (
+    <DeriveTypeSelectorTriggerBaseView
+      offset={offset}
+      value={deriveType}
+      items={options}
+      onChange={async (type) => {
+        await backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork({
+          networkId: networkId || '',
+          deriveType: type,
+        });
+        setDeriveTypeChangedTs(Date.now());
+      }}
+      renderTrigger={renderTrigger}
+      placement={placement}
+    />
+  );
+}
+
+export function DeriveTypeSelectorFormInput(
   props: Omit<IDeriveTypeSelectorTriggerProps, 'items'> & {
     enabledItems?: IAccountDeriveInfo[];
     networkId: string;
@@ -142,7 +301,7 @@ export function DeriveTypeSelectorTriggerStaticInput(
   }
 
   return (
-    <DeriveTypeSelectorTriggerView
+    <DeriveTypeSelectorTriggerBaseView
       key={`${deriveType || ''}-${networkId || ''}`}
       items={options}
       value={deriveType}
@@ -157,117 +316,6 @@ export function DeriveTypeSelectorTriggerStaticInput(
   );
 }
 
-export function DeriveTypeSelectorTrigger({
-  num,
-  renderTrigger,
-  placement,
-}: IDeriveTypeSelectorTriggerPropsBase & {
-  num: number;
-}) {
-  const intl = useIntl();
-  const actions = useAccountSelectorActions();
-  const [isStorageReady] = useAccountSelectorStorageReadyAtom();
-  const { activeAccount } = useActiveAccount({ num });
-  const { deriveInfoItems, deriveInfo, deriveType, wallet, network } =
-    activeAccount;
-  const walletId = wallet?.id;
-  const networkId = network?.id;
-
-  const options = useMemo(
-    () =>
-      deriveInfoItems.map(({ value, label, item, description, descI18n }) => ({
-        value,
-        label: item.labelKey
-          ? intl.formatMessage({ id: item.labelKey })
-          : label,
-        item,
-        description: descI18n
-          ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
-          : description,
-      })),
-    [deriveInfoItems, intl],
-  );
-
-  if (!isStorageReady) {
-    return null;
-  }
-
-  if (options.length <= 1) {
-    return null;
-  }
-
-  if (!walletId) {
-    return null;
-  }
-
-  if (walletId && accountUtils.isOthersWallet({ walletId })) {
-    return null;
-  }
-
-  return (
-    <DeriveTypeSelectorTriggerView
-      key={`${deriveType || ''}-${networkId || ''}-${
-        deriveInfo?.template || ''
-      }`}
-      testID={`derive-type-selector-trigger-${accountUtils.beautifyPathTemplate(
-        { template: deriveInfo?.template || '' },
-      )}`}
-      value={deriveType}
-      items={options}
-      onChange={async (type) => {
-        await actions.current.updateSelectedAccountDeriveType({
-          num,
-          deriveType: type,
-        });
-      }}
-      renderTrigger={renderTrigger}
-      placement={placement}
-    />
-  );
-}
-
-export function DeriveTypeSelectorTriggerStandAlone({
-  networkId,
-  renderTrigger,
-  placement,
-  offset,
-}: {
-  networkId: string;
-} & IDeriveTypeSelectorTriggerPropsBase) {
-  const [deriveTypeChangedTs, setDeriveTypeChangedTs] = useState(0);
-  const { result: options = [] } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
-        networkId,
-      }),
-    [networkId],
-  );
-  const { result: deriveType = undefined } = usePromiseResult(async () => {
-    noopObject(deriveTypeChangedTs);
-    const globalDeriveType =
-      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-        networkId,
-      });
-    return globalDeriveType;
-  }, [networkId, deriveTypeChangedTs]);
-  return (
-    <DeriveTypeSelectorTriggerView
-      offset={offset}
-      value={deriveType}
-      items={options}
-      onChange={async (type) => {
-        await backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork({
-          networkId: networkId || '',
-          deriveType: type,
-        });
-        setDeriveTypeChangedTs(Date.now());
-      }}
-      renderTrigger={renderTrigger}
-      placement={placement}
-    />
-  );
-}
-
 export function DeriveTypeSelectorFormField({
   networkId,
   fieldName,
@@ -277,33 +325,30 @@ export function DeriveTypeSelectorFormField({
 }) {
   const intl = useIntl();
   const media = useMedia();
-  const [hide, setHide] = useState(!!networkUtils.isAllNetwork({ networkId }));
   return (
-    <Stack
-      height={hide ? 0 : undefined}
-      opacity={hide ? 0 : undefined}
-      overflow={hide ? 'hidden' : undefined}
-    >
-      <Form.Field
-        label={intl.formatMessage({
-          id: ETranslations.global_derivation_path,
-        })}
-        name={fieldName}
-      >
-        <DeriveTypeSelectorTriggerStaticInput
-          hideIfItemsLTEOne
-          onItemsChange={(items) => {
-            const shouldHide = items.length <= 1;
-            if (hide !== shouldHide) {
-              setHide(shouldHide);
-            }
-          }}
-          networkId={networkId || ''}
-          defaultTriggerInputProps={{
-            size: media.gtMd ? 'medium' : 'large',
-          }}
-        />
-      </Form.Field>
-    </Stack>
+    <DeriveTypeVisibleController networkId={networkId}>
+      {({ setVisible, visible }) => (
+        <Form.Field
+          label={intl.formatMessage({
+            id: ETranslations.global_derivation_path,
+          })}
+          name={fieldName}
+        >
+          <DeriveTypeSelectorFormInput
+            hideIfItemsLTEOne
+            onItemsChange={(items) => {
+              const shouldVisible = items.length > 1;
+              if (visible !== shouldVisible) {
+                setVisible(shouldVisible);
+              }
+            }}
+            networkId={networkId || ''}
+            defaultTriggerInputProps={{
+              size: media.gtMd ? 'medium' : 'large',
+            }}
+          />
+        </Form.Field>
+      )}
+    </DeriveTypeVisibleController>
   );
 }
