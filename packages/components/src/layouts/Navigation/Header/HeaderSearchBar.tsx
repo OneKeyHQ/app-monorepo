@@ -54,7 +54,6 @@ function HeaderSearchBar({
   onChangeText,
   onSearchButtonPress,
   placeholder,
-  testID,
 }: IHeaderSearchBarProps) {
   const media = useMedia();
 
@@ -115,7 +114,6 @@ function HeaderSearchBar({
       onChangeText={handleChangeCallback}
       onSubmitEditing={onSubmitEditingCallback}
       placeholder={placeholder}
-      testID={testID ? 'nav-header-search-' + testID : 'nav-header-search'}
     />
   );
 }
