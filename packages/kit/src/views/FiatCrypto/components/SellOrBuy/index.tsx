@@ -14,6 +14,7 @@ import { useGetTokensList } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IModalFiatCryptoParamList } from '@onekeyhq/shared/src/routes';
 import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -43,7 +44,7 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
     >();
   const { result: tokens, isLoading } = useGetTokensList({
     networkId,
-    accountId: networkUtils.isAllNetwork({ networkId }) ? undefined : accountId,
+    accountId,
     type,
   });
   const { getTokenFiatValue, fiatMap } = useTokenDataContext();
@@ -69,12 +70,20 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
         (o) => o.balanceParsed && Number(o.balanceParsed) !== 0,
       );
     }
+    if (account && accountUtils.isOthersAccount({ accountId: account.id })) {
+      result = result.filter((o) =>
+        accountUtils.isAccountCompatibleWithNetwork({
+          account,
+          networkId: o.networkId,
+        }),
+      );
+    }
     return result.sort((a, b) => {
       const num1 = a.fiatValue ?? '0';
       const num2 = b.fiatValue ?? '0';
       return BigNumber(num1).gt(num2) ? -1 : 1;
     });
-  }, [tokens, getTokenFiatValue, networkId, type]);
+  }, [tokens, getTokenFiatValue, networkId, type, account]);
 
   const onPress = useCallback(
     async (token: IFiatCryptoToken) => {
