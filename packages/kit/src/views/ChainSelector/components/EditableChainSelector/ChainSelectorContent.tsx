@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
@@ -26,8 +27,6 @@ import { useFuseSearch } from '../../hooks/useFuseSearch';
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
 import { CELL_HEIGHT } from './type';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
   IEditableChainSelectorContext,

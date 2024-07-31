@@ -32,6 +32,7 @@ export enum EHardwareUiStateAction {
   CLOSE_UI_WINDOW = 'ui-close_window',
 
   BLUETOOTH_PERMISSION = 'ui-bluetooth_permission',
+  BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE = 'ui-bluetooth_characteristic_notify_change_failure',
   LOCATION_PERMISSION = 'ui-location_permission',
   LOCATION_SERVICE_PERMISSION = 'ui-location_service_permission',
 
