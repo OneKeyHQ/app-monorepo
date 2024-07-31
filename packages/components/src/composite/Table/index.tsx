@@ -292,9 +292,9 @@ export function Table<T>({
 
   const handleRenderItem = useCallback(
     ({ item, index }: ListRenderItemInfo<T>) => (
-      <TableRow item={item} index={index} columns={columns} />
+      <TableRow item={item} index={index} columns={columns} onRow={onRow} />
     ),
-    [columns],
+    [columns, onRow],
   );
 
   return (
