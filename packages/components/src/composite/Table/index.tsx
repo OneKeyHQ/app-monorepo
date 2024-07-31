@@ -183,16 +183,20 @@ export interface ITableProps<T> {
   onHeaderRow?: (
     column: ITableColumn<T>,
     index: number,
-  ) => {
-    onPress?: () => void;
-    onSortTypeChange?: (sortOrder: 'asc' | 'desc' | undefined) => void;
-  };
+  ) =>
+    | {
+        onPress?: () => void;
+        onSortTypeChange?: (sortOrder: 'asc' | 'desc' | undefined) => void;
+      }
+    | undefined;
   onRow?: (
     record: T,
     index: number,
-  ) => {
-    onPress?: () => void;
-  };
+  ) =>
+    | {
+        onPress?: () => void;
+      }
+    | undefined;
 }
 
 function HeaderColumn<T>({
