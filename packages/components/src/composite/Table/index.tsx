@@ -268,7 +268,6 @@ function TableHeaderRow<T>({
 }
 
 export function Table<T>({
-  showHeader,
   dataSource,
   columns,
   extraData,
@@ -276,6 +275,7 @@ export function Table<T>({
   TableEmptyComponent,
   onHeaderRow,
   onRow,
+  showHeader = true,
   estimatedItemSize = 60,
   estimatedListSize = { width: 370, height: 525 },
   stickyHeaderHiddenOnScroll = false,
@@ -305,7 +305,7 @@ export function Table<T>({
   );
 
   return (
-    <YStack>
+    <YStack flex={1}>
       {showHeader ? (
         <TableHeaderRow columns={columns} onHeaderRow={onHeaderRow} />
       ) : null}
