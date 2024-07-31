@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -16,10 +16,14 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { ProviderJotaiContextAccountOverview } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -57,6 +61,27 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
   routeParamsRef.current = routeParams;
   const routePathRef = useRef(route.path);
   routePathRef.current = route.path;
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+  const isCurrentSelectedAccountNotUrlAccount = useMemo(() => {
+    if (
+      selectedAccount.indexedAccountId &&
+      !selectedAccount?.othersWalletAccountId
+    ) {
+      return true;
+    }
+    if (
+      selectedAccount?.othersWalletAccountId &&
+      !accountUtils.isUrlAccountFn({
+        accountId: selectedAccount?.othersWalletAccountId,
+      })
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    selectedAccount.indexedAccountId,
+    selectedAccount?.othersWalletAccountId,
+  ]);
 
   useEffect(() => {
     if (
@@ -123,12 +148,16 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         hasError = true;
       }
       const prevAccount = getPrevUrlAccount();
+      const urlAccountInDb =
+        await backgroundApiProxy.serviceAccount.getUrlDBAccountSafe();
 
       if (
         networkId &&
         routeAddress &&
-        (routeAddress?.toLowerCase() !== prevAccount?.address?.toLowerCase() ||
-          networkId !== prevAccount?.networkId)
+        (!urlAccountInDb ||
+          routeAddress?.toLowerCase() !== prevAccount?.address?.toLowerCase() ||
+          networkId !== prevAccount?.networkId ||
+          isCurrentSelectedAccountNotUrlAccount)
       ) {
         try {
           const r = await backgroundApiProxy.serviceAccount.addWatchingAccount({
@@ -187,7 +216,13 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         }
       }
     }, 0);
-  }, [intl, actions, navigation, redirectMode]);
+  }, [
+    intl,
+    actions,
+    navigation,
+    redirectMode,
+    isCurrentSelectedAccountNotUrlAccount,
+  ]);
 
   const backToHomePage = useCallback(() => {
     urlAccountNavigation.replaceHomePage(navigation);

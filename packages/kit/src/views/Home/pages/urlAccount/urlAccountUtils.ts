@@ -2,15 +2,20 @@ import { StackActions } from '@react-navigation/native';
 
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
   ETabHomeRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 const localStorageKey = '$onekeyPrevSelectedUrlAccount';
 export function savePrevUrlAccount({
@@ -51,6 +56,7 @@ export function getPrevUrlAccount() {
 }
 
 type IUrlAccountRouteBuildParams = {
+  account: INetworkAccount | undefined;
   address: string | undefined;
   networkId: string | undefined;
   networkCode: string | undefined;
@@ -60,7 +66,8 @@ type IUrlAccountRouteBuildParams = {
 // export const urlAccountLandingRewrite = '/wallet/account/:address/:networkId?';
 export const urlAccountLandingRewrite = '/:networkId/:address?'; // visible url
 // export const urlAccountPageRewrite = '/url-account/:networkId/:address'; // hidden url
-export function buildUrlAccountLandingRoute({
+export async function buildUrlAccountLandingRoute({
+  account,
   address,
   networkId,
   networkCode,
@@ -68,7 +75,27 @@ export function buildUrlAccountLandingRoute({
 }: IUrlAccountRouteBuildParams & {
   includingOrigin?: boolean;
 }) {
-  const path = `/${networkCode || networkId || ''}/${address || ''}`;
+  const isAllNetwork = networkUtils.isAllNetwork({ networkId });
+  let networkSegment = networkCode || networkId || '';
+  if (isAllNetwork) {
+    let createAtNetworkCode = '';
+    networkSegment = account?.createAtNetwork || '';
+    if (account?.createAtNetwork) {
+      const createAtNetworkInfo =
+        await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+          networkId: account?.createAtNetwork,
+        });
+      createAtNetworkCode = createAtNetworkInfo?.code || '';
+    }
+    const isEvm = networkUtils.isEvmNetwork({ networkId: networkSegment });
+    if (isEvm) {
+      networkSegment = IMPL_EVM;
+    } else {
+      networkSegment =
+        createAtNetworkCode || account?.createAtNetwork || networkSegment;
+    }
+  }
+  const path = `/${networkSegment || '--'}/${address || '--'}`;
   if (includingOrigin) {
     const origin =
       platformEnv.isWeb && !platformEnv.isDev
@@ -79,7 +106,7 @@ export function buildUrlAccountLandingRoute({
   return path;
 }
 
-export function buildUrlAccountFullUrl({
+export async function buildUrlAccountFullUrl({
   account,
   network,
 }: {
@@ -87,6 +114,7 @@ export function buildUrlAccountFullUrl({
   network: IServerNetwork;
 }) {
   return buildUrlAccountLandingRoute({
+    account,
     address: account.address,
     networkId: network.id,
     networkCode: network.code,
@@ -94,7 +122,8 @@ export function buildUrlAccountFullUrl({
   });
 }
 
-export function replaceUrlAccountLandingRoute({
+export async function replaceUrlAccountLandingRoute({
+  account,
   address,
   networkId,
   networkCode,
@@ -103,7 +132,8 @@ export function replaceUrlAccountLandingRoute({
     return;
   }
   if (address && (networkId || networkCode)) {
-    const url = buildUrlAccountLandingRoute({
+    const url = await buildUrlAccountLandingRoute({
+      account,
       address,
       networkId,
       networkCode,
@@ -112,7 +142,9 @@ export function replaceUrlAccountLandingRoute({
   } else {
     window.history.replaceState(null, '', '/');
   }
-  savePrevUrlAccount({ address, networkId });
+  if (accountUtils.isUrlAccountFn({ accountId: account?.id })) {
+    savePrevUrlAccount({ address, networkId });
+  }
 }
 
 export const urlAccountNavigation = {
@@ -134,6 +166,7 @@ export const urlAccountNavigation = {
     params: {
       address: string | undefined;
       networkId: string | undefined;
+      activeAccountNetworkId?: string;
     },
   ) {
     navigation.dispatch(

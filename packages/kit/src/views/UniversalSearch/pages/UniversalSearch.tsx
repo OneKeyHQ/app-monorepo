@@ -222,6 +222,7 @@ export function UniversalSearch({
                   urlAccountNavigation.pushUrlAccountPage(navigation, {
                     address: addressInfo.displayAddress,
                     networkId: network.id,
+                    activeAccountNetworkId: activeAccount?.network?.id,
                   });
                 }, 80);
               }}
@@ -284,7 +285,7 @@ export function UniversalSearch({
         }
       }
     },
-    [navigation, currency, universalSearchActions],
+    [navigation, activeAccount?.network?.id, currency, universalSearchActions],
   );
 
   const renderResult = useCallback(() => {
