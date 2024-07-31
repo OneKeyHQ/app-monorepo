@@ -47,6 +47,7 @@ enum ECustomStatus {
 type IMeasureRpcItem = {
   responseTime: number;
   status: ECustomStatus;
+  loading: boolean;
 };
 
 function ListHeaderComponent({ data }: { data: ICustomRpcItem[] }) {
@@ -140,7 +141,7 @@ function DialogContent({
           await serviceCustomRpc.addCustomRpc({
             rpc: rpcUrl,
             networkId,
-            enabled: true,
+            enabled: rpcInfo?.enabled ?? true,
           });
           setIsLoading(false);
           await close();
@@ -155,26 +156,15 @@ function DialogContent({
 }
 
 function CustomRPC() {
-  const {
-    result: customRpcData,
-    isLoading,
-    run,
-  } = usePromiseResult(
-    async () => {
-      const { serviceNetwork, serviceCustomRpc } = backgroundApiProxy;
-      const _supportNetworks =
-        await serviceNetwork.getCustomRpcEnabledNetworks();
-      const _customRpcNetworks = await serviceCustomRpc.getAllCustomRpc();
-      return {
-        supportNetworks: _supportNetworks,
-        customRpcNetworks: _customRpcNetworks,
-      };
-    },
-    [],
-    {
-      watchLoading: true,
-    },
-  );
+  const { result: customRpcData, run } = usePromiseResult(async () => {
+    const { serviceNetwork, serviceCustomRpc } = backgroundApiProxy;
+    const _supportNetworks = await serviceNetwork.getCustomRpcEnabledNetworks();
+    const _customRpcNetworks = await serviceCustomRpc.getAllCustomRpc();
+    return {
+      supportNetworks: _supportNetworks,
+      customRpcNetworks: _customRpcNetworks,
+    };
+  }, []);
   const [rpcSpeedMap, setRpcSpeedMap] = useState<
     Record<string, IMeasureRpcItem>
   >({});
@@ -189,10 +179,15 @@ function CustomRPC() {
       return {
         responseTime,
         status: responseTime < 1000 ? ECustomStatus.Fast : ECustomStatus.Normal,
+        loading: false,
       };
     } catch (e) {
       console.error(`Error testing RPC: ${rpcInfo.rpc}: `, e);
-      return { responseTime: -1, status: ECustomStatus.NotAvailable };
+      return {
+        responseTime: -1,
+        status: ECustomStatus.NotAvailable,
+        loading: false,
+      };
     }
   }, []);
   const updateRpcMeasureData = useDebouncedCallback(
@@ -210,6 +205,16 @@ function CustomRPC() {
         return !previous || previous.rpc !== current.rpc;
       });
 
+      setRpcSpeedMap((prev) => {
+        const newMap = { ...prev };
+        updatedOrNewRpcInfos.forEach((rpcInfo) => {
+          newMap[rpcInfo.networkId] = {
+            ...newMap[rpcInfo.networkId],
+            loading: true,
+          };
+        });
+        return newMap;
+      });
       for (const rpcInfo of updatedOrNewRpcInfos) {
         const measureData = await measureRpcSpeed(rpcInfo);
         setRpcSpeedMap((prev) => ({
@@ -255,9 +260,37 @@ function CustomRPC() {
     [showChainSelector, customRpcData?.supportNetworks, onAddOrEditRpc],
   );
 
+  const onAddCustomRpc = useCallback(() => {
+    onSelectNetwork();
+  }, [onSelectNetwork]);
+
+  const onDeleteCustomRpc = useCallback(
+    async (item: ICustomRpcItem) => {
+      await backgroundApiProxy.serviceCustomRpc.deleteCustomRpc(item.networkId);
+      setTimeout(() => {
+        void run();
+      }, 200);
+    },
+    [run],
+  );
+
+  const onToggleCustomRpcEnabledState = useCallback(
+    async (item: ICustomRpcItem) => {
+      await backgroundApiProxy.serviceCustomRpc.addCustomRpc({
+        rpc: item.rpc,
+        networkId: item.networkId,
+        enabled: !item.enabled,
+      });
+      setTimeout(() => {
+        void run();
+      }, 200);
+    },
+    [run],
+  );
+
   const renderRpcStatus = useCallback(
     (item: ICustomRpcItem) => {
-      if (!rpcSpeedMap[item.networkId]) {
+      if (!rpcSpeedMap[item.networkId] || rpcSpeedMap[item.networkId].loading) {
         return <Skeleton w={42} h="$5" />;
       }
       let badgeType = 'success';
@@ -287,7 +320,20 @@ function CustomRPC() {
     [rpcSpeedMap],
   );
 
-  if (isLoading || !customRpcData?.customRpcNetworks) {
+  const headerRight = useCallback(
+    () => (
+      <IconButton
+        bg="$bgApp"
+        icon="PlusCircleOutline"
+        onPress={() => {
+          onAddCustomRpc();
+        }}
+      />
+    ),
+    [onAddCustomRpc],
+  );
+
+  if (!customRpcData?.customRpcNetworks) {
     return (
       <YStack flex={1} alignItems="center" justifyContent="center">
         <Spinner />
@@ -297,7 +343,7 @@ function CustomRPC() {
 
   return (
     <Page>
-      <Page.Header title="Custom RPC" />
+      <Page.Header title="Custom RPC" headerRight={headerRight} />
       <Page.Body>
         <ListView
           data={customRpcData.customRpcNetworks}
@@ -314,13 +360,7 @@ function CustomRPC() {
                 <XStack alignItems="center" space="$3" flexShrink={1}>
                   <Switch
                     value={item.enabled}
-                    onChange={() => {
-                      void backgroundApiProxy.serviceCustomRpc.addCustomRpc({
-                        rpc: item.rpc,
-                        networkId: item.networkId,
-                        enabled: !item.enabled,
-                      });
-                    }}
+                    onChange={() => onToggleCustomRpcEnabledState(item)}
                   />
                   <TokenIconView
                     icon={item.network.logoURI}
@@ -352,25 +392,17 @@ function CustomRPC() {
                     {
                       label: 'Edit',
                       icon: 'PencilOutline',
-                      onPress: () => {
+                      onPress: () =>
                         onAddOrEditRpc({
                           network: item.network,
                           rpcInfo: item,
-                        });
-                      },
+                        }),
                     },
                     {
                       label: 'Delete',
                       destructive: true,
                       icon: 'DeleteOutline',
-                      onPress: async () => {
-                        await backgroundApiProxy.serviceCustomRpc.deleteCustomRpc(
-                          item.networkId,
-                        );
-                        setTimeout(() => {
-                          void run();
-                        }, 200);
-                      },
+                      onPress: async () => onDeleteCustomRpc(item),
                     },
                   ]}
                 />

@@ -18,9 +18,16 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
       const data: ICustomRpcDBStruct = {
         data: { ...(rawData?.data || {}) },
       };
+      let updatedAt = Date.now();
+      if (
+        data.data[rpcInfo.networkId].updatedAt &&
+        data.data[rpcInfo.networkId].rpc === rpcInfo.rpc
+      ) {
+        updatedAt = data.data[rpcInfo.networkId].updatedAt || updatedAt;
+      }
       data.data[rpcInfo.networkId] = {
         ...rpcInfo,
-        updatedAt: Date.now(),
+        updatedAt,
       };
       return data;
     });
@@ -41,7 +48,7 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
   async getAllCustomRpc(): Promise<IDBCustomRpc[]> {
     const rawData = await this.getRawData();
     return Object.values(rawData?.data || {}).sort(
-      (a, b) => b.updatedAt - a.updatedAt,
+      (a, b) => (b?.updatedAt ?? 0) - (a?.updatedAt ?? 0),
     );
   }
 
