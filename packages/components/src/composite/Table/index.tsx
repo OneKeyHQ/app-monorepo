@@ -217,11 +217,11 @@ function HeaderColumn<T>({
   const enableSortType = !!events?.onSortTypeChange;
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>();
   const handleColumnPress = useCallback(() => {
+    events?.onPress?.();
     if (!enableSortType) {
       return;
     }
     setTimeout(() => {
-      events?.onPress?.();
       onChangeSelectedName(dataIndex);
     });
     let order: 'asc' | 'desc' | undefined = 'desc';
