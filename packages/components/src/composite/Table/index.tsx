@@ -2,7 +2,7 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
-import { useMedia } from 'tamagui';
+import { useMedia, withStaticProperties } from 'tamagui';
 
 import { IconButton } from '../../actions/IconButton';
 import { ListView } from '../../layouts/ListView';
@@ -121,7 +121,9 @@ function TableRow<T>({
   index,
   columns,
   onRow,
+  pressStyle = false,
 }: {
+  pressStyle?: boolean;
   item: T;
   index: number;
   columns: ITableProps<T>['columns'];
@@ -132,6 +134,7 @@ function TableRow<T>({
   const handlePress = useCallback(() => {
     onRowEvents?.onPress?.();
   }, [onRowEvents]);
+  const itemPressStyle = pressStyle ? listItemPressStyle : undefined;
   return (
     <XStack
       space="$3"
@@ -140,7 +143,7 @@ function TableRow<T>({
       minHeight={60}
       onPress={handlePress}
       borderRadius="$3"
-      {...listItemPressStyle}
+      {...itemPressStyle}
     >
       {columns.map(
         ({
@@ -288,7 +291,7 @@ function TableHeaderRow<T>({
   );
 }
 
-export function Table<T>({
+function BasicTable<T>({
   dataSource,
   columns,
   extraData,
@@ -320,7 +323,13 @@ export function Table<T>({
 
   const handleRenderItem = useCallback(
     ({ item, index }: ListRenderItemInfo<T>) => (
-      <TableRow item={item} index={index} columns={columns} onRow={onRow} />
+      <TableRow
+        pressStyle
+        item={item}
+        index={index}
+        columns={columns}
+        onRow={onRow}
+      />
     ),
     [columns, onRow],
   );
@@ -365,3 +374,7 @@ export function Table<T>({
     </YStack>
   );
 }
+
+export const Table = withStaticProperties(BasicTable, {
+  Row: TableRow,
+});
