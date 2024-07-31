@@ -7,6 +7,7 @@ import {
   XStack,
   useShare,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { OpenInAppButton } from '@onekeyhq/kit/src/components/OpenInAppButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -16,8 +17,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import {
   buildUrlAccountFullUrl,
@@ -85,7 +84,7 @@ function OpenInAppButtonContainer() {
   );
 
   const buildFullUrl = useCallback(
-    () =>
+    async () =>
       account && network
         ? buildUrlAccountFullUrl({
             account,

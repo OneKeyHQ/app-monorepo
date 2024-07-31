@@ -20,6 +20,7 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -31,7 +32,6 @@ import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import { HomePageView } from '../HomePageView';
 
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { UrlAccountAutoReplaceHistory } from './UrlAccountAutoReplaceHistory';
 import { getPrevUrlAccount, urlAccountNavigation } from './urlAccountUtils';
 

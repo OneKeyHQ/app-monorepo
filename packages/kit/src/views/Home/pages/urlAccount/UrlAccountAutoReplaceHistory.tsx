@@ -47,13 +47,12 @@ export function UrlAccountAutoReplaceHistory({ num }: { num: number }) {
           void replaceUrlAccountLandingRoute({
             account: accountRef.current,
             networkId,
-            networkCode,
             address,
           });
         }, delay);
       }
     },
-    [address, networkId, networkCode, sceneName],
+    [address, networkId, sceneName],
   );
 
   useEffect(() => {
