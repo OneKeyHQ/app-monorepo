@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
-import type { IEvmClientInfo } from '@onekeyhq/shared/types/customRpc';
+import type { IRpcClientInfo } from '@onekeyhq/shared/types/customRpc';
 
 export class ClientEvm {
   readonly rpc: JsonRPCRequest;
@@ -10,7 +10,7 @@ export class ClientEvm {
     this.rpc = new JsonRPCRequest(url);
   }
 
-  async getInfo(): Promise<IEvmClientInfo> {
+  async getInfo(): Promise<IRpcClientInfo> {
     const latestBlock: any = await this.rpc.call('eth_blockNumber');
     const bestBlockNumber = new BigNumber(latestBlock)?.toNumber();
     const isReady =

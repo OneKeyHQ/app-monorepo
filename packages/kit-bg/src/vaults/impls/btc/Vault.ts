@@ -48,6 +48,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
@@ -62,6 +66,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
+import { ClientBtc } from './sdkBtc/ClientBtc';
 
 import type {
   IDBAccount,
@@ -1054,5 +1059,20 @@ export default class VaultBtc extends VaultBase {
       }
     }
     return true;
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new ClientBtc(params.rpcUrl);
+    const start = performance.now();
+    const result = await client.getInfo();
+    if (result.coin !== 'Bitcoin') {
+      throw new OneKeyInternalError('Invalid coin name');
+    }
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: result.bestBlockNumber,
+    };
   }
 }

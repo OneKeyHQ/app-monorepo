@@ -20,7 +20,8 @@ export interface ICustomRpcItem extends IDBCustomRpc {
   network: IServerNetwork;
 }
 
-export interface IEvmClientInfo {
+export interface IRpcClientInfo {
   bestBlockNumber: number;
   isReady: boolean;
+  coin?: string; // For blockbook
 }
