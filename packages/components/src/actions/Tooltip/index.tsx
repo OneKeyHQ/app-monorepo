@@ -23,6 +23,7 @@ export function TooltipText({
   useEffect(() => {
     if (!platformEnv.isNative) {
       let scrolling = false;
+      let mouseMoving = false;
       const onScroll = () => {
         if (scrolling) {
           return;
@@ -32,13 +33,35 @@ export function TooltipText({
       };
       const onScrollEnd = () => {
         scrolling = false;
+        onDisplayChange?.(true);
+      };
+      const onMouseMove = (e: { which: number }) => {
+        if (e?.which !== 1) {
+          return;
+        }
+        if (mouseMoving) {
+          return;
+        }
+        onDisplayChange?.(false);
+        mouseMoving = true;
+      };
+      const onMouseUp = () => {
+        document.removeEventListener('mouseup', onMouseMove, true);
+        if (!mouseMoving) {
+          return;
+        }
+        onDisplayChange?.(true);
+        mouseMoving = true;
       };
       if (typeof document !== 'undefined') {
         document.addEventListener('scroll', onScroll, true);
         document.addEventListener('scrollend', onScroll, true);
+        document.addEventListener('mousemove', onMouseMove, true);
+        document.addEventListener('mouseup', onMouseUp, true);
         return () => {
           document.removeEventListener('scroll', onScroll, true);
           document.removeEventListener('scrollend', onScrollEnd, true);
+          document.removeEventListener('mousemove', onMouseMove, true);
         };
       }
     }
@@ -86,23 +109,28 @@ export function Tooltip({
   );
 
   const [isShow, setIsShow] = useState(false);
+  const [shouldShow, setShouldShow] = useState(true);
 
   const renderTooltipContent = useMemo(() => {
     if (typeof renderContent === 'string') {
       return (
-        <TooltipText onDisplayChange={setIsShow}>{renderContent}</TooltipText>
+        <TooltipText onDisplayChange={setShouldShow}>
+          {renderContent}
+        </TooltipText>
       );
     }
 
     return renderContent;
   }, [renderContent]);
 
+  const open = useMemo(() => shouldShow && isShow, [shouldShow, isShow]);
+
   return (
     <TMTooltip
       unstyled
       delay={0}
       offset={6}
-      open={isShow}
+      open={open}
       onOpenChange={setIsShow}
       allowFlip
       placement={placement}

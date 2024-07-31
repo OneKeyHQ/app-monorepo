@@ -171,6 +171,13 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     const fn = async () => {
       // await wait(300);
       await reloadFocusedWalletInfo();
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (listRef?.current?._listRef?._hasDoneInitialScroll) {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        listRef.current._listRef._hasDoneInitialScroll = false;
+      }
     };
     // TODO sync device features to DB and reload data
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
