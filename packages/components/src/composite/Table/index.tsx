@@ -223,7 +223,7 @@ function HeaderColumn<T>({
     }
     setSortOrder(order);
     setTimeout(() => {
-      events?.onSortTypeChange?.(sortOrder);
+      events?.onSortTypeChange?.(order);
     });
   }, [events, sortOrder, useSortFunc]);
   const cursor = useSortFunc ? 'pointer' : undefined;

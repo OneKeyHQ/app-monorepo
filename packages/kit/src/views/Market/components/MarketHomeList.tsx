@@ -1323,16 +1323,22 @@ function BasicMarketHomeList({
     [toDetailPage],
   );
 
-  const onHeaderRow = useCallback((column: ITableColumn<IMarketToken>) => {
-    if (['sparkline', 'action'].includes(column.dataIndex)) {
-      return undefined;
-    }
-    return {
-      onSortTypeChange: (sortOrder: 'asc' | 'desc' | undefined) => {
-        console.log(sortOrder);
-      },
-    };
-  }, []);
+  const onHeaderRow = useCallback(
+    (column: ITableColumn<IMarketToken>) => {
+      if (['sparkline', 'action'].includes(column.dataIndex)) {
+        return undefined;
+      }
+      return {
+        onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
+          handleSortTypeChange?.({
+            columnName: column.dataIndex,
+            order,
+          });
+        },
+      };
+    },
+    [handleSortTypeChange],
+  );
 
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
