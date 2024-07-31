@@ -9,6 +9,7 @@ import {
   Dialog,
   Divider,
   Empty,
+  Form,
   IconButton,
   Input,
   ListView,
@@ -18,9 +19,11 @@ import {
   Spinner,
   Stack,
   Switch,
+  Toast,
   XStack,
   YStack,
   useDialogInstance,
+  useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -94,6 +97,10 @@ function DialogContent({
   rpcInfo?: ICustomRpcItem;
   onConfirm: () => void;
 }) {
+  const form = useForm<{ rpc: string }>({
+    defaultValues: { rpc: rpcInfo?.rpc || '' },
+  });
+  const rpcValidRef = useRef(true);
   const [isLoading, setIsLoading] = useState(false);
   const { close } = useDialogInstance();
   const intl = useIntl();
@@ -113,12 +120,8 @@ function DialogContent({
           )}
         </Dialog.Title>
       </Dialog.Header>
-      <Dialog.Form
-        formProps={{
-          defaultValues: { rpc: rpcInfo?.rpc || '' },
-        }}
-      >
-        <Dialog.FormField
+      <Form form={form}>
+        <Form.Field
           label="RPC URL"
           name="rpc"
           rules={{
@@ -127,7 +130,7 @@ function DialogContent({
               message: 'Invalid RPC',
             },
             validate: (value) => {
-              if (!uriUtils.parseUrl(value)) {
+              if (!uriUtils.parseUrl(value) || !rpcValidRef.current) {
                 return intl.formatMessage({
                   id: ETranslations.form_custom_rpc_error_invalid,
                 });
@@ -136,24 +139,32 @@ function DialogContent({
           }}
         >
           <Input autoFocus flex={1} />
-        </Dialog.FormField>
-      </Dialog.Form>
+        </Form.Field>
+      </Form>
       <Dialog.Footer
-        onConfirm={async (values) => {
+        onConfirm={async () => {
           const { serviceCustomRpc } = backgroundApiProxy;
           setIsLoading(true);
-          const rpcUrl: string = values.getForm()?.getValues('rpc');
+          const rpcUrl: string = form.getValues('rpc');
           const networkId = network.id;
-          await serviceCustomRpc.measureRpcStatus({
-            rpcUrl,
-            networkId,
-          });
-          await serviceCustomRpc.addCustomRpc({
-            rpc: rpcUrl,
-            networkId,
-            enabled: rpcInfo?.enabled ?? true,
-          });
-          setIsLoading(false);
+          try {
+            rpcValidRef.current = true;
+            await serviceCustomRpc.measureRpcStatus({
+              rpcUrl,
+              networkId,
+            });
+            await serviceCustomRpc.addCustomRpc({
+              rpc: rpcUrl,
+              networkId,
+              enabled: rpcInfo?.enabled ?? true,
+            });
+          } catch (e: any) {
+            rpcValidRef.current = true;
+            void form.trigger('rpc');
+            return;
+          } finally {
+            setIsLoading(false);
+          }
           await close();
           onConfirm();
         }}
