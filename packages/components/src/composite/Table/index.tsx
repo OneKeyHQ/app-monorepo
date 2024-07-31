@@ -58,7 +58,7 @@ function Column<T>({
   }, [align]);
 
   const renderSortIcon = useCallback(() => {
-    if (showSortIcon) {
+    if (showSortIcon && order) {
       return (
         <Icon
           cursor={cursor}
@@ -83,11 +83,13 @@ function Column<T>({
       alignItems="center"
       width={width}
       onPress={onPress}
+      cursor={cursor}
+      userSelect="none"
       {...props}
     >
       {jc === 'flex-end' ? renderSortIcon() : null}
       {typeof children === 'string' ? (
-        <SizableText cursor={cursor} color="$textSubdued" size="$bodySmMedium">
+        <SizableText color="$textSubdued" size="$bodySmMedium">
           {children}
         </SizableText>
       ) : (
@@ -104,7 +106,7 @@ const renderContent = (text?: string) => (
   </SizableText>
 );
 
-interface ITableColumn<T> {
+export interface ITableColumn<T> {
   title: string;
   dataIndex: string;
   columnProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
@@ -179,7 +181,7 @@ export interface ITableProps<T> {
   estimatedListSize?: { width: number; height: number };
   estimatedItemSize?: IListViewProps<T>['estimatedItemSize'];
   onHeaderRow?: (
-    columns: ITableColumn<T>,
+    column: ITableColumn<T>,
     index: number,
   ) => {
     onPress?: () => void;
