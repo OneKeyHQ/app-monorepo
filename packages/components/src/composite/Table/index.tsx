@@ -203,22 +203,27 @@ function HeaderColumn<T>({
   column,
   index,
   onHeaderRow,
+  selectedColumnName,
+  onChangeSelectedName,
 }: {
   column: ITableColumn<T>;
   index: number;
+  selectedColumnName: string;
+  onChangeSelectedName: (columnName: string) => void;
   onHeaderRow?: ITableProps<T>['onHeaderRow'];
 }) {
   const { title, dataIndex, columnWidth = 40, align, columnProps } = column;
   const events = onHeaderRow?.(column, index);
-  const useSortFunc = !!events?.onSortTypeChange;
+  const enableSortType = !!events?.onSortTypeChange;
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>();
   const handleColumnPress = useCallback(() => {
-    setTimeout(() => {
-      events?.onPress?.();
-    });
-    if (!useSortFunc) {
+    if (!enableSortType) {
       return;
     }
+    setTimeout(() => {
+      events?.onPress?.();
+      onChangeSelectedName(dataIndex);
+    });
     let order: 'asc' | 'desc' | undefined = 'desc';
     if (sortOrder === 'desc') {
       order = 'asc';
@@ -229,12 +234,13 @@ function HeaderColumn<T>({
     setTimeout(() => {
       events?.onSortTypeChange?.(order);
     });
-  }, [events, sortOrder, useSortFunc]);
-  const cursor = useSortFunc ? 'pointer' : undefined;
+  }, [dataIndex, enableSortType, events, onChangeSelectedName, sortOrder]);
+  const cursor = enableSortType ? 'pointer' : undefined;
+  const showSortIcon = enableSortType && dataIndex === selectedColumnName;
   return (
     <Column
       align={align}
-      showSortIcon={useSortFunc}
+      showSortIcon={showSortIcon}
       key={dataIndex}
       name={dataIndex}
       width={columnWidth}
@@ -259,11 +265,14 @@ function TableHeaderRow<T>({
   columns: ITableProps<T>['columns'];
   onHeaderRow?: ITableProps<T>['onHeaderRow'];
 }) {
+  const [selectedColumnName, setSelectedColumnName] = useState('');
   return (
     <XStack space="$3" px="$3" mx="$2" minHeight="$4" py="$2" borderRadius="$3">
       {columns.map((column, index) => (
         <MemoHeaderColumn
           key={column.dataIndex}
+          selectedColumnName={selectedColumnName}
+          onChangeSelectedName={setSelectedColumnName}
           column={column as any}
           index={index}
           onHeaderRow={onHeaderRow}
