@@ -28,6 +28,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
@@ -138,13 +139,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         console.log('buildActiveAccountInfoFromSelectedAccount', {
           selectedAccount,
         });
-        const { activeAccount } =
-          await serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
-            {
-              selectedAccount,
-            },
-          );
-
+        let activeAccount: IAccountSelectorActiveAccountInfo | undefined;
+        try {
+          ({ activeAccount } =
+            await serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
+              {
+                selectedAccount,
+              },
+            ));
+        } catch (error) {
+          //
+          activeAccount = {
+            ...defaultActiveAccountInfo(),
+            ready: true,
+          };
+        }
         console.log('buildActiveAccountInfoFromSelectedAccount update state', {
           selectedAccount,
           activeAccount,
@@ -536,41 +545,48 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) => Promise<void>;
       },
     ) => {
-      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
-        step: EFinalizeWalletSetupSteps.CreatingWallet,
-      });
+      try {
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+          step: EFinalizeWalletSetupSteps.CreatingWallet,
+        });
 
-      await timerUtils.wait(100);
+        await timerUtils.wait(100);
 
-      const [{ wallet, indexedAccount, hidden }] = await Promise.all([
-        await createWalletFn(),
-        await timerUtils.wait(1000),
-      ]);
+        const [{ wallet, indexedAccount, hidden }] = await Promise.all([
+          await createWalletFn(),
+          await timerUtils.wait(1000),
+        ]);
 
-      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
-        step: EFinalizeWalletSetupSteps.GeneratingAccounts,
-      });
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+          step: EFinalizeWalletSetupSteps.GeneratingAccounts,
+        });
 
-      await timerUtils.wait(100);
+        await timerUtils.wait(100);
 
-      await Promise.all([
-        generatingAccountsFn({ wallet, indexedAccount, hidden }),
-        await timerUtils.wait(1000),
-      ]);
+        await Promise.all([
+          generatingAccountsFn({ wallet, indexedAccount, hidden }),
+          await timerUtils.wait(1000),
+        ]);
 
-      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
-        step: EFinalizeWalletSetupSteps.EncryptingData,
-      });
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+          step: EFinalizeWalletSetupSteps.EncryptingData,
+        });
 
-      await timerUtils.wait(1000);
+        await timerUtils.wait(1000);
 
-      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
-        step: EFinalizeWalletSetupSteps.Ready,
-      });
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+          step: EFinalizeWalletSetupSteps.Ready,
+        });
 
-      await timerUtils.wait(0);
+        await timerUtils.wait(0);
 
-      return { wallet, indexedAccount };
+        return { wallet, indexedAccount };
+      } catch (error) {
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupError, {
+          error: error as IOneKeyError,
+        });
+        throw error;
+      }
     },
   );
 

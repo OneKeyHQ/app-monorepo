@@ -25,15 +25,20 @@ function useAllNetworkRequests<T>(params: {
   allNetworkRequests: ({
     accountId,
     networkId,
+    allNetworkDataInit,
   }: {
     accountId: string;
     networkId: string;
+    allNetworkDataInit?: boolean;
   }) => Promise<T | undefined>;
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
   isNFTRequests?: boolean;
   disabled?: boolean;
   interval?: number;
+  shouldAlwaysFetch?: boolean;
+  onStarted?: () => void;
+  onFinished?: () => void;
 }) {
   const {
     account,
@@ -45,6 +50,9 @@ function useAllNetworkRequests<T>(params: {
     isNFTRequests,
     disabled,
     interval = 0,
+    shouldAlwaysFetch,
+    onStarted,
+    onFinished,
   } = params;
   const allNetworkDataInit = useRef(false);
   const isFetching = useRef(false);
@@ -56,7 +64,6 @@ function useAllNetworkRequests<T>(params: {
       if (isFetching.current) return;
       if (!account || !network || !wallet) return;
       if (!network.isAllNetworks) return;
-
       isFetching.current = true;
 
       if (!allNetworkDataInit.current) {
@@ -110,6 +117,8 @@ function useAllNetworkRequests<T>(params: {
 
       setIsEmptyAccount(false);
 
+      onStarted?.();
+
       if (allNetworkDataInit.current) {
         const allNetworks = [
           ...Array.from(sequentialNetworks),
@@ -118,7 +127,11 @@ function useAllNetworkRequests<T>(params: {
 
         const requests = allNetworks.map((networkDataString) => {
           const { accountId, networkId } = JSON.parse(networkDataString);
-          return allNetworkRequests({ accountId, networkId });
+          return allNetworkRequests({
+            accountId,
+            networkId,
+            allNetworkDataInit: allNetworkDataInit.current,
+          });
         });
 
         try {
@@ -137,7 +150,11 @@ function useAllNetworkRequests<T>(params: {
               accountId,
               networkId,
             );
-            return allNetworkRequests({ accountId, networkId });
+            return allNetworkRequests({
+              accountId,
+              networkId,
+              allNetworkDataInit: allNetworkDataInit.current,
+            });
           },
         );
         try {
@@ -162,6 +179,7 @@ function useAllNetworkRequests<T>(params: {
 
       allNetworkDataInit.current = true;
       isFetching.current = false;
+      onFinished?.();
 
       return resp;
     },
@@ -171,6 +189,8 @@ function useAllNetworkRequests<T>(params: {
       network,
       wallet,
       abortAllNetworkRequests,
+      onStarted,
+      onFinished,
       clearAllNetworkData,
       isNFTRequests,
       allNetworkRequests,
@@ -178,6 +198,8 @@ function useAllNetworkRequests<T>(params: {
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused || !!shouldAlwaysFetch,
     },
   );
 
@@ -185,6 +207,7 @@ function useAllNetworkRequests<T>(params: {
     run,
     result,
     isEmptyAccount,
+    allNetworkDataInit,
   };
 }
 

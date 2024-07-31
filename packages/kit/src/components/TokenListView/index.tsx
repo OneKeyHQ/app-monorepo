@@ -5,6 +5,8 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import { useTabListScroll } from '../../hooks/useTabListScroll';
 import {
   useSearchKeyAtom,
+  useSearchTokenListAtom,
+  useSearchTokenStateAtom,
   useTokenListAtom,
   useTokenListStateAtom,
 } from '../../states/jotai/contexts/tokenList';
@@ -25,11 +27,16 @@ type IProps = {
   withPrice?: boolean;
   withBuyAndReceive?: boolean;
   withPresetVerticalPadding?: boolean;
+  withNetwork?: boolean;
   inTabList?: boolean;
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
   isBuyTokenSupported?: boolean;
+  onManageToken?: () => void;
+  manageTokenEnabled?: boolean;
   isAllNetworks?: boolean;
+  searchAll?: boolean;
+  isTokenSelectorLayout?: boolean;
 };
 
 function TokenListView(props: IProps) {
@@ -41,27 +48,42 @@ function TokenListView(props: IProps) {
     withPrice,
     inTabList = false,
     withBuyAndReceive,
+    withNetwork,
     onReceiveToken,
     onBuyToken,
     isBuyTokenSupported,
+    onManageToken,
+    manageTokenEnabled,
     withPresetVerticalPadding = true,
     isAllNetworks,
+    searchAll,
+    isTokenSelectorLayout,
   } = props;
 
   const [tokenList] = useTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
   const { tokens } = tokenList;
+  const [searchTokenState] = useSearchTokenStateAtom();
+  const [searchTokenList] = useSearchTokenListAtom();
 
-  const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
+  const filteredTokens = getFilteredTokenBySearchKey({
+    tokens,
+    searchKey,
+    searchAll,
+    searchTokenList: searchTokenList.tokens,
+  });
 
   const { listViewProps, listViewRef, onLayout } =
     useTabListScroll<IAccountToken>({
       inTabList,
     });
 
-  if (!tokenListState.initialized && tokenListState.isRefreshing) {
-    return <ListLoading />;
+  if (
+    searchTokenState.isSearching ||
+    (!tokenListState.initialized && tokenListState.isRefreshing)
+  ) {
+    return <ListLoading isTokenSelectorView />;
   }
 
   return (
@@ -77,14 +99,18 @@ function TokenListView(props: IProps) {
         withHeader && tokens.length > 0 ? (
           <TokenListHeader
             filteredTokens={filteredTokens}
-            tokens={tokens}
             tableLayout={tableLayout}
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
           />
         ) : null
       }
       ListEmptyComponent={
         searchKey ? (
-          EmptySearch
+          <EmptySearch
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
+          />
         ) : (
           <EmptyToken
             withBuyAndReceive={withBuyAndReceive}
@@ -102,6 +128,8 @@ function TokenListView(props: IProps) {
           tableLayout={tableLayout}
           withPrice={withPrice}
           isAllNetworks={isAllNetworks}
+          withNetwork={withNetwork}
+          isTokenSelectorLayout={isTokenSelectorLayout}
         />
       )}
       ListFooterComponent={

@@ -47,10 +47,7 @@ class Analytics {
     if (!this.instanceId || !this.baseURL) {
       this.cacheEvents.push([eventName, eventProps]);
     } else {
-      void this.requestEvent(eventName, {
-        distinctId: this.instanceId,
-        ...eventProps,
-      });
+      void this.requestEvent(eventName, eventProps);
     }
   }
 
@@ -68,19 +65,48 @@ class Analytics {
     eventName: string,
     eventProps?: Record<string, any>,
   ) {
+    if (platformEnv.isDev) {
+      return;
+    }
     const event = {
       ...eventProps,
+      distinct_id: this.instanceId,
       ...(await this.lazyDeviceInfo()),
-    };
-    // if (platformEnv.isDev) {
-    //   console.log('trackEvent', event);
-    //   return;
-    // }
+    } as Record<string, string>;
+    if (
+      !platformEnv.isNative &&
+      typeof window !== 'undefined' &&
+      'location' in window
+    ) {
+      event.currentUrl = window.location.href;
+    }
     const axios = this.lazyAxios();
     await axios.post('/utility/v1/track/event', {
       eventName,
       eventProps: event,
     });
+  }
+
+  private async requestUserProfile(attributes: Record<string, any>) {
+    if (platformEnv.isDev) {
+      return;
+    }
+    const axios = this.lazyAxios();
+    await axios.post('/utility/v1/track/attributes', {
+      distinctId: this.instanceId,
+      attributes: {
+        ...attributes,
+        ...(await this.lazyDeviceInfo()),
+      },
+    });
+  }
+
+  public updateUserProfile(attributes: {
+    walletCount?: number;
+    appWalletCount?: number;
+    hwWalletCount?: number;
+  }) {
+    void this.requestUserProfile(attributes);
   }
 }
 

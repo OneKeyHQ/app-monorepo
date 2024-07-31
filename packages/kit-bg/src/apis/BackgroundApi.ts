@@ -394,6 +394,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceSpotlight() {
+    const ServiceSpotlight =
+      require('../services/ServiceSpotlight') as typeof import('../services/ServiceSpotlight');
+    const value = new ServiceSpotlight.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceSpotlight', { value });
+    return value;
+  }
+
   get serviceMarket() {
     const ServiceMarket =
       require('../services/ServiceMarket') as typeof import('../services/ServiceMarket');
@@ -501,6 +511,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceExplorer', { value });
+    return value;
+  }
+
+  get serviceCustomToken() {
+    const ServiceCustomToken =
+      require('../services/ServiceCustomToken') as typeof import('../services/ServiceCustomToken');
+    const value = new ServiceCustomToken.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceCustomToken', { value });
     return value;
   }
 }

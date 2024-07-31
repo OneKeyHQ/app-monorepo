@@ -23,11 +23,11 @@ import {
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   AddressInput,
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
-import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -40,6 +40,7 @@ import type {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
@@ -229,6 +230,8 @@ function ImportAddress() {
 
   const { start } = useScanQrCode();
 
+  const deriveTypeValue = form.watch('deriveType');
+
   const isEnable = useMemo(() => {
     if (method === EImportMethod.Address) {
       return !addressValue.pending && form.formState.isValid;
@@ -372,6 +375,11 @@ function ImportAddress() {
             },
           ]}
         />
+        {process.env.NODE_ENV !== 'production' ? (
+          <>
+            <SizableText>deriveType: {deriveTypeValue}</SizableText>
+          </>
+        ) : null}
       </Page.Body>
       <Page.Footer
         confirmButtonProps={{
@@ -406,6 +414,10 @@ function ImportAddress() {
               othersWalletAccountId: accountId,
             });
             navigation.popStack();
+
+            defaultLogger.account.wallet.importWallet({
+              importMethod: 'address',
+            });
           })();
         }}
       />

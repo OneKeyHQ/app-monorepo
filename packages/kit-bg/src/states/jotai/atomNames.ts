@@ -20,10 +20,12 @@ export enum EAtomNames {
   firmwareUpdateWorkflowRunningAtom = 'firmwareUpdateWorkflowRunningAtom',
   firmwareUpdateDevSettingsPersistAtom = 'firmwareUpdateDevSettingsPersistAtom',
   appUpdatePersistAtom = 'appUpdatePersistAtom',
+  spotlightPersistAtom = 'spotlightPersistAtom',
   onboardingConnectWalletLoadingAtom = 'onboardingConnectWalletLoadingAtom',
   inAppNotificationAtom = 'inAppNotificationAtom',
   v4migrationAtom = 'v4migrationAtom',
   v4migrationPersistAtom = 'v4migrationPersistAtom',
   accountIsAutoCreatingAtom = 'accountIsAutoCreatingAtom',
   accountManualCreatingAtom = 'accountManualCreatingAtom',
+  galleryPersistAtom = 'galleryPersistAtom',
 }

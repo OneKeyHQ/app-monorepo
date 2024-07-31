@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -9,113 +7,48 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { ChainSelectorPageView } from '../components/PageView';
+import { EditableChainSelector } from '../components/EditableChainSelector';
+
+const defaultChainSelectorNetworks: {
+  mainnetItems: IServerNetwork[];
+  testnetItems: IServerNetwork[];
+  unavailableItems: IServerNetwork[];
+  frequentlyUsedItems: IServerNetwork[];
+  allNetworkItem?: IServerNetwork;
+} = {
+  mainnetItems: [],
+  testnetItems: [],
+  unavailableItems: [],
+  frequentlyUsedItems: [],
+};
 
 function ChainSelector({
   num,
   networkIds,
-  editable,
 }: {
   num: number;
   networkIds?: string[];
-  editable?: boolean;
 }) {
   const {
-    activeAccount: { network, account, isOthersWallet },
+    activeAccount: { network, dbAccount },
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
-
-  const { result, run: refreshLocalData } = usePromiseResult(
-    () => {
-      let _networks: Promise<{ networks: IServerNetwork[] }>;
-      if (networkIds && networkIds.length > 0) {
-        _networks = backgroundApiProxy.serviceNetwork.getNetworksByIds({
-          networkIds: networkIds || [],
-        });
-      } else {
-        _networks = backgroundApiProxy.serviceNetwork.getAllNetworks();
-      }
-      const _pinnedNetworks =
-        backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks();
-      const _allNetwork = backgroundApiProxy.serviceNetwork.getNetworkSafe({
-        networkId: getNetworkIdsMap().onekeyall,
-      });
-      return Promise.all([_networks, _pinnedNetworks, _allNetwork]);
-    },
-    [networkIds],
-    {
-      initResult: [
-        {
-          networks: [],
-        },
-        [],
-        undefined,
-      ],
-    },
-  );
-
-  const data = useMemo(() => {
-    let [{ networks: _networks }, _pinnedNetworks, _allNetwork] = result;
-    _networks = _networks.filter((o) => o.id !== getNetworkIdsMap().onekeyall);
-    let unavailableNetworks: IServerNetwork[] = [];
-    let pinnedNetworks: IServerNetwork[] = [];
-    let networks: IServerNetwork[] = [];
-    if (account && isOthersWallet) {
-      for (let i = 0; i < _pinnedNetworks.length; i += 1) {
-        const item = _pinnedNetworks[i];
-        if (
-          accountUtils.isAccountCompatibleWithNetwork({
-            account,
-            networkId: item.id,
-          })
-        ) {
-          pinnedNetworks.push(item);
-        } else {
-          unavailableNetworks.push(item);
-        }
-      }
-      for (let i = 0; i < _networks.length; i += 1) {
-        const item = _networks[i];
-        if (
-          accountUtils.isAccountCompatibleWithNetwork({
-            account,
-            networkId: item.id,
-          })
-        ) {
-          networks.push(item);
-        } else {
-          unavailableNetworks.push(item);
-        }
-      }
-    } else {
-      pinnedNetworks = [..._pinnedNetworks];
-      networks = [..._networks];
-    }
-    const unavailableNetworkIds: Set<string> = new Set<string>();
-    unavailableNetworks = unavailableNetworks.filter((o) => {
-      const hasContain = unavailableNetworkIds.has(o.id);
-      if (!hasContain) {
-        unavailableNetworkIds.add(o.id);
-      }
-      return !hasContain;
-    });
-    return {
-      defaultTopNetworks: _allNetwork
-        ? [_allNetwork, ...pinnedNetworks]
-        : pinnedNetworks,
-      networks,
-      unavailableNetworks,
-    };
-  }, [result, account, isOthersWallet]);
+  const { result: chainSelectorNetworks, run: refreshLocalData } =
+    usePromiseResult(
+      async () =>
+        backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+          { accountId: dbAccount?.id, networkIds, includeAllNetwork: true },
+        ),
+      [dbAccount?.id, networkIds],
+      { initResult: defaultChainSelectorNetworks },
+    );
 
   const handleListItemPress = (item: IServerNetwork) => {
     void actions.current.updateSelectedAccountNetwork({
@@ -126,14 +59,15 @@ function ChainSelector({
   };
 
   return (
-    <ChainSelectorPageView
-      editable={editable}
+    <EditableChainSelector
       networkId={network?.id}
-      networks={data.networks}
-      unavailableNetworks={data.unavailableNetworks}
-      defaultTopNetworks={data.defaultTopNetworks}
+      mainnetItems={chainSelectorNetworks.mainnetItems}
+      testnetItems={chainSelectorNetworks.testnetItems}
+      unavailableItems={chainSelectorNetworks.unavailableItems}
+      frequentlyUsedItems={chainSelectorNetworks.frequentlyUsedItems}
+      allNetworkItem={chainSelectorNetworks.allNetworkItem}
       onPressItem={handleListItemPress}
-      onTopNetworksChange={async (items) => {
+      onFrequentlyUsedItemsChange={async (items) => {
         await backgroundApiProxy.serviceNetwork.setNetworkSelectorPinnedNetworks(
           {
             networks: items,
@@ -151,7 +85,7 @@ export default function ChainSelectorPage({
   IChainSelectorParamList,
   EChainSelectorPages.AccountChainSelector
 >) {
-  const { num, sceneName, sceneUrl, networkIds, editable } = route.params;
+  const { num, sceneName, sceneUrl, networkIds } = route.params;
   return (
     <AccountSelectorProviderMirror
       enabledNum={[num]}
@@ -160,7 +94,7 @@ export default function ChainSelectorPage({
         sceneUrl,
       }}
     >
-      <ChainSelector num={num} editable={editable} networkIds={networkIds} />
+      <ChainSelector num={num} networkIds={networkIds} />
     </AccountSelectorProviderMirror>
   );
 }

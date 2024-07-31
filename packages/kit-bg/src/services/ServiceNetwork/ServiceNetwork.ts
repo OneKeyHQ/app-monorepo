@@ -11,6 +11,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -21,6 +22,7 @@ import {
 } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
+import type { IDBAccount } from '../../dbs/local/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
@@ -620,6 +622,131 @@ class ServiceNetwork extends ServiceBase {
         (o) => o.vaultSetting.dappInteractionEnabled && !o.network.isTestnet,
       )
       .map((o) => o.network);
+  }
+
+  @backgroundMethod()
+  async getCustomTokenEnabledNetworks({
+    currentNetworkId,
+  }: {
+    currentNetworkId: string;
+  }) {
+    const settings = await this._getNetworkVaultSettings();
+    const allNetworkId = getNetworkIdsMap().onekeyall;
+    return settings
+      .filter((o) => {
+        if (o.network.id === allNetworkId) {
+          return false;
+        }
+        if (currentNetworkId === allNetworkId) {
+          return !o.network.isTestnet && !o.vaultSetting.isSingleToken;
+        }
+        return !o.vaultSetting.isSingleToken;
+      })
+      .map((o) => o.network);
+  }
+
+  @backgroundMethod()
+  async getChainSelectorNetworksCompatibleWithAccountId({
+    accountId,
+    networkIds,
+  }: {
+    accountId?: string;
+    networkIds?: string[];
+    includeAllNetwork?: boolean;
+  }): Promise<{
+    mainnetItems: IServerNetwork[];
+    testnetItems: IServerNetwork[];
+    unavailableItems: IServerNetwork[];
+    frequentlyUsedItems: IServerNetwork[];
+    allNetworkItem?: IServerNetwork;
+  }> {
+    let networksResp: { networks: IServerNetwork[] } = { networks: [] };
+    if (networkIds) {
+      networksResp = await this.backgroundApi.serviceNetwork.getNetworksByIds({
+        networkIds,
+      });
+    } else {
+      networksResp = await this.backgroundApi.serviceNetwork.getAllNetworks();
+    }
+
+    const _networks = networksResp.networks.filter(
+      (o) => o.id !== getNetworkIdsMap().onekeyall,
+    );
+
+    const _frequentlyUsed =
+      await this.backgroundApi.serviceNetwork.getNetworkSelectorPinnedNetworks();
+
+    const allNetworkItem =
+      await this.backgroundApi.serviceNetwork.getNetworkSafe({
+        networkId: getNetworkIdsMap().onekeyall,
+      });
+
+    let dbAccount: IDBAccount | undefined;
+
+    let unavailableNetworks: IServerNetwork[] = [];
+    let frequentlyUsedNetworks: IServerNetwork[] = [];
+    let networks: IServerNetwork[] = [];
+
+    if (accountId) {
+      dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
+        accountId,
+      });
+    }
+
+    if (
+      accountId &&
+      accountUtils.isOthersWallet({
+        walletId: accountUtils.getWalletIdFromAccountId({
+          accountId,
+        }),
+      }) &&
+      dbAccount
+    ) {
+      for (let i = 0; i < _frequentlyUsed.length; i += 1) {
+        const item = _frequentlyUsed[i];
+        if (
+          accountUtils.isAccountCompatibleWithNetwork({
+            account: dbAccount,
+            networkId: item.id,
+          })
+        ) {
+          frequentlyUsedNetworks.push(item);
+        } else {
+          unavailableNetworks.push(item);
+        }
+      }
+      for (let i = 0; i < _networks.length; i += 1) {
+        const item = _networks[i];
+        if (
+          accountUtils.isAccountCompatibleWithNetwork({
+            account: dbAccount,
+            networkId: item.id,
+          })
+        ) {
+          networks.push(item);
+        } else {
+          unavailableNetworks.push(item);
+        }
+      }
+    } else {
+      frequentlyUsedNetworks = [..._frequentlyUsed];
+      networks = [..._networks];
+    }
+    const unavailableNetworkIds: Set<string> = new Set<string>();
+    unavailableNetworks = unavailableNetworks.filter((o) => {
+      const isDuplicate = unavailableNetworkIds.has(o.id);
+      if (!isDuplicate) {
+        unavailableNetworkIds.add(o.id);
+      }
+      return !isDuplicate;
+    });
+    return {
+      mainnetItems: networks.filter((o) => !o.isTestnet),
+      testnetItems: networks.filter((o) => o.isTestnet),
+      frequentlyUsedItems: frequentlyUsedNetworks,
+      unavailableItems: unavailableNetworks,
+      allNetworkItem,
+    };
   }
 }
 

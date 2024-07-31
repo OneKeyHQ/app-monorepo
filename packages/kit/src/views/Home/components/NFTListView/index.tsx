@@ -31,6 +31,7 @@ type IProps = {
   inTabList?: boolean;
   initialized?: boolean;
   onRefresh?: () => void;
+  isAllNetworks?: boolean;
 };
 
 const useMumColumns: () => {
@@ -75,7 +76,13 @@ const useMumColumns: () => {
 };
 
 function NFTListView(props: IProps) {
-  const { data, isLoading, initialized, inTabList = false } = props;
+  const {
+    data,
+    isLoading,
+    initialized,
+    inTabList = false,
+    isAllNetworks,
+  } = props;
 
   const [searchKey] = useSearchKeyAtom();
 
@@ -112,9 +119,10 @@ function NFTListView(props: IProps) {
         flexBasis={flexBasis}
         key={`${item.collectionAddress}-${item.itemId}`}
         onPress={handleOnPressNFT}
+        isAllNetworks={isAllNetworks}
       />
     ),
-    [flexBasis, handleOnPressNFT],
+    [flexBasis, handleOnPressNFT, isAllNetworks],
   );
 
   const { listViewProps, listViewRef, onLayout } =
@@ -124,7 +132,6 @@ function NFTListView(props: IProps) {
   const contentContainerStyle = useMemo(
     () => ({
       pb: '$6',
-      pt: '$0.5',
     }),
     [],
   );
@@ -146,10 +153,9 @@ function NFTListView(props: IProps) {
       numColumns={numColumns}
       data={filteredNfts}
       py="$3"
+      px="$2.5"
       renderItem={handleRenderItem}
-      ListHeaderComponent={
-        <NFTListHeader nfts={data} filteredNfts={filteredNfts} />
-      }
+      ListHeaderComponent={<NFTListHeader filteredNfts={filteredNfts} />}
       ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
     />
   );

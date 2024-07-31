@@ -29,7 +29,7 @@ function HeaderCollapseButton({
   );
   return (
     <MotiView
-      testID="Desktop-AppSideBar-Container"
+      testID="Desktop-AppSideBar-Button"
       animate={{ paddingLeft }}
       transition={{
         duration: 200,

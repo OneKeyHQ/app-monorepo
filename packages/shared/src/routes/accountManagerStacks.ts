@@ -9,7 +9,6 @@ export enum EAccountManagerStacksRoutes {
   ExportPrivateKeysPage = 'ExportPrivateKeysPage',
   BatchCreateAccountForm = 'BatchCreateAccountForm',
   BatchCreateAccountPreview = 'BatchCreateAccountPreview',
-  BatchCreateAccountProcessing = 'BatchCreateAccountProcessing',
 }
 
 export type IAccountSelectorRouteParamsExtraConfig = {
@@ -30,6 +29,7 @@ export type IAccountManagerStacksParamList = {
   [EAccountManagerStacksRoutes.ExportPrivateKeysPage]: IExportAccountSecretKeysRouteParams;
   [EAccountManagerStacksRoutes.BatchCreateAccountForm]: {
     walletId: string;
+    networkId: string | undefined;
   };
   [EAccountManagerStacksRoutes.BatchCreateAccountPreview]: {
     walletId: string;
@@ -37,5 +37,4 @@ export type IAccountManagerStacksParamList = {
     from: string;
     count: string;
   };
-  [EAccountManagerStacksRoutes.BatchCreateAccountProcessing]: undefined;
 };

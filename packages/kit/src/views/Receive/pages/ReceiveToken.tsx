@@ -30,6 +30,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
@@ -54,7 +55,7 @@ function ReceiveToken() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
     >();
 
-  const { networkId, accountId, walletId, deriveInfo, deriveType } =
+  const { networkId, accountId, walletId, deriveInfo, deriveType, token } =
     route.params;
 
   const addressType = deriveInfo?.labelKey
@@ -147,6 +148,17 @@ function ReceiveToken() {
 
       const isSameAddress =
         addresses?.[0]?.toLowerCase() === account?.address?.toLowerCase();
+
+      defaultLogger.transaction.receive.showReceived({
+        walletType: wallet?.type,
+        isSuccess: isSameAddress,
+        failedReason: isSameAddress
+          ? ''
+          : intl.formatMessage({
+              id: ETranslations.feedback_address_mismatch,
+            }),
+      });
+
       if (!isSameAddress) {
         Toast.error({
           title: intl.formatMessage({
@@ -163,6 +175,11 @@ function ReceiveToken() {
     } catch (e: any) {
       setAddressState(EAddressState.Unverified);
       // verifyHWAccountAddresses handler error toast
+      defaultLogger.transaction.receive.showReceived({
+        walletType: wallet?.type,
+        isSuccess: false,
+        failedReason: (e as Error).message,
+      });
       throw e;
     }
   }, [
@@ -171,6 +188,7 @@ function ReceiveToken() {
     deriveType,
     intl,
     networkId,
+    wallet?.type,
     walletId,
   ]);
 
@@ -187,6 +205,16 @@ function ReceiveToken() {
       );
     };
   }, []);
+
+  useEffect(() => {
+    if (!isHardwareWallet) {
+      defaultLogger.transaction.receive.showReceived({
+        walletType: wallet?.type,
+        isSuccess: true,
+        failedReason: '',
+      });
+    }
+  }, [isHardwareWallet, wallet?.type]);
 
   const renderCopyAddressButton = useCallback(() => {
     if (isHardwareWallet) {
@@ -211,7 +239,7 @@ function ReceiveToken() {
       }
 
       return (
-        <YStack space="$5">
+        <YStack space="$5" alignItems="center">
           <Button mt="$5" variant="primary" onPress={handleVerifyOnDevicePress}>
             {intl.formatMessage({
               id: ETranslations.global_verify_on_device,
@@ -258,7 +286,9 @@ function ReceiveToken() {
       <>
         <Stack mb="$5">
           <XStack space="$2" alignItems="center" justifyContent="center">
-            <Heading size="$headingMd">{network.name}</Heading>
+            <Heading size="$headingMd">
+              {token?.symbol ?? network.symbol}
+            </Heading>
             {vaultSettings?.showAddressType && addressType ? (
               <Badge>{addressType}</Badge>
             ) : null}
@@ -269,9 +299,14 @@ function ReceiveToken() {
             color="$textSubdued"
             textAlign="center"
           >
-            {intl.formatMessage({
-              id: ETranslations.receive_send_asset_warning_message,
-            })}
+            {intl.formatMessage(
+              {
+                id: ETranslations.receive_send_asset_warning_message,
+              },
+              {
+                network: network.name,
+              },
+            )}
           </SizableText>
         </Stack>
         <Stack
@@ -283,7 +318,7 @@ function ReceiveToken() {
           <QRCode
             value={account.address}
             logo={{
-              uri: network.logoURI,
+              uri: token?.logoURI ?? network.logoURI,
             }}
             logoSize={40}
             size={240}
@@ -336,27 +371,10 @@ function ReceiveToken() {
               wordBreak: 'break-all',
             }}
           >
-            {account.address}
+            {!shouldShowAddress
+              ? accountUtils.shortenAddress({ address: account.address })
+              : account.address}
           </SizableText>
-
-          {!shouldShowAddress ? (
-            <BlurView
-              // Setting both inner and outer borderRadius is for the compatibility of Web and Native styles.
-              borderRadius="$3"
-              contentStyle={{
-                borderRadius: '$3',
-                width: '100%',
-                height: '100%',
-                borderCurve: 'continuous',
-              }}
-              position="absolute"
-              intensity={38}
-              top="$0"
-              left="$0"
-              right="$0"
-              bottom="$0"
-            />
-          ) : null}
         </ConfirmHighlighter>
         {shouldShowAddress && addressState === EAddressState.ForceShow ? (
           <XStack mt="$1" justifyContent="center" alignItems="center">
@@ -378,11 +396,13 @@ function ReceiveToken() {
     vaultSettings?.showAddressType,
     addressType,
     intl,
+    token?.logoURI,
     isShowQRCode,
     shouldHighLightAddress,
     shouldShowAddress,
     addressState,
     renderCopyAddressButton,
+    token?.symbol,
   ]);
 
   return (

@@ -7,7 +7,6 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -17,6 +16,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 // import { sortHistoryTxsByTime } from '@onekeyhq/shared/src/utils/historyUtils';
+import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -78,6 +78,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
           networkId: history.decodedTx.networkId,
           accountId: history.decodedTx.accountId,
           historyTx: history,
+          isAllNetworks: network.isAllNetworks,
         },
       });
     },
@@ -87,6 +88,10 @@ function TxHistoryListContainer(props: ITabPageProps) {
   const { run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: true,
+        type: EHomeTab.HISTORY,
+      });
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
         networkId: network.id,
@@ -97,6 +102,10 @@ function TxHistoryListContainer(props: ITabPageProps) {
       });
       setIsHeaderRefreshing(false);
       setHistoryData(r);
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: false,
+        type: EHomeTab.HISTORY,
+      });
     },
     [account, network, setIsHeaderRefreshing],
     {
@@ -124,6 +133,11 @@ function TxHistoryListContainer(props: ITabPageProps) {
   }, [isHeaderRefreshing, run]);
 
   useEffect(() => {
+    const refresh = () => {
+      if (isFocused) {
+        void run();
+      }
+    };
     const clearCallback = () =>
       setHistoryData((prev) =>
         prev.filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending),
@@ -132,21 +146,33 @@ function TxHistoryListContainer(props: ITabPageProps) {
       EAppEventBusNames.ClearLocalHistoryPendingTxs,
       clearCallback,
     );
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
+
     return () => {
       appEventBus.off(
         EAppEventBusNames.ClearLocalHistoryPendingTxs,
         clearCallback,
       );
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
     };
-  }, [run]);
+  }, [isFocused, run]);
 
   useEffect(() => {
     const reloadCallback = () => run({ alwaysSetState: true });
+
+    const fn = () => {
+      if (isFocused) {
+        void run();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, fn);
+
     appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
     return () => {
       appEventBus.off(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
     };
-  }, [run]);
+  }, [isFocused, run]);
 
   return (
     <TxHistoryListView

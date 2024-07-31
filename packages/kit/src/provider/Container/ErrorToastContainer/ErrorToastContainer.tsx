@@ -2,8 +2,7 @@ import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps } from '@onekeyhq/components';
-import { Toast, useClipboard } from '@onekeyhq/components';
+import { Button, Toast, useClipboard } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -24,22 +23,22 @@ export function ErrorToastContainer() {
       const toastId = isFilterErrorCode(p.errorCode)
         ? String(p.errorCode)
         : undefined;
-      const actionsProps = isRequestIdMessage(message)
-        ? ({
-            children: intl.formatMessage({ id: ETranslations.global_copy }),
-            my: '$2',
-            size: 'small',
-            onPress: () => {
-              if (message) {
-                copyText(message);
-              }
-            },
-          } as IButtonProps)
-        : undefined;
+      const actions = isRequestIdMessage(message) ? (
+        <Button
+          size="small"
+          onPress={() => {
+            if (message) {
+              copyText(message);
+            }
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.global_copy })}
+        </Button>
+      ) : undefined;
       Toast[p.method]({
         ...p,
         toastId,
-        actionsProps,
+        actions,
       });
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);

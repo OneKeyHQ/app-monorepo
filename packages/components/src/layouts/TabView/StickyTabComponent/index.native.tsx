@@ -22,6 +22,7 @@ export const TabComponent = (
     initialScrollIndex = 0,
     ListHeaderComponent,
     onSelectedPageIndex,
+    tabContentContainerStyle,
     style,
   }: ITabProps,
   // fix missing forwardRef warnings.
@@ -74,7 +75,7 @@ export const TabComponent = (
       ? color.replace(/#(.{6})(.{2})/, '#$2$1')
       : color;
   }, []);
-  const [headerHeight, setHeaderHeight] = useState(1);
+  const [headerHeight, setHeaderHeight] = useState(209);
   const values = useMemo(
     () => data.map((item) => ({ name: item.title, label: item.title })),
     [data],
@@ -82,7 +83,12 @@ export const TabComponent = (
   const renderPageContent = useMemo(
     () =>
       data.map((item, index) => (
-        <Stack h="100%" collapsable={false} key={index}>
+        <Stack
+          h="100%"
+          collapsable={false}
+          key={index}
+          {...tabContentContainerStyle}
+        >
           <RefreshingFocusedContainer
             initialFocused={index === initialScrollIndex}
             ref={stickyConfig.data[index].refreshingFocusedRef}
@@ -97,7 +103,7 @@ export const TabComponent = (
           </RefreshingFocusedContainer>
         </Stack>
       )),
-    [data, stickyConfig.data, initialScrollIndex],
+    [data, stickyConfig.data, initialScrollIndex, tabContentContainerStyle],
   );
   const key = useMemo(
     () => `${rawBackgroundColor}${Math.random()}`,
@@ -136,9 +142,7 @@ export const TabComponent = (
         'activeColor': convertColor(rawSelectedColor),
         'activeLabelColor': convertColor(rawSelectedColor),
         'labelColor': convertColor(rawNormalColor),
-        'bottomLineColor': platformEnv.isNativeAndroid
-          ? convertColor('#888888FF')
-          : convertColor(rawBottomBorderColor),
+        'bottomLineColor': convertColor(rawBottomBorderColor),
         // 'bottomLineColor': '#FFFFFFFF',
         'height': 54,
         'inactiveColor': convertColor(rawNormalColor),

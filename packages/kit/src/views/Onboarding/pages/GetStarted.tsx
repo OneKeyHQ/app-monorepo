@@ -1,7 +1,6 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useThrottledCallback } from 'use-debounce';
 
 import type {
   IKeyOfIcons,
@@ -112,40 +111,12 @@ function ActionsGroup({ items }: IActionsProp) {
   );
 }
 
-export function useExtensionOnboardingFromExpandTab() {
-  const openOnboardingOfExtension = useThrottledCallback(
-    async () =>
-      backgroundApiProxy.serviceApp.openExtensionExpandTab({
-        routes: [
-          ERootRoutes.Modal,
-          EModalRoutes.OnboardingModal,
-          EOnboardingPages.GetStarted,
-        ],
-        // params,
-      }),
-    1000,
-    {
-      leading: true,
-      trailing: false,
-    },
-  );
-  useEffect(() => {
-    if (platformEnv.isExtensionUiPopup) {
-      void openOnboardingOfExtension();
-      window.close();
-    }
-  }, [openOnboardingOfExtension]);
-}
-
 export function GetStarted({
   route,
 }: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>) {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { showCloseButton } = route.params || {};
-
-  // TODO may cause onboarding open twice at first time
-  // useExtensionOnboardingFromExpandTab();
 
   const handleCreateWalletPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
@@ -216,7 +187,7 @@ export function GetStarted({
   );
 
   return (
-    <Page>
+    <Page safeAreaEnabled>
       <Page.Header headerShown={false} />
       <Page.Body>
         {showCloseButton ? (
@@ -227,6 +198,7 @@ export function GetStarted({
               variant="tertiary"
               left="$5"
               top="$5"
+              p="$4"
               zIndex={1}
             />
           </Page.Close>
@@ -386,3 +358,37 @@ export function GetStarted({
 }
 
 export default GetStarted;
+
+export const useToOnBoardingPage = () => {
+  const navigation = useAppNavigation();
+  return useMemo(
+    () =>
+      async ({
+        isFullModal = false,
+        params,
+      }: {
+        isFullModal?: boolean;
+        params?: IOnboardingParamList[EOnboardingPages.GetStarted];
+      } = {}) => {
+        if (platformEnv.isExtensionUiPopup) {
+          await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+            routes: [
+              isFullModal ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
+              EModalRoutes.OnboardingModal,
+              EOnboardingPages.GetStarted,
+            ],
+            params,
+          });
+        } else {
+          navigation[isFullModal ? 'pushFullModal' : 'pushModal'](
+            EModalRoutes.OnboardingModal,
+            {
+              screen: EOnboardingPages.GetStarted,
+              params,
+            },
+          );
+        }
+      },
+    [navigation],
+  );
+};

@@ -50,6 +50,7 @@ import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
   INetworkAccount,
@@ -86,6 +87,7 @@ import type {
 } from '../../dbs/local/types';
 import type {
   IAccountDeriveInfo,
+  IAccountDeriveInfoItems,
   IAccountDeriveTypes,
   IPrepareHardwareAccountsParams,
   IPrepareHdAccountsParams,
@@ -102,6 +104,7 @@ export type IAddHDOrHWAccountsParams = {
   indexedAccountId: string | undefined; // single add by indexedAccountId
   deriveType: IAccountDeriveTypes;
   skipDeviceCancel?: boolean;
+  skipDeviceCancelAtFirst?: boolean;
   hideCheckingDeviceLoading?: boolean;
   // purpose?: number;
   // skipRepeat?: boolean;
@@ -370,6 +373,7 @@ class ServiceAccount extends ServiceBase {
       indexedAccountId,
       deriveType,
       skipDeviceCancel,
+      skipDeviceCancelAtFirst,
       hideCheckingDeviceLoading,
     } = params;
 
@@ -395,6 +399,7 @@ class ServiceAccount extends ServiceBase {
       {
         deviceParams,
         skipDeviceCancel,
+        skipDeviceCancelAtFirst,
         hideCheckingDeviceLoading,
         debugMethodName: 'keyring.prepareAccounts',
       },
@@ -627,11 +632,16 @@ class ServiceAccount extends ServiceBase {
         networkId,
       });
       let deriveInfo: IAccountDeriveInfo | undefined;
+      let deriveItems: IAccountDeriveInfoItems[] | undefined;
       if (deriveType) {
         deriveInfo =
           await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
             networkId,
             deriveType,
+          });
+        deriveItems =
+          await this.backgroundApi.serviceNetwork.getDeriveInfoItemsOfNetwork({
+            networkId,
           });
       }
       throw new Error(
@@ -641,7 +651,10 @@ class ServiceAccount extends ServiceBase {
           },
           {
             network: network?.name || '',
-            path: deriveInfo?.label || deriveType || '',
+            path:
+              deriveItems?.length && deriveItems?.length > 1
+                ? deriveInfo?.label || deriveType || ''
+                : '',
           },
         ),
       );
@@ -2007,6 +2020,92 @@ class ServiceAccount extends ServiceBase {
       // force UI re-render, may cause performance issue
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     }
+  }
+
+  @backgroundMethod()
+  async getNetworkAccountsInSameIndexedAccountId({
+    indexedAccountId,
+    networkIds,
+  }: {
+    indexedAccountId: string;
+    networkIds: string[];
+  }): Promise<
+    {
+      network: IServerNetwork;
+      accountDeriveType: IAccountDeriveTypes;
+      account?: INetworkAccount;
+    }[]
+  > {
+    const { serviceNetwork } = this.backgroundApi;
+    const dbAccounts = await this.getAccountsInSameIndexedAccountId({
+      indexedAccountId,
+    });
+    return Promise.all(
+      networkIds.map(async (networkId) => {
+        const dbAccount = dbAccounts.find((account) =>
+          accountUtils.isAccountCompatibleWithNetwork({
+            account,
+            networkId,
+          }),
+        );
+        let account: INetworkAccount | undefined;
+        const network = await serviceNetwork.getNetwork({ networkId });
+        const accountDeriveType =
+          await serviceNetwork.getGlobalDeriveTypeOfNetwork({ networkId });
+        if (dbAccount) {
+          account = await this.getNetworkAccount({
+            accountId: undefined,
+            networkId,
+            deriveType: accountDeriveType,
+            indexedAccountId: dbAccount.indexedAccountId,
+          });
+        }
+        return { network, accountDeriveType, account };
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes({
+    networkId,
+    indexedAccountId,
+  }: {
+    networkId: string;
+    indexedAccountId: string;
+  }) {
+    const { serviceNetwork } = this.backgroundApi;
+    const network = await serviceNetwork.getNetworkSafe({ networkId });
+    if (!network) {
+      throw new Error('Network not found');
+    }
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const vaultSettings = await vault.getVaultSettings();
+    const accountDeriveTypes = Object.entries(
+      vaultSettings.accountDeriveInfo,
+    ).map(([deriveType, deriveInfo]) => ({
+      deriveType: deriveType as IAccountDeriveTypes,
+      deriveInfo,
+    }));
+    const networkAccounts = await Promise.all(
+      accountDeriveTypes.map(async (item) => {
+        let resp: { accounts: INetworkAccount[] } | undefined;
+        try {
+          resp = await this.getAccountsByIndexedAccounts({
+            indexedAccountIds: [indexedAccountId],
+            networkId,
+            deriveType: item.deriveType,
+          });
+        } catch (e) {
+          // fail to get account
+        }
+        return {
+          deriveType: item.deriveType,
+          deriveInfo: item.deriveInfo,
+          account: resp?.accounts[0],
+        };
+      }),
+    );
+    return { networkAccounts, network };
   }
 }
 

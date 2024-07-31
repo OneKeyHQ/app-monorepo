@@ -17,7 +17,7 @@ import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/A
 import { DeriveTypeSelectorFormField } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type { UseFormReturn } from 'react-hook-form';
@@ -30,6 +30,10 @@ export type IBatchCreateAccountFormValues = {
 };
 
 export const BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT = 15;
+export const BATCH_CREATE_ACCONT_SINGLE_NETWORK_MAX_COUNT = 100;
+export const BATCH_CREATE_ACCONT_MAX_COUNT = 2 ** 31;
+export const BATCH_CREATE_ACCONT_MAX_FROM =
+  BATCH_CREATE_ACCONT_MAX_COUNT + 1 - 15;
 
 function AdvancedSettingsFormField({
   form,
@@ -54,8 +58,11 @@ function AdvancedSettingsFormField({
   const fromError = form.formState.errors.from;
 
   const calculateAddressRange = useMemo(() => {
-    const from = parseInt(fromValue) || 2;
-    const count = parseInt(countValue) || 16;
+    if (!fromValue || !countValue) {
+      return '';
+    }
+    const from = parseInt(fromValue, 10);
+    const count = parseInt(countValue, 10);
     const to = from + count - 1;
     const text = intl.formatMessage(
       {
@@ -66,8 +73,7 @@ function AdvancedSettingsFormField({
         to,
       },
     );
-    // return text;
-    return `${text} >>> Adding address from ${from} to ${to}.`;
+    return `${text}`;
   }, [countValue, fromValue, intl]);
 
   return (
@@ -92,6 +98,7 @@ function AdvancedSettingsFormField({
       ) : null}
 
       <Stack
+        width={collapse ? 0 : undefined}
         height={collapse ? 0 : undefined}
         opacity={collapse ? 0 : undefined}
         overflow={collapse ? 'hidden' : undefined}
@@ -108,13 +115,11 @@ function AdvancedSettingsFormField({
                 const valueNum = new BigNumber(value);
                 if (!value || valueNum.isNaN()) {
                   return intl.formatMessage({
-                    id: ETranslationsMock.batch_create_page_number_invalid,
+                    id: ETranslations.global_bulk_accounts_page_number_error,
                   });
                 }
                 if (valueNum.isLessThan(1)) {
-                  return intl.formatMessage({
-                    id: ETranslationsMock.batch_create_account_count_min,
-                  });
+                  return 'The minimum number of accounts is 1';
                 }
                 return true;
               },
@@ -127,6 +132,15 @@ function AdvancedSettingsFormField({
                 }
                 if (valueNum.isLessThan(1)) {
                   form.setValue('from', '1');
+                  return;
+                }
+                if (
+                  valueNum.isGreaterThanOrEqualTo(BATCH_CREATE_ACCONT_MAX_FROM)
+                ) {
+                  form.setValue(
+                    'from',
+                    BATCH_CREATE_ACCONT_MAX_FROM.toString(),
+                  );
                   return;
                 }
                 form.setValue('from', valueNum.toFixed());
@@ -188,7 +202,7 @@ export function BatchCreateAccountFormBase({
       count: defaultCount,
     },
     mode: 'onChange',
-    reValidateMode: 'onBlur',
+    reValidateMode: 'onChange',
   });
   if (formRef) {
     formRef.current = form;
@@ -216,6 +230,7 @@ export function BatchCreateAccountFormBase({
         disabled={networkReadyOnly}
       >
         <ControlledNetworkSelectorTrigger
+          forceDisabled={networkReadyOnly}
           disabled={networkReadyOnly}
           editable={!networkReadyOnly}
         />
@@ -235,33 +250,38 @@ export function BatchCreateAccountFormBase({
         name="count"
         rules={{
           required: true,
-          validate: (value: string) => {
+          validate: (value: string, values) => {
             const valueNum = new BigNumber(value);
             if (!value || valueNum.isNaN()) {
               return intl.formatMessage({
-                id: ETranslationsMock.batch_create_page_number_invalid,
+                id: ETranslations.global_bulk_accounts_page_number_error,
               });
             }
-            if (isAllNetwork) {
-              if (
-                valueNum.isGreaterThan(
-                  BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT,
-                )
-              ) {
-                return intl.formatMessage(
-                  {
-                    id: ETranslationsMock.batch_create_account_count_max,
-                  },
-                  {
-                    maxCount: BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT,
-                  },
-                );
+            let max = isAllNetwork
+              ? BATCH_CREATE_ACCONT_ALL_NETWORK_MAX_COUNT
+              : BATCH_CREATE_ACCONT_SINGLE_NETWORK_MAX_COUNT;
+
+            if (values.from) {
+              const fromNum = new BigNumber(values.from);
+              if (!fromNum.isNaN()) {
+                const maxByFrom =
+                  BATCH_CREATE_ACCONT_MAX_COUNT + 1 - fromNum.toNumber();
+                max = Math.min(max, maxByFrom);
               }
             }
+
+            if (valueNum.isGreaterThan(max)) {
+              return intl.formatMessage(
+                {
+                  id: ETranslations.global_generate_amount_information,
+                },
+                {
+                  max,
+                },
+              );
+            }
             if (valueNum.isLessThan(1)) {
-              return intl.formatMessage({
-                id: ETranslationsMock.batch_create_account_count_min,
-              });
+              return 'The minimum number of accounts is 1';
             }
             return true;
           },

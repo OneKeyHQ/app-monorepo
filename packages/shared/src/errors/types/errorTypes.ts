@@ -23,10 +23,12 @@ export enum EOneKeyErrorClassNames {
   OneKeyAbortError = 'OneKeyAbortError',
   OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
+  PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
   OneKeyErrorNotImplemented = 'OneKeyErrorNotImplemented',
   OneKeyErrorAirGapAccountNotFound = 'OneKeyErrorAirGapAccountNotFound',
   OneKeyErrorScanQrCodeCancel = 'OneKeyErrorScanQrCodeCancel',
+  SecureQRCodeDialogCancel = 'SecureQRCodeDialogCancel',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

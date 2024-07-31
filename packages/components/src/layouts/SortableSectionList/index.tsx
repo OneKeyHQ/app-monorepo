@@ -1,12 +1,13 @@
 import type { ForwardedRef, ReactNode } from 'react';
-import { forwardRef, useMemo, useState } from 'react';
-
-import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import {
-  // eslint-disable-next-line spellcheck/spell-checker
-  NestableDraggableFlatList,
-  // eslint-disable-next-line spellcheck/spell-checker
-  NestableScrollContainer,
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
+
+import {
   OpacityDecorator,
   ScaleDecorator,
   ShadowDecorator,
@@ -17,10 +18,18 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Stack } from '../../primitives';
 import { SectionList } from '../SectionList';
+import { SortableListView } from '../SortableListView';
 
-import type { StackStyleProps } from '@tamagui/web/types/types';
-import type { ScrollViewProps, StyleProp, ViewStyle } from 'react-native';
-import type { ScrollView } from 'react-native-gesture-handler';
+import type {
+  ISortableListViewProps,
+  ISortableListViewRef,
+} from '../SortableListView';
+import type { RenderItem } from 'react-native-draggable-flatlist';
+
+type ISectionRenderInfo = (info: {
+  section: any;
+  index: number;
+}) => ReactNode | null;
 
 export type ISortableSectionItemInfo = (info: {
   item: any;
@@ -36,207 +45,292 @@ export type ISortableSectionRenderInfo = (info: {
   index: number;
 }) => ReactNode | null;
 
-export type ISortableSectionListRef = ScrollView;
+export type ISortableSectionListProps<T> = Omit<
+  ISortableListViewProps<T>,
+  'data' | 'renderItem' | 'onDragEnd' | 'initialScrollIndex'
+> & {
+  sections: Array<{
+    data?: any[];
+  }>;
+  renderItem?: (info: {
+    item: any;
+    section: any;
+    index: number;
+    drag: () => void;
+    isActive: boolean;
+  }) => ReactNode | null;
+  renderSectionHeader?: ISectionRenderInfo;
+  renderSectionFooter?: ISectionRenderInfo;
+  SectionSeparatorComponent?: ReactNode;
+  stickySectionHeadersEnabled?: boolean;
+  onDragEnd?: (result: {
+    sections: Array<{
+      data?: any[];
+    }>;
+    from?: { sectionIndex: number; itemIndex: number };
+    to?: { sectionIndex: number; itemIndex: number };
+  }) => void;
+  initialScrollIndex?: { sectionIndex: number; itemIndex?: number };
+};
 
-type ISectionType = Array<{
-  data: any[];
-}>;
+type IScrollToLocationParams = {
+  animated?: boolean;
+  itemIndex?: number;
+  sectionIndex?: number;
+  viewOffset?: number;
+  viewPosition?: number;
+};
 
-export type ISortableSectionListProps = Omit<
-  ScrollViewProps,
-  'contentContainerStyle'
-> &
-  StackStyleProps & {
-    sections: ISectionType;
-    renderItem?: (info: {
-      item: any;
-      index: number | undefined;
-      section: any;
-      getIndex: () => number | undefined;
-      drag: () => void;
-      isActive: boolean;
-    }) => JSX.Element;
-    keyExtractor: (item: any, index: number) => string;
-    getItemLayout: (
-      item: any,
-      index: number,
-    ) => { length: number; offset: number; index: number };
-    onDragEnd: (info: { sections: ISectionType }) => void;
-    enabled?: boolean;
-    contentContainerStyle?: StackStyleProps;
-    ListHeaderComponent?: ReactNode;
-    ListFooterComponent?: ReactNode;
-    SectionSeparatorComponent?: ReactNode;
-    ListHeaderComponentStyle?: StackStyleProps;
-    ListFooterComponentStyle?: StackStyleProps;
-    renderSectionHeader?: ISortableSectionRenderInfo;
-    renderSectionFooter?: ISortableSectionRenderInfo;
-    stickySectionHeadersEnabled?: boolean;
-  };
+export type ISortableSectionListRef<T> = ISortableListViewRef<T> & {
+  scrollToLocation: (info: IScrollToLocationParams) => void;
+};
 
-function BaseSortableSectionList(
+enum ESectionLayoutType {
+  Header = 'sectionHeader',
+  SectionSeparator = 'sectionSeparator',
+  Item = 'item',
+  Footer = 'sectionFooter',
+}
+
+type ISectionLayoutItem = {
+  index: number;
+  type: ESectionLayoutType;
+  value: any;
+  section?: any;
+  sectionIndex: number;
+};
+
+function BaseSortableSectionList<T>(
   {
     sections,
-    keyExtractor,
     renderItem,
-    getItemLayout,
-    contentContainerStyle = {},
-    ListHeaderComponent,
-    ListFooterComponent,
-    SectionSeparatorComponent = <Stack h="$5" />,
-    ListHeaderComponentStyle = {},
-    ListFooterComponentStyle = {},
     renderSectionHeader,
     renderSectionFooter,
+    ListHeaderComponent,
+    SectionSeparatorComponent = <Stack h="$5" />,
     stickySectionHeadersEnabled = false,
-    enabled = true,
+    keyExtractor,
     onDragEnd,
-    ...props
-  }: ISortableSectionListProps,
-  ref: ForwardedRef<ISortableSectionListRef> | undefined,
+    initialScrollIndex,
+    ...restProps
+  }: ISortableSectionListProps<T>,
+  parentRef: ForwardedRef<ISortableListViewRef<T>>,
 ) {
-  const [restProps, style] = usePropsAndStyle(props, {
-    resolveValues: 'auto',
-  });
-  const rawContentContainerStyle = useStyle(
-    contentContainerStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
+  const reloadSections = useMemo(() => {
+    const reloadSectionList: ISectionLayoutItem[] = [];
+    sections?.forEach?.((section, sectionIndex) => {
+      if (sectionIndex !== 0) {
+        reloadSectionList.push({
+          value: section,
+          index: sectionIndex,
+          sectionIndex,
+          type: ESectionLayoutType.SectionSeparator,
+        });
+      }
+      reloadSectionList.push({
+        value: section,
+        index: sectionIndex,
+        sectionIndex,
+        type: ESectionLayoutType.Header,
+      });
+      section?.data?.forEach?.((item, index) => {
+        reloadSectionList.push({
+          value: item,
+          section,
+          index,
+          sectionIndex,
+          type: ESectionLayoutType.Item,
+        });
+      });
+      reloadSectionList.push({
+        value: section,
+        index: sectionIndex,
+        sectionIndex,
+        type: ESectionLayoutType.Footer,
+      });
+    });
+    return reloadSectionList;
+  }, [sections]);
 
-  const listHeaderStyle = useStyle(
-    ListHeaderComponentStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
-
-  const listFooterStyle = useStyle(
-    ListFooterComponentStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
+  const reloadSectionHeaderIndex = useCallback(
+    (index: number) =>
+      ListHeaderComponent && !platformEnv.isNative ? index + 1 : index,
+    [ListHeaderComponent],
   );
 
   const reloadStickyHeaderIndices = useMemo(() => {
     if (!stickySectionHeadersEnabled) {
-      return [];
+      return undefined;
     }
-    return sections.map(
-      (section, index) =>
-        (2 +
-          (SectionSeparatorComponent ? 1 : 0) +
-          (renderSectionFooter ? 1 : 0)) *
-          index +
-        1,
-    );
-  }, [
-    stickySectionHeadersEnabled,
-    sections,
-    SectionSeparatorComponent,
-    renderSectionFooter,
-  ]);
+    return reloadSections
+      .map((item, index) =>
+        item.type === ESectionLayoutType.Header
+          ? reloadSectionHeaderIndex(index)
+          : null,
+      )
+      .filter((index) => index != null) as number[];
+  }, [reloadSectionHeaderIndex, stickySectionHeadersEnabled, reloadSections]);
 
-  const [isDragging, setIsDragging] = useState(false);
-
-  const scrollChildList = useMemo(() => {
-    const childList: [ReactNode] = [
-      <Stack key={0} style={listHeaderStyle}>
-        {ListHeaderComponent}
-      </Stack>,
-    ];
-    sections.forEach((section, index) => {
-      if (index !== 0 && SectionSeparatorComponent) {
-        childList.push(SectionSeparatorComponent);
-      }
-      if (renderSectionHeader) {
-        childList.push(
-          renderSectionHeader?.({
+  const ref = useRef<ISortableListViewRef<T>>(null);
+  useImperativeHandle(parentRef as any, () => ({
+    scrollToLocation: ({
+      animated,
+      itemIndex = 0,
+      sectionIndex = 0,
+      viewOffset,
+      viewPosition,
+    }: IScrollToLocationParams) => {
+      ref?.current?.scrollToIndex?.({
+        index:
+          reloadSections.findIndex(
+            (item) =>
+              item.type === ESectionLayoutType.Header &&
+              item.index === sectionIndex,
+          ) + itemIndex,
+        animated,
+        viewOffset,
+        viewPosition,
+      });
+    },
+  }));
+  const renderSectionAndItem = useCallback(
+    ({
+      item,
+      drag,
+      isActive,
+    }: {
+      item: T;
+      drag: () => void;
+      isActive: boolean;
+    }) => {
+      const { type, value, section, index } = item as ISectionLayoutItem;
+      switch (type) {
+        case ESectionLayoutType.SectionSeparator: {
+          return SectionSeparatorComponent;
+        }
+        case ESectionLayoutType.Header: {
+          return renderSectionHeader?.({
+            section: value,
+            index,
+          });
+        }
+        case ESectionLayoutType.Item: {
+          return renderItem?.({
+            item: value,
             section,
             index,
-          }),
-        );
+            drag,
+            isActive,
+          });
+        }
+        case ESectionLayoutType.Footer: {
+          return renderSectionFooter?.({
+            section: value,
+            index,
+          });
+        }
+        default: {
+          break;
+        }
       }
-      childList.push(
-        <NestableDraggableFlatList
-          keyExtractor={keyExtractor}
-          data={section.data}
-          activationDistance={
-            enabled && (platformEnv.isNative ? isDragging : true) ? 1 : 100000
+    },
+    [
+      renderItem,
+      renderSectionHeader,
+      renderSectionFooter,
+      SectionSeparatorComponent,
+    ],
+  );
+  const reloadKeyExtractor = useCallback(
+    (item: T, index: number) => {
+      const layoutItem = item as ISectionLayoutItem;
+      if (layoutItem.type === ESectionLayoutType.Item && keyExtractor) {
+        return `${layoutItem.type}_${layoutItem.sectionIndex}_${keyExtractor(
+          layoutItem.value,
+          index,
+        )}`;
+      }
+      return `${layoutItem.type}_${layoutItem.sectionIndex}_${layoutItem.index}`;
+    },
+    [keyExtractor],
+  );
+
+  const reloadOnDragEnd = useCallback(
+    (result: { data: T[]; from: number; to: number }) => {
+      const dragSections = sections.map((section) => ({ ...section }));
+      dragSections.forEach((section) => {
+        section.data = [];
+      });
+      let fromIndex: { sectionIndex: number; itemIndex: number } | undefined;
+      let toIndex: { sectionIndex: number; itemIndex: number } | undefined;
+      result.data.forEach((item) => {
+        const layoutItem = item as ISectionLayoutItem;
+        if (layoutItem.type === ESectionLayoutType.Item) {
+          dragSections?.[layoutItem.sectionIndex]?.data?.push?.(
+            layoutItem.value,
+          );
+        }
+      });
+      reloadSections.forEach((layoutItem, index) => {
+        if (layoutItem.type === ESectionLayoutType.Item) {
+          if (result.from === index) {
+            fromIndex = {
+              sectionIndex: layoutItem.sectionIndex,
+              itemIndex: layoutItem.index,
+            };
           }
-          onDragBegin={() => {
-            if (platformEnv.isNative) {
-              setIsDragging(true);
-            }
-          }}
-          onDragEnd={(result) => {
-            sections[index].data = result.data;
-            onDragEnd({ sections: [...sections] });
-            if (platformEnv.isNative) {
-              setIsDragging(false);
-            }
-          }}
-          getItemLayout={getItemLayout}
-          renderItem={({ item, getIndex, drag, isActive }) =>
-            renderItem?.({
-              item,
-              section,
-              index: getIndex(),
-              getIndex,
-              drag,
-              isActive,
-            })
+          if (result.to === index) {
+            toIndex = {
+              sectionIndex: layoutItem.sectionIndex,
+              itemIndex: layoutItem.index,
+            };
           }
-          scrollEnabled={platformEnv.isWebTouchable}
-          disableScrollViewPanResponder
-        />,
+        }
+      });
+      onDragEnd?.({ sections: dragSections, from: fromIndex, to: toIndex });
+    },
+    [onDragEnd, sections, reloadSections],
+  );
+
+  const reloadInitialScrollIndex = useMemo(() => {
+    const index = reloadSections.findIndex((layoutItem) => {
+      const sameSectionIndex =
+        layoutItem.sectionIndex === initialScrollIndex?.sectionIndex;
+      if (initialScrollIndex?.itemIndex === undefined) {
+        return sameSectionIndex;
+      }
+      return (
+        sameSectionIndex && layoutItem.index === initialScrollIndex?.itemIndex
       );
-      if (renderSectionFooter) {
-        childList.push(
-          renderSectionFooter?.({
-            section,
-            index,
-          }),
-        );
-      }
     });
-    childList.push(
-      <Stack style={listFooterStyle}>{ListFooterComponent}</Stack>,
-    );
-    return childList;
+    if (index === -1) {
+      return undefined;
+    }
+    return index;
   }, [
-    isDragging,
-    enabled,
-    ListHeaderComponent,
-    ListFooterComponent,
-    SectionSeparatorComponent,
-    renderSectionHeader,
-    renderSectionFooter,
-    keyExtractor,
-    getItemLayout,
-    sections,
-    listHeaderStyle,
-    listFooterStyle,
-    onDragEnd,
-    renderItem,
+    reloadSections,
+    initialScrollIndex?.sectionIndex,
+    initialScrollIndex?.itemIndex,
   ]);
 
   return (
-    <NestableScrollContainer
+    <SortableListView
+      // @ts-ignore
       ref={ref}
-      style={style as StyleProp<ViewStyle>}
-      contentContainerStyle={rawContentContainerStyle}
+      data={reloadSections as T[]}
+      renderItem={renderSectionAndItem as RenderItem<T>}
+      ListHeaderComponent={ListHeaderComponent}
       stickyHeaderIndices={reloadStickyHeaderIndices}
+      keyExtractor={reloadKeyExtractor}
+      onDragEnd={reloadOnDragEnd}
+      initialScrollIndex={reloadInitialScrollIndex}
       {...restProps}
-    >
-      {scrollChildList}
-    </NestableScrollContainer>
+    />
   );
 }
 
 export const SortableSectionList = withStaticProperties(
-  forwardRef(BaseSortableSectionList) as typeof BaseSortableSectionList,
+  forwardRef(BaseSortableSectionList),
   {
     SectionHeader: SectionList.SectionHeader,
     OpacityDecorator,

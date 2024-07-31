@@ -20,6 +20,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
 } from '../../../states/jotai/contexts/swap';
 import { truncateDecimalPlaces } from '../utils/utils';
@@ -37,8 +38,12 @@ export function useSwapQuote() {
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [{ swapApprovingTransaction }, setInAppNotificationAtom] =
-    useInAppNotificationAtom();
+  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
+  const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
+  const swapShouldRefreshRef = useRef(swapShouldRefresh);
+  if (swapShouldRefreshRef.current !== swapShouldRefresh) {
+    swapShouldRefreshRef.current = swapShouldRefresh;
+  }
   const isFocused = useIsFocused();
   const isFocusRef = useRef(isFocused);
   if (isFocusRef.current !== isFocused) {
@@ -114,16 +119,14 @@ export function useSwapQuote() {
         swapApprovingTransaction.blockNumber,
       );
     }
-  }, [
-    intl,
-    cleanQuoteInterval,
-    quoteAction,
-    swapApprovingTransaction,
-    setInAppNotificationAtom,
-  ]);
+  }, [intl, cleanQuoteInterval, quoteAction, swapApprovingTransaction]);
 
   useEffect(() => {
-    if (fromToken?.networkId !== activeAccountRef.current?.networkId) {
+    if (
+      fromToken?.networkId !== activeAccountRef.current?.networkId ||
+      (fromToken?.networkId === toToken?.networkId &&
+        fromToken?.contractAddress === toToken?.contractAddress)
+    ) {
       return;
     }
     alignmentDecimal();
@@ -150,7 +153,12 @@ export function useSwapQuote() {
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (pageType !== EPageType.modal) {
-        if (isFocus && !isHiddenModel && !swapApprovingTxRef.current?.txId) {
+        if (
+          isFocus &&
+          !isHiddenModel &&
+          !swapApprovingTxRef.current?.txId &&
+          !swapShouldRefreshRef.current
+        ) {
           void recoverQuoteInterval(
             activeAccountRef.current?.address,
             activeAccountRef.current?.accountInfo?.account?.id,
@@ -164,7 +172,11 @@ export function useSwapQuote() {
 
   useEffect(() => {
     if (pageType === EPageType.modal) {
-      if (isFocused && !swapApprovingTxRef.current?.txId) {
+      if (
+        isFocused &&
+        !swapApprovingTxRef.current?.txId &&
+        !swapShouldRefreshRef.current
+      ) {
         void recoverQuoteInterval(
           activeAccountRef.current?.address,
           activeAccountRef.current?.accountInfo?.account?.id,

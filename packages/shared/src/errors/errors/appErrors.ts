@@ -1,6 +1,6 @@
 /* eslint max-classes-per-file: "off" */
 
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 // import type { LocaleKeyInfoMap } from '@onekeyhq/shared/src/localeKeyInfoMap';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
@@ -101,6 +101,18 @@ export class OneKeyInternalError extends OneKeyError {
   }
 }
 
+export class PasswordPromptDialogCancel extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PasswordPromptDialogCancel',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PasswordPromptDialogCancel;
+}
+
 export class FailedToTransfer extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
@@ -133,6 +145,21 @@ export class WrongPassword extends OneKeyError {
       }),
     );
   }
+}
+
+export class SecureQRCodeDialogCancel extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'SecureQRCodeDialogCancel',
+        defaultKey: ETranslations.global_cancel,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.SecureQRCodeDialogCancel;
 }
 
 export class PasswordNotSet extends OneKeyError {

@@ -137,8 +137,8 @@ export function convertDeviceError(
       if (message.indexOf('Unknown message') !== -1) {
         return new HardwareErrors.UnknownMethod({ payload });
       }
-      if (message.indexOf('Failure_UnexpectedMessage') !== -1) {
-        return new HardwareErrors.UnknownMethod({ payload });
+      if (message.indexOf('Forbidden key path') !== -1) {
+        return new HardwareErrors.ForbiddenKeyPathError({ payload });
       }
       return new HardwareErrors.UnknownHardwareError({ payload });
     case HardwareErrorCode.PinInvalid:

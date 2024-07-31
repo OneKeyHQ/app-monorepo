@@ -196,9 +196,12 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   const err = error as IOneKeyError | undefined;
   if (
     err?.className &&
-    [EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel].includes(
-      err?.className,
-    )
+    [
+      EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+      EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
+      EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+      EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
+    ].includes(err?.className)
   ) {
     return;
   }
@@ -236,6 +239,16 @@ async function withErrorAutoToast<T>(
   }
 }
 
+function isErrorByClassName({
+  error,
+  className,
+}: {
+  error: unknown;
+  className: EOneKeyErrorClassNames;
+}): boolean {
+  return Boolean((error as IOneKeyError)?.className === className && className);
+}
+
 export default {
   autoPrintErrorIgnore,
   normalizeErrorProps,
@@ -248,4 +261,5 @@ export default {
   toastIfErrorDisable,
   showToastOfError,
   withErrorAutoToast,
+  isErrorByClassName,
 };

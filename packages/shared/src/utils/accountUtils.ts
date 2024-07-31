@@ -31,9 +31,9 @@ import { CoreSDKLoader } from '../hardware/instance';
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
-import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -684,6 +684,14 @@ function removePathLastSegment({
   return arr.slice(0, -removeCount).filter(Boolean).join('/');
 }
 
+function buildHiddenWalletName({
+  parentWallet,
+}: {
+  parentWallet: IDBWallet | undefined;
+}) {
+  return `Hidden #${parentWallet?.nextIds?.hiddenWalletNum || 1}`;
+}
+
 export default {
   buildUtxoAddressRelPath,
   buildBaseAccountName,
@@ -733,4 +741,5 @@ export default {
   buildPathFromTemplate,
   findIndexFromTemplate,
   removePathLastSegment,
+  buildHiddenWalletName,
 };

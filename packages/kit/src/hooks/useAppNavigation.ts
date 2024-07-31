@@ -192,6 +192,13 @@ function useAppNavigation<
     navigationRef.current.push(...args);
   }, []);
 
+  const replace: typeof navigationRef.current.replace = useCallback(
+    (...args) => {
+      navigationRef.current.replace(...args);
+    },
+    [],
+  );
+
   const navigate: typeof navigationRef.current.navigate = useCallback(
     (...args: any) => {
       navigationRef.current.navigate(...args);
@@ -205,6 +212,7 @@ function useAppNavigation<
       navigate,
       pop,
       popStack,
+      replace,
       push,
       pushFullModal,
       pushModal,
@@ -220,6 +228,7 @@ function useAppNavigation<
       push,
       pushFullModal,
       pushModal,
+      replace,
       reset,
       setOptions,
       switchTab,

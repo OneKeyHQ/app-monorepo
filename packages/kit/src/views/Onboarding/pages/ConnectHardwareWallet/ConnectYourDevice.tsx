@@ -35,6 +35,7 @@ import {
   RequireBlePermissionDialog,
 } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -61,6 +62,7 @@ import {
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -169,22 +171,29 @@ function ConnectByQrCode() {
 
 function ConnectByQrCodeComingSoon() {
   const intl = useIntl();
-  if (process.env.NODE_ENV !== 'production') {
+  const [showConnectQr, setShowConnectQr] = useState(false);
+  if (showConnectQr) {
     return <ConnectByQrCode />;
   }
 
   return (
     <Stack flex={1} alignItems="center" justifyContent="center">
-      <SizableText
-        textAlign="center"
-        color="$textSubdued"
-        maxWidth="$80"
-        pb="$5"
+      <MultipleClickStack
+        onPress={() => {
+          setShowConnectQr(true);
+        }}
       >
-        {intl.formatMessage({
-          id: ETranslations.coming_soon,
-        })}
-      </SizableText>
+        <SizableText
+          textAlign="center"
+          color="$textSubdued"
+          maxWidth="$80"
+          pb="$5"
+        >
+          {intl.formatMessage({
+            id: ETranslations.coming_soon,
+          })}
+        </SizableText>
+      </MultipleClickStack>
     </Stack>
   );
 }
@@ -242,6 +251,12 @@ function ConnectByUSBOrBLE({
     }) => {
       try {
         console.log('ConnectYourDevice -> createHwWallet', device);
+
+        defaultLogger.account.wallet.connectHWWallet({
+          connectType: platformEnv.isNative ? 'ble' : 'usb',
+          deviceType: device.deviceType,
+          deviceFmVersion: features.onekey_firmware_version,
+        });
 
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
 

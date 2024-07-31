@@ -1,9 +1,14 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
-import type { ISdkAlgoSuggestedParams } from '.';
+import type {
+  IAlgoAccountInformation,
+  ISdkAlgoAccountInformation,
+  ISdkAlgoSuggestedParams,
+} from '.';
 
 export enum EAlgodMethods {
   GET_TRANSACTION_PARAMS = 'getTransactionParams',
+  ACCOUNT_INFORMATION = 'accountInformation',
 }
 
 class ClientAlgo {
@@ -33,6 +38,26 @@ class ClientAlgo {
               params: {
                 method: EAlgodMethods.GET_TRANSACTION_PARAMS,
                 params: [],
+              },
+            },
+          ],
+        },
+      );
+
+    return response;
+  }
+
+  async accountInformation(account: string): Promise<IAlgoAccountInformation> {
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<IAlgoAccountInformation>(
+        {
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'client',
+              params: {
+                method: EAlgodMethods.ACCOUNT_INFORMATION,
+                params: [account],
               },
             },
           ],

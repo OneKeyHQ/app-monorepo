@@ -11,8 +11,13 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useSupportNetworkId } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { useWalletAddress } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useWalletAddress';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   WALLET_TYPE_HW,
@@ -29,9 +34,8 @@ import { RawActions } from './RawActions';
 
 export function WalletActionMore() {
   const [devSettings] = useDevSettingsPersistAtom();
-  const {
-    activeAccount: { account, network, wallet, deriveInfo, deriveType },
-  } = useActiveAccount({ num: 0 });
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { account, network, wallet, deriveInfo, deriveType } = activeAccount;
   const intl = useIntl();
   const { copyText } = useClipboard();
   const navigation = useAppNavigation();
@@ -42,6 +46,8 @@ export function WalletActionMore() {
     deriveInfo,
     deriveType,
   });
+  const { isEnable: walletAddressEnable, handleWalletAddress } =
+    useWalletAddress({ activeAccount });
   const { result: isSupported } = useSupportNetworkId('sell', network?.id);
 
   const isSellDisabled = useMemo(() => {
@@ -56,20 +62,37 @@ export function WalletActionMore() {
     return false;
   }, [isSupported, wallet?.type]);
 
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
+
   const handleCopyAddress = useCallback(() => {
-    if (wallet?.type === WALLET_TYPE_HW) {
+    if (walletAddressEnable) {
+      handleWalletAddress();
+    } else if (wallet?.type === WALLET_TYPE_HW) {
       handleOnReceive();
     } else {
       copyText(account?.address || '');
     }
-  }, [account?.address, copyText, handleOnReceive, wallet?.type]);
+  }, [
+    account?.address,
+    copyText,
+    handleOnReceive,
+    wallet?.type,
+    walletAddressEnable,
+    handleWalletAddress,
+  ]);
 
   const sellCrypto = useCallback(() => {
     navigation.pushModal(EModalRoutes.FiatCryptoModal, {
       screen: EModalFiatCryptoRoutes.SellModal,
-      params: { networkId: network?.id ?? '', accountId: account?.id ?? '' },
+      params: {
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        tokens: allTokens.tokens,
+        map,
+      },
     });
-  }, [navigation, network, account]);
+  }, [navigation, network, account, allTokens, map]);
   const show = useReviewControl();
 
   const vaultSettings = usePromiseResult(async () => {
@@ -81,32 +104,38 @@ export function WalletActionMore() {
 
   const sections: ComponentProps<typeof RawActions.More>['sections'] = [];
 
-  if (!vaultSettings?.copyAddressDisabled) {
+  if (
+    !vaultSettings?.copyAddressDisabled ||
+    !vaultSettings?.hideBlockExplorer
+  ) {
     sections.unshift({
       items: [
-        {
-          label: intl.formatMessage({ id: ETranslations.global_copy_address }),
-          icon: 'Copy1Outline',
-          onPress: handleCopyAddress,
-        },
-      ],
-    });
-  }
-
-  if (!vaultSettings?.hideBlockExplorer) {
-    sections.unshift({
-      items: [
-        {
-          label: intl.formatMessage({
-            id: ETranslations.global_view_in_blockchain_explorer,
-          }),
-          icon: 'GlobusOutline',
-          onPress: () =>
-            openExplorerAddressUrl({
-              networkId: network?.id,
-              address: account?.address,
-            }),
-        },
+        ...(!vaultSettings?.hideBlockExplorer
+          ? [
+              {
+                label: intl.formatMessage({
+                  id: ETranslations.global_view_in_blockchain_explorer,
+                }),
+                icon: 'GlobusOutline',
+                onPress: () =>
+                  openExplorerAddressUrl({
+                    networkId: network?.id,
+                    address: account?.address,
+                  }),
+              },
+            ]
+          : ([] as any)),
+        ...(!vaultSettings?.copyAddressDisabled
+          ? [
+              {
+                label: intl.formatMessage({
+                  id: ETranslations.global_copy_address,
+                }),
+                icon: 'Copy3Outline',
+                onPress: handleCopyAddress,
+              },
+            ]
+          : ([] as any)),
       ],
     });
   }

@@ -16,6 +16,7 @@ import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccoun
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
+import type ServiceCustomToken from '../services/ServiceCustomToken';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
@@ -47,6 +48,7 @@ import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSignature from '../services/ServiceSignature';
+import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
@@ -183,6 +185,10 @@ class BackgroundApiProxy
     'serviceAppUpdate',
   ) as ServiceAppUpdate;
 
+  serviceSpotlight = this._createProxyService(
+    'serviceSpotlight',
+  ) as ServiceSpotlight;
+
   serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
 
   serviceE2E = this._createProxyService('serviceE2E') as ServiceE2E;
@@ -216,6 +222,10 @@ class BackgroundApiProxy
   serviceExplorer = this._createProxyService(
     'serviceExplorer',
   ) as ServiceExplorer;
+
+  serviceCustomToken = this._createProxyService(
+    'serviceCustomToken',
+  ) as ServiceCustomToken;
 }
 
 export default BackgroundApiProxy;

@@ -8,8 +8,10 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 
 import platformEnv from '../platformEnv';
 
-import type { EAccountSelectorSceneName } from '../../types';
+import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
+import type { IAccountToken, ITokenFiat } from '../../types/token';
+import type { IOneKeyError } from '../errors/types/errorTypes';
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -30,6 +32,7 @@ export enum EAppEventBusNames {
   GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
   AccountSelectorSelectedAccountUpdate = 'AccountSelectorSelectedAccountUpdate',
   FinalizeWalletSetupStep = 'FinalizeWalletSetupStep',
+  FinalizeWalletSetupError = 'FinalizeWalletSetupError',
   WalletConnectOpenModal = 'WalletConnectOpenModal',
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
@@ -52,6 +55,10 @@ export enum EAppEventBusNames {
   CloseHardwareUiStateDialogManually = 'CloseHardwareUiStateDialogManually',
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
+  TokenListUpdate = 'TokenListUpdate',
+  TabListStateUpdate = 'TabListStateUpdate',
+  RefreshTokenList = 'RefreshTokenList',
+  AccountDataUpdate = 'AccountDataUpdate',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -86,6 +93,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.FinalizeWalletSetupStep]: {
     step: EFinalizeWalletSetupSteps;
   };
+  [EAppEventBusNames.FinalizeWalletSetupError]: {
+    error: IOneKeyError | undefined;
+  };
   [EAppEventBusNames.WalletConnectOpenModal]: {
     uri: string;
   };
@@ -117,6 +127,7 @@ export interface IAppEventBusPayload {
     progressCurrent: number;
     networkId?: string;
     deriveType?: string | IAccountDeriveTypes;
+    error?: IOneKeyError;
   };
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
   [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
@@ -141,6 +152,18 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CloseHardwareUiStateDialogManually]: undefined;
   [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
+  [EAppEventBusNames.TokenListUpdate]: {
+    tokens: IAccountToken[];
+    keys: string;
+    map: Record<string, ITokenFiat>;
+    merge?: boolean;
+  };
+  [EAppEventBusNames.RefreshTokenList]: undefined;
+  [EAppEventBusNames.TabListStateUpdate]: {
+    isRefreshing: boolean;
+    type: EHomeTab;
+  };
+  [EAppEventBusNames.AccountDataUpdate]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

@@ -1,14 +1,24 @@
 import { type FC, useCallback, useMemo, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Empty, ListView, SearchBar, Stack } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import {
+  Badge,
+  Empty,
+  ListView,
+  NumberSizeableText,
+  SearchBar,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
+
+import { useGetNetwork } from '../NetworkContainer';
 
 type ITokenListProps = {
   items: IFiatCryptoToken[];
@@ -16,8 +26,91 @@ type ITokenListProps = {
 };
 
 const keyExtractor = (item: unknown) => {
-  const key = (item as IFiatCryptoToken).address;
-  return key || 'main';
+  const address = (item as IFiatCryptoToken).address;
+  const networkId = (item as IFiatCryptoToken).networkId;
+  return `${networkId}--${address || 'main'}`;
+};
+
+const ListItemFiatToken = ({
+  item,
+  onPress,
+}: {
+  item: IFiatCryptoToken;
+  onPress?: (item: IFiatCryptoToken) => void;
+}) => {
+  const network = useGetNetwork({ networkId: item.networkId });
+  const [
+    {
+      currencyInfo: { symbol },
+    },
+  ] = useSettingsPersistAtom();
+  return (
+    <XStack
+      flexDirection="row"
+      alignItems="center"
+      minHeight="$11"
+      space="$3"
+      py="$2"
+      px="$3"
+      mx="$2"
+      borderRadius="$3"
+      borderCurve="continuous"
+      justifyContent="space-between"
+      {...{
+        hoverStyle: { bg: '$bgHover' },
+        pressStyle: { bg: '$bgActive' },
+        focusable: true,
+        focusStyle: {
+          outlineWidth: 2,
+          outlineStyle: 'solid',
+          outlineColor: '$focusRing',
+          outlineOffset: -2,
+        },
+      }}
+      onPress={() => onPress?.(item)}
+    >
+      <XStack alignItems="center">
+        <Token
+          size="lg"
+          tokenImageUri={item.icon}
+          networkImageUri={network?.logoURI}
+        />
+        <YStack ml="$3">
+          <XStack>
+            <SizableText size="$bodyLgMedium">
+              {item.symbol.toUpperCase()}
+            </SizableText>
+            <Stack ml="$2">
+              <Badge badgeType="default" badgeSize="sm">
+                {network?.name}
+              </Badge>
+            </Stack>
+          </XStack>
+          <SizableText size="$bodyMd">{item.name}</SizableText>
+        </YStack>
+        <YStack />
+      </XStack>
+      <YStack alignItems="flex-end">
+        {item.balanceParsed ? (
+          <NumberSizeableText size="$bodyLgMedium" formatter="balance">
+            {item.balanceParsed}
+          </NumberSizeableText>
+        ) : null}
+        {item.fiatValue ? (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="balance"
+            color="$textSubdued"
+            formatterOptions={{
+              currency: symbol,
+            }}
+          >
+            {item.fiatValue}
+          </NumberSizeableText>
+        ) : null}
+      </YStack>
+    </XStack>
+  );
 };
 
 export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
@@ -25,11 +118,6 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
   const onChangeText = useCallback((value: string) => {
     setText(value.trim());
   }, []);
-  const [
-    {
-      currencyInfo: { symbol },
-    },
-  ] = useSettingsPersistAtom();
 
   const data = useMemo(() => {
     const key = text.toLowerCase();
@@ -58,24 +146,7 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
           estimatedItemSize={60}
           data={data}
           renderItem={({ item }) => (
-            <ListItem
-              renderAvatar={<Token size="md" tokenImageUri={item.icon} />}
-              title={item.symbol.toUpperCase()}
-              subtitle={item.name}
-              onPress={() => onPress?.(item)}
-            >
-              {item.balanceParsed || item.fiatValue ? (
-                <ListItem.Text
-                  alignItems="flex-end"
-                  primary={item.balanceParsed}
-                  secondary={
-                    item.fiatValue
-                      ? `${symbol}${new BigNumber(item.fiatValue).toFixed(2)}`
-                      : undefined
-                  }
-                />
-              ) : null}
-            </ListItem>
+            <ListItemFiatToken item={item} onPress={onPress} />
           )}
           keyExtractor={keyExtractor}
           ListHeaderComponent={<Stack h="$2" />}

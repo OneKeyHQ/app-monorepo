@@ -112,3 +112,41 @@ export function isSendNativeTokenAction(action: IDecodedTxAction) {
     action.assetTransfer?.sends.every((send) => send.isNative)
   );
 }
+
+export function getTxnType(actions: IDecodedTxAction[]) {
+  if (
+    actions.some((action) => action.type === EDecodedTxActionType.INTERNAL_SWAP)
+  ) {
+    return 'swap';
+  }
+
+  if (
+    actions.some(
+      (action) => action.type === EDecodedTxActionType.INTERNAL_STAKE,
+    )
+  ) {
+    return 'stake';
+  }
+
+  if (
+    actions.some((action) => action.type === EDecodedTxActionType.TOKEN_APPROVE)
+  ) {
+    return 'approve';
+  }
+
+  if (
+    actions.some(
+      (action) => action.type === EDecodedTxActionType.ASSET_TRANSFER,
+    )
+  ) {
+    return 'send';
+  }
+
+  if (
+    actions.some((action) => action.type === EDecodedTxActionType.FUNCTION_CALL)
+  ) {
+    return 'function call';
+  }
+
+  return 'unknown';
+}

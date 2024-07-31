@@ -3,6 +3,7 @@ import { EScopeName } from '../../types';
 
 import { BackgroundScene } from './scenes/background';
 import { BootstrapScene } from './scenes/bootstrap';
+import { ComponentScene } from './scenes/component';
 import { InstallScene } from './scenes/install';
 import { NetworkScene } from './scenes/network';
 import { PageScene } from './scenes/page';
@@ -19,4 +20,6 @@ export class AppScope extends BaseScope {
   network = this.createScene('network', NetworkScene);
 
   page = this.createScene('page', PageScene);
+
+  component = this.createScene('component', ComponentScene);
 }

@@ -53,7 +53,10 @@ import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
-import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IFetchTokenDetailItem,
+} from '@onekeyhq/shared/types/token';
 import type {
   EReplaceTxType,
   IDecodedTx,
@@ -369,20 +372,32 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     if (!txid) {
       throw new Error('buildHistoryTx txid not found');
     }
-    const address = await this.getAccountAddress();
-    const xpub = await this.getAccountXpub();
+
+    const { accountId, networkId } = decodedTx;
+
+    const [accountAddress, xpub] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+    ]);
+
     decodedTx.txid = txid || decodedTx.txid;
-    decodedTx.owner = address;
+    decodedTx.owner = accountAddress;
     decodedTx.xpub = xpub;
     if (isSigner) {
-      decodedTx.signer = address;
+      decodedTx.signer = accountAddress;
     }
 
     // must include accountId here, so that two account wont share same tx history
     const historyId = accountUtils.buildLocalHistoryId({
       networkId: this.networkId,
       txid,
-      accountAddress: address,
+      accountAddress,
       xpub,
     });
     const historyTx: IAccountHistoryTx = {
@@ -913,5 +928,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTx> {
     return Promise.resolve(params.encodedTx);
+  }
+
+  async activateToken(params: { token: IAccountToken }): Promise<boolean> {
+    throw new NotImplemented();
   }
 }

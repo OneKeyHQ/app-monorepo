@@ -20,6 +20,8 @@ import type {
   IFetchAccountTokensResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
+  ISearchTokenItem,
+  ISearchTokensParams,
   IToken,
   ITokenData,
 } from '@onekeyhq/shared/types/token';
@@ -37,6 +39,14 @@ class ServiceToken extends ServiceBase {
 
   _fetchAccountTokensControllers: AbortController[] = [];
 
+  _searchTokensControllers: AbortController[] = [];
+
+  @backgroundMethod()
+  public async abortSearchTokens() {
+    this._searchTokensControllers.forEach((controller) => controller.abort());
+    this._searchTokensControllers = [];
+  }
+
   @backgroundMethod()
   public async abortFetchAccountTokens() {
     this._fetchAccountTokensControllers.forEach((controller) =>
@@ -51,7 +61,6 @@ class ServiceToken extends ServiceBase {
   ): Promise<IFetchAccountTokensResp> {
     const { mergeTokens, flag, accountId, isAllNetworks, ...rest } = params;
     const { networkId, contractList = [] } = rest;
-
     if (
       isAllNetworks &&
       this._currentNetworkId !== getNetworkIdsMap().onekeyall
@@ -70,16 +79,19 @@ class ServiceToken extends ServiceBase {
       rest.contractList = ['', maticAddress, ...contractList];
     }
 
-    const [xpub, accountAddress] = await Promise.all([
-      this.backgroundApi.serviceAccount.getAccountXpub({
-        accountId,
-        networkId,
-      }),
-      this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      }),
-    ]);
+    const accountParams = {
+      accountId,
+      networkId,
+    };
+    const [xpub, accountAddress, customTokens, hiddenTokens] =
+      await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
+        this.backgroundApi.serviceAccount.getAccountAddressForApi(
+          accountParams,
+        ),
+        this.backgroundApi.serviceCustomToken.getCustomTokens(accountParams),
+        this.backgroundApi.serviceCustomToken.getHiddenTokens(accountParams),
+      ]);
 
     if (!accountAddress && !xpub) {
       console.log(
@@ -90,6 +102,13 @@ class ServiceToken extends ServiceBase {
       );
       return getEmptyTokenData();
     }
+
+    rest.contractList = [
+      ...(rest.contractList ?? []),
+      ...customTokens.map((t) => t.address),
+    ];
+
+    rest.hiddenTokens = hiddenTokens.map((t) => t.address);
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
@@ -120,9 +139,15 @@ class ServiceToken extends ServiceBase {
         riskTokens,
         smallBalanceTokens,
       }));
+      if (allTokens) {
+        allTokens.data = allTokens.data.map((token) => ({
+          ...token,
+          accountId,
+          networkId,
+        }));
+      }
+      resp.data.data.allTokens = allTokens;
     }
-
-    resp.data.data.allTokens = allTokens;
 
     resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => ({
       ...token,
@@ -227,6 +252,34 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async searchTokens(params: ISearchTokensParams) {
+    const { accountId, networkId, contractList, keywords } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const controller = new AbortController();
+    this._searchTokensControllers.push(controller);
+    const resp = await client.post<{ data: ISearchTokenItem[] }>(
+      '/wallet/v1/account/token/search',
+      {
+        networkId,
+        contractList,
+        keywords,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+        signal: controller.signal,
+      },
+    );
+
+    return resp.data.data.map((item) => ({
+      ...item.info,
+      $key: item.info.uniqueKey ?? item.info.address,
+    }));
+  }
+
+  @backgroundMethod()
   public async updateLocalTokens({
     networkId,
     tokens,
@@ -316,68 +369,6 @@ class ServiceToken extends ServiceBase {
     }
 
     return null;
-  }
-
-  @backgroundMethod()
-  public async blockToken({
-    networkId,
-    tokenId,
-  }: {
-    networkId: string;
-    tokenId: string;
-  }) {
-    const unblockedTokens =
-      await this.backgroundApi.simpleDb.riskyTokens.getUnblockedTokens(
-        networkId,
-      );
-
-    if (unblockedTokens[tokenId]) {
-      return this.backgroundApi.simpleDb.riskyTokens.updateUnblockedTokens({
-        networkId,
-        removeFromUnBlockedTokens: [tokenId],
-      });
-    }
-
-    return this.backgroundApi.simpleDb.riskyTokens.updateBlockedTokens({
-      networkId,
-      addToBlockedTokens: [tokenId],
-    });
-  }
-
-  @backgroundMethod()
-  public async unblockToken({
-    networkId,
-    tokenId,
-  }: {
-    networkId: string;
-    tokenId: string;
-  }) {
-    const blockedTokens =
-      await this.backgroundApi.simpleDb.riskyTokens.getBlockedTokens(networkId);
-
-    if (blockedTokens[tokenId]) {
-      return this.backgroundApi.simpleDb.riskyTokens.updateBlockedTokens({
-        networkId,
-        removeFromBlockedTokens: [tokenId],
-      });
-    }
-
-    return this.backgroundApi.simpleDb.riskyTokens.updateUnblockedTokens({
-      networkId,
-      addToUnBlockedTokens: [tokenId],
-    });
-  }
-
-  @backgroundMethod()
-  public async getBlockedTokens({ networkId }: { networkId: string }) {
-    return this.backgroundApi.simpleDb.riskyTokens.getBlockedTokens(networkId);
-  }
-
-  @backgroundMethod()
-  public async getUnblockedTokens({ networkId }: { networkId: string }) {
-    return this.backgroundApi.simpleDb.riskyTokens.getUnblockedTokens(
-      networkId,
-    );
   }
 }
 

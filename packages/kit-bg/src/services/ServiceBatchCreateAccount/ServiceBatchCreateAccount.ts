@@ -1,4 +1,3 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { chunk, isNil, range } from 'lodash';
 
 import {
@@ -8,16 +7,14 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import {
-  isHardwareErrorByCode,
-  isHardwareInterruptErrorByCode,
-} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
@@ -315,6 +312,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
         })),
       );
     }
+    networksParams = networksParams.filter(
+      (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
+    );
 
     const { saveToDb } = params;
     const indexes = await this.buildIndexesByFromAndTo({
@@ -337,8 +337,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
     }> = [];
 
     for (const networkParams of networksParams) {
-      this.checkIfCancelled({ saveToDb });
       try {
+        this.checkIfCancelled({ saveToDb });
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { accountsForCreate } = await this.batchBuildAccounts({
           ...params,
@@ -352,21 +352,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
           deriveType: networkParams.deriveType,
         });
       } catch (error: any) {
-        // Some high priority errors need to interrupt the process
-        if (accountUtils.isHwWallet({ walletId: params.walletId })) {
-          if (isHardwareInterruptErrorByCode({ error })) {
-            throw error;
-          }
-          // Unplug device?
-          if (
-            isHardwareErrorByCode({
-              error,
-              code: HardwareErrorCode.DeviceNotFound,
-            })
-          ) {
-            throw error;
-          }
-        }
+        this.forceExitFlowWhenErrorMatched({
+          error,
+          walletId: params.walletId,
+          saveToDb,
+        });
       }
     }
 
@@ -377,14 +367,78 @@ class ServiceBatchCreateAccount extends ServiceBase {
     return { addedAccounts };
   }
 
+  forceExitFlowWhenErrorMatched({
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    walletId,
+    error,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    saveToDb,
+  }: {
+    walletId: string;
+    error: any;
+    saveToDb: boolean | undefined;
+  }) {
+    if (saveToDb) {
+      if (this.progressInfo) {
+        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+          totalCount: this.progressInfo.totalCount,
+          createdCount: this.progressInfo.createdCount,
+          progressTotal: this.progressInfo.progressTotal,
+          progressCurrent: this.progressInfo.progressCurrent,
+          error: errorUtils.toPlainErrorObject(error),
+        });
+      }
+    }
+
+    if (this.isCreateFlowCancelled || !this.progressInfo) {
+      throw error;
+    }
+
+    // always exit flow if any error,
+    throw error;
+
+    // if (!saveToDb) {
+    //   throw error;
+    // }
+    // // **** hardware terminated errors ****
+    // // Some high priority errors need to interrupt the process
+    // if (accountUtils.isHwWallet({ walletId })) {
+    //   if (isHardwareInterruptErrorByCode({ error })) {
+    //     throw error;
+    //   }
+    //   // Unplug device?
+    //   if (
+    //     isHardwareErrorByCode({
+    //       error,
+    //       code: HardwareErrorCode.DeviceNotFound,
+    //     })
+    //   ) {
+    //     throw error;
+    //   }
+    // }
+    // // **** flow cancel action
+    // // **** PIN\passphrase cancel
+    // // **** password cancel
+    // if (
+    //   errorUtils.isErrorByClassName({
+    //     error,
+    //     className: EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+    //   })
+    // ) {
+    //   throw error;
+    // }
+  }
+
   async emitBatchCreateDoneEvents({ saveToDb }: { saveToDb?: boolean } = {}) {
     if (saveToDb) {
-      appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-        totalCount: checkIsDefined(this.progressInfo).totalCount,
-        createdCount: checkIsDefined(this.progressInfo).createdCount,
-        progressTotal: checkIsDefined(this.progressInfo).progressTotal,
-        progressCurrent: checkIsDefined(this.progressInfo).progressTotal,
-      });
+      if (this.progressInfo) {
+        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+          totalCount: this.progressInfo.totalCount,
+          createdCount: this.progressInfo.createdCount,
+          progressTotal: this.progressInfo.progressTotal,
+          progressCurrent: this.progressInfo.progressTotal,
+        });
+      }
       await timerUtils.wait(600);
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
       void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
@@ -399,7 +453,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
   checkIfCancelled({ saveToDb }: { saveToDb: boolean | undefined }) {
     if (saveToDb && this.isCreateFlowCancelled) {
-      throw new Error('Batch Create Accounts Cancelled');
+      throw new Error(
+        appLocale.intl.formatMessage({
+          id: ETranslations.global_bulk_accounts_loading_error,
+        }),
+      );
     }
   }
 
@@ -494,100 +552,129 @@ class ServiceBatchCreateAccount extends ServiceBase {
             networkId,
             account: accountForCreate,
           });
-          checkIsDefined(this.progressInfo).createdCount += 1;
+          if (this.progressInfo) {
+            this.progressInfo.createdCount += 1;
+          }
           await timerUtils.wait(100);
         }
-        checkIsDefined(this.progressInfo).progressCurrent += 1;
-        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-          totalCount: checkIsDefined(this.progressInfo).totalCount,
-          createdCount: checkIsDefined(this.progressInfo).createdCount,
-          progressTotal: checkIsDefined(this.progressInfo).progressTotal,
-          progressCurrent: checkIsDefined(this.progressInfo).progressCurrent,
-          networkId,
-          deriveType,
-        });
+        if (this.progressInfo) {
+          this.progressInfo.progressCurrent += 1;
+          appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+            totalCount: this.progressInfo.totalCount,
+            createdCount: this.progressInfo.createdCount,
+            progressTotal: this.progressInfo.progressTotal,
+            progressCurrent: this.progressInfo.progressCurrent,
+            networkId,
+            deriveType,
+          });
+        }
         await timerUtils.wait(100);
       }
     };
 
     // for loop indexes
     for (const index of indexes) {
-      this.checkIfCancelled({ saveToDb });
-      if (excludedIndexes?.[index] === true) {
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-      const key = this.buildNetworkAccountCacheKey({
-        walletId,
-        networkId,
-        deriveType,
-        index,
-      });
-      const cacheAccount = this.networkAccountsCache[key];
-      if (cacheAccount) {
+      try {
         this.checkIfCancelled({ saveToDb });
-        await processAccountForCreate({
-          key,
-          accountForCreate: cacheAccount,
+        if (excludedIndexes?.[index] === true) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        const key = this.buildNetworkAccountCacheKey({
+          walletId,
+          networkId,
+          deriveType,
+          index,
         });
-      } else {
-        indexesForRebuild.push(index);
+        const cacheAccount = this.networkAccountsCache[key];
+        if (cacheAccount) {
+          this.checkIfCancelled({ saveToDb });
+          await processAccountForCreate({
+            key,
+            accountForCreate: cacheAccount,
+          });
+        } else {
+          indexesForRebuild.push(index);
+        }
+      } catch (error) {
+        this.forceExitFlowWhenErrorMatched({
+          error,
+          walletId,
+          saveToDb,
+        });
       }
     }
 
     if (indexesForRebuild.length) {
       const indexesChunks = chunk(indexesForRebuild, 10);
       for (const indexesForRebuildChunk of indexesChunks) {
-        this.checkIfCancelled({ saveToDb });
-        const { vault, accounts } =
-          await this.backgroundApi.serviceAccount.prepareHdOrHwAccounts({
-            walletId,
-            networkId,
-            deriveType,
-            indexes: indexesForRebuildChunk,
-            indexedAccountId: undefined,
-            skipDeviceCancel: true, // always skip cancel for batch create
-            hideCheckingDeviceLoading,
-          });
-        const networkInfo = await vault.getNetworkInfo();
-        for (const account of accounts) {
+        try {
           this.checkIfCancelled({ saveToDb });
-          if (isNil(account.pathIndex)) {
-            throw new Error(
-              'batchBuildNetworkAccounts ERROR: pathIndex is required',
-            );
-          }
-          if (excludedIndexes?.[account.pathIndex] === true) {
-            // eslint-disable-next-line no-continue
-            continue;
-          }
-          const key = this.buildNetworkAccountCacheKey({
-            walletId,
-            networkId,
-            deriveType,
-            index: account.pathIndex,
-          });
-          this.checkIfCancelled({ saveToDb });
+          const { vault, accounts } =
+            await this.backgroundApi.serviceAccount.prepareHdOrHwAccounts({
+              walletId,
+              networkId,
+              deriveType,
+              indexes: indexesForRebuildChunk,
+              indexedAccountId: undefined,
+              skipDeviceCancel: true, // always skip cancel for batch create
+              skipDeviceCancelAtFirst: true,
+              hideCheckingDeviceLoading,
+            });
+          const networkInfo = await vault.getNetworkInfo();
+          for (const account of accounts) {
+            try {
+              this.checkIfCancelled({ saveToDb });
+              if (isNil(account.pathIndex)) {
+                throw new Error(
+                  'batchBuildNetworkAccounts ERROR: pathIndex is required',
+                );
+              }
+              if (excludedIndexes?.[account.pathIndex] === true) {
+                // eslint-disable-next-line no-continue
+                continue;
+              }
+              const key = this.buildNetworkAccountCacheKey({
+                walletId,
+                networkId,
+                deriveType,
+                index: account.pathIndex,
+              });
+              this.checkIfCancelled({ saveToDb });
 
-          const addressDetail = await vault?.buildAccountAddressDetail({
-            account,
-            networkId,
-            networkInfo,
-          });
-          const accountForCreate: IBatchCreateAccount = {
-            ...account,
-            addressDetail,
-            existsInDb: false,
-          };
-          accountForCreate.address =
-            addressDetail?.displayAddress ||
-            addressDetail?.address ||
-            accountForCreate.address;
-          this.checkIfCancelled({ saveToDb });
+              const addressDetail = await vault?.buildAccountAddressDetail({
+                account,
+                networkId,
+                networkInfo,
+              });
+              const accountForCreate: IBatchCreateAccount = {
+                ...account,
+                addressDetail,
+                existsInDb: false,
+              };
+              accountForCreate.address =
+                addressDetail?.displayAddress ||
+                addressDetail?.address ||
+                accountForCreate.address;
+              this.checkIfCancelled({ saveToDb });
 
-          await processAccountForCreate({
-            key,
-            accountForCreate,
+              await processAccountForCreate({
+                key,
+                accountForCreate,
+              });
+            } catch (error) {
+              this.forceExitFlowWhenErrorMatched({
+                error,
+                walletId,
+                saveToDb,
+              });
+            }
+          }
+        } catch (error) {
+          this.forceExitFlowWhenErrorMatched({
+            error,
+            walletId,
+            saveToDb,
           });
         }
       }

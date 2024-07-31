@@ -210,6 +210,9 @@ export type IVaultSettings = {
   };
 
   preCheckDappTxFeeInfoRequired?: boolean;
+
+  activateTokenRequired?: boolean;
+  mergeDeriveAssetsEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {

@@ -271,8 +271,8 @@ function batchGetKeys(
       return;
     }
     const index = pathComponent.endsWith("'")
-      ? parseInt(pathComponent.slice(0, -1)) + 2 ** 31
-      : parseInt(pathComponent);
+      ? parseInt(pathComponent.slice(0, -1), 10) + 2 ** 31
+      : parseInt(pathComponent, 10);
     key = deriver.CKDPriv(key, index);
   });
 
@@ -291,8 +291,8 @@ function batchGetKeys(
       currentPath = `${currentPath}/${pathComponent}`;
       if (typeof cache[currentPath] === 'undefined') {
         const index = pathComponent.endsWith("'")
-          ? parseInt(pathComponent.slice(0, -1)) + 2 ** 31
-          : parseInt(pathComponent);
+          ? parseInt(pathComponent.slice(0, -1), 10) + 2 ** 31
+          : parseInt(pathComponent, 10);
         const privkey = deriver.CKDPriv(parent.privkey, index);
 
         if (typeof parent.fingerPrint === 'undefined') {

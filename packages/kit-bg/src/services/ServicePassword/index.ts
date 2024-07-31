@@ -21,8 +21,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -473,14 +472,22 @@ export default class ServicePassword extends ServiceBase {
     let deviceParams: IDeviceSharedCallParams | undefined;
 
     if (isHardware) {
-      deviceParams =
-        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
-          walletId,
-        });
+      try {
+        deviceParams =
+          await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+            walletId,
+          });
+      } catch (error) {
+        //
+      }
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const isPasswordSet = await localDb.isPasswordSet();
     if (
       accountUtils.isHdWallet({ walletId }) ||
       accountUtils.isImportedWallet({ walletId })
+      // || isPasswordSet // Do not prompt password for external,watching account action
     ) {
       ({ password } = await this.promptPasswordVerify({ reason }));
     }
@@ -513,11 +520,7 @@ export default class ServicePassword extends ServiceBase {
       passwordPromptPromiseTriggerData: params,
     }));
     this.passwordPromptTimeout = setTimeout(() => {
-      void this.rejectPasswordPromptDialog(params.idNumber, {
-        message: appLocale.intl.formatMessage({
-          id: ETranslations.global_close,
-        }),
-      });
+      void this.cancelPasswordPromptDialog(params.idNumber);
     }, this.passwordPromptTTL);
   }
 
@@ -538,17 +541,30 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async rejectPasswordPromptDialog(
-    promiseId: number,
-    errorInfo: { message: string },
-  ) {
-    const error = new OneKeyErrors.OneKeyError({
-      message: errorInfo.message,
-    });
+  async cancelPasswordPromptDialog(promiseId: number) {
+    const error = new OneKeyErrors.PasswordPromptDialogCancel();
+    return this.rejectPasswordPromptDialog({ promiseId, error });
+  }
+
+  @backgroundMethod()
+  async rejectPasswordPromptDialog({
+    promiseId,
+    message,
+    error,
+  }: {
+    promiseId: number;
+    message?: string;
+    error?: IOneKeyError;
+  }) {
+    const errorReject =
+      error ??
+      new OneKeyErrors.OneKeyError({
+        message: message || 'rejectPasswordPromptDialog',
+      });
     this.clearPasswordPromptTimeout();
     void this.backgroundApi.servicePromise.rejectCallback({
       id: promiseId,
-      error,
+      error: errorReject,
     });
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
