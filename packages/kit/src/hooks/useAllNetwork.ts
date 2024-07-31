@@ -173,7 +173,11 @@ function useAllNetworkRequests<T>(params: {
             }
             const { accountId, networkId } = networkDataString;
             try {
-              await allNetworkRequests({ accountId, networkId });
+              await allNetworkRequests({
+                accountId,
+                networkId,
+                allNetworkDataInit: allNetworkDataInit.current,
+              });
             } catch (e) {
               console.error(e);
               // pass
