@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Page, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -10,16 +11,20 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import { TokenList } from '@onekeyhq/kit/src/views/FiatCrypto/components/TokenList';
 import { useGetTokensList } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import type { IModalFiatCryptoParamList } from '@onekeyhq/shared/src/routes';
+import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 import type {
   IFiatCryptoToken,
   IFiatCryptoType,
 } from '@onekeyhq/shared/types/fiatCrypto';
 
 import { NetworkContainer } from '../NetworkContainer';
-import { useGetTokenFiatValue } from '../TokenDataContainer';
+import { useTokenDataContext } from '../TokenDataContainer';
 
 type ISellOrBuyProps = {
   title: string;
@@ -29,13 +34,19 @@ type ISellOrBuyProps = {
 };
 
 const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
-  const appNavigation = useAppNavigation();
+  const appNavigation =
+    useAppNavigation<
+      IPageNavigationProp<
+        IModalFiatCryptoParamList,
+        EModalFiatCryptoRoutes.BuyModal
+      >
+    >();
   const { result: tokens, isLoading } = useGetTokensList({
     networkId,
     accountId: networkUtils.isAllNetwork({ networkId }) ? undefined : accountId,
     type,
   });
-  const getTokenFiatValue = useGetTokenFiatValue();
+  const { getTokenFiatValue, fiatMap } = useTokenDataContext();
   const { account } = useAccountData({ networkId, accountId });
 
   const fiatValueTokens = useMemo(() => {
@@ -64,54 +75,65 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
       return BigNumber(num1).gt(num2) ? -1 : 1;
     });
   }, [tokens, getTokenFiatValue, networkId, type]);
+
   const onPress = useCallback(
     async (token: IFiatCryptoToken) => {
-      let realAccountId = accountId;
-      if (networkUtils.isAllNetwork({ networkId })) {
-        // do all network
-        const networkAccounts =
-          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-            {
-              networkIds: [token.networkId ?? ''],
-              indexedAccountId: account?.indexedAccountId ?? '',
-            },
-          );
-        const networkAccount = networkAccounts[0];
-        if (networkAccount.account) {
-          realAccountId = networkAccount.account.id;
-        } else if (account) {
-          const walletId = accountUtils.getWalletIdFromAccountId({
-            accountId: account.id,
+      const openFiatCryptoUrl = async ({
+        networkAccountId,
+      }: {
+        networkAccountId?: string;
+      }) => {
+        const { url } =
+          await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+            networkId: token.networkId,
+            tokenAddress: token.address,
+            accountId: networkAccountId,
+            type,
           });
-          try {
-            const deriveType =
-              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                { networkId: token.networkId },
-              );
-            const resp =
-              await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
-                walletId,
-                indexedAccountId: account?.indexedAccountId,
-                deriveType,
-                networkId: token.networkId,
-              });
-            realAccountId = resp?.accounts[0].id;
-          } catch {
-            console.error('failed to create address');
-          }
+        openUrlExternal(url);
+        appNavigation.popStack();
+      };
+      let realAccountId = accountId;
+      if (
+        networkUtils.isAllNetwork({ networkId }) &&
+        account?.indexedAccountId
+      ) {
+        if (token.networkId === getNetworkIdsMap().btc) {
+          appNavigation.push(EModalFiatCryptoRoutes.DeriveTypesAddress, {
+            networkId: token.networkId,
+            indexedAccountId: account.indexedAccountId,
+            accountId,
+            actionType: EDeriveAddressActionType.Select,
+            tokenMap: fiatMap,
+            onSelected: async ({
+              account: networkAccount,
+            }: {
+              account: INetworkAccount;
+            }) => {
+              await openFiatCryptoUrl({ networkAccountId: networkAccount.id });
+            },
+          });
+          return;
+          //
         }
+        const deriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: token.networkId,
+          });
+        const dbAccount =
+          await backgroundApiProxy.serviceAccount.getOrCreateIndexedAccount({
+            networkId: token.networkId,
+            indexedAccountId: account.indexedAccountId,
+            deriveType,
+          });
+        if (!dbAccount) {
+          return;
+        }
+        realAccountId = dbAccount.id;
       }
-      const { url } =
-        await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
-          networkId: token.networkId,
-          tokenAddress: token.address,
-          accountId: realAccountId,
-          type,
-        });
-      openUrlExternal(url);
-      appNavigation.popStack();
+      await openFiatCryptoUrl({ networkAccountId: realAccountId });
     },
-    [appNavigation, type, accountId, networkId, account],
+    [appNavigation, type, accountId, account, networkId, fiatMap],
   );
 
   const networkIds = useMemo(
@@ -125,7 +147,7 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
       <Page.Body>
         <NetworkContainer networkIds={networkIds}>
           {isLoading ? (
-            <Stack minHeight={120} justifyContent="center" alignItems="center">
+            <Stack minHeight={300} justifyContent="center" alignItems="center">
               <Spinner size="large" />
             </Stack>
           ) : (

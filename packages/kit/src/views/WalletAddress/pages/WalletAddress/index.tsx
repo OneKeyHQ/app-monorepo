@@ -48,7 +48,6 @@ type IWalletAddressContext = {
   networkDeriveTypeMap: Record<string, IAccountDeriveTypes>;
   accountId?: string;
   indexedAccountId: string;
-  walletId: string;
   refreshLocalData: () => void;
 };
 
@@ -57,7 +56,6 @@ const WalletAddressContext = createContext<IWalletAddressContext>({
   networkDeriveTypeMap: {},
   accountId: '',
   indexedAccountId: '',
-  walletId: '',
   refreshLocalData: () => {},
 });
 
@@ -70,8 +68,7 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   const appNavigation =
     useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
   const intl = useIntl();
-  const { walletId, indexedAccountId, accountId } =
-    useContext(WalletAddressContext);
+  const { indexedAccountId } = useContext(WalletAddressContext);
 
   const { result, run: onRefreshData } = usePromiseResult(
     () =>
@@ -86,21 +83,11 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   const onPress = useCallback(() => {
     appNavigation.push(EModalWalletAddressRoutes.DeriveTypesAddress, {
       networkId: item.id,
-      walletId,
       indexedAccountId,
-      accountId,
-      actionType: EDeriveAddressActionType.Copy,
       onUnmounted: onRefreshData,
       actionType: EDeriveAddressActionType.Copy,
     });
-  }, [
-    appNavigation,
-    walletId,
-    indexedAccountId,
-    accountId,
-    item.id,
-    onRefreshData,
-  ]);
+  }, [appNavigation, indexedAccountId, item.id, onRefreshData]);
 
   const subtitle = useMemo(() => {
     let text = intl.formatMessage({
@@ -156,7 +143,6 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
   const {
     networkAccountMap,
     networkDeriveTypeMap,
-    walletId,
     indexedAccountId,
     refreshLocalData,
   } = useContext(WalletAddressContext);
@@ -172,6 +158,9 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     if (!account) {
       try {
         setLoading(true);
+        const { walletId } = accountUtils.parseIndexedAccountId({
+          indexedAccountId,
+        });
         await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
           walletId,
           indexedAccountId,
@@ -196,7 +185,6 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     }
   }, [
     account,
-    walletId,
     indexedAccountId,
     deriveType,
     item.id,
@@ -368,7 +356,7 @@ export default function WalletAddressPage({
   IModalWalletAddressParamList,
   EModalWalletAddressRoutes.WalletAddress
 >) {
-  const { accountId, indexedAccountId, walletId } = route.params;
+  const { accountId, indexedAccountId } = route.params;
   const { result, run: refreshLocalData } = usePromiseResult(
     async () => {
       const networks =
@@ -418,18 +406,11 @@ export default function WalletAddressPage({
     return {
       networkAccountMap,
       networkDeriveTypeMap,
-      walletId,
       accountId,
       indexedAccountId,
       refreshLocalData,
     } as IWalletAddressContext;
-  }, [
-    result.networksAccount,
-    walletId,
-    indexedAccountId,
-    accountId,
-    refreshLocalData,
-  ]);
+  }, [result.networksAccount, indexedAccountId, accountId, refreshLocalData]);
 
   return (
     <WalletAddressContext.Provider value={context}>

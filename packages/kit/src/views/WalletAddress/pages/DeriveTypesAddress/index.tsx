@@ -25,10 +25,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type {
-  IDBAccount,
-  IDBUtxoAccount,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountDeriveInfo,
@@ -48,7 +45,6 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 const DeriveTypesAddressContent = createContext<{
   network?: IServerNetwork;
   refreshLocalData?: () => void;
-  walletId: string;
   indexedAccountId: string;
   actionType?: EDeriveAddressActionType;
   onSelected?: ({
@@ -63,7 +59,6 @@ const DeriveTypesAddressContent = createContext<{
   token?: IToken;
   tokenMap?: Record<string, ITokenFiat>;
 }>({
-  walletId: '',
   indexedAccountId: '',
   actionType: EDeriveAddressActionType.Copy,
   tokenMap: {},
@@ -86,7 +81,6 @@ const DeriveTypesAddressItem = ({
   const {
     network,
     refreshLocalData,
-    walletId,
     indexedAccountId,
     actionType,
     onSelected,
@@ -113,11 +107,10 @@ const DeriveTypesAddressItem = ({
     : intl.formatMessage({ id: ETranslations.wallet_no_address });
 
   const onPress = useCallback(async () => {
+    if (!network) {
+      throw new Error('network is empty');
+    }
     if (item.account) {
-      if (!network) {
-        throw new Error('network is empty');
-      }
-
       if (actionType === EDeriveAddressActionType.Copy) {
         await copyAccountAddress({
           accountId: item.account.id,
@@ -134,9 +127,9 @@ const DeriveTypesAddressItem = ({
     } else {
       try {
         setLoading(true);
-        if (!network) {
-          throw new Error('wrong network');
-        }
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId: indexedAccountId,
+        });
         await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
           walletId,
           indexedAccountId,
@@ -159,7 +152,6 @@ const DeriveTypesAddressItem = ({
     actionType,
     copyAccountAddress,
     onSelected,
-    walletId,
     indexedAccountId,
     intl,
     refreshLocalData,
@@ -241,7 +233,6 @@ export default function DeriveTypesAddressPage({
   const {
     indexedAccountId,
     networkId,
-    walletId,
     actionType,
     onUnmounted,
     onSelected,
@@ -262,7 +253,6 @@ export default function DeriveTypesAddressPage({
     () => ({
       network: result?.network,
       refreshLocalData,
-      walletId,
       indexedAccountId,
       actionType,
       onSelected,
@@ -272,7 +262,6 @@ export default function DeriveTypesAddressPage({
     [
       result?.network,
       refreshLocalData,
-      walletId,
       indexedAccountId,
       actionType,
       onSelected,
