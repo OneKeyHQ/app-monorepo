@@ -178,7 +178,6 @@ function TxHistoryListView(props: IProps) {
       renderScrollComponent={renderNestedScrollView}
       ref={listViewRef}
       contentContainerStyle={{
-        py: '$3',
         ...contentContainerStyle,
       }}
       h="100%"
