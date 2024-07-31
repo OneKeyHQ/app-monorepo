@@ -167,6 +167,9 @@ export interface ITableProps<T> {
   TableFooterComponent: IListViewProps<T>['ListFooterComponent'];
   TableEmptyComponent: IListViewProps<T>['ListEmptyComponent'];
   extraData: IListViewProps<T>['extraData'];
+  stickyHeaderHiddenOnScroll: IListViewProps<T>['stickyHeaderHiddenOnScroll'];
+  estimatedListSize?: { width: number; height: number };
+  estimatedItemSize?: IListViewProps<T>['estimatedItemSize'];
   onHeaderRow?: (
     columns: ITableColumn<T>,
     index: number,
@@ -264,6 +267,9 @@ export function Table<T>({
   TableEmptyComponent,
   onHeaderRow,
   onRow,
+  estimatedItemSize = 60,
+  estimatedListSize = { width: 370, height: 525 },
+  stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,
 }: ITableProps<T>) {
   const { gtMd } = useMedia();
@@ -290,16 +296,16 @@ export function Table<T>({
   );
 
   return (
-    <YStack flex={1} $gtMd={{ pt: '$3' }}>
+    <YStack>
       {showHeader ? (
         <TableHeaderRow columns={columns} onHeaderRow={onHeaderRow} />
       ) : null}
       <ListView
         ref={listViewRef}
-        stickyHeaderHiddenOnScroll
-        estimatedItemSize={60}
+        stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
+        estimatedItemSize={estimatedItemSize}
         // @ts-ignore
-        estimatedListSize={{ width: 370, height: 525 }}
+        estimatedListSize={estimatedListSize}
         onScroll={showBackToTopButton ? handleScroll : undefined}
         scrollEventThrottle={100}
         data={dataSource}
