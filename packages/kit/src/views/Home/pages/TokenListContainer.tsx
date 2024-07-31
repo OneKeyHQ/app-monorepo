@@ -439,7 +439,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
   const { run: runAllNetworksRequests, result: allNetworksResult } =
     useAllNetworkRequests<IFetchAccountTokensResp>({
-      allNetworkDbAccounts,
+      account,
       network,
       wallet,
       allNetworkRequests: handleAllNetworkRequests,

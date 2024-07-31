@@ -476,6 +476,11 @@ function isOthersWallet({ walletId }: { walletId: string }) {
   );
 }
 
+function isOthersAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isOthersWallet({ walletId });
+}
+
 function buildHwWalletId({
   dbDeviceId,
   passphraseState,
@@ -735,6 +740,7 @@ export default {
   isAccountCompatibleWithNetwork,
   getAccountCompatibleNetwork,
   isOthersWallet,
+  isOthersAccount,
   isUrlAccountFn,
   buildBtcToLnPath,
   buildLnToBtcPath,

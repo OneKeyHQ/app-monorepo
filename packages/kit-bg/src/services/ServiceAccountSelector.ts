@@ -11,7 +11,6 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
@@ -296,23 +295,23 @@ class ServiceAccountSelector extends ServiceBase {
     let allNetworkDbAccounts: IDBAccount[] | undefined;
     let canCreateAddress = false;
     const isAllNetwork = networkId && networkUtils.isAllNetwork({ networkId });
+    // isAllNetwork
     if (isAllNetwork) {
+      try {
+        allNetworkDbAccounts =
+          await this.backgroundApi.serviceAllNetwork.getAllNetworkDbAccounts({
+            networkId,
+            singleNetworkDeriveType: undefined,
+            indexedAccountId,
+            othersWalletAccountId,
+          });
+      } catch (error) {
+        //
+      }
+
+      // build mocked networkAccount of all network
       if (!isOthersWallet && indexedAccountId) {
-        let dbAccounts: IDBAccount[] = [];
-
-        try {
-          dbAccounts =
-            await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
-              {
-                indexedAccountId,
-              },
-            );
-        } catch (error) {
-          //
-        }
-
-        if (dbAccounts.length) {
-          allNetworkDbAccounts = dbAccounts;
+        if (allNetworkDbAccounts?.length) {
           try {
             account =
               await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount(
@@ -330,15 +329,8 @@ class ServiceAccountSelector extends ServiceBase {
           canCreateAddress = true;
         }
       }
-      if (isOthersWallet && dbAccount) {
-        allNetworkDbAccounts = [dbAccount];
-      }
-      if (allNetworkDbAccounts) {
-        allNetworkDbAccounts = allNetworkDbAccounts.filter(
-          (acc) => acc.impl !== IMPL_ALLNETWORKS,
-        );
-      }
     } else {
+      // single network
       canCreateAddress = !isOthersWallet && !account?.address;
     }
 
