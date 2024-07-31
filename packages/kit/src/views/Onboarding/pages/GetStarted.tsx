@@ -190,19 +190,6 @@ export function GetStarted({
     <Page safeAreaEnabled>
       <Page.Header headerShown={false} />
       <Page.Body>
-        {showCloseButton ? (
-          <Page.Close>
-            <IconButton
-              icon="CrossedLargeOutline"
-              position="absolute"
-              variant="tertiary"
-              left="$5"
-              top="$5"
-              p="$4"
-              zIndex={1}
-            />
-          </Page.Close>
-        ) : null}
         <Stack flex={1}>
           <ThemeableStack
             fullscreen
@@ -352,6 +339,17 @@ export function GetStarted({
             },
           )}
         </SizableText>
+        {showCloseButton ? (
+          <View position="absolute" left="$5" top="$5">
+            <Page.Close>
+              <IconButton
+                icon="CrossedLargeOutline"
+                variant="tertiary"
+                p="$4"
+              />
+            </Page.Close>
+          </View>
+        ) : null}
       </Page.Body>
     </Page>
   );
