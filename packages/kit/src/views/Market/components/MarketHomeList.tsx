@@ -73,7 +73,7 @@ const colorMap = {
 
 function TableMdSkeletonRow() {
   return (
-    <XStack h={60} jc="space-between">
+    <XStack h={60} jc="space-between" flex={1}>
       <XStack space="$3" ai="center">
         <Skeleton w="$10" h="$10" radius="round" />
         <YStack space="$2">
@@ -732,6 +732,7 @@ function BasicMarketHomeList({
               },
               render: (_: unknown, record: IMarketToken) =>
                 renderMdItem(record),
+              renderSkeleton: () => <TableMdSkeletonRow />,
             },
           ],
     [
@@ -776,28 +777,8 @@ function BasicMarketHomeList({
     if (platformEnv.isNativeAndroid) {
       return null;
     }
-    if (gtMd) {
-      const skeletonColumns = columns.map((i) => ({
-        ...i,
-        render: (i as unknown as { renderSkeleton: () => ReactElement })
-          .renderSkeleton,
-      }));
-      return (
-        <YStack>
-          {new Array(6).fill(0).map((i) => (
-            <Table.Row key={i} columns={skeletonColumns} index={i} item={{}} />
-          ))}
-        </YStack>
-      );
-    }
-    return (
-      <YStack px="$5">
-        {new Array(6).fill(0).map((_, index) => (
-          <TableMdSkeletonRow key={index} />
-        ))}
-      </YStack>
-    );
-  }, [columns, gtMd]);
+    return <Table.Skeleton count={6} columns={columns} />;
+  }, [columns]);
 
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
@@ -856,7 +837,7 @@ function BasicMarketHomeList({
           onHeaderRow={onHeaderRow}
           showHeader={gtMd}
           columns={columns}
-          dataSource={sortedListData as unknown as IMarketToken[]}
+          // dataSource={sortedListData as unknown as IMarketToken[]}
           TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
           extraData={gtMd ? undefined : mdColumnKeys}
           TableEmptyComponent={listEmptyComponent}
