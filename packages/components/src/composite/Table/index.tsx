@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 import { useMedia } from 'tamagui';
@@ -216,6 +216,12 @@ function HeaderColumn<T>({
   const events = onHeaderRow?.(column, index);
   const enableSortType = !!events?.onSortTypeChange;
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>();
+
+  useEffect(() => {
+    if (selectedColumnName !== dataIndex) {
+      setSortOrder(undefined);
+    }
+  }, [dataIndex, selectedColumnName]);
   const handleColumnPress = useCallback(() => {
     events?.onPress?.();
     if (!enableSortType) {
