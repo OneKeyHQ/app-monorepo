@@ -107,8 +107,9 @@ const renderContent = (text?: string) => (
 interface ITableColumn<T> {
   title: string;
   dataIndex: string;
-  columnWidth: IStackProps['width'];
-  render?: (text: string, record: T, index: number) => ReactElement;
+  columnProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
+  columnWidth?: IStackProps['width'];
+  render?: (text: any, record: T, index: number) => ReactElement;
   // The specify which way that column is aligned. default value is left
   align?: 'left' | 'right' | 'center';
 }
@@ -140,12 +141,19 @@ function TableRow<T>({
       {...listItemPressStyle}
     >
       {columns.map(
-        ({ dataIndex, align, render = renderContent, columnWidth = 40 }) => (
+        ({
+          dataIndex,
+          align,
+          render = renderContent,
+          columnWidth = 40,
+          columnProps,
+        }) => (
           <Column
             key={dataIndex}
             name={dataIndex}
             align={align}
             width={columnWidth}
+            {...columnProps}
           >
             {render(
               (item as Record<string, string>)[dataIndex] as unknown as string,
@@ -194,7 +202,7 @@ function HeaderColumn<T>({
   index: number;
   onHeaderRow?: ITableProps<T>['onHeaderRow'];
 }) {
-  const { title, dataIndex, columnWidth = 40, align } = column;
+  const { title, dataIndex, columnWidth = 40, align, columnProps } = column;
   const events = onHeaderRow?.(column, index);
   const useSortFunc = !!events?.onSortTypeChange;
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>();
@@ -227,6 +235,7 @@ function HeaderColumn<T>({
       order={sortOrder}
       onPress={handleColumnPress}
       cursor={cursor}
+      {...columnProps}
     >
       <SizableText color="$textSubdued" size="$bodySmMedium">
         {title}
