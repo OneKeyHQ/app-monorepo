@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -154,7 +154,7 @@ export function TokenDetails() {
   ]);
 
   const renderTokenDetailsView = useCallback(() => {
-    if (vaultSettings?.mergeDeriveAssetsEnabled) {
+    if (vaultSettings?.mergeDeriveAssetsEnabled && isAllNetworks) {
       if (tabs) {
         return (
           <Tab
