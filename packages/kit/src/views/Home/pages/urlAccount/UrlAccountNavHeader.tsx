@@ -5,6 +5,7 @@ import {
   IconButton,
   SizableText,
   XStack,
+  useMedia,
   useShare,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -41,6 +42,7 @@ function Address() {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
 
+  const media = useMedia();
   return (
     <XStack alignItems="center">
       {/* use navigation built-in back button */}
@@ -48,7 +50,7 @@ function Address() {
       <SizableText size="$headingLg">
         {accountUtils.shortenAddress({ address: account?.address })}
       </SizableText>
-      {platformEnv.isDev ? (
+      {platformEnv.isDev && media.gtLg ? (
         <SizableText
           ml="$4"
           onPress={() => {
