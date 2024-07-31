@@ -30,6 +30,11 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICustomRpcItem } from '@onekeyhq/shared/types/customRpc';
 
+type IEditRpcParams = {
+  network: IServerNetwork;
+  rpcInfo?: ICustomRpcItem;
+};
+
 function ListHeaderComponent({ data }: { data: ICustomRpcItem[] }) {
   return (
     <>
@@ -68,9 +73,11 @@ function ListEmptyComponent({
 
 function DialogContent({
   network,
+  rpcInfo,
   onConfirm,
 }: {
   network: IServerNetwork;
+  rpcInfo?: ICustomRpcItem;
   onConfirm: () => void;
 }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -85,7 +92,7 @@ function DialogContent({
       </Dialog.Header>
       <Dialog.Form
         formProps={{
-          defaultValues: { rpc: '' },
+          defaultValues: { rpc: rpcInfo?.rpc || '' },
         }}
       >
         <Dialog.FormField
@@ -154,17 +161,28 @@ function CustomRPC() {
       watchLoading: true,
     },
   );
+  const onAddOrEditRpc = useCallback(
+    ({ network, rpcInfo }: IEditRpcParams) => {
+      Dialog.show({
+        renderContent: (
+          <DialogContent network={network} rpcInfo={rpcInfo} onConfirm={run} />
+        ),
+      });
+    },
+    [run],
+  );
   const showChainSelector = useConfigurableChainSelector();
-  const onSelectNetwork = useCallback(() => {
-    showChainSelector({
-      networkIds: customRpcData?.supportNetworks?.map((i) => i.id),
-      onSelect: (network: IServerNetwork) => {
-        Dialog.show({
-          renderContent: <DialogContent network={network} onConfirm={run} />,
-        });
-      },
-    });
-  }, [showChainSelector, customRpcData?.supportNetworks, run]);
+  const onSelectNetwork = useCallback(
+    (params?: { rpcInfo: ICustomRpcItem }) => {
+      showChainSelector({
+        networkIds: customRpcData?.supportNetworks?.map((i) => i.id),
+        onSelect: (network: IServerNetwork) => {
+          onAddOrEditRpc({ network, rpcInfo: params?.rpcInfo });
+        },
+      });
+    },
+    [showChainSelector, customRpcData?.supportNetworks, onAddOrEditRpc],
+  );
 
   if (isLoading || !customRpcData?.customRpcNetworks) {
     return (
@@ -190,7 +208,7 @@ function CustomRPC() {
                 alignItems="center"
                 justifyContent="space-between"
               >
-                <XStack alignItems="center" space="$3"  flexShrink={1}>
+                <XStack alignItems="center" space="$3" flexShrink={1}>
                   <Switch
                     value={item.enabled}
                     onChange={() => {
@@ -234,15 +252,23 @@ function CustomRPC() {
                       label: 'Edit',
                       icon: 'PencilOutline',
                       onPress: () => {
-                        console.log('action1');
+                        onAddOrEditRpc({
+                          network: item.network,
+                          rpcInfo: item,
+                        });
                       },
                     },
                     {
                       label: 'Delete',
                       destructive: true,
                       icon: 'DeleteOutline',
-                      onPress: () => {
-                        console.log('action2');
+                      onPress: async () => {
+                        await backgroundApiProxy.serviceCustomRpc.deleteCustomRpc(
+                          item.networkId,
+                        );
+                        setTimeout(() => {
+                          void run();
+                        }, 200);
                       },
                     },
                   ]}
