@@ -111,6 +111,7 @@ export interface ITableColumn<T> {
   dataIndex: string;
   columnProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   columnWidth?: IStackProps['width'];
+  renderSkeleton?: () => ReactElement;
   render?: (text: any, record: T, index: number) => ReactElement;
   // The specify which way that column is aligned. default value is left
   align?: 'left' | 'right' | 'center';
@@ -122,12 +123,14 @@ function TableRow<T>({
   columns,
   onRow,
   pressStyle = false,
+  showSkeleton = false,
 }: {
   pressStyle?: boolean;
   item: T;
   index: number;
   columns: ITableProps<T>['columns'];
   onHeaderRow?: ITableProps<T>['onHeaderRow'];
+  showSkeleton?: boolean;
   onRow?: ITableProps<T>['onRow'];
 }) {
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
@@ -150,6 +153,7 @@ function TableRow<T>({
           dataIndex,
           align,
           render = renderContent,
+          renderSkeleton,
           columnWidth = 40,
           columnProps,
         }) => (
@@ -160,11 +164,15 @@ function TableRow<T>({
             width={columnWidth}
             {...columnProps}
           >
-            {render(
-              (item as Record<string, string>)[dataIndex] as unknown as string,
-              item,
-              index,
-            )}
+            {showSkeleton
+              ? renderSkeleton?.()
+              : render(
+                  (item as Record<string, string>)[
+                    dataIndex
+                  ] as unknown as string,
+                  item,
+                  index,
+                )}
           </Column>
         ),
       )}
@@ -172,6 +180,23 @@ function TableRow<T>({
   );
 }
 
+function TableSkeletonRow<T = any>({
+  columns,
+  index,
+}: {
+  columns: ITableProps<T>['columns'];
+  index: number;
+}) {
+  return (
+    <TableRow
+      columns={columns}
+      showSkeleton
+      item={undefined as any}
+      key={index}
+      index={index}
+    />
+  );
+}
 export interface ITableProps<T> {
   showHeader?: boolean;
   showBackToTopButton?: boolean;
@@ -375,6 +400,24 @@ function BasicTable<T>({
   );
 }
 
+function TableSkeleton<T>({
+  count,
+  columns,
+}: {
+  count: number;
+  columns: ITableProps<T>['columns'];
+}) {
+  return (
+    <YStack>
+      {new Array(count).fill(0).map((i) => (
+        <TableSkeletonRow index={i} columns={columns} key={i} />
+      ))}
+    </YStack>
+  );
+}
+
 export const Table = withStaticProperties(BasicTable, {
   Row: TableRow,
+  Skeleton: TableSkeleton,
+  SkeletonRow: TableSkeletonRow,
 });
