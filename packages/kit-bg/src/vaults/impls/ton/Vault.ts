@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
 import TonWeb from 'tonweb';
 
 import { genAddressFromAddress } from '@onekeyhq/core/src/chains/ton/sdkTon';
+import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -13,7 +15,12 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+  EDecodedTxStatus,
+  type IDecodedTx,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -22,6 +29,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { decodePayload } from './sdkTon/utils';
 import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -42,7 +50,7 @@ export default class Vault extends VaultBase {
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: undefined, // KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -67,24 +75,121 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    throw new NotImplemented();
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTx> {
+    const { transfersInfo } = params;
+    if (!transfersInfo || transfersInfo.length !== 1) {
+      throw new OneKeyInternalError('Invalid transfersInfo');
+    }
+    const transfer = transfersInfo[0];
+    return {
+      messages: [
+        {
+          toAddress: transfer.to,
+          amount: new BigNumber(transfer.amount).shiftedBy(
+            transfer.tokenInfo?.decimals || 0,
+          ),
+        },
+      ],
+      sequenceNo: 0,
+    };
   }
 
-  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new NotImplemented();
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxTon;
+    const from = await this.getAccountAddress();
+    const network = await this.getNetwork();
+    const actions = await Promise.all(
+      encodedTx.messages.map(async (message) => {
+        const decodedPayload = decodePayload(message.payload);
+        if (decodedPayload.type === EDecodedTxActionType.ASSET_TRANSFER) {
+          const token = await this.backgroundApi.serviceToken.getToken({
+            networkId: network.id,
+            accountId: this.accountId,
+            tokenIdOnNetwork: decodedPayload.tokenAddress ?? '',
+          });
+          return this.buildTxTransferAssetAction({
+            from,
+            to: message.toAddress,
+            transfers: [
+              {
+                from,
+                to: message.toAddress,
+                amount: message.amount.toString(),
+                icon: token?.logoURI ?? '',
+                symbol: token?.symbol ?? '',
+                name: token?.name ?? '',
+                tokenIdOnNetwork: token?.address ?? '',
+                isNative: token?.symbol === network.symbol,
+              },
+            ],
+          });
+        }
+        return {
+          type: EDecodedTxActionType.UNKNOWN,
+          direction: EDecodedTxDirection.OTHER,
+          unknownAction: {
+            from,
+            to: message.toAddress,
+          },
+        };
+      }),
+    );
+
+    const feeInfo = params.unsignedTx.feeInfo;
+
+    return {
+      txid: '',
+      owner: from,
+      signer: from,
+      nonce: encodedTx.sequenceNo,
+      actions,
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      feeInfo: {
+        common: {
+          feeDecimals: network.decimals,
+          feeSymbol: network.symbol,
+          nativeDecimals: network.decimals,
+          nativeSymbol: network.symbol,
+        },
+        gas: {
+          gasPrice: feeInfo?.gas?.gasPrice ?? '0',
+          gasLimit: feeInfo?.gas?.gasLimit ?? '0',
+        },
+      },
+      extraInfo: null,
+      encodedTx,
+    };
   }
 
-  override buildUnsignedTx(
+  override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new NotImplemented();
+    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
+    if (encodedTx) {
+      return {
+        encodedTx,
+        transfersInfo: params.transfersInfo ?? [],
+      };
+    }
+    throw new OneKeyInternalError();
   }
 
-  override updateUnsignedTx(
+  override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new NotImplemented();
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxTon;
+    if (params.nonceInfo) {
+      encodedTx.sequenceNo = params.nonceInfo.nonce;
+    }
+    return {
+      ...params.unsignedTx,
+    };
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
