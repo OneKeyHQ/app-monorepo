@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
+import { uniqBy } from 'lodash';
+
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -87,9 +89,11 @@ function NFTListContainer(props: ITabPageProps) {
     async ({
       accountId,
       networkId,
+      allNetworkDataInit,
     }: {
       accountId: string;
       networkId: string;
+      allNetworkDataInit?: boolean;
     }) => {
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         accountId,
@@ -97,10 +101,16 @@ function NFTListContainer(props: ITabPageProps) {
         isAllNetworks: true,
       });
       if (
+        !allNetworkDataInit &&
         !refreshAllNetworksNftList.current &&
         r.networkId === networkIdsMap.onekeyall
       ) {
-        setNftList((prev) => [...prev, ...r.data]);
+        setNftList((prev) =>
+          uniqBy(
+            [...prev, ...r.data],
+            (nft) => `${nft.collectionAddress}_${nft.itemId}`,
+          ),
+        );
         setNftListState({
           initialized: true,
           isRefreshing: false,
@@ -155,7 +165,12 @@ function NFTListContainer(props: ITabPageProps) {
         allNetworksNftList = allNetworksNftList.concat(r.data);
       }
 
-      setNftList(allNetworksNftList);
+      setNftList(
+        uniqBy(
+          allNetworksNftList,
+          (nft) => `${nft.collectionAddress}_${nft.itemId}`,
+        ),
+      );
     }
   }, [allNetworksResult]);
 
