@@ -79,11 +79,15 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
             accountId: account.id,
           });
           try {
+            const deriveType =
+              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                { networkId: token.networkId },
+              );
             const resp =
               await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
                 walletId,
                 indexedAccountId: account?.indexedAccountId,
-                deriveType: 'default',
+                deriveType,
                 networkId: token.networkId,
               });
             realAccountId = resp?.accounts[0].id;

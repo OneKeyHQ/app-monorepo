@@ -91,6 +91,7 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
       accountId,
       actionType: EDeriveAddressActionType.Copy,
       onUnmounted: onRefreshData,
+      actionType: EDeriveAddressActionType.Copy,
     });
   }, [
     appNavigation,
@@ -178,7 +179,9 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
           networkId: item.id,
         });
         Toast.success({
-          title: intl.formatMessage({ id: ETranslations.global_success }),
+          title: intl.formatMessage({
+            id: ETranslations.swap_page_toast_address_generated,
+          }),
         });
         refreshLocalData();
       } finally {
