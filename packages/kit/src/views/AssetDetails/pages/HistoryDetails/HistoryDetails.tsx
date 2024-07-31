@@ -110,6 +110,7 @@ export function AssetItem({
   currencySymbol,
   isApprove,
   isApproveUnlimited,
+  isAllNetworks,
 }: {
   asset: {
     name: string;
@@ -126,6 +127,7 @@ export function AssetItem({
   currencySymbol: string;
   isApprove?: boolean;
   isApproveUnlimited?: boolean;
+  isAllNetworks?: boolean;
 }) {
   const intl = useIntl();
   let primary = null;
@@ -210,7 +212,7 @@ export function AssetItem({
       <Token
         isNFT={asset.isNFT}
         tokenImageUri={asset.icon}
-        networkImageUri={networkIcon}
+        networkImageUri={isAllNetworks ? networkIcon : undefined}
       />
       <ListItem.Text
         primary={asset.isNFT ? asset.name : asset.symbol}
@@ -237,7 +239,7 @@ function HistoryDetails() {
       >
     >();
 
-  const { accountId, networkId, historyTx } = route.params;
+  const { accountId, networkId, historyTx, isAllNetworks } = route.params;
 
   const historyInit = useRef(false);
   const historyConfirmed = useRef(false);
@@ -417,6 +419,7 @@ function HistoryDetails() {
             amount={approve.amount}
             networkIcon={network?.logoURI ?? ''}
             currencySymbol={settings.currencyInfo.symbol}
+            isAllNetworks={isAllNetworks}
           />
         );
       }
@@ -440,11 +443,12 @@ function HistoryDetails() {
             amount={transfer.amount}
             networkIcon={network?.logoURI ?? ''}
             currencySymbol={settings.currencyInfo.symbol}
+            isAllNetworks={isAllNetworks}
           />
         );
       });
     },
-    [network?.logoURI, settings.currencyInfo.symbol],
+    [isAllNetworks, network?.logoURI, settings.currencyInfo.symbol],
   );
 
   const isSendToSelf = useMemo(
