@@ -42,7 +42,7 @@ function NFTListContainer(props: ITabPageProps) {
   const refreshAllNetworksNftList = useRef(false);
   const [nftList, setNftList] = useState<IAccountNFT[]>([]);
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, allNetworkDbAccounts, network, wallet },
   } = useActiveAccount({ num: 0 });
 
   const { run } = usePromiseResult(
