@@ -42,7 +42,7 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
     if (!networkUtils.isAllNetwork({ networkId })) {
       return tokens;
     }
-    const result = tokens.map((token) => ({
+    let result = tokens.map((token) => ({
       ...token,
       fiatValue: getTokenFiatValue({
         networkId: token.networkId,
@@ -53,12 +53,17 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
         tokenAddress: token.address.toLowerCase(),
       })?.balanceParsed,
     }));
+    if (type === 'sell') {
+      result = result.filter(
+        (o) => o.balanceParsed && Number(o.balanceParsed) !== 0,
+      );
+    }
     return result.sort((a, b) => {
       const num1 = a.fiatValue ?? '0';
       const num2 = b.fiatValue ?? '0';
       return BigNumber(num1).gt(num2) ? -1 : 1;
     });
-  }, [tokens, getTokenFiatValue, networkId]);
+  }, [tokens, getTokenFiatValue, networkId, type]);
   const onPress = useCallback(
     async (token: IFiatCryptoToken) => {
       let realAccountId = accountId;

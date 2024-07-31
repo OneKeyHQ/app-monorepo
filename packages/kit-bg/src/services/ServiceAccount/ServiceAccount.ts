@@ -2073,12 +2073,16 @@ class ServiceAccount extends ServiceBase {
         const accountDeriveType =
           await serviceNetwork.getGlobalDeriveTypeOfNetwork({ networkId });
         if (dbAccount) {
-          account = await this.getNetworkAccount({
-            accountId: undefined,
-            networkId,
-            deriveType: accountDeriveType,
-            indexedAccountId: dbAccount.indexedAccountId,
-          });
+          try {
+            account = await this.getNetworkAccount({
+              accountId: undefined,
+              networkId,
+              deriveType: accountDeriveType,
+              indexedAccountId: dbAccount.indexedAccountId,
+            });
+          } catch {
+            console.log('failed to get Network account');
+          }
         }
         return { network, accountDeriveType, account };
       }),
