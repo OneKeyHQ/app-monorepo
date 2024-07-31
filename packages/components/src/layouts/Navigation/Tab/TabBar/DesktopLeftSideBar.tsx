@@ -223,16 +223,35 @@ export function DesktopLeftSideBar({
           h="$10"
         />
       ) : null}
-      <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
-        <OneKeyLogo />
-        <YStack flex={1} p="$3">
-          {tabs}
-
-          <Stack mt="auto">
-            <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
-            <DownloadButton />
-          </Stack>
-        </YStack>
+      <YStack
+        position="relative"
+        flex={1}
+        testID="Desktop-AppSideBar-Content-Container"
+      >
+        <MotiView
+          animate={{ left: isCollapse ? -sidebarWidth : 0 }}
+          transition={{
+            duration: 200,
+            type: 'timing',
+          }}
+        >
+          <YStack
+            position="absolute"
+            top={0}
+            left={0}
+            width={sidebarWidth}
+            bottom={0}
+          >
+            <OneKeyLogo />
+            <YStack flex={1} p="$3">
+              {tabs}
+              <Stack mt="auto">
+                <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
+                <DownloadButton />
+              </Stack>
+            </YStack>
+          </YStack>
+        </MotiView>
       </YStack>
     </MotiView>
   );
