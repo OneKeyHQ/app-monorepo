@@ -319,6 +319,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
+  async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionParams,
+  ): Promise<ISignedTxPro> {
+    throw new NotImplemented();
+  }
+
   async validateSendAmount(params: {
     amount: string;
     tokenBalance: string;
