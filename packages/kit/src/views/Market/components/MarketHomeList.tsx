@@ -44,12 +44,12 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import type {
   IMarketCategory,
   IMarketToken,
 } from '@onekeyhq/shared/types/market';
 
-import { listItemPressStyle } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 

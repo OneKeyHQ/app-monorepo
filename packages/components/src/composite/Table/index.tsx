@@ -4,6 +4,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+
 import { IconButton } from '../../actions/IconButton';
 import { ListView } from '../../layouts/ListView';
 import { Icon, SizableText, Stack, XStack, YStack } from '../../primitives';
@@ -15,18 +17,6 @@ import type {
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from 'react-native';
-
-const listItemPressStyle = {
-  hoverStyle: { bg: '$bgHover' },
-  pressStyle: { bg: '$bgActive' },
-  focusable: true,
-  focusStyle: {
-    outlineWidth: 2,
-    outlineStyle: 'solid',
-    outlineColor: '$focusRing',
-    outlineOffset: -2,
-  },
-};
 
 function Column<T>({
   children,
