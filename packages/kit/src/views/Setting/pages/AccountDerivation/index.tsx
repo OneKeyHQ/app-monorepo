@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, SizableText, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { DeriveTypeSelectorTriggerStandAlone } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import { DeriveTypeSelectorTriggerGlobalStandAlone } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -22,7 +22,7 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
   icon,
   networkId,
 }) => (
-  <DeriveTypeSelectorTriggerStandAlone
+  <DeriveTypeSelectorTriggerGlobalStandAlone
     networkId={networkId}
     placement="bottom-end"
     offset={offset}

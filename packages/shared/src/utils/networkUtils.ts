@@ -90,6 +90,15 @@ function isAllNetwork({
   return Boolean(networkId && networkId === getNetworkIdsMap().onekeyall);
 }
 
+function getDefaultDeriveTypeVisibleNetworks() {
+  return [
+    getNetworkIdsMap().btc,
+    getNetworkIdsMap().tbtc,
+    getNetworkIdsMap().sbtc,
+    getNetworkIdsMap().ltc,
+  ];
+}
+
 export default {
   getNetworkChainId,
   getNetworkImpl,
@@ -100,4 +109,5 @@ export default {
   isBTCNetwork,
   getBtcDappNetworkName,
   isAllNetwork,
+  getDefaultDeriveTypeVisibleNetworks,
 };
