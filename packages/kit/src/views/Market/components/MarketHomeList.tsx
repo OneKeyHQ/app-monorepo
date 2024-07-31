@@ -10,7 +10,7 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { InteractionManager, StyleSheet } from 'react-native';
+import { InteractionManager } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 import type {
@@ -18,6 +18,7 @@ import type {
   IElement,
   IListViewRef,
   IStackProps,
+  ITableProps,
 } from '@onekeyhq/components';
 import {
   ActionList,
@@ -31,6 +32,7 @@ import {
   Skeleton,
   Spinner,
   Stack,
+  Table,
   View,
   XStack,
   YStack,
@@ -1025,20 +1027,6 @@ function BasicMarketHomeList({
     [selectOptions, setSortByType],
   );
 
-  const [isShowBackToTopButton, setIsShowBackToTopButton] = useState(false);
-  const listViewRef = useRef<IListViewRef<unknown> | null>(null);
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) =>
-      setIsShowBackToTopButton(event.nativeEvent.contentOffset.y > 0),
-    [],
-  );
-
-  const handleScrollToTop = useCallback(() => {
-    if (listViewRef.current) {
-      listViewRef.current?.scrollToOffset({ offset: 0, animated: true });
-    }
-  }, []);
-
   const containerRef = useRef<IElement>(null);
   const onSwitchMarketHomeTabCallback = useCallback(
     ({ tabIndex: index }: { tabIndex: number }) => {
@@ -1074,6 +1062,258 @@ function BasicMarketHomeList({
       );
     };
   }, [md, onSwitchMarketHomeTabCallback, tabIndex]);
+
+  const theme = useThemeVariant();
+  const lineColors = lineColorMap[theme];
+  const colors = colorMap[theme];
+  const { gtLg, gtXl } = useMedia();
+
+  const columns = useMemo(
+    () =>
+      [
+        {
+          title: '#',
+          dataIndex: 'serialNumber',
+          columnWidth: 40,
+          render: (serialNumber: string) => (
+            <SizableText size="$bodyMd" color="$textSubdued" selectable={false}>
+              {serialNumber ?? '-'}
+            </SizableText>
+          ),
+        },
+        {
+          title: intl.formatMessage({ id: ETranslations.global_name }),
+          dataIndex: 'symbol',
+          columnWidth: 140,
+          render: (symbol: string, record: IMarketToken) => (
+            <XStack space="$3" ai="center">
+              <MarketTokenIcon uri={record.image} size="$8" />
+              <YStack width="$24">
+                <SizableText
+                  size="$bodyLgMedium"
+                  numberOfLines={1}
+                  selectable={false}
+                >
+                  {symbol.toUpperCase()}
+                </SizableText>
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  selectable={false}
+                >
+                  {record.name}
+                </SizableText>
+              </YStack>
+              {/* <Button
+                  size="small"
+                  onPress={async () => {
+                    console.log('----log', item);
+                    const response =
+                      await backgroundApiProxy.serviceMarket.fetchPools(
+                        item.symbol,
+                        item.symbol,
+                      );
+        
+                    navigation.pushModal(EModalRoutes.SwapModal, {
+                      screen: EModalSwapRoutes.SwapMainLand,
+                      params: {
+                        importNetworkId: networkId,
+                        importFromToken: {
+                          contractAddress: tokenInfo.address,
+                          symbol: tokenInfo.symbol,
+                          networkId,
+                          isNative: tokenInfo.isNative,
+                          decimals: tokenInfo.decimals,
+                          name: tokenInfo.name,
+                          logoURI: tokenInfo.logoURI,
+                          networkLogoURI: network?.logoURI,
+                        },
+                      },
+                    });
+                  }}
+                >
+                  Swap
+                </Button> */}
+            </XStack>
+          ),
+        },
+        {
+          title: intl.formatMessage({ id: ETranslations.global_price }),
+          dataIndex: 'price',
+          align: 'right',
+          columnProps: {
+            flexGrow: 1,
+            flexBasis: 0,
+          },
+          render: (price: string) => (
+            <NumberSizeableText
+              selectable={false}
+              size="$bodyMd"
+              formatter="price"
+              formatterOptions={{ currency }}
+            >
+              {price}
+            </NumberSizeableText>
+          ),
+        },
+        gtLg
+          ? {
+              title: intl.formatMessage({
+                id: ETranslations.market_one_hour_percentage,
+              }),
+              align: 'right',
+              dataIndex: 'priceChangePercentage1H',
+              columnProps: {
+                flexGrow: 1,
+                flexBasis: 0,
+              },
+              render: (priceChangePercentage1H: string) => (
+                <PriceChangePercentage>
+                  {priceChangePercentage1H}
+                </PriceChangePercentage>
+              ),
+            }
+          : undefined,
+        {
+          title: intl.formatMessage({
+            id: ETranslations.market_twenty_four_hour_percentage,
+          }),
+          columnProps: {
+            flexGrow: 1,
+            flexBasis: 0,
+          },
+          align: 'right',
+          dataIndex: 'priceChangePercentage24H',
+          render: (priceChangePercentage24H: string) => (
+            <PriceChangePercentage>
+              {priceChangePercentage24H}
+            </PriceChangePercentage>
+          ),
+        },
+        gtLg
+          ? {
+              title: intl.formatMessage({
+                id: ETranslations.market_seven_day_percentage,
+              }),
+              align: 'right',
+              columnProps: {
+                flexGrow: 1,
+                flexBasis: 0,
+              },
+              dataIndex: 'priceChangePercentage7D',
+              render: (priceChangePercentage7D: string) => (
+                <PriceChangePercentage>
+                  {priceChangePercentage7D}
+                </PriceChangePercentage>
+              ),
+            }
+          : undefined,
+        {
+          title: intl.formatMessage({
+            id: ETranslations.market_seven_day_percentage,
+          }),
+          dataIndex: 'totalVolume',
+          columnProps: {
+            flexGrow: 1,
+            flexBasis: 0,
+          },
+          align: 'right',
+          render: (totalVolume: string) => (
+            <NumberSizeableText
+              selectable={false}
+              size="$bodyMd"
+              formatter="marketCap"
+              formatterOptions={{ currency }}
+            >
+              {totalVolume || '-'}
+            </NumberSizeableText>
+          ),
+        },
+        {
+          title: intl.formatMessage({
+            id: ETranslations.global_market_cap,
+          }),
+          dataIndex: 'marketCap',
+          columnProps: {
+            flexGrow: 1,
+            flexBasis: 0,
+          },
+          align: 'right',
+          render: (marketCap: string) => (
+            <NumberSizeableText
+              selectable={false}
+              size="$bodyMd"
+              formatter="marketCap"
+              formatterOptions={{ currency }}
+            >
+              {marketCap || '-'}
+            </NumberSizeableText>
+          ),
+        },
+        gtXl
+          ? {
+              title: intl.formatMessage({
+                id: ETranslations.market_last_seven_days,
+              }),
+              dataIndex: 'sparkline',
+              columnProps: {
+                flexGrow: 1,
+                flexBasis: 0,
+                minWidth: 100,
+              },
+              align: 'right',
+              render: (
+                sparkline: IMarketToken['sparkline'],
+                record: IMarketToken,
+              ) => (
+                <View>
+                  <SparklineChart
+                    data={sparkline}
+                    width={100}
+                    height={40}
+                    lineColor={
+                      record.priceChangePercentage7D &&
+                      Number(record.priceChangePercentage7D) >= 0
+                        ? lineColors[0]
+                        : lineColors[1]
+                    }
+                    linearGradientColor={
+                      record.priceChangePercentage7D &&
+                      Number(record.priceChangePercentage7D) >= 0
+                        ? colors[0]
+                        : colors[1]
+                    }
+                  />
+                </View>
+              ),
+            }
+          : undefined,
+        {
+          title: '',
+          dataIndex: 'action',
+          columnWidth: showMoreAction ? 88 : 64,
+          align: 'center',
+          render: (_: unknown, record: IMarketToken) => (
+            <XStack flex={1}>
+              <Stack flex={1} ai="center">
+                <MarketStar
+                  key={record.coingeckoId}
+                  coingeckoId={record.coingeckoId}
+                  tabIndex={tabIndex}
+                />
+              </Stack>
+              {showMoreAction ? (
+                <Stack flex={1} ai="center">
+                  <MarketMore coingeckoId={record.coingeckoId} />
+                </Stack>
+              ) : null}
+            </XStack>
+          ),
+        },
+      ].filter(Boolean) as ITableProps<IMarketToken>['columns'],
+    [colors, currency, gtLg, gtXl, intl, lineColors, showMoreAction, tabIndex],
+  );
 
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
@@ -1126,7 +1366,18 @@ function BasicMarketHomeList({
       )}
 
       <YStack flex={1} ref={containerRef} $gtMd={{ pt: '$3' }}>
-        {gtMd ? HeaderColumns : undefined}
+        <Table
+          stickyHeaderHiddenOnScroll
+          showHeader={gtMd}
+          columns={columns}
+          dataSource={sortedListData as unknown as IMarketToken[]}
+          TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
+          extraData={gtMd ? undefined : mdColumnKeys}
+          TableEmptyComponent={
+            <ListEmptyComponent showMoreAction={showMoreAction} />
+          }
+        />
+        {/* 
         <ListView
           ref={listViewRef}
           stickyHeaderHiddenOnScroll
@@ -1142,25 +1393,7 @@ function BasicMarketHomeList({
             <ListEmptyComponent showMoreAction={showMoreAction} />
           }
           extraData={gtMd ? undefined : mdColumnKeys}
-        />
-        {isShowBackToTopButton ? (
-          <Stack
-            position="absolute"
-            bg="$bg"
-            borderRadius="$full"
-            bottom={gtMd ? '$8' : '$4'}
-            right={gtMd ? '$8' : '$4'}
-          >
-            <IconButton
-              title=""
-              borderWidth={StyleSheet.hairlineWidth}
-              borderColor="$transparent"
-              iconColor="$icon"
-              icon="AlignTopOutline"
-              onPress={handleScrollToTop}
-            />
-          </Stack>
-        ) : null}
+        /> */}
       </YStack>
     </>
   );
