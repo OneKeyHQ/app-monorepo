@@ -5,6 +5,7 @@ import { verify } from 'openpgp';
 
 import type {
   IDesktopAppState,
+  IMediaType,
   IPrefType,
 } from '@onekeyhq/shared/types/desktop';
 
@@ -35,6 +36,9 @@ export type IDesktopAPI = {
   reload: () => void;
   ready: () => void;
   focus: () => void;
+  getMediaAccessStatus: (
+    prefType: IMediaType,
+  ) => 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
   openPreferences: (prefType: IPrefType) => void;
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
@@ -185,6 +189,8 @@ const desktopApi = {
       ipcRenderer.removeListener(ipcMessageKeys.APP_STATE, handler);
     };
   },
+  getMediaAccessStatus: (prefType: IMediaType) =>
+    ipcRenderer.sendSync(ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS, prefType),
   openPreferences: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFERENCES),
   toggleMaximizeWindow: () =>
     ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
