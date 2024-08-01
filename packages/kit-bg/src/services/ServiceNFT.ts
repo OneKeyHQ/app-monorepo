@@ -38,7 +38,14 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountNFTs(params: IFetchAccountNFTsParams) {
-    const { accountId, networkId, isAllNetworks, ...rest } = params;
+    const {
+      accountId,
+      networkId,
+      isAllNetworks,
+      allNetworksAccountId,
+      allNetworksNetworkId,
+      ...rest
+    } = params;
 
     if (
       isAllNetworks &&
@@ -89,6 +96,13 @@ class ServiceNFT extends ServiceBase {
     }));
 
     resp.data.data.networkId = this._currentNetworkId;
+
+    resp.data.data.isSameAllNetworksAccountData = !!(
+      allNetworksAccountId &&
+      allNetworksNetworkId &&
+      allNetworksAccountId === this._currentAccountId &&
+      allNetworksNetworkId === this._currentNetworkId
+    );
 
     return resp.data.data;
   }

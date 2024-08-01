@@ -76,7 +76,7 @@ import {
 
 import { VaultContext } from './VaultContext';
 
-import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { KeyringBase } from './KeyringBase';
 import type {
   IDBAccount,
   IDBExternalAccount,
@@ -98,7 +98,8 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../types';
-import type { KeyringBase } from './KeyringBase';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { MessageDescriptor } from 'react-intl';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
@@ -956,5 +957,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async activateToken(params: { token: IAccountToken }): Promise<boolean> {
     throw new NotImplemented();
+  }
+
+  async getAddressType({ address }: { address: string }): Promise<{
+    typeKey?: MessageDescriptor['id'];
+    type?: string;
+  }> {
+    return Promise.resolve({});
   }
 }

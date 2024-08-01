@@ -66,7 +66,7 @@ const settings: IVaultSettings = {
   coinTypeDefault: COINTYPE_LTC,
   minTransferAmount: '0.00000546',
   hasFrozenBalance: false,
-  showAddressType: false,
+  showAddressType: true,
   estimatedFeePollingInterval: 60,
 
   dappInteractionEnabled: false,
