@@ -17,6 +17,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -349,9 +350,10 @@ const SwapTokenSelectPage = () => {
   }, [md, swapNetworks]);
 
   const openChainSelector = useConfigurableChainSelector();
+  const { bottom } = useSafeAreaInsets();
 
   return (
-    <Page skipLoading={platformEnv.isNativeIOS}>
+    <Page skipLoading={platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.token_selector_title })}
         headerSearchBarOptions={{
@@ -424,10 +426,10 @@ const SwapTokenSelectPage = () => {
         ) : (
           <YStack flex={1}>
             <ListView
-              pb="$2"
               data={currentTokens}
               renderItem={renderItem}
               estimatedItemSize={60}
+              ListFooterComponent={<Stack h={bottom || '$2'} />}
               ListEmptyComponent={
                 <Empty
                   icon="SearchOutline"

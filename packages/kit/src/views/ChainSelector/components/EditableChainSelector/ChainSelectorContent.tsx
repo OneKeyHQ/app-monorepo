@@ -16,6 +16,7 @@ import {
   SectionList,
   SortableSectionList,
   Stack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -82,6 +83,7 @@ export const EditableChainSelectorContent = ({
   onFrequentlyUsedItemsChange,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   const [searchText, setSearchText] = useState('');
   const [tempFrequentlyUsedItems, setTempFrequentlyUsedItems] = useState(
     frequentlyUsedItems ?? [],
@@ -346,7 +348,7 @@ export const EditableChainSelectorContent = ({
               }}
               ListHeaderComponent={ListHeaderComponent}
               renderSectionHeader={renderSectionHeader}
-              ListFooterComponent={<Stack h="$2" />} // Act as padding bottom
+              ListFooterComponent={<Stack h={bottom || '$2'} />} // Act as padding bottom
             />
           ) : (
             <ListEmptyComponent />

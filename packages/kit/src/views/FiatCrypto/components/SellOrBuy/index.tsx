@@ -151,7 +151,7 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
   );
 
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header title={title} />
       <Page.Body>
         <NetworkContainer networkIds={networkIds}>

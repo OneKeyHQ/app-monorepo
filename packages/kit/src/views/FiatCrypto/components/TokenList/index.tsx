@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -128,11 +129,12 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
     );
   }, [items, text]);
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
+
   return (
     <Stack flex={1}>
-      <Stack px="$4">
+      <Stack px="$5" pb="$4">
         <SearchBar
-          w="100%"
           placeholder={intl.formatMessage({
             id: ETranslations.global_search_tokens,
           })}
@@ -142,15 +144,13 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
       </Stack>
       <Stack flex={1}>
         <ListView
-          pb="$2"
           estimatedItemSize={60}
           data={data}
           renderItem={({ item }) => (
             <ListItemFiatToken item={item} onPress={onPress} />
           )}
           keyExtractor={keyExtractor}
-          ListHeaderComponent={<Stack h="$2" />}
-          ListFooterComponent={<Stack h="$2" />}
+          ListFooterComponent={<Stack h={bottom || '$2'} />}
           ListEmptyComponent={
             <Empty
               title={intl.formatMessage({
