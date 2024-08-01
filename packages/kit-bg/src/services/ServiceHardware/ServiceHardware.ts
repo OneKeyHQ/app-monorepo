@@ -13,6 +13,7 @@ import {
   CoreSDKLoader,
   getHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -206,7 +207,7 @@ class ServiceHardware extends ServiceBase {
       const {
         UI_EVENT,
         DEVICE,
-        // LOG_EVENT,
+        LOG_EVENT,
         FIRMWARE,
         FIRMWARE_EVENT,
         // UI_REQUEST,
@@ -312,6 +313,24 @@ class ServiceHardware extends ServiceBase {
           );
         }
       });
+
+      instance.on(
+        LOG_EVENT,
+        (messages: { event: string; type: string; payload: string[] }) => {
+          const messageType =
+            messages.payload.length > 0 ? messages.payload[0] : '';
+
+          if (
+            messageType.includes('@onekey/hd-core') ||
+            messageType.includes('@onekey/hd-transport')
+          ) {
+            defaultLogger.hardware.sdkLog.log(
+              messages.event,
+              messages.payload.join(' '),
+            );
+          }
+        },
+      );
     }
   }
 

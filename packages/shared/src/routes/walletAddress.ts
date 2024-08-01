@@ -12,29 +12,28 @@ export enum EModalWalletAddressRoutes {
   WalletAddress = 'WalletAddress',
 }
 
+export type IDeriveTypesAddressParams = {
+  networkId: string;
+  indexedAccountId: string;
+  actionType?: EDeriveAddressActionType;
+  token?: IToken;
+  tokenMap?: Record<string, ITokenFiat>;
+  onSelected?: ({
+    account,
+    deriveInfo,
+    deriveType,
+  }: {
+    account: INetworkAccount;
+    deriveInfo: IAccountDeriveInfo;
+    deriveType: IAccountDeriveTypes;
+  }) => void;
+  onUnmounted?: () => void;
+};
+
 export type IModalWalletAddressParamList = {
-  [EModalWalletAddressRoutes.DeriveTypesAddress]: {
-    networkId: string;
-    indexedAccountId: string;
-    walletId: string;
-    accountId: string;
-    actionType?: EDeriveAddressActionType;
-    token?: IToken;
-    tokenMap?: Record<string, ITokenFiat>;
-    onSelected?: ({
-      account,
-      deriveInfo,
-      deriveType,
-    }: {
-      account: INetworkAccount;
-      deriveInfo: IAccountDeriveInfo;
-      deriveType: IAccountDeriveTypes;
-    }) => void;
-    onUnmounted?: () => void;
-  };
+  [EModalWalletAddressRoutes.DeriveTypesAddress]: IDeriveTypesAddressParams;
   [EModalWalletAddressRoutes.WalletAddress]: {
     accountId?: string;
     indexedAccountId: string;
-    walletId: string;
   };
 };
