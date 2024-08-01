@@ -1450,6 +1450,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         triggerBy,
       });
+
+      // addressInput scene should keep empty selection, let user select account manually
+      if (!accountSelectorUtils.isSceneCanAutoSelect({ sceneName })) {
+        return;
+      }
+
       // wait activeAccount build done
       await timerUtils.wait(300);
       const storageReady = get(accountSelectorStorageReadyAtom());
