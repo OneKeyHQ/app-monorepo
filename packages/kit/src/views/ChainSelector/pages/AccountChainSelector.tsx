@@ -44,7 +44,7 @@ function ChainSelector({
     usePromiseResult(
       async () =>
         backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          { accountId: dbAccount?.id, networkIds, includeAllNetwork: true },
+          { accountId: dbAccount?.id, networkIds },
         ),
       [dbAccount?.id, networkIds],
       { initResult: defaultChainSelectorNetworks },
