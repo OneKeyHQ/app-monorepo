@@ -579,6 +579,14 @@ export default class ServicePassword extends ServiceBase {
     await passwordPersistAtom.set((v) => ({ ...v, manualLocking: false }));
   }
 
+  private async _lockApp({ manual = false }: { manual: boolean }) {
+    await this.clearCachedPassword();
+    if (manual) {
+      await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
+    }
+    await passwordAtom.set((v) => ({ ...v, unLock: false }));
+  }
+
   @backgroundMethod()
   async lockApp() {
     const isFirmwareUpdateRunning =
@@ -589,9 +597,9 @@ export default class ServicePassword extends ServiceBase {
     if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
       return;
     }
-
-    await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
-    await passwordAtom.set((v) => ({ ...v, unLock: false }));
+    await this._lockApp({ manual: true });
+    // await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
+    // await passwordAtom.set((v) => ({ ...v, unLock: false }));
   }
 
   @backgroundMethod()
@@ -620,7 +628,8 @@ export default class ServicePassword extends ServiceBase {
     const { time: lastActivity } = await settingsLastActivityAtom.get();
     const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
     if (idleDuration >= appLockDuration) {
-      await passwordAtom.set((v) => ({ ...v, unLock: false }));
+      await this._lockApp({ manual: false });
+      // await passwordAtom.set((v) => ({ ...v, unLock: false }));
     }
   }
 
