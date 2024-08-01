@@ -211,7 +211,7 @@ function BatchCreateAccountPreviewPage({
 
   useEffect(() => {
     void (async () => {
-      const toFetchBalanceAccounts = [];
+      const toFetchBalanceAccounts: IBatchCreateAccount[] = [];
       for (const account of accounts) {
         const key: string = buildBalanceMapKey({ account });
         if (isNil(balanceMapRef.current[key])) {
@@ -226,13 +226,12 @@ function BatchCreateAccountPreviewPage({
         await Promise.all(
           toFetchBalanceAccounts.map(async (account) => {
             const balances: IFetchAccountDetailsResp =
-              await backgroundApiProxy.serviceAccountProfile.fetchAccountInfo({
-                accountId: account?.id || '',
-                networkId,
-                accountAddress: account?.address,
-                xpub: (account as IDBUtxoAccount)?.xpub,
-                withNetWorth: true,
-              });
+              await backgroundApiProxy.serviceAccountProfile.fetchAccountNativeBalance(
+                {
+                  account,
+                  networkId,
+                },
+              );
             // Process the balances here
             balancesToUpdate[buildBalanceMapKey({ account })] =
               balances.balanceParsed;
