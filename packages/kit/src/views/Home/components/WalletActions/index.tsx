@@ -34,7 +34,7 @@ function WalletActionSend() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
   const [allTokens] = useAllTokenListAtom();
@@ -86,7 +86,12 @@ function WalletActionSend() {
               networkId: token.networkId ?? '',
             });
 
-          if (settings.mergeDeriveAssetsEnabled && network.isAllNetworks) {
+          if (
+            settings.mergeDeriveAssetsEnabled &&
+            network.isAllNetworks &&
+            (accountUtils.isHdWallet({ walletId: wallet?.id }) ||
+              accountUtils.isHwWallet({ walletId: wallet?.id }))
+          ) {
             const walletId = accountUtils.getWalletIdFromAccountId({
               accountId: token.accountId ?? '',
             });
@@ -126,10 +131,12 @@ function WalletActionSend() {
     account,
     network,
     vaultSettings?.isSingleToken,
-    allTokens,
     navigation,
+    allTokens.tokens,
+    allTokens.keys,
     map,
     tokenListState,
+    wallet?.id,
   ]);
 
   return (

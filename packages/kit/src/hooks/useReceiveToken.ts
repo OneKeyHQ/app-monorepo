@@ -8,6 +8,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
@@ -88,7 +89,12 @@ function useReceiveToken({
                   networkId: t.networkId ?? '',
                 });
 
-              if (settings.mergeDeriveAssetsEnabled && network?.isAllNetworks) {
+              if (
+                settings.mergeDeriveAssetsEnabled &&
+                network?.isAllNetworks &&
+                (accountUtils.isHdWallet({ walletId }) ||
+                  accountUtils.isHwWallet({ walletId }))
+              ) {
                 navigation.push(
                   EModalReceiveRoutes.ReceiveSelectDeriveAddress,
                   {
