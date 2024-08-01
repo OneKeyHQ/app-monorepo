@@ -200,11 +200,19 @@ const TabDeveloper = () => {
               </Button>
             </PartContainer>
 
-            <PartContainer title="Commit Hash">
-              <SizableText>{process.env.COMMITHASH}</SizableText>
-            </PartContainer>
+            {platformEnv.isNative ? (
+              <PartContainer title="NetworkLogger">
+                <Button
+                  onPress={() => {
+                    navigation.push(ETabDeveloperRoutes.NetworkLogger);
+                  }}
+                >
+                  NetworkLogger
+                </Button>
+              </PartContainer>
+            ) : null}
 
-            <PartContainer title="Commit Hash">
+            <PartContainer title="Async Import Test">
               <Button
                 onPress={async () => {
                   const { test } = await import('./asyncImportTest');
