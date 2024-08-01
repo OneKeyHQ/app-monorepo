@@ -5,6 +5,9 @@ import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
   IDBCreateHwWalletParamsBase,
@@ -20,9 +23,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
-import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -65,7 +65,6 @@ import {
   selectedAccountsAtom,
 } from './atoms';
 
-import { ACCOUNT_SELECTOR_CONSTS } from '@onekeyhq/shared/src/consts/accountSelectorConsts';
 import type {
   IAccountSelectorActiveAccountInfo,
   IAccountSelectorRouteParams,
@@ -1453,10 +1452,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
 
       // addressInput scene should keep empty selection, let user select account manually
-      if (
-        sceneName &&
-        ACCOUNT_SELECTOR_CONSTS.NO_AUTO_SELECT.includes(sceneName)
-      ) {
+      if (!accountSelectorUtils.isSceneCanAutoSelect({ sceneName })) {
         return;
       }
 
