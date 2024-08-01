@@ -12,10 +12,6 @@ import {
 import type { IDialogInstance } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  POLLING_DEBOUNCE_INTERVAL,
-  POLLING_INTERVAL_FOR_TOTAL_VALUE,
-} from '@onekeyhq/shared/src/consts/walletConsts';
-import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -52,31 +48,6 @@ function HomeOverviewContainer() {
     useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
-
-  const { run, result: overview } = usePromiseResult(
-    async () => {
-      if (!account || !network) return;
-      if (network.isAllNetworks) return;
-      await backgroundApiProxy.serviceAccountProfile.abortFetchAccountDetails();
-      const r =
-        await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
-          networkId: network.id,
-          accountId: account.id,
-          withNetWorth: true,
-          withNonce: false,
-        });
-      updateAccountOverviewState({
-        initialized: true,
-        isRefreshing: false,
-      });
-      return r;
-    },
-    [account, network, updateAccountOverviewState],
-    {
-      debounced: POLLING_DEBOUNCE_INTERVAL,
-      pollingInterval: POLLING_INTERVAL_FOR_TOTAL_VALUE,
-    },
-  );
 
   const { result: vaultSettings } = usePromiseResult(async () => {
     if (!network) return;
@@ -135,10 +106,9 @@ function HomeOverviewContainer() {
 
   const handleRefreshWorth = useCallback(() => {
     if (isRefreshingWorth) return;
-    void run();
     setIsRefreshingWorth(true);
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-  }, [isRefreshingWorth, run]);
+  }, [isRefreshingWorth]);
 
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
@@ -147,9 +117,7 @@ function HomeOverviewContainer() {
       </Stack>
     );
 
-  const balanceString = network?.isAllNetworks
-    ? accountWorth.worth ?? '0'
-    : overview?.netWorth ?? '0';
+  const balanceString = accountWorth.worth ?? '0';
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
     { length: 25, size: '$headingXl' },
     { length: 13, size: '$heading4xl' },
