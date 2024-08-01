@@ -8,6 +8,7 @@ import type { IButtonProps, IColorTokens } from '@onekeyhq/components';
 import {
   Alert,
   Button,
+  Dialog,
   Form,
   IconButton,
   Input,
@@ -206,6 +207,18 @@ export function EnterPin({
   );
   return (
     <Stack>
+      <Dialog.Header>
+        <Dialog.Title>
+          {intl.formatMessage({
+            id: ETranslations.enter_pin_title,
+          })}
+        </Dialog.Title>
+        <Dialog.Description>
+          {intl.formatMessage({
+            id: ETranslations.enter_pin_desc,
+          })}
+        </Dialog.Description>
+      </Dialog.Header>
       <Stack
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
