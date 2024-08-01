@@ -119,6 +119,7 @@ const settings: IVaultSettings = {
   showAddressType: true,
 
   dappInteractionEnabled: true,
+  customRpcEnabled: true,
   mergeDeriveAssetsEnabled: true,
 };
 

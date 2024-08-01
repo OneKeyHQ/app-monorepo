@@ -19,6 +19,7 @@ import type {
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
   IFeeInfoUnit,
@@ -213,6 +214,7 @@ export type IVaultSettings = {
   preCheckDappTxFeeInfoRequired?: boolean;
 
   activateTokenRequired?: boolean;
+  customRpcEnabled?: boolean;
   mergeDeriveAssetsEnabled?: boolean;
 };
 
@@ -451,6 +453,11 @@ export interface IBroadcastTransactionParams {
   accountAddress: string;
   signedTx: ISignedTxPro;
   signature?: string;
+}
+
+export interface IBroadcastTransactionByCustomRpcParams
+  extends IBroadcastTransactionParams {
+  customRpcInfo: IDBCustomRpc;
 }
 
 export interface IPreCheckFeeInfoParams {
