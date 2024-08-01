@@ -50,7 +50,7 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -104,6 +104,7 @@ import type { IAssociatedTokenInfo, IParsedAccountInfo } from './types';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -1204,6 +1205,23 @@ export default class Vault extends VaultBase {
     return {
       responseTime: Math.floor(performance.now() - start),
       bestBlockNumber: result.bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new ClientCustomRpcSol(rpcUrl);
+    const txid = await client.broadcastTransaction(signedTx.rawTx);
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
     };
   }
 }

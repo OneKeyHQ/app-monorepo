@@ -77,7 +77,6 @@ import type {
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,

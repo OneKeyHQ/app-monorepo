@@ -26,4 +26,8 @@ export class ClientEvm {
     const chainId = new BigNumber(chainIdHex)?.toNumber();
     return { chainId };
   }
+
+  async broadcastTransaction(rawTx: string): Promise<string> {
+    return this.rpc.call('eth_sendRawTransaction', [rawTx]);
+  }
 }

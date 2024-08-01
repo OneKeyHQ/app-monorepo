@@ -1,7 +1,7 @@
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type { IRpcClientInfo } from '@onekeyhq/shared/types/customRpc';
 
-import { ERpcMethods } from './ClientSol';
+import { EParamsEncodings, ERpcMethods } from './ClientSol';
 
 class ClientCustomRpcSol {
   readonly rpc: JsonRPCRequest;
@@ -23,6 +23,13 @@ class ClientCustomRpcSol {
       bestBlockNumber: slot,
       isReady,
     };
+  }
+
+  async broadcastTransaction(rawTx: string, options?: any): Promise<string> {
+    return this.rpc.call(ERpcMethods.SEND_TRANSACTION, [
+      rawTx,
+      { encoding: EParamsEncodings.BASE64, ...(options || {}) },
+    ]);
   }
 }
 

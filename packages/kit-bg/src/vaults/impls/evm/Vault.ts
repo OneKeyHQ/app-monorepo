@@ -9,14 +9,13 @@ import {
 } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { mergeAssetTransferActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
@@ -32,7 +31,6 @@ import type {
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
-import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type {
   IDecodedTx,
@@ -49,6 +47,7 @@ import { VaultBase } from '../../base/VaultBase';
 import {
   EWrappedType,
   type IApproveInfo,
+  type IBroadcastTransactionByCustomRpcParams,
   type IBuildAccountAddressDetailParams,
   type IBuildDecodedTxParams,
   type IBuildEncodedTxParams,
@@ -1021,6 +1020,23 @@ export default class Vault extends VaultBase {
     return {
       responseTime: Math.floor(performance.now() - start),
       bestBlockNumber: result.bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new ClientEvm(rpcUrl);
+    const txid = await client.broadcastTransaction(signedTx.rawTx);
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
     };
   }
 }
