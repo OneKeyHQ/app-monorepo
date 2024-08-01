@@ -902,12 +902,16 @@ function HistoryDetails() {
               })}
               renderContent={txInfo.txid}
               showCopy
-              openWithUrl={() => {
-                void openTransactionDetailsUrl({
-                  networkId: network?.id,
-                  txid: txInfo.txid,
-                });
-              }}
+              openWithUrl={
+                vaultSettings?.hideBlockExplorer
+                  ? undefined
+                  : () => {
+                      void openTransactionDetailsUrl({
+                        networkId: network?.id,
+                        txid: txInfo.txid,
+                      });
+                    }
+              }
             />
             <InfoItem
               label={intl.formatMessage({
@@ -984,6 +988,7 @@ function HistoryDetails() {
     vaultSettings?.nonceRequired,
     vaultSettings?.isUtxo,
     vaultSettings?.hideTxUtxoListWhenPending,
+    vaultSettings?.hideBlockExplorer,
     historyTx.decodedTx.status,
     handleViewUTXOsOnPress,
     renderAssetsChange,
