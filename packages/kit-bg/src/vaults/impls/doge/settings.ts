@@ -34,7 +34,6 @@ const settings: IVaultSettings = {
   estimatedFeePollingInterval: 60,
 
   dappInteractionEnabled: false,
-  customRpcEnabled: false,
   mergeDeriveAssetsEnabled: false,
 };
 

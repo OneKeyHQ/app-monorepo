@@ -1065,17 +1065,17 @@ export default class VaultBtc extends VaultBase {
     return true;
   }
 
+  getBlockbookCoinName() {
+    return 'Bitcoin';
+  }
+
   override async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
     const client = new ClientBtc(params.rpcUrl);
-    const network = await this.getNetwork();
     const start = performance.now();
     const result = await client.getInfo();
-    if (
-      (network.isTestnet && result.coin !== 'Testnet') ||
-      (!network.isTestnet && result.coin !== 'Bitcoin')
-    ) {
+    if (result.coin !== this.getBlockbookCoinName()) {
       throw new OneKeyInternalError('Invalid coin name');
     }
     return {

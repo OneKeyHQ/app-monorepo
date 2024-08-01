@@ -32,7 +32,6 @@ const settings: IVaultSettings = {
   showAddressType: false,
 
   dappInteractionEnabled: false,
-  customRpcEnabled: false,
   mergeDeriveAssetsEnabled: false,
 };
 

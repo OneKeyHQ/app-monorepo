@@ -39,7 +39,6 @@ const settings: IVaultSettings = {
   hasFrozenBalance: false,
   showAddressType: false,
   estimatedFeePollingInterval: 60,
-  customRpcEnabled: false,
   mergeDeriveAssetsEnabled: false,
 };
 
