@@ -59,7 +59,15 @@ class ServiceToken extends ServiceBase {
   public async fetchAccountTokens(
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
-    const { mergeTokens, flag, accountId, isAllNetworks, ...rest } = params;
+    const {
+      mergeTokens,
+      flag,
+      accountId,
+      isAllNetworks,
+      allNetworksAccountId,
+      allNetworksNetworkId,
+      ...rest
+    } = params;
     const { networkId, contractList = [] } = rest;
     if (
       isAllNetworks &&
@@ -170,7 +178,15 @@ class ServiceToken extends ServiceBase {
         networkId,
       }));
 
-    resp.data.data.networkId = this._currentNetworkId;
+    resp.data.data.accountId = accountId;
+    resp.data.data.networkId = networkId;
+
+    resp.data.data.isSameAllNetworksAccountData = !!(
+      allNetworksAccountId &&
+      allNetworksNetworkId &&
+      allNetworksAccountId === this._currentAccountId &&
+      allNetworksNetworkId === this._currentNetworkId
+    );
 
     return resp.data.data;
   }

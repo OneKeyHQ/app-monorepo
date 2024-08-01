@@ -43,6 +43,9 @@ export type IFetchAccountTokensParams = {
   hiddenTokens?: string[];
   flag?: string;
   isAllNetworks?: boolean;
+
+  allNetworksAccountId?: string;
+  allNetworksNetworkId?: string;
 };
 
 export type ITokenData = {
@@ -57,7 +60,9 @@ export type IFetchAccountTokensResp = {
   tokens: ITokenData;
   riskTokens: ITokenData;
   smallBalanceTokens: ITokenData;
+  accountId?: string;
   networkId?: string;
+  isSameAllNetworksAccountData?: boolean;
 };
 
 export type IFetchTokenDetailParams = {

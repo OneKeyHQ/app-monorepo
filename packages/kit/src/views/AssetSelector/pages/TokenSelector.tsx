@@ -30,6 +30,7 @@ import { useAccountData } from '../../../hooks/useAccountData';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
+import { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
 function TokenSelector() {
   const intl = useIntl();
@@ -72,16 +73,20 @@ function TokenSelector() {
           await backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId: token.networkId ?? '',
           });
-        const { accountsInfo } =
-          await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-            accountId: token.accountId ?? '',
-            networkId: token.networkId ?? '',
-            singleNetworkDeriveType: 'default',
-          });
+        let accounts: IAllNetworkAccountInfo[] = [];
+        if (token.accountId && token.networkId) {
+          const { accountsInfo } =
+            await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+              accountId: token.accountId ?? '',
+              networkId: token.networkId ?? '',
+              singleNetworkDeriveType: 'default',
+            });
+          accounts = accountsInfo;
+        }
 
         if (
           vaultSettings.mergeDeriveAssetsEnabled ||
-          accountsInfo.find(
+          accounts.find(
             (item) =>
               item.accountId &&
               item.accountId === token.accountId &&
@@ -173,13 +178,17 @@ function TokenSelector() {
   useEffect(() => {
     // use route params token
     const updateTokenList = async () => {
-      if (tokens && tokens.data.length) {
+      if (tokens) {
         refreshTokenList({ tokens: tokens.data, keys: tokens.keys });
         refreshTokenListMap({
           tokens: tokens.map,
         });
         updateTokenListState({ initialized: true, isRefreshing: false });
-      } else if (!network?.isAllNetworks && !tokenListState?.isRefreshing) {
+      } else if (
+        network &&
+        !network?.isAllNetworks &&
+        !tokenListState?.isRefreshing
+      ) {
         void fetchAccountTokens();
       }
     };
@@ -187,6 +196,7 @@ function TokenSelector() {
     void updateTokenList();
   }, [
     fetchAccountTokens,
+    network,
     network?.isAllNetworks,
     networkId,
     refreshTokenList,
