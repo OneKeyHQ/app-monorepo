@@ -96,6 +96,7 @@ function useReceiveToken({
                     indexedAccountId: account?.indexedAccountId ?? '',
                     walletId,
                     token: t,
+                    tokenMap: tokens?.map,
                     accountId: t.accountId ?? '',
                     actionType: EDeriveAddressActionType.Select,
                     onUnmounted: () => {},

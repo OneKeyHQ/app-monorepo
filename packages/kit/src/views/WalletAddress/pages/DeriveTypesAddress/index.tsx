@@ -101,8 +101,10 @@ const DeriveTypesAddressItem = ({
     tokenFiat = find(
       tokenMap,
       (_, key) =>
-        key.includes((item.account as IDBUtxoAccount)?.xpub ?? '') ||
-        key.includes(item.account?.address ?? ''),
+        !!(
+          (item.account as IDBUtxoAccount)?.xpub &&
+          key.includes((item.account as IDBUtxoAccount)?.xpub ?? '')
+        ) || !!(item.account?.address && key.includes(item.account?.address)),
     );
   }
 
@@ -183,7 +185,9 @@ const DeriveTypesAddressItem = ({
           color="$iconSubdued"
         />
       ) : null}
-      {!loading && actionType === EDeriveAddressActionType.Select ? (
+      {!loading &&
+      actionType === EDeriveAddressActionType.Select &&
+      item.account ? (
         <YStack>
           <NumberSizeableText
             formatter="balance"

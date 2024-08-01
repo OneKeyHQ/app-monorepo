@@ -79,6 +79,8 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
 
+  const intl = useIntl();
+
   useDebugComponentRemountLog({ name: 'NetworkSelectorTriggerHome' });
 
   return (
@@ -113,7 +115,9 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
     >
       <NetworkAvatar networkId={network?.id} size="$5" />
       <SizableText pl="$2" size="$bodyMd" flexShrink={1} numberOfLines={1}>
-        {network?.name}
+        {network?.isAllNetworks
+          ? intl.formatMessage({ id: ETranslations.global_all_networks })
+          : network?.name}
       </SizableText>
       <Icon
         name="ChevronDownSmallOutline"

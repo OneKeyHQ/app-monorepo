@@ -11,6 +11,7 @@ function HomeHeaderContainer() {
       <Stack testID="Wallet-Tab-Header" p="$5" bg="$bgApp">
         <HomeSelector mb="$2.5" />
         <Stack
+          flexDirection="column-reverse"
           $gtLg={{
             flexDirection: 'row-reverse',
             justifyContent: 'space-between',
