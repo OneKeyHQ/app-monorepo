@@ -13,6 +13,7 @@ import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { vaultFactory } from '../../vaults/factory';
@@ -657,10 +658,11 @@ class ServiceNetwork extends ServiceBase {
   async getChainSelectorNetworksCompatibleWithAccountId({
     accountId,
     networkIds,
+    compatibleWithDeviceType,
   }: {
     accountId?: string;
     networkIds?: string[];
-    includeAllNetwork?: boolean;
+    compatibleWithDeviceType?: boolean;
   }): Promise<{
     mainnetItems: IServerNetwork[];
     testnetItems: IServerNetwork[];
@@ -668,18 +670,52 @@ class ServiceNetwork extends ServiceBase {
     frequentlyUsedItems: IServerNetwork[];
     allNetworkItem?: IServerNetwork;
   }> {
-    let networksResp: { networks: IServerNetwork[] } = { networks: [] };
+    let networkVaultSettings = await this._getNetworkVaultSettings();
     if (networkIds) {
-      networksResp = await this.backgroundApi.serviceNetwork.getNetworksByIds({
-        networkIds,
-      });
-    } else {
-      networksResp = await this.backgroundApi.serviceNetwork.getAllNetworks();
+      const networkIdsSet = new Set<string>(networkIds);
+      networkVaultSettings = networkVaultSettings.filter((o) =>
+        networkIdsSet.has(o.network.id),
+      );
     }
 
-    const _networks = networksResp.networks.filter(
-      (o) => o.id !== getNetworkIdsMap().onekeyall,
+    networkVaultSettings = networkVaultSettings.filter(
+      (o) => !networkUtils.isAllNetwork({ networkId: o.network.id }),
     );
+
+    let dbAccount: IDBAccount | undefined;
+
+    if (accountId) {
+      dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
+        accountId,
+      });
+      if (dbAccount && compatibleWithDeviceType) {
+        const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+        const isHwWallet = accountUtils.isHwAccount({ accountId });
+
+        if (!isHwWallet) {
+          // is software wallet
+          networkVaultSettings = networkVaultSettings.filter(
+            (o) => !o.vaultSetting.softwareAccountDisabled,
+          );
+        } else {
+          const walletDevice =
+            await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+              walletId,
+            });
+          if (walletDevice) {
+            networkVaultSettings = networkVaultSettings.filter((o) => {
+              const deviceTypes = o.vaultSetting.supportedDeviceTypes;
+              if (deviceTypes && deviceTypes.length > 0) {
+                return deviceTypes.includes(walletDevice.deviceType);
+              }
+              return true;
+            });
+          }
+        }
+      }
+    }
+
+    const _networks = networkVaultSettings.map((o) => o.network);
 
     const _frequentlyUsed =
       await this.backgroundApi.serviceNetwork.getNetworkSelectorPinnedNetworks();
@@ -689,17 +725,9 @@ class ServiceNetwork extends ServiceBase {
         networkId: getNetworkIdsMap().onekeyall,
       });
 
-    let dbAccount: IDBAccount | undefined;
-
     let unavailableNetworks: IServerNetwork[] = [];
     let frequentlyUsedNetworks: IServerNetwork[] = [];
     let networks: IServerNetwork[] = [];
-
-    if (accountId) {
-      dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
-        accountId,
-      });
-    }
 
     if (
       accountId &&
