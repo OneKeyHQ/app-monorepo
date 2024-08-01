@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
+import type { IBadgeType } from '@onekeyhq/components';
 import {
   ActionList,
   Badge,
@@ -19,10 +20,8 @@ import {
   Spinner,
   Stack,
   Switch,
-  Toast,
   XStack,
   YStack,
-  useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -322,7 +321,7 @@ function CustomRPC() {
       if (!rpcSpeedMap[item.networkId] || rpcSpeedMap[item.networkId].loading) {
         return <Skeleton w={42} h="$5" />;
       }
-      let badgeType = 'success';
+      let badgeType: IBadgeType = 'success';
       switch (rpcSpeedMap[item.networkId].status) {
         case ECustomStatus.Fast:
           badgeType = 'success';
