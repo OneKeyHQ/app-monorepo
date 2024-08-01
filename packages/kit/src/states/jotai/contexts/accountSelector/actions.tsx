@@ -5,9 +5,6 @@ import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
-import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
   IDBCreateHwWalletParamsBase,
@@ -23,6 +20,9 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -1450,6 +1450,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         triggerBy,
       });
+
+      // addressInput scene should keep empty selection, let user select account manually
+      if (sceneName === EAccountSelectorSceneName.addressInput) {
+        return;
+      }
+
       // wait activeAccount build done
       await timerUtils.wait(300);
       const storageReady = get(accountSelectorStorageReadyAtom());
