@@ -63,6 +63,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 
+import { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IDBAccount,
   IDBUtxoAccount,
@@ -1025,8 +1026,10 @@ export default class VaultBtc extends VaultBase {
     });
   }
 
-  override async getAccountXpub(): Promise<string> {
-    const account = (await this.getAccount()) as IDBUtxoAccount;
+  override async getXpubFromAccount(
+    networkAccount: INetworkAccount,
+  ): Promise<string | undefined> {
+    const account = networkAccount as IDBUtxoAccount;
     return account.xpubSegwit ?? account.xpub;
   }
 
