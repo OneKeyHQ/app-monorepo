@@ -5,9 +5,7 @@ import { getPathFromState as getPathFromStateDefault } from '@react-navigation/c
 import { createURL } from 'expo-linking';
 
 import {
-  type ICommonNavigatorConfig,
   type INavigationContainerProps,
-  type ITabNavigatorExtraConfig,
   useRouterEventsRef,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
