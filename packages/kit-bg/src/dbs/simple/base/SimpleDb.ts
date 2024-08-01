@@ -4,6 +4,7 @@ import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserB
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
 import { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
 import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
@@ -60,6 +61,8 @@ export class SimpleDb {
   universalSearch = new SimpleDbEntityUniversalSearch();
 
   customTokens = new SimpleDbEntityCustomTokens();
+
+  customRpc = new SimpleDbEntityCustomRpc();
 
   v4MigrationResult = new SimpleDbEntityV4MigrationResult();
 }
