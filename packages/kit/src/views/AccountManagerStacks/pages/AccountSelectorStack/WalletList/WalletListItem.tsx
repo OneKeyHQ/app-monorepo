@@ -37,6 +37,7 @@ export function WalletListItem({
   };
   let walletName = wallet?.name;
   let selected = focusedWallet === wallet?.id;
+  let shouldOnPress = true;
   let onPress = () => wallet?.id && onWalletPress(wallet?.id);
   let onLongPress = () => wallet?.id && onWalletLongPress?.(wallet?.id);
   if (isOthers) {
@@ -62,8 +63,12 @@ export function WalletListItem({
     <Pressable
       delayLongPress={200}
       pointerEvents={platformEnv.isNative ? 'box-only' : 'box-none'}
-      onPress={onPress}
-      onLongPress={platformEnv.isNative ? onLongPress : undefined}
+      {...(platformEnv.isNative
+        ? {
+            onPress,
+            onLongPress,
+          }
+        : undefined)}
     >
       <Stack
         role="button"
@@ -90,8 +95,26 @@ export function WalletListItem({
           outlineColor: '$focusRing',
           outlineStyle: 'solid',
         }}
-        onPress={onPress}
-        onPressIn={platformEnv.isNative ? undefined : onLongPress}
+        {...(!platformEnv.isNative
+          ? {
+              onPress: () => {
+                if (shouldOnPress) {
+                  onPress();
+                }
+              },
+              // @ts-ignore
+              onMouseMove: (e: { nativeEvent: { which: number } }) => {
+                if (e?.nativeEvent?.which !== 1) {
+                  return;
+                }
+                shouldOnPress = false;
+              },
+              onPressIn: () => {
+                shouldOnPress = true;
+                onLongPress();
+              },
+            }
+          : undefined)}
         {...rest}
       >
         {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
