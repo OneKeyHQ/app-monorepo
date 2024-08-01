@@ -71,6 +71,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -394,8 +395,10 @@ export default class Vault extends VaultBase {
     return result;
   }
 
-  override async getAccountXpub(): Promise<string | undefined> {
-    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+  override async getXpubFromAccount(
+    networkAccount: INetworkAccount,
+  ): Promise<string | undefined> {
+    const dbAccount = networkAccount as IDBUtxoAccount;
     const stakeAddress = dbAccount.addresses?.['2/0'];
     return stakeAddress;
   }

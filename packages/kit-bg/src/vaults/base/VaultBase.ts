@@ -72,7 +72,7 @@ import {
 
 import { VaultContext } from './VaultContext';
 
-import type { KeyringBase } from './KeyringBase';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   IDBAccount,
   IDBExternalAccount,
@@ -93,7 +93,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../types';
-import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { KeyringBase } from './KeyringBase';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
@@ -107,6 +107,12 @@ if (platformEnv.isExtensionUi) {
 
 export abstract class VaultBaseChainOnly extends VaultContext {
   coreApi: CoreChainApiBase | undefined;
+
+  async getXpubFromAccount(
+    networkAccount: INetworkAccount,
+  ): Promise<string | undefined> {
+    return (networkAccount as IDBUtxoAccount).xpub;
+  }
 
   // Methods not related to a single account, but implementation.
 
@@ -886,7 +892,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async getAccountXpub(): Promise<string | undefined> {
-    return ((await this.getAccount()) as IDBUtxoAccount).xpub;
+    const networkAccount = await this.getAccount();
+    return this.getXpubFromAccount(networkAccount);
   }
 
   async fillTokensDetails({
