@@ -73,15 +73,6 @@ export function useAccountSelectorCreateAddress() {
         }
       };
 
-      const addAccounts = async () => {
-        const result = await serviceAccount.addHDOrHWAccounts({
-          walletId: account?.walletId,
-          indexedAccountId: account?.indexedAccountId,
-          networkId: account?.networkId,
-          deriveType: account?.deriveType,
-        });
-        await handleAddAccounts(result);
-      };
       const addAccountsForAllNetwork = async () => {
         if (account?.walletId) {
           await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
@@ -101,16 +92,27 @@ export function useAccountSelectorCreateAddress() {
           indexedAccountId: account?.indexedAccountId,
         });
       };
+
+      const addAccounts = async () => {
+        if (networkUtils.isAllNetwork({ networkId: account.networkId })) {
+          await addAccountsForAllNetwork();
+          return;
+        }
+        const result = await serviceAccount.addHDOrHWAccounts({
+          walletId: account?.walletId,
+          indexedAccountId: account?.indexedAccountId,
+          networkId: account?.networkId,
+          deriveType: account?.deriveType,
+        });
+        await handleAddAccounts(result);
+      };
+
       const isAirGapAccountNotFound = (error: Error | unknown) =>
         (error as IOneKeyError)?.className ===
         EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound;
 
       try {
-        if (networkUtils.isAllNetwork({ networkId: account.networkId })) {
-          await addAccountsForAllNetwork();
-        } else {
-          await addAccounts();
-        }
+        await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
           let byDevice: IDBDevice | undefined;

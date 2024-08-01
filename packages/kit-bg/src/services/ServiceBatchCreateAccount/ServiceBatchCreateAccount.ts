@@ -20,6 +20,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
 
 import localDb from '../../dbs/local/localDb';
+import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 
@@ -312,9 +313,21 @@ class ServiceBatchCreateAccount extends ServiceBase {
         })),
       );
     }
-    networksParams = networksParams.filter(
-      (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
-    );
+
+    const networksParamsFiltered: IBatchBuildAccountsBaseParams[] = [];
+    for (const p of networksParams) {
+      if (!networkUtils.isAllNetwork({ networkId: p.networkId })) {
+        if (accountUtils.isQrWallet({ walletId: params.walletId })) {
+          const settings = await getVaultSettings({ networkId: p.networkId });
+          if (settings.qrAccountEnabled) {
+            networksParamsFiltered.push(p);
+          }
+        } else {
+          networksParamsFiltered.push(p);
+        }
+      }
+    }
+    networksParams = networksParamsFiltered;
 
     const { saveToDb } = params;
     const indexes = await this.buildIndexesByFromAndTo({

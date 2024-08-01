@@ -68,6 +68,7 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
+  qrAccountEnabled: true,
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,

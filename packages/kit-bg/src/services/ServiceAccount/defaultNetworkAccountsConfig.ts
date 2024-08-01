@@ -47,3 +47,9 @@ export function buildDefaultAddAccountNetworks() {
   ];
   return networks;
 }
+
+export function buildDefaultAddAccountNetworksForQrWallet() {
+  const networks = buildDefaultAddAccountNetworks();
+  // TODO filter by vault settings
+  return networks;
+}

@@ -130,6 +130,7 @@ export type IVaultSettings = {
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
+  qrAccountEnabled?: boolean;
   publicKeyExportEnabled?: boolean;
 
   supportExportedSecretKeys?: ECoreApiExportedSecretKeyType[];

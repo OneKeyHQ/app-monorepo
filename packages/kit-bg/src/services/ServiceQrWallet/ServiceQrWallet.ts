@@ -1,3 +1,5 @@
+import { uniq } from 'lodash';
+
 import type {
   AirGapUR,
   IAirGapMultiAccounts,
@@ -26,6 +28,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IQrWalletDevice } from '@onekeyhq/shared/types/device';
 
+import { buildDefaultAddAccountNetworksForQrWallet } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 
 import { UR_DEFAULT_ORIGIN } from './qrWalletConsts';
@@ -116,6 +119,47 @@ class ServiceQrWallet extends ServiceBase {
     return network.symbol.toUpperCase();
   }
 
+  async buildGetMultiAccountsParams({
+    networkId,
+    indexedAccountId,
+  }: {
+    networkId: string;
+    indexedAccountId: string;
+  }) {
+    const { serviceAccount } = this.backgroundApi;
+
+    const items =
+      await this.backgroundApi.serviceNetwork.getDeriveInfoItemsOfNetwork({
+        networkId,
+      });
+
+    const indexedAccount = await serviceAccount.getIndexedAccount({
+      id: indexedAccountId,
+    });
+    const index = indexedAccount.index;
+
+    const paths: string[] = [];
+    for (const deriveInfo of items) {
+      const fullPath = accountUtils.buildPathFromTemplate({
+        template: deriveInfo.item.template,
+        index,
+      });
+      paths.push(
+        accountUtils.removePathLastSegment({
+          path: fullPath,
+          removeCount: 2, // TODO always remove last 2 segments, only works for EVM and BTC yet
+        }),
+      );
+    }
+
+    const chain = await this.getDeviceChainNameByNetworkId({ networkId });
+
+    return {
+      chain,
+      paths,
+    };
+  }
+
   @backgroundMethod()
   @toastIfError()
   async prepareQrcodeWalletAddressCreate({
@@ -143,31 +187,27 @@ class ServiceQrWallet extends ServiceBase {
       });
     }
 
-    const items =
-      await this.backgroundApi.serviceNetwork.getDeriveInfoItemsOfNetwork({
-        networkId,
-      });
-
-    const indexedAccount = await serviceAccount.getIndexedAccount({
-      id: indexedAccountId,
-    });
-    const index = indexedAccount.index;
-
-    const paths: string[] = [];
-    for (const deriveInfo of items) {
-      const fullPath = accountUtils.buildPathFromTemplate({
-        template: deriveInfo.item.template,
-        index,
-      });
-      paths.push(
-        accountUtils.removePathLastSegment({
-          path: fullPath,
-          removeCount: 2, // TODO always remove last 2 segments
-        }),
-      );
+    let networkIds: string[] = [];
+    const allDefaultAddAccountNetworks = uniq(
+      buildDefaultAddAccountNetworksForQrWallet().map((item) => item.networkId),
+    );
+    if (networkUtils.isAllNetwork({ networkId })) {
+      networkIds = allDefaultAddAccountNetworks;
+    } else {
+      // networkIds = [networkId];
+      // TODO always create all default networks?
+      networkIds = allDefaultAddAccountNetworks;
     }
 
-    const chain = await this.getDeviceChainNameByNetworkId({ networkId });
+    const params: {
+      chain: string;
+      paths: string[];
+    }[] = await Promise.all(
+      networkIds.map((n) =>
+        this.buildGetMultiAccountsParams({ networkId: n, indexedAccountId }),
+      ),
+    );
+
     const request = new OneKeyRequestDeviceQR({
       requestId: generateUUID(),
       xfp: byWallet.xfp || '',
@@ -175,12 +215,7 @@ class ServiceQrWallet extends ServiceBase {
       origin: UR_DEFAULT_ORIGIN,
       //
       method: 'getMultiAccounts',
-      params: [
-        {
-          chain,
-          paths,
-        },
-      ],
+      params,
     });
 
     console.log('prepareQrcodeWalletAddressCreate .>>> ', request);
