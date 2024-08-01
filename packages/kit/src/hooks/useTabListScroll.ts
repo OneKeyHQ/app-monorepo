@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import debounce from 'lodash/debounce';
+
 import type {
   IListViewProps,
   IListViewRef,
@@ -20,17 +22,22 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
       )?._listRef?._scrollRef,
     [],
   );
-  const scrollView = scrollViewRef?.current as unknown as HTMLElement;
+
   const onLayout = useCallback(() => {
+    const scrollView = scrollViewRef?.current as unknown as HTMLElement;
+    let prevListScrollTop = 0;
+    const isNearBottom = () =>
+      scrollView.scrollTop + scrollView.clientHeight >= scrollView.scrollHeight;
+
     const onListViewScroll = () => {
       const listView = getListView();
-      const isNearBottom =
-        scrollView.scrollTop + scrollView.clientHeight >=
-        scrollView.scrollHeight;
-      if (listView && !isNearBottom) {
+      if (listView && !isNearBottom()) {
         const scrollTop = listView.scrollTop;
-        listView.scrollTop = 0;
-        scrollView.scrollTop += scrollTop;
+        if (prevListScrollTop <= scrollTop) {
+          listView.scrollTop = 0;
+          scrollView.scrollTop += scrollTop;
+        }
+        prevListScrollTop = scrollTop;
       }
     };
 
@@ -45,14 +52,32 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
       }
       prevScrollTop = scrollTop;
     };
+
+    const onWheel = debounce(
+      (event: { deltaY: number; stopPropagation: () => void }) => {
+        event.stopPropagation();
+        if (isNearBottom()) {
+          return;
+        }
+        const listView = getListView();
+        const direction = event.deltaY;
+        if (listView?.scrollTop === 0 && direction < 0) {
+          console.log('direction', direction);
+          scrollView.scrollTop += Math.max(direction, -40);
+        }
+      },
+      5,
+    );
     const listView = getListView();
     scrollView?.addEventListener('scroll', onScroll);
     listView?.addEventListener('scroll', onListViewScroll);
+    listView?.addEventListener('wheel', onWheel as any);
     return () => {
       scrollView?.removeEventListener('scroll', onScroll);
       listView?.removeEventListener('scroll', onListViewScroll);
+      listView?.removeEventListener('wheel', onWheel as any);
     };
-  }, [getListView, scrollView]);
+  }, [getListView, scrollViewRef]);
 
   const listViewProps = useMemo(
     () =>
