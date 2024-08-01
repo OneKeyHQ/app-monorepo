@@ -41,6 +41,7 @@ import {
   EnterPinOnDevice,
 } from '../../../components/Hardware/Hardware';
 import {
+  OpenBleNotifyChangeErrorDialog,
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
 } from '../../../components/Hardware/HardwareDialog';
@@ -180,6 +181,14 @@ function HardwareSingletonDialogCmp(
   // Need Open Bluetooth Dialog Container
   if (action === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
     return <OpenBleSettingsDialog ref={ref} {...props} />;
+  }
+
+  // Need Open Bluetooth Notify Change Error Dialog Container
+  if (
+    action ===
+    EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
+  ) {
+    return <OpenBleNotifyChangeErrorDialog ref={ref} {...props} />;
   }
 
   // Bluetooth Permission Dialog Container
@@ -329,6 +338,7 @@ function HardwareUiStateContainerCmp() {
         currentState &&
         [
           EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+          EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
           EHardwareUiStateAction.LOCATION_PERMISSION,
           EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION,
         ].includes(currentState.action)
