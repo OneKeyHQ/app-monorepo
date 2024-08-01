@@ -62,7 +62,6 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
         const listView = getListView();
         const direction = event.deltaY;
         if (listView?.scrollTop === 0 && direction < 0) {
-          console.log('direction', direction);
           scrollView.scrollTop += Math.max(direction, -40);
         }
       },
