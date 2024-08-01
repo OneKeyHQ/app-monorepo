@@ -6,10 +6,8 @@ import { EQRCodeHandlerType } from '../type';
 
 import type { IAnimationValue, IQRCodeHandler } from '../type';
 
-const valueList: { decoder: URDecoder; parts: string[] } = {
-  decoder: new URDecoder(),
-  parts: [],
-};
+let decoder = new URDecoder();
+let parts: string[] = [];
 
 // ur://bytes/1-3/1ABC
 // ur://bytes/2-3/2ABC
@@ -23,9 +21,10 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
   //   parts = [];
   //   decoder = new URDecoder();
   // }
-  const { decoder, parts } = valueList;
-  decoder.receivePart(value);
-  parts.push(value);
+  if (parts.findIndex((part) => part === value) === -1) {
+    decoder.receivePart(value);
+    parts.push(value);
+  }
 
   const partSize = decoder.expectedPartCount();
   const partIndexes = decoder.lastPartIndexes();
@@ -60,6 +59,6 @@ export default animation;
 
 export function resetAnimationQrcodeScan() {
   console.log('resetAnimationQrcodeScan >>>>>> ');
-  valueList.decoder = new URDecoder();
-  valueList.parts = [];
+  decoder = new URDecoder();
+  parts = [];
 }
