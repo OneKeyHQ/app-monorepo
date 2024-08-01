@@ -14,6 +14,8 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { MessageDescriptor } from 'react-intl';
+
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -956,5 +958,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async activateToken(params: { token: IAccountToken }): Promise<boolean> {
     throw new NotImplemented();
+  }
+
+  async getAddressType({ address }: { address: string }): Promise<{
+    typeKey?: MessageDescriptor['id'];
+    type?: string;
+  }> {
+    return Promise.resolve({});
   }
 }

@@ -2186,6 +2186,20 @@ class ServiceAccount extends ServiceBase {
       return resp?.accounts[0];
     }
   }
+
+  @backgroundMethod()
+  async getAccountAddressType({
+    accountId,
+    networkId,
+    address,
+  }: {
+    accountId: string;
+    networkId: string;
+    address: string;
+  }) {
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.getAddressType({ address });
+  }
 }
 
 export default ServiceAccount;
