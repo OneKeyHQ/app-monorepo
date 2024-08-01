@@ -65,6 +65,7 @@ import {
   selectedAccountsAtom,
 } from './atoms';
 
+import { ACCOUNT_SELECTOR_CONSTS } from '@onekeyhq/shared/src/consts/accountSelectorConsts';
 import type {
   IAccountSelectorActiveAccountInfo,
   IAccountSelectorRouteParams,
@@ -1452,7 +1453,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
 
       // addressInput scene should keep empty selection, let user select account manually
-      if (sceneName === EAccountSelectorSceneName.addressInput) {
+      if (
+        sceneName &&
+        ACCOUNT_SELECTOR_CONSTS.NO_AUTO_SELECT.includes(sceneName)
+      ) {
         return;
       }
 

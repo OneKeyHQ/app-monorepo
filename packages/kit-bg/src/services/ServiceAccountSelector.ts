@@ -24,6 +24,7 @@ import { settingsAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
+import { ACCOUNT_SELECTOR_CONSTS } from '@onekeyhq/shared/src/consts/accountSelectorConsts';
 import type {
   IDBAccount,
   IDBDevice,
@@ -398,7 +399,7 @@ class ServiceAccountSelector extends ServiceBase {
   }: {
     sceneName: EAccountSelectorSceneName;
   }) {
-    if ([EAccountSelectorSceneName.discover].includes(sceneName)) {
+    if (ACCOUNT_SELECTOR_CONSTS.NO_GLOBAL_DERIVE_TYPE.includes(sceneName)) {
       // return true;
       return false;
     }

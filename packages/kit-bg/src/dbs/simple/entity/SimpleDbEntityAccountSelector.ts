@@ -9,6 +9,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
+import { ACCOUNT_SELECTOR_CONSTS } from '@onekeyhq/shared/src/consts/accountSelectorConsts';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 import type {
   IDBAccount,
@@ -75,10 +76,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
   }) {
     checkIsDefined(num);
     checkIsDefined(sceneName);
-    if (
-      sceneName === EAccountSelectorSceneName.discover ||
-      sceneName === EAccountSelectorSceneName.addressInput
-    ) {
+    if (ACCOUNT_SELECTOR_CONSTS.NO_PERSIST.includes(sceneName)) {
       console.log(`skip ${sceneName} account selector persist`);
       return;
     }
