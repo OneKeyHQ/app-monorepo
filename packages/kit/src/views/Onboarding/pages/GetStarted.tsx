@@ -357,6 +357,13 @@ export function GetStarted({
 
 export default GetStarted;
 
+export const openOnBoardingFromExt = () => {
+  if (platformEnv.isExtension && typeof window !== 'undefined') {
+    return window.location.hash.includes('fromExt=true');
+  }
+  return false;
+};
+
 export const useToOnBoardingPage = () => {
   const navigation = useAppNavigation();
   return useMemo(
@@ -379,7 +386,10 @@ export const useToOnBoardingPage = () => {
               EModalRoutes.OnboardingModal,
               EOnboardingPages.GetStarted,
             ],
-            params,
+            params: {
+              ...params,
+              fromExt: true,
+            },
           });
         } else {
           navigation[isFullModal ? 'pushFullModal' : 'pushModal'](
