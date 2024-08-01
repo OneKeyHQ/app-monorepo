@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IMarketDetailPool,
   IMarketTokenDetail,
@@ -23,6 +24,8 @@ import type {
 import { MarketDetailLinks } from './MarketDetailLinks';
 import { MarketDetailOverview } from './MarketDetailOverview';
 import { MarketDetailPools } from './MarketDetailPools';
+
+import type { IDeferredPromise } from '../../../hooks/useDeferredPromise';
 
 function SkeletonRow() {
   return (
@@ -67,13 +70,13 @@ function BasicTokenDetailTabs({
   listHeaderComponent,
   isRefreshing,
   onRefresh,
-  onDataLoaded,
+  defer,
 }: {
   token?: IMarketTokenDetail;
   listHeaderComponent?: ReactElement;
   onRefresh?: () => void;
   isRefreshing?: boolean;
-  onDataLoaded?: () => void;
+  defer: IDeferredPromise<unknown>;
 }) {
   const intl = useIntl();
   const { md } = useMedia();
@@ -87,18 +90,25 @@ function BasicTokenDetailTabs({
       }[]
     | undefined
   >(undefined);
-  useEffect(() => {
+
+  const init = useCallback(async () => {
     if (token?.detailPlatforms) {
-      void backgroundApiProxy.serviceMarket
-        .fetchPools(token.detailPlatforms)
-        .then((response) => {
-          setPools(response);
-          setTimeout(() => {
-            onDataLoaded?.();
-          }, 100);
-        });
+      const response = await backgroundApiProxy.serviceMarket.fetchPools(
+        token.detailPlatforms,
+      );
+      if (platformEnv.isNativeAndroid) {
+        await defer.promise;
+      } else {
+        setTimeout(() => {
+          defer.resolve(null);
+        }, 100);
+      }
+      setPools(response);
     }
-  }, [onDataLoaded, token?.detailPlatforms]);
+  }, [defer, token?.detailPlatforms]);
+  useEffect(() => {
+    void init();
+  }, [init]);
 
   const renderPoolSkeleton = useMemo(
     () =>
