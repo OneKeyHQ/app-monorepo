@@ -90,7 +90,7 @@ function TokenListView(props: IProps) {
     <ListView
       {...listViewProps}
       renderScrollComponent={renderNestedScrollView}
-      py={withPresetVerticalPadding ? '$3' : '$0'}
+      // py={withPresetVerticalPadding ? '$3' : '$0'}
       estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef}
       onLayout={onLayout}

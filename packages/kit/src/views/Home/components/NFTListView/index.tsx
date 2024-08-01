@@ -152,7 +152,6 @@ function NFTListView(props: IProps) {
       contentContainerStyle={contentContainerStyle}
       numColumns={numColumns}
       data={filteredNfts}
-      py="$3"
       px="$2.5"
       renderItem={handleRenderItem}
       ListHeaderComponent={<NFTListHeader filteredNfts={filteredNfts} />}
