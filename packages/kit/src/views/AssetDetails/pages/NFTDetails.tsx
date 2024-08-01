@@ -4,7 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IActionListItemProps } from '@onekeyhq/components';
+import type { IActionListItemProps, IButtonProps } from '@onekeyhq/components';
 import {
   ActionList,
   Button,
@@ -236,6 +236,11 @@ export function NFTDetails() {
               variant="primary"
               onPress={handleSendPress}
               disabled={!isOwnNFT}
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
             >
               {intl.formatMessage({ id: ETranslations.global_send })}
             </Button>
