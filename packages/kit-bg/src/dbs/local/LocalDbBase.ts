@@ -62,6 +62,8 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
+import { COINTYPE_DNX } from '@onekeyhq/shared/src/engine/engineConsts';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -89,7 +91,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -1885,7 +1886,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
 
         if (account.type === EDBAccountType.UTXO) {
-          if (!account.relPath) {
+          // dnx relPath is empty
+          if (!account.relPath && ![COINTYPE_DNX].includes(account.coinType)) {
             throw new Error('UTXO account should set relPath');
           }
         }
