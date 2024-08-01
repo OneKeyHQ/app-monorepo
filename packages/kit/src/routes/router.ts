@@ -1,10 +1,14 @@
+import { useMemo } from 'react';
+
 import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import { ModalNavigator } from './Modal/Navigator';
+import { modalRouter } from './Modal/router';
 import { TabNavigator } from './Tab/Navigator';
+import { useTabRouterConfig } from './Tab/router';
 
 export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
@@ -31,3 +35,24 @@ if (platformEnv.isDev) {
     component: NotFound,
   });
 }
+
+export const useRootRouter = () => {
+  const tabRouter = useTabRouterConfig();
+  return useMemo(
+    () => [
+      {
+        name: ERootRoutes.Main,
+        children: tabRouter,
+      },
+      {
+        name: ERootRoutes.Modal,
+        children: modalRouter,
+      },
+      {
+        name: ERootRoutes.iOSFullScreen,
+        children: modalRouter,
+      },
+    ],
+    [tabRouter],
+  );
+};
