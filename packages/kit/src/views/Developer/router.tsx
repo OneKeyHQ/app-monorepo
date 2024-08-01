@@ -12,6 +12,7 @@ const DevHome = LazyLoadPage(() => import('./pages/DevHome'));
 const DevHomeStack1 = LazyLoadPage(() => import('./pages/DevHomeStack1'));
 const DevHomeStack2 = LazyLoadPage(() => import('./pages/DevHomeStack2'));
 const SignatureRecord = LazyLoadPage(() => import('./pages/SignatureRecord'));
+const NetworkLogger = LazyLoadPage(() => import('./pages/NetworkLogger'));
 
 export const developerRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
@@ -36,5 +37,9 @@ export const developerRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabDeveloperRoutes.SignatureRecord,
     component: SignatureRecord,
+  },
+  {
+    name: ETabDeveloperRoutes.NetworkLogger,
+    component: NetworkLogger,
   },
 ];
