@@ -25,7 +25,9 @@ type IGetTabRouterParams = {
 };
 
 const isShowMDDiscover =
-  !platformEnv.isDesktop && !platformEnv.isExtensionUiPopup;
+  !platformEnv.isDesktop &&
+  !platformEnv.isExtensionUiPopup &&
+  !platformEnv.isExtensionUiSidePanel;
 
 const isShowDesktopDiscover = platformEnv.isDesktop;
 
