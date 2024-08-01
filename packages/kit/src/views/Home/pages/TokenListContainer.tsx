@@ -66,7 +66,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   const {
     activeAccount: {
       account,
-      allNetworkDbAccounts,
       network,
       wallet,
       indexedAccount,
@@ -160,6 +159,22 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           flag: 'home-token-list',
         });
 
+        let accountWorth = new BigNumber(0);
+        accountWorth = accountWorth
+          .plus(r.tokens.fiatValue ?? '0')
+          .plus(r.riskTokens.fiatValue ?? '0')
+          .plus(r.smallBalanceTokens.fiatValue ?? '0');
+
+        updateAccountOverviewState({
+          isRefreshing: false,
+          initialized: true,
+        });
+
+        updateAccountWorth({
+          worth: accountWorth.toFixed(),
+          merge: false,
+        });
+
         refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
         refreshTokenListMap({
           tokens: r.tokens.map,
@@ -239,6 +254,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       refreshAllTokenListMap,
       updateTokenListState,
       setIsHeaderRefreshing,
+      updateAccountOverviewState,
+      updateAccountWorth,
     ],
     {
       overrideIsFocused: (isPageFocused) =>
