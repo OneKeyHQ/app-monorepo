@@ -261,6 +261,24 @@ class ServiceHardwareUI extends ServiceBase {
             // Hardware interrupts generally have follow-up actions; skip reset to home
             HardwareErrorCode.DeviceInterruptedFromUser,
             HardwareErrorCode.DeviceInterruptedFromOutside,
+            // ble connect error, skip reset to home
+            HardwareErrorCode.BleScanError,
+            HardwareErrorCode.BlePermissionError,
+            HardwareErrorCode.BleLocationError,
+            HardwareErrorCode.BleRequiredUUID,
+            HardwareErrorCode.BleConnectedError,
+            HardwareErrorCode.BleDeviceNotBonded,
+            HardwareErrorCode.BleServiceNotFound,
+            HardwareErrorCode.BleCharacteristicNotFound,
+            HardwareErrorCode.BleMonitorError,
+            HardwareErrorCode.BleCharacteristicNotifyError,
+            HardwareErrorCode.BleWriteCharacteristicError,
+            HardwareErrorCode.BleAlreadyConnected,
+            HardwareErrorCode.BleLocationServicesDisabled,
+            HardwareErrorCode.BleTimeoutError,
+            HardwareErrorCode.BleForceCleanRunPromise,
+            HardwareErrorCode.BleDeviceBondError,
+            HardwareErrorCode.BleCharacteristicNotifyChangeFailure,
           ],
         })
       ) {
