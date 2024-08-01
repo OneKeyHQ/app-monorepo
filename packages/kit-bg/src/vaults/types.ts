@@ -51,6 +51,7 @@ import type {
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -137,6 +138,9 @@ export type IVaultSettings = {
   dappInteractionEnabled?: boolean;
 
   softwareAccountDisabled?: boolean;
+
+  supportedDeviceTypes?: IDeviceType[];
+
   addressBookDisabled?: boolean;
   copyAddressDisabled?: boolean;
 
