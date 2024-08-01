@@ -136,11 +136,14 @@ class ServiceSend extends ServiceBase {
         params.networkId,
       );
     let disableBroadcast: boolean | undefined;
-    let txid: string | undefined;
+    let txid = '';
     if (customRpcInfo?.rpc && customRpcInfo?.enabled) {
       disableBroadcast = true;
       const vault = await vaultFactory.getVault({ accountId, networkId });
-      const result = await vault.broadcastTransactionFromCustomRpc(params);
+      const result = await vault.broadcastTransactionFromCustomRpc({
+        ...params,
+        customRpcInfo,
+      });
       txid = result.txid;
     }
 

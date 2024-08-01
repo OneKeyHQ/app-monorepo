@@ -40,12 +40,10 @@ class ClientBtc {
     try {
       let res: { result: string } | null = null;
       if (rawTx.length < 500) {
-        res = await this.request
-          .get(`/api/v2/sendtx/${rawTx}`)
-          .then((i) => i.data);
+        res = await this.request.get(`/sendtx/${rawTx}`).then((i) => i.data);
       } else {
         res = await this.request
-          .post(`/api/v2/sendtx/`, rawTx, {
+          .post(`/sendtx/`, rawTx, {
             headers: {
               'Content-Type': 'text/plain',
             },

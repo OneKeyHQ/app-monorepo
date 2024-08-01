@@ -84,6 +84,7 @@ import type {
   IDBWalletType,
 } from '../../dbs/local/types';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
@@ -320,7 +321,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async broadcastTransactionFromCustomRpc(
-    params: IBroadcastTransactionParams,
+    params: IBroadcastTransactionByCustomRpcParams,
   ): Promise<ISignedTxPro> {
     throw new NotImplemented();
   }
