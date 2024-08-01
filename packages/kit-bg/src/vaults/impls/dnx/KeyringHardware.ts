@@ -8,10 +8,7 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -62,7 +59,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         });
 
         const ret: ICoreApiGetAddressItem[] = [];
-        const addressRelPath = '0/0';
+        const addressRelPath = ''; // dnx don't have relPath 0/0
         for (let i = 0; i < dnxAddresses.length; i += 1) {
           const item = dnxAddresses[i];
           const { path, address } = item;
@@ -72,9 +69,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             path,
             relPath: addressRelPath,
             xpub: '',
-            addresses: {
-              [addressRelPath]: address ?? '',
-            },
+            addresses: {},
           };
           ret.push(addressInfo);
         }
