@@ -307,11 +307,6 @@ function MarketDetail({
   }, [coinGeckoId, gtMd, tokenDetail]);
 
   const defer = useDeferredPromise();
-  const onDataLoaded = useCallback(() => {
-    if (defer) {
-      defer.resolve(null);
-    }
-  }, [defer]);
 
   const tokenPriceChart = useMemo(
     () => <TokenPriceChart coinGeckoId={coinGeckoId} defer={defer} />,
@@ -334,7 +329,7 @@ function MarketDetail({
               </ScrollView>
               <YStack flex={1}>
                 <TokenDetailTabs
-                  onDataLoaded={onDataLoaded}
+                  defer={defer}
                   token={tokenDetail}
                   listHeaderComponent={tokenPriceChart}
                 />
@@ -343,10 +338,10 @@ function MarketDetail({
           </YStack>
         ) : (
           <TokenDetailTabs
+            defer={defer}
             isRefreshing={isRefreshing}
             onRefresh={onRefresh}
             token={tokenDetail}
-            onDataLoaded={onDataLoaded}
             listHeaderComponent={
               <YStack>
                 {tokenDetailHeader}
