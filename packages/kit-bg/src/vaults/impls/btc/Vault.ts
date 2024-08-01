@@ -22,6 +22,7 @@ import {
 import type {
   ICoreApiSignAccount,
   ICoreApiSignBtcExtraInfo,
+  ISignedTxPro,
   ITxInput,
   ITxInputToSign,
   IUnsignedMessage,
@@ -48,6 +49,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
@@ -62,6 +67,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
+import { ClientBtc } from './sdkBtc/ClientBtc';
 
 import { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
@@ -71,6 +77,7 @@ import type {
 } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -1059,5 +1066,41 @@ export default class VaultBtc extends VaultBase {
       }
     }
     return true;
+  }
+
+  getBlockbookCoinName() {
+    return 'Bitcoin';
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new ClientBtc(params.rpcUrl);
+    const start = performance.now();
+    const result = await client.getInfo();
+    if (result.coin !== this.getBlockbookCoinName()) {
+      throw new OneKeyInternalError('Invalid coin name');
+    }
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: result.bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new ClientBtc(rpcUrl);
+    const txid = await client.broadcastTransaction(signedTx.rawTx);
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
   }
 }

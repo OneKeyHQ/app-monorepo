@@ -21,4 +21,8 @@ export default class Vault extends VaultBtc {
     watching: KeyringWatching,
     external: KeyringWatching,
   };
+
+  override getBlockbookCoinName() {
+    return 'Neurai';
+  }
 }
