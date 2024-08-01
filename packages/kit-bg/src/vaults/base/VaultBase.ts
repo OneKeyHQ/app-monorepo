@@ -38,6 +38,10 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
+import type {
   IEstimateFeeParams,
   IFeeInfoUnit,
 } from '@onekeyhq/shared/types/fee';
@@ -72,7 +76,7 @@ import {
 
 import { VaultContext } from './VaultContext';
 
-import type { KeyringBase } from './KeyringBase';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   IDBAccount,
   IDBExternalAccount,
@@ -80,6 +84,7 @@ import type {
   IDBWalletType,
 } from '../../dbs/local/types';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
@@ -93,7 +98,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../types';
-import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { KeyringBase } from './KeyringBase';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
@@ -107,6 +112,12 @@ if (platformEnv.isExtensionUi) {
 
 export abstract class VaultBaseChainOnly extends VaultContext {
   coreApi: CoreChainApiBase | undefined;
+
+  async getXpubFromAccount(
+    networkAccount: INetworkAccount,
+  ): Promise<string | undefined> {
+    return (networkAccount as IDBUtxoAccount).xpub;
+  }
 
   // Methods not related to a single account, but implementation.
 
@@ -258,6 +269,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   }): Promise<IResolveNameResp | null> {
     return null;
   }
+
+  async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    throw new NotImplemented();
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -307,6 +324,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       txid,
       encodedTx: signedTx.encodedTx,
     };
+  }
+
+  async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    throw new NotImplemented();
   }
 
   async validateSendAmount(params: {
@@ -886,7 +909,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async getAccountXpub(): Promise<string | undefined> {
-    return ((await this.getAccount()) as IDBUtxoAccount).xpub;
+    const networkAccount = await this.getAccount();
+    return this.getXpubFromAccount(networkAccount);
   }
 
   async fillTokensDetails({

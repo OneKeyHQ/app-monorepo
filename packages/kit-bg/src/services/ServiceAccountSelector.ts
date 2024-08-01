@@ -398,11 +398,7 @@ class ServiceAccountSelector extends ServiceBase {
   }: {
     sceneName: EAccountSelectorSceneName;
   }) {
-    if ([EAccountSelectorSceneName.discover].includes(sceneName)) {
-      // return true;
-      return false;
-    }
-    return true;
+    return accountSelectorUtils.isSceneUseGlobalDeriveType({ sceneName });
   }
 
   @backgroundMethod()

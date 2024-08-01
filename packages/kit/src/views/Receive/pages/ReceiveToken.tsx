@@ -318,7 +318,7 @@ function ReceiveToken() {
           <QRCode
             value={account.address}
             logo={{
-              uri: token?.logoURI ?? network.logoURI,
+              uri: token?.logoURI || network.logoURI,
             }}
             logoSize={40}
             size={240}

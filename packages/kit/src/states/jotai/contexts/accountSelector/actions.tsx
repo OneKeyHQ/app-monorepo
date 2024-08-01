@@ -1147,11 +1147,22 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) => {
       const { serviceAccountSelector } = backgroundApiProxy;
       await this.mutexSaveToStorage.runExclusive(async () => {
-        const { selectedAccount, sceneName, sceneUrl, num } = payload;
+        const { sceneName, sceneUrl, num } = payload;
+        let { selectedAccount } = payload;
         const { simpleDb } = backgroundApiProxy;
         const isReady = get(accountSelectorStorageReadyAtom());
         if (!isReady) {
           return;
+        }
+        if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
+          if (
+            !selectedAccount?.othersWalletAccountId ||
+            !accountUtils.isUrlAccountFn({
+              accountId: selectedAccount?.othersWalletAccountId,
+            })
+          ) {
+            selectedAccount = defaultSelectedAccount();
+          }
         }
         if (isEqual(selectedAccount, defaultSelectedAccount)) {
           console.error(
@@ -1439,6 +1450,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         triggerBy,
       });
+
+      // addressInput scene should keep empty selection, let user select account manually
+      if (!accountSelectorUtils.isSceneCanAutoSelect({ sceneName })) {
+        return;
+      }
+
       // wait activeAccount build done
       await timerUtils.wait(300);
       const storageReady = get(accountSelectorStorageReadyAtom());

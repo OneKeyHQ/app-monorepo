@@ -207,7 +207,7 @@ function MarketDetail({
   );
 
   const buildFullUrl = useCallback(
-    () => buildMarketFullUrl({ coinGeckoId }),
+    async () => buildMarketFullUrl({ coinGeckoId }),
     [coinGeckoId],
   );
 

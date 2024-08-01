@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -137,6 +137,7 @@ export function TokenDetails() {
             deriveType={item.deriveType}
             tokenInfo={tokenInfo}
             isAllNetworks={isAllNetworks}
+            listViewContentContainerStyle={{ pt: '$5' }}
           />
         ),
       }));
@@ -154,16 +155,13 @@ export function TokenDetails() {
   ]);
 
   const renderTokenDetailsView = useCallback(() => {
-    if (vaultSettings?.mergeDeriveAssetsEnabled) {
+    if (vaultSettings?.mergeDeriveAssetsEnabled && isAllNetworks) {
       if (tabs) {
         return (
           <Tab
             data={tabs}
             initialScrollIndex={0}
             showsVerticalScrollIndicator={false}
-            tabContentContainerStyle={{
-              pt: '$5',
-            }}
           />
         );
       }
@@ -194,7 +192,7 @@ export function TokenDetails() {
   ]);
 
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         headerTitle={tokenInfo.name}
         headerTitleStyle={headerTitleStyle}
