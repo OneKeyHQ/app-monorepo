@@ -15,7 +15,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IMarketDetailPool,
   IMarketTokenDetail,
@@ -93,19 +92,10 @@ function BasicTokenDetailTabs({
       void backgroundApiProxy.serviceMarket
         .fetchPools(token.detailPlatforms)
         .then((response) => {
-          // To render NestScrollView on Android,
-          //  the chart needs to be rendered first, followed by the list.
-          if (platformEnv.isNativeAndroid) {
+          setPools(response);
+          setTimeout(() => {
             onDataLoaded?.();
-            setTimeout(() => {
-              setPools(response);
-            }, 100);
-          } else {
-            setPools(response);
-            setTimeout(() => {
-              onDataLoaded?.();
-            }, 100);
-          }
+          }, 100);
         });
     }
   }, [onDataLoaded, token?.detailPlatforms]);
