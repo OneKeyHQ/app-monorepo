@@ -37,6 +37,8 @@ export default class ServiceBase {
 
   _currentNetworkId: string | undefined;
 
+  _currentAccountId: string | undefined;
+
   getClient = memoizee(
     async (endpointName: EServiceEndpointEnum) => {
       const existingClient = clients[endpointName];
@@ -86,7 +88,14 @@ export default class ServiceBase {
   }
 
   @backgroundMethod()
-  public async updateCurrentNetworkId({ networkId }: { networkId: string }) {
+  public async updateCurrentAccount({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
     this._currentNetworkId = networkId;
+    this._currentAccountId = accountId;
   }
 }

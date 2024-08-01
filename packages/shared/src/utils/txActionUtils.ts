@@ -6,6 +6,9 @@ import {
   EDecodedTxDirection,
 } from '@onekeyhq/shared/types/tx';
 
+import type { IStakingInfo } from '../../types/staking';
+import type { ISwapTxInfo } from '../../types/swap/types';
+
 export function buildTxActionDirection({
   from,
   to,
@@ -113,14 +116,24 @@ export function isSendNativeTokenAction(action: IDecodedTxAction) {
   );
 }
 
-export function getTxnType(actions: IDecodedTxAction[]) {
+export function getTxnType({
+  actions,
+  swapInfo,
+  stakingInfo,
+}: {
+  actions: IDecodedTxAction[];
+  swapInfo?: ISwapTxInfo;
+  stakingInfo?: IStakingInfo;
+}) {
   if (
+    swapInfo ||
     actions.some((action) => action.type === EDecodedTxActionType.INTERNAL_SWAP)
   ) {
     return 'swap';
   }
 
   if (
+    stakingInfo ||
     actions.some(
       (action) => action.type === EDecodedTxActionType.INTERNAL_STAKE,
     )

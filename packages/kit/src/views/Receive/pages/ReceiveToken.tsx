@@ -41,6 +41,7 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -55,20 +56,23 @@ function ReceiveToken() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
     >();
 
-  const { networkId, accountId, walletId, deriveInfo, deriveType, token } =
-    route.params;
-
-  const addressType = deriveInfo?.labelKey
-    ? intl.formatMessage({
-        id: deriveInfo?.labelKey,
-      })
-    : deriveInfo?.label ?? '';
+  const { networkId, accountId, walletId, deriveType, token } = route.params;
 
   const { account, network, wallet, vaultSettings } = useAccountData({
     accountId,
     networkId,
     walletId,
   });
+
+  const addressType = usePromiseResult(async () => {
+    const r = await backgroundApiProxy.serviceAccount.getAccountAddressType({
+      accountId,
+      networkId,
+      address: account?.address ?? '',
+    });
+
+    return r.typeKey ? intl.formatMessage({ id: r.typeKey }) : r.type ?? '';
+  }, [account?.address, accountId, intl, networkId]).result;
 
   const [addressState, setAddressState] = useState<EAddressState>(
     EAddressState.Unverified,

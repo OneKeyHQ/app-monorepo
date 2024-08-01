@@ -42,6 +42,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
@@ -69,7 +70,6 @@ import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientBtc } from './sdkBtc/ClientBtc';
 
-import { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IDBAccount,
   IDBUtxoAccount,
@@ -1102,5 +1102,33 @@ export default class VaultBtc extends VaultBase {
       txid,
       encodedTx: signedTx.encodedTx,
     };
+  }
+
+  override async getAddressType({ address }: { address: string }) {
+    const { encoding, isValid } = await this.validateAddress(address);
+    if (isValid) {
+      let type = '';
+      switch (encoding) {
+        case EAddressEncodings.P2SH_P2WPKH:
+          type = 'Nested SegWit';
+          break;
+        case EAddressEncodings.P2TR:
+          type = 'Taproot';
+          break;
+        case EAddressEncodings.P2WPKH:
+          type = 'Native SegWit';
+          break;
+        case EAddressEncodings.P2PKH:
+          type = 'Legacy';
+          break;
+        default:
+          type = '';
+      }
+      return {
+        type,
+      };
+    }
+
+    return {};
   }
 }

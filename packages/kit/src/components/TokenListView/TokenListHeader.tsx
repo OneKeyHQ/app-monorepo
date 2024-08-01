@@ -44,6 +44,9 @@ function TokenListHeader({
     <Stack testID="Wallet-Token-List-Header">
       <ListToolToolBar
         searchProps={{
+          placeholder: intl.formatMessage({
+            id: ETranslations.global_search_asset,
+          }),
           onChangeText: debounce(
             (text) => updateSearchKey(text),
             SEARCH_DEBOUNCE_INTERVAL,

@@ -23,6 +23,7 @@ import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { TokenDetailsViews } from './TokenDetailsView';
 
@@ -155,7 +156,12 @@ export function TokenDetails() {
   ]);
 
   const renderTokenDetailsView = useCallback(() => {
-    if (vaultSettings?.mergeDeriveAssetsEnabled && isAllNetworks) {
+    if (
+      vaultSettings?.mergeDeriveAssetsEnabled &&
+      isAllNetworks &&
+      (accountUtils.isHdWallet({ walletId }) ||
+        accountUtils.isHwWallet({ walletId }))
+    ) {
       if (tabs) {
         return (
           <Tab

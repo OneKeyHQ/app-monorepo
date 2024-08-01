@@ -42,7 +42,7 @@ function NFTListContainer(props: ITabPageProps) {
   const refreshAllNetworksNftList = useRef(false);
   const [nftList, setNftList] = useState<IAccountNFT[]>([]);
   const {
-    activeAccount: { account, allNetworkDbAccounts, network, wallet },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
   const { run } = usePromiseResult(
@@ -99,11 +99,14 @@ function NFTListContainer(props: ITabPageProps) {
         accountId,
         networkId,
         isAllNetworks: true,
+        allNetworksAccountId: account?.id,
+        allNetworksNetworkId: network?.id,
       });
       if (
         !allNetworkDataInit &&
         !refreshAllNetworksNftList.current &&
-        r.networkId === networkIdsMap.onekeyall
+        r.networkId === networkIdsMap.onekeyall &&
+        r.isSameAllNetworksAccountData
       ) {
         setNftList((prev) =>
           uniqBy(
@@ -119,15 +122,19 @@ function NFTListContainer(props: ITabPageProps) {
 
       return r;
     },
-    [],
+    [account?.id, network?.id],
   );
 
-  const handleAllNetworkRequestsFinished = useCallback(() => {
-    appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-      isRefreshing: false,
-      type: EHomeTab.NFT,
-    });
-  }, []);
+  const handleAllNetworkRequestsFinished = useCallback(
+    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+      if (accountId !== account?.id || networkId !== network?.id) return;
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: false,
+        type: EHomeTab.NFT,
+      });
+    },
+    [account?.id, network?.id],
+  );
 
   const handleAllNetworkRequestsStarted = useCallback(() => {
     appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
@@ -182,8 +189,9 @@ function NFTListContainer(props: ITabPageProps) {
       });
       updateSearchKey('');
       refreshAllNetworksNftList.current = false;
-      void backgroundApiProxy.serviceNFT.updateCurrentNetworkId({
+      void backgroundApiProxy.serviceNFT.updateCurrentAccount({
         networkId: network.id,
+        accountId: account.id,
       });
     }
   }, [account?.id, network?.id, updateSearchKey, wallet?.id]);

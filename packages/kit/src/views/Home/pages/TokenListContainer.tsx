@@ -281,12 +281,14 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         flag: 'home-token-list',
         isAllNetworks: true,
         mergeTokens: true,
+        allNetworksAccountId: account?.id,
+        allNetworksNetworkId: network?.id,
       });
 
       if (
         !allNetworkDataInit &&
         !refreshAllNetworksTokenList.current &&
-        r.networkId === networkIdsMap.onekeyall
+        r.isSameAllNetworksAccountData
       ) {
         let accountWorth = new BigNumber(0);
         accountWorth = accountWorth
@@ -380,6 +382,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       return r;
     },
     [
+      account?.id,
+      network?.id,
       refreshAllTokenList,
       refreshAllTokenListMap,
       refreshRiskyTokenList,
@@ -440,12 +444,16 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     refreshTokenListMap,
   ]);
 
-  const handleAllNetworkRequestsFinished = useCallback(() => {
-    appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-      isRefreshing: false,
-      type: EHomeTab.TOKENS,
-    });
-  }, []);
+  const handleAllNetworkRequestsFinished = useCallback(
+    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+      if (accountId !== account?.id || networkId !== network?.id) return;
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: false,
+        type: EHomeTab.TOKENS,
+      });
+    },
+    [account?.id, network?.id],
+  );
 
   const handleAllNetworkRequestsStarted = useCallback(() => {
     appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
@@ -625,8 +633,9 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       });
       updateSearchKey('');
       refreshAllNetworksTokenList.current = false;
-      void backgroundApiProxy.serviceToken.updateCurrentNetworkId({
+      void backgroundApiProxy.serviceToken.updateCurrentAccount({
         networkId: network.id,
+        accountId: account.id,
       });
       if (network.id !== networkIdsMap.onekeyall) {
         handleClearAllNetworkData();

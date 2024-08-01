@@ -1,10 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
-import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -13,8 +12,6 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { usePromiseResult } from './usePromiseResult';
-
-const enableNFTNetworkIds = getEnabledNFTNetworkIds();
 
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
@@ -39,7 +36,13 @@ function useAllNetworkRequests<T>(params: {
   interval?: number;
   shouldAlwaysFetch?: boolean;
   onStarted?: () => void;
-  onFinished?: () => void;
+  onFinished?: ({
+    accountId,
+    networkId,
+  }: {
+    accountId?: string;
+    networkId?: string;
+  }) => void;
 }) {
   const {
     account,
@@ -189,7 +192,10 @@ function useAllNetworkRequests<T>(params: {
 
       allNetworkDataInit.current = true;
       isFetching.current = false;
-      onFinished?.();
+      onFinished?.({
+        accountId: account.id,
+        networkId: network.id,
+      });
 
       return resp;
     },
@@ -212,6 +218,12 @@ function useAllNetworkRequests<T>(params: {
         isPageFocused || !!shouldAlwaysFetch,
     },
   );
+
+  useEffect(() => {
+    if (account?.id && network?.id && wallet?.id) {
+      allNetworkDataInit.current = false;
+    }
+  }, [account?.id, network?.id, wallet?.id]);
 
   return {
     run,

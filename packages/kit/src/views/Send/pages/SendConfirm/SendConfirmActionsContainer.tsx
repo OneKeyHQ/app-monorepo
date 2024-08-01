@@ -161,10 +161,16 @@ function SendConfirmActionsContainer(props: IProps) {
         });
 
       const transferInfo = newUnsignedTxs?.[0].transfersInfo?.[0];
+      const swapInfo = newUnsignedTxs?.[0].swapInfo;
+      const stakingInfo = newUnsignedTxs?.[0].stakingInfo;
       defaultLogger.transaction.send.sendConfirm({
         txnHash: result?.[0].signedTx.txid,
         network: networkId,
-        txnType: getTxnType(result?.[0].decodedTx.actions),
+        txnType: getTxnType({
+          actions: result?.[0].decodedTx.actions,
+          swapInfo,
+          stakingInfo,
+        }),
         fromAddress: transferInfo?.from,
         toAddress: transferInfo?.to,
         fee: sendSelectedFeeInfo?.totalNative,
