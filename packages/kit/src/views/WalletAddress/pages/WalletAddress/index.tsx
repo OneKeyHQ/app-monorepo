@@ -41,6 +41,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 type IWalletAddressContext = {
   networkAccountMap: Record<string, INetworkAccount>;
@@ -88,6 +89,7 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
       walletId,
       indexedAccountId,
       accountId,
+      actionType: EDeriveAddressActionType.Copy,
       onUnmounted: onRefreshData,
     });
   }, [

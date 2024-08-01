@@ -62,7 +62,11 @@ export const EditableListItem = ({
 
   return (
     <ListItem
-      title={item.name}
+      title={
+        item.isAllNetworks
+          ? intl.formatMessage({ id: ETranslations.global_all_networks })
+          : item.name
+      }
       titleMatch={item.titleMatch}
       h={CELL_HEIGHT}
       renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
