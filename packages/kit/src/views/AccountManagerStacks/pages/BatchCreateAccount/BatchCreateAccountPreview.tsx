@@ -17,18 +17,19 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IBatchBuildAccountsAdvancedFlowParams,
   IBatchBuildAccountsNormalFlowParams,
 } from '@onekeyhq/kit-bg/src/services/ServiceBatchCreateAccount/ServiceBatchCreateAccount';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EAccountManagerStacksRoutes,
@@ -211,7 +212,7 @@ function BatchCreateAccountPreviewPage({
 
   useEffect(() => {
     void (async () => {
-      const toFetchBalanceAccounts = [];
+      const toFetchBalanceAccounts: IBatchCreateAccount[] = [];
       for (const account of accounts) {
         const key: string = buildBalanceMapKey({ account });
         if (isNil(balanceMapRef.current[key])) {
@@ -226,13 +227,12 @@ function BatchCreateAccountPreviewPage({
         await Promise.all(
           toFetchBalanceAccounts.map(async (account) => {
             const balances: IFetchAccountDetailsResp =
-              await backgroundApiProxy.serviceAccountProfile.fetchAccountInfo({
-                accountId: account?.id || '',
-                networkId,
-                accountAddress: account?.address,
-                xpub: (account as IDBUtxoAccount)?.xpub,
-                withNetWorth: true,
-              });
+              await backgroundApiProxy.serviceAccountProfile.fetchAccountNativeBalance(
+                {
+                  account,
+                  networkId,
+                },
+              );
             // Process the balances here
             balancesToUpdate[buildBalanceMapKey({ account })] =
               balances.balanceParsed;
@@ -375,6 +375,19 @@ function BatchCreateAccountPreviewPage({
 
   const numWidth = '$20';
 
+  const buildRelPathSuffix = useCallback(
+    (account: INetworkAccount) => {
+      if (networkId === getNetworkIdsMap().dnx) {
+        return '';
+      }
+      if (account.relPath) {
+        return `/${account.relPath.replace(/^\/+/, '')}`;
+      }
+      return '';
+    },
+    [networkId],
+  );
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -470,9 +483,7 @@ function BatchCreateAccountPreviewPage({
                   </SizableText>
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {account.path}
-                    {account.relPath
-                      ? `/${account.relPath.replace(/^\/+/, '')}`
-                      : ''}
+                    {buildRelPathSuffix(account)}
                   </SizableText>
                 </Stack>
                 <NumberSizeableText
