@@ -35,7 +35,7 @@ const settings: IVaultSettings = {
     // ECoreApiExportedSecretKeyType.xpub,
   ],
 
-  supportedDeviceTypes: ['classic1s'],
+  supportedDeviceTypes: ['classic'],
 
   defaultFeePresetIndex: 0,
 
