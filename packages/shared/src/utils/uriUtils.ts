@@ -257,4 +257,5 @@ export default {
   buildUrl,
   buildDeepLinkUrl,
   safeGetWalletConnectOrigin,
+  parseUrl,
 };

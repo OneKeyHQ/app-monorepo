@@ -533,5 +533,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceCustomToken', { value });
     return value;
   }
+
+  get serviceCustomRpc() {
+    const ServiceCustomRpc =
+      require('../services/ServiceCustomRpc') as typeof import('../services/ServiceCustomRpc');
+    const value = new ServiceCustomRpc.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceCustomRpc', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

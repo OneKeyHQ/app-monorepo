@@ -57,4 +57,8 @@ export default class Vault extends VaultBtc {
     };
     return result;
   }
+
+  override getBlockbookCoinName() {
+    return 'Bcash';
+  }
 }

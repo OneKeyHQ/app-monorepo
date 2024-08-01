@@ -646,6 +646,14 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getCustomRpcEnabledNetworks() {
+    const settings = await this._getNetworkVaultSettings();
+    return settings
+      .filter((o) => o.vaultSetting.customRpcEnabled)
+      .map((o) => o.network);
+  }
+
+  @backgroundMethod()
   async getChainSelectorNetworksCompatibleWithAccountId({
     accountId,
     networkIds,
