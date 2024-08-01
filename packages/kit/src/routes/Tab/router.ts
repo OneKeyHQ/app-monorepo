@@ -49,8 +49,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     () =>
       !platformEnv.isDesktop &&
       !platformEnv.isExtensionUiPopup &&
-      !platformEnv.isExtensionUiSidePanel &&
-      !md,
+      !(platformEnv.isExtensionUiSidePanel && md),
     [md],
   );
   return useMemo(
