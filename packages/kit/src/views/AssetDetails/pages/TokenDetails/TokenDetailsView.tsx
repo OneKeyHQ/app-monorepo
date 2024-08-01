@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import type { IListViewProps } from '@onekeyhq/components';
 import {
   Divider,
   NumberSizeableText,
@@ -53,6 +54,7 @@ type IProps = {
   isBlocked?: boolean;
   riskyTokens?: string[];
   isAllNetworks?: boolean;
+  listViewContentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
 };
 
 export function TokenDetailsViews(props: IProps) {
@@ -64,6 +66,7 @@ export function TokenDetailsViews(props: IProps) {
     deriveType,
     tokenInfo,
     isAllNetworks,
+    listViewContentContainerStyle,
   } = props;
   const navigation = useAppNavigation();
 
@@ -226,6 +229,7 @@ export function TokenDetailsViews(props: IProps) {
         isLoading={isLoadingTokenHistory}
         data={tokenHistory ?? []}
         onPressHistory={handleHistoryItemPress}
+        contentContainerStyle={listViewContentContainerStyle}
         ListHeaderComponent={
           <>
             {/* Overview */}
@@ -308,7 +312,7 @@ export function TokenDetailsViews(props: IProps) {
             />
 
             {/* History */}
-            <Divider />
+            <Divider mb="$3" />
           </>
         }
       />

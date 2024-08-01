@@ -1,13 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import type { ISearchBarProps, IYStackProps } from '@onekeyhq/components';
-import {
-  SearchBar,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { SearchBar, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IProps = {
@@ -21,7 +15,7 @@ function ListToolToolBar({ searchProps, headerRight, ...rest }: IProps) {
   if (!searchProps && !headerRight) return null;
 
   return (
-    <YStack px="$5" py="$2" {...rest}>
+    <YStack px="$5" pb="$2" mt="$5" {...rest}>
       <XStack alignItems="center" justifyContent="space-between">
         {searchProps ? (
           <SearchBar
