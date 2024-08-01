@@ -88,6 +88,17 @@ function useReceiveToken({
             searchAll: true,
             closeAfterSelect: false,
             onSelect: async (t: IToken) => {
+              if (networkUtils.isLightningNetworkByNetworkId(t.networkId)) {
+                navigation.pushModal(EModalRoutes.ReceiveModal, {
+                  screen: EModalReceiveRoutes.CreateInvoice,
+                  params: {
+                    networkId: t.networkId ?? '',
+                    accountId: t.accountId ?? '',
+                  },
+                });
+                return;
+              }
+
               const settings =
                 await backgroundApiProxy.serviceNetwork.getVaultSettings({
                   networkId: t.networkId ?? '',
