@@ -19,7 +19,7 @@ import {
 } from '@onekeyhq/components';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+// import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
@@ -218,9 +218,9 @@ export const EditableChainSelectorContent = ({
             _initialScrollIndex &&
             _initialScrollIndex.itemIndex !== undefined
           ) {
-            if (!platformEnv.isNative) {
-              _initialScrollIndex.itemIndex += 1;
-            }
+            // if (!platformEnv.isNative) {
+            //   _initialScrollIndex.itemIndex += 1;
+            // }
             const _itemIndex = _initialScrollIndex?.itemIndex ?? 0;
             if (_itemIndex === -1) {
               _initialScrollIndex.itemIndex = undefined;

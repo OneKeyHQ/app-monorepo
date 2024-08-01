@@ -228,6 +228,7 @@ function TokenManagerList({
           isLoading={isLoadingRemoteData || !!isLoadingLocalData}
         />
       }
+      keyboardDismissMode="on-drag"
     />
   );
 }

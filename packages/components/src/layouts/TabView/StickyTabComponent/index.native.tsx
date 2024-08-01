@@ -85,6 +85,7 @@ export const TabComponent = (
       data.map((item, index) => (
         <Stack
           h="100%"
+          pb={20}
           collapsable={false}
           key={index}
           {...tabContentContainerStyle}
@@ -119,7 +120,6 @@ export const TabComponent = (
       style={[
         {
           flex: 1,
-          height: '100%',
           maxWidth: 1024,
           backgroundColor: convertColor(rawBackgroundColor),
         },
