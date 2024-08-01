@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IMarketDetailPool,
   IMarketTokenDetail,
@@ -92,10 +93,17 @@ function BasicTokenDetailTabs({
       void backgroundApiProxy.serviceMarket
         .fetchPools(token.detailPlatforms)
         .then((response) => {
-          setPools(response);
-          setTimeout(() => {
+          if (platformEnv.isNativeAndroid) {
             onDataLoaded?.();
-          }, 100);
+            setTimeout(() => {
+              setPools(response);
+            }, 100);
+          } else {
+            setPools(response);
+            setTimeout(() => {
+              onDataLoaded?.();
+            }, 100);
+          }
         });
     }
   }, [onDataLoaded, token?.detailPlatforms]);
