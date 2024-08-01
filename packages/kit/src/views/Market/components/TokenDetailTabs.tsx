@@ -93,6 +93,8 @@ function BasicTokenDetailTabs({
       void backgroundApiProxy.serviceMarket
         .fetchPools(token.detailPlatforms)
         .then((response) => {
+          // To render NestScrollView on Android,
+          //  the chart needs to be rendered first, followed by the list.
           if (platformEnv.isNativeAndroid) {
             onDataLoaded?.();
             setTimeout(() => {
