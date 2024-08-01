@@ -6182,6 +6182,7 @@ __metadata:
     react-native-mmkv: "npm:2.10.2"
     react-native-modal: "npm:^13.0.1"
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#feat/support-rn73"
+    react-native-network-logger: "npm:^1.16.1"
     react-native-permissions: "npm:^4.1.5"
     react-native-randombytes: "npm:^3.6.1"
     react-native-reanimated: "npm:3.6.1"
@@ -29297,6 +29298,16 @@ __metadata:
   version: 9.0.1
   resolution: "react-native-nested-scroll-view@https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#commit=a15061a0cdb8596dd414c3e770eb9a7630d5ee37"
   checksum: 10/87a79d30c5ed54d2bec789b0cb372506d506a1ea3abcc56aa4d495e6491f11a3790974b61c69f5443218d70ddc4aa64d926794e04f66e3ee8204324106f459dd
+  languageName: node
+  linkType: hard
+
+"react-native-network-logger@npm:^1.16.1":
+  version: 1.16.1
+  resolution: "react-native-network-logger@npm:1.16.1"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/43d168d57ece1b2246a6a8a03b4e116894cb70582087de6d5c9aca483c73858411846f314ace492634f06fba425cb895a042bd20dee0060cbc1738c367aff6ab
   languageName: node
   linkType: hard
 

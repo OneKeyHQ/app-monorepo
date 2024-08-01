@@ -1,6 +1,6 @@
 {
   "Toast_web_auth": "การตั้งค่าล้มเหลว",
-  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
+  "Token_manage.custom_token_address_faild": "ไม่สามารถหาที่อยู่ของสัญญา ลองอีกครั้ง",
   "account_model.watched": "ดูแล้ว",
   "action_save": "บันทึก",
   "address.verify_address_instruction": "ตรวจสอบบนอุปกรณ์เพื่อป้องกันการโจมตีโดยการแทนที่ที่อยู่",
@@ -796,6 +796,7 @@
   "global.scan_to_connect": "สแกนเพื่อเชื่อมต่อ",
   "global.search": "ค้นหา",
   "global.search_address": "ค้นหาที่อยู่",
+  "global.search_asset": "ค้นหาสินทรัพย์",
   "global.search_no_results_desc": "ลองเปลี่ยนคำค้นหา",
   "global.search_no_results_title": "ไม่พบผลลัพธ์",
   "global.search_tokens": "ค้นหาโทเค็น",
@@ -1297,6 +1298,7 @@
   "settings.import_recovery_phrase_from_onekey_keytag": "นำเข้าวลีกู้คืนจาก OneKey KeyTag ของคุณ",
   "settings.import_recovery_phrase_from_onekey_lite": "นำเข้าวลีกู้คืนจาก OneKey Lite ของคุณ",
   "settings.lock_now": "ล็อคทันที",
+  "settings.logs_do_not_include_sensitive_data": "บันทึกไม่รวมข้อมูลที่ละเอียดอ่อน เช่น วลีการกู้คืนหรือคีย์ส่วนตัว มีเพียงข้อมูลในเครื่อง รายงานข้อขัดข้อง และที่อยู่กระเป๋าเงินสาธารณะเท่านั้น",
   "settings.migration": "การโยกย้าย",
   "settings.nfc_not_supported": "อุปกรณ์ปัจจุบันของคุณไม่รองรับ NFC โปรดเปลี่ยนเป็นอุปกรณ์ที่รองรับ NFC แล้วลองอีกครั้ง",
   "settings.no_connected_sites": "ไม่มีเว็บไซต์ที่เชื่อมต่อ",
