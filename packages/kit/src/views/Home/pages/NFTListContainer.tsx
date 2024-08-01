@@ -125,12 +125,16 @@ function NFTListContainer(props: ITabPageProps) {
     [account?.id, network?.id],
   );
 
-  const handleAllNetworkRequestsFinished = useCallback(() => {
-    appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-      isRefreshing: false,
-      type: EHomeTab.NFT,
-    });
-  }, []);
+  const handleAllNetworkRequestsFinished = useCallback(
+    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+      if (accountId !== account?.id || networkId !== network?.id) return;
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: false,
+        type: EHomeTab.NFT,
+      });
+    },
+    [account?.id, network?.id],
+  );
 
   const handleAllNetworkRequestsStarted = useCallback(() => {
     appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
