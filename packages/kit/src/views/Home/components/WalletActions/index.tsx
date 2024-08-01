@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
@@ -11,6 +13,7 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IModalSendParamList,
   IModalSwapParamList,
@@ -34,8 +37,9 @@ function WalletActionSend() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
+  const intl = useIntl();
 
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
@@ -71,6 +75,10 @@ function WalletActionSend() {
     navigation.pushModal(EModalRoutes.SendModal, {
       screen: EModalSendRoutes.SendSelectToken,
       params: {
+        title: intl.formatMessage({ id: ETranslations.global_send }),
+        searchPlaceholder: intl.formatMessage({
+          id: ETranslations.global_search_asset,
+        }),
         networkId: network.id,
         accountId: account.id,
         tokens: {
@@ -86,7 +94,12 @@ function WalletActionSend() {
               networkId: token.networkId ?? '',
             });
 
-          if (settings.mergeDeriveAssetsEnabled && network.isAllNetworks) {
+          if (
+            settings.mergeDeriveAssetsEnabled &&
+            network.isAllNetworks &&
+            (accountUtils.isHdWallet({ walletId: wallet?.id }) ||
+              accountUtils.isHwWallet({ walletId: wallet?.id }))
+          ) {
             const walletId = accountUtils.getWalletIdFromAccountId({
               accountId: token.accountId ?? '',
             });
@@ -126,10 +139,13 @@ function WalletActionSend() {
     account,
     network,
     vaultSettings?.isSingleToken,
-    allTokens,
     navigation,
+    intl,
+    allTokens.tokens,
+    allTokens.keys,
     map,
     tokenListState,
+    wallet?.id,
   ]);
 
   return (
