@@ -46,7 +46,7 @@ function ConnectionListItem({
     <YStack space="$5" p="$5">
       <XStack alignItems="center" justifyContent="space-between" space="$3">
         <XStack flex={1} alignItems="center" space="$3">
-          <Image size="$10">
+          <Image size="$10" borderRadius="$full">
             <Image.Source src={item.imageURL} />
             <Image.Fallback>
               <Icon size="$10" name="GlobusOutline" />

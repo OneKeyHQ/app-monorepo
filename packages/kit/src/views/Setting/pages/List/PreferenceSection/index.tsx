@@ -98,7 +98,7 @@ const LanguageListItem = () => {
       value={locale}
       onChange={onChange}
       placement="bottom-end"
-      floatingPanelProps={{ maxHeight: 300 }}
+      floatingPanelProps={{ maxHeight: 280 }}
       sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
       renderTrigger={({ label }) => (
         <ListItem

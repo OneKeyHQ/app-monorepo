@@ -1,8 +1,11 @@
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import type { IDeriveTypesAddressParams } from './walletAddress';
+
 export enum EModalFiatCryptoRoutes {
   BuyModal = 'Buy',
   SellModal = 'Sell',
+  DeriveTypesAddress = 'DeriveTypesAddress',
 }
 
 export type IModalFiatCryptoParamList = {
@@ -18,4 +21,5 @@ export type IModalFiatCryptoParamList = {
     tokens?: IAccountToken[];
     map?: Record<string, ITokenFiat>;
   };
+  [EModalFiatCryptoRoutes.DeriveTypesAddress]: IDeriveTypesAddressParams;
 };

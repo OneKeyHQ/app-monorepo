@@ -13,7 +13,7 @@ export const useWalletAddress = ({
 }: {
   activeAccount: IAccountSelectorActiveAccountInfo;
 }) => {
-  const { account, indexedAccount, wallet, network } = activeAccount;
+  const { account, indexedAccount, network } = activeAccount;
   const activeAccountRef = useRef(activeAccount);
   activeAccountRef.current = activeAccount;
 
@@ -25,18 +25,17 @@ export const useWalletAddress = ({
 
   const handleWalletAddress = useCallback(() => {
     console.log(activeAccountRef.current);
-    if (!indexedAccount || !wallet) {
+    if (!indexedAccount) {
       return;
     }
     appNavigation.pushModal(EModalRoutes.WalletAddress, {
       screen: EModalWalletAddressRoutes.WalletAddress,
       params: {
         accountId: account?.id,
-        indexedAccountId: indexedAccount?.id,
-        walletId: wallet?.id,
+        indexedAccountId: indexedAccount.id,
       },
     });
-  }, [appNavigation, account, indexedAccount, wallet]);
+  }, [appNavigation, account, indexedAccount]);
 
   return {
     isEnable,

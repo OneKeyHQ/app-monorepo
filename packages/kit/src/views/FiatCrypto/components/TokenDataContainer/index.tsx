@@ -61,13 +61,13 @@ export const TokenDataContext = createContext<ITokenDataContextTypes>({
   networkId: '',
 });
 
-export const useGetTokenFiatValue = () => {
+export const useTokenDataContext = () => {
   const {
     tokensMap,
     fiatMap,
     networkId: contextNetworkId,
   } = useContext(TokenDataContext);
-  return useCallback(
+  const getTokenFiatValue = useCallback(
     ({
       networkId,
       tokenAddress,
@@ -85,6 +85,7 @@ export const useGetTokenFiatValue = () => {
     },
     [tokensMap, fiatMap, contextNetworkId],
   );
+  return { getTokenFiatValue, tokensMap, fiatMap };
 };
 
 export function TokenDataContainer({

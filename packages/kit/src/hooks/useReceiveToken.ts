@@ -94,12 +94,10 @@ function useReceiveToken({
                   {
                     networkId: t.networkId ?? '',
                     indexedAccountId: account?.indexedAccountId ?? '',
-                    walletId,
                     token: t,
                     tokenMap: tokens?.map,
                     accountId: t.accountId ?? '',
                     actionType: EDeriveAddressActionType.Select,
-                    onUnmounted: () => {},
                     onSelected: ({
                       account: a,
                       deriveInfo: di,
