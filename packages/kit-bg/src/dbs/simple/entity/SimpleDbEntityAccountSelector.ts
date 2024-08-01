@@ -5,7 +5,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -75,10 +75,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
   }) {
     checkIsDefined(num);
     checkIsDefined(sceneName);
-    if (
-      sceneName === EAccountSelectorSceneName.discover ||
-      sceneName === EAccountSelectorSceneName.addressInput
-    ) {
+    if (!accountSelectorUtils.isSceneCanPersist({ sceneName })) {
       console.log(`skip ${sceneName} account selector persist`);
       return;
     }

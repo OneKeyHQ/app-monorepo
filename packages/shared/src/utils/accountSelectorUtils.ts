@@ -115,10 +115,55 @@ function buildGlobalDeriveTypesMapKey({ networkId }: { networkId: string }) {
   return key;
 }
 
+function isSceneCanPersist({
+  sceneName,
+}: {
+  sceneName: EAccountSelectorSceneName | undefined;
+}): boolean {
+  if (
+    sceneName &&
+    [
+      EAccountSelectorSceneName.discover,
+      EAccountSelectorSceneName.addressInput,
+    ].includes(sceneName)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function isSceneCanAutoSelect({
+  sceneName,
+}: {
+  sceneName: EAccountSelectorSceneName | undefined;
+}): boolean {
+  if (
+    sceneName &&
+    [EAccountSelectorSceneName.addressInput].includes(sceneName)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function isSceneUseGlobalDeriveType({
+  sceneName,
+}: {
+  sceneName: EAccountSelectorSceneName | undefined;
+}): boolean {
+  if (sceneName && [EAccountSelectorSceneName.discover].includes(sceneName)) {
+    return false;
+  }
+  return true;
+}
+
 export default {
   isEqualAccountSelectorScene,
   buildAccountSelectorSaveKey,
   buildAccountSelectorSceneId,
   buildMergedSelectedAccount,
   buildGlobalDeriveTypesMapKey,
+  isSceneCanAutoSelect,
+  isSceneCanPersist,
+  isSceneUseGlobalDeriveType,
 };
