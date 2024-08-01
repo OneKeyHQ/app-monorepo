@@ -85,7 +85,7 @@ export const TabComponent = (
       data.map((item, index) => (
         <Stack
           h="100%"
-          pb={20}
+          pb={52}
           collapsable={false}
           key={index}
           {...tabContentContainerStyle}
