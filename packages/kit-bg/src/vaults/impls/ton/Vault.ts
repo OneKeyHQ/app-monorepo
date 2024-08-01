@@ -84,6 +84,7 @@ export default class Vault extends VaultBase {
     }
     const transfer = transfersInfo[0];
     return {
+      fromAddress: await this.getAccountAddress(),
       messages: [
         {
           toAddress: transfer.to,

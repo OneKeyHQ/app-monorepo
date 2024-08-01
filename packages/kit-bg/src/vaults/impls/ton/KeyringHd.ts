@@ -1,7 +1,12 @@
+import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
+
+import { serializeUnsignedTransaction } from './sdkTon/utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -30,6 +35,22 @@ export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxTon;
+    const account = await this.vault.getAccount();
+    const { idSuffix: version } = accountUtils.parseAccountId({
+      accountId: account.id,
+    });
+    const serializeUnsignedTx = await serializeUnsignedTransaction({
+      version,
+      encodedTx,
+      backgroundApi: this.vault.backgroundApi,
+    });
+    params.unsignedTx.rawTxUnsigned = hexUtils.hexlify(
+      await serializeUnsignedTx.signingMessage.toBoc(),
+      {
+        noPrefix: true,
+      },
+    );
     return this.baseSignTransaction(params);
   }
 

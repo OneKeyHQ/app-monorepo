@@ -234,6 +234,7 @@ module.exports = {
           /Erc721/i,
           /Erc1155/i,
           /protobufjs/i,
+          /boc/i,
         ],
         'skipIfMatch': ['http://[^s]*'],
         'minLength': 3,

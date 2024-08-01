@@ -1,13 +1,19 @@
 /* eslint-disable new-cap */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import TonWeb from 'tonweb';
 
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
 import { genAddressFromPublicKey } from './sdkTon';
+import { getStateInitFromEncodedTx, serializeSignedTx } from './sdkTon/tx';
 
+import type { IEncodedTxTon } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImportedTon,
@@ -22,7 +28,6 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import type TonWeb from 'tonweb';
 
 const curve: ICurveName = 'ed25519';
 
@@ -45,20 +50,30 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    // throw new NotImplemented();;
-    const { unsignedTx } = payload;
+    const {
+      unsignedTx: { rawTxUnsigned },
+    } = payload;
+    const encodedTx = payload.unsignedTx.encodedTx as IEncodedTxTon;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-    // eslint-disable-next-line prefer-destructuring
-    const encodedTx = unsignedTx.encodedTx;
-    const txBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(txBytes);
+    if (!rawTxUnsigned) {
+      throw new OneKeyInternalError('rawTxUnsigned not found');
+    }
+    const signingMessage = TonWeb.boc.Cell.oneFromBoc(rawTxUnsigned);
+    const hash = await signingMessage.hash();
+    const [signature] = await signer.sign(Buffer.from(hash));
+    const signedTx = serializeSignedTx({
+      fromAddress: encodedTx.fromAddress,
+      signingMessage,
+      signature,
+      stateInit: getStateInitFromEncodedTx(encodedTx),
+    });
     const txid = '';
-    const rawTx = '';
+    const rawTx = Buffer.from(await signedTx.toBoc()).toString('hex');
     return {
-      encodedTx: unsignedTx.encodedTx,
+      encodedTx,
       txid,
       rawTx,
     };
