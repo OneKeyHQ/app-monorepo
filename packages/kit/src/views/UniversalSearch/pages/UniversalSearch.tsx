@@ -217,11 +217,12 @@ export function UniversalSearch({
             <ListItem
               onPress={() => {
                 navigation.pop();
-                setTimeout(() => {
+                setTimeout(async () => {
                   const { network, addressInfo } = searchAddressItem.payload;
-                  urlAccountNavigation.pushUrlAccountPage(navigation, {
+                  await urlAccountNavigation.pushUrlAccountPage(navigation, {
                     address: addressInfo.displayAddress,
                     networkId: network.id,
+                    contextNetworkId: activeAccount?.network?.id,
                   });
                 }, 80);
               }}
@@ -284,7 +285,7 @@ export function UniversalSearch({
         }
       }
     },
-    [navigation, currency, universalSearchActions],
+    [navigation, activeAccount?.network?.id, currency, universalSearchActions],
   );
 
   const renderResult = useCallback(() => {
