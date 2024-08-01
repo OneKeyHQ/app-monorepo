@@ -215,7 +215,9 @@ export function usePromiseResult<T>(
             pollingNonceRef.current === config?.pollingNonce
           ) {
             await timerUtils.wait(pollingInterval);
-            await defer.promise;
+            if (!platformEnv.isNativeAndroid) {
+              await defer.promise;
+            }
             if (pollingNonceRef.current === config?.pollingNonce) {
               if (shouldSetState(config)) {
                 void run({
