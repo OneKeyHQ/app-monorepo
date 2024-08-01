@@ -20,9 +20,9 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import type { IMarketResponsePool } from '@onekeyhq/shared/types/market';
 
-import { listItemPressStyle } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 
 import { MarketPoolIcon } from './MarketPoolIcon';
