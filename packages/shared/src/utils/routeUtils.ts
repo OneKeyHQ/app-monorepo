@@ -65,8 +65,9 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
           }
         }
       }
+      // keep the path random if the screen is not found
       if (!screen) {
-        return '';
+        return Math.random().toString();
       }
       const nextScreenConfig = screen.screens;
       if (nextScreenConfig) {
@@ -126,13 +127,6 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     //   showParams: true,
     // },
 
-    // Developer Pages
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.TabDeveloper}`]:
-      {
-        showUrl: true,
-        showParams: true,
-      },
-
     // Settings Pages
     // [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
     //   {
@@ -148,6 +142,13 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showParams: true,
       };
     });
+    // Developer Pages
+    rules[
+      pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.TabDeveloper}`
+    ] = {
+      showUrl: true,
+      showParams: true,
+    };
     rules[
       pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.DevHome}`
     ] = {
