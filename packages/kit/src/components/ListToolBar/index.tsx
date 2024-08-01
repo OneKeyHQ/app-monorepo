@@ -1,27 +1,21 @@
 import { useIntl } from 'react-intl';
 
-import type { ISearchBarProps } from '@onekeyhq/components';
-import {
-  SearchBar,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import type { ISearchBarProps, IYStackProps } from '@onekeyhq/components';
+import { SearchBar, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IProps = {
   searchProps?: ISearchBarProps & { searchResultCount?: number };
   headerRight?: React.ReactNode;
-};
-function ListToolToolBar({ searchProps, headerRight }: IProps) {
+} & IYStackProps;
+function ListToolToolBar({ searchProps, headerRight, ...rest }: IProps) {
   const media = useMedia();
   const intl = useIntl();
 
   if (!searchProps && !headerRight) return null;
 
   return (
-    <YStack px="$5" py="$2" space="$5">
+    <YStack px="$5" pb="$2" mt="$5" {...rest}>
       <XStack alignItems="center" justifyContent="space-between">
         {searchProps ? (
           <SearchBar
@@ -41,18 +35,14 @@ function ListToolToolBar({ searchProps, headerRight }: IProps) {
           />
         ) : null}
 
-        {headerRight ? (
-          <XStack flex={1} justifyContent="flex-end">
-            {headerRight}
-          </XStack>
-        ) : null}
+        {headerRight ? <XStack pl="$5">{headerRight}</XStack> : null}
       </XStack>
-      {searchProps?.searchResultCount && searchProps?.searchResultCount > 0 ? (
+      {/* {searchProps?.searchResultCount && searchProps?.searchResultCount > 0 ? (
         <SizableText
           color="$textSubdued"
           size="$bodyMdMedium"
         >{`${searchProps?.searchResultCount} 个搜索结果`}</SizableText>
-      ) : null}
+      ) : null} */}
     </YStack>
   );
 }

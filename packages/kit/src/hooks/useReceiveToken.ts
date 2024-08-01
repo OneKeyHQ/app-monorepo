@@ -9,7 +9,11 @@ import type {
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
+
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { useAccountData } from './useAccountData';
 
@@ -34,7 +38,10 @@ function useReceiveToken({
     initialized: boolean;
   };
 }) {
-  const { vaultSettings } = useAccountData({ networkId, accountId });
+  const { vaultSettings, account, network } = useAccountData({
+    networkId,
+    accountId,
+  });
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
@@ -76,6 +83,44 @@ function useReceiveToken({
             searchAll: true,
             closeAfterSelect: false,
             onSelect: async (t: IToken) => {
+              const settings =
+                await backgroundApiProxy.serviceNetwork.getVaultSettings({
+                  networkId: t.networkId ?? '',
+                });
+
+              if (settings.mergeDeriveAssetsEnabled && network?.isAllNetworks) {
+                navigation.push(
+                  EModalReceiveRoutes.ReceiveSelectDeriveAddress,
+                  {
+                    networkId: t.networkId ?? '',
+                    indexedAccountId: account?.indexedAccountId ?? '',
+                    token: t,
+                    tokenMap: tokens?.map,
+                    accountId: t.accountId ?? '',
+                    actionType: EDeriveAddressActionType.Select,
+                    onSelected: ({
+                      account: a,
+                      deriveInfo: di,
+                      deriveType: dt,
+                    }: {
+                      account: INetworkAccount;
+                      deriveInfo: IAccountDeriveInfo;
+                      deriveType: IAccountDeriveTypes;
+                    }) => {
+                      navigation.push(EModalReceiveRoutes.ReceiveToken, {
+                        networkId: t.networkId ?? networkId,
+                        accountId: a.id ?? accountId,
+                        walletId,
+                        deriveInfo: di,
+                        deriveType: dt,
+                        token: t,
+                      });
+                    },
+                  },
+                );
+                return;
+              }
+
               navigation.push(EModalReceiveRoutes.ReceiveToken, {
                 networkId: t.networkId ?? networkId,
                 accountId: t.accountId ?? accountId,
@@ -90,10 +135,12 @@ function useReceiveToken({
       }
     },
     [
+      account?.indexedAccountId,
       accountId,
       deriveInfo,
       deriveType,
       navigation,
+      network?.isAllNetworks,
       networkId,
       tokenListState,
       tokens,

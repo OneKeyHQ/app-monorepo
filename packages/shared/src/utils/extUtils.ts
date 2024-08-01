@@ -182,6 +182,12 @@ function openSidePanel(
   });
 }
 
+async function openPanelOnActionClick(isOpenPanelOnActionClick: boolean) {
+  await chrome.sidePanel.setPanelBehavior({
+    openPanelOnActionClick: isOpenPanelOnActionClick,
+  });
+}
+
 function openExistWindow({
   windowId,
 }: {
@@ -199,4 +205,5 @@ export default {
   openExpandTab,
   openSidePanel,
   openExistWindow,
+  openPanelOnActionClick,
 };

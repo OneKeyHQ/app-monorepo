@@ -40,6 +40,7 @@ const settings: IVaultSettings = {
   showAddressType: false,
   estimatedFeePollingInterval: 60,
   customRpcEnabled: false,
+  mergeDeriveAssetsEnabled: false,
 };
 
 export default Object.freeze(settings);

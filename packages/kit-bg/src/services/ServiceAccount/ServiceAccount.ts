@@ -28,6 +28,7 @@ import {
 import {
   COINTYPE_ALLNETWORKS,
   IMPL_ALLNETWORKS,
+  IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvalidMnemonic,
@@ -980,6 +981,18 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
     accounts: IDBAccount[];
   }> {
+    if (networkUtils.isAllNetwork({ networkId })) {
+      throw new Error(
+        'addWatchingAccount ERROR: networkId should not be all networks',
+      );
+    }
+
+    // /evm/0x63ac73816EeB38514DaE6c46008baf55f1c59C9e
+    if (networkId === IMPL_EVM) {
+      // eslint-disable-next-line no-param-reassign
+      networkId = getNetworkIdsMap().eth;
+    }
+
     const walletId = WALLET_TYPE_WATCHING;
 
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
@@ -1071,7 +1084,7 @@ class ServiceAccount extends ServiceBase {
       accounts,
       accountNameBuilder: ({ nextAccountId }) =>
         isUrlAccount
-          ? 'Url Account'
+          ? `Url Account ${Date.now()}`
           : accountUtils.buildBaseAccountName({ nextAccountId }),
     });
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
@@ -1155,6 +1168,16 @@ class ServiceAccount extends ServiceBase {
   async getDBAccountSafe({ accountId }: { accountId: string }) {
     const account = await localDb.getAccountSafe({ accountId });
     return account;
+  }
+
+  @backgroundMethod()
+  async getUrlDBAccountSafe() {
+    return this.getDBAccountSafe({
+      accountId: accountUtils.buildWatchingAccountId({
+        coinType: '',
+        isUrlAccount: true,
+      }),
+    });
   }
 
   @backgroundMethod()
@@ -1257,6 +1280,26 @@ class ServiceAccount extends ServiceBase {
     checkIsDefined(accountId);
     checkIsDefined(networkId);
     if (networkUtils.isAllNetwork({ networkId })) {
+      if (
+        accountUtils.isOthersWallet({
+          walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
+        })
+      ) {
+        const dbAccount = await localDb.getAccount({ accountId });
+        const realNetworkId = accountUtils.getAccountCompatibleNetwork({
+          account: dbAccount,
+          networkId: undefined,
+        });
+        if (realNetworkId === getNetworkIdsMap().onekeyall) {
+          throw new Error(
+            'getAccount ERROR: realNetworkId can not be allnetwork',
+          );
+        }
+        return this.getAccount({
+          accountId,
+          networkId: checkIsDefined(realNetworkId),
+        });
+      }
       const indexedAccountId =
         accountUtils.buildAllNetworkIndexedAccountIdFromAccountId({
           accountId,
@@ -2029,7 +2072,13 @@ class ServiceAccount extends ServiceBase {
   }: {
     indexedAccountId: string;
     networkIds: string[];
-  }): Promise<{ network: IServerNetwork; account?: INetworkAccount }[]> {
+  }): Promise<
+    {
+      network: IServerNetwork;
+      accountDeriveType: IAccountDeriveTypes;
+      account?: INetworkAccount;
+    }[]
+  > {
     const { serviceNetwork } = this.backgroundApi;
     const dbAccounts = await this.getAccountsInSameIndexedAccountId({
       indexedAccountId,
@@ -2043,14 +2092,22 @@ class ServiceAccount extends ServiceBase {
           }),
         );
         let account: INetworkAccount | undefined;
-        if (dbAccount) {
-          account = await this.getAccount({
-            accountId: dbAccount.id,
-            networkId,
-          });
-        }
         const network = await serviceNetwork.getNetwork({ networkId });
-        return { network, account };
+        const accountDeriveType =
+          await serviceNetwork.getGlobalDeriveTypeOfNetwork({ networkId });
+        if (dbAccount) {
+          try {
+            account = await this.getNetworkAccount({
+              accountId: undefined,
+              networkId,
+              deriveType: accountDeriveType,
+              indexedAccountId: dbAccount.indexedAccountId,
+            });
+          } catch {
+            console.log('failed to get Network account');
+          }
+        }
+        return { network, accountDeriveType, account };
       }),
     );
   }
@@ -2096,6 +2153,38 @@ class ServiceAccount extends ServiceBase {
       }),
     );
     return { networkAccounts, network };
+  }
+
+  @backgroundMethod()
+  async getOrCreateIndexedAccount({
+    networkId,
+    indexedAccountId,
+    deriveType,
+  }: {
+    networkId: string;
+    indexedAccountId: string;
+    deriveType: IAccountDeriveTypes;
+  }): Promise<IDBAccount | undefined> {
+    try {
+      const dbAccount = await this.getNetworkAccount({
+        accountId: undefined,
+        indexedAccountId,
+        networkId,
+        deriveType,
+      });
+      return dbAccount;
+    } catch {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: indexedAccountId,
+      });
+      const resp = await this.addHDOrHWAccounts({
+        walletId,
+        indexedAccountId,
+        deriveType,
+        networkId,
+      });
+      return resp?.accounts[0];
+    }
   }
 }
 

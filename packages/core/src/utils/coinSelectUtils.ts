@@ -224,7 +224,7 @@ export const coinSelect = ({
   const { inputs, outputs, fee }: ICoinSelectResult = unspentSelectFn(
     inputsForCoinSelect,
     finalOutputs,
-    parseInt(feeRate),
+    parseInt(feeRate, 10),
   );
 
   if (isNil(fee)) {

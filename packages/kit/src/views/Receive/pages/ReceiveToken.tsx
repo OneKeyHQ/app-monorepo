@@ -239,7 +239,7 @@ function ReceiveToken() {
       }
 
       return (
-        <YStack space="$5">
+        <YStack space="$5" alignItems="center">
           <Button mt="$5" variant="primary" onPress={handleVerifyOnDevicePress}>
             {intl.formatMessage({
               id: ETranslations.global_verify_on_device,
@@ -318,7 +318,7 @@ function ReceiveToken() {
           <QRCode
             value={account.address}
             logo={{
-              uri: token?.logoURI ?? network.logoURI,
+              uri: token?.logoURI || network.logoURI,
             }}
             logoSize={40}
             size={240}
@@ -371,27 +371,10 @@ function ReceiveToken() {
               wordBreak: 'break-all',
             }}
           >
-            {account.address}
+            {!shouldShowAddress
+              ? accountUtils.shortenAddress({ address: account.address })
+              : account.address}
           </SizableText>
-
-          {!shouldShowAddress ? (
-            <BlurView
-              // Setting both inner and outer borderRadius is for the compatibility of Web and Native styles.
-              borderRadius="$3"
-              contentStyle={{
-                borderRadius: '$3',
-                width: '100%',
-                height: '100%',
-                borderCurve: 'continuous',
-              }}
-              position="absolute"
-              intensity={38}
-              top="$0"
-              left="$0"
-              right="$0"
-              bottom="$0"
-            />
-          ) : null}
         </ConfirmHighlighter>
         {shouldShowAddress && addressState === EAddressState.ForceShow ? (
           <XStack mt="$1" justifyContent="center" alignItems="center">

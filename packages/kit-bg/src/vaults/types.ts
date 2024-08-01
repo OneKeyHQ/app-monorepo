@@ -214,6 +214,7 @@ export type IVaultSettings = {
 
   activateTokenRequired?: boolean;
   customRpcEnabled?: boolean;
+  mergeDeriveAssetsEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {

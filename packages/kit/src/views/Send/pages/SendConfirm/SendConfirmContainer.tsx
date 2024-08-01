@@ -238,7 +238,7 @@ function SendConfirmContainer() {
   };
 
   return (
-    <Page scrollEnabled onClose={handleOnClose}>
+    <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.transaction__transaction_confirm,

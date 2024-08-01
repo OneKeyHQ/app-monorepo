@@ -200,7 +200,7 @@ function CustomRPC() {
         });
       return {
         responseTime,
-        status: responseTime < 1000 ? ECustomStatus.Fast : ECustomStatus.Normal,
+        status: responseTime < 800 ? ECustomStatus.Fast : ECustomStatus.Normal,
         loading: false,
       };
     } catch (e) {
@@ -237,13 +237,20 @@ function CustomRPC() {
         });
         return newMap;
       });
-      for (const rpcInfo of updatedOrNewRpcInfos) {
-        const measureData = await measureRpcSpeed(rpcInfo);
+      const updateRpcSpeed = (
+        networkId: string,
+        measureData: IMeasureRpcItem,
+      ) => {
         setRpcSpeedMap((prev) => ({
           ...prev,
-          [rpcInfo.networkId]: measureData,
+          [networkId]: measureData,
         }));
-      }
+      };
+      const measurePromises = updatedOrNewRpcInfos.map(async (rpcInfo) => {
+        const measureData = await measureRpcSpeed(rpcInfo);
+        updateRpcSpeed(rpcInfo.networkId, measureData);
+      });
+      await Promise.all(measurePromises);
     },
     300,
   );

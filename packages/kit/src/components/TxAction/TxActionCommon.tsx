@@ -69,7 +69,9 @@ function TxActionCommonAvatar({
           isNFT={avatar.isNFT}
           fallbackIcon={avatar.fallbackIcon}
           tokenImageUri={avatar.src[0]}
-          networkImageUri={activeNetwork ? network?.logoURI : undefined}
+          networkImageUri={
+            activeNetwork?.isAllNetworks ? network?.logoURI : undefined
+          }
         />
       </Stack>
       <Stack
@@ -83,7 +85,9 @@ function TxActionCommonAvatar({
           isNFT={avatar.isNFT}
           fallbackIcon={avatar.fallbackIcon}
           tokenImageUri={avatar.src[1]}
-          networkImageUri={activeNetwork ? network?.logoURI : undefined}
+          networkImageUri={
+            activeNetwork?.isAllNetworks ? network?.logoURI : undefined
+          }
         />
       </Stack>
     </Stack>
@@ -309,7 +313,6 @@ function TxActionCommonListView(
         </XStack>
         {/* changes */}
         <Stack
-          flex={1}
           maxWidth="50%"
           alignItems="flex-end"
           {...(tableLayout && {

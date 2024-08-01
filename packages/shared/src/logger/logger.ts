@@ -3,6 +3,7 @@ import { AddressInputScope } from './scopes/addressInput';
 import { AppScope } from './scopes/app';
 import { DemoScope } from './scopes/demo';
 import { DiscoveryScope } from './scopes/discovery';
+import { HardwareScope } from './scopes/hardware';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
 import { StakingScope } from './scopes/staking';
@@ -35,6 +36,8 @@ class Logger {
   staking = new StakingScope();
 
   transaction = new TransactionScope();
+
+  hardware = new HardwareScope();
 }
 
 export const defaultLogger = new Logger();

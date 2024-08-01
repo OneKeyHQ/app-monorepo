@@ -603,7 +603,7 @@ export default class VaultBtc extends VaultBase {
       ({ txid, vout, value, address, path }) => ({
         txId: txid,
         vout,
-        value: parseInt(value),
+        value: parseInt(value, 10),
         address,
         path,
       }),
@@ -616,6 +616,7 @@ export default class VaultBtc extends VaultBase {
         address: to,
         value: parseInt(
           new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
+          10,
         ),
       }));
     } else {
@@ -638,6 +639,7 @@ export default class VaultBtc extends VaultBase {
 
       const value = parseInt(
         new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
+        10,
       );
 
       outputsForCoinSelect = [
@@ -715,7 +717,7 @@ export default class VaultBtc extends VaultBase {
         selectedInputs ?? [],
         outputs.map((o) => ({
           address: o.address,
-          value: parseInt(o.value),
+          value: parseInt(o.value, 10),
         })) ?? [],
       );
     }

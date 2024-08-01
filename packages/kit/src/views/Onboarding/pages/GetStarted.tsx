@@ -190,19 +190,6 @@ export function GetStarted({
     <Page safeAreaEnabled>
       <Page.Header headerShown={false} />
       <Page.Body>
-        {showCloseButton ? (
-          <Page.Close>
-            <IconButton
-              icon="CrossedLargeOutline"
-              position="absolute"
-              variant="tertiary"
-              left="$5"
-              top="$5"
-              p="$4"
-              zIndex={1}
-            />
-          </Page.Close>
-        ) : null}
         <Stack flex={1}>
           <ThemeableStack
             fullscreen
@@ -352,6 +339,17 @@ export function GetStarted({
             },
           )}
         </SizableText>
+        {showCloseButton ? (
+          <View position="absolute" left="$5" top="$5">
+            <Page.Close>
+              <IconButton
+                icon="CrossedLargeOutline"
+                variant="tertiary"
+                p="$4"
+              />
+            </Page.Close>
+          </View>
+        ) : null}
       </Page.Body>
     </Page>
   );
@@ -370,6 +368,10 @@ export const useToOnBoardingPage = () => {
         isFullModal?: boolean;
         params?: IOnboardingParamList[EOnboardingPages.GetStarted];
       } = {}) => {
+        // dapp mode onboarding is conflict with url account landing page
+        if (platformEnv.isWebDappMode) {
+          return;
+        }
         if (platformEnv.isExtensionUiPopup) {
           await backgroundApiProxy.serviceApp.openExtensionExpandTab({
             routes: [

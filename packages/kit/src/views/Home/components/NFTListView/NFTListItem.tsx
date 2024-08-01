@@ -41,8 +41,7 @@ function BasicNFTListItem(props: IProps) {
         outlineStyle: 'solid',
         outlineOffset: -2,
       }}
-      py="$2.5"
-      px="$5"
+      p="$2.5"
       borderRadius="$4"
       onPress={() => {
         onPress?.(nft);
@@ -104,15 +103,26 @@ function BasicNFTListItem(props: IProps) {
       </Stack>
       <Stack mt="$2">
         <XStack alignItems="center" justifyContent="space-between">
-          <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
-            {nft.metadata?.name ?? '-'}
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            minWidth={0}
+            flex={1}
+            numberOfLines={1}
+            pr="$2"
+          >
+            {nft.collectionName || '-'}
           </SizableText>
           {isAllNetworks ? (
-            <Token width="$4" height="$4" tokenImageUri={network?.logoURI} />
+            <Token
+              width="$3.5"
+              height="$3.5"
+              tokenImageUri={network?.logoURI}
+            />
           ) : null}
         </XStack>
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-          {nft.collectionName}
+        <SizableText size="$bodyLgMedium" numberOfLines={1}>
+          {nft.metadata?.name || '-'}
         </SizableText>
       </Stack>
     </Stack>

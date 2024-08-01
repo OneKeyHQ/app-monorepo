@@ -157,7 +157,7 @@ function SkeletonHeaderOverItemItem() {
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
-  const { coinGeckoId, symbol } = route.params;
+  const { token: coinGeckoId } = route.params;
   const { gtMd } = useMedia();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -188,12 +188,10 @@ function MarketDetail({
     () => (
       <XStack space="$2">
         <MarketTokenIcon uri={tokenDetail?.image || ''} size="$6" />
-        <SizableText>
-          {(tokenDetail?.symbol || symbol)?.toUpperCase()}
-        </SizableText>
+        <SizableText>{tokenDetail?.symbol?.toUpperCase()}</SizableText>
       </XStack>
     ),
-    [symbol, tokenDetail?.image, tokenDetail?.symbol],
+    [tokenDetail?.image, tokenDetail?.symbol],
   );
   const { shareText } = useShare();
 
@@ -209,7 +207,7 @@ function MarketDetail({
   );
 
   const buildFullUrl = useCallback(
-    () => buildMarketFullUrl({ coinGeckoId }),
+    async () => buildMarketFullUrl({ coinGeckoId }),
     [coinGeckoId],
   );
 

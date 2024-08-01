@@ -13,29 +13,30 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { ChainSelectorPageView } from '../components/PageView';
+import { EditableChainSelector } from '../components/EditableChainSelector';
 
 const defaultChainSelectorNetworks: {
-  networks: IServerNetwork[];
-  unavailableNetworks: IServerNetwork[];
-  frequentlyUsedNetworks: IServerNetwork[];
+  mainnetItems: IServerNetwork[];
+  testnetItems: IServerNetwork[];
+  unavailableItems: IServerNetwork[];
+  frequentlyUsedItems: IServerNetwork[];
+  allNetworkItem?: IServerNetwork;
 } = {
-  networks: [],
-  unavailableNetworks: [],
-  frequentlyUsedNetworks: [],
+  mainnetItems: [],
+  testnetItems: [],
+  unavailableItems: [],
+  frequentlyUsedItems: [],
 };
 
 function ChainSelector({
   num,
   networkIds,
-  editable,
 }: {
   num: number;
   networkIds?: string[];
-  editable?: boolean;
 }) {
   const {
-    activeAccount: { network, account },
+    activeAccount: { network, dbAccount },
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
@@ -43,9 +44,9 @@ function ChainSelector({
     usePromiseResult(
       async () =>
         backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          { accountId: account?.id, networkIds, includeAllNetwork: true },
+          { accountId: dbAccount?.id, networkIds, includeAllNetwork: true },
         ),
-      [account?.id, networkIds],
+      [dbAccount?.id, networkIds],
       { initResult: defaultChainSelectorNetworks },
     );
 
@@ -58,14 +59,15 @@ function ChainSelector({
   };
 
   return (
-    <ChainSelectorPageView
-      editable={editable}
+    <EditableChainSelector
       networkId={network?.id}
-      networks={chainSelectorNetworks.networks}
-      unavailableNetworks={chainSelectorNetworks.unavailableNetworks}
-      defaultTopNetworks={chainSelectorNetworks.frequentlyUsedNetworks}
+      mainnetItems={chainSelectorNetworks.mainnetItems}
+      testnetItems={chainSelectorNetworks.testnetItems}
+      unavailableItems={chainSelectorNetworks.unavailableItems}
+      frequentlyUsedItems={chainSelectorNetworks.frequentlyUsedItems}
+      allNetworkItem={chainSelectorNetworks.allNetworkItem}
       onPressItem={handleListItemPress}
-      onTopNetworksChange={async (items) => {
+      onFrequentlyUsedItemsChange={async (items) => {
         await backgroundApiProxy.serviceNetwork.setNetworkSelectorPinnedNetworks(
           {
             networks: items,
@@ -83,7 +85,7 @@ export default function ChainSelectorPage({
   IChainSelectorParamList,
   EChainSelectorPages.AccountChainSelector
 >) {
-  const { num, sceneName, sceneUrl, networkIds, editable } = route.params;
+  const { num, sceneName, sceneUrl, networkIds } = route.params;
   return (
     <AccountSelectorProviderMirror
       enabledNum={[num]}
@@ -92,7 +94,7 @@ export default function ChainSelectorPage({
         sceneUrl,
       }}
     >
-      <ChainSelector num={num} editable={editable} networkIds={networkIds} />
+      <ChainSelector num={num} networkIds={networkIds} />
     </AccountSelectorProviderMirror>
   );
 }

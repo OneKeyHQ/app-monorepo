@@ -1,7 +1,14 @@
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { IconButton, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  IconButton,
+  SizableText,
+  Stack,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import {
   SEARCH_DEBOUNCE_INTERVAL,
   SEARCH_KEY_MIN_LENGTH,
@@ -29,6 +36,7 @@ function TokenListHeader({
   manageTokenEnabled,
 }: IProps) {
   const intl = useIntl();
+  const media = useMedia();
   const { updateSearchKey } = useTokenListActions().current;
   const [searchKey] = useSearchKeyAtom();
 
@@ -47,11 +55,26 @@ function TokenListHeader({
         }}
         headerRight={
           manageTokenEnabled ? (
-            <IconButton
-              icon="SliderHorOutline"
-              onPress={onManageToken}
-              bg="$bgApp"
-            />
+            <>
+              {media.md ? (
+                <IconButton
+                  variant="tertiary"
+                  icon="SliderHorOutline"
+                  onPress={onManageToken}
+                />
+              ) : (
+                <Button
+                  icon="SliderHorOutline"
+                  size="small"
+                  variant="tertiary"
+                  onPress={onManageToken}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_manage,
+                  })}
+                </Button>
+              )}
+            </>
           ) : null
         }
       />

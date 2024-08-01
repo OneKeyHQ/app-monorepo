@@ -119,6 +119,7 @@ const settings: IVaultSettings = {
 
   dappInteractionEnabled: true,
   customRpcEnabled: true,
+  mergeDeriveAssetsEnabled: true,
 };
 
 export default Object.freeze(settings);

@@ -104,32 +104,38 @@ export function WalletActionMore() {
 
   const sections: ComponentProps<typeof RawActions.More>['sections'] = [];
 
-  if (!vaultSettings?.copyAddressDisabled) {
+  if (
+    !vaultSettings?.copyAddressDisabled ||
+    !vaultSettings?.hideBlockExplorer
+  ) {
     sections.unshift({
       items: [
-        {
-          label: intl.formatMessage({ id: ETranslations.global_copy_address }),
-          icon: 'Copy1Outline',
-          onPress: handleCopyAddress,
-        },
-      ],
-    });
-  }
-
-  if (!vaultSettings?.hideBlockExplorer) {
-    sections.unshift({
-      items: [
-        {
-          label: intl.formatMessage({
-            id: ETranslations.global_view_in_blockchain_explorer,
-          }),
-          icon: 'GlobusOutline',
-          onPress: () =>
-            openExplorerAddressUrl({
-              networkId: network?.id,
-              address: account?.address,
-            }),
-        },
+        ...(!vaultSettings?.hideBlockExplorer
+          ? [
+              {
+                label: intl.formatMessage({
+                  id: ETranslations.global_view_in_blockchain_explorer,
+                }),
+                icon: 'GlobusOutline',
+                onPress: () =>
+                  openExplorerAddressUrl({
+                    networkId: network?.id,
+                    address: account?.address,
+                  }),
+              },
+            ]
+          : ([] as any)),
+        ...(!vaultSettings?.copyAddressDisabled
+          ? [
+              {
+                label: intl.formatMessage({
+                  id: ETranslations.global_copy_address,
+                }),
+                icon: 'Copy3Outline',
+                onPress: handleCopyAddress,
+              },
+            ]
+          : ([] as any)),
       ],
     });
   }

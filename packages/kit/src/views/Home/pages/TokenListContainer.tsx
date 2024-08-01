@@ -30,6 +30,8 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   getEmptyTokenData,
+  mergeDeriveTokenList,
+  mergeDeriveTokenListMap,
   sortTokensByFiatValue,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
@@ -64,6 +66,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   const {
     activeAccount: {
       account,
+      allNetworkDbAccounts,
       network,
       wallet,
       indexedAccount,
@@ -249,9 +252,11 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     async ({
       accountId,
       networkId,
+      allNetworkDataInit,
     }: {
       accountId: string;
       networkId: string;
+      allNetworkDataInit?: boolean;
     }) => {
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         networkId,
@@ -262,6 +267,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       });
 
       if (
+        !allNetworkDataInit &&
         !refreshAllNetworksTokenList.current &&
         r.networkId === networkIdsMap.onekeyall
       ) {
@@ -270,6 +276,12 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           .plus(r.tokens.fiatValue ?? '0')
           .plus(r.riskTokens.fiatValue ?? '0')
           .plus(r.smallBalanceTokens.fiatValue ?? '0');
+
+        const mergeDeriveAssetsEnabled = !!(
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          })
+        ).mergeDeriveAssetsEnabled;
 
         updateAccountOverviewState({
           isRefreshing: false,
@@ -281,38 +293,43 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           merge: true,
         });
 
+        refreshTokenListMap({
+          tokens: r.tokens.map,
+          merge: true,
+          mergeDerive: mergeDeriveAssetsEnabled,
+        });
         refreshTokenList({
           keys: r.tokens.keys,
           tokens: r.tokens.data,
           merge: true,
           map: r.tokens.map,
-        });
-        refreshTokenListMap({
-          tokens: r.tokens.map,
-          merge: true,
+          mergeDerive: mergeDeriveAssetsEnabled,
         });
 
+        refreshSmallBalanceTokenListMap({
+          tokens: r.smallBalanceTokens.map,
+          merge: true,
+          mergeDerive: mergeDeriveAssetsEnabled,
+        });
         refreshSmallBalanceTokenList({
           keys: r.smallBalanceTokens.keys,
           smallBalanceTokens: r.smallBalanceTokens.data,
           merge: true,
           map: r.smallBalanceTokens.map,
-        });
-        refreshSmallBalanceTokenListMap({
-          tokens: r.smallBalanceTokens.map,
-          merge: true,
-        });
-
-        refreshRiskyTokenList({
-          keys: r.riskTokens.keys,
-          riskyTokens: r.riskTokens.data,
-          merge: true,
-          map: r.riskTokens.map,
+          mergeDerive: mergeDeriveAssetsEnabled,
         });
 
         refreshRiskyTokenListMap({
           tokens: r.riskTokens.map,
           merge: true,
+          mergeDerive: mergeDeriveAssetsEnabled,
+        });
+        refreshRiskyTokenList({
+          keys: r.riskTokens.keys,
+          riskyTokens: r.riskTokens.data,
+          merge: true,
+          map: r.riskTokens.map,
+          mergeDerive: mergeDeriveAssetsEnabled,
         });
 
         updateTokenListState({
@@ -321,16 +338,19 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         });
 
         if (r.allTokens) {
+          refreshAllTokenListMap({
+            tokens: r.allTokens.map,
+            merge: true,
+            mergeDerive: mergeDeriveAssetsEnabled,
+          });
           refreshAllTokenList({
             keys: r.allTokens.keys,
             tokens: r.allTokens.data,
             map: r.allTokens.map,
             merge: true,
+            mergeDerive: mergeDeriveAssetsEnabled,
           });
-          refreshAllTokenListMap({
-            tokens: r.allTokens.map,
-            merge: true,
-          });
+
           appEventBus.emit(EAppEventBusNames.TokenListUpdate, {
             tokens: r.allTokens.data,
             keys: r.allTokens.keys,
@@ -430,7 +450,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       shouldAlwaysFetch,
     });
 
-  useEffect(() => {
+  const updateAllNetworksTokenList = useCallback(async () => {
     const tokenList: {
       tokens: IAccountToken[];
       keys: string;
@@ -455,37 +475,71 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       keys: '',
     };
 
-    const tokenListMap: {
+    let tokenListMap: {
       [key: string]: ITokenFiat;
     } = {};
 
-    const smallBalanceTokenListMap: {
+    let smallBalanceTokenListMap: {
       [key: string]: ITokenFiat;
     } = {};
 
-    const riskyTokenListMap: {
+    let riskyTokenListMap: {
       [key: string]: ITokenFiat;
     } = {};
     let accountWorth = new BigNumber(0);
 
     if (refreshAllNetworksTokenList.current && allNetworksResult) {
       for (const r of allNetworksResult) {
-        tokenList.tokens = tokenList.tokens.concat(r.tokens.data);
-        tokenList.keys = `${tokenList.keys}_${r.tokens.keys}`;
-        Object.assign(tokenListMap, r.tokens.map);
+        const mergeDeriveAssetsEnabled = (
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId: r.networkId ?? '',
+          })
+        ).mergeDeriveAssetsEnabled;
 
-        smallBalanceTokenList.smallBalanceTokens =
-          smallBalanceTokenList.smallBalanceTokens.concat(
-            r.smallBalanceTokens.data,
-          );
+        tokenList.tokens = mergeDeriveTokenList({
+          sourceTokens: r.tokens.data,
+          targetTokens: tokenList.tokens,
+          mergeDeriveAssets: mergeDeriveAssetsEnabled,
+        });
+
+        tokenList.keys = `${tokenList.keys}_${r.tokens.keys}`;
+
+        tokenListMap = mergeDeriveTokenListMap({
+          sourceMap: r.tokens.map,
+          targetMap: tokenListMap,
+          mergeDeriveAssets: mergeDeriveAssetsEnabled,
+        });
+
+        smallBalanceTokenList.smallBalanceTokens = mergeDeriveTokenList({
+          sourceTokens: r.smallBalanceTokens.data,
+          targetTokens: smallBalanceTokenList.smallBalanceTokens,
+          mergeDeriveAssets: mergeDeriveAssetsEnabled,
+        });
+
         smallBalanceTokenList.keys = `${smallBalanceTokenList.keys}_${r.smallBalanceTokens.keys}`;
-        Object.assign(smallBalanceTokenListMap, r.smallBalanceTokens.map);
+
+        smallBalanceTokenListMap = mergeDeriveTokenListMap({
+          sourceMap: r.smallBalanceTokens.map,
+          targetMap: smallBalanceTokenListMap,
+          mergeDeriveAssets: mergeDeriveAssetsEnabled,
+        });
+
+        riskyTokenList.riskyTokens = mergeDeriveTokenList({
+          sourceTokens: r.riskTokens.data,
+          targetTokens: riskyTokenList.riskyTokens,
+          mergeDeriveAssets: mergeDeriveAssetsEnabled,
+        });
 
         riskyTokenList.riskyTokens = riskyTokenList.riskyTokens.concat(
           r.riskTokens.data,
         );
         riskyTokenList.keys = `${riskyTokenList.keys}_${r.riskTokens.keys}`;
-        Object.assign(riskyTokenListMap, r.riskTokens.map);
+
+        riskyTokenListMap = mergeDeriveTokenListMap({
+          sourceMap: r.riskTokens.map,
+          targetMap: riskyTokenListMap,
+          mergeDeriveAssets: mergeDeriveAssetsEnabled,
+        });
 
         accountWorth = accountWorth
           .plus(r.tokens.fiatValue ?? '0')
@@ -527,8 +581,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     }
   }, [
     allNetworksResult,
-    refreshAllTokenList,
-    refreshAllTokenListMap,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
@@ -537,6 +589,10 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     refreshTokenListMap,
     updateAccountWorth,
   ]);
+
+  useEffect(() => {
+    void updateAllNetworksTokenList();
+  }, [updateAllNetworksTokenList]);
 
   useEffect(() => {
     if (isHeaderRefreshing) {

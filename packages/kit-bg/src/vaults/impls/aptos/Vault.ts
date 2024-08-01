@@ -18,6 +18,7 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -39,8 +40,10 @@ import {
   APTOS_NATIVE_TRANSFER_FUNC,
   APTOS_TRANSFER_FUNC,
   buildSignedTx,
+  generateRegisterToken,
   generateTransferCoin,
   generateUnsignedTransaction,
+  getAccountCoinResource,
   getExpirationTimestampSecs,
   getTransactionTypeByPayload,
 } from './utils';
@@ -501,5 +504,31 @@ export default class VaultAptos extends VaultBase {
         rawSignTx,
       } as unknown as IEncodedTx,
     };
+  }
+
+  override async activateToken(params: {
+    token: IAccountToken;
+  }): Promise<boolean> {
+    const { token } = params;
+    const account = await this.getAccount();
+    const coin = await getAccountCoinResource(
+      this.client,
+      account.address,
+      token.address,
+    );
+    if (coin) {
+      return true;
+    }
+    const unsignedTx = await this.buildUnsignedTx({
+      encodedTx: generateRegisterToken(token.address),
+    });
+    const signedTx =
+      await this.backgroundApi.serviceSend.signAndSendTransaction({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        unsignedTx,
+        signOnly: false,
+      });
+    return !!signedTx.txid;
   }
 }
