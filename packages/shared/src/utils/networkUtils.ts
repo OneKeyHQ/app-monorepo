@@ -6,6 +6,7 @@ import { getNetworkIdsMap } from '../config/networkIds';
 import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
+  IMPL_EVM,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   SEPERATOR,
@@ -36,6 +37,10 @@ function getNetworkImpl({ networkId }: { networkId: string }): string {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { impl, chainId } = parseNetworkId({ networkId });
   return impl;
+}
+
+function isEvmNetwork({ networkId }: { networkId: string | undefined }) {
+  return Boolean(networkId && getNetworkImpl({ networkId }) === IMPL_EVM);
 }
 
 function isLightningNetwork(coinType: string) {
@@ -102,6 +107,7 @@ function getDefaultDeriveTypeVisibleNetworks() {
 export default {
   getNetworkChainId,
   getNetworkImpl,
+  isEvmNetwork,
   parseNetworkId,
   isLightningNetwork,
   isLightningNetworkByImpl,

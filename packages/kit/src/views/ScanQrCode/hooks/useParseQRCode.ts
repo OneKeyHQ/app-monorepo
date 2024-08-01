@@ -68,7 +68,7 @@ const useParseQRCode = () => {
       switch (result.type) {
         case EQRCodeHandlerType.URL_ACCOUNT: {
           const urlAccountData = result.data as IUrlAccountValue;
-          urlAccountNavigation.pushUrlAccountPage(navigation, {
+          void urlAccountNavigation.pushUrlAccountPage(navigation, {
             networkId: urlAccountData.networkId,
             address: urlAccountData.address,
           });

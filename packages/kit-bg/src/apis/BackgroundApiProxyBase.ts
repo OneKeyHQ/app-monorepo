@@ -183,7 +183,9 @@ export class BackgroundApiProxyBase
       try {
         await this.callBackgroundMethod(true, method, ...params);
       } catch (error) {
-        errorUtils.showToastOfError(error as any);
+        setTimeout(() => {
+          errorUtils.showToastOfError(error as any);
+        }, 50);
         throw error;
       }
     })();
@@ -193,7 +195,9 @@ export class BackgroundApiProxyBase
     try {
       return await this.callBackgroundMethod(false, method, ...params);
     } catch (error) {
-      errorUtils.showToastOfError(error as any);
+      setTimeout(() => {
+        errorUtils.showToastOfError(error as any);
+      }, 50);
       throw error;
     }
   }
