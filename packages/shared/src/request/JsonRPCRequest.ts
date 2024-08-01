@@ -1,9 +1,13 @@
-import fetch from 'cross-fetch';
+import axios from 'axios';
 import timeoutSignal from 'timeout-signal';
 
 import type { IJsonRpcResponsePro } from '@onekeyhq/shared/types/request';
 
-import { JsonPRCResponseError, ResponseError } from '../errors';
+import {
+  AxiosResponseError,
+  JsonPRCResponseError,
+  ResponseError,
+} from '../errors';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -73,19 +77,24 @@ class JsonRPCRequest {
     timeout?: number,
   ): Promise<T> {
     const signal = timeoutSignal(timeout || this.timeout) as any;
-    const response = await fetch(this.url, {
-      headers: this.assembleHeaders(headers),
-      method: 'POST',
-      body: JSON.stringify(normalizePayload(method, params)),
-      signal,
-    });
-
-    if (!response.ok) {
-      throw new ResponseError(`Wrong response<${response.status}>`, response);
+    try {
+      const response = await axios({
+        url: this.url,
+        method: 'POST',
+        headers: this.assembleHeaders(headers),
+        data: JSON.stringify(normalizePayload(method, params)),
+        signal,
+      });
+      return await JsonRPCRequest.parseRPCResponse(response.data);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new AxiosResponseError(
+          `Wrong response<${error.response?.status ?? ''}>`,
+          error.response,
+        );
+      }
+      throw error;
     }
-
-    const jsonResponse: any = await response.json();
-    return JsonRPCRequest.parseRPCResponse(jsonResponse);
   }
 
   async batchCall<T>(
@@ -103,28 +112,36 @@ class JsonRPCRequest {
       const payload = calls.map(([method, params], index) =>
         normalizePayload(method, params, index),
       );
-      const response = await fetch(this.url, {
-        headers: this.assembleHeaders(headers),
-        method: 'POST',
-        body: JSON.stringify(payload),
-        signal: timeoutSignal(timeout || this.timeout) as any,
-      });
-      if (!response.ok) {
-        throw new ResponseError(`Wrong response<${response.status}>`, response);
-      }
+      try {
+        const response = await axios({
+          url: this.url,
+          method: 'POST',
+          headers: this.assembleHeaders(headers),
+          data: JSON.stringify(payload),
+          signal: timeoutSignal(timeout || this.timeout) as any,
+        });
 
-      jsonResponses = await response.json();
+        jsonResponses = response.data;
 
-      if (!Array.isArray(jsonResponses)) {
-        throw new ResponseError(
-          'Invalid JSON Batch RPC response, response should be an array',
-          response,
-        );
-      } else if (calls.length !== jsonResponses.length) {
-        throw new ResponseError(
-          `Invalid JSON Batch RPC response, batch with ${calls.length} calls, but got ${jsonResponses.length} responses`,
-          response,
-        );
+        if (!Array.isArray(jsonResponses)) {
+          throw new AxiosResponseError(
+            'Invalid JSON Batch RPC response, response should be an array',
+            response,
+          );
+        } else if (calls.length !== jsonResponses.length) {
+          throw new AxiosResponseError(
+            `Invalid JSON Batch RPC response, batch with ${calls.length} calls, but got ${jsonResponses.length} responses`,
+            response,
+          );
+        }
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          throw new AxiosResponseError(
+            `Wrong response<${error.response?.status ?? ''}>`,
+            error.response,
+          );
+        }
+        throw error;
       }
     } else {
       jsonResponses = await Promise.all(
