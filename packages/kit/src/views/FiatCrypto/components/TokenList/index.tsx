@@ -144,7 +144,6 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
       </Stack>
       <Stack flex={1}>
         <ListView
-          pb="$2"
           estimatedItemSize={60}
           data={data}
           renderItem={({ item }) => (
