@@ -48,6 +48,10 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
     const listView = getListView();
     scrollView?.addEventListener('scroll', onScroll);
     listView?.addEventListener('scroll', onListViewScroll);
+    return () => {
+      scrollView?.removeEventListener('scroll', onScroll);
+      listView?.removeEventListener('scroll', onListViewScroll);
+    };
   }, [getListView, scrollView]);
 
   const listViewProps = useMemo(
