@@ -1,6 +1,6 @@
 {
   "Toast_web_auth": "Pengaturan gagal",
-  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
+  "Token_manage.custom_token_address_faild": "Gagal menemukan alamat kontrak. Coba lagi. ",
   "account_model.watched": "Ditonton",
   "action_save": "Simpan",
   "address.verify_address_instruction": "Verifikasi pada perangkat untuk mencegah serangan penggantian alamat",
@@ -796,6 +796,7 @@
   "global.scan_to_connect": "Pindai untuk terhubung",
   "global.search": "Cari",
   "global.search_address": "Cari alamat",
+  "global.search_asset": "Cari aset",
   "global.search_no_results_desc": "Coba ubah kata kunci pencarian",
   "global.search_no_results_title": "Tidak ada hasil",
   "global.search_tokens": "Cari token",
@@ -1297,6 +1298,7 @@
   "settings.import_recovery_phrase_from_onekey_keytag": "Impor frase pemulihan dari OneKey KeyTag Anda",
   "settings.import_recovery_phrase_from_onekey_lite": "Impor frase pemulihan dari OneKey Lite Anda",
   "settings.lock_now": "Kunci sekarang",
+  "settings.logs_do_not_include_sensitive_data": "Log tidak menyertakan data sensitif seperti frasa pemulihan atau kunci pribadi. Mereka hanya berisi data lokal, laporan kerusakan, dan alamat dompet publik.",
   "settings.migration": "Migrasi",
   "settings.nfc_not_supported": "Perangkat Anda saat ini tidak mendukung NFC, gantilah dengan perangkat yang mendukung NFC dan coba lagi.",
   "settings.no_connected_sites": "Tidak ada situs yang terhubung",

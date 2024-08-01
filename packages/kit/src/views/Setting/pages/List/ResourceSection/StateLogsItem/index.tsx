@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, SizableText, useClipboard } from '@onekeyhq/components';
+import { Dialog, SizableText, Stack, useClipboard } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -13,11 +13,18 @@ export const StateLogsItem = () => {
   const { copyText } = useClipboard();
   const onPress = useCallback(() => {
     Dialog.show({
+      icon: 'FileDownloadOutline',
       title: intl.formatMessage({
         id: ETranslations.settings_export_state_logs,
       }),
       renderContent: (
-        <SizableText>
+        <Stack>
+          <SizableText size="$bodyLg">
+            {intl.formatMessage({
+              id: ETranslations.settings_logs_do_not_include_sensitive_data,
+            })}
+            <Stack h="$5" />
+          </SizableText>
           <SizableText size="$bodyLg">
             {intl.formatMessage(
               {
@@ -36,7 +43,7 @@ export const StateLogsItem = () => {
               },
             )}
           </SizableText>
-        </SizableText>
+        </Stack>
       ),
       confirmButtonProps: {
         variant: 'primary',
