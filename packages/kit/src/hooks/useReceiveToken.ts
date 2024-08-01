@@ -17,6 +17,8 @@ import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { useAccountData } from './useAccountData';
+import { useIntl } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function useReceiveToken({
   accountId,
@@ -39,6 +41,7 @@ function useReceiveToken({
     initialized: boolean;
   };
 }) {
+  const intl = useIntl();
   const { vaultSettings, account, network } = useAccountData({
     networkId,
     accountId,
@@ -77,6 +80,7 @@ function useReceiveToken({
         navigation.pushModal(EModalRoutes.ReceiveModal, {
           screen: EModalReceiveRoutes.ReceiveSelectToken,
           params: {
+            title: intl.formatMessage({ id: ETranslations.global_receive }),
             networkId,
             accountId,
             tokens,
@@ -145,6 +149,7 @@ function useReceiveToken({
       accountId,
       deriveInfo,
       deriveType,
+      intl,
       navigation,
       network?.isAllNetworks,
       networkId,

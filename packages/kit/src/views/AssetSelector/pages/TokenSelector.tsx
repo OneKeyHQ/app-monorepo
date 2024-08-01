@@ -13,6 +13,7 @@ import {
   useTokenListActions,
   withTokenListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -30,7 +31,6 @@ import { useAccountData } from '../../../hooks/useAccountData';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
-import { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
 function TokenSelector() {
   const intl = useIntl();
@@ -52,6 +52,7 @@ function TokenSelector() {
   const navigation = useAppNavigation();
 
   const {
+    title,
     networkId,
     accountId,
     tokens,
@@ -60,6 +61,7 @@ function TokenSelector() {
     tokenListState,
     searchAll,
     isAllNetworks,
+    searchPlaceholder,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -250,9 +252,11 @@ function TokenSelector() {
 
   const headerSearchBarOptions = useMemo(
     () => ({
-      placeholder: intl.formatMessage({
-        id: ETranslations.send_token_selector_search_placeholder,
-      }),
+      placeholder:
+        searchPlaceholder ??
+        intl.formatMessage({
+          id: ETranslations.send_token_selector_search_placeholder,
+        }),
       onChangeText: ({
         nativeEvent,
       }: {
@@ -261,7 +265,7 @@ function TokenSelector() {
         debounceUpdateSearchKey(nativeEvent.text);
       },
     }),
-    [debounceUpdateSearchKey, intl],
+    [debounceUpdateSearchKey, intl, searchPlaceholder],
   );
 
   const searchTokensBySearchKey = useCallback(
@@ -302,9 +306,12 @@ function TokenSelector() {
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.global_select_crypto,
-        })}
+        title={
+          title ??
+          intl.formatMessage({
+            id: ETranslations.global_select_crypto,
+          })
+        }
         headerSearchBarOptions={headerSearchBarOptions}
       />
       <Page.Body>

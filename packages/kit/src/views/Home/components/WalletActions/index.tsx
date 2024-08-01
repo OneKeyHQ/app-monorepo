@@ -29,6 +29,8 @@ import { RawActions } from './RawActions';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionReceive } from './WalletActionReceive';
+import { useIntl } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function WalletActionSend() {
   const navigation =
@@ -36,6 +38,7 @@ function WalletActionSend() {
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
+  const intl = useIntl();
 
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
@@ -71,6 +74,10 @@ function WalletActionSend() {
     navigation.pushModal(EModalRoutes.SendModal, {
       screen: EModalSendRoutes.SendSelectToken,
       params: {
+        title: intl.formatMessage({ id: ETranslations.global_send }),
+        searchPlaceholder: intl.formatMessage({
+          id: ETranslations.global_search_asset,
+        }),
         networkId: network.id,
         accountId: account.id,
         tokens: {
@@ -132,6 +139,7 @@ function WalletActionSend() {
     network,
     vaultSettings?.isSingleToken,
     navigation,
+    intl,
     allTokens.tokens,
     allTokens.keys,
     map,
