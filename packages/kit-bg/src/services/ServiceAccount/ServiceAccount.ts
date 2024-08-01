@@ -2073,12 +2073,16 @@ class ServiceAccount extends ServiceBase {
         const accountDeriveType =
           await serviceNetwork.getGlobalDeriveTypeOfNetwork({ networkId });
         if (dbAccount) {
-          account = await this.getNetworkAccount({
-            accountId: undefined,
-            networkId,
-            deriveType: accountDeriveType,
-            indexedAccountId: dbAccount.indexedAccountId,
-          });
+          try {
+            account = await this.getNetworkAccount({
+              accountId: undefined,
+              networkId,
+              deriveType: accountDeriveType,
+              indexedAccountId: dbAccount.indexedAccountId,
+            });
+          } catch {
+            console.log('failed to get Network account');
+          }
         }
         return { network, accountDeriveType, account };
       }),
@@ -2126,6 +2130,38 @@ class ServiceAccount extends ServiceBase {
       }),
     );
     return { networkAccounts, network };
+  }
+
+  @backgroundMethod()
+  async getOrCreateIndexedAccount({
+    networkId,
+    indexedAccountId,
+    deriveType,
+  }: {
+    networkId: string;
+    indexedAccountId: string;
+    deriveType: IAccountDeriveTypes;
+  }): Promise<IDBAccount | undefined> {
+    try {
+      const dbAccount = await this.getNetworkAccount({
+        accountId: undefined,
+        indexedAccountId,
+        networkId,
+        deriveType,
+      });
+      return dbAccount;
+    } catch {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: indexedAccountId,
+      });
+      const resp = await this.addHDOrHWAccounts({
+        walletId,
+        indexedAccountId,
+        deriveType,
+        networkId,
+      });
+      return resp?.accounts[0];
+    }
   }
 }
 
