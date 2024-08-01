@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
@@ -11,6 +13,7 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IModalSendParamList,
   IModalSwapParamList,
@@ -29,8 +32,6 @@ import { RawActions } from './RawActions';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionReceive } from './WalletActionReceive';
-import { useIntl } from 'react-intl';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function WalletActionSend() {
   const navigation =

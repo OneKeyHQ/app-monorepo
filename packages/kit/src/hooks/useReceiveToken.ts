@@ -1,11 +1,14 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -17,8 +20,6 @@ import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { useAccountData } from './useAccountData';
-import { useIntl } from 'react-intl';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function useReceiveToken({
   accountId,

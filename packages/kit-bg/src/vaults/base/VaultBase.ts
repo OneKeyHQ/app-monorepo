@@ -14,8 +14,6 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import type { MessageDescriptor } from 'react-intl';
-
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -78,7 +76,7 @@ import {
 
 import { VaultContext } from './VaultContext';
 
-import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { KeyringBase } from './KeyringBase';
 import type {
   IDBAccount,
   IDBExternalAccount,
@@ -100,7 +98,8 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../types';
-import type { KeyringBase } from './KeyringBase';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { MessageDescriptor } from 'react-intl';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
