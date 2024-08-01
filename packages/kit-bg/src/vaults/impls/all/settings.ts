@@ -27,6 +27,7 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: false,
   publicKeyExportEnabled: false,
   addressBookDisabled: true,
+  hideBlockExplorer: true,
 
   defaultFeePresetIndex: 0,
 
