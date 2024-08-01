@@ -87,6 +87,7 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+  qrAccountEnabled: true,
 
   publicKeyExportEnabled: true,
 
