@@ -1,6 +1,6 @@
 {
   "Toast_web_auth": "Impostazione fallita",
-  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
+  "Token_manage.custom_token_address_faild": "Impossibile trovare l'indirizzo del contratto. Prova di nuovo. ",
   "account_model.watched": "Visto",
   "action_save": "Salva",
   "address.verify_address_instruction": "Verifica sul dispositivo per prevenire attacchi di sostituzione dell'indirizzo",
@@ -796,6 +796,7 @@
   "global.scan_to_connect": "Scansiona per connetterti",
   "global.search": "Cerca",
   "global.search_address": "Cerca indirizzo",
+  "global.search_asset": "Cerca asset",
   "global.search_no_results_desc": "Prova a cambiare la parola chiave di ricerca",
   "global.search_no_results_title": "Nessun risultato",
   "global.search_tokens": "Cerca token",
@@ -1297,6 +1298,7 @@
   "settings.import_recovery_phrase_from_onekey_keytag": "Importa la frase di recupero dal tuo OneKey KeyTag",
   "settings.import_recovery_phrase_from_onekey_lite": "Importa la frase di recupero dal tuo OneKey Lite",
   "settings.lock_now": "Blocca ora",
+  "settings.logs_do_not_include_sensitive_data": "I log non includono dati sensibili come frasi di ripristino o chiavi private. Contengono solo dati locali, rapporti sugli arresti anomali e indirizzi di portafogli pubblici.",
   "settings.migration": "Migrazione",
   "settings.nfc_not_supported": "Il tuo dispositivo attuale non supporta NFC, sostituiscilo con un dispositivo abilitato NFC e riprova.",
   "settings.no_connected_sites": "Nessun sito collegato",
