@@ -108,6 +108,7 @@ export default class Vault extends VaultBase {
       await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts(params);
     return {
       allNetworkAccounts: accountsInfo.map((acc) => ({
+        accountId: acc.accountId,
         networkId: acc.networkId,
         accountAddress: acc.apiAddress,
       })),

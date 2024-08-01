@@ -33,6 +33,7 @@ import type {
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { AccountAvatar } from '../AccountAvatar';
 
@@ -262,18 +263,6 @@ export type IListItemProps = PropsWithChildren<{
   onPress?: () => void | Promise<void>;
   childrenBefore?: ComponentType | ReactNode;
 }>;
-
-export const listItemPressStyle = {
-  hoverStyle: { bg: '$bgHover' },
-  pressStyle: { bg: '$bgActive' },
-  focusable: true,
-  focusStyle: {
-    outlineWidth: 2,
-    outlineStyle: 'solid',
-    outlineColor: '$focusRing',
-    outlineOffset: -2,
-  },
-};
 
 const renderWithFallback = (
   Component: ComponentType,
