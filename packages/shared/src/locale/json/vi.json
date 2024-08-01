@@ -1,6 +1,6 @@
 {
   "Toast_web_auth": "Thiết lập thất bại",
-  "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",
+  "Token_manage.custom_token_address_faild": "Không tìm thấy địa chỉ hợp đồng. Hãy thử lại. ",
   "account_model.watched": "Đã xem",
   "action_save": "Lưu",
   "address.verify_address_instruction": "Xác minh trên thiết bị để ngăn chặn các cuộc tấn công thay thế địa chỉ",
@@ -796,6 +796,7 @@
   "global.scan_to_connect": "Quét để kết nối",
   "global.search": "Tìm kiếm",
   "global.search_address": "Tìm kiếm địa chỉ",
+  "global.search_asset": "Tìm kiếm tài sản",
   "global.search_no_results_desc": "Thử thay đổi từ khóa tìm kiếm",
   "global.search_no_results_title": "Không có kết quả",
   "global.search_tokens": "Tìm kiếm token",
@@ -1297,6 +1298,7 @@
   "settings.import_recovery_phrase_from_onekey_keytag": "Nhập cụm từ khôi phục từ OneKey KeyTag của bạn",
   "settings.import_recovery_phrase_from_onekey_lite": "Nhập cụm từ khôi phục từ OneKey Lite của bạn",
   "settings.lock_now": "Khóa ngay bây giờ",
+  "settings.logs_do_not_include_sensitive_data": "Nhật ký không bao gồm dữ liệu nhạy cảm như cụm từ khôi phục hoặc khóa riêng tư. Chúng chỉ chứa dữ liệu cục bộ, báo cáo sự cố và địa chỉ ví công khai.",
   "settings.migration": "di cư",
   "settings.nfc_not_supported": "Thiết bị hiện tại của bạn không hỗ trợ NFC, hãy thay thế nó bằng một thiết bị hỗ trợ NFC và thử lại.",
   "settings.no_connected_sites": "Không có trang web nào được kết nối",
