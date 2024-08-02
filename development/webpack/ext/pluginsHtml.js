@@ -5,6 +5,7 @@ const lodash = require('lodash');
 const indexHtmlParameter = require('../../../development/indexHtmlParameter');
 const developmentConsts = require('../../../development/developmentConsts');
 const devUtils = require('./devUtils');
+const { isDev } = require('../constant');
 
 const platform = developmentConsts.platforms.ext;
 const basePath = process.env.PWD;
@@ -16,6 +17,7 @@ function createHtmlPlugin({ name, chunks }) {
   const createParamsOptions = {
     filename,
     platform,
+    isDev,
     browser: devUtils.getBuildTargetBrowser(),
   };
   const htmlWebpackPlugin = new HtmlWebpackPlugin({
