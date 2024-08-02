@@ -15,9 +15,10 @@ import type { IDBAccount } from '../../dbs/local/types';
 import type { IAccountDeriveTypes } from '../../vaults/types';
 
 export type IAllNetworkAccountInfo = {
-  accountId: string;
   networkId: string;
+  accountId: string;
   apiAddress: string;
+  accountXpub: string | undefined;
   isNftEnabled: boolean;
   isBackendIndexed: boolean | undefined;
 };
@@ -26,7 +27,13 @@ export type IAllNetworkAccountsInfoResult = {
   accountsInfoBackendIndexed: IAllNetworkAccountInfo[];
   accountsInfoBackendNotIndexed: IAllNetworkAccountInfo[];
 };
-
+export type IAllNetworkAccountsParams = {
+  networkId: string; // all networkId or single networkId
+  deriveType?: IAccountDeriveTypes; // required for single network, all network should pass undefined
+  accountId: string;
+  nftEnabledOnly?: boolean;
+  includingNonExistingAccount?: boolean;
+};
 @backgroundClass()
 class ServiceAllNetwork extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -109,14 +116,20 @@ class ServiceAllNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllNetworkAccounts(params: {
-    networkId: string;
-    singleNetworkDeriveType?: IAccountDeriveTypes;
-    accountId: string;
-    nftEnabledOnly?: boolean;
-  }): Promise<IAllNetworkAccountsInfoResult> {
-    const { accountId, networkId, singleNetworkDeriveType } = params;
-    const account = await this.backgroundApi.serviceAccount.getAccount({
+  async getAllNetworkAccounts(
+    params: IAllNetworkAccountsParams,
+  ): Promise<IAllNetworkAccountsInfoResult> {
+    const {
+      accountId,
+      networkId,
+      deriveType: singleNetworkDeriveType,
+      includingNonExistingAccount,
+    } = params;
+
+    const isAllNetwork = networkUtils.isAllNetwork({ networkId });
+
+    // single network account or all network mocked account
+    const networkAccount = await this.backgroundApi.serviceAccount.getAccount({
       accountId,
       networkId,
     });
@@ -124,7 +137,7 @@ class ServiceAllNetwork extends ServiceBase {
     const dbAccounts = await this.getAllNetworkDbAccounts({
       networkId,
       singleNetworkDeriveType,
-      indexedAccountId: account.indexedAccountId,
+      indexedAccountId: networkAccount.indexedAccountId,
       othersWalletAccountId: accountId,
     });
 
@@ -142,35 +155,59 @@ class ServiceAllNetwork extends ServiceBase {
       allNetworks.map(async (n) => {
         const { backendIndex: isBackendIndexed } = n;
         const isNftEnabled = enableNFTNetworkIds.includes(n.id);
+
+        const appendAccountInfo = (accountInfo: IAllNetworkAccountInfo) => {
+          if (!params.nftEnabledOnly || isNftEnabled) {
+            accountsInfo.push(accountInfo);
+            if (isBackendIndexed) {
+              accountsInfoBackendIndexed.push(accountInfo);
+            } else {
+              accountsInfoBackendNotIndexed.push(accountInfo);
+            }
+          }
+        };
+
+        if (isAllNetwork && includingNonExistingAccount) {
+          appendAccountInfo({
+            networkId: n.id,
+            accountId: '',
+            apiAddress: '',
+            accountXpub: undefined,
+            isNftEnabled,
+            isBackendIndexed,
+          });
+        }
+
         await Promise.all(
           dbAccounts.map(async (a) => {
             const isCompatible = accountUtils.isAccountCompatibleWithNetwork({
               account: a,
               networkId: n.id,
             });
+            let apiAddress = '';
+            let accountXpub: string | undefined;
             if (isCompatible) {
-              const apiAddress =
+              apiAddress =
                 await this.backgroundApi.serviceAccount.getAccountAddressForApi(
                   {
                     accountId: a.id,
                     networkId: n.id,
                   },
                 );
+              accountXpub =
+                await this.backgroundApi.serviceAccount.getAccountXpub({
+                  accountId: a.id,
+                  networkId: n.id,
+                });
               const accountInfo: IAllNetworkAccountInfo = {
-                accountId: a.id,
                 networkId: n.id,
+                accountId: a.id,
                 apiAddress,
+                accountXpub,
                 isBackendIndexed,
                 isNftEnabled,
               };
-              if (!params.nftEnabledOnly || isNftEnabled) {
-                accountsInfo.push(accountInfo);
-                if (isBackendIndexed) {
-                  accountsInfoBackendIndexed.push(accountInfo);
-                } else {
-                  accountsInfoBackendNotIndexed.push(accountInfo);
-                }
-              }
+              appendAccountInfo(accountInfo);
             }
           }),
         );

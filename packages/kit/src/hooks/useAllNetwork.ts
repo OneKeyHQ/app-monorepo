@@ -85,7 +85,7 @@ function useAllNetworkRequests<T>(params: {
       } = await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
         accountId: account.id,
         networkId: network.id,
-        singleNetworkDeriveType: undefined,
+        deriveType: undefined,
         nftEnabledOnly: isNFTRequests,
       });
 
