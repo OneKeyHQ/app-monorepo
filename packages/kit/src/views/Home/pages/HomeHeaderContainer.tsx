@@ -1,4 +1,4 @@
-import { Portal, Stack } from '@onekeyhq/components';
+import { Portal, Stack, XStack } from '@onekeyhq/components';
 
 import HomeSelector from '../components/HomeSelector';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -11,15 +11,19 @@ function HomeHeaderContainer() {
       <Stack testID="Wallet-Tab-Header" p="$5" bg="$bgApp">
         <HomeSelector mb="$2.5" />
         <Stack
-          flexDirection="column-reverse"
+          flexDirection="column"
           $gtLg={{
-            flexDirection: 'row-reverse',
+            flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
           }}
         >
-          <Portal.Container name={Portal.Constant.WALLET_ACTIONS} />
-          <HomeOverviewContainer />
+          <XStack height={48}>
+            <HomeOverviewContainer />
+          </XStack>
+          <XStack $md={{ width: '100%', height: 94 }}>
+            <Portal.Container name={Portal.Constant.WALLET_ACTIONS} />
+          </XStack>
         </Stack>
       </Stack>
     </HomeTokenListProviderMirror>
