@@ -168,16 +168,17 @@ class ServiceAllNetwork extends ServiceBase {
         };
 
         let compatibleAccountExists = false;
-        
+
         await Promise.all(
           dbAccounts.map(async (a) => {
             const isCompatible = accountUtils.isAccountCompatibleWithNetwork({
               account: a,
               networkId: n.id,
             });
+            const isMatched = isAllNetwork ? isCompatible : networkId === n.id;
             let apiAddress = '';
             let accountXpub: string | undefined;
-            if (isCompatible) {
+            if (isMatched) {
               apiAddress =
                 await this.backgroundApi.serviceAccount.getAccountAddressForApi(
                   {
@@ -208,7 +209,8 @@ class ServiceAllNetwork extends ServiceBase {
           !compatibleAccountExists &&
           includingNonExistingAccount &&
           isAllNetwork &&
-          !networkUtils.isAllNetwork({ networkId: n.id })
+          !networkUtils.isAllNetwork({ networkId: n.id }) &&
+          !accountUtils.isOthersAccount({ accountId })
         ) {
           appendAccountInfo({
             networkId: n.id,
