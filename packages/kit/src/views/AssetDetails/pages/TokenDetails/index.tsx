@@ -160,6 +160,7 @@ export function TokenDetails() {
       vaultSettings?.mergeDeriveAssetsEnabled &&
       isAllNetworks &&
       (accountUtils.isHdWallet({ walletId }) ||
+        accountUtils.isQrWallet({ walletId }) ||
         accountUtils.isHwWallet({ walletId }))
     ) {
       if (tabs) {

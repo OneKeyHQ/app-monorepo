@@ -109,6 +109,7 @@ function useReceiveToken({
                 settings.mergeDeriveAssetsEnabled &&
                 network?.isAllNetworks &&
                 (accountUtils.isHdWallet({ walletId }) ||
+                  accountUtils.isQrWallet({ walletId }) ||
                   accountUtils.isHwWallet({ walletId }))
               ) {
                 navigation.push(
