@@ -102,15 +102,24 @@ export default class Vault extends VaultBase {
     accountId: string;
     networkId: string;
   }): Promise<{
-    allNetworkAccounts: Array<{ networkId: string; accountAddress: string }>;
+    allNetworkAccounts: Array<{
+      networkId: string;
+      accountId: string;
+      accountAddress: string;
+      accountXpub?: string;
+    }>;
   }> {
     const { accountsInfo } =
-      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts(params);
+      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+        ...params,
+        includingNonExistingAccount: true,
+      });
     return {
       allNetworkAccounts: accountsInfo.map((acc) => ({
         accountId: acc.accountId,
         networkId: acc.networkId,
         accountAddress: acc.apiAddress,
+        accountXpub: acc.accountXpub,
       })),
     };
   }
