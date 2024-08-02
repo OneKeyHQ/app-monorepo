@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import type {
   IAddressValidation,
@@ -106,16 +105,12 @@ export default class Vault extends VaultBase {
     allNetworkAccounts: Array<{ networkId: string; accountAddress: string }>;
   }> {
     const { accountsInfo } =
-      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-        ...params,
-        includeIncompatibleNetwork: true,
-      });
+      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts(params);
     return {
       allNetworkAccounts: accountsInfo.map((acc) => ({
         accountId: acc.accountId,
         networkId: acc.networkId,
         accountAddress: acc.apiAddress,
-        xpub: acc.xpub,
       })),
     };
   }

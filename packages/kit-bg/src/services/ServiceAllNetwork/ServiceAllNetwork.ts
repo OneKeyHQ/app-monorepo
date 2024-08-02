@@ -2,7 +2,6 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   IMPL_ALLNETWORKS,
   getEnabledNFTNetworkIds,
@@ -19,10 +18,8 @@ export type IAllNetworkAccountInfo = {
   accountId: string;
   networkId: string;
   apiAddress: string;
-  xpub?: string;
   isNftEnabled: boolean;
   isBackendIndexed: boolean | undefined;
-  isCompatible: boolean;
 };
 export type IAllNetworkAccountsInfoResult = {
   accountsInfo: IAllNetworkAccountInfo[];
@@ -117,14 +114,8 @@ class ServiceAllNetwork extends ServiceBase {
     singleNetworkDeriveType?: IAccountDeriveTypes;
     accountId: string;
     nftEnabledOnly?: boolean;
-    includeIncompatibleNetwork?: boolean;
   }): Promise<IAllNetworkAccountsInfoResult> {
-    const {
-      accountId,
-      networkId,
-      singleNetworkDeriveType,
-      includeIncompatibleNetwork,
-    } = params;
+    const { accountId, networkId, singleNetworkDeriveType } = params;
     const account = await this.backgroundApi.serviceAccount.getAccount({
       accountId,
       networkId,
@@ -142,7 +133,6 @@ class ServiceAllNetwork extends ServiceBase {
 
     const { networks: allNetworks } =
       await this.backgroundApi.serviceNetwork.getAllNetworks({
-        excludeNetworkIds: [getNetworkIdsMap().onekeyall],
         excludeTestNetwork: true,
       });
 
@@ -151,73 +141,38 @@ class ServiceAllNetwork extends ServiceBase {
       allNetworks.map(async (n) => {
         const { backendIndex: isBackendIndexed } = n;
         const isNftEnabled = enableNFTNetworkIds.includes(n.id);
-        if (!params.nftEnabledOnly || isNftEnabled) {
-          const compatibilityChecks = await Promise.all(
-            dbAccounts.map(async (a) => {
-              const isCompatible = accountUtils.isAccountCompatibleWithNetwork({
-                account: a,
-                networkId: n.id,
-              });
-              let apiAddress = '';
-              let xpub: string | undefined = '';
-              if (isCompatible) {
-                [apiAddress, xpub] = await Promise.all([
-                  this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        await Promise.all(
+          dbAccounts.map(async (a) => {
+            const isCompatible = accountUtils.isAccountCompatibleWithNetwork({
+              account: a,
+              networkId: n.id,
+            });
+            if (isCompatible) {
+              const apiAddress =
+                await this.backgroundApi.serviceAccount.getAccountAddressForApi(
+                  {
                     accountId: a.id,
                     networkId: n.id,
-                  }),
-                  this.backgroundApi.serviceAccount.getAccountXpub({
-                    accountId: a.id,
-                    networkId: n.id,
-                  }),
-                ]);
-              }
-              return { account: a, isCompatible, apiAddress, xpub };
-            }),
-          );
-
-          const compatibleAccounts = compatibilityChecks.filter(
-            (info) => info.isCompatible,
-          );
-
-          if (compatibleAccounts.length > 0) {
-            compatibleAccounts.forEach((info) => {
+                  },
+                );
               const accountInfo: IAllNetworkAccountInfo = {
-                accountId: info.account.id,
+                accountId: a.id,
                 networkId: n.id,
-                apiAddress: info.apiAddress,
-                xpub: info.xpub,
+                apiAddress,
                 isBackendIndexed,
                 isNftEnabled,
-                isCompatible: true,
               };
-              accountsInfo.push(accountInfo);
-              if (isBackendIndexed) {
-                accountsInfoBackendIndexed.push(accountInfo);
-              } else {
-                accountsInfoBackendNotIndexed.push(accountInfo);
+              if (!params.nftEnabledOnly || isNftEnabled) {
+                accountsInfo.push(accountInfo);
+                if (isBackendIndexed) {
+                  accountsInfoBackendIndexed.push(accountInfo);
+                } else {
+                  accountsInfoBackendNotIndexed.push(accountInfo);
+                }
               }
-            });
-          }
-
-          if (includeIncompatibleNetwork && compatibleAccounts.length === 0) {
-            const incompatibleInfo: IAllNetworkAccountInfo = {
-              accountId: '',
-              networkId: n.id,
-              apiAddress: '',
-              xpub: '',
-              isBackendIndexed,
-              isNftEnabled,
-              isCompatible: false,
-            };
-            accountsInfo.push(incompatibleInfo);
-            if (isBackendIndexed) {
-              accountsInfoBackendIndexed.push(incompatibleInfo);
-            } else {
-              accountsInfoBackendNotIndexed.push(incompatibleInfo);
             }
-          }
-        }
+          }),
+        );
       }),
     );
 
