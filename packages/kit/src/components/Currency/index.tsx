@@ -15,6 +15,7 @@ function BasicCurrency({
   sourceCurrency,
   targetCurrency,
   children,
+  ...props
 }: ICurrencyProps) {
   const [{ currencyItems }] = useCurrencyPersistAtom();
   const sourceCurrencyInfo = useMemo(
@@ -40,6 +41,7 @@ function BasicCurrency({
     <NumberSizeableText
       formatter="price"
       formatterOptions={{ currency: targetCurrencyInfo?.unit }}
+      {...props}
     >
       {value}
     </NumberSizeableText>
