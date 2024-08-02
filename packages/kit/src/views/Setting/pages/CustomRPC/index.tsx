@@ -125,9 +125,7 @@ function DialogContent({
           rules={{
             required: {
               value: true,
-              message: intl.formatMessage({
-                id: ETranslations.form_custom_rpc_error_invalid,
-              }),
+              message: 'Invalid RPC',
             },
             validate: (value) => {
               if (!uriUtils.parseUrl(value) || !rpcValidRef.current) {
@@ -339,7 +337,7 @@ function CustomRPC() {
       }
       const text =
         rpcSpeedMap[item.networkId].status === ECustomStatus.NotAvailable
-          ? 'Not Available'
+          ? intl.formatMessage({ id: ETranslations.global_not_available })
           : `${rpcSpeedMap[item.networkId].responseTime}ms`;
       return (
         <Badge badgeType={badgeType} badgeSize="sm">
@@ -347,7 +345,7 @@ function CustomRPC() {
         </Badge>
       );
     },
-    [rpcSpeedMap],
+    [intl, rpcSpeedMap],
   );
 
   const headerRight = useCallback(
@@ -386,69 +384,62 @@ function CustomRPC() {
           estimatedItemSize={60}
           keyExtractor={(item) => item.networkId}
           renderItem={({ item }) => (
-            <ListItem>
-              <XStack
-                testID="CustomRpcItemContainer"
+            <ListItem testID="CustomRpcItemContainer">
+              <Switch
+                value={item.enabled}
+                onChange={() => onToggleCustomRpcEnabledState(item)}
+              />
+              <TokenIconView
+                icon={item.network.logoURI}
+                networkId={item.networkId}
+              />
+              <ListItem.Text
                 flex={1}
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <XStack alignItems="center" space="$3" flexShrink={1}>
-                  <Switch
-                    value={item.enabled}
-                    onChange={() => onToggleCustomRpcEnabledState(item)}
-                  />
-                  <TokenIconView
-                    icon={item.network.logoURI}
-                    networkId={item.networkId}
-                  />
-                  <YStack flexShrink={1}>
-                    <XStack alignItems="center" space="$2">
-                      <SizableText size="$bodyLgMedium" color="$text">
-                        {item.network.name}
-                      </SizableText>
-                      {renderRpcStatus(item)}
-                    </XStack>
+                primary={
+                  <XStack alignItems="center" space="$2">
                     <SizableText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      numberOfLines={1}
                       flexShrink={1}
+                      numberOfLines={1}
+                      size="$bodyLgMedium"
+                      color="$text"
                     >
-                      {item.rpc}
+                      {item.network.name}
                     </SizableText>
-                  </YStack>
-                </XStack>
-                <ActionList
-                  title={intl.formatMessage({
-                    id: ETranslations.global_more,
-                  })}
-                  renderTrigger={
-                    <IconButton icon="DotHorOutline" variant="tertiary" />
-                  }
-                  items={[
-                    {
-                      label: intl.formatMessage({
-                        id: ETranslations.global_edit,
+                    {renderRpcStatus(item)}
+                  </XStack>
+                }
+                secondary={item.rpc}
+                secondaryTextProps={{
+                  numberOfLines: 1,
+                }}
+              />
+              <ActionList
+                title={intl.formatMessage({ id: ETranslations.global_more })}
+                renderTrigger={
+                  <IconButton icon="DotHorOutline" variant="tertiary" />
+                }
+                items={[
+                  {
+                    label: intl.formatMessage({
+                      id: ETranslations.global_edit,
+                    }),
+                    icon: 'PencilOutline',
+                    onPress: () =>
+                      onAddOrEditRpc({
+                        network: item.network,
+                        rpcInfo: item,
                       }),
-                      icon: 'PencilOutline',
-                      onPress: () =>
-                        onAddOrEditRpc({
-                          network: item.network,
-                          rpcInfo: item,
-                        }),
-                    },
-                    {
-                      label: intl.formatMessage({
-                        id: ETranslations.global_delete,
-                      }),
-                      destructive: true,
-                      icon: 'DeleteOutline',
-                      onPress: async () => onDeleteCustomRpc(item),
-                    },
-                  ]}
-                />
-              </XStack>
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: ETranslations.global_delete,
+                    }),
+                    destructive: true,
+                    icon: 'DeleteOutline',
+                    onPress: async () => onDeleteCustomRpc(item),
+                  },
+                ]}
+              />
             </ListItem>
           )}
           ListHeaderComponent={<ListHeaderComponent />}
