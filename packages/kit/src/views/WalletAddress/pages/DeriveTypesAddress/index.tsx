@@ -137,7 +137,9 @@ const DeriveTypesAddressItem = ({
           networkId: network.id,
         });
         Toast.success({
-          title: intl.formatMessage({ id: ETranslations.global_success }),
+          title: intl.formatMessage({
+            id: ETranslations.swap_page_toast_address_generated,
+          }),
         });
         refreshLocalData?.();
       } finally {

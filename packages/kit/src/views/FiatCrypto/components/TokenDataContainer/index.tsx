@@ -48,6 +48,7 @@ export type ITokenDataContextTypes = {
   tokensMap: Record<string, IAccountToken>;
   fiatMap: Record<string, ITokenFiat>;
   networkId: string;
+  accountId?: string;
 };
 
 export type IUpdateTokenListParams = {
@@ -93,8 +94,10 @@ export function TokenDataContainer({
   initialMap,
   initialTokens,
   networkId,
+  accountId,
 }: PropsWithChildren<{
   networkId: string;
+  accountId?: string;
   initialTokens: IAccountToken[];
   initialMap: Record<string, ITokenFiat>;
 }>) {
@@ -114,8 +117,13 @@ export function TokenDataContainer({
   );
 
   const context = useMemo<ITokenDataContextTypes>(
-    () => ({ tokensMap: accountTokensMap, fiatMap: tokenFiatMap, networkId }),
-    [accountTokensMap, tokenFiatMap, networkId],
+    () => ({
+      tokensMap: accountTokensMap,
+      fiatMap: tokenFiatMap,
+      networkId,
+      accountId,
+    }),
+    [accountTokensMap, tokenFiatMap, networkId, accountId],
   );
 
   useEffect(() => {
