@@ -322,7 +322,8 @@ class ServiceHardware extends ServiceBase {
 
           if (
             messageType.includes('@onekey/hd-core') ||
-            messageType.includes('@onekey/hd-transport')
+            messageType.includes('@onekey/hd-transport') ||
+            messageType.includes('@onekey/hd-ble-transport')
           ) {
             defaultLogger.hardware.sdkLog.log(
               messages.event,
