@@ -41,10 +41,10 @@ import {
   type IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 type IWalletAddressContext = {
   networkAccountMap: Record<string, INetworkAccount>;
