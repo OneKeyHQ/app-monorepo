@@ -96,12 +96,14 @@ function TokenListView(props: IProps) {
       onLayout={onLayout}
       data={filteredTokens}
       ListHeaderComponent={
-        withHeader && tokens.length > 0 ? (
+        withHeader ? (
           <TokenListHeader
             filteredTokens={filteredTokens}
-            tableLayout={tableLayout}
             onManageToken={onManageToken}
             manageTokenEnabled={manageTokenEnabled}
+            {...(tokens.length > 0 && {
+              tableLayout,
+            })}
           />
         ) : null
       }

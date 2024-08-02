@@ -2156,38 +2156,6 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getOrCreateIndexedAccount({
-    networkId,
-    indexedAccountId,
-    deriveType,
-  }: {
-    networkId: string;
-    indexedAccountId: string;
-    deriveType: IAccountDeriveTypes;
-  }): Promise<IDBAccount | undefined> {
-    try {
-      const dbAccount = await this.getNetworkAccount({
-        accountId: undefined,
-        indexedAccountId,
-        networkId,
-        deriveType,
-      });
-      return dbAccount;
-    } catch {
-      const walletId = accountUtils.getWalletIdFromAccountId({
-        accountId: indexedAccountId,
-      });
-      const resp = await this.addHDOrHWAccounts({
-        walletId,
-        indexedAccountId,
-        deriveType,
-        networkId,
-      });
-      return resp?.accounts[0];
-    }
-  }
-
-  @backgroundMethod()
   async getAccountAddressType({
     accountId,
     networkId,
