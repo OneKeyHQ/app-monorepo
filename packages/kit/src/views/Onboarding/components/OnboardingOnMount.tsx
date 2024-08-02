@@ -136,7 +136,8 @@ function OnboardingOnMountCmp() {
 
       const { isOnboardingDone } =
         await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
-      if (!isOnboardingDone) {
+      // dapp mode auto onboarding is conflict with url account landing page
+      if (!isOnboardingDone && !platformEnv.isWebDappMode) {
         void toOnBoardingPage({
           isFullModal: true,
           params: {
