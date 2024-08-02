@@ -193,9 +193,9 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         refreshSmallBalanceTokenListMap({
           tokens: r.smallBalanceTokens.map,
         });
-        refreshSmallBalanceTokensFiatValue(
-          r.smallBalanceTokens.fiatValue ?? '0',
-        );
+        refreshSmallBalanceTokensFiatValue({
+          value: r.smallBalanceTokens.fiatValue ?? '0',
+        });
 
         if (r.allTokens) {
           refreshAllTokenList({
@@ -338,6 +338,11 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           mergeDerive: mergeDeriveAssetsEnabled,
         });
 
+        refreshSmallBalanceTokensFiatValue({
+          value: r.smallBalanceTokens.fiatValue ?? '0',
+          merge: true,
+        });
+
         refreshRiskyTokenListMap({
           tokens: r.riskTokens.map,
           merge: true,
@@ -390,6 +395,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       refreshRiskyTokenListMap,
       refreshSmallBalanceTokenList,
       refreshSmallBalanceTokenListMap,
+      refreshSmallBalanceTokensFiatValue,
       refreshTokenList,
       refreshTokenListMap,
       updateAccountOverviewState,
@@ -400,6 +406,10 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
   const handleClearAllNetworkData = useCallback(() => {
     const emptyTokens = getEmptyTokenData();
+
+    refreshSmallBalanceTokensFiatValue({
+      value: '0',
+    });
 
     refreshAllTokenList({
       tokens: emptyTokens.allTokens.data,
@@ -440,6 +450,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
+    refreshSmallBalanceTokensFiatValue,
     refreshTokenList,
     refreshTokenListMap,
   ]);
@@ -512,6 +523,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       [key: string]: ITokenFiat;
     } = {};
     let accountWorth = new BigNumber(0);
+    let smallBalanceTokensFiatValue = new BigNumber(0);
 
     if (refreshAllNetworksTokenList.current && allNetworksResult) {
       for (const r of allNetworksResult) {
@@ -566,6 +578,10 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           mergeDeriveAssets: mergeDeriveAssetsEnabled,
         });
 
+        smallBalanceTokensFiatValue = smallBalanceTokensFiatValue.plus(
+          r.smallBalanceTokens.fiatValue ?? '0',
+        );
+
         accountWorth = accountWorth
           .plus(r.tokens.fiatValue ?? '0')
           .plus(r.riskTokens.fiatValue ?? '0')
@@ -598,6 +614,9 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       refreshSmallBalanceTokenListMap({
         tokens: smallBalanceTokenListMap,
       });
+      refreshSmallBalanceTokensFiatValue({
+        value: smallBalanceTokensFiatValue.toFixed(),
+      });
 
       refreshRiskyTokenList(riskyTokenList);
       refreshRiskyTokenListMap({
@@ -610,6 +629,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
+    refreshSmallBalanceTokensFiatValue,
     refreshTokenList,
     refreshTokenListMap,
     updateAccountWorth,

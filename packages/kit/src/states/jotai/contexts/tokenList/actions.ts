@@ -29,6 +29,7 @@ import {
   tokenListMapAtom,
   tokenListStateAtom,
 } from './atoms';
+import BigNumber from 'bignumber.js';
 
 class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
   updateSearchTokenState = contextAtomMethod(
@@ -362,7 +363,28 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
   );
 
   refreshSmallBalanceTokensFiatValue = contextAtomMethod(
-    (get, set, value: string) => {
+    (
+      get,
+      set,
+      payload: {
+        value: string;
+        merge?: boolean;
+      },
+    ) => {
+      const { value, merge } = payload;
+
+      const smallBalanceTokensFiatValue = get(
+        smallBalanceTokensFiatValueAtom(),
+      );
+
+      if (merge) {
+        const mergedValue = new BigNumber(smallBalanceTokensFiatValue)
+          .plus(value)
+          .toFixed();
+        set(smallBalanceTokensFiatValueAtom(), mergedValue);
+        return;
+      }
+
       set(smallBalanceTokensFiatValueAtom(), value);
     },
   );
