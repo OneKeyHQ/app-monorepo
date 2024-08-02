@@ -14,6 +14,7 @@ import {
   withTokenListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -71,31 +72,52 @@ function TokenSelector() {
   const handleTokenOnPress = useCallback(
     async (token: IAccountToken) => {
       if (network?.isAllNetworks) {
-        const vaultSettings =
-          await backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId: token.networkId ?? '',
-          });
+        let vaultSettings: IVaultSettings | undefined;
+        try {
+          vaultSettings =
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: token.networkId ?? '',
+            });
+        } catch {
+          // pass
+        }
         let accounts: IAllNetworkAccountInfo[] = [];
-        if (token.accountId && token.networkId) {
+        if (
+          (token.accountId || account?.id) &&
+          (token.networkId || network?.id)
+        ) {
+          const params = token.accountId
+            ? {
+                accountId: token.accountId ?? '',
+                networkId: token.networkId ?? '',
+              }
+            : {
+                accountId: account?.id ?? '',
+                networkId: network?.id ?? '',
+              };
           const { accountsInfo } =
             await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-              accountId: token.accountId ?? '',
-              networkId: token.networkId ?? '',
-              singleNetworkDeriveType: 'default',
+              ...params,
+              deriveType: undefined,
             });
           accounts = accountsInfo;
         }
 
-        if (
-          vaultSettings.mergeDeriveAssetsEnabled ||
-          accounts.find(
-            (item) =>
-              item.accountId &&
-              item.accountId === token.accountId &&
-              item.networkId === token.networkId,
-          )
-        ) {
-          void onSelect?.(token);
+        const matchedAccount = accounts.find((item) =>
+          token.accountId
+            ? item.accountId === token.accountId
+            : true && item.networkId === token.networkId,
+        );
+
+        if (vaultSettings?.mergeDeriveAssetsEnabled || matchedAccount) {
+          if (matchedAccount) {
+            void onSelect?.({
+              ...token,
+              accountId: matchedAccount.accountId,
+            });
+          } else {
+            void onSelect?.(token);
+          }
         } else if (account) {
           updateCreateAccountState({
             isCreating: true,
@@ -121,7 +143,7 @@ function TokenSelector() {
             if (resp) {
               void onSelect?.({
                 ...token,
-                accountId: resp.accounts[0].id,
+                accountId: resp.accounts[0]?.id,
               });
             }
           } catch (e) {
@@ -143,6 +165,7 @@ function TokenSelector() {
       account,
       closeAfterSelect,
       navigation,
+      network?.id,
       network?.isAllNetworks,
       onSelect,
       updateCreateAccountState,
@@ -220,23 +243,27 @@ function TokenSelector() {
       map: Record<string, ITokenFiat>;
       merge?: boolean;
     }) => {
-      const mergeDeriveAssetsEnabled = (
-        await backgroundApiProxy.serviceNetwork.getVaultSettings({
-          networkId: tokensFromOut[0].networkId ?? '',
-        })
-      ).mergeDeriveAssetsEnabled;
+      let vaultSettings: IVaultSettings | undefined;
+      try {
+        vaultSettings =
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId: tokensFromOut[0]?.networkId ?? '',
+          });
+      } catch {
+        // pass
+      }
 
       updateTokenListState({ initialized: true, isRefreshing: false });
       refreshTokenList({
         tokens: tokensFromOut,
         keys,
         merge,
-        mergeDerive: mergeDeriveAssetsEnabled,
+        mergeDerive: vaultSettings?.mergeDeriveAssetsEnabled,
       });
       refreshTokenListMap({
         tokens: map,
         merge,
-        mergeDerive: mergeDeriveAssetsEnabled,
+        mergeDerive: vaultSettings?.mergeDeriveAssetsEnabled,
       });
     };
     appEventBus.on(EAppEventBusNames.TokenListUpdate, updateTokenList);

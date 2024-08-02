@@ -23,8 +23,8 @@ export const StateLogsItem = () => {
             {intl.formatMessage({
               id: ETranslations.settings_logs_do_not_include_sensitive_data,
             })}
-            <Stack h="$5" />
           </SizableText>
+          <Stack h="$5" />
           <SizableText size="$bodyLg">
             {intl.formatMessage(
               {
