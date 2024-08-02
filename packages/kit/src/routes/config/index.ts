@@ -6,6 +6,7 @@ import { createURL } from 'expo-linking';
 
 import {
   type INavigationContainerProps,
+  rootNavigationRef,
   useRouterEventsRef,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -52,6 +53,22 @@ const ROOT_PATH = platformEnv.isExtension ? `${extHtmlFileUrl}#/` : '/';
 
 const MODAL_PATH = `/${ERootRoutes.Modal}`;
 const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
+
+const onGetStateFromPath = platformEnv.isExtension
+  ? (((path, options) => {
+      const state = getStateFromPath(path, options);
+      const prevState = rootNavigationRef.current?.getRootState();
+      console.log('prevState', state, prevState);
+      if (state && prevState) {
+        // @ts-expect-error
+        state.key = prevState?.key;
+        // @ts-expect-error
+        state.routes[0] = prevState?.routes[0];
+      }
+      return state;
+    }) as typeof getStateFromPath)
+  : getStateFromPath;
+
 const useBuildLinking = (): LinkingOptions<any> => {
   const routes = useRootRouter();
   const screenHierarchyConfig = resolveScreens(routes);
@@ -67,7 +84,7 @@ const useBuildLinking = (): LinkingOptions<any> => {
     // prefixes: [routerPrefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
     prefixes: [],
 
-    getStateFromPath,
+    getStateFromPath: onGetStateFromPath,
     /**
      * Only change url at whitelist routes, or return home page
      */
