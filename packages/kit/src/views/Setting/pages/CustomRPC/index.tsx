@@ -398,6 +398,7 @@ function CustomRPC() {
                 primary={
                   <XStack alignItems="center" space="$2">
                     <SizableText
+                      flexShrink={1}
                       numberOfLines={1}
                       size="$bodyLgMedium"
                       color="$text"
@@ -408,6 +409,9 @@ function CustomRPC() {
                   </XStack>
                 }
                 secondary={item.rpc}
+                secondaryTextProps={{
+                  numberOfLines: 1,
+                }}
               />
               <ActionList
                 title="More"
