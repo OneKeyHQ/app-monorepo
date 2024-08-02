@@ -290,7 +290,7 @@ function TxActionCommonListView(
               replaceType={replaceType}
             />
             <XStack alignSelf="stretch">
-              {tableLayout && timestamp ? (
+              {timestamp ? (
                 <>
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {formatTime(new Date(timestamp), {
