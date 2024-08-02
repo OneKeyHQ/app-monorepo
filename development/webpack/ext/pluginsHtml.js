@@ -30,7 +30,7 @@ function createHtmlPlugin({ name, chunks }) {
     // chunks: [name],
     chunks: chunks || [name],
     cache: false,
-    hash: true,
+    hash: process.env.NODE_ENV === 'development',
   });
   const interpolateHtmlPlugin = new InterpolateHtmlPlugin(
     HtmlWebpackPlugin,
