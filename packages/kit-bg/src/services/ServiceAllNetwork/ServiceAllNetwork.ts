@@ -120,6 +120,7 @@ class ServiceAllNetwork extends ServiceBase {
       accountId,
       networkId,
     });
+
     const dbAccounts = await this.getAllNetworkDbAccounts({
       networkId,
       singleNetworkDeriveType,

@@ -35,10 +35,13 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  EModalReceiveRoutes,
+  EModalRoutes,
   EModalWalletAddressRoutes,
   type IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
@@ -140,6 +143,8 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const copyAccountAddress = useCopyAccountAddress();
+  const appNavigation =
+    useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
   const {
     networkAccountMap,
     networkDeriveTypeMap,
@@ -176,6 +181,14 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
       } finally {
         setLoading(false);
       }
+    } else if (networkUtils.isLightningNetworkByNetworkId(item.id)) {
+      appNavigation.pushModal(EModalRoutes.ReceiveModal, {
+        screen: EModalReceiveRoutes.CreateInvoice,
+        params: {
+          networkId: item.id,
+          accountId: account.id,
+        },
+      });
     } else if (account && account.address) {
       await copyAccountAddress({
         accountId: account.id,
@@ -185,11 +198,12 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     }
   }, [
     account,
+    item.id,
     indexedAccountId,
     deriveType,
-    item.id,
-    refreshLocalData,
     intl,
+    refreshLocalData,
+    appNavigation,
     copyAccountAddress,
   ]);
 
