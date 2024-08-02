@@ -98,7 +98,7 @@ function TokenSelector() {
           const { accountsInfo } =
             await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
               ...params,
-              singleNetworkDeriveType: 'default',
+              deriveType: undefined,
             });
           accounts = accountsInfo;
         }
