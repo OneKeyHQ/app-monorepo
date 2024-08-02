@@ -185,4 +185,5 @@ export type IAllNetworkHistoryExtraItem = {
   networkId: string;
   accountId: string;
   accountAddress: string;
+  xpub: string;
 };
