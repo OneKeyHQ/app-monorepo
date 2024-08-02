@@ -104,6 +104,12 @@ class ServiceNetwork extends ServiceBase {
     if (!network && code) {
       network = networks.find((n) => n.code === code);
     }
+    if (!network && code) {
+      const mainChainList = [0, 1].map((num) => `${networkId ?? ''}--${num}`);
+      network = networks.find(
+        (n) => mainChainList.findIndex((id) => id === n.id) !== -1,
+      );
+    }
     if (!network) {
       throw new Error(
         `getNetwork ERROR: Network not found: ${networkId || ''} ${code || ''}`,

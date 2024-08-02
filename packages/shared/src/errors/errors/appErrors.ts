@@ -106,6 +106,7 @@ export class PasswordPromptDialogCancel extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordPromptDialogCancel',
+        defaultKey: ETranslations.global_cancel,
       }),
     );
   }
