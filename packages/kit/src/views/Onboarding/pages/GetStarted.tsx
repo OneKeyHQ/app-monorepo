@@ -342,11 +342,7 @@ export function GetStarted({
         {showCloseButton ? (
           <View position="absolute" left="$5" top="$5">
             <Page.Close>
-              <IconButton
-                icon="CrossedLargeOutline"
-                variant="tertiary"
-                p="$4"
-              />
+              <IconButton icon="CrossedLargeOutline" variant="tertiary" />
             </Page.Close>
           </View>
         ) : null}
