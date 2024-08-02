@@ -144,6 +144,47 @@ const sepolia: IServerNetwork = {
   'updatedAt': '2023-05-31T00:29:24.951Z',
 };
 
+const xodex: IServerNetwork = {
+  'balance2FeeDecimals': 9,
+  'chainId': '2415',
+  'code': 'xodex',
+  'decimals': 18,
+  'extensions': {
+    'providerOptions': {
+      'EIP1559Enabled': true,
+      'preferMetamask': true,
+    },
+  },
+  'id': 'evm--2415',
+  'impl': 'evm',
+  'isTestnet': true,
+  'logoURI':
+    'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQjoVCQUqDp2FfBoQm4e0dLqP4u1wMCTgyVdw&s',
+  'name': 'Xodex',
+  'shortcode': 'xodex',
+  'shortname': 'Xodex',
+  'symbol': 'TETH',
+  'feeMeta': {
+    'code': 'sepolia',
+    'decimals': 9,
+    'symbol': 'Gwei',
+  },
+  'defaultEnabled': false,
+  'priceConfigs': [],
+  'explorers': [
+    {
+      'address': 'https://explorer.xo-dex.com//address/{address}',
+      'block': 'https://explorer.xo-dex.com//block/{block}',
+      'name': 'https://explorer.xo-dex.com//',
+      'transaction': 'https://explorer.xo-dex.com//tx/{transaction}',
+    },
+  ],
+  'status': ENetworkStatus.LISTED,
+  'createdAt': '2023-05-31T00:29:24.951Z',
+  'updatedAt': '2023-05-31T00:29:24.951Z',
+};
+
+
 const btc: IServerNetwork = {
   'balance2FeeDecimals': 0,
   'chainId': '0',
@@ -2995,6 +3036,7 @@ export const presetNetworksMap = {
   sepolia,
   op,
   xdai,
+  xodex,
   ethw,
   cfxespace,
   aurora,
