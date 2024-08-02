@@ -1,5 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { genAddressFromPublicKey } from '@onekeyhq/core/src/chains/ton/sdkTon';
+import {
+  genAddressFromPublicKey,
+  getStateInitFromEncodedTx,
+  serializeSignedTx,
+} from '@onekeyhq/core/src/chains/ton/sdkTon';
+import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
@@ -7,8 +12,15 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
+
+import { serializeUnsignedTransaction } from './sdkTon/utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -91,10 +103,55 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  override signTransaction(
+  override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new NotImplemented();
+    const sdk = await this.getHardwareSDKInstance();
+    const account = await this.vault.getAccount();
+    const { unsignedTx, deviceParams } = params;
+    const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxTon;
+    const { idSuffix: version } = accountUtils.parseAccountId({
+      accountId: account.id,
+    });
+    const serializeUnsignedTx = await serializeUnsignedTransaction({
+      version,
+      encodedTx,
+      backgroundApi: this.vault.backgroundApi,
+    });
+    const unsignedRawTx = hexUtils.hexlify(
+      await serializeUnsignedTx.signingMessage.toBoc(),
+      {
+        noPrefix: true,
+      },
+    );
+    // const result = await convertDeviceResponse(async () => {
+    //   const res = await sdk.cosmosSignTransaction(
+    //     dbDevice.connectId,
+    //     dbDevice.deviceId,
+    //     {
+    //       path: account.path,
+    //       rawTx: unsignedRawTx,
+    //       ...deviceCommonParams,
+    //     },
+    //   );
+    //   return res;
+    // });
+    const result = {
+      signature:
+        '0000000000000000000000000000000000000000000000000000000000000000',
+    };
+    const signedTx = serializeSignedTx({
+      fromAddress: encodedTx.fromAddress,
+      signingMessage: serializeUnsignedTx.signingMessage,
+      signature: bufferUtils.hexToBytes(result.signature),
+      stateInit: getStateInitFromEncodedTx(encodedTx),
+    });
+    return {
+      txid: '',
+      rawTx: Buffer.from(await signedTx.toBoc()).toString('base64'),
+      encodedTx,
+    };
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
