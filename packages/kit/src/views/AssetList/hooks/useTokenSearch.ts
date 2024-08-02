@@ -1,19 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useTokenListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { ICustomTokenItem } from '@onekeyhq/shared/types/token';
 
 export function useTokenSearch({
   walletId,
   networkId,
+  accountId,
 }: {
   walletId: string;
   networkId: string;
+  accountId: string;
 }) {
   const [isLoadingRemoteData, setIsLoadingRemoteData] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -24,6 +23,7 @@ export function useTokenSearch({
     debounce(
       async (params: {
         walletId: string;
+        accountId: string;
         networkId: string;
         searchValue: string;
       }) => {
@@ -32,6 +32,7 @@ export function useTokenSearch({
           const r =
             await backgroundApiProxy.serviceCustomToken.searchTokenByKeywords({
               walletId: params.walletId,
+              accountId: params.accountId,
               networkId: params.networkId,
               keywords: params.searchValue,
             });
@@ -74,12 +75,13 @@ export function useTokenSearch({
     void debouncedFetchDataRef({
       walletId,
       networkId,
+      accountId,
       searchValue,
     });
     return () => {
       debouncedFetchDataRef.cancel();
     };
-  }, [searchValue, networkId, walletId, debouncedFetchDataRef]);
+  }, [searchValue, networkId, walletId, accountId, debouncedFetchDataRef]);
 
   const isSearchMode = useMemo(
     () => searchValue && searchValue.length > 0,
