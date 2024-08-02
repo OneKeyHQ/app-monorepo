@@ -167,17 +167,8 @@ class ServiceAllNetwork extends ServiceBase {
           }
         };
 
-        if (isAllNetwork && includingNonExistingAccount) {
-          appendAccountInfo({
-            networkId: n.id,
-            accountId: '',
-            apiAddress: '',
-            accountXpub: undefined,
-            isNftEnabled,
-            isBackendIndexed,
-          });
-        }
-
+        let compatibleAccountExists = false;
+        
         await Promise.all(
           dbAccounts.map(async (a) => {
             const isCompatible = accountUtils.isAccountCompatibleWithNetwork({
@@ -208,9 +199,26 @@ class ServiceAllNetwork extends ServiceBase {
                 isNftEnabled,
               };
               appendAccountInfo(accountInfo);
+              compatibleAccountExists = true;
             }
           }),
         );
+
+        if (
+          !compatibleAccountExists &&
+          includingNonExistingAccount &&
+          isAllNetwork &&
+          !networkUtils.isAllNetwork({ networkId: n.id })
+        ) {
+          appendAccountInfo({
+            networkId: n.id,
+            accountId: '',
+            apiAddress: '',
+            accountXpub: undefined,
+            isNftEnabled,
+            isBackendIndexed,
+          });
+        }
       }),
     );
 

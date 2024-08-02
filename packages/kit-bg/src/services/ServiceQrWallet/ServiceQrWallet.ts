@@ -196,7 +196,7 @@ class ServiceQrWallet extends ServiceBase {
     } else {
       // networkIds = [networkId];
       // TODO always create all default networks?
-      networkIds = allDefaultAddAccountNetworks;
+      networkIds = [...allDefaultAddAccountNetworks, networkId];
     }
 
     const params: {
