@@ -46,22 +46,21 @@ export function TooltipText({
         mouseMoving = true;
       };
       const onMouseUp = () => {
-        document.removeEventListener('mouseup', onMouseMove, true);
-        if (!mouseMoving) {
-          return;
-        }
-        onDisplayChange?.(true);
-        mouseMoving = true;
+        document.removeEventListener('mouseup', onMouseMove, false);
+        requestAnimationFrame(() => {
+          onDisplayChange?.(true);
+          mouseMoving = false;
+        });
       };
       if (typeof document !== 'undefined') {
         document.addEventListener('scroll', onScroll, true);
         document.addEventListener('scrollend', onScroll, true);
-        document.addEventListener('mousemove', onMouseMove, true);
-        document.addEventListener('mouseup', onMouseUp, true);
+        document.addEventListener('mousemove', onMouseMove, false);
+        document.addEventListener('mouseup', onMouseUp, false);
         return () => {
           document.removeEventListener('scroll', onScroll, true);
           document.removeEventListener('scrollend', onScrollEnd, true);
-          document.removeEventListener('mousemove', onMouseMove, true);
+          document.removeEventListener('mousemove', onMouseMove, false);
         };
       }
     }
