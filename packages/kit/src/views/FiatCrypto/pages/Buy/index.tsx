@@ -22,6 +22,7 @@ const BuyPage = () => {
   return (
     <TokenDataContainer
       networkId={networkId}
+      accountId={accountId}
       initialMap={map}
       initialTokens={tokens}
     >

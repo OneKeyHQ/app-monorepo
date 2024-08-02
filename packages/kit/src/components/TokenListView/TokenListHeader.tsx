@@ -61,6 +61,9 @@ function TokenListHeader({
             <>
               {media.md ? (
                 <IconButton
+                  title={intl.formatMessage({
+                    id: ETranslations.manage_token_custom_token_title,
+                  })}
                   variant="tertiary"
                   icon="SliderHorOutline"
                   onPress={onManageToken}
