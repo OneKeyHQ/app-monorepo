@@ -92,6 +92,7 @@ const SwapHistoryDetailModal = () => {
           index={0}
           direction={EDecodedTxDirection.IN}
           asset={toAsset}
+          isAllNetworks
           amount={txHistory.baseInfo.toAmount}
           networkIcon={txHistory.baseInfo.toNetwork?.logoURI ?? ''}
           currencySymbol={
@@ -102,6 +103,7 @@ const SwapHistoryDetailModal = () => {
           index={1}
           direction={EDecodedTxDirection.OUT}
           asset={fromAsset}
+          isAllNetworks
           amount={txHistory.baseInfo.fromAmount}
           networkIcon={txHistory.baseInfo.fromNetwork?.logoURI ?? ''}
           currencySymbol={
