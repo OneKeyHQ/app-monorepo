@@ -58,7 +58,7 @@ const onGetStateFromPath = platformEnv.isExtension
   ? (((path, options) => {
       const state = getStateFromPath(path, options);
       const prevState = rootNavigationRef.current?.getRootState();
-      console.log('prevState', state, prevState);
+      // Keep the "main" router from re-rendering.
       if (state && prevState) {
         // @ts-expect-error
         state.key = prevState?.key;
