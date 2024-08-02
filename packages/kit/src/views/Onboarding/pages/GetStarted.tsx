@@ -368,10 +368,6 @@ export const useToOnBoardingPage = () => {
         isFullModal?: boolean;
         params?: IOnboardingParamList[EOnboardingPages.GetStarted];
       } = {}) => {
-        // dapp mode onboarding is conflict with url account landing page
-        if (platformEnv.isWebDappMode) {
-          return;
-        }
         if (platformEnv.isExtensionUiPopup) {
           await backgroundApiProxy.serviceApp.openExtensionExpandTab({
             routes: [
