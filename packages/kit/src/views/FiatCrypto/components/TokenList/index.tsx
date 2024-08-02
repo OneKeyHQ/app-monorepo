@@ -19,6 +19,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
 
+import { ListItem } from '../../../../components/ListItem';
 import { useGetNetwork } from '../NetworkContainer';
 
 type ITokenListProps = {
@@ -46,51 +47,26 @@ const ListItemFiatToken = ({
     },
   ] = useSettingsPersistAtom();
   return (
-    <XStack
-      flexDirection="row"
-      alignItems="center"
-      minHeight="$11"
-      space="$3"
-      py="$2"
-      px="$3"
-      mx="$2"
-      borderRadius="$3"
-      borderCurve="continuous"
-      justifyContent="space-between"
-      {...{
-        hoverStyle: { bg: '$bgHover' },
-        pressStyle: { bg: '$bgActive' },
-        focusable: true,
-        focusStyle: {
-          outlineWidth: 2,
-          outlineStyle: 'solid',
-          outlineColor: '$focusRing',
-          outlineOffset: -2,
-        },
-      }}
-      onPress={() => onPress?.(item)}
-    >
-      <XStack alignItems="center">
-        <Token
-          size="lg"
-          tokenImageUri={item.icon}
-          networkImageUri={network?.logoURI}
-        />
-        <YStack ml="$3">
-          <XStack>
-            <SizableText size="$bodyLgMedium">
-              {item.symbol.toUpperCase()}
-            </SizableText>
+    <ListItem userSelect="none" onPress={() => onPress?.(item)}>
+      <Token
+        size="lg"
+        tokenImageUri={item.icon}
+        networkImageUri={network?.logoURI}
+      />
+      <ListItem.Text
+        flex={1}
+        primary={
+          <XStack alignItems="center">
+            <SizableText size="$bodyLgMedium">{item.symbol}</SizableText>
             <Stack ml="$2">
               <Badge badgeType="default" badgeSize="sm">
                 {network?.name}
               </Badge>
             </Stack>
           </XStack>
-          <SizableText size="$bodyMd">{item.name}</SizableText>
-        </YStack>
-        <YStack />
-      </XStack>
+        }
+        secondary={item.name}
+      />
       <YStack alignItems="flex-end">
         {item.balanceParsed ? (
           <NumberSizeableText size="$bodyLgMedium" formatter="balance">
@@ -110,7 +86,7 @@ const ListItemFiatToken = ({
           </NumberSizeableText>
         ) : null}
       </YStack>
-    </XStack>
+    </ListItem>
   );
 };
 
