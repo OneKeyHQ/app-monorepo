@@ -59,6 +59,7 @@ const ListItemFiatToken = ({
     realAccountId?: string;
   }) => void;
 }) => {
+  const intl = useIntl();
   const { networkId, accountId } = useContext(TokenDataContext);
   const [loading, setLoading] = useState(false);
   const { account } = useAccountData({ networkId, accountId });
@@ -160,9 +161,14 @@ const ListItemFiatToken = ({
       />
       <YStack alignItems="flex-end">
         {loading ? (
-          <Stack p="$0.5">
-            <Spinner />
-          </Stack>
+          <XStack alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
+              {intl.formatMessage({
+                id: ETranslations.global_creating_address,
+              })}
+            </SizableText>
+            <Spinner size="small" />
+          </XStack>
         ) : (
           <YStack>
             {item.balanceParsed ? (
