@@ -346,6 +346,51 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchQuotesEvents({
+    fromToken,
+    toToken,
+    fromTokenAmount,
+    userAddress,
+    slippagePercentage,
+    autoSlippage,
+    blockNumber,
+    accountId,
+  }: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+    fromTokenAmount: string;
+    userAddress?: string;
+    slippagePercentage: number;
+    autoSlippage?: boolean;
+    blockNumber?: number;
+    accountId?: string;
+  }) {
+    const params: IFetchQuotesParams = {
+      fromTokenAddress: fromToken.contractAddress,
+      toTokenAddress: toToken.contractAddress,
+      fromTokenAmount,
+      fromNetworkId: fromToken.networkId,
+      toNetworkId: toToken.networkId,
+      protocol: EProtocolOfExchange.SWAP,
+      userAddress,
+      slippagePercentage,
+      autoSlippage,
+      blockNumber,
+    };
+    const swapEventUrl = (
+      await this.getClient(EServiceEndpointEnum.Swap)
+    ).getUri({
+      url: '/swap/v1/quote/events',
+      params,
+    });
+    console.log('swap__EventUrl--', swapEventUrl);
+    const event = new EventSource(swapEventUrl);
+    event.onmessage = (e) => {
+      console.log('swap__onmessage-----', e);
+    };
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async fetchBuildTx({
     fromToken,

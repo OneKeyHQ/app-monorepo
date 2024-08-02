@@ -228,7 +228,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), true);
         }
-        const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
+        const res = await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
           fromToken,
           toToken,
           fromTokenAmount,
@@ -238,16 +238,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           blockNumber,
           accountId,
         });
-        if (!loadingDelayEnable) {
-          set(swapQuoteFetchingAtom(), false);
-          set(swapQuoteListAtom(), res);
-        } else {
-          set(swapSilenceQuoteLoading(), true);
-          setTimeout(() => {
-            set(swapSilenceQuoteLoading(), false);
-            set(swapQuoteListAtom(), res);
-          }, 800);
-        }
+        // if (!loadingDelayEnable) {
+        //   set(swapQuoteFetchingAtom(), false);
+        //   set(swapQuoteListAtom(), res);
+        // } else {
+        //   set(swapSilenceQuoteLoading(), true);
+        //   setTimeout(() => {
+        //     set(swapSilenceQuoteLoading(), false);
+        //     set(swapQuoteListAtom(), res);
+        //   }, 800);
+        // }
       } catch (e: any) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (e?.cause !== ESwapFetchCancelCause.SWAP_QUOTE_CANCEL) {
@@ -256,12 +256,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           enableInterval = false;
         }
       } finally {
-        if (enableInterval) {
-          this.quoteIntervalCount += 1;
-          if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
-            void this.recoverQuoteInterval.call(set, address, accountId, true);
-          }
-        }
+        // if (enableInterval) {
+        //   this.quoteIntervalCount += 1;
+        //   if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
+        //     void this.recoverQuoteInterval.call(set, address, accountId, true);
+        //   }
+        // }
       }
     },
   );
