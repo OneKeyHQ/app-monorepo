@@ -20,7 +20,6 @@ class ServiceBootstrap extends ServiceBase {
     ]);
     // wait for local messages to be loaded
     void this.backgroundApi.serviceContextMenu.init();
-    void this.backgroundApi.serviceSetting.fetchCurrencyList();
     if (platformEnv.isExtension) {
       await this.backgroundApi.serviceDevSetting.initAnalytics();
     }

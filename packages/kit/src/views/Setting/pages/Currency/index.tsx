@@ -30,6 +30,7 @@ export type ICurrencyItem = {
   unit: string;
   name: string;
   type: ICurrencyType[];
+  value: string;
 };
 
 type ISectionItem = {
