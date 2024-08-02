@@ -12,59 +12,7 @@ import type {
   TooltipProps as TMTooltipProps,
 } from 'tamagui';
 
-export function TooltipText({
-  children,
-  onDisplayChange,
-}: ISizableTextProps & {
-  onDisplayChange?: (isShow: boolean) => void;
-}) {
-  // Since the browser does not trigger mouse events when the page scrolls,
-  //  it is necessary to manually close the tooltip when page elements scroll
-  useEffect(() => {
-    if (!platformEnv.isNative) {
-      let scrolling = false;
-      let mouseMoving = false;
-      const onScroll = () => {
-        if (scrolling) {
-          return;
-        }
-        onDisplayChange?.(false);
-        scrolling = true;
-      };
-      const onScrollEnd = () => {
-        scrolling = false;
-        onDisplayChange?.(true);
-      };
-      const onMouseMove = (e: { which: number }) => {
-        if (e?.which !== 1) {
-          return;
-        }
-        if (mouseMoving) {
-          return;
-        }
-        onDisplayChange?.(false);
-        mouseMoving = true;
-      };
-      const onMouseUp = () => {
-        document.removeEventListener('mouseup', onMouseMove, false);
-        requestAnimationFrame(() => {
-          onDisplayChange?.(true);
-          mouseMoving = false;
-        });
-      };
-      if (typeof document !== 'undefined') {
-        document.addEventListener('scroll', onScroll, true);
-        document.addEventListener('scrollend', onScroll, true);
-        document.addEventListener('mousemove', onMouseMove, false);
-        document.addEventListener('mouseup', onMouseUp, false);
-        return () => {
-          document.removeEventListener('scroll', onScroll, true);
-          document.removeEventListener('scrollend', onScrollEnd, true);
-          document.removeEventListener('mousemove', onMouseMove, false);
-        };
-      }
-    }
-  }, [onDisplayChange]);
+export function TooltipText({ children }: ISizableTextProps) {
   return <SizableText size="$bodySm">{children}</SizableText>;
 }
 
@@ -112,15 +60,59 @@ export function Tooltip({
 
   const renderTooltipContent = useMemo(() => {
     if (typeof renderContent === 'string') {
-      return (
-        <TooltipText onDisplayChange={setShouldShow}>
-          {renderContent}
-        </TooltipText>
-      );
+      return <TooltipText>{renderContent}</TooltipText>;
     }
 
     return renderContent;
   }, [renderContent]);
+
+  // Since the browser does not trigger mouse events when the page scrolls,
+  //  it is necessary to manually close the tooltip when page elements scroll
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      let scrolling = false;
+      let mouseMoving = false;
+      const onScroll = () => {
+        if (scrolling) {
+          return;
+        }
+        scrolling = true;
+        setShouldShow(false);
+      };
+      const onScrollEnd = () => {
+        scrolling = false;
+        setShouldShow(true);
+      };
+      const onMouseMove = (e: { which: number }) => {
+        if (e?.which !== 1) {
+          return;
+        }
+        if (mouseMoving) {
+          return;
+        }
+        setShouldShow(false);
+        mouseMoving = true;
+      };
+      const onMouseUp = () => {
+        requestIdleCallback(() => {
+          setShouldShow(true);
+          mouseMoving = false;
+        });
+      };
+      if (typeof document !== 'undefined') {
+        document.addEventListener('scroll', onScroll, true);
+        document.addEventListener('scrollend', onScrollEnd, true);
+        document.addEventListener('mousemove', onMouseMove, false);
+        document.addEventListener('mouseup', onMouseUp, false);
+        return () => {
+          document.removeEventListener('scroll', onScroll, true);
+          document.removeEventListener('scrollend', onScrollEnd, true);
+          document.removeEventListener('mousemove', onMouseMove, false);
+          document.removeEventListener('mouseup', onMouseUp, false);
+        };
+      }
+    }
+  }, [setShouldShow]);
 
   const open = useMemo(() => shouldShow && isShow, [shouldShow, isShow]);
 
