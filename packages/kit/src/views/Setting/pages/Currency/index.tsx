@@ -4,19 +4,10 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { INavSearchBarProps } from '@onekeyhq/components';
-import {
-  Empty,
-  Page,
-  SearchBar,
-  SectionList,
-  Spinner,
-  Stack,
-} from '@onekeyhq/components';
+import { Empty, Page, SectionList } from '@onekeyhq/components';
 import {} from '@onekeyhq/components/src/layouts/SectionList';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -81,14 +72,6 @@ export default function SettingCurrencyModal() {
     currencyRef.current as ICurrencyItem,
   );
   const intl = useIntl();
-  // const currencyListResult = usePromiseResult<ICurrencyItem[]>(
-  //   async () => {
-  //     const items = await backgroundApiProxy.serviceSetting.getCurrencyList();
-  //     return items;
-  //   },
-  //   [],
-  //   { watchLoading: true },
-  // );
   const [{ currencyItems }] = useCurrencyPersistAtom();
   const sections = useMemo(() => {
     if (currencyItems.length === 0) {

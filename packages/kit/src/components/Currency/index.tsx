@@ -4,12 +4,15 @@ import BigNumber from 'bignumber.js';
 
 import type { INumberSizeableTextProps } from '@onekeyhq/components';
 import { NumberSizeableText } from '@onekeyhq/components';
-import { useCurrencyPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 export interface ICurrencyProps extends INumberSizeableTextProps {
   // btc / eth / usd / sats / hkd
   sourceCurrency: string;
-  targetCurrency: string;
+  targetCurrency?: string;
 }
 function BasicCurrency({
   sourceCurrency,
@@ -18,14 +21,15 @@ function BasicCurrency({
   ...props
 }: ICurrencyProps) {
   const [{ currencyItems }] = useCurrencyPersistAtom();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
   const sourceCurrencyInfo = useMemo(
     () => currencyItems.find((i) => i.id === sourceCurrency),
     [currencyItems, sourceCurrency],
   );
-  const targetCurrencyInfo = useMemo(
-    () => currencyItems.find((i) => i.id === targetCurrency),
-    [currencyItems, targetCurrency],
-  );
+  const targetCurrencyInfo = useMemo(() => {
+    const currencyId = targetCurrency ?? currencyInfo.id;
+    return currencyItems.find((i) => i.id === currencyId);
+  }, [currencyInfo.id, currencyItems, targetCurrency]);
 
   const value = useMemo(
     () =>
@@ -37,6 +41,7 @@ function BasicCurrency({
         : children,
     [children, sourceCurrencyInfo, targetCurrencyInfo],
   );
+
   return (
     <NumberSizeableText
       formatter="price"

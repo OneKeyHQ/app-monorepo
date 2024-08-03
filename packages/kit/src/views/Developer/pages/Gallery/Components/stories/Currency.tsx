@@ -10,7 +10,21 @@ const CurrencyGallery = () => (
     boundaryConditions={['...']}
     elements={[
       {
-        title: 'Currency',
+        title: 'default targetCurrency',
+        element: (
+          <Stack space="$4">
+            <Currency sourceCurrency="btc">1</Currency>
+            <Currency sourceCurrency="usd">1</Currency>
+            <Currency sourceCurrency="eur">1</Currency>
+            <Currency sourceCurrency="gbp">1</Currency>
+            <Currency sourceCurrency="jpy">1</Currency>
+            <Currency sourceCurrency="hkd">1</Currency>
+            <Currency sourceCurrency="cny">1</Currency>
+          </Stack>
+        ),
+      },
+      {
+        title: 'targetCurrency',
         element: (
           <Stack space="$4">
             <Currency sourceCurrency="btc" targetCurrency="btc">
