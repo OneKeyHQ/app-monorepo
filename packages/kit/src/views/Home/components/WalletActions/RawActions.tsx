@@ -148,9 +148,6 @@ function RawActions({ children, ...rest }: IXStackProps) {
   return (
     <XStack
       justifyContent="space-between"
-      $md={{
-        flex: 1,
-      }}
       $gtSm={{
         justifyContent: 'flex-start',
         space: '$2',
