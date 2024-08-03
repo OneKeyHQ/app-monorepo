@@ -11,19 +11,15 @@ function HomeHeaderContainer() {
       <Stack testID="Wallet-Tab-Header" p="$5" bg="$bgApp">
         <HomeSelector mb="$2.5" />
         <Stack
-          flexDirection="column"
+          flexDirection="column-reverse"
           $gtLg={{
-            flexDirection: 'row',
+            flexDirection: 'row-reverse',
             justifyContent: 'space-between',
             alignItems: 'center',
           }}
         >
-          <XStack height={48}>
-            <HomeOverviewContainer />
-          </XStack>
-          <XStack $md={{ width: '100%', height: 94 }}>
-            <Portal.Container name={Portal.Constant.WALLET_ACTIONS} />
-          </XStack>
+          <Portal.Container name={Portal.Constant.WALLET_ACTIONS} />
+          <HomeOverviewContainer />
         </Stack>
       </Stack>
     </HomeTokenListProviderMirror>
