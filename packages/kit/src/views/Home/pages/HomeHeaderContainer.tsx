@@ -1,4 +1,4 @@
-import { Portal, Stack, XStack } from '@onekeyhq/components';
+import { Portal, Stack } from '@onekeyhq/components';
 
 import HomeSelector from '../components/HomeSelector';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
