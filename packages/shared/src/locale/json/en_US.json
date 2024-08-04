@@ -1525,7 +1525,7 @@
   "transaction.slow": "Slow",
   "transaction.to_contract": "To contract",
   "transaction__contract_interaction": "Contract interaction",
-  "transaction__transaction_confirm": "Transaction Confirm",
+  "transaction__transaction_confirm": "Transaction confirm",
   "trx_consumed": "TRX consumed",
   "update.all_other_apps_closed": "All other OneKey Apps and web upgrade tools are closed.",
   "update.all_other_apps_closed_emoji": "All other OneKey Apps and web upgrade tools are closed. 🆗",

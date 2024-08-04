@@ -250,6 +250,7 @@ class ServiceHistory extends ServiceBase {
         ).allNetworkAccounts.map((i) => ({
           networkId: i.networkId,
           accountAddress: i.accountAddress,
+          xpub: i.accountXpub,
         })),
       };
     }

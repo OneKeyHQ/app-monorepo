@@ -125,7 +125,9 @@ function DialogContent({
           rules={{
             required: {
               value: true,
-              message: 'Invalid RPC',
+              message: intl.formatMessage({
+                id: ETranslations.form_custom_rpc_error_invalid,
+              }),
             },
             validate: (value) => {
               if (!uriUtils.parseUrl(value) || !rpcValidRef.current) {
@@ -414,7 +416,7 @@ function CustomRPC() {
                 }}
               />
               <ActionList
-                title="More"
+                title={intl.formatMessage({ id: ETranslations.global_more })}
                 renderTrigger={
                   <IconButton icon="DotHorOutline" variant="tertiary" />
                 }
