@@ -75,6 +75,31 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   );
 }
 
+function SelectItemView({
+  label,
+  description,
+}: {
+  label: string;
+  description?: string;
+}) {
+  return (
+    <>
+      <SizableText
+        $gtMd={{
+          size: '$bodyMd',
+        }}
+      >
+        {label}
+      </SizableText>
+      {description ? (
+        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+          {description}
+        </SizableText>
+      ) : null}
+    </>
+  );
+}
+
 function SelectItem({
   onSelect,
   value,
@@ -115,18 +140,7 @@ function SelectItem({
           </Stack>
         ) : null}
         <Stack flex={1} userSelect="none">
-          <SizableText
-            $gtMd={{
-              size: '$bodyMd',
-            }}
-          >
-            {label}
-          </SizableText>
-          {description ? (
-            <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-              {description}
-            </SizableText>
-          ) : null}
+          <SelectItemView label={label} description={description} />
         </Stack>
         {selectedValue === value ? (
           <Icon
@@ -416,6 +430,7 @@ export const Select = withStaticProperties(BasicSelect, {
   Frame: SelectFrame,
   Trigger: SelectTrigger,
   Content: SelectContent,
+  Item: SelectItemView,
 });
 
 export * from './type';

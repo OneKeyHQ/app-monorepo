@@ -50,8 +50,8 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
     if (accountUtils.isHdWallet({ walletId: wallet?.id })) {
       return (
         <>
-          <BatchCreateAccountButton wallet={wallet} />
           <HdWalletBackupButton wallet={wallet} />
+          <BatchCreateAccountButton wallet={wallet} />
         </>
       );
     }

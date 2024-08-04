@@ -10,7 +10,7 @@ import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/
 
 import { NetworkAvatar } from '../NetworkAvatar';
 
-type IChainSelectorInputProps = Pick<
+export type IChainSelectorInputProps = Pick<
   ComponentProps<typeof Input>,
   'value' | 'disabled' | 'error' | 'editable' | 'size'
 > & {
@@ -18,6 +18,8 @@ type IChainSelectorInputProps = Pick<
   testID?: string;
   onChange?: (value: string) => void;
   title?: string;
+  excludeAllNetworkItem?: boolean;
+  miniMode?: boolean;
 } & ComponentProps<typeof Stack>;
 
 export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
@@ -29,18 +31,22 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
   onChange,
   title,
   networkIds,
+  excludeAllNetworkItem,
+  miniMode,
   ...rest
 }) => {
   const { result: selectorNetworks } = usePromiseResult(
     async () => {
       const { networks } =
-        await backgroundApiProxy.serviceNetwork.getAllNetworks();
+        await backgroundApiProxy.serviceNetwork.getAllNetworks({
+          excludeAllNetworkItem,
+        });
       if (networkIds && networkIds.length > 0) {
         return networks.filter((o) => networkIds.includes(o.id));
       }
       return networks;
     },
-    [networkIds],
+    [excludeAllNetworkItem, networkIds],
     { initResult: [] },
   );
 
@@ -68,17 +74,36 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
   const openChainSelector = useConfigurableChainSelector();
 
   const onPress = useCallback(() => {
+    if (disabled) {
+      return;
+    }
     openChainSelector({
       title,
       networkIds: selectorNetworks.map((o) => o.id),
       defaultNetworkId: current?.id,
       onSelect: (network) => onChange?.(network.id),
     });
-  }, [openChainSelector, current, onChange, title, selectorNetworks]);
+  }, [
+    disabled,
+    openChainSelector,
+    title,
+    selectorNetworks,
+    current?.id,
+    onChange,
+  ]);
+
+  if (miniMode) {
+    return (
+      <Stack onPress={onPress} px="$3" py="$2.5" {...rest}>
+        <NetworkAvatar networkId={current?.id} size="$6" />
+      </Stack>
+    );
+  }
+
   return (
     <Stack
       userSelect="none"
-      onPress={disabled ? undefined : onPress}
+      onPress={onPress}
       flexDirection="row"
       alignItems="center"
       borderRadius="$3"

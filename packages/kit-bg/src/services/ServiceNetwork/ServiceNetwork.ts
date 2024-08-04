@@ -48,6 +48,7 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getAllNetworks(
     params: {
+      excludeAllNetworkItem?: boolean;
       excludeNetworkIds?: string[];
       excludeTestNetwork?: boolean;
       uniqByImpl?: boolean;
@@ -57,6 +58,9 @@ class ServiceNetwork extends ServiceBase {
     const excludeTestNetwork = params?.excludeTestNetwork ?? false;
     const uniqByImpl = params?.uniqByImpl ?? false;
     const excludeNetworkIds = params?.excludeNetworkIds ?? [];
+    if (params.excludeAllNetworkItem) {
+      excludeNetworkIds.push(getNetworkIdsMap().onekeyall);
+    }
     let networks = getPresetNetworks();
     if (uniqByImpl) {
       networks = uniqBy(networks, (n) => n.impl);
