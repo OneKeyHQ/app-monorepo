@@ -103,6 +103,7 @@ class ClientSol {
                 owner: string;
               };
             };
+            program: string;
           };
           owner: string;
         };
