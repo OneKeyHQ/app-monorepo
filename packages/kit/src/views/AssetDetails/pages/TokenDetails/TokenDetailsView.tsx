@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IListViewProps } from '@onekeyhq/components';
 import {
+  Button,
   Divider,
+  Empty,
   NumberSizeableText,
   Skeleton,
   Stack,
@@ -10,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
@@ -31,6 +36,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRoutes,
   EModalSendRoutes,
@@ -55,7 +61,10 @@ type IProps = {
   riskyTokens?: string[];
   isAllNetworks?: boolean;
   listViewContentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
+  indexedAccountId?: string;
 };
+
+const num = 0;
 
 export function TokenDetailsViews(props: IProps) {
   const {
@@ -67,8 +76,11 @@ export function TokenDetailsViews(props: IProps) {
     tokenInfo,
     isAllNetworks,
     listViewContentContainerStyle,
+    indexedAccountId,
   } = props;
   const navigation = useAppNavigation();
+
+  const intl = useIntl();
 
   const [settings] = useSettingsPersistAtom();
 
@@ -222,6 +234,29 @@ export function TokenDetailsViews(props: IProps) {
     };
   }, [run]);
 
+  if (!accountId) {
+    return (
+      <Empty
+        testID="Wallet-No-Address-Empty"
+        title={intl.formatMessage({ id: ETranslations.wallet_no_address })}
+        description={intl.formatMessage({
+          id: ETranslations.wallet_no_address_desc,
+        })}
+        button={
+          <AccountSelectorCreateAddressButton
+            num={num}
+            account={{
+              walletId,
+              networkId,
+              indexedAccountId,
+              deriveType,
+            }}
+            buttonRender={Empty.Button}
+          />
+        }
+      />
+    );
+  }
   return (
     <ProviderJotaiContextHistoryList>
       <TxHistoryListView

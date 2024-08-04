@@ -139,6 +139,7 @@ export function TokenDetails() {
             tokenInfo={tokenInfo}
             isAllNetworks={isAllNetworks}
             listViewContentContainerStyle={{ pt: '$5' }}
+            indexedAccountId={account?.indexedAccountId}
           />
         ),
       }));
@@ -153,15 +154,14 @@ export function TokenDetails() {
     intl,
     tokenInfo,
     isAllNetworks,
+    account?.indexedAccountId,
   ]);
 
   const renderTokenDetailsView = useCallback(() => {
     if (
       vaultSettings?.mergeDeriveAssetsEnabled &&
       isAllNetworks &&
-      (accountUtils.isHdWallet({ walletId }) ||
-        accountUtils.isQrWallet({ walletId }) ||
-        accountUtils.isHwWallet({ walletId }))
+      !accountUtils.isOthersWallet({ walletId })
     ) {
       if (tabs) {
         return (
