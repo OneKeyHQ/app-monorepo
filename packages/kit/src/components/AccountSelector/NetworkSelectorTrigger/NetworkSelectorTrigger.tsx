@@ -13,12 +13,11 @@ import {
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
-import {
-  ChainSelectorInput,
-  IChainSelectorInputProps,
-} from '../../ChainSelectorInput';
+import { ChainSelectorInput } from '../../ChainSelectorInput';
 import { NetworkAvatar } from '../../NetworkAvatar';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
+
+import type { IChainSelectorInputProps } from '../../ChainSelectorInput';
 
 function useNetworkSelectorItems() {
   const { serviceNetwork } = backgroundApiProxy;
