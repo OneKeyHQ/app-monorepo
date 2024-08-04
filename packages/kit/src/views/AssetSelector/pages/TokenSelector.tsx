@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -203,7 +204,7 @@ function TokenSelector() {
   useEffect(() => {
     // use route params token
     const updateTokenList = async () => {
-      if (tokens) {
+      if (tokens && !isEmpty(tokens.data)) {
         refreshTokenList({ tokens: tokens.data, keys: tokens.keys });
         refreshTokenListMap({
           tokens: tokens.map,

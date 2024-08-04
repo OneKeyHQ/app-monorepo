@@ -24,7 +24,9 @@ import {
 import {
   EAssetSelectorRoutes,
   EModalAssetDetailRoutes,
+  EModalReceiveRoutes,
   EModalRoutes,
+  EModalSendRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -111,10 +113,17 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
     if (
       // @ts-ignore
-      modalRoutes?.params?.screen === EModalRoutes.AssetSelectorModal &&
+      (modalRoutes?.params?.screen === EModalRoutes.SendModal &&
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        modalRoutes?.params?.params?.screen ===
+          EModalSendRoutes.SendSelectToken) ||
       // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      modalRoutes?.params?.params?.screen === EAssetSelectorRoutes.TokenSelector
+      (modalRoutes?.params?.screen === EModalRoutes.ReceiveModal &&
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        modalRoutes?.params?.params?.screen ===
+          EModalReceiveRoutes.ReceiveSelectToken)
     ) {
       setShouldAlwaysFetch(true);
     } else {

@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 
-import { isEmpty, isEqual, uniqBy } from 'lodash';
+import BigNumber from 'bignumber.js';
+import { isEqual, uniqBy } from 'lodash';
 
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
@@ -29,7 +30,6 @@ import {
   tokenListMapAtom,
   tokenListStateAtom,
 } from './atoms';
-import BigNumber from 'bignumber.js';
 
 class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
   updateSearchTokenState = contextAtomMethod(
