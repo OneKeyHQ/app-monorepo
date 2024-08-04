@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/shared/types/setting';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
+import { currencyPersistAtom } from '../states/jotai/atoms';
 import {
   settingsLastActivityAtom,
   settingsPersistAtom,
@@ -179,6 +180,14 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async getCurrencyList(): Promise<ICurrencyItem[]> {
     return this._getCurrencyList();
+  }
+
+  @backgroundMethod()
+  public async fetchCurrencyList() {
+    const currencyItems = await this._getCurrencyList();
+    await currencyPersistAtom.set({
+      currencyItems,
+    });
   }
 
   @backgroundMethod()

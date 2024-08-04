@@ -4,20 +4,14 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { INavSearchBarProps } from '@onekeyhq/components';
-import {
-  Empty,
-  Page,
-  SearchBar,
-  SectionList,
-  Spinner,
-  Stack,
-} from '@onekeyhq/components';
+import { Empty, Page, SectionList } from '@onekeyhq/components';
 import {} from '@onekeyhq/components/src/layouts/SectionList';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type ICurrencyType = 'crypto' | 'fiat' | 'popular';
@@ -27,6 +21,7 @@ export type ICurrencyItem = {
   unit: string;
   name: string;
   type: ICurrencyType[];
+  value: string;
 };
 
 type ISectionItem = {
@@ -77,17 +72,9 @@ export default function SettingCurrencyModal() {
     currencyRef.current as ICurrencyItem,
   );
   const intl = useIntl();
-  const currencyListResult = usePromiseResult<ICurrencyItem[]>(
-    async () => {
-      const items = await backgroundApiProxy.serviceSetting.getCurrencyList();
-      return items;
-    },
-    [],
-    { watchLoading: true },
-  );
-
+  const [{ currencyItems }] = useCurrencyPersistAtom();
   const sections = useMemo(() => {
-    if (!currencyListResult.result) {
+    if (currencyItems.length === 0) {
       return [];
     }
     const section: Record<ICurrencyType, ICurrencyItem[]> = {
@@ -95,9 +82,7 @@ export default function SettingCurrencyModal() {
       'fiat': [],
       'popular': [],
     };
-    const data = currencyListResult.result?.filter((item) =>
-      currencyFilterFn(text, item),
-    );
+    const data = currencyItems.filter((item) => currencyFilterFn(text, item));
     for (let i = 0; i < data.length; i += 1) {
       const item = data[i];
       item.type.forEach((type) => {
@@ -120,7 +105,7 @@ export default function SettingCurrencyModal() {
         data: section.fiat,
       },
     ].filter((item) => item.data.length > 0);
-  }, [currencyListResult, text, intl]);
+  }, [currencyItems, text, intl]);
 
   const handlePress = useCallback((item: ICurrencyItem) => {
     setCurrency(item);
@@ -177,31 +162,25 @@ export default function SettingCurrencyModal() {
         headerSearchBarOptions={headerSearchBarOptions}
       />
       <Page.Body>
-        {currencyListResult?.isLoading ? (
-          <Stack h="$48" justifyContent="center" alignItems="center">
-            <Spinner size="large" />
-          </Stack>
-        ) : (
-          <SectionList
-            estimatedItemSize="$6"
-            ListEmptyComponent={
-              <Empty
-                icon="SearchOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_no_results,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.global_search_no_results_desc,
-                })}
-              />
-            }
-            sections={sections ?? emptySections}
-            renderItem={renderItem}
-            renderSectionHeader={renderSectionHeader}
-            extraData={currency}
-            keyExtractor={keyExtractor}
-          />
-        )}
+        <SectionList
+          estimatedItemSize="$6"
+          ListEmptyComponent={
+            <Empty
+              icon="SearchOutline"
+              title={intl.formatMessage({
+                id: ETranslations.global_no_results,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.global_search_no_results_desc,
+              })}
+            />
+          }
+          sections={sections ?? emptySections}
+          renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
+          extraData={currency}
+          keyExtractor={keyExtractor}
+        />
       </Page.Body>
       <Page.Footer
         onConfirm={handleConfirm}
