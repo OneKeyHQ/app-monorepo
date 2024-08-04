@@ -34,6 +34,11 @@ export type IAllNetworkAccountsParams = {
   nftEnabledOnly?: boolean;
   includingNonExistingAccount?: boolean;
 };
+export type IAllNetworkAccountsParamsForApi = {
+  networkId: string;
+  accountAddress: string;
+  xpub?: string;
+};
 @backgroundClass()
 class ServiceAllNetwork extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -228,6 +233,25 @@ class ServiceAllNetwork extends ServiceBase {
       accountsInfo,
       accountsInfoBackendIndexed,
       accountsInfoBackendNotIndexed,
+    };
+  }
+
+  @backgroundMethod()
+  async buildAllNetworkAccountsForApiParam(
+    params: IAllNetworkAccountsParams & { withoutAccountId?: boolean },
+  ) {
+    const { accountsInfo } =
+      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+        ...params,
+        includingNonExistingAccount: true,
+      });
+    return {
+      allNetworkAccounts: accountsInfo.map((acc) => ({
+        accountId: params.withoutAccountId ? undefined : acc.accountId,
+        networkId: acc.networkId,
+        accountAddress: acc.apiAddress,
+        accountXpub: acc.accountXpub,
+      })),
     };
   }
 }
