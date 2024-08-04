@@ -13,7 +13,10 @@ import {
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
-import { ChainSelectorInput } from '../../ChainSelectorInput';
+import {
+  ChainSelectorInput,
+  IChainSelectorInputProps,
+} from '../../ChainSelectorInput';
 import { NetworkAvatar } from '../../NetworkAvatar';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 
@@ -131,32 +134,18 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
 export const NetworkSelectorTriggerHome = memo(NetworkSelectorTriggerHomeCmp);
 
 export function ControlledNetworkSelectorTrigger({
-  value,
-  onChange,
-  networkIds,
   forceDisabled,
   disabled,
-  editable,
-}: {
-  value?: string;
-  onChange?: (networkId: string) => void;
-  networkIds?: string[];
+  ...rest
+}: IChainSelectorInputProps & {
   forceDisabled?: boolean;
   disabled?: boolean; // TODO not working in form
-  editable?: boolean | undefined;
 }) {
   const intl = useIntl();
   return (
     <ChainSelectorInput
       testID="network-selector-input"
       title={intl.formatMessage({ id: ETranslations.global_networks })}
-      value={value}
-      onChange={onChange}
-      editable={editable}
-      disabled={forceDisabled || disabled}
-      // editable={false}
-      // disabled
-      networkIds={networkIds}
       borderRadius="$3"
       borderWidth={1}
       borderCurve="continuous"
@@ -168,6 +157,8 @@ export function ControlledNetworkSelectorTrigger({
         borderRadius: '$2',
         py: '$2',
       }}
+      {...rest}
+      disabled={forceDisabled || disabled}
     />
   );
 }
