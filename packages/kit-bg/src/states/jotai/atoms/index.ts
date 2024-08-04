@@ -3,6 +3,7 @@ export * from './account';
 export * from './addressBooks';
 export * from './appUpdate';
 export * from './cloudBackup';
+export * from './currency';
 export * from './demo';
 export * from './devSettings';
 export * from './hardware';
