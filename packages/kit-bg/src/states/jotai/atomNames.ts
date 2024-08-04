@@ -5,6 +5,7 @@ export enum EAtomNames {
   settingsPersistAtom = 'settingsPersistAtom',
   settingsAtom = 'settingsAtom',
   devSettingsPersistAtom = 'devSettingsPersistAtom',
+  currencyPersistAtom = 'currencyPersistAtom',
   settingsLastActivityAtom = 'settingsLastActivityAtom',
   cloudBackupPersistAtom = 'cloudBackupPersistAtom',
   passwordAtom = 'passwordAtom',
