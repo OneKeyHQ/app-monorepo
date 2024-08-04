@@ -2,9 +2,10 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const path = require('path');
 const InterpolateHtmlPlugin = require('react-dev-utils/InterpolateHtmlPlugin');
 const lodash = require('lodash');
-const indexHtmlParameter = require('../../../development/indexHtmlParameter');
-const developmentConsts = require('../../../development/developmentConsts');
+const indexHtmlParameter = require('../../indexHtmlParameter');
+const developmentConsts = require('../../developmentConsts');
 const devUtils = require('./devUtils');
+const { isDev } = require('../constant');
 
 const platform = developmentConsts.platforms.ext;
 const basePath = process.env.PWD;
@@ -16,6 +17,7 @@ function createHtmlPlugin({ name, chunks }) {
   const createParamsOptions = {
     filename,
     platform,
+    isDev,
     browser: devUtils.getBuildTargetBrowser(),
   };
   const htmlWebpackPlugin = new HtmlWebpackPlugin({
