@@ -56,28 +56,19 @@ module.exports = ({ basePath }) => ({
             res.write(text);
             res.end();
           };
-          if (
-            req.headers &&
-            req.headers.cookie &&
-            req.headers.cookie.includes('rrt=1')
-          ) {
-            // read node_modules/react-render-tracker/dist/react-render-tracker.js content
-            const filePath = path.join(
-              __dirname,
-              '../../node_modules/react-render-tracker/dist/react-render-tracker.js',
-            );
-            fs.readFile(filePath, 'utf8', (err, data) => {
-              if (err) {
-                console.error(err);
-                res.status(500).send(`Error reading file:  ${filePath}`);
-                return;
-              }
-              sendResponse(data);
-            });
-          } else {
-            const logScript = `console.log('react-render-tracker is disabled')`;
-            sendResponse(logScript);
-          }
+          // read node_modules/react-render-tracker/dist/react-render-tracker.js content
+          const filePath = path.join(
+            __dirname,
+            '../../node_modules/react-render-tracker/dist/react-render-tracker.js',
+          );
+          fs.readFile(filePath, 'utf8', (err, data) => {
+            if (err) {
+              console.error(err);
+              res.status(500).send(`Error reading file:  ${filePath}`);
+              return;
+            }
+            sendResponse(data);
+          });
         },
       );
     },
