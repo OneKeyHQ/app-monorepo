@@ -170,7 +170,7 @@ const ListItemFiatToken = ({
             <Spinner size="small" />
           </XStack>
         ) : (
-          <YStack>
+          <YStack alignItems="flex-end">
             {item.balanceParsed ? (
               <NumberSizeableText size="$bodyLgMedium" formatter="balance">
                 {item.balanceParsed}
