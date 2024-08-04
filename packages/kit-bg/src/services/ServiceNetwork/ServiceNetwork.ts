@@ -48,6 +48,7 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getAllNetworks(
     params: {
+      excludeAllNetworkItem?: boolean;
       excludeNetworkIds?: string[];
       excludeTestNetwork?: boolean;
       uniqByImpl?: boolean;
@@ -57,6 +58,9 @@ class ServiceNetwork extends ServiceBase {
     const excludeTestNetwork = params?.excludeTestNetwork ?? false;
     const uniqByImpl = params?.uniqByImpl ?? false;
     const excludeNetworkIds = params?.excludeNetworkIds ?? [];
+    if (params.excludeAllNetworkItem) {
+      excludeNetworkIds.push(getNetworkIdsMap().onekeyall);
+    }
     let networks = getPresetNetworks();
     if (uniqByImpl) {
       networks = uniqBy(networks, (n) => n.impl);
@@ -689,19 +693,23 @@ class ServiceNetwork extends ServiceBase {
     );
 
     let dbAccount: IDBAccount | undefined;
+    let networkIdsDisabled: string[] = [];
 
     if (accountId) {
       dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
         accountId,
       });
-      if (dbAccount && compatibleWithDeviceType) {
+      if (compatibleWithDeviceType) {
         const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
         const isHwWallet = accountUtils.isHwAccount({ accountId });
 
         if (!isHwWallet) {
           // is software wallet
-          networkVaultSettings = networkVaultSettings.filter(
-            (o) => !o.vaultSetting.softwareAccountDisabled,
+          const networksSoftwareAccountDisabled = networkVaultSettings
+            .filter((o) => o.vaultSetting.softwareAccountDisabled)
+            .map((o) => o.network.id);
+          networkIdsDisabled = networkIdsDisabled.concat(
+            networksSoftwareAccountDisabled,
           );
         } else {
           const walletDevice =
@@ -709,17 +717,52 @@ class ServiceNetwork extends ServiceBase {
               walletId,
             });
           if (walletDevice) {
-            networkVaultSettings = networkVaultSettings.filter((o) => {
-              const deviceTypes = o.vaultSetting.supportedDeviceTypes;
-              if (deviceTypes && deviceTypes.length > 0) {
-                return deviceTypes.includes(walletDevice.deviceType);
-              }
-              return true;
-            });
+            const networksDeviceTypeDisabled = networkVaultSettings
+              .filter((o) => {
+                const deviceTypes = o.vaultSetting.supportedDeviceTypes;
+                if (deviceTypes && deviceTypes.length > 0) {
+                  return !deviceTypes.includes(walletDevice.deviceType);
+                }
+                return false;
+              })
+              .map((o) => o.network.id);
+            networkIdsDisabled = networkIdsDisabled.concat(
+              networksDeviceTypeDisabled,
+            );
           }
         }
       }
+      const isQrAccount = accountUtils.isQrAccount({ accountId });
+      if (isQrAccount) {
+        const networksQrAccountDisabled = networkVaultSettings
+          .filter((o) => {
+            const isQrAccountSupported = o.vaultSetting.qrAccountEnabled;
+            return !isQrAccountSupported;
+          })
+          .map((o) => o.network.id);
+        networkIdsDisabled = networkIdsDisabled.concat(
+          networksQrAccountDisabled,
+        );
+        // Qr account only support btc/evm network
+      }
     }
+    const networkIdsDisabledSet = new Set(networkIdsDisabled);
+
+    const isAccountCompatibleWithNetwork = (params: {
+      account?: IDBAccount;
+      networkId: string;
+    }) => {
+      if (networkIdsDisabledSet.has(params.networkId)) {
+        return false;
+      }
+      if (params.account) {
+        return accountUtils.isAccountCompatibleWithNetwork({
+          account: params.account,
+          networkId: params.networkId,
+        });
+      }
+      return true;
+    };
 
     const _networks = networkVaultSettings.map((o) => o.network);
 
@@ -732,48 +775,36 @@ class ServiceNetwork extends ServiceBase {
       });
 
     let unavailableNetworks: IServerNetwork[] = [];
-    let frequentlyUsedNetworks: IServerNetwork[] = [];
-    let networks: IServerNetwork[] = [];
+    const frequentlyUsedNetworks: IServerNetwork[] = [];
+    const networks: IServerNetwork[] = [];
 
-    if (
-      accountId &&
-      accountUtils.isOthersWallet({
-        walletId: accountUtils.getWalletIdFromAccountId({
-          accountId,
-        }),
-      }) &&
-      dbAccount
-    ) {
-      for (let i = 0; i < _frequentlyUsed.length; i += 1) {
-        const item = _frequentlyUsed[i];
-        if (
-          accountUtils.isAccountCompatibleWithNetwork({
-            account: dbAccount,
-            networkId: item.id,
-          })
-        ) {
-          frequentlyUsedNetworks.push(item);
-        } else {
-          unavailableNetworks.push(item);
-        }
+    for (let i = 0; i < _frequentlyUsed.length; i += 1) {
+      const item = _frequentlyUsed[i];
+      if (
+        isAccountCompatibleWithNetwork({
+          account: dbAccount,
+          networkId: item.id,
+        })
+      ) {
+        frequentlyUsedNetworks.push(item);
+      } else {
+        unavailableNetworks.push(item);
       }
-      for (let i = 0; i < _networks.length; i += 1) {
-        const item = _networks[i];
-        if (
-          accountUtils.isAccountCompatibleWithNetwork({
-            account: dbAccount,
-            networkId: item.id,
-          })
-        ) {
-          networks.push(item);
-        } else {
-          unavailableNetworks.push(item);
-        }
-      }
-    } else {
-      frequentlyUsedNetworks = [..._frequentlyUsed];
-      networks = [..._networks];
     }
+    for (let i = 0; i < _networks.length; i += 1) {
+      const item = _networks[i];
+      if (
+        isAccountCompatibleWithNetwork({
+          account: dbAccount,
+          networkId: item.id,
+        })
+      ) {
+        networks.push(item);
+      } else {
+        unavailableNetworks.push(item);
+      }
+    }
+
     const unavailableNetworkIds: Set<string> = new Set<string>();
     unavailableNetworks = unavailableNetworks.filter((o) => {
       const isDuplicate = unavailableNetworkIds.has(o.id);
