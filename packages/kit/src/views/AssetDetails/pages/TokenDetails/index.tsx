@@ -169,7 +169,7 @@ function TokenDetails() {
     ) {
       if (tabs) {
         return (
-          <Tab
+          <Tab.Page
             data={tabs}
             initialScrollIndex={0}
             showsVerticalScrollIndicator={false}
