@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import {
   Fragment,
   memo,
@@ -784,7 +783,7 @@ function BasicMarketHomeList({
     if (platformEnv.isNativeAndroid) {
       return null;
     }
-    return <Table.Skeleton count={6} columns={columns} />;
+    return <Table.Skeleton count={6} columns={columns} rowProps={ROW_PROPS} />;
   }, [columns]);
 
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
