@@ -29,6 +29,6 @@ export const Label = styled(TMLabel, {
   } as const,
 
   defaultVariants: {
-    variant: '$bodyMdMedium',
+    variant: '$bodyMdMedium' as any,
   },
 }) as ComponentType<ILabelProps>;
