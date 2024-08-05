@@ -21,7 +21,7 @@ const SwapNetworkToggleGroup = ({
   moreNetworksCount,
   onMoreNetwork,
 }: ISwapNetworkToggleGroupProps) => (
-  <XStack px="$5" pt="$1" pb="$3" space="$2">
+  <XStack px="$5" pt="$1" pb="$3" gap="$2">
     {networks.map((network) => (
       <NetworksFilterItem
         key={network.networkId}

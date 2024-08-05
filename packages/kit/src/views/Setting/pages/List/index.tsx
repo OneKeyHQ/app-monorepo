@@ -86,7 +86,7 @@ const SocialButtonGroup = () => {
   return (
     <YStack>
       <XStack justifyContent="center">
-        <XStack space="$3" paddingVertical="$3" my="$3">
+        <XStack gap="$3" paddingVertical="$3" my="$3">
           <SocialButton
             icon="OnekeyBrand"
             url={ONEKEY_URL}
@@ -113,7 +113,7 @@ const SocialButtonGroup = () => {
       </XStack>
       <XStack justifyContent="center" py="$4">
         <SizableText
-          selectable={false}
+          userSelect="none"
           color="$textSubdued"
           onPress={handlePress}
           testID="setting-version"

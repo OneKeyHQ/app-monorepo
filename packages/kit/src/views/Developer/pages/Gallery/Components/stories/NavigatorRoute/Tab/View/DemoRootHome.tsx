@@ -51,7 +51,7 @@ const DemoRootHome = () => {
           pressStyle={{
             bg: '$bgActive',
           }}
-          focusStyle={{
+          focusVisibleStyle={{
             outlineWidth: 2,
             outlineStyle: 'solid',
             outlineColor: '$focusRing',

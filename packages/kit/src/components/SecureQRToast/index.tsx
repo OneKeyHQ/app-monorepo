@@ -114,7 +114,7 @@ const SecureQRToastBase = ({
             id: ETranslations.san_qr_code_to_verify_details,
           })}
       </SizableText>
-      <XStack space="$2.5">
+      <XStack gap="$2.5">
         <Button variant="secondary" onPress={handleCancel} flex={1}>
           {intl.formatMessage({ id: ETranslations.global_cancel })}
         </Button>

@@ -312,7 +312,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
       flexDirection="row"
       alignItems="center"
       minHeight="$11"
-      space="$3"
+      gap="$3"
       py="$2"
       px="$3"
       mx="$2"

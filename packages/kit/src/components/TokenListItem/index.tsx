@@ -55,7 +55,7 @@ export function TokenListItem({
         }}
         secondary={
           isSearch ? (
-            <Stack space="$0.5" $gtMd={{ flexDirection: 'row', space: '$1' }}>
+            <Stack gap="$0.5" $gtMd={{ flexDirection: 'row', gap: '$1' }}>
               <SizableText
                 numberOfLines={1}
                 color="$textSubdued"

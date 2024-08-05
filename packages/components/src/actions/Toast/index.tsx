@@ -59,7 +59,7 @@ const RenderLines = ({
         <SizableText
           color={color}
           textTransform="none"
-          selectable={false}
+          userSelect="none"
           size={size}
           wordWrap="break-word"
           key={index}
@@ -100,7 +100,7 @@ function Title({
         overflow: 'hidden',
       }}
     >
-      <XStack space={icon ? '$2' : 0}>
+      <XStack gap={icon ? '$2' : 0}>
         {icon ? (
           <View
             $platform-android={{
@@ -113,7 +113,7 @@ function Title({
           </View>
         ) : null}
 
-        <YStack flex={1} space="$1">
+        <YStack flex={1} gap="$1">
           {title ? (
             <RenderLines color="$text" size="$headingSm">
               {title}
@@ -131,7 +131,7 @@ function Title({
 
           {actions ? (
             <XStack
-              space="$2"
+              gap="$2"
               justifyContent="flex-end"
               paddingTop="$3"
               paddingRight="$0.5"

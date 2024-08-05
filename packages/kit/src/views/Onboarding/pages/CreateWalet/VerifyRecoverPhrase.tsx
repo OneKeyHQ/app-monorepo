@@ -35,7 +35,7 @@ function WordButton({
   return (
     <Button
       borderWidth={2}
-      focusStyle={{
+      focusVisibleStyle={{
         bg: '$bgActive',
       }}
       onPress={handlePress}
@@ -63,7 +63,7 @@ function WordSelector({
   );
 
   return (
-    <XStack space="$2.5">
+    <XStack gap="$2.5">
       {words.map((word) => (
         <WordButton
           flex={1}
@@ -147,9 +147,9 @@ export function VerifyRecoveryPhrase({
       />
       <Page.Body p="$5">
         {phrases && verifyRecoveryPhrases ? (
-          <YStack space="$5">
+          <YStack gap="$5">
             {verifyRecoveryPhrases.map(([wordIndex, phraseArray], index) => (
-              <YStack key={String(wordIndex)} space="$2.5">
+              <YStack key={String(wordIndex)} gap="$2.5">
                 <SizableText testID="wordIndex">{`${intl.formatMessage({
                   id: ETranslations.word,
                 })} #${Number(wordIndex) + 1}`}</SizableText>

@@ -91,7 +91,7 @@ function Column<T>({
 }
 
 const renderContent = (text?: string) => (
-  <SizableText size="$bodyMd" color="$textSubdued" selectable={false}>
+  <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
     {text ?? '-'}
   </SizableText>
 );
@@ -292,7 +292,7 @@ function TableHeaderRow<T>({
 }) {
   const [selectedColumnName, setSelectedColumnName] = useState('');
   return (
-    <XStack space="$3" px="$3" mx="$2" minHeight="$4" py="$2" borderRadius="$3">
+    <XStack gap="$3" px="$3" mx="$2" minHeight="$4" py="$2" borderRadius="$3">
       {columns.map((column, index) => (
         <MemoHeaderColumn
           key={column.dataIndex}

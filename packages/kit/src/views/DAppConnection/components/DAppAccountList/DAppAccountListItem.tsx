@@ -253,7 +253,7 @@ function DAppAccountListStandAloneItem({
   ]);
 
   return (
-    <YStack space="$2" testID="DAppAccountListStandAloneItem">
+    <YStack gap="$2" testID="DAppAccountListStandAloneItem">
       <SizableText size="$headingMd" color="$text">
         {intl.formatMessage({ id: ETranslations.global_accounts })}
       </SizableText>
@@ -285,7 +285,7 @@ function DAppAccountListStandAloneItem({
 function DAppAccountListStandAloneItemForHomeScene() {
   const intl = useIntl();
   return (
-    <YStack space="$2" testID="DAppAccountListStandAloneItem">
+    <YStack gap="$2" testID="DAppAccountListStandAloneItem">
       <SizableText size="$headingMd" color="$text">
         {intl.formatMessage({ id: ETranslations.global_accounts })}
       </SizableText>
@@ -326,7 +326,7 @@ function WalletConnectAccountTriggerList({
     {} as IAccountSelectorAvailableNetworksMap,
   );
   return (
-    <YStack space="$2">
+    <YStack gap="$2">
       <SizableText size="$headingMd" color="$text">
         Accounts
       </SizableText>
@@ -339,7 +339,7 @@ function WalletConnectAccountTriggerList({
           enabledNum={enabledNum}
           availableNetworksMap={availableNetworksMap}
         >
-          <YStack space="$2">
+          <YStack gap="$2">
             {sessionAccountsInfo.map((i) => (
               <Stack key={i.accountSelectorNum}>
                 <DAppAccountListItem

@@ -2,7 +2,13 @@ import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  NATIVE_HIT_SLOP,
+  Select,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
@@ -100,18 +106,12 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
         bg: '$bgActive',
       }}
       focusable
-      focusStyle={{
+      focusVisibleStyle={{
         outlineWidth: 2,
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
       }}
-      $platform-native={{
-        hitSlop: {
-          top: 8,
-          bottom: 8,
-          left: 8,
-        },
-      }}
+      hitSlop={NATIVE_HIT_SLOP}
       userSelect="none"
       onPress={showChainSelector}
     >

@@ -216,7 +216,7 @@ const EthLidoOverviewContent = ({
         >
           {totalFiatValue}
         </NumberSizeableText>
-        <XStack mt="$2" space="$1" alignItems="center">
+        <XStack mt="$2" gap="$1" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage(
               { id: ETranslations.earn_token_available_to_stake },
@@ -236,7 +236,7 @@ const EthLidoOverviewContent = ({
             )}
           </SizableText>
         </XStack>
-        <YStack space="$2" mt="$5">
+        <YStack gap="$2" mt="$5">
           <ListItemStaked amount={stETH.balanceParsed} />
           <ListItemPending requests={nfts.pending} />
           <ListItemClaim
