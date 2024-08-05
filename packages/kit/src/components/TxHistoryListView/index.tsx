@@ -12,6 +12,7 @@ import {
   renderNestedScrollView,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   convertToSectionGroups,
@@ -157,7 +158,7 @@ function TxHistoryListView(props: IProps) {
       onLayout={onLayout}
       sections={sections}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
-      estimatedItemSize={60}
+      estimatedItemSize={platformEnv.isNative ? 60 : undefined}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
       ListFooterComponent={ListFooterComponent}
