@@ -389,6 +389,7 @@ function BasicSelect<T extends string | ISelectItem>({
   defaultTriggerInputProps,
   ...props
 }: ISelectProps<T>) {
+  const media = useMedia();
   const defaultRenderTrigger = useCallback(
     ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
       <>
@@ -412,11 +413,11 @@ function BasicSelect<T extends string | ISelectItem>({
           color="$iconSubdued"
           position="absolute"
           right="$3"
-          top="$2"
+          top={media.gtMd ? '$2' : '$3'}
         />
       </>
     ),
-    [defaultTriggerInputProps, testID],
+    [defaultTriggerInputProps, media.gtMd, testID],
   );
   return (
     <SelectFrame {...props}>

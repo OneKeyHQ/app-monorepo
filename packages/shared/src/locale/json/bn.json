@@ -683,6 +683,7 @@
   "global.generate_amount_information": "উত্পন্ন হওয়া অ্যাকাউন্টগুলির সর্বাধিক সংখ্যা {max}।",
   "global.generate_amount_number": "নং।",
   "global.generate_amount_select": "সবগুলো নির্বাচন করুন",
+  "global.generate_amount_select_path": "যদি আপনার ডিফল্ট ঠিকানা দেখা না যায়, তবে সেটিংস > অ্যাকাউন্ট উৎপত্তি পথ চেক করুন।",
   "global.generate_max": "সর্বাধিক",
   "global.get_one": "একটি পান",
   "global.github": "GitHub",

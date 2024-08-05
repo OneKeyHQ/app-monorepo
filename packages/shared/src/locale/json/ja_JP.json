@@ -683,6 +683,7 @@
   "global.generate_amount_information": "生成されるアカウントの最大数は{max}です。",
   "global.generate_amount_number": "番号",
   "global.generate_amount_select": "すべて選択",
+  "global.generate_amount_select_path": "デフォルトのアドレスが表示されない場合は、設定>アカウント派生パスを確認してください。",
   "global.generate_max": "最大",
   "global.get_one": "1つを取得",
   "global.github": "GitHub",

@@ -683,6 +683,7 @@
   "global.generate_amount_information": "Максимальное количество созданных учетных записей составляет {max}.",
   "global.generate_amount_number": "Нет.",
   "global.generate_amount_select": "Выбрать все",
+  "global.generate_amount_select_path": "Если ваш адрес по умолчанию не отображается, проверьте Настройки > Путь производного аккаунта.",
   "global.generate_max": "Макс",
   "global.get_one": "Получите один",
   "global.github": "GitHub",

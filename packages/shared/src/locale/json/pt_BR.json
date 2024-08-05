@@ -683,6 +683,7 @@
   "global.generate_amount_information": "O número máximo de contas geradas é {max}.",
   "global.generate_amount_number": "Não.",
   "global.generate_amount_select": "Selecionar tudo",
+  "global.generate_amount_select_path": "Se o seu endereço padrão não estiver visível, verifique Configurações > Caminho de derivação da conta.",
   "global.generate_max": "Máximo",
   "global.get_one": "Pegue um",
   "global.github": "GitHub",

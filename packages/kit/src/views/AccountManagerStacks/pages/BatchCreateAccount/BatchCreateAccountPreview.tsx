@@ -123,9 +123,9 @@ function BatchCreateAccountPreviewPage({
         role="button"
         userSelect="none"
         alignItems="center"
-        px="$4"
-        py="$3"
-        borderRadius="$2"
+        px="$2"
+        py="$2"
+        borderRadius="$full"
         hoverStyle={{
           bg: '$bgHover',
         }}
@@ -388,7 +388,9 @@ function BatchCreateAccountPreviewPage({
                 }}
               >
                 <SizableText size="$bodyLg" mb="$5">
-                  {`If your default address isn't visible, check Settings > Account derivation path.`}
+                  {intl.formatMessage({
+                    id: ETranslations.global_generate_amount_select_path,
+                  })}
                 </SizableText>
                 <Divider />
                 <Stack mt="$5">
@@ -421,13 +423,24 @@ function BatchCreateAccountPreviewPage({
         />
 
         <ControlledNetworkSelectorTrigger
+          value={networkId}
+          onChange={setNetworkId}
           excludeAllNetworkItem
           miniMode
           borderWidth={0}
-          mr="$-4"
-          px="$4"
-          py="$3"
-          borderRadius="$2"
+          hitSlop={{
+            left: 8,
+            top: 8,
+            right: 8,
+            bottom: 8,
+          }}
+          mr="$-2"
+          px="$2"
+          py="$2"
+          borderRadius="$full"
+          // px="$4"
+          // py="$3"
+          // borderRadius="$2"
           hoverStyle={{
             bg: '$bgHover',
           }}
@@ -435,11 +448,9 @@ function BatchCreateAccountPreviewPage({
             bg: '$bgActive',
           }}
           $gtMd={{
-            borderRadius: '$2',
-            py: '$3',
+            borderRadius: '$full',
+            py: '$2',
           }}
-          value={networkId}
-          onChange={setNetworkId}
         />
       </Stack>
     ),

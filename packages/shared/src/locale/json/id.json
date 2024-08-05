@@ -683,6 +683,7 @@
   "global.generate_amount_information": "Jumlah maksimum akun yang dihasilkan adalah {max}.",
   "global.generate_amount_number": "Tidak.",
   "global.generate_amount_select": "Pilih semua",
+  "global.generate_amount_select_path": "Jika alamat default Anda tidak terlihat, periksa Pengaturan > Jalur derivasi akun.",
   "global.generate_max": "Maksimum",
   "global.get_one": "Dapatkan satu",
   "global.github": "GitHub",
