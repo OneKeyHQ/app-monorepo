@@ -578,10 +578,12 @@ function BatchCreateAccountPreviewPage({
                       });
                     }}
                     label={String((account.pathIndex ?? 0) + 1)}
-                    labelProps={{
-                      size: '$bodyMd',
-                      wordWrap: 'break-word', // TODO not working
-                    } as any}
+                    labelProps={
+                      {
+                        size: '$bodyMd',
+                        wordWrap: 'break-word', // TODO not working
+                      } as any
+                    }
                   />
                 </Stack>
 

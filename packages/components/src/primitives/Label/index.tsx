@@ -17,6 +17,7 @@ export const Label = styled(TMLabel, {
         const defaultFont = { size: {}, lineHeight: {}, weight: {} };
         const resolvedFont = font || defaultFont;
         type ISizeType = keyof typeof resolvedFont.size;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return {
           fontSize: resolvedFont?.size[variant as ISizeType] || '$true',
           lineHeight: font?.lineHeight[variant],
