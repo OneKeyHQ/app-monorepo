@@ -156,7 +156,7 @@ export function Footer(props: IDialogFooterProps) {
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               {...cancelButtonProps}
               onPress={onCancel}
@@ -174,7 +174,7 @@ export function Footer(props: IDialogFooterProps) {
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               {...restConfirmButtonProps}
               onPress={onConfirm}
