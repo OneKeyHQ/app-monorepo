@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 
-import { isEmpty, isEqual, uniqBy } from 'lodash';
+import BigNumber from 'bignumber.js';
+import { isEqual, uniqBy } from 'lodash';
 
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
@@ -362,7 +363,28 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
   );
 
   refreshSmallBalanceTokensFiatValue = contextAtomMethod(
-    (get, set, value: string) => {
+    (
+      get,
+      set,
+      payload: {
+        value: string;
+        merge?: boolean;
+      },
+    ) => {
+      const { value, merge } = payload;
+
+      const smallBalanceTokensFiatValue = get(
+        smallBalanceTokensFiatValueAtom(),
+      );
+
+      if (merge) {
+        const mergedValue = new BigNumber(smallBalanceTokensFiatValue)
+          .plus(value)
+          .toFixed();
+        set(smallBalanceTokensFiatValueAtom(), mergedValue);
+        return;
+      }
+
       set(smallBalanceTokensFiatValueAtom(), value);
     },
   );

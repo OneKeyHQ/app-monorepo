@@ -4,7 +4,7 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 
 import { HistoryDetails } from '../pages/HistoryDetails';
 import { NFTDetails } from '../pages/NFTDetails';
-import { TokenDetails } from '../pages/TokenDetails';
+import TokenDetails from '../pages/TokenDetails';
 import { UTXODetails } from '../pages/UTXODetails';
 
 export const ModalAssetDetailsStack: IModalFlowNavigatorConfig<
