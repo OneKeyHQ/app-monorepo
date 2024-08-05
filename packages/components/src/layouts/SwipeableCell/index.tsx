@@ -165,7 +165,7 @@ function BaseSwipeableCell(
       enabled={swipeEnabled}
       renderLeftActions={renderLeftActionList}
       renderRightActions={renderRightActionList}
-      style={style as unknown as any}
+      containerStyle={style as any}
       {...restProps}
       onSwipeableOpen={onSwipeableOpen}
       onSwipeableWillOpen={onSwipeableWillOpen}
