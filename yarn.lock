@@ -6002,6 +6002,7 @@ __metadata:
     "@polkadot/extension-inject": "npm:0.46.6"
     "@polkadot/types": "npm:11.3.1"
     "@polkadot/util-crypto": "npm:12.6.2"
+    "@sentry/babel-plugin-component-annotate": "npm:^2.21.1"
     "@substrate/txwrapper-polkadot": "npm:7.5.1"
     "@tamagui/animations-moti": "npm:1.108.0"
     "@tamagui/babel-plugin": "npm:1.108.0"
@@ -9004,6 +9005,13 @@ __metadata:
     component-type: "npm:^1.2.1"
     join-component: "npm:^1.1.0"
   checksum: 10/4e0b097de2c564673acceb5a0688bb8cf045bab4a1ffed1be19293a6bd2859af723e0d012349ff1d51433a6aad19f729383a302c3c0a9fc831e251cd16ade5ad
+  languageName: node
+  linkType: hard
+
+"@sentry/babel-plugin-component-annotate@npm:^2.21.1":
+  version: 2.21.1
+  resolution: "@sentry/babel-plugin-component-annotate@npm:2.21.1"
+  checksum: 10/e0b254739690fad4df3830550abfa71b535ec578d7a478a15bef6e78150a613d1655c315c01be8f25109e40b812abf83cb3ebb5f0b3cd444db876861e1084e37
   languageName: node
   linkType: hard
 
