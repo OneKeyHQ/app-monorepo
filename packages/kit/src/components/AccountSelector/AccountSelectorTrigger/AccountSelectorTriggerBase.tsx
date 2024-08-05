@@ -28,7 +28,7 @@ export function AccountSelectorTriggerBase({
       maxWidth="$48"
       py="$0.5"
       px="$1.5"
-      mx={platformEnv.isNative ? '$-1.5' : undefined}
+      mx="$-1.5"
       borderRadius="$2"
       hoverStyle={{
         bg: '$bgHover',
