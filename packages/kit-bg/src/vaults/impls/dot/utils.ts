@@ -267,7 +267,7 @@ export const getBlockInfo = memoizee(
     };
   },
   {
-    maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+    maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
     promise: true,
     normalizer(args) {
       return args[0];
