@@ -23,7 +23,7 @@ export const Label = styled(TMLabel, {
           fontWeight: font?.weight[variant],
           textTransform: font?.transform[variant],
           letterSpacing: font?.letterSpacing[variant] as any,
-        };
+        } as any;
       },
     },
   } as const,
