@@ -33,7 +33,7 @@ const ToastGallery = () => (
       {
         title: 'Default',
         element: (
-          <YStack space="$2">
+          <YStack gap="$2">
             <WalletAvatar size="$20" wallet={wallet} />
             <WalletAvatar img="panda" wallet={undefined} />
             <WalletAvatar img="panda" wallet={undefined} />

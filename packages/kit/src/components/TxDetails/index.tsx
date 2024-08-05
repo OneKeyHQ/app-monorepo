@@ -43,7 +43,7 @@ function TxDetails(props: ITxDetailsProps) {
           {section.map((item) => (
             <DescriptionList.Item
               key={item.key}
-              space="$5"
+              gap="$5"
               alignItems="flex-start"
             >
               <DescriptionList.Item.Key>

@@ -21,6 +21,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
@@ -37,7 +39,10 @@ import type {
   IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+import {
+  EAccountSelectorSceneName,
+  type IServerNetwork,
+} from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -87,6 +92,7 @@ const DeriveTypesAddressItem = ({
     token,
     tokenMap,
   } = useContext(DeriveTypesAddressContent);
+  const { createAddress } = useAccountSelectorCreateAddress();
 
   const [settings] = useSettingsPersistAtom();
   let tokenFiat: ITokenFiat | undefined;
@@ -130,11 +136,15 @@ const DeriveTypesAddressItem = ({
         const walletId = accountUtils.getWalletIdFromAccountId({
           accountId: indexedAccountId,
         });
-        await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
-          walletId,
-          indexedAccountId,
-          deriveType: item.deriveType,
-          networkId: network.id,
+        await createAddress({
+          selectAfterCreate: false,
+          num: 0,
+          account: {
+            walletId,
+            indexedAccountId,
+            deriveType: item.deriveType,
+            networkId: network.id,
+          },
         });
         Toast.success({
           title: intl.formatMessage({
@@ -157,6 +167,7 @@ const DeriveTypesAddressItem = ({
     indexedAccountId,
     intl,
     refreshLocalData,
+    createAddress,
   ]);
   return (
     <ListItem
@@ -272,15 +283,23 @@ export default function DeriveTypesAddressPage({
     ],
   );
   return (
-    <DeriveTypesAddressContent.Provider value={context}>
-      <Page onUnmounted={onUnmounted}>
-        <Page.Header
-          title={intl.formatMessage({ id: ETranslations.address_type })}
-        />
-        <Page.Body>
-          <DeriveTypesAddress items={result?.networkAccounts ?? []} />
-        </Page.Body>
-      </Page>
-    </DeriveTypesAddressContent.Provider>
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <DeriveTypesAddressContent.Provider value={context}>
+        <Page onUnmounted={onUnmounted}>
+          <Page.Header
+            title={intl.formatMessage({ id: ETranslations.address_type })}
+          />
+          <Page.Body>
+            <DeriveTypesAddress items={result?.networkAccounts ?? []} />
+          </Page.Body>
+        </Page>
+      </DeriveTypesAddressContent.Provider>
+    </AccountSelectorProviderMirror>
   );
 }

@@ -39,10 +39,10 @@ const SwapRoutePaths = ({ routeContent }: ISwapRoutePathProps) => (
               right={0}
               h="$3.5"
               alignItems="flex-end"
-              space="$1"
+              gap="$1"
             >
               {/* generate a array with 40 empty fill */}
-              <XStack px="$4" flex={1} space="$1" alignItems="center">
+              <XStack px="$4" flex={1} gap="$1" alignItems="center">
                 {new Array(40).fill(null).map((_, index) => (
                   <Stack key={index} h="$0.5" bg="$borderSubdued" flex={1} />
                 ))}

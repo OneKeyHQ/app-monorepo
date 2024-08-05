@@ -12,7 +12,7 @@ const CurrencyGallery = () => (
       {
         title: 'default targetCurrency',
         element: (
-          <Stack space="$4">
+          <Stack gap="$4">
             <Currency sourceCurrency="btc">1</Currency>
             <Currency sourceCurrency="usd">1</Currency>
             <Currency sourceCurrency="eur">1</Currency>
@@ -26,7 +26,7 @@ const CurrencyGallery = () => (
       {
         title: 'targetCurrency',
         element: (
-          <Stack space="$4">
+          <Stack gap="$4">
             <Currency sourceCurrency="btc" targetCurrency="btc">
               1
             </Currency>

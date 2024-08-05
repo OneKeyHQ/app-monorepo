@@ -64,7 +64,7 @@ function SingleAccountAndNetworkSelectorTrigger({
     handleAccountChanged,
   });
   return (
-    <XStack space="$3" alignItems="center">
+    <XStack gap="$3" alignItems="center">
       <Stack>
         <NetworkSelectorTriggerBrowserSingle num={num} />
       </Stack>
@@ -166,7 +166,7 @@ function AccountSelectorPopoverContent({
         return acc;
       }, {} as Record<number, { networkIds: string[] }>)}
     >
-      <YStack p="$5" space="$2">
+      <YStack p="$5" gap="$2">
         {accountsInfo.map((account) => (
           <DAppAccountListItem
             key={account.num}

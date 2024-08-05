@@ -13,10 +13,7 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
-import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
-import { DeriveTypeSelectorFormField } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -79,7 +76,7 @@ function AdvancedSettingsFormField({
   return (
     <Stack>
       {!alwaysShowAdvancedSettings ? (
-        <XStack space="$3" py="$2" ai="center" onPress={toggle}>
+        <XStack gap="$3" py="$2" ai="center" onPress={toggle}>
           <Stack>
             <SizableText size="$bodyMdMedium" color="$textSubdued">
               {intl.formatMessage({
@@ -224,7 +221,7 @@ export function BatchCreateAccountFormBase({
 
   return (
     <Form form={form}>
-      <Form.Field
+      {/* <Form.Field
         label={intl.formatMessage({ id: ETranslations.global_network })}
         name="networkId"
         disabled={networkReadyOnly}
@@ -241,7 +238,7 @@ export function BatchCreateAccountFormBase({
             })}
           </Form.FieldDescription>
         ) : null}
-      </Form.Field>
+      </Form.Field> */}
 
       <Form.Field
         label={intl.formatMessage({
@@ -315,10 +312,10 @@ export function BatchCreateAccountFormBase({
         isAllNetwork={isAllNetwork}
       />
 
-      <DeriveTypeSelectorFormField
+      {/* <DeriveTypeSelectorFormField
         fieldName="deriveType"
         networkId={networkIdValue}
-      />
+      /> */}
     </Form>
   );
 }
