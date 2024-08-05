@@ -683,6 +683,7 @@
   "global.generate_amount_information": "Số lượng tài khoản được tạo tối đa là {max}.",
   "global.generate_amount_number": "Không.",
   "global.generate_amount_select": "Chọn tất cả",
+  "global.generate_amount_select_path": "Nếu địa chỉ mặc định của bạn không hiển thị, hãy kiểm tra Cài đặt > Đường dẫn dẫn xuất tài khoản.",
   "global.generate_max": "Tối đa",
   "global.get_one": "Được một cái",
   "global.github": "GitHub",

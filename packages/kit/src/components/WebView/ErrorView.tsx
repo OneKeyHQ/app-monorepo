@@ -36,7 +36,7 @@ const ErrorView: FC<IErrorViewProps> = ({ errorCode, onRefresh }) => {
         title={intl.formatMessage({ id: messages.title })}
         description={intl.formatMessage({ id: messages.subTitle })}
         buttonProps={{
-          children: intl.formatMessage({ id: ETranslations.global_refresh }),
+          children: intl.formatMessage({ id: ETranslations.explore_reload }),
           onPress: () => onRefresh?.(),
           testID: 'error-view-refresh',
         }}

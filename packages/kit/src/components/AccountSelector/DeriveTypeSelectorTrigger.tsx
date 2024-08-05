@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,6 +16,7 @@ import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { usePrevious } from '../../hooks/usePrevious';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
@@ -269,10 +270,25 @@ export function DeriveTypeSelectorFormInput(
     [intl, viewItems],
   );
 
-  // autofix derivetype when it's not in the list
+  const prevDeriveType = usePrevious(deriveType);
+  const isDeriveTypeSame = deriveType === prevDeriveType;
+  const isDeriveTypeSameRef = useRef(isDeriveTypeSame);
+  isDeriveTypeSameRef.current = isDeriveTypeSame;
+  const shouldResetDeriveTypeWhenNetworkChanged = useRef(false);
+  const deriveTypeRef = useRef(deriveType);
+  deriveTypeRef.current = deriveType;
+
+  useEffect(() => {
+    if (deriveTypeRef.current && isDeriveTypeSameRef.current) {
+      shouldResetDeriveTypeWhenNetworkChanged.current = true;
+    }
+  }, [networkId]);
+
+  // autofix derivetype when it's not in the list or not set value yet
   useEffect(() => {
     void (async () => {
       if (
+        shouldResetDeriveTypeWhenNetworkChanged.current ||
         !deriveType ||
         (viewItems?.length &&
           !viewItems.find((item) => item.value === deriveType))
@@ -289,6 +305,7 @@ export function DeriveTypeSelectorFormInput(
         ) {
           fixedValue = defaultDeriveType;
         }
+        shouldResetDeriveTypeWhenNetworkChanged.current = false;
         onDeriveTypeChange?.(fixedValue);
       }
     })();
@@ -304,6 +321,7 @@ export function DeriveTypeSelectorFormInput(
     <DeriveTypeSelectorTriggerBaseView
       key={`${deriveType || ''}-${networkId || ''}`}
       items={options}
+      networkId={networkId}
       value={deriveType}
       onChange={onDeriveTypeChange}
       {...others}
