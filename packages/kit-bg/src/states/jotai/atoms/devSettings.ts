@@ -27,7 +27,10 @@ export const {
   persist: true,
   name: EAtomNames.devSettingsPersistAtom,
   initialValue: {
-    enabled: !!platformEnv.isDev,
+    enabled: !!platformEnv.isDev || !!platformEnv.isE2E,
+    settings: {
+      showDevOverlayWindow: !!platformEnv.isE2E ? true : false,
+    },
   },
 });
 
