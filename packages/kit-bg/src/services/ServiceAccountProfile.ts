@@ -32,6 +32,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IDBUtxoAccount } from '../dbs/local/types';
+import simpleDb from '../dbs/simple/simpleDb';
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
@@ -403,6 +404,18 @@ class ServiceAccountProfile extends ServiceBase {
     const data = resp.data.data.data;
 
     return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
+  }
+
+  @backgroundMethod()
+  async getAccountsValue({
+    accounts,
+  }: {
+    accounts: { accountId: string; networkId: string }[];
+  }) {
+    const accountsValue = await simpleDb.accountValue.getAccountsValue({
+      accounts,
+    });
+    return accountsValue;
   }
 
   // Get wallet type

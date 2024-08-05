@@ -24,6 +24,7 @@ import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHist
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
+import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -124,4 +125,8 @@ export class SimpleDbProxy
   v4MigrationResult = this._createProxyService(
     'v4MigrationResult',
   ) as SimpleDbEntityV4MigrationResult;
+
+  accountValue = this._createProxyService(
+    'accountValue',
+  ) as SimpleDbEntityAccountValue;
 }
