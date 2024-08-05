@@ -25,6 +25,8 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -42,7 +44,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+import {
+  EAccountSelectorSceneName,
+  type IServerNetwork,
+} from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
@@ -151,6 +156,7 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     indexedAccountId,
     refreshLocalData,
   } = useContext(WalletAddressContext);
+  const { createAddress } = useAccountSelectorCreateAddress();
   const deriveType = networkDeriveTypeMap[item.id] || 'default';
   const account = networkAccountMap[item.id] as INetworkAccount | undefined;
   const subtitle = account
@@ -166,11 +172,15 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
         const { walletId } = accountUtils.parseIndexedAccountId({
           indexedAccountId,
         });
-        await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
-          walletId,
-          indexedAccountId,
-          deriveType,
-          networkId: item.id,
+        await createAddress({
+          account: {
+            walletId,
+            networkId: item.id,
+            indexedAccountId,
+            deriveType,
+          },
+          selectAfterCreate: false,
+          num: 0,
         });
         Toast.success({
           title: intl.formatMessage({
@@ -205,6 +215,7 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     refreshLocalData,
     appNavigation,
     copyAccountAddress,
+    createAddress,
   ]);
 
   if (item.id === getNetworkIdsMap().btc) {
@@ -427,12 +438,20 @@ export default function WalletAddressPage({
   }, [result.networksAccount, indexedAccountId, accountId, refreshLocalData]);
 
   return (
-    <WalletAddressContext.Provider value={context}>
-      <WalletAddress
-        testnetItems={result.networks.testnetItems}
-        mainnetItems={result.networks.mainnetItems}
-        frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
-      />
-    </WalletAddressContext.Provider>
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <WalletAddressContext.Provider value={context}>
+        <WalletAddress
+          testnetItems={result.networks.testnetItems}
+          mainnetItems={result.networks.mainnetItems}
+          frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
+        />
+      </WalletAddressContext.Provider>
+    </AccountSelectorProviderMirror>
   );
 }

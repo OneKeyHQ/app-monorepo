@@ -17,6 +17,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -61,6 +62,7 @@ const ListItemFiatToken = ({
 }) => {
   const intl = useIntl();
   const { networkId, accountId } = useContext(TokenDataContext);
+  const { createAddress } = useAccountSelectorCreateAddress();
   const [loading, setLoading] = useState(false);
   const { account } = useAccountData({ networkId, accountId });
   const network = useGetNetwork({ networkId: item.networkId });
@@ -121,22 +123,41 @@ const ListItemFiatToken = ({
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: account.indexedAccountId,
           });
-          const resp =
-            await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
+          await createAddress({
+            selectAfterCreate: true,
+            num: 0,
+            account: {
               walletId,
               indexedAccountId: account.indexedAccountId,
               deriveType,
               networkId: item.networkId,
+            },
+          });
+          const dbAccount =
+            await backgroundApiProxy.serviceAccount.getNetworkAccount({
+              accountId: undefined,
+              indexedAccountId: account.indexedAccountId,
+              networkId: item.networkId,
+              deriveType,
             });
-          if (resp?.accounts[0]) {
-            onPress?.({ token: item, realAccountId: resp?.accounts[0].id });
+          if (dbAccount) {
+            onPress?.({ token: item, realAccountId: dbAccount.id });
           }
         } finally {
           setLoading(false);
         }
       }
     }
-  }, [onPress, item, networkId, account, accountId, appNavigation, fiatMap]);
+  }, [
+    onPress,
+    item,
+    networkId,
+    account,
+    accountId,
+    appNavigation,
+    fiatMap,
+    createAddress,
+  ]);
 
   return (
     <ListItem userSelect="none" onPress={handlePress}>
