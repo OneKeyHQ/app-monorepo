@@ -10,6 +10,7 @@ import { Input } from '../Input';
 
 import { SelectContext } from './context';
 
+import type { IListViewProps, ISectionListProps } from '../../layouts';
 import type { IContextType } from './context';
 import type {
   ISelectItem,
@@ -19,7 +20,6 @@ import type {
   ISelectSection,
   ISelectTriggerProps,
 } from './type';
-import type { IListViewProps, ISectionListProps } from '../../layouts';
 
 const useTriggerLabel = (value: string) => {
   const { sections, items } = useContext(SelectContext);
@@ -389,6 +389,7 @@ function BasicSelect<T extends string | ISelectItem>({
   defaultTriggerInputProps,
   ...props
 }: ISelectProps<T>) {
+  const media = useMedia();
   const defaultRenderTrigger = useCallback(
     ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
       <>
@@ -412,11 +413,11 @@ function BasicSelect<T extends string | ISelectItem>({
           color="$iconSubdued"
           position="absolute"
           right="$3"
-          top="$2"
+          top={media.gtMd ? '$2' : '$3'}
         />
       </>
     ),
-    [defaultTriggerInputProps, testID],
+    [defaultTriggerInputProps, media.gtMd, testID],
   );
   return (
     <SelectFrame {...props}>
