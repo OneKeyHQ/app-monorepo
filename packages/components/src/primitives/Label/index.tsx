@@ -1,6 +1,6 @@
 import { Label as TMLabel, styled } from 'tamagui';
 
-import type { GetProps } from 'tamagui';
+import type { FontTokens, GetProps } from 'tamagui';
 
 export const Label = styled(TMLabel, {
   unstyled: true,
@@ -27,4 +27,6 @@ export const Label = styled(TMLabel, {
   },
 });
 
-export type ILabelProps = GetProps<typeof Label>;
+export type ILabelProps = Omit<GetProps<typeof Label>, 'variant'> & {
+  variant: FontTokens;
+};
