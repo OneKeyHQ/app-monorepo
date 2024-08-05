@@ -108,8 +108,7 @@ function useReceiveToken({
               if (
                 settings.mergeDeriveAssetsEnabled &&
                 network?.isAllNetworks &&
-                (accountUtils.isHdWallet({ walletId }) ||
-                  accountUtils.isHwWallet({ walletId }))
+                !accountUtils.isOthersWallet({ walletId })
               ) {
                 navigation.push(
                   EModalReceiveRoutes.ReceiveSelectDeriveAddress,

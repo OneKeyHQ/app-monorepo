@@ -6,7 +6,10 @@ import { useDebouncedCallback } from 'use-debounce';
 import type { IButtonProps } from '@onekeyhq/components';
 import { Button } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBWalletId,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   useAccountIsAutoCreatingAtom,
   useAccountManualCreatingAtom,
@@ -40,7 +43,15 @@ export function AccountSelectorCreateAddressButton({
     deriveType: IAccountDeriveTypes;
   };
   buttonRender?: (props: IButtonProps) => React.ReactNode;
-  onCreateDone?: () => void;
+  onCreateDone?: (
+    params:
+      | {
+          walletId: string | undefined;
+          indexedAccountId: string | undefined;
+          accounts: IDBAccount[];
+        }
+      | undefined,
+  ) => void;
 }) {
   const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
@@ -110,6 +121,13 @@ export function AccountSelectorCreateAddressButton({
       isLoading: true,
     }));
     setAccountIsAutoCreating(accountRef.current);
+    let resp:
+      | {
+          walletId: string | undefined;
+          indexedAccountId: string | undefined;
+          accounts: IDBAccount[];
+        }
+      | undefined;
     try {
       if (process.env.NODE_ENV !== 'production' && account?.walletId) {
         const wallet = await serviceAccount.getWallet({
@@ -117,7 +135,7 @@ export function AccountSelectorCreateAddressButton({
         });
         console.log({ wallet });
       }
-      await createAddress({ num, selectAfterCreate, account });
+      resp = await createAddress({ num, selectAfterCreate, account });
       await timerUtils.wait(300);
     } finally {
       setAccountManualCreatingAtom((prev) => ({
@@ -126,7 +144,7 @@ export function AccountSelectorCreateAddressButton({
         isLoading: false,
       }));
       setAccountIsAutoCreating(undefined);
-      onCreateDone?.();
+      onCreateDone?.(resp);
     }
   }, [
     account,

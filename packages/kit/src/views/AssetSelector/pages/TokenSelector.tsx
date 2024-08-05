@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -26,12 +27,17 @@ import type {
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { useAccountData } from '../../../hooks/useAccountData';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
+
+const num = 0;
 
 function TokenSelector() {
   const intl = useIntl();
@@ -51,6 +57,8 @@ function TokenSelector() {
     >();
 
   const navigation = useAppNavigation();
+
+  const { createAddress } = useAccountSelectorCreateAddress();
 
   const {
     title,
@@ -73,34 +81,39 @@ function TokenSelector() {
     async (token: IAccountToken) => {
       if (network?.isAllNetworks) {
         let vaultSettings: IVaultSettings | undefined;
-        try {
+        if (token.networkId) {
           vaultSettings =
             await backgroundApiProxy.serviceNetwork.getVaultSettings({
-              networkId: token.networkId ?? '',
+              networkId: token.networkId,
             });
+        }
+
+        let accounts: IAllNetworkAccountInfo[] = [];
+
+        try {
+          if (
+            (token.accountId || account?.id) &&
+            (token.networkId || network?.id)
+          ) {
+            const params = token.accountId
+              ? {
+                  accountId: token.accountId ?? '',
+                  networkId: token.networkId ?? '',
+                }
+              : {
+                  accountId: account?.id ?? '',
+                  networkId: network?.id ?? '',
+                };
+            const { accountsInfo } =
+              await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+                ...params,
+                includingNonExistingAccount: true,
+                deriveType: token.accountId ? 'default' : undefined,
+              });
+            accounts = accountsInfo;
+          }
         } catch {
           // pass
-        }
-        let accounts: IAllNetworkAccountInfo[] = [];
-        if (
-          (token.accountId || account?.id) &&
-          (token.networkId || network?.id)
-        ) {
-          const params = token.accountId
-            ? {
-                accountId: token.accountId ?? '',
-                networkId: token.networkId ?? '',
-              }
-            : {
-                accountId: account?.id ?? '',
-                networkId: network?.id ?? '',
-              };
-          const { accountsInfo } =
-            await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-              ...params,
-              deriveType: undefined,
-            });
-          accounts = accountsInfo;
         }
 
         const matchedAccount = accounts.find((item) =>
@@ -109,8 +122,11 @@ function TokenSelector() {
             : true && item.networkId === token.networkId,
         );
 
-        if (vaultSettings?.mergeDeriveAssetsEnabled || matchedAccount) {
-          if (matchedAccount) {
+        if (
+          vaultSettings?.mergeDeriveAssetsEnabled ||
+          matchedAccount?.accountId
+        ) {
+          if (matchedAccount?.accountId) {
             void onSelect?.({
               ...token,
               accountId: matchedAccount.accountId,
@@ -127,13 +143,15 @@ function TokenSelector() {
             accountId: account.id,
           });
           try {
-            const resp =
-              await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
+            const resp = await createAddress({
+              num: 0,
+              account: {
                 walletId,
-                indexedAccountId: account?.indexedAccountId,
-                deriveType: 'default',
                 networkId: token.networkId,
-              });
+                indexedAccountId: account.indexedAccountId,
+                deriveType: 'default',
+              },
+            });
 
             updateCreateAccountState({
               isCreatingAccount: false,
@@ -164,6 +182,7 @@ function TokenSelector() {
     [
       account,
       closeAfterSelect,
+      createAddress,
       navigation,
       network?.id,
       network?.isAllNetworks,
@@ -203,7 +222,7 @@ function TokenSelector() {
   useEffect(() => {
     // use route params token
     const updateTokenList = async () => {
-      if (tokens) {
+      if (tokens && !isEmpty(tokens.data)) {
         refreshTokenList({ tokens: tokens.data, keys: tokens.keys });
         refreshTokenListMap({
           tokens: tokens.map,
@@ -357,4 +376,15 @@ function TokenSelector() {
 
 const TokenSelectorWithProvider = memo(withTokenListProvider(TokenSelector));
 
-export default TokenSelectorWithProvider;
+export default function TokenSelectorModal() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[num]}
+    >
+      <TokenSelectorWithProvider />
+    </AccountSelectorProviderMirror>
+  );
+}

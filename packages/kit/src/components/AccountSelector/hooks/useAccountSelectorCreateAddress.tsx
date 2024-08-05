@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { Dialog, SizableText, Stack, Toast } from '@onekeyhq/components';
 import type {
+  IDBAccount,
   IDBDevice,
   IDBWalletId,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -57,6 +58,7 @@ export function useAccountSelectorCreateAddress() {
           | {
               walletId: string | undefined;
               indexedAccountId: string | undefined;
+              accounts: IDBAccount[];
             }
           | undefined,
       ) => {
@@ -71,6 +73,7 @@ export function useAccountSelectorCreateAddress() {
             indexedAccountId: result?.indexedAccountId,
           });
         }
+        return result;
       };
 
       const addAccountsForAllNetwork = async () => {
@@ -87,9 +90,10 @@ export function useAccountSelectorCreateAddress() {
           walletId: account?.walletId,
           indexedAccountId: account?.indexedAccountId,
         });
-        await handleAddAccounts({
+        return handleAddAccounts({
           walletId: account?.walletId,
           indexedAccountId: account?.indexedAccountId,
+          accounts: [],
         });
       };
 
@@ -104,7 +108,7 @@ export function useAccountSelectorCreateAddress() {
           networkId: account?.networkId,
           deriveType: account?.deriveType,
         });
-        await handleAddAccounts(result);
+        return handleAddAccounts(result);
       };
 
       const isAirGapAccountNotFound = (error: Error | unknown) =>
@@ -112,7 +116,7 @@ export function useAccountSelectorCreateAddress() {
         EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound;
 
       try {
-        await addAccounts();
+        return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
           let byDevice: IDBDevice | undefined;
@@ -144,7 +148,7 @@ export function useAccountSelectorCreateAddress() {
           });
 
           try {
-            await addAccounts();
+            return await addAccounts();
           } catch (error2) {
             if (isAirGapAccountNotFound(error2)) {
               Dialog.show({
