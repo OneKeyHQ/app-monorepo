@@ -98,7 +98,7 @@ function HeaderLeftToolBar({
         />
       </HeaderButtonGroup>
       <Input
-        containerProps={{ ml: '$6', w: '$80' }}
+        containerProps={{ ml: '$6', w: '$80' } as any}
         size="small"
         leftIconName={isHttpsUrl ? 'LockSolid' : 'SearchSolid'}
         value={hiddenHttpsUrl}
