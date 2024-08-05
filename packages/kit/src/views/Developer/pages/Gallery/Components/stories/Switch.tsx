@@ -30,7 +30,7 @@ const SwitchGallery = () => (
         element: (
           <Stack space="$4">
             <Stack flexDirection="row" alignItems="center" space="$2">
-              <SwitchDemo />
+              <SwitchDemo size={ESwitchSize.small} />
               <SizableText>Small</SizableText>
             </Stack>
             <Stack flexDirection="row" alignItems="center" space="$2">
