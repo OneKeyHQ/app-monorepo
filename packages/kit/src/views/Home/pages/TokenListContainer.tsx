@@ -57,7 +57,6 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { UrlAccountHomeTokenListProviderMirror } from '../components/HomeTokenListProvider/UrlAccountHomeTokenListProviderMirror';
-import { WalletActions } from '../components/WalletActions';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -739,35 +738,23 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   ]);
 
   return (
-    <>
-      {showWalletActions ? (
-        <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
-          <WalletActions
-            pt="$5"
-            $gtLg={{
-              pt: 0,
-            }}
-          />
-        </Portal.Body>
-      ) : null}
-      <TokenListView
-        withHeader
-        withFooter
-        withPrice
-        inTabList
-        withBuyAndReceive={isBuyAndReceiveEnabled}
-        isBuyTokenSupported={isSupported}
-        onBuyToken={handleOnBuy}
-        onReceiveToken={handleOnReceive}
-        manageTokenEnabled={manageTokenEnabled}
-        onManageToken={handleOnManageToken}
-        onPressToken={handleOnPressToken}
-        isAllNetworks={network?.isAllNetworks}
-        {...(media.gtLg && {
-          tableLayout: true,
-        })}
-      />
-    </>
+    <TokenListView
+      withHeader
+      withFooter
+      withPrice
+      inTabList
+      withBuyAndReceive={isBuyAndReceiveEnabled}
+      isBuyTokenSupported={isSupported}
+      onBuyToken={handleOnBuy}
+      onReceiveToken={handleOnReceive}
+      manageTokenEnabled={manageTokenEnabled}
+      onManageToken={handleOnManageToken}
+      onPressToken={handleOnPressToken}
+      isAllNetworks={network?.isAllNetworks}
+      {...(media.gtLg && {
+        tableLayout: true,
+      })}
+    />
   );
 }
 
