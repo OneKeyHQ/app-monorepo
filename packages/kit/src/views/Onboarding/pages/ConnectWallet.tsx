@@ -209,7 +209,7 @@ function ConnectToWalletDialogContent({
           $gtMd={
             {
               size: 'medium',
-            } as IButtonProps
+            } as any
           }
           onPress={onRetryPress}
         >

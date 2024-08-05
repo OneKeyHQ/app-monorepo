@@ -1206,7 +1206,7 @@ function FeeEditor(props: IProps) {
             $gtMd={
               {
                 size: 'medium',
-              } as IButtonProps
+              } as any
             }
             onPress={handleApplyFeeInfo}
           >

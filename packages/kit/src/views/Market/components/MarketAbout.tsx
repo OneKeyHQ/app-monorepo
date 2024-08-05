@@ -65,7 +65,7 @@ function ViewMoreText({ children, ...props }: ISizableTextProps) {
             size="medium"
             variant="secondary"
             onPress={handleViewMore}
-            $gtMd={{ size: 'small' } as IButtonProps}
+            $gtMd={{ size: 'small' } as any}
           >
             {intl.formatMessage({
               id: numberOfLines

@@ -68,7 +68,7 @@ export function V4MigrationDone({
           $gtMd={
             {
               size: 'medium',
-            } as IButtonProps
+            } as any
           }
           variant="primary"
           onPress={async () => {

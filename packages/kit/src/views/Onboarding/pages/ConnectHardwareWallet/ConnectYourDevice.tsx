@@ -150,7 +150,7 @@ function ConnectByQrCode() {
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         onPress={async () => {
           try {
@@ -368,7 +368,7 @@ function ConnectByUSBOrBLE({
                       <Button
                         flex={1}
                         size="large"
-                        $gtMd={{ size: 'medium' } as IButtonProps}
+                        $gtMd={{ size: 'medium' } as any}
                         onPress={() => Linking.openURL(requestsUrl)}
                       >
                         {intl.formatMessage({
@@ -379,7 +379,7 @@ function ConnectByUSBOrBLE({
                         flex={1}
                         variant="primary"
                         size="large"
-                        $gtMd={{ size: 'medium' } as IButtonProps}
+                        $gtMd={{ size: 'medium' } as any}
                         onPress={async () => {
                           await packageAlertDialog.close();
                           handleRestoreWalletPress({ deviceType });

@@ -57,7 +57,7 @@ export function MarketDetailOverviewContract({
           size="medium"
           variant="secondary"
           onPress={handleViewMore}
-          $gtMd={{ size: 'small' } as IButtonProps}
+          $gtMd={{ size: 'small' } as any}
         >
           {intl.formatMessage({
             id: isShowMore
