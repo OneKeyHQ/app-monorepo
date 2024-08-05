@@ -34,7 +34,7 @@ function EmptyTokenItem({
       flexDirection="row"
       alignItems="center"
       p="$4"
-      space="$3"
+      gap="$3"
       bg="$bgSubdued"
       userSelect="none"
       borderWidth={StyleSheet.hairlineWidth}
@@ -71,7 +71,7 @@ function EmptyToken(props: IProps) {
 
   if (withBuyAndReceive) {
     return (
-      <Stack mt="$2" px="$5" space="$4">
+      <Stack mt="$2" px="$5" gap="$4">
         {isBuyTokenSupported ? (
           <EmptyTokenItem
             bg="$purple2"

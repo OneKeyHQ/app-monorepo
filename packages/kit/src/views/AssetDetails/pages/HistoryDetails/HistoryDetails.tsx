@@ -610,7 +610,7 @@ function HistoryDetails() {
     return (
       <XStack ml="$5">
         {canCancelTx ? (
-          <XStack space="$2">
+          <XStack gap="$2">
             <Button
               size="small"
               variant="primary"

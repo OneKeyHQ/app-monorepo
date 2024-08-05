@@ -54,7 +54,7 @@ function ViewMoreText({ children, ...props }: ISizableTextProps) {
 
   return (
     <YStack>
-      <YStack space="$3">
+      <YStack gap="$3">
         <Stack onLayout={onLayoutTrimmedText}>
           <SizableText size="$bodyMd" numberOfLines={numberOfLines} {...props}>
             {children}
@@ -99,7 +99,7 @@ export function MarketAbout({
 }) {
   const intl = useIntl();
   return children ? (
-    <YStack space="$3" pt="$10">
+    <YStack gap="$3" pt="$10">
       <SizableText size="$headingSm">
         {intl.formatMessage({ id: ETranslations.global_about })}
       </SizableText>

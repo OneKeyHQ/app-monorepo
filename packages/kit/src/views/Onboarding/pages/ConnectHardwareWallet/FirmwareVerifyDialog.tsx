@@ -207,7 +207,7 @@ export function EnumBasicDialogContentContainer({
         ) : (
           <YStack
             p="$5"
-            space="$5"
+            gap="$5"
             bg="$bgCautionSubdued"
             borderWidth={StyleSheet.hairlineWidth}
             borderColor="$borderCautionSubdued"
@@ -530,7 +530,7 @@ export function FirmwareAuthenticationDialogContent({
     verify,
   ]);
 
-  return <Stack space="$5">{content}</Stack>;
+  return <Stack gap="$5">{content}</Stack>;
 }
 
 export function useFirmwareVerifyDialog() {

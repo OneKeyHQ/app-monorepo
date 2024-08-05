@@ -141,14 +141,14 @@ function SwapProviderItem({
         ) : null}
       </XStack>
       <Stack py="$2" px="$3.5">
-        <XStack space="$3.5" alignItems="center">
-          <XStack space="$1" alignItems="center">
+        <XStack gap="$3.5" alignItems="center">
+          <XStack gap="$1" alignItems="center">
             <Icon name="GasOutline" color="$iconSubdued" size="$4" />
             <SizableText size="$bodySmMedium" color="$textSubdued">
               {estNetworkFee}
             </SizableText>
           </XStack>
-          <XStack space="$1" alignItems="center">
+          <XStack gap="$1" alignItems="center">
             <Icon
               name="ClockTimeHistoryOutline"
               color="$iconSubdued"
@@ -158,7 +158,7 @@ function SwapProviderItem({
               {estTime}
             </SizableText>
           </XStack>
-          <XStack space="$1" alignItems="center">
+          <XStack gap="$1" alignItems="center">
             <Icon name="HandCoinsOutline" color="$iconSubdued" size="$4" />
             <SizableText size="$bodySmMedium" color="$textSubdued">
               {estFee}
@@ -227,7 +227,7 @@ function SwapProviderItem({
                         right={0}
                         h="$3.5"
                         alignItems="flex-end"
-                        space="$1"
+                        gap="$1"
                       >
                         {/* generate a array with 10 empty fill */}
                         {new Array(40).fill(null).map((_, index) => (
@@ -292,8 +292,8 @@ const ButtonsGallery = () => (
       {
         title: '默认状态',
         element: (
-          <Stack space="$1">
-            <XStack space="$1">
+          <Stack gap="$1">
+            <XStack gap="$1">
               <Badge badgeType="default" badgeSize="sm">
                 Badge
               </Badge>
@@ -310,7 +310,7 @@ const ButtonsGallery = () => (
                 Badge
               </Badge>
             </XStack>
-            <XStack space="$1">
+            <XStack gap="$1">
               <Badge badgeType="default" badgeSize="lg">
                 Badge
               </Badge>
@@ -328,7 +328,7 @@ const ButtonsGallery = () => (
               </Badge>
             </XStack>
 
-            <Stack pt="$10" space="$4">
+            <Stack pt="$10" gap="$4">
               <SwapProviderItem
                 providerLogoUri=""
                 estReceiveAmount="4.932 USDT"

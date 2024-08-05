@@ -40,7 +40,7 @@ export function V4MigrationDone({
         flex={1}
         justifyContent="center"
         alignItems="center"
-        space="$5"
+        gap="$5"
         p="$5"
       >
         <V4MigrationLogCopy>

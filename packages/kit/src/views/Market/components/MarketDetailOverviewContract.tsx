@@ -35,7 +35,7 @@ export function MarketDetailOverviewContract({
     [isShowMore, keys],
   );
   return detailPlatforms && keys.length ? (
-    <YStack pt="$3" space="$3">
+    <YStack pt="$3" gap="$3">
       <SizableText color="$textSubdued" size="$bodySm">
         {intl.formatMessage({ id: ETranslations.global_contract })}
       </SizableText>

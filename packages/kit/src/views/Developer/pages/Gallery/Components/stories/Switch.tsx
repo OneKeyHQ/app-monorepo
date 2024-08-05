@@ -28,12 +28,12 @@ const SwitchGallery = () => (
       {
         title: 'Sizes',
         element: (
-          <Stack space="$4">
-            <Stack flexDirection="row" alignItems="center" space="$2">
+          <Stack gap="$4">
+            <Stack flexDirection="row" alignItems="center" gap="$2">
               <SwitchDemo size={ESwitchSize.small} />
               <SizableText>Small</SizableText>
             </Stack>
-            <Stack flexDirection="row" alignItems="center" space="$2">
+            <Stack flexDirection="row" alignItems="center" gap="$2">
               <SwitchDemo size={ESwitchSize.large} />
               <SizableText>Large</SizableText>
             </Stack>
@@ -43,20 +43,20 @@ const SwitchGallery = () => (
       {
         title: 'Status(View Only)',
         element: (
-          <Stack space="$4">
-            <Stack flexDirection="row" alignItems="center" space="$2">
+          <Stack gap="$4">
+            <Stack flexDirection="row" alignItems="center" gap="$2">
               <SwitchDemo value={false} size={ESwitchSize.large} />
               <SizableText>Default</SizableText>
             </Stack>
-            <Stack flexDirection="row" alignItems="center" space="$2">
+            <Stack flexDirection="row" alignItems="center" gap="$2">
               <SwitchDemo value={false} size={ESwitchSize.large} disabled />
               <SizableText>Default and disabled</SizableText>
             </Stack>
-            <Stack flexDirection="row" alignItems="center" space="$2">
+            <Stack flexDirection="row" alignItems="center" gap="$2">
               <SwitchDemo value size={ESwitchSize.large} />
               <SizableText>Checked</SizableText>
             </Stack>
-            <Stack flexDirection="row" alignItems="center" space="$2">
+            <Stack flexDirection="row" alignItems="center" gap="$2">
               <SwitchDemo value size={ESwitchSize.large} disabled />
               <SizableText>Checked and disabled</SizableText>
             </Stack>

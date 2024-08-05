@@ -186,7 +186,7 @@ export function FooterActions({
     >
       {children}
       <XStack
-        space="$2.5"
+        gap="$2.5"
         $gtMd={{
           ml: 'auto',
         }}

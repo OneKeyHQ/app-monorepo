@@ -11,7 +11,7 @@ const TooltipGallery = () => (
       {
         title: 'Default',
         element: (
-          <XStack space="$4">
+          <XStack gap="$4">
             <Tooltip
               renderTrigger={<IconButton icon="EditOutline" />}
               renderContent="Qui nulla occaecat anim"
@@ -22,7 +22,7 @@ const TooltipGallery = () => (
       {
         title: 'Placements',
         element: (
-          <XStack space="$4">
+          <XStack gap="$4">
             <Tooltip
               renderTrigger={<IconButton icon="ChevronTopOutline" />}
               renderContent="Qui nulla occaecat anim"
@@ -48,7 +48,7 @@ const TooltipGallery = () => (
       {
         title: 'Max width',
         element: (
-          <XStack space="$4">
+          <XStack gap="$4">
             <Tooltip
               renderTrigger={<IconButton icon="EditOutline" />}
               renderContent="Excepteur cillum laboris ea sint esse reprehenderit. Culpa fugiat aliqua elit sit deserunt cupidatat adipisicing velit non ad. Magna qui aute eiusmod deserunt elit commodo culpa nostrud aute veniam esse elit eu."

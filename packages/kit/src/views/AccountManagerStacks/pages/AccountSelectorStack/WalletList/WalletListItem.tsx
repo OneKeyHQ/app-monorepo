@@ -149,7 +149,7 @@ export function WalletListItem({
         borderRadius="$3"
         borderWidth={1}
         borderColor="$borderSubdued"
-        space="$3"
+        gap="$3"
         borderCurve="continuous"
       >
         {responsiveComponent}

@@ -111,7 +111,7 @@ function DownloadButton(props: IXStackProps) {
       <SizableText size="$bodyMdMedium" flex={1}>
         {intl.formatMessage({ id: ETranslations.global_download })}
       </SizableText>
-      <XStack space="$1" alignItems="center">
+      <XStack gap="$1" alignItems="center">
         <Icon name="AppleBrand" size="$5" y={-2} color="$iconSubdued" />
         <Icon name="GooglePlayBrand" size="$4.5" color="$iconSubdued" />
         <Icon name="ChromeBrand" size="$4.5" color="$iconSubdued" />

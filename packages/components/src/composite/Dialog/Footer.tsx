@@ -148,7 +148,7 @@ export function Footer(props: IDialogFooterProps) {
   return (
     <DialogFooterContainer>
       {showFooter ? (
-        <XStack p="$5" pt="$0" space="$2.5" {...footerProps}>
+        <XStack p="$5" pt="$0" gap="$2.5" {...footerProps}>
           {showCancelButton ? (
             <Button
               flexGrow={1}

@@ -364,7 +364,7 @@ function ConnectByUSBOrBLE({
                   }),
                   showFooter: false,
                   renderContent: (
-                    <XStack space="$2.5">
+                    <XStack gap="$2.5">
                       <Button
                         flex={1}
                         size="large"

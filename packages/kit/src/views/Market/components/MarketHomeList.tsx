@@ -74,14 +74,14 @@ const colorMap = {
 function TableMdSkeletonRow() {
   return (
     <XStack h={60} jc="space-between" flex={1}>
-      <XStack space="$3" ai="center">
+      <XStack gap="$3" ai="center">
         <Skeleton w="$10" h="$10" radius="round" />
-        <YStack space="$2">
+        <YStack gap="$2">
           <Skeleton w="$16" h="$2.5" />
           <Skeleton w="$24" h="$2.5" />
         </YStack>
       </XStack>
-      <XStack space="$5" ai="center">
+      <XStack gap="$5" ai="center">
         <Skeleton w="$16" h="$2.5" />
         <Skeleton w="$16" h="$2.5" />
       </XStack>
@@ -266,12 +266,12 @@ function BasicMarketHomeList({
             flex={1}
             justifyContent="space-between"
             userSelect="none"
-            space="$2"
+            gap="$2"
             px="$5"
             {...listItemPressStyle}
             {...(platformEnv.isNative ? pressEvents : undefined)}
           >
-            <XStack space="$3" ai="center" flexShrink={1}>
+            <XStack gap="$3" ai="center" flexShrink={1}>
               <MarketTokenIcon uri={item.image} size="$10" />
               <YStack flexShrink={1}>
                 <SizableText
@@ -300,7 +300,7 @@ function BasicMarketHomeList({
                 </SizableText>
               </YStack>
             </XStack>
-            <XStack ai="center" space="$5">
+            <XStack ai="center" gap="$5">
               <NumberSizeableText
                 selectable={false}
                 flexShrink={1}
@@ -347,7 +347,7 @@ function BasicMarketHomeList({
 
   const renderSelectTrigger = useCallback(
     ({ label }: { label?: string }) => (
-      <XStack ai="center" space="$1">
+      <XStack ai="center" gap="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
           {label}
         </SizableText>
@@ -484,7 +484,7 @@ function BasicMarketHomeList({
               dataIndex: 'symbol',
               columnWidth: 140,
               render: (symbol: string, record: IMarketToken) => (
-                <XStack space="$3" ai="center">
+                <XStack gap="$3" ai="center">
                   <MarketTokenIcon uri={record.image} size="$8" />
                   <YStack width="$24">
                     <SizableText
@@ -536,9 +536,9 @@ function BasicMarketHomeList({
                 </XStack>
               ),
               renderSkeleton: () => (
-                <XStack space="$3">
+                <XStack gap="$3">
                   <Skeleton w="$8" h="$8" radius="round" />
-                  <YStack space="$2">
+                  <YStack gap="$2">
                     <Skeleton w="$16" h="$3" />
                     <Skeleton w="$24" h="$3" />
                   </YStack>
@@ -804,7 +804,7 @@ function BasicMarketHomeList({
           borderBottomColor="$borderSubdued"
         >
           <XStack h="$11" ai="center" justifyContent="space-between">
-            <XStack ai="center" space="$2">
+            <XStack ai="center" gap="$2">
               <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
               <Select
                 items={selectOptions}

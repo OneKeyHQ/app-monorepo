@@ -203,7 +203,7 @@ function NetworkIdSelect({
   onChange: (selectedIndex: number) => void;
 }) {
   return (
-    <XStack space="$2" px="$5" $gtMd={{ pr: 0 }} py="$2">
+    <XStack gap="$2" px="$5" $gtMd={{ pr: 0 }} py="$2">
       {options.map((networkId, index) => (
         <Stack
           key={networkId}
@@ -299,7 +299,7 @@ export function MarketDetailPools({
               }}
             >
               <ItemColumn flexGrow={5}>
-                <XStack space="$2.5" ai="center">
+                <XStack gap="$2.5" ai="center">
                   <MarketPoolIcon uri={dexLogoUrl} />
                   <YStack flexShrink={1}>
                     <SizableText

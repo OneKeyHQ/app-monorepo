@@ -70,7 +70,7 @@ const ToastGallery = () => (
       {
         title: 'Default',
         element: (
-          <YStack space="$4" justifyContent="center">
+          <YStack gap="$4" justifyContent="center">
             <AccountAvatar />
             <AccountAvatar src="https://cdn.bitkeep.vip/web/v10037/img/down/logo.png" />
             <AccountAvatar src="https://avatars2.githubusercontent.com/u/48327834?s=200&v=4" />
@@ -104,9 +104,9 @@ const ToastGallery = () => (
         element: () => {
           const [uri, setUri] = useState('');
           return (
-            <YStack space="$4">
+            <YStack gap="$4">
               <AccountAvatar src={uri} />
-              <YStack space="$4">
+              <YStack gap="$4">
                 <Button
                   onPress={() => {
                     setUri('https://onekey-asset.com/assets/btc/btc.pn');
@@ -142,9 +142,9 @@ const ToastGallery = () => (
             INetworkAccount | IDBExternalAccount | undefined
           >(undefined);
           return (
-            <YStack space="$4">
+            <YStack gap="$4">
               <AccountAvatar dbAccount={account} size={size} />
-              <YStack space="$4">
+              <YStack gap="$4">
                 <Select
                   items={[
                     {

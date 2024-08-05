@@ -52,7 +52,7 @@ const SwapProviderListItem = ({
   const networkFeeComponent = useMemo(() => {
     if (providerResult.fee?.estimatedFeeFiatValue) {
       return (
-        <XStack space="$1" alignItems="center">
+        <XStack gap="$1" alignItems="center">
           <Tooltip
             renderTrigger={
               <Icon name="GasOutline" size="$4" color="$iconSubdued" />
@@ -98,7 +98,7 @@ const SwapProviderListItem = ({
         displayTime = `${timeInMinutes}min`;
       }
       return (
-        <XStack space="$1" alignItems="center">
+        <XStack gap="$1" alignItems="center">
           <Tooltip
             renderTrigger={
               <Icon
@@ -127,7 +127,7 @@ const SwapProviderListItem = ({
 
   const protocolFeeComponent = useMemo(
     () => (
-      <XStack space="$1" alignItems="center">
+      <XStack gap="$1" alignItems="center">
         <Tooltip
           renderTrigger={
             <Icon name="HandCoinsOutline" size="$4" color="$iconSubdued" />
@@ -356,7 +356,7 @@ const SwapProviderListItem = ({
       </XStack>
       {providerResult.toAmount ? (
         <Stack py="$2" px="$3.5">
-          <XStack space="$3.5" alignItems="center">
+          <XStack gap="$3.5" alignItems="center">
             {networkFeeComponent}
             {estimatedTimeComponent}
             {protocolFeeComponent}

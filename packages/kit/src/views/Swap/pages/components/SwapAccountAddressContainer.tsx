@@ -51,7 +51,7 @@ function AddressButton({
   return (
     <XStack
       alignItems="center"
-      space="$1"
+      gap="$1"
       py="$0.5"
       px="$1.5"
       my="$-0.5"

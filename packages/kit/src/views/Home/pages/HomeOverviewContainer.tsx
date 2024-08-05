@@ -148,7 +148,7 @@ function HomeOverviewContainer() {
   );
 
   return (
-    <XStack alignItems="center" space="$3">
+    <XStack alignItems="center" gap="$3">
       {vaultSettings?.hasFrozenBalance ? (
         <XStack
           flexShrink={1}

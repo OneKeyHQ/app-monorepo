@@ -88,7 +88,7 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
       }
       borderCurve="continuous"
       disabled={triggerDisabled}
-      space="$2"
+      gap="$2"
       {...rest}
     >
       {renderNetworkIcon()}

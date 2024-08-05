@@ -25,7 +25,7 @@ function HomeSelector(props: IProps) {
     <XStack
       testID="Wallet-Address-Generator"
       alignItems="center"
-      space="$3"
+      gap="$3"
       {...rest}
     >
       <NetworkSelectorTriggerHome num={num} />
