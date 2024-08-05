@@ -683,6 +683,7 @@
   "global.generate_amount_information": "उत्पन्न किए गए खातों की अधिकतम संख्या {max} है।",
   "global.generate_amount_number": "नहीं।",
   "global.generate_amount_select": "सभी का चयन करें",
+  "global.generate_amount_select_path": "यदि आपका डिफ़ॉल्ट पता दिखाई नहीं दे रहा है, तो सेटिंग्स > खाता व्युत्पन्न पथ की जांच करें।",
   "global.generate_max": "अधिकतम",
   "global.get_one": "एक प्राप्त करें",
   "global.github": "GitHub",
