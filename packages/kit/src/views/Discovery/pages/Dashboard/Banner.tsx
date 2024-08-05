@@ -39,6 +39,7 @@ export function Banner({
         flex={1}
         position="relative"
         userSelect="none"
+        cursor="pointer"
         onPress={() =>
           handleOpenWebSite({
             webSite: {
