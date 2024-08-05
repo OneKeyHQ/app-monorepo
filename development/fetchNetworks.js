@@ -60,7 +60,7 @@ export const dangerAllNetworkRepresent: IServerNetwork = {
   },
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,
-};
+};\n
 `;
 
     // Group networks by impl
@@ -81,6 +81,9 @@ export const dangerAllNetworkRepresent: IServerNetwork = {
     Object.keys(networkGroups)
       .sort()
       .forEach((impl) => {
+        if (networkDeclarations.length > 0) {
+          networkDeclarations.push('');
+        }
         networkDeclarations.push(`// ${impl.toUpperCase()} networks`);
 
         networkGroups[impl].forEach((network) => {
@@ -106,7 +109,7 @@ export const dangerAllNetworkRepresent: IServerNetwork = {
         });
       });
 
-    fileContent += networkDeclarations.join('\n\n');
+    fileContent += networkDeclarations.join('\n');
 
     fileContent += `
 
