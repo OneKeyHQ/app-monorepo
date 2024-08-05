@@ -12,10 +12,18 @@ import {
   Icon,
   IconButton,
   SortableSectionList,
+  Spinner,
   Stack,
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
+import type {
+  IDBAccount,
+  IDBDevice,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
@@ -30,13 +38,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
 import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/pages';
-import type {
-  IDBAccount,
-  IDBDevice,
-  IDBIndexedAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -190,6 +191,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     result: sectionData,
     run: reloadAccounts,
     setResult,
+    isLoading,
   } = usePromiseResult(
     async () => {
       if (!selectedAccount?.focusedWallet) {
@@ -212,6 +214,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     ],
     {
       checkIsFocused: false,
+      watchLoading: true,
     },
   );
 
@@ -466,28 +469,34 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               }`
             }
             ListEmptyComponent={
-              <Empty
-                mt="$24"
-                icon="WalletOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_no_wallet,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.global_no_wallet_desc,
-                })}
-                buttonProps={{
-                  children: intl.formatMessage({
-                    id: ETranslations.global_create_wallet,
-                  }),
-                  onPress: () => {
-                    void toOnBoardingPage({
-                      params: {
-                        showCloseButton: true,
-                      },
-                    });
-                  },
-                }}
-              />
+              isLoading ? (
+                <Stack py="$20">
+                  <Spinner size="large" />
+                </Stack>
+              ) : (
+                <Empty
+                  mt="$24"
+                  icon="WalletOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_no_wallet,
+                  })}
+                  description={intl.formatMessage({
+                    id: ETranslations.global_no_wallet_desc,
+                  })}
+                  buttonProps={{
+                    children: intl.formatMessage({
+                      id: ETranslations.global_create_wallet,
+                    }),
+                    onPress: () => {
+                      void toOnBoardingPage({
+                        params: {
+                          showCloseButton: true,
+                        },
+                      });
+                    },
+                  }}
+                />
+              )
             }
             contentContainerStyle={{ pb: '$3' }}
             extraData={[selectedAccount.indexedAccountId, editMode, remember]}

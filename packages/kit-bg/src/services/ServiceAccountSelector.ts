@@ -41,6 +41,7 @@ import type {
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
 } from '../vaults/types';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 @backgroundClass()
 class ServiceAccountSelector extends ServiceBase {
@@ -525,6 +526,7 @@ class ServiceAccountSelector extends ServiceBase {
     linkedNetworkId?: string;
     deriveType: IAccountDeriveTypes;
   }): Promise<Array<IAccountSelectorAccountsListSectionData>> {
+    // await timerUtils.wait(1000);
     const { serviceAccount } = this.backgroundApi;
     if (!focusedWallet) {
       return [];
