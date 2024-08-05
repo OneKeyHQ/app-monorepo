@@ -68,7 +68,7 @@ function Items({
             p: '$3',
             flexBasis: '33.3333%',
             flexDirection: 'row',
-            space: '$5',
+            gap: '$5',
           }}
           $gtXl={{
             flexBasis: '25%',

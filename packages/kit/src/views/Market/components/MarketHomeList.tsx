@@ -110,7 +110,7 @@ const TouchableContainer = platformEnv.isNative
   : TouchableWithoutFeedback;
 
 const ROW_PROPS = {
-  space: '$3',
+  gap: '$3',
   px: '$3',
   mx: '$2',
 };

@@ -12,7 +12,7 @@ import type { XStackProps } from 'tamagui';
 
 const DescriptionListFrame = styled(Stack, {
   name: 'DescriptionList',
-  space: '$4',
+  gap: '$4',
 });
 
 const DescriptionListItem = styled(XStack, {
