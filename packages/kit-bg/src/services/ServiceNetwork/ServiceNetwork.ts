@@ -755,7 +755,10 @@ class ServiceNetwork extends ServiceBase {
       if (networkIdsDisabledSet.has(params.networkId)) {
         return false;
       }
-      if (params.account) {
+      if (
+        params.account &&
+        accountUtils.isOthersAccount({ accountId: params.account.id })
+      ) {
         return accountUtils.isAccountCompatibleWithNetwork({
           account: params.account,
           networkId: params.networkId,
