@@ -97,7 +97,7 @@ export function FooterCancelButton({
           flexGrow: 1,
           flexBasis: 0,
           size: 'large',
-        } as IButtonProps
+        } as any
       }
       onPress={handleCancel}
       testID="page-footer-cancel"
@@ -129,7 +129,7 @@ export function FooterConfirmButton({
           flexGrow: 1,
           flexBasis: 0,
           size: 'large',
-        } as IButtonProps
+        } as any
       }
       variant="primary"
       onPress={handleConfirm}

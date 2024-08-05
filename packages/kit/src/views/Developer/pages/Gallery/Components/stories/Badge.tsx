@@ -8,6 +8,7 @@ import {
   HeightTransition,
   Icon,
   Image,
+  NATIVE_HIT_SLOP,
   SizableText,
   Stack,
   XStack,
@@ -175,9 +176,7 @@ function SwapProviderItem({
               my="$-0.5"
               py="$0.5"
               mr="$-1"
-              $platform-native={{
-                hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
-              }}
+              hitSlop={NATIVE_HIT_SLOP}
               hoverStyle={{
                 bg: '$bgHover',
               }}

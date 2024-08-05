@@ -8,6 +8,7 @@ import {
   getSharedButtonStyles,
 } from '../../primitives';
 import { useSharedPress } from '../../primitives/Button/useEvent';
+import { NATIVE_HIT_SLOP } from '../../utils';
 import { Tooltip } from '../Tooltip';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
@@ -79,12 +80,7 @@ export const IconButton = (props: IIconButtonProps) => {
       aria-disabled={disabled || loading}
       // @ts-expect-error
       onKeyDown={hotKey ? undefined : onKeyDown}
-      $platform-native={{
-        hitSlop:
-          size === 'small'
-            ? { top: 8, left: 8, right: 8, bottom: 8 }
-            : undefined,
-      }}
+      hitSlop={size === 'small' ? NATIVE_HIT_SLOP : undefined}
       {...(variant === 'tertiary' && {
         m: negativeMargin,
       })}

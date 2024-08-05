@@ -5,8 +5,17 @@ import { Icon, SizableText, XStack, useMedia } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IProps = { createAddressDisabled?: boolean } & IXStackProps;
+
+const hitSlop = platformEnv.isNative
+  ? {
+      right: 16,
+      top: 16,
+      bottom: 16,
+    }
+  : undefined;
 
 function HomeSelector(props: IProps) {
   const media = useMedia();
@@ -46,13 +55,7 @@ function HomeSelector(props: IProps) {
                 outlineColor: '$focusRing',
                 outlineStyle: 'solid',
               }}
-              $platform-native={{
-                hitSlop: {
-                  right: 16,
-                  top: 16,
-                  bottom: 16,
-                },
-              }}
+              hitSlop={hitSlop}
               focusable
             >
               <Icon name="BranchesOutline" color="$iconSubdued" size="$4.5" />

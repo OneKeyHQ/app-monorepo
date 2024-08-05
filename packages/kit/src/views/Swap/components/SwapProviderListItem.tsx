@@ -9,6 +9,7 @@ import {
   Badge,
   HeightTransition,
   Icon,
+  NATIVE_HIT_SLOP,
   NumberSizeableText,
   SizableText,
   Stack,
@@ -372,9 +373,7 @@ const SwapProviderListItem = ({
               my="$-0.5"
               py="$0.5"
               mr="$-1"
-              $platform-native={{
-                hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
-              }}
+              hitSlop={NATIVE_HIT_SLOP}
               hoverStyle={{
                 bg: '$bgHover',
               }}

@@ -23,11 +23,18 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 
+const hitSlop = platformEnv.isNative
+  ? {
+      top: 8,
+      right: 8,
+    }
+  : undefined;
 function AddressButton({
   address,
   empty,
@@ -53,6 +60,7 @@ function AddressButton({
       opacity={loading ? 0.5 : 1}
       disabled={!!loading}
       onPress={onPress}
+      hitSlop={hitSlop}
       {...(onPress && {
         role: 'button',
         userSelect: 'none',
@@ -63,12 +71,6 @@ function AddressButton({
           outlineWidth: 2,
           outlineColor: '$focusRing',
           outlineStyle: 'solid',
-        },
-        '$platform-native': {
-          hitSlop: {
-            top: 8,
-            right: 8,
-          },
         },
       })}
     >
