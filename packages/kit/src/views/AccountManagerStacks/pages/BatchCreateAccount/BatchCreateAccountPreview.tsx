@@ -434,7 +434,7 @@ function BatchCreateAccountPreviewPage({
             right: 8,
             bottom: 8,
           }}
-          // mr="$-4"
+          mr="$-2"
           px="$2"
           py="$2"
           borderRadius="$full"
