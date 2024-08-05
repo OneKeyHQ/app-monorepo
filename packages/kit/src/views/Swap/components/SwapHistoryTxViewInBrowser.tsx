@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,6 +20,9 @@ import {
   ESwapTxHistoryStatus,
   type ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 interface ISwapTxHistoryViewInBrowserProps {
   onViewInBrowser: (url: string) => void;
@@ -44,7 +47,7 @@ const ExplorersList = ({
   data,
   onPressItem,
 }: {
-  data: IExplorersInfo[];
+  data: IExplorersInfo[] | undefined;
   onPressItem: (item: IExplorersInfo) => void;
 }) => {
   const intl = useIntl();
@@ -115,10 +118,10 @@ const ExplorersList = ({
             </Badge>
           ) : null}
         </XStack>
-        {!(index === data.length - 1) ? <Divider /> : null}
+        {!(data?.length && index === data.length - 1) ? <Divider /> : null}
       </YStack>
     ),
-    [data.length, intl, onPressItem, parserLabel],
+    [data?.length, intl, onPressItem, parserLabel],
   );
   return (
     <ListView
@@ -145,14 +148,16 @@ const SwapTxHistoryViewInBrowser = ({
     () => !!item.swapInfo.socketBridgeScanUrl,
     [item.swapInfo.socketBridgeScanUrl],
   );
-  const fromTxExplorer = useMemo(() => {
+  const fromTxExplorer = useCallback(async () => {
     const logo = item.baseInfo.fromNetwork?.logoURI;
-    const transactionExplorer =
-      item.baseInfo.fromNetwork?.explorers?.[0]?.transaction;
-    const url = transactionExplorer?.replace(
-      networkTransactionExplorerReplaceStr,
-      item.txInfo.txId,
-    );
+    let url = '';
+    if (item.baseInfo.fromNetwork?.networkId) {
+      url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+        networkId: item.baseInfo.fromNetwork?.networkId,
+        type: 'transaction',
+        param: item.txInfo.txId,
+      });
+    }
     return {
       name: item.baseInfo.fromNetwork?.name ?? '-',
       url,
@@ -161,27 +166,26 @@ const SwapTxHistoryViewInBrowser = ({
       type: EExplorerType.FROM,
     };
   }, [
-    item.baseInfo.fromNetwork?.explorers,
     item.baseInfo.fromNetwork?.logoURI,
     item.baseInfo.fromNetwork?.name,
+    item.baseInfo.fromNetwork?.networkId,
     item.status,
     item.txInfo.txId,
   ]);
 
-  const toTxExplorer = useMemo(() => {
+  const toTxExplorer = useCallback(async () => {
     const logo = item.baseInfo.toNetwork?.logoURI;
-    const transactionExplorer =
-      item.baseInfo.toNetwork?.explorers?.[0]?.transaction;
     let url = '';
     if (
       item.txInfo.receiverTransactionId &&
-      transactionExplorer &&
+      item.baseInfo.toNetwork?.networkId &&
       item.status === ESwapTxHistoryStatus.SUCCESS
     ) {
-      url = transactionExplorer?.replace(
-        networkTransactionExplorerReplaceStr,
-        item.txInfo.receiverTransactionId,
-      );
+      url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+        networkId: item.baseInfo.toNetwork?.networkId,
+        type: 'transaction',
+        param: item.txInfo.receiverTransactionId,
+      });
     }
     return {
       name: item.baseInfo.toNetwork?.name ?? '-',
@@ -191,9 +195,9 @@ const SwapTxHistoryViewInBrowser = ({
       type: EExplorerType.TO,
     };
   }, [
-    item.baseInfo.toNetwork?.explorers,
     item.baseInfo.toNetwork?.logoURI,
     item.baseInfo.toNetwork?.name,
+    item.baseInfo.toNetwork?.networkId,
     item.status,
     item.txInfo.receiverTransactionId,
   ]);
@@ -202,7 +206,7 @@ const SwapTxHistoryViewInBrowser = ({
     const logo = item.swapInfo.provider?.providerLogo;
     const url = item.swapInfo.socketBridgeScanUrl
       ? `${item.swapInfo.socketBridgeScanUrl}${item.txInfo.txId}`
-      : undefined;
+      : '';
     return {
       name: item.swapInfo.provider.providerName,
       url,
@@ -227,20 +231,26 @@ const SwapTxHistoryViewInBrowser = ({
     [onViewInBrowser],
   );
 
-  const explorersData = useMemo(() => {
-    let data = [fromTxExplorer, toTxExplorer];
+  const explorersDataCall = useCallback(async () => {
+    let data = [await fromTxExplorer(), await toTxExplorer()];
     if (isSocketBridgeSwap) {
       data = [providerExplorer, ...data];
     }
     return data;
   }, [fromTxExplorer, isSocketBridgeSwap, providerExplorer, toTxExplorer]);
 
+  const explorersData = usePromiseResult(
+    explorersDataCall,
+    [explorersDataCall],
+    {},
+  );
+
   const triggerViewInBrowser = useMemo(
     () => (
       <Button
-        onPress={() => {
+        onPress={async () => {
           if (isSingleChainSwap) {
-            onHandleExplorer(fromTxExplorer);
+            onHandleExplorer(await fromTxExplorer());
           }
         }}
         size="small"
@@ -265,7 +275,10 @@ const SwapTxHistoryViewInBrowser = ({
       })}
       renderTrigger={triggerViewInBrowser}
       renderContent={
-        <ExplorersList data={explorersData} onPressItem={onHandleExplorer} />
+        <ExplorersList
+          data={explorersData.result}
+          onPressItem={onHandleExplorer}
+        />
       }
     />
   );
