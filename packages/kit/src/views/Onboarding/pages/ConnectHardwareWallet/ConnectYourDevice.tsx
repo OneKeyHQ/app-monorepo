@@ -967,7 +967,7 @@ export function ConnectYourDevicePage() {
             hoverStyle={{
               color: '$textInteractiveHover',
             }}
-            href="https://shop.onekey.so/"
+            href="https://bit.ly/3YsKilK"
             target="_blank"
             size="$bodyMdMedium"
             p="$2"
