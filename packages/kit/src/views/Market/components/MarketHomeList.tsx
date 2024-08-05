@@ -276,7 +276,7 @@ function BasicMarketHomeList({
               <YStack flexShrink={1}>
                 <SizableText
                   size="$bodyLgMedium"
-                  selectable={false}
+                  userSelect={false}
                   numberOfLines={1}
                   flexShrink={1}
                 >
@@ -285,11 +285,11 @@ function BasicMarketHomeList({
                 <SizableText
                   size="$bodySm"
                   color="$textSubdued"
-                  selectable={false}
+                  userSelect={false}
                 >
                   {`VOL `}
                   <NumberSizeableText
-                    selectable={false}
+                    userSelect={false}
                     size="$bodySm"
                     formatter="marketCap"
                     color="$textSubdued"
@@ -302,7 +302,7 @@ function BasicMarketHomeList({
             </XStack>
             <XStack ai="center" gap="$5">
               <NumberSizeableText
-                selectable={false}
+                userSelect={false}
                 flexShrink={1}
                 numberOfLines={1}
                 size="$bodyLgMedium"
@@ -325,7 +325,7 @@ function BasicMarketHomeList({
                   borderRadius="$2"
                 >
                   <NumberSizeableText
-                    selectable={false}
+                    userSelect={false}
                     size="$bodyMdMedium"
                     color="white"
                     formatter="priceChange"
@@ -472,7 +472,7 @@ function BasicMarketHomeList({
                 <SizableText
                   size="$bodyMd"
                   color="$textSubdued"
-                  selectable={false}
+                  userSelect={false}
                 >
                   {serialNumber ?? '-'}
                 </SizableText>
@@ -490,7 +490,7 @@ function BasicMarketHomeList({
                     <SizableText
                       size="$bodyLgMedium"
                       numberOfLines={1}
-                      selectable={false}
+                      userSelect={false}
                     >
                       {symbol.toUpperCase()}
                     </SizableText>
@@ -498,7 +498,7 @@ function BasicMarketHomeList({
                       size="$bodySm"
                       color="$textSubdued"
                       numberOfLines={1}
-                      selectable={false}
+                      userSelect={false}
                     >
                       {record.name}
                     </SizableText>
@@ -555,7 +555,7 @@ function BasicMarketHomeList({
               },
               render: (price: string) => (
                 <NumberSizeableText
-                  selectable={false}
+                  userSelect={false}
                   size="$bodyMd"
                   formatter="price"
                   formatterOptions={{ currency }}
@@ -632,7 +632,7 @@ function BasicMarketHomeList({
               align: 'right',
               render: (totalVolume: string) => (
                 <NumberSizeableText
-                  selectable={false}
+                  userSelect={false}
                   size="$bodyMd"
                   formatter="marketCap"
                   formatterOptions={{ currency }}
@@ -654,7 +654,7 @@ function BasicMarketHomeList({
               align: 'right',
               render: (marketCap: string) => (
                 <NumberSizeableText
-                  selectable={false}
+                  userSelect={false}
                   size="$bodyMd"
                   formatter="marketCap"
                   formatterOptions={{ currency }}

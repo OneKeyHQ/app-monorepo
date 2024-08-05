@@ -67,7 +67,7 @@ const SignTextItem = ({ item }: { item: ISignedMessage }) => {
             maxHeight="$24"
             disabled
             editable={false}
-            selectable={false}
+            userSelect={false}
             value={
               item.contentType === 'json'
                 ? JSON.stringify(JSON.parse(item.message), null, 2)

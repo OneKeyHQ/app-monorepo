@@ -17,7 +17,7 @@ function SectionHeading({
   return (
     <Heading
       size="$headingLg"
-      selectable={false}
+      userSelect={false}
       py="$2.5"
       {...(!selected && {
         opacity: 0.5,

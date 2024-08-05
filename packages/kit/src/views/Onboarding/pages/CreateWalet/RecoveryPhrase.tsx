@@ -51,7 +51,7 @@ function FocusDisplayInput({
       }}
     >
       <SizableText
-        selectable={false}
+        userSelect={false}
         minWidth="$7"
         color="$textSubdued"
         $md={{ minWidth: '$8' }}

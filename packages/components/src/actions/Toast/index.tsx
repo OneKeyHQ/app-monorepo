@@ -59,7 +59,7 @@ const RenderLines = ({
         <SizableText
           color={color}
           textTransform="none"
-          selectable={false}
+          userSelect={false}
           size={size}
           wordWrap="break-word"
           key={index}

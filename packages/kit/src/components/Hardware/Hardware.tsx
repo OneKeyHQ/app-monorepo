@@ -235,7 +235,7 @@ export function EnterPin({
           bg="$bgSubdued"
         >
           <SizableText
-            selectable={false}
+            userSelect={false}
             pl="$6"
             textAlign="center"
             flex={1}
