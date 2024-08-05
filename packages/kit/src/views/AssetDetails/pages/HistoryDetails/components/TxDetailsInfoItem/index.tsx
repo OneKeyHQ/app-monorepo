@@ -46,7 +46,7 @@ export function InfoItem({
       flex={1}
       flexBasis="100%"
       p="$2.5"
-      space="$2"
+      gap="$2"
       {...(compact && {
         $gtMd: {
           flexBasis: '50%',
@@ -80,7 +80,7 @@ export function InfoItem({
             {description || null}
           </Stack>
           {showCopy || openWithUrl ? (
-            <XStack space="$3" ml="$5">
+            <XStack gap="$3" ml="$5">
               {openWithUrl ? (
                 <IconButton
                   title={intl.formatMessage({

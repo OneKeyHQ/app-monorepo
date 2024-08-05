@@ -7,7 +7,7 @@ import { Layout } from './utils/Layout';
 function ProgressDemo() {
   const [progress, setProgress] = useState(10);
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <Progress value={progress} w="$36" />
       <Button
         onPress={() => {

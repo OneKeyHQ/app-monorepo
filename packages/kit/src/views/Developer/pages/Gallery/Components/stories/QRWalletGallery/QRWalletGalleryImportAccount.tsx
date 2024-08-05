@@ -244,7 +244,7 @@ UR:CRYPTO-MULTI-ACCOUNTS/65-9/LPCSFPASCFAMFLCYDACPJYDNHDQDTAADDYOTADLECSDWYKCSFN
 
 export function QRWalletGalleryImportAccount() {
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <HdKeyImport />
       <HdKeyImportMultiAccounts />
     </Stack>

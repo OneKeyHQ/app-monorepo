@@ -20,7 +20,7 @@ const PopoverDemo = () => {
       onOpenChange={setIsOpen}
       renderTrigger={<Button onPress={() => setIsOpen(true)}>Open</Button>}
       renderContent={
-        <Stack space="$4" p="$5">
+        <Stack gap="$4" p="$5">
           <SizableText>
             Non exercitation ea laborum cupidatat sunt amet aute exercitation
             occaecat minim incididunt non est est voluptate.
@@ -37,7 +37,7 @@ const PopoverDemo = () => {
 const Content = () => {
   const { closePopover } = usePopoverContext();
   return (
-    <Stack space="$4" p="$5">
+    <Stack gap="$4" p="$5">
       <SizableText>
         Non exercitation ea laborum cupidatat sunt amet aute exercitation
         occaecat minim incididunt non est est voluptate.
@@ -66,7 +66,7 @@ const PopoverGallery = () => (
             title="Popover Demo"
             renderTrigger={<Button>Uncontrolled Open</Button>}
             renderContent={({ closePopover }) => (
-              <Stack space="$4" p="$5">
+              <Stack gap="$4" p="$5">
                 <SizableText>
                   Non exercitation ea laborum cupidatat sunt amet aute
                   exercitation occaecat minim incididunt non est est voluptate.

@@ -33,7 +33,7 @@ export function Shortcut(props: IShortcut) {
   const { children, ...rest } = props;
 
   return (
-    <XStack space="$1" {...rest}>
+    <XStack gap="$1" {...rest}>
       {children}
     </XStack>
   );

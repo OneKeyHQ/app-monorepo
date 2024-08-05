@@ -92,7 +92,7 @@ export function AmountInput({
         fontSize={getFontSize('$heading3xl')}
         fontWeight="600"
         size="large"
-        focusStyle={undefined}
+        focusVisibleStyle={undefined}
         containerProps={{
           flex: 1,
           borderWidth: 0,

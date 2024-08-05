@@ -54,7 +54,7 @@ export const NftListItemStatus = ({
     <XStack justifyContent="space-between">
       <XStack alignItems="center">
         <Token size="xs" tokenImageUri={tokenImageUri} />
-        <XStack ml="$2" space="$1" alignItems="center">
+        <XStack ml="$2" gap="$1" alignItems="center">
           <SizableText size="$bodyLg">
             {intl.formatMessage(
               { id: translationKey },

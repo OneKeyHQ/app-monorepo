@@ -11,7 +11,7 @@ function DAppRequestedPermissionContent({
 }) {
   const intl = useIntl();
   return (
-    <YStack space="$2">
+    <YStack gap="$2">
       <SizableText color="$text" size="$headingMd">
         {intl.formatMessage({
           id: ETranslations.dapp_connect_requested_permissions,
@@ -20,7 +20,7 @@ function DAppRequestedPermissionContent({
       <YStack
         py="$2.5"
         px="$3"
-        space="$3"
+        gap="$3"
         minHeight="$8"
         bg="$bg"
         borderRadius="$3"
@@ -38,7 +38,7 @@ function DAppRequestedPermissionContent({
             }),
           ]
         ).map((text) => (
-          <XStack space="$3" key={text}>
+          <XStack gap="$3" key={text}>
             <Icon name="CheckLargeOutline" color="$icon" size="$5" />
             <SizableText color="$text" size="$bodyMd">
               {text}

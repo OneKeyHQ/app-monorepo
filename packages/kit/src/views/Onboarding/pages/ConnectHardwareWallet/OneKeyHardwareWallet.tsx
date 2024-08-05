@@ -111,7 +111,7 @@ export function OneKeyHardwareWallet() {
                   bg: '$whiteA5',
                 }}
                 borderCurve="continuous"
-                focusStyle={{
+                focusVisibleStyle={{
                   outlineColor: '$whiteA6',
                   outlineStyle: 'solid',
                   outlineOffset: 2,

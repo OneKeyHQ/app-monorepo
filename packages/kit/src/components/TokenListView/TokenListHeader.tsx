@@ -86,11 +86,11 @@ function TokenListHeader({
       />
 
       {tableLayout ? (
-        <XStack px="$5" py="$2" space="$3">
+        <XStack px="$5" py="$2" gap="$3">
           <XStack
             flexGrow={1}
             flexBasis={0}
-            space={89}
+            gap={89}
             spaceDirection="horizontal"
           >
             <SizableText

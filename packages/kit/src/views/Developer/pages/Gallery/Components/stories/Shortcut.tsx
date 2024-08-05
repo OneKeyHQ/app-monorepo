@@ -12,7 +12,7 @@ const ShortcutGallery = () => (
       {
         title: 'State',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Shortcut>
               <Shortcut.Key>{shortcutsKeys.CmdOrCtrl}</Shortcut.Key>
               <Shortcut.Key>t</Shortcut.Key>

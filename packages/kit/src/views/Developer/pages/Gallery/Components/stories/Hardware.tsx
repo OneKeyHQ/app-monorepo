@@ -200,7 +200,7 @@ const HardwareGallery = () => (
       {
         title: 'Interactive with hardware wallet',
         element: () => (
-          <Stack space="$4">
+          <Stack gap="$4">
             <Button
               onPress={() => {
                 void confirmOnDeviceToastSample();

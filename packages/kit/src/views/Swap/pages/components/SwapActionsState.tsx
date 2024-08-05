@@ -119,7 +119,7 @@ const SwapActionsState = ({
     () =>
       swapActionState.isApprove && !quoteLoading ? (
         <XStack
-          space="$1"
+          gap="$1"
           {...(pageType === EPageType.modal && !md ? {} : { pb: '$5' })}
         >
           <Popover

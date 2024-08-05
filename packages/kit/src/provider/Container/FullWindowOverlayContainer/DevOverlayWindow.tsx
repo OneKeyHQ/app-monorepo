@@ -32,7 +32,7 @@ function DevOverlayWindow() {
     const dialog = Dialog.cancel({
       title: 'Dev Menu',
       renderContent: (
-        <YStack space="$6">
+        <YStack gap="$6">
           <Button
             onPress={() => {
               navigation.pushModal(EModalRoutes.SettingModal, {

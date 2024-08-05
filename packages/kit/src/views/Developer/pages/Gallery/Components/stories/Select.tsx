@@ -190,7 +190,7 @@ const SelectGallery = () => (
       {
         title: '默认状态',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <SelectDefaultItem />
           </Stack>
         ),
@@ -201,7 +201,7 @@ const SelectGallery = () => (
           const [val, setVal] = useState(items[3]);
           const [sectionVal, setSectionVal] = useState(sections[1].data[2]);
           return (
-            <Stack space="$1">
+            <Stack gap="$1">
               <Select
                 labelInValue
                 items={items}
@@ -226,7 +226,7 @@ const SelectGallery = () => (
       {
         title: 'Long List',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <SelectLongListItem />
           </Stack>
         ),
@@ -234,7 +234,7 @@ const SelectGallery = () => (
       {
         title: 'Disabled',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <SelectDisabledItem />
           </Stack>
         ),
@@ -242,7 +242,7 @@ const SelectGallery = () => (
       {
         title: 'Custom Trigger',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <SelectCustomItem />
           </Stack>
         ),
@@ -250,7 +250,7 @@ const SelectGallery = () => (
       {
         title: 'Select Sections',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <SelectSectionsItemDemo />
           </Stack>
         ),
@@ -258,7 +258,7 @@ const SelectGallery = () => (
       {
         title: 'default value with Label',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <SelectDefaultValue />
           </Stack>
         ),

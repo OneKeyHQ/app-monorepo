@@ -31,7 +31,7 @@ function TokenNameView(props: IProps) {
 
   const content = useMemo(
     () => (
-      <XStack alignItems="center" space="$1" flex={1}>
+      <XStack alignItems="center" gap="$1" flex={1}>
         <SizableText numberOfLines={1} {...rest}>
           {name}
         </SizableText>

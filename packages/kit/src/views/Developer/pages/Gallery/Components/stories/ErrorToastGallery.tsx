@@ -57,7 +57,7 @@ async function error21(): Promise<IError21Result> {
 
 function Demo1() {
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <Button
         onPress={() => {
           error00();
@@ -190,7 +190,7 @@ const ErrorToastGallery = () => (
       {
         title: 'ErrorToast',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <Demo1 />
           </Stack>
         ),

@@ -1,6 +1,7 @@
 import { styled, withStaticProperties } from 'tamagui';
 
 import { Icon, Image, SizableText, Stack, XStack } from '../../primitives';
+import { NATIVE_HIT_SLOP } from '../../utils';
 
 import type {
   IImageProps,
@@ -11,7 +12,7 @@ import type { XStackProps } from 'tamagui';
 
 const DescriptionListFrame = styled(Stack, {
   name: 'DescriptionList',
-  space: '$4',
+  gap: '$4',
 });
 
 const DescriptionListItem = styled(XStack, {
@@ -56,18 +57,11 @@ const DescriptionListItemValue = ({
   <XStack
     alignItems="center"
     onPress={onPress}
+    hitSlop={NATIVE_HIT_SLOP}
     {...(onPress && {
       userSelect: 'none',
       hoverStyle: {
         opacity: 0.6,
-      },
-      '$platform-native': {
-        hitSlop: {
-          top: 8,
-          right: 8,
-          bottom: 8,
-          left: 8,
-        },
       },
     })}
     {...rest}

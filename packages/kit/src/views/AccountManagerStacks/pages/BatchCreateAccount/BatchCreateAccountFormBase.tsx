@@ -76,7 +76,7 @@ function AdvancedSettingsFormField({
   return (
     <Stack>
       {!alwaysShowAdvancedSettings ? (
-        <XStack space="$3" py="$2" ai="center" onPress={toggle}>
+        <XStack gap="$3" py="$2" ai="center" onPress={toggle}>
           <Stack>
             <SizableText size="$bodyMdMedium" color="$textSubdued">
               {intl.formatMessage({

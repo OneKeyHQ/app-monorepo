@@ -77,7 +77,7 @@ function ActionsGroup({ items }: IActionsProp) {
             pressStyle={{
               bg: item.primary ? '$bgPrimaryActive' : '$bgStrongActive',
             }}
-            focusStyle={{
+            focusVisibleStyle={{
               outlineColor: '$focusRing',
               outlineStyle: 'solid',
               outlineWidth: 2,
@@ -244,7 +244,7 @@ export function GetStarted({
         <Stack
           py="$6"
           px="$5"
-          space="$2.5"
+          gap="$2.5"
           $gtMd={{
             maxWidth: '$96',
           }}

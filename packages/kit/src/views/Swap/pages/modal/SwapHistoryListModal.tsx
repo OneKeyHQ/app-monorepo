@@ -175,7 +175,7 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
           sections={sectionData}
           py="$1"
           renderSectionHeader={({ section: { title, status } }) => (
-            <XStack px="$5" py="$2" space="$3" alignItems="center">
+            <XStack px="$5" py="$2" gap="$3" alignItems="center">
               {status === ESwapTxHistoryStatus.PENDING ? (
                 <Stack
                   w="$2"

@@ -56,7 +56,7 @@ export function getSharedInputStyles({
     placeholderTextColor: '$textPlaceholder',
     borderWidth: '$px',
     cursor: disabled ? 'not-allowed' : 'text',
-    focusStyle: disabled
+    focusVisibleStyle: disabled
       ? {}
       : {
           outlineWidth: 2,

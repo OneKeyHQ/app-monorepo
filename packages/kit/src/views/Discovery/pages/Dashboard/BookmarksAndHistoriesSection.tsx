@@ -59,7 +59,7 @@ function Items({
           key={index}
           flexBasis="25%"
           alignItems="center"
-          space="$2"
+          gap="$2"
           py="$2"
           $gtSm={{
             flexBasis: '20%',
@@ -68,7 +68,7 @@ function Items({
             p: '$3',
             flexBasis: '33.3333%',
             flexDirection: 'row',
-            space: '$5',
+            gap: '$5',
           }}
           $gtXl={{
             flexBasis: '25%',

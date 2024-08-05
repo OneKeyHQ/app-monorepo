@@ -42,7 +42,7 @@ const ActionListDemo1 = () => (
 );
 
 const ActionListPlacement = () => (
-  <YStack space="$2">
+  <YStack gap="$2">
     <ActionList
       title="right(Web Only)"
       placement="top"
@@ -218,7 +218,7 @@ const ActionListGallery = () => (
       {
         title: 'Simple',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <ActionListDemo1 />
           </Stack>
         ),
@@ -226,7 +226,7 @@ const ActionListGallery = () => (
       {
         title: 'Placement',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <ActionListPlacement />
           </Stack>
         ),
@@ -234,7 +234,7 @@ const ActionListGallery = () => (
       {
         title: 'Sections',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <ActionListDemo2 />
             <ActionListDemo3 />
           </Stack>
@@ -243,7 +243,7 @@ const ActionListGallery = () => (
       {
         title: 'Long Press',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <Button
               onLongPress={() => {
                 ActionList.show({

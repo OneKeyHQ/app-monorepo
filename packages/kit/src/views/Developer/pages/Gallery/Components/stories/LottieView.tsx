@@ -25,7 +25,7 @@ const LottieDemo = () => {
     }, 100);
   };
   return (
-    <YStack space="$5">
+    <YStack gap="$5">
       <XStack h={100}>
         {show ? (
           <LottieView
@@ -38,7 +38,7 @@ const LottieDemo = () => {
           />
         ) : null}
       </XStack>
-      <XStack space="$5" alignItems="center">
+      <XStack gap="$5" alignItems="center">
         <SizableText>loop: </SizableText>
         <Switch
           value={loop}
@@ -49,7 +49,7 @@ const LottieDemo = () => {
           }}
         />
       </XStack>
-      <XStack space="$5" alignItems="center">
+      <XStack gap="$5" alignItems="center">
         <SizableText>autoPlay: </SizableText>
         <Switch
           value={autoPlay}
@@ -60,7 +60,7 @@ const LottieDemo = () => {
           }}
         />
       </XStack>
-      <XStack space="$5">
+      <XStack gap="$5">
         <Button
           onPress={() => {
             ref.current?.play?.();

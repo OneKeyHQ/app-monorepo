@@ -12,7 +12,7 @@ function ListLoading({
       <Stack py="$3">
         {/* Header */}
         <XStack
-          space="$3"
+          gap="$3"
           py="$2"
           px="$5"
           $md={{
@@ -22,7 +22,7 @@ function ListLoading({
           <XStack
             flexGrow={1}
             flexBasis={0}
-            space={89}
+            gap={89}
             spaceDirection="horizontal"
           >
             <Stack flexGrow={1} flexBasis={0} py="$1">
@@ -203,7 +203,7 @@ function HistoryLoadingView({ tableLayout }: { tableLayout?: boolean }) {
     <Stack py="$3">
       {[...Array(5)].map((_, index) => (
         <ListItem key={index}>
-          <XStack flexGrow={1} flexBasis={0} space="$3">
+          <XStack flexGrow={1} flexBasis={0} gap="$3">
             <Stack>
               <Skeleton radius="round" w="$10" h="$10" />
             </Stack>

@@ -155,7 +155,7 @@ const PasswordSetup = ({
         $gtMd={
           {
             size: 'medium',
-          } as IButtonProps
+          } as any
         }
         variant="primary"
         loading={loading}

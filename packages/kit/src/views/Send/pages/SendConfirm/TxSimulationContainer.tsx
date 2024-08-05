@@ -42,7 +42,7 @@ function SimulationItem(item: ITxSimulationItem) {
   const { label, icon, isNFT, symbol } = item;
 
   return (
-    <XStack alignItems="center" space="$2">
+    <XStack alignItems="center" gap="$2">
       <ListItem.Avatar
         src={icon}
         size="$5"
@@ -160,7 +160,7 @@ function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
 
   const renderTxSimulation = useCallback(
     (simulation: ITxSimulationItem[]) => (
-      <YStack space="$1">
+      <YStack gap="$1">
         {simulation.map((item, index) => (
           <SimulationItem {...item} key={index} />
         ))}

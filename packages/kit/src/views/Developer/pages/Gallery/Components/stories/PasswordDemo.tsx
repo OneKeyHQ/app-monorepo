@@ -39,7 +39,7 @@ const PasswordDemoGallery = () => {
         {
           title: 'Native',
           element: (
-            <YStack space="$2" justifyContent="center">
+            <YStack gap="$2" justifyContent="center">
               <Button
                 onPress={async () => {
                   const checkPasswordSet =

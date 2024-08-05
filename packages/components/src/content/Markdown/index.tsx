@@ -62,7 +62,7 @@ const basicRules: MarkdownProps['rules'] = {
     <SizableText key={node.key}>{children}</SizableText>
   ),
   bullet_list: (node, children) => (
-    <YStack space="$2" pt="$2">
+    <YStack gap="$2" pt="$2">
       {children}
     </YStack>
   ),
@@ -70,7 +70,7 @@ const basicRules: MarkdownProps['rules'] = {
     if (hasParents(parent, 'bullet_list')) {
       return (
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        <XStack key={node.key} space="$1">
+        <XStack key={node.key} gap="$1">
           <SizableText
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             accessible={false}

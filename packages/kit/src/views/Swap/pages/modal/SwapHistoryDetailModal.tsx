@@ -125,7 +125,7 @@ const SwapHistoryDetailModal = () => {
               alignItems: 'center',
               justifyContent: 'space-between',
             }
-          : { alignItems: 'flex-start', space: '$2' })}
+          : { alignItems: 'flex-start', gap: '$2' })}
       >
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}

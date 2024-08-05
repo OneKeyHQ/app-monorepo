@@ -20,7 +20,7 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
         bg: '$bgActive',
       }}
       focusable
-      focusStyle={{
+      focusVisibleStyle={{
         outlineOffset: 2,
         outlineWidth: 2,
         outlineColor: '$focusRing',

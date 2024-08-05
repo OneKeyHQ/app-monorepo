@@ -15,7 +15,7 @@ function JotaiDemo1() {
   const [c] = useDemoComputedAtom();
   const actions = useDemoJotaiActions();
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <SizableText>
         {profile.id}@{profile.name}
       </SizableText>
@@ -54,7 +54,7 @@ const JotaiGlobalGallery = () => (
         {
           title: 'DemoAtom',
           element: (
-            <Stack space="$1">
+            <Stack gap="$1">
               <JotaiDemo1 />
             </Stack>
           ),

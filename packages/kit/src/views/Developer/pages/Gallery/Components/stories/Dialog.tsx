@@ -48,7 +48,7 @@ const CustomFooter = ({
   console.log('isFocused', isFocused);
   const dialog = useDialogInstance();
   return (
-    <XStack space="$4" justifyContent="center">
+    <XStack gap="$4" justifyContent="center">
       <Button
         onPress={() => {
           console.log(form?.getValues());
@@ -98,7 +98,7 @@ function ScrollContent() {
 const DialogNavigatorDemo = () => {
   const navigation = useAppNavigation<any>();
   return (
-    <YStack space="$3">
+    <YStack gap="$3">
       <Button
         mt="$4"
         onPress={() => {
@@ -198,7 +198,7 @@ const DialogGallery = () => (
       {
         title: 'Variants',
         element: (
-          <YStack space="$2">
+          <YStack gap="$2">
             <Button
               onPress={() =>
                 Dialog.show({
@@ -269,7 +269,7 @@ const DialogGallery = () => (
       {
         title: 'Dialog.show & Dialog.confirm & Dialog.cancel',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Button
               onPress={() =>
                 Dialog.show({
@@ -316,7 +316,7 @@ const DialogGallery = () => (
       {
         title: 'Disabled Confirm Button',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Button
               onPress={() =>
                 Dialog.confirm({
@@ -474,7 +474,7 @@ const DialogGallery = () => (
       {
         title: 'Dialog Form',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Button
               onPress={() =>
                 Dialog.confirm({
@@ -567,7 +567,7 @@ const DialogGallery = () => (
       {
         title: 'Execute a function call once the dialog is closed',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Button
               onPress={() =>
                 Dialog.confirm({

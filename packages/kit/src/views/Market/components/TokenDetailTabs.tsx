@@ -113,14 +113,14 @@ function BasicTokenDetailTabs({
   const renderPoolSkeleton = useMemo(
     () =>
       md ? (
-        <YStack space="$10" px="$5" pt="$11">
+        <YStack gap="$10" px="$5" pt="$11">
           <MdSkeletonRow />
           <MdSkeletonRow />
           <MdSkeletonRow />
           <MdSkeletonRow />
         </YStack>
       ) : (
-        <YStack space="$6" px="$5" pt="$11">
+        <YStack gap="$6" px="$5" pt="$11">
           <SkeletonRow />
           <SkeletonRow />
           <SkeletonRow />

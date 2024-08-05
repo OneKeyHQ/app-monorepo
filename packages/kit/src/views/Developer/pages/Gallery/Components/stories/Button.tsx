@@ -11,7 +11,7 @@ const ButtonGallery = () => (
       {
         title: 'Variants',
         element: (
-          <YStack space="$2" alignItems="center">
+          <YStack gap="$2" alignItems="center">
             <Button icon="PlaceholderOutline">Secondary</Button>
             <Button icon="PlaceholderOutline" variant="primary">
               Primary
@@ -28,13 +28,13 @@ const ButtonGallery = () => (
       {
         title: 'Sizes',
         element: (
-          <Stack space="$4">
-            <XStack space="$4" alignItems="flex-end">
+          <Stack gap="$4">
+            <XStack gap="$4" alignItems="flex-end">
               <Button size="small">Small</Button>
               <Button>Medium</Button>
               <Button size="large">Large</Button>
             </XStack>
-            <XStack space="$4" alignItems="flex-end">
+            <XStack gap="$4" alignItems="flex-end">
               <Button size="small" icon="PlaceholderOutline">
                 Small
               </Button>
@@ -49,7 +49,7 @@ const ButtonGallery = () => (
       {
         title: 'Disabled',
         element: (
-          <Stack space="$4">
+          <Stack gap="$4">
             <Button disabled>Secondary</Button>
             <Button disabled variant="primary">
               Primary
@@ -66,7 +66,7 @@ const ButtonGallery = () => (
       {
         title: 'Loading',
         element: (
-          <Stack space="$4">
+          <Stack gap="$4">
             <Button loading>Secondary</Button>
             <Button loading variant="primary">
               Primary
@@ -83,7 +83,7 @@ const ButtonGallery = () => (
       {
         title: 'iconAfter',
         element: (
-          <Stack space="$4">
+          <Stack gap="$4">
             <Button iconAfter="PlaceholderOutline" color="$red1">
               IconAfter
             </Button>

@@ -117,7 +117,7 @@ export function FirmwareUpdateGalleryDemo() {
       }}
       enabledNum={[0]}
     >
-      <Stack space="$2">
+      <Stack gap="$2">
         <>
           <ForceOpenHomeDeviceUpdateFirmwareModal />
           <BootloaderModeUpdateButton />
@@ -383,7 +383,7 @@ const FirmwareUpdateGallery = () => (
       {
         title: '--',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <FirmwareUpdateGalleryDemo />
             <FirmwareUpdateGalleryStaticUI />
           </Stack>

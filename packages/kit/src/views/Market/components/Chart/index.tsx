@@ -119,7 +119,7 @@ export function PriceChart({ data, isFetching, children }: IPriceChartProps) {
     <>
       <XStack justifyContent="space-between">
         {isFetching ? (
-          <YStack space="$2">
+          <YStack gap="$2">
             <Skeleton w="$10" h="$3" />
             <Skeleton w="$24" h="$3" />
           </YStack>

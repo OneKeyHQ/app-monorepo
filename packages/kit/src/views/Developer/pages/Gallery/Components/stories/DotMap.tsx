@@ -37,7 +37,7 @@ const DotMapGallery = () => (
       {
         title: '12 words',
         element: (
-          <YStack space="$8">
+          <YStack gap="$8">
             <XStack>
               <DotMap mnemonic="envelope same ranch valve knee day lock pink old world minor pill" />
             </XStack>
@@ -47,7 +47,7 @@ const DotMapGallery = () => (
       {
         title: '18 words',
         element: (
-          <YStack space="$8">
+          <YStack gap="$8">
             <XStack>
               <DotMap mnemonic="until announce path lock crime wish oblige trick face bright digital into chat vehicle episode club verb tank" />
             </XStack>
@@ -57,7 +57,7 @@ const DotMapGallery = () => (
       {
         title: '24 words',
         element: (
-          <YStack space="$8">
+          <YStack gap="$8">
             <XStack>
               <DotMap mnemonic="typical record cupboard grid all shield border weapon crisp wolf find enact people search skate enough judge response royal wish enroll salad bomb cruel" />
             </XStack>
@@ -67,7 +67,7 @@ const DotMapGallery = () => (
       {
         title: 'Input Mnemonic',
         element: (
-          <YStack space="$8">
+          <YStack gap="$8">
             <DotMapInputDemo />
           </YStack>
         ),

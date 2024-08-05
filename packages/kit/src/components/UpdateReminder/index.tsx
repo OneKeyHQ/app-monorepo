@@ -110,7 +110,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const { iconName, iconColor, renderText } = data || {};
   const Component = renderText;
   return Component ? (
-    <XStack alignItems="center" space="$2" flexShrink={1}>
+    <XStack alignItems="center" gap="$2" flexShrink={1}>
       <Icon name={iconName} color={iconColor} size="$4" flexShrink={0} />
       <SizableText size="$bodyMdMedium" color="$text" flexShrink={1}>
         <Component updateInfo={updateInfo} />
@@ -127,7 +127,7 @@ function OpenOnGithub() {
   const { gtMd } = useMedia();
   return (
     <XStack
-      space="$2"
+      gap="$2"
       justifyContent="space-between"
       alignItems="center"
       cursor="pointer"
@@ -200,7 +200,7 @@ function UpdateAction({
   }
   const { icon, label, variant, prefixElement } = data;
   return (
-    <XStack space="$4" justifyContent="space-between" alignItems="center">
+    <XStack gap="$4" justifyContent="space-between" alignItems="center">
       {prefixElement}
       <Button
         size="small"

@@ -9,7 +9,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 export function WalletProfile({ wallet }: { wallet: IDBWallet }) {
   return (
     <ListItem
-      space="$1.5"
+      gap="$1.5"
       renderAvatar={
         <Stack
           role="button"
@@ -23,7 +23,7 @@ export function WalletProfile({ wallet }: { wallet: IDBWallet }) {
               bg: '$bgActive',
             },
             focusable: true,
-            focusStyle: {
+            focusVisibleStyle: {
               outlineOffset: 2,
               outlineWidth: 2,
               outlineColor: '$focusRing',

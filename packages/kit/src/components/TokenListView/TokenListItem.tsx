@@ -126,7 +126,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         />
         {withPrice ? (
           <XStack
-            space="$2"
+            gap="$2"
             alignItems="center"
             {...(tableLayout && {
               flexGrow: 1,

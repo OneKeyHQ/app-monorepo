@@ -42,7 +42,7 @@ export const StakingProfit = ({
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_profit })}
       </SizableText>
-      <XStack mt="$5" space="$1">
+      <XStack mt="$5" gap="$1">
         <Token size="sm" tokenImageUri={tokenImageUrl} />
         <SizableText size="$bodyLgMedium">
           {tokenSymbol.toUpperCase()}

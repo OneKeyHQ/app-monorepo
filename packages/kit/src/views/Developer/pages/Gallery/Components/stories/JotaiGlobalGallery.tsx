@@ -31,7 +31,7 @@ function JotaiDemo1() {
   const [c, rw] = useDemoReadWriteAtom();
   console.log('useDemoReadOnlyAtom > ', { a, b, c });
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <Button
         onPress={() => {
           setA(JOTAI_RESET);
@@ -87,7 +87,7 @@ function JotaiDemo1() {
 function JotaiDemo2() {
   const [settings, setSettings] = useSettingsPersistAtom();
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <SizableText size="$headingMd">高频数据分离</SizableText>
       <SizableText size="$headingMd">
         低频数据整体打包，避免定义数据太零碎
@@ -165,7 +165,7 @@ const JotaiGlobalGallery = () => (
       {
         title: 'DemoAtom',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <JotaiDemo1 />
           </Stack>
         ),
@@ -173,7 +173,7 @@ const JotaiGlobalGallery = () => (
       {
         title: 'settingsPersistAtom',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <JotaiDemo2 />
           </Stack>
         ),

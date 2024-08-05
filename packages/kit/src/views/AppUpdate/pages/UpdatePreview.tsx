@@ -54,12 +54,12 @@ function UpdatePreview({
         title={intl.formatMessage({ id: ETranslations.update_app_update })}
       />
       <Page.Body m="$5">
-        <YStack space="$3">
+        <YStack gap="$3">
           <Heading size="$heading2xl">
             {intl.formatMessage({ id: ETranslations.update_new_app_version })}
           </Heading>
           <ExtPluginText />
-          <XStack space="$2.5" alignItems="center">
+          <XStack gap="$2.5" alignItems="center">
             <Badge badgeType="default" badgeSize="lg">
               {platformEnv.version}
             </Badge>

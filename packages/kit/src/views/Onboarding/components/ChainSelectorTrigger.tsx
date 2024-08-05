@@ -26,7 +26,7 @@ export function ChainSelectorTrigger() {
       }}
       title="Ethereum"
       onPress={handleChainPress}
-      focusStyle={{
+      focusVisibleStyle={{
         outlineOffset: 0,
         outlineWidth: 2,
         outlineStyle: 'solid',

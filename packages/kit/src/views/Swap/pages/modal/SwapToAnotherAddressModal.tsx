@@ -99,7 +99,7 @@ const SwapToAnotherAddressPage = () => {
 
   return accountInfo && accountInfo?.network?.id ? (
     <Page>
-      <Page.Body px="$5" space="$4">
+      <Page.Body px="$5" gap="$4">
         <Form form={form}>
           <Form.Field
             label={intl.formatMessage({ id: ETranslations.global_recipient })}

@@ -375,7 +375,7 @@ export default function Detail() {
                 }
               >
                 <XStack
-                  space="$1"
+                  gap="$1"
                   onPress={() => {
                     ActionList.show({
                       title: intl.formatMessage({

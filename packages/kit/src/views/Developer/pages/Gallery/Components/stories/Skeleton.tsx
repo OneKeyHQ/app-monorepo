@@ -52,7 +52,7 @@ const SkeletonGroupDemo = () => {
       </Button>
       <YStack paddingVertical="$6">
         <Skeleton.Group show={loading}>
-          <YStack space="$4">
+          <YStack gap="$4">
             <Skeleton>
               <Input />
             </Skeleton>

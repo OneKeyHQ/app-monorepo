@@ -225,7 +225,7 @@ export function V4MigrationGetStarted({
             $gtMd={
               {
                 size: 'medium',
-              } as IButtonProps
+              } as any
             }
             variant="primary"
             loading={isLoading}

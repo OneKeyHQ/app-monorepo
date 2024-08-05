@@ -12,7 +12,7 @@ const QRCodeGallery = () => (
       {
         title: 'this logo is came from internet.',
         element: (
-          <YStack justifyContent="center" flex={1} space="$4">
+          <YStack justifyContent="center" flex={1} gap="$4">
             <QRCode value="https://onekey.so/" size={200} />
           </YStack>
         ),
@@ -20,7 +20,7 @@ const QRCodeGallery = () => (
       {
         title: 'this logo is came from internet.',
         element: (
-          <YStack justifyContent="center" flex={1} space="$4">
+          <YStack justifyContent="center" flex={1} gap="$4">
             <QRCode
               logo={{
                 uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
@@ -42,7 +42,7 @@ const QRCodeGallery = () => (
       {
         title: 'this logo is came from local source.',
         element: (
-          <YStack justifyContent="center" flex={1} space="$4">
+          <YStack justifyContent="center" flex={1} gap="$4">
             <QRCode
               logo={require('@onekeyhq/kit/assets/logo.png')}
               value="https://onekey.so/"
@@ -60,7 +60,7 @@ const QRCodeGallery = () => (
       {
         title: 'this logo is came from svg.',
         element: (
-          <YStack justifyContent="center" flex={1} space="$4">
+          <YStack justifyContent="center" flex={1} gap="$4">
             <QRCode
               value="https://onekey.so/"
               logoSvg="OnekeyBrand"
@@ -78,7 +78,7 @@ const QRCodeGallery = () => (
       {
         title: 'DrawType',
         element: (
-          <YStack justifyContent="center" flex={1} space="$4">
+          <YStack justifyContent="center" flex={1} gap="$4">
             <QRCode drawType="line" value="https://onekey.so/" size={200} />
             <QRCode drawType="line" value="https://onekey.so/" size={200} />
           </YStack>
@@ -87,7 +87,7 @@ const QRCodeGallery = () => (
       {
         title: 'Animated QR',
         element: (
-          <YStack justifyContent="center" flex={1} space="$4">
+          <YStack justifyContent="center" flex={1} gap="$4">
             <QRCode
               drawType="animated"
               valueUr={{

@@ -74,7 +74,7 @@ export function ActionListItem({
         hoverStyle: { bg: '$bgHover' },
         pressStyle: { bg: '$bgActive' },
         // focusable: true,
-        // focusStyle: {
+        // focusVisibleStyle: {
         //   outlineColor: '$focusRing',
         //   outlineStyle: 'solid',
         //   outlineWidth: 2,

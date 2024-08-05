@@ -86,9 +86,9 @@ const AppStateLock = ({
           justifyContent="center"
           alignItems="center"
           p="$8"
-          space="$8"
+          gap="$8"
         >
-          <Stack space="$4" alignItems="center">
+          <Stack gap="$4" alignItems="center">
             <Image w={72} h={72} source={Logo} />
             <Heading size="$headingLg" textAlign="center">
               {intl.formatMessage({ id: ETranslations.login_welcome_message })}

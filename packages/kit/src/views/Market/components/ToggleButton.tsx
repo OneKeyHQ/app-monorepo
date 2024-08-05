@@ -39,7 +39,7 @@ export function ToggleButton({
   return (
     <YStack>
       <SizableText size="$bodyMdMedium">{title}</SizableText>
-      <XStack flexWrap="wrap" space="$3">
+      <XStack flexWrap="wrap" gap="$3">
         {options.map(({ label, value }) => (
           <OptionButton
             mt="$2"

@@ -36,7 +36,7 @@ function SearchTextItem({
       ai="center"
       jc="center"
       borderRadius="$2"
-      space="$3"
+      gap="$3"
       bg="$bgStrong"
       mt="$3"
       cursor="pointer"
@@ -96,7 +96,7 @@ export function RecentSearched({
           onPress={handleDeleteAll}
         />
       </XStack>
-      <XStack flexWrap="wrap" space="$3">
+      <XStack flexWrap="wrap" gap="$3">
         {recentSearch.map((i) => (
           <SearchTextItem onPress={handlePress} item={i} key={i.text} />
         ))}

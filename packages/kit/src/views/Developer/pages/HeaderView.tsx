@@ -74,7 +74,7 @@ export default function DemoHomePageHeaderView() {
 
   return useMemo(
     () => (
-      <YStack alignItems="center" justifyContent="center" py="$4" space="$3">
+      <YStack alignItems="center" justifyContent="center" py="$4" gap="$3">
         <AccountSelectorProviderMirror
           config={{
             sceneName: EAccountSelectorSceneName.home,

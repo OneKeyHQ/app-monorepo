@@ -50,7 +50,7 @@ export const InputAddOnItem = XStack.styleable<IExtraProps>((props, ref) => {
             bg: '$bgActive',
           },
           focusable: !(disabled || loading),
-          focusStyle: sharedStyles.focusStyle,
+          focusVisibleStyle: sharedStyles.focusVisibleStyle,
         })}
       {...rest}
     >

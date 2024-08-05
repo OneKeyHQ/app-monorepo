@@ -12,7 +12,7 @@ const TextAreaGallery = () => (
       {
         title: 'States',
         element: (
-          <Stack space="$4">
+          <Stack gap="$4">
             <TextArea placeholder="Placeholder" />
             <TextArea value="Read Only" editable={false} />
             <TextArea value="Disabled" disabled />

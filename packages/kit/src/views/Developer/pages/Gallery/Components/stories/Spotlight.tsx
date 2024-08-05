@@ -13,7 +13,7 @@ import { Layout } from './utils/Layout';
 
 // mock page
 function Page() {
-  return <YStack space="$4" />;
+  return <YStack gap="$4" />;
 }
 
 const SliderGallery = () => (

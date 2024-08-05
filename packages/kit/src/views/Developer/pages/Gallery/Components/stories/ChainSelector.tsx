@@ -18,7 +18,7 @@ const ChainSelectorDemo = () => {
     });
   }, [showChainSelector, chainId]);
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <Button onPress={onPress}>Show Chain Selector</Button>
     </Stack>
   );
@@ -27,7 +27,7 @@ const ChainSelectorDemo = () => {
 const ChainSelectorInputDemo = () => {
   const form = useForm({ defaultValues: { networkId: 'btc--0' } });
   return (
-    <Stack space="$1">
+    <Stack gap="$1">
       <Form form={form}>
         <Form.Field name="networkId">
           <ChainSelectorInput />
@@ -49,7 +49,7 @@ const ChainSelectorGallery = () => (
       {
         title: 'ChainSelector',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <ChainSelectorDemo />
           </Stack>
         ),
@@ -57,7 +57,7 @@ const ChainSelectorGallery = () => (
       {
         title: 'ChainSelectorInput',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <ChainSelectorInputDemo />
           </Stack>
         ),

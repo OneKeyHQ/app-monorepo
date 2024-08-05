@@ -53,7 +53,7 @@ const SliderGallery = () => (
               </YStack>
             )}
             renderPagination={({ currentIndex }) => (
-              <XStack space="$1" position="absolute" right="$5" bottom="$24">
+              <XStack gap="$1" position="absolute" right="$5" bottom="$24">
                 {bannerData.map((_, index) => (
                   <Stack
                     key={index}

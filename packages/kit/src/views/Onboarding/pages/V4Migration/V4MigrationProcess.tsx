@@ -121,7 +121,7 @@ export function V4MigrationProcess({
       <Page.Body
         py="$2.5"
         px="$5"
-        space="$5"
+        gap="$5"
         flex={1}
         alignItems="center"
         justifyContent="center"

@@ -30,7 +30,7 @@ export function FirmwareVersionProgressBar({
   }, []);
 
   return (
-    <XStack space="$2.5" alignItems="center">
+    <XStack gap="$2.5" alignItems="center">
       <Badge badgeType="default" badgeSize="lg">
         {versionValid(fromVersion) ? fromVersion : unknownMessage}
       </Badge>

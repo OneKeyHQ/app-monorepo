@@ -159,7 +159,7 @@ function TxActionsContainer(props: IProps) {
               </Stack>
             }
             renderContent={
-              <XStack space="$3" alignItems="center">
+              <XStack gap="$3" alignItems="center">
                 <Skeleton height="$10" width="$10" radius="round" />
                 <Stack>
                   <Stack py="$1.5">

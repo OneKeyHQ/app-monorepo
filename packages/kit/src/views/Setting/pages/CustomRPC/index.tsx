@@ -398,7 +398,7 @@ function CustomRPC() {
               <ListItem.Text
                 flex={1}
                 primary={
-                  <XStack alignItems="center" space="$2">
+                  <XStack alignItems="center" gap="$2">
                     <SizableText
                       flexShrink={1}
                       numberOfLines={1}

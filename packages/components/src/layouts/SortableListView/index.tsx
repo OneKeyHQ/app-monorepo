@@ -11,7 +11,7 @@ import { withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { StackStyleProps } from '@tamagui/web/types/types';
+import type { StackStyle } from '@tamagui/web/types/types';
 import type { StyleProp, ViewStyle } from 'react-native';
 import type {
   DraggableFlatListProps,
@@ -34,7 +34,7 @@ export type ISortableListViewProps<T> = Omit<
   | 'ListHeaderComponentStyle'
   | 'ListFooterComponentStyle'
 > &
-  StackStyleProps & {
+  StackStyle & {
     data: T[];
     keyExtractor: (item: T, index: number) => string;
     renderItem: RenderItem<T>;
@@ -44,11 +44,11 @@ export type ISortableListViewProps<T> = Omit<
     ) => { length: number; offset: number; index: number };
 
     enabled?: boolean;
-    containerStyle?: StackStyleProps;
-    contentContainerStyle?: StackStyleProps;
-    columnWrapperStyle?: StackStyleProps;
-    ListHeaderComponentStyle?: StackStyleProps;
-    ListFooterComponentStyle?: StackStyleProps;
+    containerStyle?: StackStyle;
+    contentContainerStyle?: StackStyle;
+    columnWrapperStyle?: StackStyle;
+    ListHeaderComponentStyle?: StackStyle;
+    ListFooterComponentStyle?: StackStyle;
   };
 
 function BaseSortableListView<T>(

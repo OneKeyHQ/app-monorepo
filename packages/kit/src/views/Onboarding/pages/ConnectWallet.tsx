@@ -135,7 +135,7 @@ function WalletItemView({
         }}
         onPress={onPress}
         focusable
-        focusStyle={{
+        focusVisibleStyle={{
           outlineColor: '$focusRing',
           outlineStyle: 'solid',
           outlineWidth: 2,
@@ -209,7 +209,7 @@ function ConnectToWalletDialogContent({
           $gtMd={
             {
               size: 'medium',
-            } as IButtonProps
+            } as any
           }
           onPress={onRetryPress}
         >

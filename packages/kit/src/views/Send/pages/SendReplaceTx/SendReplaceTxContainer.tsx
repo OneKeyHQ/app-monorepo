@@ -375,7 +375,7 @@ function SendReplaceTxContainer() {
 
   const renderOriginalFee = useCallback(
     () => (
-      <XStack space="$2">
+      <XStack gap="$2">
         <NumberSizeableText
           formatter="balance"
           formatterOptions={{
@@ -407,7 +407,7 @@ function SendReplaceTxContainer() {
 
   const renderNewFee = useCallback(
     () => (
-      <XStack space="$2">
+      <XStack gap="$2">
         <NumberSizeableText
           formatter="balance"
           formatterOptions={{

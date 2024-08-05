@@ -8,7 +8,7 @@ import { getTokenValue } from 'tamagui';
 import { OptimizationView } from '../../optimization';
 
 import type { FlashListProps, ListRenderItem } from '@shopify/flash-list';
-import type { StackStyleProps, Tokens } from '@tamagui/web/types/types';
+import type { StackStyle, Tokens } from '@tamagui/web/types/types';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 type IListViewRef<T> = FlashList<T>;
@@ -23,11 +23,11 @@ type IListViewProps<T> = Omit<
   | 'renderItem'
   | 'estimatedItemSize'
 > &
-  StackStyleProps & {
-    contentContainerStyle?: StackStyleProps;
-    columnWrapperStyle?: StackStyleProps;
-    ListHeaderComponentStyle?: StackStyleProps;
-    ListFooterComponentStyle?: StackStyleProps;
+  StackStyle & {
+    contentContainerStyle?: StackStyle;
+    columnWrapperStyle?: StackStyle;
+    ListHeaderComponentStyle?: StackStyle;
+    ListFooterComponentStyle?: StackStyle;
   } & {
     data: ReadonlyArray<T> | null | undefined;
     renderItem: ListRenderItem<T> | null | undefined;

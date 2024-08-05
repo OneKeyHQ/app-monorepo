@@ -251,7 +251,7 @@ function NostrSignEventModal() {
   const renderEventDetails = useCallback(() => {
     if (!event) return null;
     return (
-      <YStack space="$2">
+      <YStack gap="$2">
         <Button
           variant="secondary"
           onPress={() => setDisplayDetails(!displayDetails)}
@@ -297,7 +297,7 @@ function NostrSignEventModal() {
   const renderEncryptSignEventPlaintext = useCallback(() => {
     if (isDMEvent && savedPlaintext && savedPlaintext.length > 0) {
       return (
-        <YStack space="$2">
+        <YStack gap="$2">
           <SizableText>
             {intl.formatMessage({
               id: ETranslations.dapp_connect_nostr_plaintext,
@@ -326,7 +326,7 @@ function NostrSignEventModal() {
           >
             <DAppAccountListStandAloneItem readonly />
             {/* Content Start */}
-            <YStack space="$2">
+            <YStack gap="$2">
               <SizableText>{eventKindText}</SizableText>
               <TextArea editable={false} numberOfLines={5}>
                 {content}

@@ -128,7 +128,7 @@ const GalleryLayout = () => (
             }, 3000);
           }, []);
           return (
-            <YStack space="$5">
+            <YStack gap="$5">
               <AmountInput
                 value={value}
                 onChange={setValue}
@@ -244,7 +244,7 @@ const GalleryLayout = () => (
         element: () => {
           const form = useForm({ defaultValues: { amount: '' } });
           return (
-            <Stack space="$2">
+            <Stack gap="$2">
               <Form form={form}>
                 <Form.Field name="amount">
                   <AmountInput
@@ -272,7 +272,7 @@ const GalleryLayout = () => (
           <Stack>
             {/* Networks filter */}
             <Stack>
-              <XStack px="$5" pt="$1" pb="$3" space="$2">
+              <XStack px="$5" pt="$1" pb="$3" gap="$2">
                 <NetworksFilterItem
                   networkName="All"
                   tooltipContent="All Networks"

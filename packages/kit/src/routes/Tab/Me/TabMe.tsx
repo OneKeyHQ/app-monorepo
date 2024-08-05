@@ -33,7 +33,7 @@ const TabMe = () => {
   return (
     <Page>
       <Page.Body>
-        <YStack px="$2" space="$2">
+        <YStack px="$2" gap="$2">
           <Button
             onPress={() => {
               navigation.switchTab(ETabRoutes.Home);

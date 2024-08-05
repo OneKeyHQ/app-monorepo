@@ -22,7 +22,7 @@ const TypographyGallery = () => (
       {
         title: 'Sans',
         element: (
-          <YStack space="$2">
+          <YStack gap="$2">
             <SizableText size="$heading5xl">heading5xl</SizableText>
             <SizableText size="$heading4xl">heading4xl</SizableText>
             <SizableText size="$heading3xl">heading3xl</SizableText>
@@ -44,7 +44,7 @@ const TypographyGallery = () => (
       {
         title: 'Underline',
         element: (
-          <YStack space="$2">
+          <YStack gap="$2">
             <SizableText size="$bodyLg" textDecorationLine="underline">
               `variant="$bodyLg" textDecorationLine="underline"`
             </SizableText>
@@ -57,7 +57,7 @@ const TypographyGallery = () => (
       {
         title: 'Colors',
         element: (
-          <YStack space="$2">
+          <YStack gap="$2">
             <SizableText>Default</SizableText>
             <SizableText color="$textSubdued">$textSubdued</SizableText>
             <SizableText color="$textDisabled">$textDisabled</SizableText>
@@ -88,7 +88,7 @@ const TypographyGallery = () => (
       {
         title: 'Rich Text',
         element: (
-          <YStack space="$2">
+          <YStack gap="$2">
             <RichSizeableText linkList={{ a: { url: 'https://1key.so' } }}>
               {'Hello<a> OneKey </a>World'}
             </RichSizeableText>

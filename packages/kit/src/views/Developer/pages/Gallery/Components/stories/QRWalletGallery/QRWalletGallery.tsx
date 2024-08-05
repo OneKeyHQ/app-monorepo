@@ -33,7 +33,7 @@ function CustomAppRequestDeviceQR() {
     // close,
   } = useScanQrCode();
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <Button
         onPress={() => {
           const request = new OneKeyRequestDeviceQR({
@@ -155,7 +155,7 @@ function CustomAppRequestDeviceQR() {
 export function QRWalletGalleryDemo() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <Button
         onPress={() => {
           void backgroundApiProxy.serviceDemo.clearQrWalletAirGapAccountKeys({
@@ -188,7 +188,7 @@ const QRWalletGallery = () => (
             }}
             enabledNum={[0]}
           >
-            <Stack space="$1">
+            <Stack gap="$1">
               <QRWalletGalleryDemo />
             </Stack>
           </AccountSelectorProviderMirror>

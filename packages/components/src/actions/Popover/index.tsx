@@ -21,6 +21,7 @@ import {
   useSafeAreaInsets,
 } from '../../hooks';
 import { SizableText, XStack } from '../../primitives';
+import { NATIVE_HIT_SLOP } from '../../utils';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
@@ -328,9 +329,7 @@ function RawPopover({
                 <IconButton
                   icon="CrossedSmallOutline"
                   size="small"
-                  $platform-native={{
-                    hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
-                  }}
+                  hitSlop={NATIVE_HIT_SLOP}
                   onPress={closePopover}
                   testID="popover-btn-close"
                 />

@@ -3,6 +3,8 @@ import { useCallback, useRef } from 'react';
 import { clamp } from 'lodash';
 import { Slider as TMSlider } from 'tamagui';
 
+import { NATIVE_HIT_SLOP } from '../../utils';
+
 import type { IBaseSliderProps } from './type';
 // spell mistake in tamagui components.
 // eslint-disable-next-line spellcheck/spell-checker
@@ -69,16 +71,14 @@ export const Slider = ({
         unstyled
         position="absolute"
         size="$5"
-        $platform-native={{
-          hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
-        }}
+        hitSlop={NATIVE_HIT_SLOP}
         circular
         index={0}
         bg="$bg"
         borderWidth="$px"
         borderColor="$borderStrong"
         elevation={1}
-        focusStyle={{
+        focusVisibleStyle={{
           outlineColor: '$borderActive',
         }}
       />

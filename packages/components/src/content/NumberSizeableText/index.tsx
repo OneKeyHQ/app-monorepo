@@ -7,6 +7,7 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { SizableText } from '../../primitives';
 
 import type { ISizableTextProps } from '../../primitives';
+import type { FontSizeTokens } from 'tamagui';
 
 export type INumberSizeableTextProps = Omit<ISizableTextProps, 'children'> &
   INumberFormatProps & {
@@ -29,8 +30,16 @@ export function NumberSizeableText({
     [formatter, formatterOptions, children],
   );
 
-  const scriptFontSize = Math.ceil(
-    props.fontSize || getFontSize(props.size) * 0.6,
+  const scriptFontSize = useMemo(
+    () =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      props.fontSize !== 'unset'
+        ? Math.ceil(
+            (props.fontSize as number) ||
+              getFontSize(props.size as FontSizeTokens) * 0.6,
+          )
+        : props.fontSize,
+    [props.fontSize, props.size],
   );
   return typeof result === 'string' ? (
     <SizableText {...props}>{result}</SizableText>

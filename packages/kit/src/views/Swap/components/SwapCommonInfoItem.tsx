@@ -112,7 +112,7 @@ const SwapCommonInfoItem = ({
         {questionMarkContent ? questionMarkComponent : null}
       </XStack>
 
-      <XStack space="$2">
+      <XStack gap="$2">
         {isLoading ? (
           <Stack py="$1">
             <Skeleton h="$3" w="$24" />

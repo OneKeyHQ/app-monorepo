@@ -222,11 +222,13 @@ export function ChunkedItemsView({
                   size="$bodyMd"
                   color="$textSubdued"
                   numberOfLines={1}
-                  $gtMd={{
-                    size: '$bodySm',
-                    numberOfLines: 2,
-                    whiteSpace: 'break-spaces',
-                  }}
+                  $gtMd={
+                    {
+                      size: '$bodySm',
+                      numberOfLines: 2,
+                      whiteSpace: 'break-spaces',
+                    } as any
+                  }
                 >
                   {item.description}
                 </SizableText>

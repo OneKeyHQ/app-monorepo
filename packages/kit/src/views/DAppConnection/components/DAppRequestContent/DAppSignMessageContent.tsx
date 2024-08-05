@@ -120,7 +120,7 @@ function DAppSignMessageContent({
       text = JSON.stringify(text, null, 2);
     }
     return (
-      <YStack space="$2">
+      <YStack gap="$2">
         <Button
           variant="secondary"
           onPress={() => setShowRawMessage(!showRawMessage)}
@@ -145,7 +145,7 @@ function DAppSignMessageContent({
       <SizableText color="$text" size="$headingMd" mb="$2">
         {intl.formatMessage({ id: ETranslations.dapp_connect_message })}
       </SizableText>
-      <YStack space="$2">
+      <YStack gap="$2">
         <TextArea value={parseMessage} editable={false} numberOfLines={11} />
         {renderRawMessage()}
       </YStack>

@@ -75,9 +75,9 @@ export function SuggestedAndExploreSection({
   const chunkSize = media.gtMd && media.lg ? 2 : 3;
   const renderSkeletonView = useCallback(
     () => (
-      <Stack space="$5">
+      <Stack gap="$5">
         {Array.from({ length: 4 }).map((_, index) => (
-          <Stack space="$3" key={index}>
+          <Stack gap="$3" key={index}>
             <Skeleton w="$14" h="$6" />
             <ChunkedItemsSkeletonView
               key="skeleton-view"

@@ -1,9 +1,4 @@
-import type {
-  PropsWithChildren,
-  ReactChildren,
-  ReactElement,
-  ReactNode,
-} from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
 import { Children, cloneElement, isValidElement, useCallback } from 'react';
 
 import { noop } from 'lodash';
@@ -32,7 +27,7 @@ export function FormWrapper({ form: formContext, children }: IFormProps) {
   return (
     <FormProvider {...formContext}>
       <TMForm onSubmit={noop}>
-        <YStack space="$5">{children}</YStack>
+        <YStack gap="$5">{children}</YStack>
       </TMForm>
     </FormProvider>
   );
@@ -92,6 +87,7 @@ export function FieldDescription(props: ISizableTextProps) {
 
 type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
+    testID?: string;
     label?: string;
     description?: string | ReactNode;
     optional?: boolean;
@@ -149,7 +145,7 @@ function Field({
               {renderLabelAddon()}
             </XStack>
           ) : null}
-          {Children.map(children as ReactChildren, (child) =>
+          {Children.map(children as ReactNode[], (child) =>
             isValidElement(child)
               ? cloneElement(child, getChildProps(child, field, error))
               : child,

@@ -153,7 +153,7 @@ const AddressInputGallery = () => (
       {
         title: 'AddressInput',
         element: (
-          <Stack space="$4">
+          <Stack gap="$4">
             <Demo1 />
           </Stack>
         ),
@@ -161,7 +161,7 @@ const AddressInputGallery = () => (
       {
         title: 'AddressInput With AccountSelector/Contact EVM',
         element: (
-          <Stack space="$4">
+          <Stack gap="$4">
             <Demo2 networkId="evm--1" num={0} />
           </Stack>
         ),

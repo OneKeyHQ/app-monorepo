@@ -11,7 +11,7 @@ const LinearGradientGallery = () => (
       {
         title: 'default',
         element: (
-          <Stack space="$8">
+          <Stack gap="$8">
             <LinearGradient
               // Button Linear Gradient
               colors={['#4c669f', '#3b5998', '#192f6a']}

@@ -64,14 +64,14 @@ function DAppRequestLayout({
     >
       <DAppRiskyAlert origin={origin} urlSecurityInfo={urlSecurityInfo} />
       {isRiskSignMethod ? <DAppSignMessageAlert /> : null}
-      <Stack p="$5" space="$8">
-        <Stack space="$2.5">
+      <Stack p="$5" gap="$8">
+        <Stack gap="$2.5">
           <DAppSiteMark
             origin={origin}
             urlSecurityInfo={urlSecurityInfo}
             favicon={favicon}
           />
-          <YStack space="$1">
+          <YStack gap="$1">
             <SizableText color="$text" size="$heading3xl">
               {title}
             </SizableText>

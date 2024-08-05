@@ -20,14 +20,14 @@ const DividerGallery = () => (
       {
         title: '默认状态',
         element: (
-          <YStack space="$8">
-            <YStack space="$4">
+          <YStack gap="$8">
+            <YStack gap="$4">
               <SizableText>Line 1</SizableText>
               <Divider width="100%" />
               <SizableText>Line 2</SizableText>
             </YStack>
 
-            <XStack space="$4">
+            <XStack gap="$4">
               <SizableText>Left</SizableText>
               <Divider vertical />
               <SizableText>Right</SizableText>

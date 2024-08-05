@@ -242,7 +242,7 @@ function BookmarkListModal() {
                 flex={1}
               />
               {isEditing ? (
-                <XStack space="$6">
+                <XStack gap="$6">
                   <ListItem.IconButton
                     title={intl.formatMessage({
                       id: ETranslations.explore_rename,

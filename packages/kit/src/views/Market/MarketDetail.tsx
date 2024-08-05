@@ -109,7 +109,7 @@ function TokenDetailHeader({
           ai="center"
           alignContent="stretch"
           flexWrap="wrap"
-          space="$5"
+          gap="$5"
         >
           <TextCell
             title={intl.formatMessage({ id: ETranslations.market_24h_vol_usd })}
@@ -147,7 +147,7 @@ function SkeletonHeader() {
 
 function SkeletonHeaderOverItemItem() {
   return (
-    <YStack space="$2" flexGrow={1} flexBasis={0}>
+    <YStack gap="$2" flexGrow={1} flexBasis={0}>
       <Skeleton w="$10" h="$3" />
       <Skeleton w="$24" h="$3" />
     </YStack>
@@ -186,7 +186,7 @@ function MarketDetail({
 
   const renderHeaderTitle = useCallback(
     () => (
-      <XStack space="$2">
+      <XStack gap="$2">
         <MarketTokenIcon uri={tokenDetail?.image || ''} size="$6" />
         <SizableText>{tokenDetail?.symbol?.toUpperCase()}</SizableText>
       </XStack>
@@ -213,7 +213,7 @@ function MarketDetail({
 
   const renderHeaderRight = useCallback(
     () => (
-      <XStack space="$6" ai="center">
+      <XStack gap="$6" ai="center">
         {!platformEnv.isExtensionUiPopup && !platformEnv.isNative ? (
           <OpenInAppButton
             buildDeepLinkUrl={buildDeepLinkUrl}
@@ -266,12 +266,12 @@ function MarketDetail({
     return (
       <YStack px="$5">
         {gtMd ? (
-          <YStack space="$12" width={392}>
+          <YStack gap="$12" width={392}>
             <SkeletonHeader />
-            <YStack space="$3">
+            <YStack gap="$3">
               <Skeleton w={252} h="$3" />
             </YStack>
-            <YStack space="$6">
+            <YStack gap="$6">
               <XStack>
                 <SkeletonHeaderOverItemItem />
                 <SkeletonHeaderOverItemItem />
@@ -285,7 +285,7 @@ function MarketDetail({
                 <SkeletonHeaderOverItemItem />
               </XStack>
             </YStack>
-            <YStack space="$6">
+            <YStack gap="$6">
               <Skeleton w="$10" h="$3" />
               <Skeleton w={252} h="$3" />
               <Skeleton w={252} h="$3" />
@@ -293,7 +293,7 @@ function MarketDetail({
             </YStack>
           </YStack>
         ) : (
-          <YStack space="$6" pt="$1">
+          <YStack gap="$6" pt="$1">
             <SkeletonHeader />
             <XStack>
               <SkeletonHeaderOverItemItem />
