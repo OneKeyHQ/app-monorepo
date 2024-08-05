@@ -25,11 +25,11 @@ export function MarketDetailLinks({
   return (
     <NestedScrollView>
       <YStack px="$5" $gtMd={{ pr: 0 }}>
-        <YStack py="$5" space="$2">
+        <YStack py="$5" gap="$2">
           <SizableText size="$headingSm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.global_community })}
           </SizableText>
-          <XStack space="$3">
+          <XStack gap="$3">
             {twitterUrl ? (
               <IconButton
                 title="X"
@@ -53,11 +53,11 @@ export function MarketDetailLinks({
             ) : null}
           </XStack>
         </YStack>
-        <YStack py="$5" space="$2">
+        <YStack py="$5" gap="$2">
           <SizableText size="$headingSm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.global_official_links })}
           </SizableText>
-          <XStack space="$3">
+          <XStack gap="$3">
             {homePageUrl ? (
               <Button
                 iconAfter="OpenOutline"

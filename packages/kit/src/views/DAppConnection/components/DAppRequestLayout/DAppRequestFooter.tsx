@@ -34,7 +34,7 @@ function DAppRequestFooter({
       justifyContent={
         showContinueOperateCheckbox ? 'space-between' : 'flex-end'
       }
-      space="$2.5"
+      gap="$2.5"
       onConfirm={onConfirm}
       onCancel={onCancel}
       onConfirmText={

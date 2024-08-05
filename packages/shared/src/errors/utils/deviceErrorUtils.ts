@@ -130,6 +130,10 @@ export function convertDeviceError(
       return new HardwareErrors.BleScanError({ payload });
     case HardwareErrorCode.BleAlreadyConnected:
       return new HardwareErrors.BleAlreadyConnectedError({ payload });
+    case HardwareErrorCode.BleCharacteristicNotifyChangeFailure:
+      return new HardwareErrors.BleCharacteristicNotifyChangeFailure({
+        payload,
+      });
     case HardwareErrorCode.RuntimeError:
       if (message.indexOf('EIP712 blind sign is disabled') !== -1) {
         return new HardwareErrors.OpenBlindSign({ payload });

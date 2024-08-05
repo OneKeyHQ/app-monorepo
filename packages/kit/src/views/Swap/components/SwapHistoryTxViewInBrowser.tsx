@@ -75,7 +75,7 @@ const ExplorersList = ({
   const renderItem = useCallback(
     ({ item, index }: { item: IExplorersInfo; index: number }) => (
       <YStack
-        space="$4"
+        gap="$4"
         px="$5"
         pb="$5"
         {...(!item.url && {
@@ -89,7 +89,7 @@ const ExplorersList = ({
       >
         <SizableText size="$headingSm">{parserLabel(item.type)}</SizableText>
         <XStack justifyContent="space-between">
-          <XStack space="$2">
+          <XStack gap="$2">
             <Image height="$6" width="$6" borderRadius="$full">
               <Image.Source
                 source={{

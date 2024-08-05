@@ -8,18 +8,18 @@ import { type View as IView, type ViewStyle } from 'react-native';
 import { useThemeName } from '../../hooks';
 import { OptimizationView } from '../../optimization';
 
-import type { StackStyleProps } from '@tamagui/web/types/types';
+import type { StackStyle } from '@tamagui/web/types/types';
 import type { BlurViewProps } from 'expo-blur';
 
 export type IBlurViewPros = Omit<BlurViewProps, 'style' | 'intensity'> &
-  StackStyleProps & {
+  StackStyle & {
     /**
      * intensity will be used like `blur(${intensity * 0.2}px)` on Web.
      *
      * @default 50
      */
     intensity?: number;
-    contentStyle?: StackStyleProps;
+    contentStyle?: StackStyle;
   };
 
 function BasicBlurView(

@@ -14,7 +14,7 @@ const ToastGallery = () => (
       {
         title: 'Native',
         element: (
-          <YStack space="$2" justifyContent="center">
+          <YStack gap="$2" justifyContent="center">
             <Button
               onPress={() => {
                 Toast.message({

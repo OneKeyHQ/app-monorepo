@@ -45,7 +45,7 @@ function SegmentControlItem({
       borderCurve="continuous"
       userSelect="none"
       focusable={!disabled}
-      focusStyle={{
+      focusVisibleStyle={{
         outlineWidth: 2,
         outlineColor: '$focusRing',
         outlineStyle: 'solid',

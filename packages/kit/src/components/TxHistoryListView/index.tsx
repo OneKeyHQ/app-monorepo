@@ -75,7 +75,7 @@ function TxHistoryListView(props: IProps) {
         return (
           <>
             {index === 0 ? (
-              <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" space="$2">
+              <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" gap="$2">
                 <Stack
                   w="$2"
                   height="$2"
