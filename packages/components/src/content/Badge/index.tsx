@@ -99,7 +99,7 @@ const BadgeComponent = BadgeFrame.styleable((props, ref) => {
       {!isString ? (
         children
       ) : (
-        <BadgeText userSelect={false}>{children}</BadgeText>
+        <BadgeText userSelect="none">{children}</BadgeText>
       )}
     </BadgeFrame>
   );

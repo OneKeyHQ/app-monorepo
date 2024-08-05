@@ -44,7 +44,7 @@ export function SuggestedView({
           <Heading
             size="$headingMd"
             pt="$2"
-            userSelect={false}
+            userSelect="none"
             {...(index !== 0 && {
               pt: '$5',
             })}

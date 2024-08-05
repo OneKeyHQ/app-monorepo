@@ -91,7 +91,7 @@ function Column<T>({
 }
 
 const renderContent = (text?: string) => (
-  <SizableText size="$bodyMd" color="$textSubdued" userSelect={false}>
+  <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
     {text ?? '-'}
   </SizableText>
 );

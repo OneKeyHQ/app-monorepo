@@ -157,7 +157,7 @@ const ToastGallery = () => (
                     },
                   ]}
                   value={size}
-                  onChange={setSize}
+                  onChange={setSize as any}
                   title="Demo Title"
                   onOpenChange={console.log}
                 />

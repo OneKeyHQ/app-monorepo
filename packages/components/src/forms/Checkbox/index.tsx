@@ -84,7 +84,7 @@ function RawCheckbox({
           py="$2"
           my="$-2"
           onPress={platformEnv.isNativeAndroid ? onPress : undefined}
-          userSelect={false}
+          userSelect="none"
           {...labelProps}
         >
           {label}

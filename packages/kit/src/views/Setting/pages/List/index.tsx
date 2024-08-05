@@ -113,7 +113,7 @@ const SocialButtonGroup = () => {
       </XStack>
       <XStack justifyContent="center" py="$4">
         <SizableText
-          userSelect={false}
+          userSelect="none"
           color="$textSubdued"
           onPress={handlePress}
           testID="setting-version"

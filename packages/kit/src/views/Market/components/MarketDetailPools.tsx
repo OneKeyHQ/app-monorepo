@@ -305,12 +305,12 @@ export function MarketDetailPools({
                     <SizableText
                       size="$bodyMdMedium"
                       numberOfLines={1}
-                      userSelect={false}
+                      userSelect="none"
                     >
                       {attributes.name}
                     </SizableText>
                     <SizableText
-                      userSelect={false}
+                      userSelect="none"
                       size="$bodySm"
                       color="$textSubdued"
                       numberOfLines={1}
@@ -324,7 +324,7 @@ export function MarketDetailPools({
               {gtXl ? (
                 <ItemColumn>
                   <NumberSizeableText
-                    userSelect={false}
+                    userSelect="none"
                     size="$bodyMd"
                     formatter="price"
                     formatterOptions={{ currency }}
@@ -337,7 +337,7 @@ export function MarketDetailPools({
               {gtXl ? (
                 <ItemColumn>
                   <NumberSizeableText
-                    userSelect={false}
+                    userSelect="none"
                     size="$bodyMd"
                     formatter="marketCap"
                     textAlign="right"
@@ -348,7 +348,7 @@ export function MarketDetailPools({
               ) : null}
               <ItemColumn>
                 <NumberSizeableText
-                  userSelect={false}
+                  userSelect="none"
                   size="$bodyMd"
                   formatter="marketCap"
                   textAlign="right"
@@ -358,7 +358,7 @@ export function MarketDetailPools({
               </ItemColumn>
               <ItemColumn>
                 <NumberSizeableText
-                  userSelect={false}
+                  userSelect="none"
                   size="$bodyMd"
                   formatter="marketCap"
                   textAlign="right"

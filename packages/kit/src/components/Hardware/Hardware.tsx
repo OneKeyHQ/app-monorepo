@@ -235,7 +235,7 @@ export function EnterPin({
           bg="$bgSubdued"
         >
           <SizableText
-            userSelect={false}
+            userSelect="none"
             pl="$6"
             textAlign="center"
             flex={1}
@@ -303,7 +303,7 @@ export function EnterPin({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="primary"
         onPress={() => {
@@ -318,7 +318,7 @@ export function EnterPin({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="tertiary"
         onPress={() => {
@@ -422,7 +422,7 @@ export function EnterPhase({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="primary"
         onPress={form.handleSubmit(async () => {
@@ -469,7 +469,7 @@ export function EnterPhase({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="tertiary"
         onPress={switchOnDevice}
@@ -564,7 +564,7 @@ export function ConfirmPassphrase({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="primary"
         onPress={onConfirm}
@@ -577,7 +577,7 @@ export function ConfirmPassphrase({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="tertiary"
         onPress={switchOnDevice}
