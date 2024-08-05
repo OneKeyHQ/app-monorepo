@@ -11,6 +11,7 @@ import {
   COINTYPE_COSMOS,
   COINTYPE_DOT,
   COINTYPE_NEXA,
+  IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { IncorrectPassword } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -18,6 +19,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -51,7 +53,10 @@ import type {
   IV4OnAccountMigrated,
   IV4OnWalletMigrated,
 } from '../../migrations/v4ToV5Migration/types';
-import type { IV4DBVariantAccount } from '../../migrations/v4ToV5Migration/v4local/v4localDBTypesSchema';
+import type {
+  IV4DBNetwork,
+  IV4DBVariantAccount,
+} from '../../migrations/v4ToV5Migration/v4local/v4localDBTypesSchema';
 import type { V4LocalDbRealm } from '../../migrations/v4ToV5Migration/v4local/v4realm/V4LocalDbRealm';
 import type { IV4MigrationAtom } from '../../states/jotai/atoms/v4migration';
 import type { VaultBase } from '../../vaults/base/VaultBase';
@@ -1048,6 +1053,39 @@ class ServiceV4Migration extends ServiceBase {
   @toastIfError()
   async clearV4MigrationLogs() {
     return v4dbHubs.logger.clearLogs();
+  }
+
+  @backgroundMethod()
+  async getV4CustomEvmNetworks() {
+    const v4localDb = v4dbHubs.v4localDb;
+    const r = await v4localDb.getAllRecords({
+      name: EV4LocalDBStoreNames.Network,
+    });
+    const v4networks: IV4DBNetwork[] = r?.records || [];
+
+    const { networkIds: allNetworkIds } =
+      await this.backgroundApi.serviceNetwork.getAllNetworkIds();
+    const allNetworkIdsSet = new Set(allNetworkIds);
+
+    const v4CustomEvmNetworks = v4networks.filter(
+      (o) => o.impl === IMPL_EVM && !allNetworkIdsSet.has(o.id),
+    );
+
+    return v4CustomEvmNetworks;
+  }
+
+  @backgroundMethod()
+  async getV4CustomEvmNetworkRpcUrls() {
+    const reduxData = await v4dbHubs.v4reduxDb.reduxData;
+    const customNetworkRpcMap = reduxData?.settings?.customNetworkRpcMap;
+    if (customNetworkRpcMap) {
+      return Object.entries(customNetworkRpcMap)
+        .map(([key, value]) => ({
+          networkId: key,
+          rpcUrls: value,
+        }))
+        .filter((o) => networkUtils.isEvmNetwork({ networkId: o.networkId }));
+    }
   }
 }
 

@@ -54,21 +54,3 @@ export enum EV4DBAccountType {
   // used for allNetworks
   FAKE = 'FAKE',
 }
-
-export type IV4NetworkItemType = {
-  id: string;
-  impl: string;
-  rpcURL: string;
-  preset: boolean;
-  decimals: number;
-  name: string;
-  shortName: string;
-  shortCode: string;
-  symbol: string;
-  blockExplorerURL: {
-    address: string;
-    block: string;
-    name: string;
-    transaction: string;
-  };
-};

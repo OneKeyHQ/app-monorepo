@@ -6,7 +6,6 @@ import type {
   IV4ReduxCloudBackupState,
   IV4ReduxContactsState,
   IV4ReduxDiscoverState,
-  IV4ReduxRuntimeState,
   IV4ReduxSettingsState,
 } from '../v4types/v4typesRedux';
 
@@ -15,7 +14,6 @@ type IV4SimpleDbRawData = {
   contacts: string;
   discover: string;
   cloudBackup: string;
-  runtime: string;
 };
 
 export type IV4SimpleDbData = {
@@ -23,7 +21,6 @@ export type IV4SimpleDbData = {
   contacts: IV4ReduxContactsState | undefined;
   discover: IV4ReduxDiscoverState | undefined;
   cloudBackup: IV4ReduxCloudBackupState | undefined;
-  runtime: IV4ReduxRuntimeState | undefined;
 };
 
 export class V4ReduxDb {
@@ -77,7 +74,6 @@ export class V4ReduxDb {
       contacts: this.parseReduxField(data.contacts),
       discover: this.parseReduxField(data.discover),
       cloudBackup: this.parseReduxField(data.cloudBackup),
-      runtime: this.parseReduxField(data.runtime),
     };
   }
 }
