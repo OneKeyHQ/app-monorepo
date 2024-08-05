@@ -5,7 +5,7 @@ import { Label as TMLabel, styled } from 'tamagui';
 import type { GetProps, SizeTokens } from 'tamagui';
 
 export type ILabelProps = Omit<GetProps<typeof TMLabel>, 'variant'> & {
-  variant: SizeTokens;
+  variant?: SizeTokens;
 };
 
 export const Label = styled(TMLabel, {
