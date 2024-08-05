@@ -1,6 +1,12 @@
+import type { ComponentType } from 'react';
+
 import { Label as TMLabel, styled } from 'tamagui';
 
-import type { FontTokens, GetProps } from 'tamagui';
+import type { GetProps, SizeTokens } from 'tamagui';
+
+export type ILabelProps = Omit<GetProps<typeof TMLabel>, 'variant'> & {
+  variant: SizeTokens;
+};
 
 export const Label = styled(TMLabel, {
   unstyled: true,
@@ -16,7 +22,7 @@ export const Label = styled(TMLabel, {
           lineHeight: font?.lineHeight[variant],
           fontWeight: font?.weight[variant],
           textTransform: font?.transform[variant],
-          letterSpacing: font?.letterSpacing[variant],
+          letterSpacing: font?.letterSpacing[variant] as any,
         };
       },
     },
@@ -25,8 +31,4 @@ export const Label = styled(TMLabel, {
   defaultVariants: {
     variant: '$bodyMdMedium',
   },
-});
-
-export type ILabelProps = Omit<GetProps<typeof Label>, 'variant'> & {
-  variant: FontTokens;
-};
+}) as ComponentType<ILabelProps>;
