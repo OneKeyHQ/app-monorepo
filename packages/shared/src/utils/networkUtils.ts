@@ -104,6 +104,24 @@ function getDefaultDeriveTypeVisibleNetworks() {
   ];
 }
 
+function toNetworkIdFallback({
+  networkId,
+  allNetworkFallbackId,
+  allNetworkFallbackToBtc,
+}: {
+  networkId: string | undefined;
+  allNetworkFallbackId?: string;
+  allNetworkFallbackToBtc?: boolean;
+}): string | undefined {
+  if (isAllNetwork({ networkId })) {
+    if (allNetworkFallbackToBtc) {
+      return getNetworkIdsMap().btc;
+    }
+    return allNetworkFallbackId;
+  }
+  return networkId;
+}
+
 export default {
   getNetworkChainId,
   getNetworkImpl,
@@ -116,4 +134,5 @@ export default {
   getBtcDappNetworkName,
   isAllNetwork,
   getDefaultDeriveTypeVisibleNetworks,
+  toNetworkIdFallback,
 };
