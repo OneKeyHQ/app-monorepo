@@ -7,7 +7,7 @@ import { Layout } from './utils/Layout';
 const SliderDemo = () => {
   const [value, setValue] = useState(0);
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <Slider
         value={value}
         min={1}
@@ -74,7 +74,7 @@ const SliderGallery = () => (
       {
         title: 'Disabled',
         element: (
-          <Stack space="$2">
+          <Stack gap="$2">
             <Slider disabled min={1} max={100} value={50} step={1} />
           </Stack>
         ),
@@ -86,7 +86,7 @@ const SliderGallery = () => (
       {
         title: 'Slider in Dialog',
         element: (
-          <Stack space="$2">
+          <Stack gap="$2">
             <Button
               onPress={() => {
                 Dialog.show({

@@ -196,7 +196,7 @@ export function EnumBasicDialogContentContainer({
             $md={
               {
                 size: 'large',
-              } as IButtonProps
+              } as any
             }
             onPress={() => setShowRiskyWarning(true)}
           >
@@ -207,7 +207,7 @@ export function EnumBasicDialogContentContainer({
         ) : (
           <YStack
             p="$5"
-            space="$5"
+            gap="$5"
             bg="$bgCautionSubdued"
             borderWidth={StyleSheet.hairlineWidth}
             borderColor="$borderCautionSubdued"
@@ -223,7 +223,7 @@ export function EnumBasicDialogContentContainer({
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               onPress={onContinuePress}
             >
@@ -304,7 +304,7 @@ export function EnumBasicDialogContentContainer({
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               variant="primary"
               onPress={onActionPress}
@@ -334,7 +334,7 @@ export function EnumBasicDialogContentContainer({
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               variant="primary"
               onPress={onActionPress}
@@ -365,7 +365,7 @@ export function EnumBasicDialogContentContainer({
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               variant="primary"
               onPress={() => Linking.openURL(FIRMWARE_CONTACT_US_URL)}
@@ -377,7 +377,7 @@ export function EnumBasicDialogContentContainer({
                 $md={
                   {
                     size: 'large',
-                  } as IButtonProps
+                  } as any
                 }
                 onPress={onContinuePress}
               >
@@ -407,7 +407,7 @@ export function EnumBasicDialogContentContainer({
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               variant="primary"
               onPress={onActionPress}
@@ -439,7 +439,7 @@ export function EnumBasicDialogContentContainer({
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               variant="primary"
               onPress={onActionPress}
@@ -530,7 +530,7 @@ export function FirmwareAuthenticationDialogContent({
     verify,
   ]);
 
-  return <Stack space="$5">{content}</Stack>;
+  return <Stack gap="$5">{content}</Stack>;
 }
 
 export function useFirmwareVerifyDialog() {

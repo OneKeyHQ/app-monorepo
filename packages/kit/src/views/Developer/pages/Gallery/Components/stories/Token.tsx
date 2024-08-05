@@ -15,7 +15,7 @@ const TokenGallery = () => (
       {
         title: 'size',
         element: (
-          <YStack space="$3">
+          <YStack gap="$3">
             <Token size="xs" tokenImageUri={tokenImageUri} />
             <Token size="sm" tokenImageUri={tokenImageUri} />
             <Token size="md" tokenImageUri={tokenImageUri} />
@@ -27,7 +27,7 @@ const TokenGallery = () => (
       {
         title: 'isNFT',
         element: (
-          <YStack space="$3">
+          <YStack gap="$3">
             <Token size="md" tokenImageUri={evmTokenImageUri} />
             <Token size="md" isNFT tokenImageUri={evmTokenImageUri} />
             <Token size="md" isNFT={false} tokenImageUri={evmTokenImageUri} />
@@ -37,7 +37,7 @@ const TokenGallery = () => (
       {
         title: 'networkImageUri',
         element: (
-          <YStack space="$3">
+          <YStack gap="$3">
             <Token
               size="md"
               networkImageUri={tokenImageUri}

@@ -12,7 +12,7 @@ const WebEmbedGallery = () => (
       {
         title: 'RPC Call',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             {/* <WebViewWebEmbed src="http://localhost:3008/" /> */}
             <Button
               onPress={async () => {

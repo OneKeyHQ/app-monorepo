@@ -244,7 +244,7 @@ function ReceiveToken() {
       }
 
       return (
-        <YStack space="$5" alignItems="center">
+        <YStack gap="$5" alignItems="center">
           <Button mt="$5" variant="primary" onPress={handleVerifyOnDevicePress}>
             {intl.formatMessage({
               id: ETranslations.global_verify_on_device,
@@ -290,7 +290,7 @@ function ReceiveToken() {
     return (
       <>
         <Stack mb="$5">
-          <XStack space="$2" alignItems="center" justifyContent="center">
+          <XStack gap="$2" alignItems="center" justifyContent="center">
             <Heading size="$headingMd">
               {token?.symbol ?? network.symbol}
             </Heading>

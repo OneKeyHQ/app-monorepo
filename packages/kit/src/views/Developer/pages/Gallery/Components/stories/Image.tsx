@@ -13,7 +13,7 @@ const ImageGallery = () => (
       {
         title: 'load Image via source',
         element: (
-          <YStack space={10}>
+          <YStack gap={10}>
             <Image
               height="$10"
               width="$10"
@@ -32,7 +32,7 @@ const ImageGallery = () => (
       {
         title: 'load Image via src',
         element: (
-          <YStack space={10}>
+          <YStack gap={10}>
             <Image
               height="$10"
               width="$10"
@@ -44,7 +44,7 @@ const ImageGallery = () => (
       {
         title: 'uri is empty string',
         element: (
-          <YStack space={10}>
+          <YStack gap={10}>
             <Image w="$5" h="$5">
               <Image.Source
                 source={{
@@ -58,7 +58,7 @@ const ImageGallery = () => (
       {
         title: 'base64 Image',
         element: (
-          <YStack space={10}>
+          <YStack gap={10}>
             <Image size="$10" source={{ uri: base64Image }} />
           </YStack>
         ),
@@ -66,7 +66,7 @@ const ImageGallery = () => (
       {
         title: 'Loading Fallback',
         element: (
-          <YStack space={10}>
+          <YStack gap={10}>
             <Image height="$10" width="$10">
               <Image.Source
                 source={{
@@ -126,7 +126,7 @@ const ImageGallery = () => (
       {
         title: 'Loading Fallback',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Image height="$10" width="$10">
               <Image.Source
                 delayMs={2500}
@@ -163,7 +163,7 @@ const ImageGallery = () => (
       {
         title: 'onError',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Image height="$10" width="$10">
               <Image.Source src="https://onekey-asset.com/assets/btc/bt" />
               <Image.Skeleton />
