@@ -19,8 +19,8 @@ import {
   Spinner,
   Stack,
   Toast,
-  useMedia,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -448,7 +448,7 @@ function BatchCreateAccountPreviewPage({
             bg: '$bgActive',
           }}
           $gtMd={{
-            borderRadius: "$full",
+            borderRadius: '$full',
             py: '$2',
           }}
         />
