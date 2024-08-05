@@ -73,7 +73,7 @@ function SwapProviderItem({
       borderWidth={StyleSheet.hairlineWidth}
       borderColor={selected ? '$borderActive' : '$borderSubdued'}
       userSelect="none"
-      focusStyle={{
+      focusVisibleStyle={{
         outlineWidth: 2,
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
@@ -184,7 +184,7 @@ function SwapProviderItem({
               pressStyle={{
                 bg: '$bgActive',
               }}
-              focusStyle={{
+              focusVisibleStyle={{
                 outlineWidth: 2,
                 outlineColor: '$focusRing',
                 outlineStyle: 'solid',

@@ -77,7 +77,7 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
             }
       }
       focusable={!triggerDisabled}
-      focusStyle={
+      focusVisibleStyle={
         triggerDisabled
           ? undefined
           : {
@@ -140,7 +140,7 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
             }
       }
       focusable={!triggerDisabled}
-      focusStyle={
+      focusVisibleStyle={
         triggerDisabled
           ? undefined
           : {

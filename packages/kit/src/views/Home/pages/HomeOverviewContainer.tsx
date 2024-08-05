@@ -165,7 +165,7 @@ function HomeOverviewContainer() {
           pressStyle={{
             bg: '$bgActive',
           }}
-          focusStyle={{
+          focusVisibleStyle={{
             outlineColor: '$focusRing',
             outlineWidth: 2,
             outlineOffset: 0,

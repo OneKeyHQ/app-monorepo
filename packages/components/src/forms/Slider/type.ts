@@ -9,7 +9,7 @@ type INonGestureStackStyleProps = Omit<
   | 'onHover'
   | 'hoverStyle'
   | 'pressStyle'
-  | 'focusStyle'
+  | 'focusVisibleStyle'
   | 'onTouchStart'
   | 'onTouchMove'
   | 'onTouchEnd'

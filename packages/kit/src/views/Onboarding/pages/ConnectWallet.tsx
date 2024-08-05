@@ -135,7 +135,7 @@ function WalletItemView({
         }}
         onPress={onPress}
         focusable
-        focusStyle={{
+        focusVisibleStyle={{
           outlineColor: '$focusRing',
           outlineStyle: 'solid',
           outlineWidth: 2,

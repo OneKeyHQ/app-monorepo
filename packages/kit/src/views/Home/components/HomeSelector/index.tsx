@@ -40,7 +40,7 @@ function HomeSelector(props: IProps) {
               pressStyle={{
                 bg: '$bgActive',
               }}
-              focusStyle={{
+              focusVisibleStyle={{
                 outlineWidth: 2,
                 outlineOffset: 0,
                 outlineColor: '$focusRing',

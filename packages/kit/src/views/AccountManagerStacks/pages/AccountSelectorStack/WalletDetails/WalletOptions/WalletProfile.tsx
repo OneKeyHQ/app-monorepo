@@ -23,7 +23,7 @@ export function WalletProfile({ wallet }: { wallet: IDBWallet }) {
               bg: '$bgActive',
             },
             focusable: true,
-            focusStyle: {
+            focusVisibleStyle: {
               outlineOffset: 2,
               outlineWidth: 2,
               outlineColor: '$focusRing',

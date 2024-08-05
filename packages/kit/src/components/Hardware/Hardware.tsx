@@ -275,7 +275,7 @@ export function EnterPin({
                 bg: '$bgActive',
               }}
               focusable
-              focusStyle={{
+              focusVisibleStyle={{
                 outlineColor: '$focusRing',
                 outlineOffset: -2,
                 outlineWidth: 2,

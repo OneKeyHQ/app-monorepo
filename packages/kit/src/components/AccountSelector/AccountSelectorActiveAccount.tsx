@@ -158,7 +158,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
               bg: '$bgActive',
             }}
             focusable
-            focusStyle={{
+            focusVisibleStyle={{
               outlineWidth: 2,
               outlineColor: '$focusRing',
               outlineStyle: 'solid',

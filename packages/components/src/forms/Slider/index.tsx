@@ -78,7 +78,7 @@ export const Slider = ({
         borderWidth="$px"
         borderColor="$borderStrong"
         elevation={1}
-        focusStyle={{
+        focusVisibleStyle={{
           outlineColor: '$borderActive',
         }}
       />

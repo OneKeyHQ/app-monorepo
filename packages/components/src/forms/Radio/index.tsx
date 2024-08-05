@@ -30,7 +30,7 @@ export function Radio({ value, onChange, disabled, options }: IRadioProps) {
             borderColor={value === v ? '$transparent' : '$borderStrong'}
             backgroundColor={value === v ? '$bgPrimary' : '$transparent'}
             borderRadius="$full"
-            focusStyle={{
+            focusVisibleStyle={{
               outlineOffset: 2,
               outlineColor: '$focusRing',
             }}

@@ -2,6 +2,7 @@ import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, View, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
 
 import { AccountAvatar } from '../../AccountAvatar';
@@ -27,7 +28,7 @@ export function AccountSelectorTriggerBase({
       maxWidth="$48"
       py="$0.5"
       px="$1.5"
-      mx="$-1.5"
+      mx={platformEnv.isNative ? '$-1.5' : undefined}
       borderRadius="$2"
       hoverStyle={{
         bg: '$bgHover',

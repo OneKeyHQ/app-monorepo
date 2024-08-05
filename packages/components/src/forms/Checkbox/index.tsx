@@ -57,7 +57,7 @@ function RawCheckbox({
         borderRadius="$1"
         alignItems="center"
         justifyContent="center"
-        focusStyle={{
+        focusVisibleStyle={{
           outlineOffset: 2,
           outlineColor: '$focusRing',
         }}

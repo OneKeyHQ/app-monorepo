@@ -77,7 +77,7 @@ function ActionsGroup({ items }: IActionsProp) {
             pressStyle={{
               bg: item.primary ? '$bgPrimaryActive' : '$bgStrongActive',
             }}
-            focusStyle={{
+            focusVisibleStyle={{
               outlineColor: '$focusRing',
               outlineStyle: 'solid',
               outlineWidth: 2,

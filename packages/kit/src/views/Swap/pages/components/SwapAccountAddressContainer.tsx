@@ -59,7 +59,7 @@ function AddressButton({
         focusable: true,
         hoverStyle: { bg: '$bgHover' },
         pressStyle: { bg: '$bgActive' },
-        focusStyle: {
+        focusVisibleStyle: {
           outlineWidth: 2,
           outlineColor: '$focusRing',
           outlineStyle: 'solid',

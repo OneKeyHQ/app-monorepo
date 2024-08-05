@@ -35,7 +35,7 @@ function WordButton({
   return (
     <Button
       borderWidth={2}
-      focusStyle={{
+      focusVisibleStyle={{
         bg: '$bgActive',
       }}
       onPress={handlePress}
