@@ -2,6 +2,7 @@ import type {
   EV4OnekeyDomain,
   EV4ValidationFields,
   IV4LocaleSymbol,
+  IV4NetworkItemType,
   IV4WalletSwitchItem,
 } from './v4typesCommon';
 
@@ -137,4 +138,8 @@ export type IV4ReduxCloudBackupState = {
   enabled: boolean;
   backupRequests: number;
   lastBackup?: number;
+};
+
+export type IV4ReduxRuntimeState = {
+  networks: IV4NetworkItemType[];
 };
