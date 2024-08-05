@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -24,12 +25,15 @@ import type {
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { TokenDetailsViews } from './TokenDetailsView';
 
 import type { RouteProp } from '@react-navigation/core';
 
-export function TokenDetails() {
+const num = 0;
+
+function TokenDetails() {
   const intl = useIntl();
 
   const route =
@@ -98,7 +102,7 @@ export function TokenDetails() {
     );
   }, [copyText, intl, network, tokenInfo.address, tokenInfo.isNative]);
 
-  const { result, run: refreshLocalData } = usePromiseResult(
+  const { result } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
         {
@@ -139,6 +143,7 @@ export function TokenDetails() {
             tokenInfo={tokenInfo}
             isAllNetworks={isAllNetworks}
             listViewContentContainerStyle={{ pt: '$5' }}
+            indexedAccountId={account?.indexedAccountId}
           />
         ),
       }));
@@ -153,18 +158,18 @@ export function TokenDetails() {
     intl,
     tokenInfo,
     isAllNetworks,
+    account?.indexedAccountId,
   ]);
 
   const renderTokenDetailsView = useCallback(() => {
     if (
       vaultSettings?.mergeDeriveAssetsEnabled &&
       isAllNetworks &&
-      (accountUtils.isHdWallet({ walletId }) ||
-        accountUtils.isHwWallet({ walletId }))
+      !accountUtils.isOthersWallet({ walletId })
     ) {
       if (tabs) {
         return (
-          <Tab
+          <Tab.Page
             data={tabs}
             initialScrollIndex={0}
             showsVerticalScrollIndicator={false}
@@ -206,5 +211,18 @@ export function TokenDetails() {
       />
       <Page.Body>{renderTokenDetailsView()}</Page.Body>
     </Page>
+  );
+}
+
+export default function TokenDetailsModal() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[num]}
+    >
+      <TokenDetails />
+    </AccountSelectorProviderMirror>
   );
 }

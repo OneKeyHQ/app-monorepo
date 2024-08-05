@@ -145,7 +145,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             textAlign="right"
             size="$bodyLgMedium"
             $key={token.$key ?? ''}
-            symbol={token.symbol}
+            symbol=""
             {...(tableLayout && {
               flexGrow: 1,
               flexBasis: 0,

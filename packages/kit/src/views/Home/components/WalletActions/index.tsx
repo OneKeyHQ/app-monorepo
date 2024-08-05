@@ -97,8 +97,7 @@ function WalletActionSend() {
           if (
             settings.mergeDeriveAssetsEnabled &&
             network.isAllNetworks &&
-            (accountUtils.isHdWallet({ walletId: wallet?.id }) ||
-              accountUtils.isHwWallet({ walletId: wallet?.id }))
+            !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
           ) {
             const walletId = accountUtils.getWalletIdFromAccountId({
               accountId: token.accountId ?? '',
