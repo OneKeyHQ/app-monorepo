@@ -15,7 +15,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useToOnBoardingPage } from '../pages';
+import { openOnBoardingFromExt, useToOnBoardingPage } from '../pages';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
 let lastAutoStartV4MigrationTime = 0;
@@ -134,9 +134,13 @@ function OnboardingOnMountCmp() {
         //
       }
 
+      if (openOnBoardingFromExt()) {
+        return;
+      }
       const { isOnboardingDone } =
         await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
-      if (!isOnboardingDone) {
+      // dapp mode auto onboarding is conflict with url account landing page
+      if (!isOnboardingDone && !platformEnv.isWebDappMode) {
         void toOnBoardingPage({
           isFullModal: true,
           params: {

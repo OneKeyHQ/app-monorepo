@@ -24,6 +24,7 @@ const SellPage = () => {
       initialMap={map}
       initialTokens={tokens}
       networkId={networkId}
+      accountId={accountId}
     >
       <SellOrBuy
         title={intl.formatMessage({ id: ETranslations.global_sell })}

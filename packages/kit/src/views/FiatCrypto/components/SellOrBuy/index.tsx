@@ -11,14 +11,13 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import { TokenList } from '@onekeyhq/kit/src/views/FiatCrypto/components/TokenList';
 import { useGetTokensList } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import type { IModalFiatCryptoParamList } from '@onekeyhq/shared/src/routes';
-import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalFiatCryptoRoutes,
+  IModalFiatCryptoParamList,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 import type {
   IFiatCryptoToken,
   IFiatCryptoType,
@@ -47,7 +46,7 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
     accountId,
     type,
   });
-  const { getTokenFiatValue, fiatMap } = useTokenDataContext();
+  const { getTokenFiatValue } = useTokenDataContext();
   const { account } = useAccountData({ networkId, accountId });
 
   const fiatValueTokens = useMemo(() => {
@@ -86,63 +85,24 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
   }, [tokens, getTokenFiatValue, networkId, type, account]);
 
   const onPress = useCallback(
-    async (token: IFiatCryptoToken) => {
-      const openFiatCryptoUrl = async ({
-        networkAccountId,
-      }: {
-        networkAccountId?: string;
-      }) => {
-        const { url } =
-          await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
-            networkId: token.networkId,
-            tokenAddress: token.address,
-            accountId: networkAccountId,
-            type,
-          });
-        openUrlExternal(url);
-        appNavigation.popStack();
-      };
-      let realAccountId = accountId;
-      if (
-        networkUtils.isAllNetwork({ networkId }) &&
-        account?.indexedAccountId
-      ) {
-        if (token.networkId === getNetworkIdsMap().btc) {
-          appNavigation.push(EModalFiatCryptoRoutes.DeriveTypesAddress, {
-            networkId: token.networkId,
-            indexedAccountId: account.indexedAccountId,
-            accountId,
-            actionType: EDeriveAddressActionType.Select,
-            tokenMap: fiatMap,
-            onSelected: async ({
-              account: networkAccount,
-            }: {
-              account: INetworkAccount;
-            }) => {
-              await openFiatCryptoUrl({ networkAccountId: networkAccount.id });
-            },
-          });
-          return;
-          //
-        }
-        const deriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: token.networkId,
-          });
-        const dbAccount =
-          await backgroundApiProxy.serviceAccount.getOrCreateIndexedAccount({
-            networkId: token.networkId,
-            indexedAccountId: account.indexedAccountId,
-            deriveType,
-          });
-        if (!dbAccount) {
-          return;
-        }
-        realAccountId = dbAccount.id;
-      }
-      await openFiatCryptoUrl({ networkAccountId: realAccountId });
+    async ({
+      token,
+      realAccountId,
+    }: {
+      token: IFiatCryptoToken;
+      realAccountId?: string;
+    }) => {
+      const { url } =
+        await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+          networkId: token.networkId,
+          tokenAddress: token.address,
+          accountId: realAccountId,
+          type,
+        });
+      openUrlExternal(url);
+      appNavigation.popStack();
     },
-    [appNavigation, type, accountId, account, networkId, fiatMap],
+    [appNavigation, type],
   );
 
   const networkIds = useMemo(

@@ -342,11 +342,7 @@ export function GetStarted({
         {showCloseButton ? (
           <View position="absolute" left="$5" top="$5">
             <Page.Close>
-              <IconButton
-                icon="CrossedLargeOutline"
-                variant="tertiary"
-                p="$4"
-              />
+              <IconButton icon="CrossedLargeOutline" variant="tertiary" />
             </Page.Close>
           </View>
         ) : null}
@@ -356,6 +352,13 @@ export function GetStarted({
 }
 
 export default GetStarted;
+
+export const openOnBoardingFromExt = () => {
+  if (platformEnv.isExtension && typeof window !== 'undefined') {
+    return window.location.hash.includes('fromExt=true');
+  }
+  return false;
+};
 
 export const useToOnBoardingPage = () => {
   const navigation = useAppNavigation();
@@ -368,10 +371,6 @@ export const useToOnBoardingPage = () => {
         isFullModal?: boolean;
         params?: IOnboardingParamList[EOnboardingPages.GetStarted];
       } = {}) => {
-        // dapp mode onboarding is conflict with url account landing page
-        if (platformEnv.isWebDappMode) {
-          return;
-        }
         if (platformEnv.isExtensionUiPopup) {
           await backgroundApiProxy.serviceApp.openExtensionExpandTab({
             routes: [
@@ -379,7 +378,10 @@ export const useToOnBoardingPage = () => {
               EModalRoutes.OnboardingModal,
               EOnboardingPages.GetStarted,
             ],
-            params,
+            params: {
+              ...params,
+              fromExt: true,
+            },
           });
         } else {
           navigation[isFullModal ? 'pushFullModal' : 'pushModal'](
