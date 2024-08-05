@@ -18,7 +18,7 @@ const IconButtonGallery = () => (
       {
         title: 'Varaints',
         element: (
-          <Stack flexDirection="row" space="$4" alignItems="center">
+          <Stack flexDirection="row" gap="$4" alignItems="center">
             <IconButton icon="PlaceholderOutline" />
             <IconButton variant="primary" icon="PlaceholderOutline" />
             <IconButton variant="destructive" icon="PlaceholderOutline" />
@@ -29,7 +29,7 @@ const IconButtonGallery = () => (
       {
         title: 'Sizes',
         element: (
-          <Stack flexDirection="row" space="$4" alignItems="center">
+          <Stack flexDirection="row" gap="$4" alignItems="center">
             <IconButton icon="PlaceholderOutline" />
             <IconButton size="small" icon="PlaceholderOutline" />
             <IconButton size="large" icon="PlaceholderOutline" />
@@ -39,7 +39,7 @@ const IconButtonGallery = () => (
       {
         title: 'Disabled',
         element: (
-          <Stack flexDirection="row" space="$4">
+          <Stack flexDirection="row" gap="$4">
             <IconButton disabled icon="PlaceholderOutline" />
             <IconButton disabled variant="primary" icon="PlaceholderOutline" />
             <IconButton
@@ -54,7 +54,7 @@ const IconButtonGallery = () => (
       {
         title: 'Loading',
         element: (
-          <Stack flexDirection="row" space="$4">
+          <Stack flexDirection="row" gap="$4">
             <IconButton loading icon="PlaceholderOutline" />
             <IconButton loading variant="primary" icon="PlaceholderOutline" />
             <IconButton
@@ -69,7 +69,7 @@ const IconButtonGallery = () => (
       {
         title: 'Tooltip title',
         element: (
-          <Stack flexDirection="row" space="$4" alignItems="center">
+          <Stack flexDirection="row" gap="$4" alignItems="center">
             <IconButton
               icon="PlaceholderOutline"
               title="Qui nulla occaecat anim"

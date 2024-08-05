@@ -96,7 +96,7 @@ export const getSharedButtonStyles = ({
           hoverStyle: { bg: hoverBg },
           pressStyle: { bg: activeBg },
           focusable: true,
-          focusStyle: {
+          focusVisibleStyle: {
             outlineColor: focusRingColor,
             outlineStyle: 'solid',
             outlineWidth: 2,
@@ -163,7 +163,7 @@ type ISharedFrameStylesProps = {
     bg: ColorTokens;
   };
   focusable: boolean;
-  focusStyle: {
+  focusVisibleStyle: {
     outlineColor: ColorTokens;
     outlineStyle: string;
     outlineWidth: number;
@@ -217,9 +217,9 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
         ...sharedFrameStyles.hoverStyle,
         ...props.hoverStyle,
       }}
-      focusStyle={{
-        ...sharedFrameStyles.focusStyle,
-        ...props.focusStyle,
+      focusVisibleStyle={{
+        ...sharedFrameStyles.focusVisibleStyle,
+        ...props.focusVisibleStyle,
       }}
       pressStyle={{
         ...sharedFrameStyles.pressStyle,

@@ -58,7 +58,7 @@ function DAppRiskyAlert({
 
   const DialogContent = useMemo(
     () => (
-      <YStack space="$1">
+      <YStack gap="$1">
         <SizableText size="$bodyLgMedium" color={riskStyle.titleTextColor}>
           {urlSecurityInfo?.detail?.title ?? ''}
         </SizableText>

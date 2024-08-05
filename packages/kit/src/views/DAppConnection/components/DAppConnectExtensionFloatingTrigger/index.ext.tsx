@@ -94,7 +94,7 @@ export default function DAppConnectExtensionFloatingTrigger() {
       right="$2"
       h="$14"
       w="$14"
-      space="$2"
+      gap="$2"
       alignItems="center"
       justifyContent="center"
       bg="$bgApp"

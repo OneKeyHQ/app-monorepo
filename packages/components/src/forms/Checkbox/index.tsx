@@ -7,6 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Divider } from '../../content';
 import { ListView } from '../../layouts';
 import { Icon, Label, XStack, YStack } from '../../primitives';
+import { NATIVE_HIT_SLOP } from '../../utils';
 
 import type { ILabelProps } from '../../primitives';
 import type { IFormFieldProps } from '../types';
@@ -57,13 +58,11 @@ function RawCheckbox({
         borderRadius="$1"
         alignItems="center"
         justifyContent="center"
-        focusStyle={{
+        focusVisibleStyle={{
           outlineOffset: 2,
           outlineColor: '$focusRing',
         }}
-        $platform-native={{
-          hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
-        }}
+        hitSlop={NATIVE_HIT_SLOP}
         maxHeight="$5"
         {...checkboxProps}
       >
@@ -85,7 +84,7 @@ function RawCheckbox({
           py="$2"
           my="$-2"
           onPress={platformEnv.isNativeAndroid ? onPress : undefined}
-          selectable={false}
+          userSelect="none"
           {...labelProps}
         >
           {label}
