@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { IListViewProps } from '@onekeyhq/components';
 import {
-  Button,
   Divider,
   Empty,
   NumberSizeableText,
@@ -25,6 +24,7 @@ import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountDeriveInfo,
@@ -86,8 +86,10 @@ export function TokenDetailsViews(props: IProps) {
 
   const [initialized, setInitialized] = useState(false);
 
+  const [currentAccountId, setCurrentAccountId] = useState(accountId);
+
   const { network, wallet } = useAccountData({
-    accountId,
+    accountId: currentAccountId,
     networkId,
     walletId,
   });
@@ -105,13 +107,13 @@ export function TokenDetailsViews(props: IProps) {
       async () => {
         const tokensDetails =
           await backgroundApiProxy.serviceToken.fetchTokensDetails({
-            accountId,
+            accountId: currentAccountId,
             networkId,
             contractList: [tokenInfo.address],
           });
         return tokensDetails[0];
       },
-      [accountId, networkId, tokenInfo.address],
+      [currentAccountId, networkId, tokenInfo.address],
       {
         watchLoading: true,
       },
@@ -129,14 +131,14 @@ export function TokenDetailsViews(props: IProps) {
   } = usePromiseResult(
     async () => {
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-        accountId,
+        accountId: currentAccountId,
         networkId,
         tokenIdOnNetwork: tokenInfo.address,
       });
       setInitialized(true);
       return r;
     },
-    [accountId, networkId, tokenInfo.address],
+    [currentAccountId, networkId, tokenInfo.address],
     {
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
@@ -226,6 +228,15 @@ export function TokenDetailsViews(props: IProps) {
     [wallet?.type],
   );
 
+  const handleCreateAccount = useCallback(
+    async (params: { accounts: IDBAccount[] } | undefined) => {
+      if (params && params.accounts && params.accounts.length > 0) {
+        setCurrentAccountId(params.accounts[0].id);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     const reloadCallback = () => run({ alwaysSetState: true });
     appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
@@ -234,27 +245,31 @@ export function TokenDetailsViews(props: IProps) {
     };
   }, [run]);
 
-  if (!accountId) {
+  if (!currentAccountId) {
     return (
-      <Empty
-        testID="Wallet-No-Address-Empty"
-        title={intl.formatMessage({ id: ETranslations.wallet_no_address })}
-        description={intl.formatMessage({
-          id: ETranslations.wallet_no_address_desc,
-        })}
-        button={
-          <AccountSelectorCreateAddressButton
-            num={num}
-            account={{
-              walletId,
-              networkId,
-              indexedAccountId,
-              deriveType,
-            }}
-            buttonRender={Empty.Button}
-          />
-        }
-      />
+      <Stack height="100%" flex={1} justifyContent="center">
+        <Empty
+          testID="Wallet-No-Address-Empty"
+          title={intl.formatMessage({ id: ETranslations.wallet_no_address })}
+          description={intl.formatMessage({
+            id: ETranslations.wallet_no_address_desc,
+          })}
+          button={
+            <AccountSelectorCreateAddressButton
+              num={num}
+              selectAfterCreate
+              account={{
+                walletId,
+                networkId,
+                indexedAccountId,
+                deriveType,
+              }}
+              buttonRender={Empty.Button}
+              onCreateDone={handleCreateAccount}
+            />
+          }
+        />
+      </Stack>
     );
   }
   return (
