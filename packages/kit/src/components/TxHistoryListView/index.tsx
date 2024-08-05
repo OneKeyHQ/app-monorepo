@@ -1,11 +1,10 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IListViewProps } from '@onekeyhq/components';
 import {
-  ListView,
   SectionList,
   SizableText,
   Stack,
@@ -14,8 +13,14 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { getFilteredHistoryBySearchKey } from '@onekeyhq/shared/src/utils/historyUtils';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import {
+  convertToSectionGroups,
+  getFilteredHistoryBySearchKey,
+} from '@onekeyhq/shared/src/utils/historyUtils';
+import type {
+  IAccountHistoryTx,
+  IHistoryListSectionGroup,
+} from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { useTabListScroll } from '../../hooks/useTabListScroll';
@@ -42,8 +47,31 @@ type IProps = {
 
 const ListFooterComponent = () => <Stack h="$5" />;
 
-function TxHistoryListView(props: IProps) {
+function TxHistoryListViewSectionHeader(props: IHistoryListSectionGroup) {
+  const { title, titleKey, data } = props;
   const intl = useIntl();
+  const titleText = title || intl.formatMessage({ id: titleKey }) || '';
+
+  if (data[0] && data[0].decodedTx.status === EDecodedTxStatus.Pending) {
+    return (
+      <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" space="$2">
+        <Stack
+          w="$2"
+          height="$2"
+          backgroundColor="$textCaution"
+          borderRadius="$full"
+        />
+        <SizableText numberOfLines={1} size="$headingSm" color="$textCaution">
+          {intl.formatMessage({ id: ETranslations.global_pending })}
+        </SizableText>
+      </XStack>
+    );
+  }
+
+  return <SectionList.SectionHeader title={titleText} />;
+}
+
+function TxHistoryListView(props: IProps) {
   const {
     data,
     isLoading,
@@ -57,7 +85,6 @@ function TxHistoryListView(props: IProps) {
     inTabList = false,
   } = props;
 
-  const currentDate = useRef('');
   const [searchKey] = useSearchKeyAtom();
 
   const filteredHistory = getFilteredHistoryBySearchKey({
@@ -65,97 +92,43 @@ function TxHistoryListView(props: IProps) {
     searchKey,
   });
 
-  const renderListItem = useCallback(
-    (tx: IAccountHistoryTx, index: number) => {
-      const nextTx = data[index + 1];
-      if (tx.decodedTx.status === EDecodedTxStatus.Pending) {
-        if (index === 0) {
-          currentDate.current = '';
-        }
-        return (
-          <>
-            {index === 0 ? (
-              <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" space="$2">
-                <Stack
-                  w="$2"
-                  height="$2"
-                  backgroundColor="$textCaution"
-                  borderRadius="$full"
-                />
-                <SizableText
-                  numberOfLines={1}
-                  size="$headingSm"
-                  color="$textCaution"
-                >
-                  {intl.formatMessage({ id: ETranslations.global_pending })}
-                </SizableText>
-              </XStack>
-            ) : null}
-            <TxHistoryListItem
-              key={index}
-              index={index}
-              historyTx={tx}
-              showIcon={showIcon}
-              onPress={onPressHistory}
-              tableLayout={tableLayout}
-            />
-            {nextTx?.decodedTx.status !== EDecodedTxStatus.Pending ? (
-              <Stack mb="$5" />
-            ) : null}
-          </>
-        );
-      }
-
-      let nextDate = '';
-      const date = formatDate(
-        new Date(tx.decodedTx.updatedAt ?? tx.decodedTx.createdAt ?? 0),
-        {
-          hideTimeForever: true,
-        },
-      );
-      if (nextTx) {
-        nextDate = formatDate(
-          new Date(
-            nextTx.decodedTx.updatedAt ?? nextTx.decodedTx.createdAt ?? 0,
-          ),
-          {
+  const sections = useMemo(
+    () =>
+      convertToSectionGroups({
+        items: filteredHistory,
+        formatDate: (date: number) =>
+          formatDate(new Date(date), {
             hideTimeForever: true,
-          },
-        );
-      }
+          }),
+      }),
+    [filteredHistory],
+  );
 
-      if (index === 0 || !currentDate.current || date !== currentDate.current) {
-        currentDate.current = date;
-        return (
-          <>
-            <SectionList.SectionHeader title={date} />
-            <TxHistoryListItem
-              key={index}
-              index={index}
-              historyTx={tx}
-              showIcon={showIcon}
-              onPress={onPressHistory}
-              tableLayout={tableLayout}
-            />
-            {nextDate !== date ? <Stack mb="$5" /> : null}
-          </>
-        );
-      }
-      return (
-        <>
-          <TxHistoryListItem
-            key={index}
-            index={index}
-            historyTx={tx}
-            showIcon={showIcon}
-            onPress={onPressHistory}
-            tableLayout={tableLayout}
-          />
-          {nextDate !== date ? <Stack mb="$5" /> : null}
-        </>
-      );
-    },
-    [data, intl, onPressHistory, showIcon, tableLayout],
+  const renderItem = useCallback(
+    (info: { item: IAccountHistoryTx; index: number }) => (
+      <TxHistoryListItem
+        index={info.index}
+        historyTx={info.item}
+        showIcon={showIcon}
+        onPress={onPressHistory}
+        tableLayout={tableLayout}
+      />
+    ),
+    [onPressHistory, showIcon, tableLayout],
+  );
+  const renderSectionHeader = useCallback(
+    ({
+      section: { title, titleKey, data: tx },
+    }: {
+      section: IHistoryListSectionGroup;
+    }) => (
+      <TxHistoryListViewSectionHeader
+        title={title}
+        titleKey={titleKey}
+        data={tx}
+      />
+    ),
+    [],
   );
 
   const { listViewProps, listViewRef, onLayout } =
@@ -173,7 +146,7 @@ function TxHistoryListView(props: IProps) {
   }
 
   return (
-    <ListView
+    <SectionList
       {...listViewProps}
       renderScrollComponent={renderNestedScrollView}
       ref={listViewRef}
@@ -182,18 +155,16 @@ function TxHistoryListView(props: IProps) {
       }}
       h="100%"
       onLayout={onLayout}
-      data={filteredHistory}
+      sections={sections}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
       estimatedItemSize={60}
-      renderItem={({
-        item,
-        index,
-      }: {
-        item: IAccountHistoryTx;
-        index: number;
-      }) => renderListItem(item, index)}
+      renderItem={renderItem}
+      renderSectionHeader={renderSectionHeader}
       ListFooterComponent={ListFooterComponent}
       ListHeaderComponent={ListHeaderComponent}
+      keyExtractor={(tx, index) =>
+        (tx as IAccountHistoryTx).id || index.toString(10)
+      }
       {...(showHeader &&
         data?.length > 0 && {
           ListHeaderComponent: (
