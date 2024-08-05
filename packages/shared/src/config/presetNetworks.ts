@@ -28,6 +28,8 @@ export const dangerAllNetworkRepresent: IServerNetwork = {
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,
 };
+// EVM networks
+
 const eth: IServerNetwork = {
   'impl': 'evm',
   'chainId': '1',
@@ -1642,7 +1644,7 @@ export const presetNetworksMap = {
 };
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => [
-  // dangerAllNetworkRepresent,
+  dangerAllNetworkRepresent,
   eth,
   sepolia,
   optimism,

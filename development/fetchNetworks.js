@@ -29,6 +29,8 @@ async function fetchNetworks() {
       return;
     }
 
+    console.log('====>>>networks: ', networks);
+
     let fileContent = `/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable spellcheck/spell-checker */
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -60,30 +62,49 @@ export const dangerAllNetworkRepresent: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 `;
+
+    // Group networks by impl
+    const networkGroups = {};
+    networks.forEach((network) => {
+      const { impl, shortcode } = network;
+      if (!shortcode) return;
+
+      if (!networkGroups[impl]) {
+        networkGroups[impl] = [];
+      }
+      networkGroups[impl].push(network);
+    });
+
     const networkMap = new Map();
     const networkDeclarations = [];
 
-    networks.forEach((network) => {
-      const { shortcode } = network;
-      if (!shortcode) return;
+    Object.keys(networkGroups)
+      .sort()
+      .forEach((impl) => {
+        networkDeclarations.push(`// ${impl.toUpperCase()} networks`);
 
-      const sanitizedShortcode = sanitizeShortcode(shortcode);
-      if (network.status === 'LISTED') {
-        network.status = 'ENetworkStatus.LISTED';
-      } else {
-        network.status = 'ENetworkStatus.TRASH';
-      }
+        networkGroups[impl].forEach((network) => {
+          const { shortcode } = network;
+          if (!shortcode) return;
 
-      const networkString = stringifyWithSingleQuotes(network).replace(
-        /'(ENetworkStatus\.(LISTED|TRASH))'/g,
-        '$1',
-      );
+          const sanitizedShortcode = sanitizeShortcode(shortcode);
+          if (network.status === 'LISTED') {
+            network.status = 'ENetworkStatus.LISTED';
+          } else {
+            network.status = 'ENetworkStatus.TRASH';
+          }
 
-      const networkDeclaration = `const ${sanitizedShortcode}: IServerNetwork = ${networkString};`;
+          const networkString = stringifyWithSingleQuotes(network).replace(
+            /'(ENetworkStatus\.(LISTED|TRASH))'/g,
+            '$1',
+          );
 
-      networkDeclarations.push(networkDeclaration);
-      networkMap.set(sanitizedShortcode, network);
-    });
+          const networkDeclaration = `const ${sanitizedShortcode}: IServerNetwork = ${networkString};`;
+
+          networkDeclarations.push(networkDeclaration);
+          networkMap.set(sanitizedShortcode, network);
+        });
+      });
 
     fileContent += networkDeclarations.join('\n\n');
 
@@ -98,7 +119,7 @@ export const presetNetworksMap = {
 };
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => [
-  // dangerAllNetworkRepresent,
+  dangerAllNetworkRepresent,
   ${Array.from(networkMap.keys()).join(',\n  ')},
   ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
 ]);
@@ -109,13 +130,13 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
     // Run ESLint fix command
     exec(`npx eslint --fix ${OUTPUT_FILE}`, (error, stdout, stderr) => {
       if (error) {
-        // console.error(`Error running ESLint: ${error}`);
+        console.error(`Error running ESLint: ${error}`);
         return;
       }
       console.log(`ESLint fix completed for ${OUTPUT_FILE}`);
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching networks:', error.message);
   }
 }
 
