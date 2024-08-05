@@ -24,7 +24,7 @@ export function OneKeyHardwareWallet() {
   const intl = useIntl();
 
   const handleBuyButtonPress = useCallback(async () => {
-    const url = 'https://shop.onekey.so/';
+    const url = 'https://bit.ly/3YtpXgh';
 
     const supported = await Linking.canOpenURL(url);
 

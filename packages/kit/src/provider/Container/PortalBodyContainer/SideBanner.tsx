@@ -27,7 +27,7 @@ function BasicSidebarBanner() {
   );
 
   const openUrl = useCallback(() => {
-    openUrlExternal('https://onekey.so/products/onekey-pro-hardware-wallet/');
+    openUrlExternal('https://bit.ly/3LNVKAT');
   }, []);
 
   const onTourVisited = useCallback(
