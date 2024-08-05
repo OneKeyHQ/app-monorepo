@@ -97,20 +97,34 @@ class ServiceWalletConnect extends ServiceBase {
         const { networks } = await serviceNetwork.getNetworksByImpls({
           impls: [networkImpl],
         });
-        const infos = networks.map<IWalletConnectChainInfo>((n) => {
-          let caipsInfo: ICaipsInfo | undefined;
+        const infos = networks.flatMap<IWalletConnectChainInfo>((n) => {
           const caipsItem = caipsToNetworkMap[namespace];
+          let matchingCaipsInfos: ICaipsInfo[] = [];
           if (caipsItem) {
-            caipsInfo = caipsItem.find((caips) => caips.networkId === n.id);
+            matchingCaipsInfos = caipsItem.filter(
+              (caips) => caips.networkId === n.id,
+            );
           }
-          const chainId = caipsInfo?.caipsChainId || n.chainId;
-          return {
-            chainId,
-            networkId: caipsInfo?.networkId || n.id,
+
+          if (matchingCaipsInfos.length === 0) {
+            return [
+              {
+                chainId: n.chainId,
+                networkId: n.id,
+                wcNamespace: namespace,
+                networkName: n.name,
+                wcChain: `${namespace}:${n.chainId}`,
+              },
+            ];
+          }
+
+          return matchingCaipsInfos.map((caipsInfo) => ({
+            chainId: caipsInfo.caipsChainId || n.chainId,
+            networkId: caipsInfo.networkId || n.id,
             wcNamespace: namespace,
             networkName: n.name,
-            wcChain: `${namespace}:${chainId}`,
-          };
+            wcChain: `${namespace}:${caipsInfo.caipsChainId || n.chainId}`,
+          }));
         });
         chainInfos = chainInfos.concat(infos);
       }
