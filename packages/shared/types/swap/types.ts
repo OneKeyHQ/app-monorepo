@@ -1,7 +1,5 @@
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 
-import type { INetworkExplorerConfig } from '..';
-
 export enum EProtocolOfExchange {
   SWAP = 'Swap',
   LIMIT = 'Limit', // TODO
@@ -51,7 +49,6 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   symbol: string;
   shortcode?: string;
   logoURI?: string;
-  explorers?: INetworkExplorerConfig[];
 }
 
 export interface ISwapTokenBase {
