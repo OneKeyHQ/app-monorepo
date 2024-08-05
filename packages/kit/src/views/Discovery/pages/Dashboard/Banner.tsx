@@ -39,6 +39,7 @@ export function Banner({
         flex={1}
         position="relative"
         userSelect="none"
+        cursor="pointer"
         onPress={() =>
           handleOpenWebSite({
             webSite: {
@@ -126,7 +127,7 @@ export function Banner({
           </>
         ) : null}
         {banners.length > 1 ? (
-          <XStack space="$1" position="absolute" right="$10" bottom="$10">
+          <XStack gap="$1" position="absolute" right="$10" bottom="$10">
             {banners.map((_, index) => (
               <Stack
                 key={index}

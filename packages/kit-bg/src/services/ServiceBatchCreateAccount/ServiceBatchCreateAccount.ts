@@ -1,4 +1,3 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { chunk, isNil, range } from 'lodash';
 
 import {
@@ -8,11 +7,6 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import {
-  isHardwareErrorByCode,
-  isHardwareInterruptErrorByCode,
-} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -21,12 +15,12 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
 
 import localDb from '../../dbs/local/localDb';
+import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 
@@ -320,6 +314,21 @@ class ServiceBatchCreateAccount extends ServiceBase {
       );
     }
 
+    const networksParamsFiltered: IBatchBuildAccountsBaseParams[] = [];
+    for (const p of networksParams) {
+      if (!networkUtils.isAllNetwork({ networkId: p.networkId })) {
+        if (accountUtils.isQrWallet({ walletId: params.walletId })) {
+          const settings = await getVaultSettings({ networkId: p.networkId });
+          if (settings.qrAccountEnabled) {
+            networksParamsFiltered.push(p);
+          }
+        } else {
+          networksParamsFiltered.push(p);
+        }
+      }
+    }
+    networksParams = networksParamsFiltered;
+
     const { saveToDb } = params;
     const indexes = await this.buildIndexesByFromAndTo({
       fromIndex: params?.fromIndex,
@@ -372,50 +381,77 @@ class ServiceBatchCreateAccount extends ServiceBase {
   }
 
   forceExitFlowWhenErrorMatched({
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     walletId,
     error,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     saveToDb,
   }: {
     walletId: string;
     error: any;
     saveToDb: boolean | undefined;
   }) {
-    if (!saveToDb) {
-      throw error;
-    }
-    // Some high priority errors need to interrupt the process
-    if (accountUtils.isHwWallet({ walletId })) {
-      if (isHardwareInterruptErrorByCode({ error })) {
-        throw error;
-      }
-      // Unplug device?
-      if (
-        isHardwareErrorByCode({
-          error,
-          code: HardwareErrorCode.DeviceNotFound,
-        })
-      ) {
-        throw error;
+    if (saveToDb) {
+      if (this.progressInfo) {
+        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+          totalCount: this.progressInfo.totalCount,
+          createdCount: this.progressInfo.createdCount,
+          progressTotal: this.progressInfo.progressTotal,
+          progressCurrent: this.progressInfo.progressCurrent,
+          error: errorUtils.toPlainErrorObject(error),
+        });
       }
     }
-    if (
-      errorUtils.isErrorByClassName({
-        error,
-        className: EOneKeyErrorClassNames.PasswordPromptDialogCancel,
-      })
-    ) {
+
+    if (this.isCreateFlowCancelled || !this.progressInfo) {
       throw error;
     }
+
+    // always exit flow if any error,
+    throw error;
+
+    // if (!saveToDb) {
+    //   throw error;
+    // }
+    // // **** hardware terminated errors ****
+    // // Some high priority errors need to interrupt the process
+    // if (accountUtils.isHwWallet({ walletId })) {
+    //   if (isHardwareInterruptErrorByCode({ error })) {
+    //     throw error;
+    //   }
+    //   // Unplug device?
+    //   if (
+    //     isHardwareErrorByCode({
+    //       error,
+    //       code: HardwareErrorCode.DeviceNotFound,
+    //     })
+    //   ) {
+    //     throw error;
+    //   }
+    // }
+    // // **** flow cancel action
+    // // **** PIN\passphrase cancel
+    // // **** password cancel
+    // if (
+    //   errorUtils.isErrorByClassName({
+    //     error,
+    //     className: EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+    //   })
+    // ) {
+    //   throw error;
+    // }
   }
 
   async emitBatchCreateDoneEvents({ saveToDb }: { saveToDb?: boolean } = {}) {
     if (saveToDb) {
-      appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-        totalCount: checkIsDefined(this.progressInfo).totalCount,
-        createdCount: checkIsDefined(this.progressInfo).createdCount,
-        progressTotal: checkIsDefined(this.progressInfo).progressTotal,
-        progressCurrent: checkIsDefined(this.progressInfo).progressTotal,
-      });
+      if (this.progressInfo) {
+        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+          totalCount: this.progressInfo.totalCount,
+          createdCount: this.progressInfo.createdCount,
+          progressTotal: this.progressInfo.progressTotal,
+          progressCurrent: this.progressInfo.progressTotal,
+        });
+      }
       await timerUtils.wait(600);
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
       void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
@@ -529,18 +565,22 @@ class ServiceBatchCreateAccount extends ServiceBase {
             networkId,
             account: accountForCreate,
           });
-          checkIsDefined(this.progressInfo).createdCount += 1;
+          if (this.progressInfo) {
+            this.progressInfo.createdCount += 1;
+          }
           await timerUtils.wait(100);
         }
-        checkIsDefined(this.progressInfo).progressCurrent += 1;
-        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-          totalCount: checkIsDefined(this.progressInfo).totalCount,
-          createdCount: checkIsDefined(this.progressInfo).createdCount,
-          progressTotal: checkIsDefined(this.progressInfo).progressTotal,
-          progressCurrent: checkIsDefined(this.progressInfo).progressCurrent,
-          networkId,
-          deriveType,
-        });
+        if (this.progressInfo) {
+          this.progressInfo.progressCurrent += 1;
+          appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+            totalCount: this.progressInfo.totalCount,
+            createdCount: this.progressInfo.createdCount,
+            progressTotal: this.progressInfo.progressTotal,
+            progressCurrent: this.progressInfo.progressCurrent,
+            networkId,
+            deriveType,
+          });
+        }
         await timerUtils.wait(100);
       }
     };
@@ -591,6 +631,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               indexes: indexesForRebuildChunk,
               indexedAccountId: undefined,
               skipDeviceCancel: true, // always skip cancel for batch create
+              skipDeviceCancelAtFirst: true,
               hideCheckingDeviceLoading,
             });
           const networkInfo = await vault.getNetworkInfo();

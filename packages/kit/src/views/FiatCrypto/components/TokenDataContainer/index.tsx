@@ -48,6 +48,7 @@ export type ITokenDataContextTypes = {
   tokensMap: Record<string, IAccountToken>;
   fiatMap: Record<string, ITokenFiat>;
   networkId: string;
+  accountId?: string;
 };
 
 export type IUpdateTokenListParams = {
@@ -61,13 +62,13 @@ export const TokenDataContext = createContext<ITokenDataContextTypes>({
   networkId: '',
 });
 
-export const useGetTokenFiatValue = () => {
+export const useTokenDataContext = () => {
   const {
     tokensMap,
     fiatMap,
     networkId: contextNetworkId,
   } = useContext(TokenDataContext);
-  return useCallback(
+  const getTokenFiatValue = useCallback(
     ({
       networkId,
       tokenAddress,
@@ -85,6 +86,7 @@ export const useGetTokenFiatValue = () => {
     },
     [tokensMap, fiatMap, contextNetworkId],
   );
+  return { getTokenFiatValue, tokensMap, fiatMap };
 };
 
 export function TokenDataContainer({
@@ -92,8 +94,10 @@ export function TokenDataContainer({
   initialMap,
   initialTokens,
   networkId,
+  accountId,
 }: PropsWithChildren<{
   networkId: string;
+  accountId?: string;
   initialTokens: IAccountToken[];
   initialMap: Record<string, ITokenFiat>;
 }>) {
@@ -113,8 +117,13 @@ export function TokenDataContainer({
   );
 
   const context = useMemo<ITokenDataContextTypes>(
-    () => ({ tokensMap: accountTokensMap, fiatMap: tokenFiatMap, networkId }),
-    [accountTokensMap, tokenFiatMap, networkId],
+    () => ({
+      tokensMap: accountTokensMap,
+      fiatMap: tokenFiatMap,
+      networkId,
+      accountId,
+    }),
+    [accountTokensMap, tokenFiatMap, networkId, accountId],
   );
 
   useEffect(() => {

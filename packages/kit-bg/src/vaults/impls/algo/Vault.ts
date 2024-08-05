@@ -23,6 +23,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -44,7 +45,10 @@ import sdkAlgo from './sdkAlgo';
 import ClientAlgo from './sdkAlgo/ClientAlog';
 import { encodeTransaction } from './utils';
 
-import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
+import type {
+  ISdkAlgoAccountInformation,
+  ISdkAlgoEncodedTransaction,
+} from './sdkAlgo';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -169,7 +173,7 @@ export default class Vault extends VaultBase {
       amount: BigInt(
         new BigNumber(amount).shiftedBy(tokenInfo.decimals).toFixed(),
       ),
-      assetIndex: parseInt(tokenInfo.address),
+      assetIndex: parseInt(tokenInfo.address, 10),
       from,
       to,
       suggestedParams,
@@ -463,5 +467,39 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async activateToken(params: {
+    token: IAccountToken;
+  }): Promise<boolean> {
+    const { token } = params;
+    const dbAccount = await this.getAccount();
+    const client = await this.getClient();
+    const { assets } = await client.accountInformation(dbAccount.address);
+
+    for (const { 'asset-id': assetId } of assets) {
+      if (assetId === parseInt(token.address, 10)) {
+        return Promise.resolve(true);
+      }
+    }
+
+    const unsignedTx = await this.buildUnsignedTx({
+      transfersInfo: [
+        {
+          from: dbAccount.address,
+          to: dbAccount.address,
+          amount: '0',
+          tokenInfo: token,
+        },
+      ],
+    });
+    const signedTx =
+      await this.backgroundApi.serviceSend.signAndSendTransaction({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        unsignedTx,
+        signOnly: false,
+      });
+    return !!signedTx.txid;
   }
 }

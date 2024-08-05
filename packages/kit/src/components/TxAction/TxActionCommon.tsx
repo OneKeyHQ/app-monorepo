@@ -69,7 +69,9 @@ function TxActionCommonAvatar({
           isNFT={avatar.isNFT}
           fallbackIcon={avatar.fallbackIcon}
           tokenImageUri={avatar.src[0]}
-          networkImageUri={activeNetwork ? network?.logoURI : undefined}
+          networkImageUri={
+            activeNetwork?.isAllNetworks ? network?.logoURI : undefined
+          }
         />
       </Stack>
       <Stack
@@ -83,7 +85,9 @@ function TxActionCommonAvatar({
           isNFT={avatar.isNFT}
           fallbackIcon={avatar.fallbackIcon}
           tokenImageUri={avatar.src[1]}
-          networkImageUri={activeNetwork ? network?.logoURI : undefined}
+          networkImageUri={
+            activeNetwork?.isAllNetworks ? network?.logoURI : undefined
+          }
         />
       </Stack>
     </Stack>
@@ -206,7 +210,7 @@ function TxActionCommonFee({
           id: ETranslations.swap_history_detail_network_fee,
         })}
       </SizableText>
-      <XStack alignItems="center" space="$1">
+      <XStack alignItems="center" gap="$1">
         <NumberSizeableText
           size="$bodyMd"
           formatter="balance"
@@ -254,18 +258,18 @@ function TxActionCommonListView(
   return (
     <ListItem
       testID="tx-action-common-list-view"
-      space="$2"
+      gap="$2"
       flexDirection="column"
       alignItems="flex-start"
       userSelect="none"
       {...rest}
     >
       {/* Content */}
-      <XStack space="$3" alignSelf="stretch">
+      <XStack gap="$3" alignSelf="stretch">
         {/* token, title and subtitle */}
         <XStack
           flex={1}
-          space="$3"
+          gap="$3"
           {...(tableLayout && {
             flexGrow: 1,
             flexBasis: 1,
@@ -286,7 +290,7 @@ function TxActionCommonListView(
               replaceType={replaceType}
             />
             <XStack alignSelf="stretch">
-              {tableLayout && timestamp ? (
+              {timestamp ? (
                 <>
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {formatTime(new Date(timestamp), {
@@ -309,7 +313,6 @@ function TxActionCommonListView(
         </XStack>
         {/* changes */}
         <Stack
-          flex={1}
           maxWidth="50%"
           alignItems="flex-end"
           {...(tableLayout && {
@@ -354,7 +357,7 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
       <InfoItem
         label={overview.title}
         renderContent={
-          <XStack alignItems="center" space="$3" minWidth={0}>
+          <XStack alignItems="center" gap="$3" minWidth={0}>
             <Token
               fallbackIcon={overview.avatar?.fallbackIcon}
               isNFT={overview.avatar?.isNFT}
@@ -407,7 +410,7 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
       <InfoItem
         label={intl.formatMessage({ id: ETranslations.network__network })}
         renderContent={
-          <XStack alignItems="center" space="$2">
+          <XStack alignItems="center" gap="$2">
             <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
             <SizableText size="$bodyMd" color="$textSubdued">
               {network?.name}

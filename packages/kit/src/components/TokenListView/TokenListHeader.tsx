@@ -1,7 +1,14 @@
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  IconButton,
+  SizableText,
+  Stack,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import {
   SEARCH_DEBOUNCE_INTERVAL,
   SEARCH_KEY_MIN_LENGTH,
@@ -18,10 +25,18 @@ import { ListToolToolBar } from '../ListToolBar';
 type IProps = {
   filteredTokens: IAccountToken[];
   tableLayout?: boolean;
+  onManageToken?: () => void;
+  manageTokenEnabled?: boolean;
 };
 
-function TokenListHeader({ tableLayout, filteredTokens }: IProps) {
+function TokenListHeader({
+  tableLayout,
+  filteredTokens,
+  onManageToken,
+  manageTokenEnabled,
+}: IProps) {
   const intl = useIntl();
+  const media = useMedia();
   const { updateSearchKey } = useTokenListActions().current;
   const [searchKey] = useSearchKeyAtom();
 
@@ -29,6 +44,9 @@ function TokenListHeader({ tableLayout, filteredTokens }: IProps) {
     <Stack testID="Wallet-Token-List-Header">
       <ListToolToolBar
         searchProps={{
+          placeholder: intl.formatMessage({
+            id: ETranslations.global_search_asset,
+          }),
           onChangeText: debounce(
             (text) => updateSearchKey(text),
             SEARCH_DEBOUNCE_INTERVAL,
@@ -38,14 +56,41 @@ function TokenListHeader({ tableLayout, filteredTokens }: IProps) {
               ? filteredTokens.length
               : 0,
         }}
+        headerRight={
+          manageTokenEnabled ? (
+            <>
+              {media.md ? (
+                <IconButton
+                  title={intl.formatMessage({
+                    id: ETranslations.manage_token_custom_token_title,
+                  })}
+                  variant="tertiary"
+                  icon="SliderHorOutline"
+                  onPress={onManageToken}
+                />
+              ) : (
+                <Button
+                  icon="SliderHorOutline"
+                  size="small"
+                  variant="tertiary"
+                  onPress={onManageToken}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_manage,
+                  })}
+                </Button>
+              )}
+            </>
+          ) : null
+        }
       />
 
       {tableLayout ? (
-        <XStack px="$5" py="$2" space="$3">
+        <XStack px="$5" py="$2" gap="$3">
           <XStack
             flexGrow={1}
             flexBasis={0}
-            space={89}
+            gap={89}
             spaceDirection="horizontal"
           >
             <SizableText

@@ -35,6 +35,7 @@ import {
   RequireBlePermissionDialog,
 } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -149,7 +150,7 @@ function ConnectByQrCode() {
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         onPress={async () => {
           try {
@@ -170,22 +171,29 @@ function ConnectByQrCode() {
 
 function ConnectByQrCodeComingSoon() {
   const intl = useIntl();
-  if (process.env.NODE_ENV !== 'production') {
+  const [showConnectQr, setShowConnectQr] = useState(false);
+  if (showConnectQr) {
     return <ConnectByQrCode />;
   }
 
   return (
     <Stack flex={1} alignItems="center" justifyContent="center">
-      <SizableText
-        textAlign="center"
-        color="$textSubdued"
-        maxWidth="$80"
-        pb="$5"
+      <MultipleClickStack
+        onPress={() => {
+          setShowConnectQr(true);
+        }}
       >
-        {intl.formatMessage({
-          id: ETranslations.coming_soon,
-        })}
-      </SizableText>
+        <SizableText
+          textAlign="center"
+          color="$textSubdued"
+          maxWidth="$80"
+          pb="$5"
+        >
+          {intl.formatMessage({
+            id: ETranslations.coming_soon,
+          })}
+        </SizableText>
+      </MultipleClickStack>
     </Stack>
   );
 }
@@ -356,11 +364,11 @@ function ConnectByUSBOrBLE({
                   }),
                   showFooter: false,
                   renderContent: (
-                    <XStack space="$2.5">
+                    <XStack gap="$2.5">
                       <Button
                         flex={1}
                         size="large"
-                        $gtMd={{ size: 'medium' } as IButtonProps}
+                        $gtMd={{ size: 'medium' } as any}
                         onPress={() => Linking.openURL(requestsUrl)}
                       >
                         {intl.formatMessage({
@@ -371,7 +379,7 @@ function ConnectByUSBOrBLE({
                         flex={1}
                         variant="primary"
                         size="large"
-                        $gtMd={{ size: 'medium' } as IButtonProps}
+                        $gtMd={{ size: 'medium' } as any}
                         onPress={async () => {
                           await packageAlertDialog.close();
                           handleRestoreWalletPress({ deviceType });
@@ -959,7 +967,7 @@ export function ConnectYourDevicePage() {
             hoverStyle={{
               color: '$textInteractiveHover',
             }}
-            href="https://shop.onekey.so/"
+            href="https://bit.ly/3YsKilK"
             target="_blank"
             size="$bodyMdMedium"
             p="$2"

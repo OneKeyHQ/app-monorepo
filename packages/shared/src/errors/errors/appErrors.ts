@@ -1,6 +1,6 @@
 /* eslint max-classes-per-file: "off" */
 
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 // import type { LocaleKeyInfoMap } from '@onekeyhq/shared/src/localeKeyInfoMap';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
@@ -106,6 +106,7 @@ export class PasswordPromptDialogCancel extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordPromptDialogCancel',
+        defaultKey: ETranslations.global_cancel,
       }),
     );
   }
@@ -145,6 +146,21 @@ export class WrongPassword extends OneKeyError {
       }),
     );
   }
+}
+
+export class SecureQRCodeDialogCancel extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'SecureQRCodeDialogCancel',
+        defaultKey: ETranslations.global_cancel,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.SecureQRCodeDialogCancel;
 }
 
 export class PasswordNotSet extends OneKeyError {
@@ -242,6 +258,30 @@ export class InvalidAddress extends OneKeyError {
       }),
     );
   }
+}
+
+export class FirmwareUpdateExit extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateExit',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.FirmwareUpdateExit;
+}
+
+export class FirmwareUpdateTasksClear extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateTasksClear',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.FirmwareUpdateTasksClear;
 }
 
 export class InvalidAccount extends OneKeyError {

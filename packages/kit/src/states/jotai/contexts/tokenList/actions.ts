@@ -1,14 +1,15 @@
 import { useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { isEqual, uniqBy } from 'lodash';
 
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { sortTokensByFiatValue } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type {
-  IAccountToken,
-  IToken,
-  ITokenFiat,
-} from '@onekeyhq/shared/types/token';
+import {
+  mergeDeriveTokenList,
+  mergeDeriveTokenListMap,
+  sortTokensByFiatValue,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -66,16 +67,23 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         map?: {
           [key: string]: ITokenFiat;
         };
+        mergeDerive?: boolean;
       },
     ) => {
-      const { keys, tokens } = payload;
+      const { keys, tokens, merge, mergeDerive } = payload;
       const allTokenList = get(allTokenListAtom());
 
-      if (payload.merge) {
+      if (merge) {
         if (tokens.length) {
-          let newTokens = allTokenList.tokens.concat(tokens);
+          let newTokens = allTokenList.tokens;
 
-          const tokenListMap = get(tokenListMapAtom());
+          newTokens = mergeDeriveTokenList({
+            sourceTokens: tokens,
+            targetTokens: newTokens,
+            mergeDeriveAssets: mergeDerive,
+          });
+
+          const tokenListMap = get(allTokenListMapAtom());
 
           newTokens = sortTokensByFiatValue({
             tokens: newTokens,
@@ -91,7 +99,10 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
         }
       } else if (!isEqual(allTokenList.keys, keys)) {
-        set(allTokenListAtom(), { tokens, keys });
+        set(allTokenListAtom(), {
+          tokens: uniqBy(tokens, (item) => item.$key),
+          keys,
+        });
       }
     },
   );
@@ -105,17 +116,25 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           [key: string]: ITokenFiat;
         };
         merge?: boolean;
+        mergeDerive?: boolean;
       },
     ) => {
-      if (payload.merge) {
-        set(allTokenListMapAtom(), {
-          ...get(allTokenListMapAtom()),
-          ...payload.tokens,
-        });
+      const { tokens, merge, mergeDerive } = payload;
+      if (merge) {
+        const tokenListMap = get(allTokenListMapAtom());
+        set(
+          allTokenListMapAtom(),
+          mergeDeriveTokenListMap({
+            sourceMap: tokens,
+            targetMap: tokenListMap,
+            mergeDeriveAssets: mergeDerive,
+          }),
+        );
+
         return;
       }
 
-      set(allTokenListMapAtom(), payload.tokens);
+      set(allTokenListMapAtom(), tokens);
     },
   );
 
@@ -130,13 +149,20 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         map?: {
           [key: string]: ITokenFiat;
         };
+        mergeDerive?: boolean;
       },
     ) => {
-      const { keys, tokens } = payload;
+      const { keys, tokens, merge, mergeDerive } = payload;
 
-      if (payload.merge) {
+      if (merge) {
         if (tokens.length) {
-          let newTokens = get(tokenListAtom()).tokens.concat(tokens);
+          let newTokens = get(tokenListAtom()).tokens;
+
+          newTokens = mergeDeriveTokenList({
+            sourceTokens: tokens,
+            targetTokens: newTokens,
+            mergeDeriveAssets: mergeDerive,
+          });
 
           const tokenListMap = get(tokenListMapAtom());
 
@@ -154,7 +180,10 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
         }
       } else if (!isEqual(get(tokenListAtom()).keys, keys)) {
-        set(tokenListAtom(), { tokens, keys });
+        set(tokenListAtom(), {
+          tokens: uniqBy(tokens, (item) => item.$key),
+          keys,
+        });
       }
     },
   );
@@ -168,13 +197,22 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           [key: string]: ITokenFiat;
         };
         merge?: boolean;
+        mergeDerive?: boolean;
       },
     ) => {
-      if (payload.merge) {
-        set(tokenListMapAtom(), {
-          ...get(tokenListMapAtom()),
-          ...payload.tokens,
-        });
+      const { tokens, merge, mergeDerive } = payload;
+
+      if (merge) {
+        const tokenListMap = get(tokenListMapAtom());
+        set(
+          tokenListMapAtom(),
+          mergeDeriveTokenListMap({
+            sourceMap: tokens,
+            targetMap: tokenListMap,
+            mergeDeriveAssets: mergeDerive,
+          }),
+        );
+
         return;
       }
 
@@ -193,24 +231,19 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         map?: {
           [key: string]: ITokenFiat;
         };
+        mergeDerive?: boolean;
       },
     ) => {
-      const { keys, riskyTokens } = payload;
+      const { keys, riskyTokens, merge, mergeDerive } = payload;
 
-      if (payload.merge) {
+      if (merge) {
         if (riskyTokens.length) {
-          let newTokens = get(riskyTokenListAtom()).riskyTokens.concat(
-            riskyTokens,
-          );
+          let newTokens = get(riskyTokenListAtom()).riskyTokens;
 
-          const tokenListMap = get(riskyTokenListMapAtom());
-
-          newTokens = sortTokensByFiatValue({
-            tokens: newTokens,
-            map: {
-              ...tokenListMap,
-              ...(payload.map || {}),
-            },
+          newTokens = mergeDeriveTokenList({
+            sourceTokens: riskyTokens,
+            targetTokens: newTokens,
+            mergeDeriveAssets: mergeDerive,
           });
 
           set(riskyTokenListAtom(), {
@@ -219,7 +252,10 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
         }
       } else if (!isEqual(get(riskyTokenListAtom()).keys, keys)) {
-        set(riskyTokenListAtom(), { riskyTokens, keys });
+        set(riskyTokenListAtom(), {
+          riskyTokens: uniqBy(riskyTokens, (item) => item.$key),
+          keys,
+        });
       }
     },
   );
@@ -233,13 +269,21 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           [key: string]: ITokenFiat;
         };
         merge?: boolean;
+        mergeDerive?: boolean;
       },
     ) => {
-      if (payload.merge) {
-        set(riskyTokenListMapAtom(), {
-          ...get(riskyTokenListMapAtom()),
-          ...payload.tokens,
-        });
+      const { tokens, merge, mergeDerive } = payload;
+      if (merge) {
+        const tokenListMap = get(riskyTokenListMapAtom());
+        set(
+          riskyTokenListMapAtom(),
+          mergeDeriveTokenListMap({
+            sourceMap: tokens,
+            targetMap: tokenListMap,
+            mergeDeriveAssets: mergeDerive,
+          }),
+        );
+
         return;
       }
 
@@ -258,24 +302,19 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         map?: {
           [key: string]: ITokenFiat;
         };
+        mergeDerive?: boolean;
       },
     ) => {
-      const { keys, smallBalanceTokens } = payload;
+      const { keys, smallBalanceTokens, merge, mergeDerive } = payload;
 
-      if (payload.merge) {
+      if (merge) {
         if (smallBalanceTokens.length) {
-          let newTokens = get(
-            smallBalanceTokenListAtom(),
-          ).smallBalanceTokens.concat(smallBalanceTokens);
+          let newTokens = get(smallBalanceTokenListAtom()).smallBalanceTokens;
 
-          const tokenListMap = get(smallBalanceTokenListMapAtom());
-
-          newTokens = sortTokensByFiatValue({
-            tokens: newTokens,
-            map: {
-              ...tokenListMap,
-              ...(payload.map || {}),
-            },
+          newTokens = mergeDeriveTokenList({
+            sourceTokens: smallBalanceTokens,
+            targetTokens: newTokens,
+            mergeDeriveAssets: mergeDerive,
           });
 
           set(smallBalanceTokenListAtom(), {
@@ -284,7 +323,10 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
         }
       } else if (!isEqual(get(smallBalanceTokenListAtom()).keys, keys)) {
-        set(smallBalanceTokenListAtom(), { smallBalanceTokens, keys });
+        set(smallBalanceTokenListAtom(), {
+          smallBalanceTokens: uniqBy(smallBalanceTokens, (item) => item.$key),
+          keys,
+        });
       }
     },
   );
@@ -298,13 +340,21 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           [key: string]: ITokenFiat;
         };
         merge?: boolean;
+        mergeDerive?: boolean;
       },
     ) => {
-      if (payload.merge) {
-        set(smallBalanceTokenListMapAtom(), {
-          ...get(smallBalanceTokenListMapAtom()),
-          ...payload.tokens,
-        });
+      const { tokens, merge, mergeDerive } = payload;
+      if (merge) {
+        const tokenListMap = get(smallBalanceTokenListMapAtom());
+        set(
+          smallBalanceTokenListMapAtom(),
+          mergeDeriveTokenListMap({
+            sourceMap: tokens,
+            targetMap: tokenListMap,
+            mergeDeriveAssets: mergeDerive,
+          }),
+        );
+
         return;
       }
 
@@ -313,7 +363,28 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
   );
 
   refreshSmallBalanceTokensFiatValue = contextAtomMethod(
-    (get, set, value: string) => {
+    (
+      get,
+      set,
+      payload: {
+        value: string;
+        merge?: boolean;
+      },
+    ) => {
+      const { value, merge } = payload;
+
+      const smallBalanceTokensFiatValue = get(
+        smallBalanceTokensFiatValueAtom(),
+      );
+
+      if (merge) {
+        const mergedValue = new BigNumber(smallBalanceTokensFiatValue)
+          .plus(value)
+          .toFixed();
+        set(smallBalanceTokensFiatValueAtom(), mergedValue);
+        return;
+      }
+
       set(smallBalanceTokensFiatValueAtom(), value);
     },
   );

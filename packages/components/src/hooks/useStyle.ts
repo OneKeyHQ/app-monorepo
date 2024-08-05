@@ -26,6 +26,7 @@ const getValue = (
     platformEnv.isNative || isRawValue
       ? theme?.[key]?.val
       : (theme?.[key]?.get() as VariableVal);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return value || fallback || key;
 };
 

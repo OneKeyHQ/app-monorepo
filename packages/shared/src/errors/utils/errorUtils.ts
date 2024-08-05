@@ -199,6 +199,10 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
     [
       EOneKeyErrorClassNames.PasswordPromptDialogCancel,
       EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
+      EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+      EOneKeyErrorClassNames.FirmwareUpdateExit,
+      EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
+      EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
     ].includes(err?.className)
   ) {
     return;

@@ -417,7 +417,11 @@ function getAccountCompatibleNetwork({
   account: IDBAccount;
   networkId: string | undefined;
 }) {
-  let accountNetworkId = networkId;
+  let accountNetworkId = networkId || account.createAtNetwork;
+
+  if (networkUtils.isAllNetwork({ networkId: accountNetworkId })) {
+    return accountNetworkId;
+  }
 
   if (networkId) {
     const activeNetworkImpl = networkUtils.getNetworkImpl({
@@ -447,6 +451,7 @@ function getAccountCompatibleNetwork({
     }
   }
 
+  // recheck chainId available
   if (
     accountNetworkId &&
     !networkUtils.parseNetworkId({ networkId: accountNetworkId }).chainId
@@ -469,6 +474,11 @@ function isOthersWallet({ walletId }: { walletId: string }) {
     walletId === WALLET_TYPE_EXTERNAL ||
     walletId === WALLET_TYPE_IMPORTED
   );
+}
+
+function isOthersAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isOthersWallet({ walletId });
 }
 
 function buildHwWalletId({
@@ -684,6 +694,14 @@ function removePathLastSegment({
   return arr.slice(0, -removeCount).filter(Boolean).join('/');
 }
 
+function buildHiddenWalletName({
+  parentWallet,
+}: {
+  parentWallet: IDBWallet | undefined;
+}) {
+  return `Hidden #${parentWallet?.nextIds?.hiddenWalletNum || 1}`;
+}
+
 export default {
   buildUtxoAddressRelPath,
   buildBaseAccountName,
@@ -722,6 +740,7 @@ export default {
   isAccountCompatibleWithNetwork,
   getAccountCompatibleNetwork,
   isOthersWallet,
+  isOthersAccount,
   isUrlAccountFn,
   buildBtcToLnPath,
   buildLnToBtcPath,
@@ -733,4 +752,5 @@ export default {
   buildPathFromTemplate,
   findIndexFromTemplate,
   removePathLastSegment,
+  buildHiddenWalletName,
 };

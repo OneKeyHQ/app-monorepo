@@ -683,8 +683,8 @@ export function getAddressFromXpub({
       }
 
       const index = part.endsWith("'")
-        ? parseInt(part.slice(0, -1)) + 2 ** 31
-        : parseInt(part);
+        ? parseInt(part.slice(0, -1), 10) + 2 ** 31
+        : parseInt(part, 10);
       extendedKey = CKDPub(curve, extendedKey, index);
       cache.set(relPath, extendedKey);
     }
@@ -742,4 +742,71 @@ export function convertBtcScriptTypeForHardware(sdkScriptType: string) {
     throw new Error(`${sdkScriptType} not found in map`);
   }
   return val;
+}
+
+export function getBtcForkVersionBytesByAddressEncoding({
+  addressEncoding,
+  btcForkNetwork,
+}: {
+  btcForkNetwork: IBtcForkNetwork;
+  addressEncoding: EAddressEncodings;
+}): IBtcForkNetwork['bip32'] {
+  let versionBytes = btcForkNetwork?.segwitVersionBytes?.[addressEncoding];
+
+  // legacy address encoding
+  if (
+    !versionBytes &&
+    addressEncoding === EAddressEncodings.P2PKH &&
+    btcForkNetwork?.bip32
+  ) {
+    versionBytes = btcForkNetwork?.bip32;
+  }
+
+  if (!versionBytes) {
+    throw new Error(
+      `getBtcForkVersionBytesByAddressEncoding ERROR: Invalid addressEncoding ${addressEncoding}`,
+    );
+  }
+
+  return versionBytes;
+}
+
+export function btcForkVersionBytesToBuffer({
+  versionBytes,
+}: {
+  versionBytes: number;
+}) {
+  return Buffer.from(versionBytes.toString(16).padStart(8, '0'), 'hex');
+}
+
+export function convertBtcForkXpub({
+  btcForkNetwork,
+  xpub,
+  addressEncoding,
+}: {
+  btcForkNetwork: IBtcForkNetwork;
+  xpub: string;
+  addressEncoding: EAddressEncodings | undefined;
+}) {
+  if (!addressEncoding) {
+    throw new Error('convertBtcForkXpub ERROR: Invalid addressEncoding');
+  }
+  const versionBytes = getBtcForkVersionBytesByAddressEncoding({
+    addressEncoding,
+    btcForkNetwork,
+  });
+  if (!versionBytes || isNil(versionBytes.public)) {
+    throw new Error('convertBtcForkXpub ERROR: Invalid versionBytes');
+  }
+
+  // eslint-disable-next-line no-param-reassign
+  xpub = xpub.trim();
+
+  const data = bs58check.decode(xpub);
+  return bs58check.encode(
+    Buffer.concat([
+      btcForkVersionBytesToBuffer({ versionBytes: versionBytes.public }),
+      data.slice(4),
+    ]),
+  );
 }

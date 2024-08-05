@@ -14,8 +14,6 @@ import {
 } from 'react-native-draggable-flatlist';
 import { withStaticProperties } from 'tamagui';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { Stack } from '../../primitives';
 import { SectionList } from '../SectionList';
 import { SortableListView } from '../SortableListView';
@@ -56,7 +54,8 @@ export type ISortableSectionListProps<T> = Omit<
     item: any;
     section: any;
     index: number;
-    drag?: () => void;
+    drag: () => void;
+    isActive: boolean;
   }) => ReactNode | null;
   renderSectionHeader?: ISectionRenderInfo;
   renderSectionFooter?: ISectionRenderInfo;
@@ -152,8 +151,7 @@ function BaseSortableSectionList<T>(
   }, [sections]);
 
   const reloadSectionHeaderIndex = useCallback(
-    (index: number) =>
-      ListHeaderComponent && !platformEnv.isNative ? index + 1 : index,
+    (index: number) => (ListHeaderComponent ? index + 1 : index),
     [ListHeaderComponent],
   );
 
@@ -191,9 +189,18 @@ function BaseSortableSectionList<T>(
         viewPosition,
       });
     },
+    ...ref?.current,
   }));
   const renderSectionAndItem = useCallback(
-    ({ item, drag }: { item: T; drag: () => void }) => {
+    ({
+      item,
+      drag,
+      isActive,
+    }: {
+      item: T;
+      drag: () => void;
+      isActive: boolean;
+    }) => {
       const { type, value, section, index } = item as ISectionLayoutItem;
       switch (type) {
         case ESectionLayoutType.SectionSeparator: {
@@ -211,6 +218,7 @@ function BaseSortableSectionList<T>(
             section,
             index,
             drag,
+            isActive,
           });
         }
         case ESectionLayoutType.Footer: {
@@ -290,7 +298,9 @@ function BaseSortableSectionList<T>(
         return sameSectionIndex;
       }
       return (
-        sameSectionIndex && layoutItem.index === initialScrollIndex?.itemIndex
+        sameSectionIndex &&
+        layoutItem.index === initialScrollIndex?.itemIndex &&
+        layoutItem.type === ESectionLayoutType.Item
       );
     });
     if (index === -1) {

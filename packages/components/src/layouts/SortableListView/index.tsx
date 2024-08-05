@@ -9,7 +9,9 @@ import DraggableFlatList, {
 } from 'react-native-draggable-flatlist';
 import { withStaticProperties } from 'tamagui';
 
-import type { StackStyleProps } from '@tamagui/web/types/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { StackStyle } from '@tamagui/web/types/types';
 import type { StyleProp, ViewStyle } from 'react-native';
 import type {
   DraggableFlatListProps,
@@ -32,7 +34,7 @@ export type ISortableListViewProps<T> = Omit<
   | 'ListHeaderComponentStyle'
   | 'ListFooterComponentStyle'
 > &
-  StackStyleProps & {
+  StackStyle & {
     data: T[];
     keyExtractor: (item: T, index: number) => string;
     renderItem: RenderItem<T>;
@@ -42,11 +44,11 @@ export type ISortableListViewProps<T> = Omit<
     ) => { length: number; offset: number; index: number };
 
     enabled?: boolean;
-    containerStyle?: StackStyleProps;
-    contentContainerStyle?: StackStyleProps;
-    columnWrapperStyle?: StackStyleProps;
-    ListHeaderComponentStyle?: StackStyleProps;
-    ListFooterComponentStyle?: StackStyleProps;
+    containerStyle?: StackStyle;
+    contentContainerStyle?: StackStyle;
+    columnWrapperStyle?: StackStyle;
+    ListHeaderComponentStyle?: StackStyle;
+    ListFooterComponentStyle?: StackStyle;
   };
 
 function BaseSortableListView<T>(
@@ -100,11 +102,12 @@ function BaseSortableListView<T>(
       resolveValues: 'auto',
     },
   );
+  const activeDistance = platformEnv.isNative ? 10 : 1;
   return (
     <DraggableFlatList<T>
       ref={ref}
       style={style as StyleProp<ViewStyle>}
-      activationDistance={enabled ? 1 : 100000}
+      activationDistance={enabled ? activeDistance : 100000}
       containerStyle={[{ flex: 1 }, rawContainerStyle]}
       columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
       ListHeaderComponentStyle={listHeaderStyle}

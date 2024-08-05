@@ -472,10 +472,14 @@ export default class ServicePassword extends ServiceBase {
     let deviceParams: IDeviceSharedCallParams | undefined;
 
     if (isHardware) {
-      deviceParams =
-        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
-          walletId,
-        });
+      try {
+        deviceParams =
+          await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+            walletId,
+          });
+      } catch (error) {
+        //
+      }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -576,7 +580,8 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async lockApp() {
+  async lockApp(options?: { manual: boolean }) {
+    const { manual = true } = options || {};
     const isFirmwareUpdateRunning =
       await firmwareUpdateWorkflowRunningAtom.get();
     if (isFirmwareUpdateRunning) {
@@ -585,8 +590,11 @@ export default class ServicePassword extends ServiceBase {
     if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
       return;
     }
-
-    await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
+    //
+    await this.clearCachedPassword();
+    if (manual) {
+      await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
+    }
     await passwordAtom.set((v) => ({ ...v, unLock: false }));
   }
 
@@ -616,7 +624,7 @@ export default class ServicePassword extends ServiceBase {
     const { time: lastActivity } = await settingsLastActivityAtom.get();
     const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
     if (idleDuration >= appLockDuration) {
-      await passwordAtom.set((v) => ({ ...v, unLock: false }));
+      await this.lockApp({ manual: false });
     }
   }
 

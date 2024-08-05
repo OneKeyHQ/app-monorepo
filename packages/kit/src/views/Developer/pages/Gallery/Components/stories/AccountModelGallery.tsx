@@ -18,7 +18,7 @@ function Demo() {
   const [hdId, setHdId] = useState<string>('hd-1');
 
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <Input value={hdId} onChangeText={(t) => setHdId(t)} />
       <Button
         onPress={async () => {
@@ -117,7 +117,7 @@ const AccountModelGallery = () => (
             }}
             enabledNum={[0]}
           >
-            <Stack space="$1">
+            <Stack gap="$1">
               <Demo />
             </Stack>
           </AccountSelectorProviderMirror>

@@ -1,4 +1,5 @@
 import { debounce } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { ListToolToolBar } from '@onekeyhq/kit/src/components/ListToolBar';
 import {
@@ -9,6 +10,7 @@ import {
   SEARCH_DEBOUNCE_INTERVAL,
   SEARCH_KEY_MIN_LENGTH,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
@@ -17,11 +19,16 @@ type IProps = {
 
 function NFTListHeader(props: IProps) {
   const { filteredNfts } = props;
+  const intl = useIntl();
   const [searchKey] = useSearchKeyAtom();
   const { updateSearchKey } = useNFTListActions().current;
   return (
     <ListToolToolBar
+      px="$2.5"
       searchProps={{
+        placeholder: intl.formatMessage({
+          id: ETranslations.global_search_asset,
+        }),
         onChangeText: debounce(
           (text) => updateSearchKey(text),
           SEARCH_DEBOUNCE_INTERVAL,

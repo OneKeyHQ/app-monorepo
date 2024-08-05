@@ -10,12 +10,14 @@ import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
+import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
+import type ServiceCustomRpc from '../services/ServiceCustomRpc';
 import type ServiceCustomToken from '../services/ServiceCustomToken';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
@@ -155,6 +157,10 @@ class BackgroundApiProxy
     'serviceBatchCreateAccount',
   ) as ServiceBatchCreateAccount;
 
+  serviceAllNetwork = this._createProxyService(
+    'serviceAllNetwork',
+  ) as ServiceAllNetwork;
+
   serviceOnboarding = this._createProxyService(
     'serviceOnboarding',
   ) as ServiceOnboarding;
@@ -226,6 +232,10 @@ class BackgroundApiProxy
   serviceCustomToken = this._createProxyService(
     'serviceCustomToken',
   ) as ServiceCustomToken;
+
+  serviceCustomRpc = this._createProxyService(
+    'serviceCustomRpc',
+  ) as ServiceCustomRpc;
 }
 
 export default BackgroundApiProxy;

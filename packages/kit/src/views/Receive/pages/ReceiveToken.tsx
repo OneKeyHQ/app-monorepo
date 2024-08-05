@@ -21,6 +21,7 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
@@ -41,6 +42,7 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -55,20 +57,23 @@ function ReceiveToken() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
     >();
 
-  const { networkId, accountId, walletId, deriveInfo, deriveType, token } =
-    route.params;
-
-  const addressType = deriveInfo?.labelKey
-    ? intl.formatMessage({
-        id: deriveInfo?.labelKey,
-      })
-    : deriveInfo?.label ?? '';
+  const { networkId, accountId, walletId, deriveType, token } = route.params;
 
   const { account, network, wallet, vaultSettings } = useAccountData({
     accountId,
     networkId,
     walletId,
   });
+
+  const addressType = usePromiseResult(async () => {
+    const r = await backgroundApiProxy.serviceAccount.getAccountAddressType({
+      accountId,
+      networkId,
+      address: account?.address ?? '',
+    });
+
+    return r.typeKey ? intl.formatMessage({ id: r.typeKey }) : r.type ?? '';
+  }, [account?.address, accountId, intl, networkId]).result;
 
   const [addressState, setAddressState] = useState<EAddressState>(
     EAddressState.Unverified,
@@ -149,7 +154,7 @@ function ReceiveToken() {
       const isSameAddress =
         addresses?.[0]?.toLowerCase() === account?.address?.toLowerCase();
 
-      defaultLogger.transaction.receive.logShowReceiveAddressInfo({
+      defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
         isSuccess: isSameAddress,
         failedReason: isSameAddress
@@ -175,7 +180,7 @@ function ReceiveToken() {
     } catch (e: any) {
       setAddressState(EAddressState.Unverified);
       // verifyHWAccountAddresses handler error toast
-      defaultLogger.transaction.receive.logShowReceiveAddressInfo({
+      defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
         isSuccess: false,
         failedReason: (e as Error).message,
@@ -208,7 +213,7 @@ function ReceiveToken() {
 
   useEffect(() => {
     if (!isHardwareWallet) {
-      defaultLogger.transaction.receive.logShowReceiveAddressInfo({
+      defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
         isSuccess: true,
         failedReason: '',
@@ -239,7 +244,7 @@ function ReceiveToken() {
       }
 
       return (
-        <YStack space="$5">
+        <YStack gap="$5" alignItems="center">
           <Button mt="$5" variant="primary" onPress={handleVerifyOnDevicePress}>
             {intl.formatMessage({
               id: ETranslations.global_verify_on_device,
@@ -285,7 +290,7 @@ function ReceiveToken() {
     return (
       <>
         <Stack mb="$5">
-          <XStack space="$2" alignItems="center" justifyContent="center">
+          <XStack gap="$2" alignItems="center" justifyContent="center">
             <Heading size="$headingMd">
               {token?.symbol ?? network.symbol}
             </Heading>
@@ -315,14 +320,24 @@ function ReceiveToken() {
           borderColor="$borderSubdued"
           p="$4"
         >
-          <QRCode
-            value={account.address}
-            logo={{
-              uri: token?.logoURI ?? network.logoURI,
-            }}
-            logoSize={40}
-            size={240}
-          />
+          <Stack position="relative">
+            <QRCode value={account.address} size={240} />
+            <Stack
+              position="absolute"
+              width="100%"
+              height="100%"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <Stack p={5} borderRadius="$full" overflow="hidden" bg="$bgApp">
+                <Token
+                  size="lg"
+                  tokenImageUri={token?.logoURI || network.logoURI}
+                />
+              </Stack>
+            </Stack>
+          </Stack>
+
           {!isShowQRCode ? (
             <Stack
               position="absolute"
@@ -371,27 +386,10 @@ function ReceiveToken() {
               wordBreak: 'break-all',
             }}
           >
-            {account.address}
+            {!shouldShowAddress
+              ? accountUtils.shortenAddress({ address: account.address })
+              : account.address}
           </SizableText>
-
-          {!shouldShowAddress ? (
-            <BlurView
-              // Setting both inner and outer borderRadius is for the compatibility of Web and Native styles.
-              borderRadius="$3"
-              contentStyle={{
-                borderRadius: '$3',
-                width: '100%',
-                height: '100%',
-                borderCurve: 'continuous',
-              }}
-              position="absolute"
-              intensity={38}
-              top="$0"
-              left="$0"
-              right="$0"
-              bottom="$0"
-            />
-          ) : null}
         </ConfirmHighlighter>
         {shouldShowAddress && addressState === EAddressState.ForceShow ? (
           <XStack mt="$1" justifyContent="center" alignItems="center">

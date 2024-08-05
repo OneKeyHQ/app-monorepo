@@ -275,7 +275,9 @@ export default function Detail() {
       }
       if (result === ERestoreResult.WRONG_PASSWORD) {
         Toast.error({
-          title: ETranslations.auth_error_password_incorrect,
+          title: intl.formatMessage({
+            id: ETranslations.auth_error_password_incorrect,
+          }),
         });
       } else if (result === ERestoreResult.UNKNOWN_ERROR) {
         Toast.error({
@@ -373,7 +375,7 @@ export default function Detail() {
                 }
               >
                 <XStack
-                  space="$1"
+                  gap="$1"
                   onPress={() => {
                     ActionList.show({
                       title: intl.formatMessage({

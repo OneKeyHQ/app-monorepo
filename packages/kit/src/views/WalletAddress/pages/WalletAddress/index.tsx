@@ -9,10 +9,12 @@ import {
 import { useIntl } from 'react-intl';
 
 import type {
+  IKeyOfIcons,
   IPageNavigationProp,
   IPageScreenProps,
 } from '@onekeyhq/components';
 import {
+  Empty,
   Icon,
   Page,
   SearchBar,
@@ -20,39 +22,48 @@ import {
   Spinner,
   Stack,
   Toast,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { networkFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/utils';
+import { useFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useFuseSearch';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  EModalReceiveRoutes,
+  EModalRoutes,
   EModalWalletAddressRoutes,
   type IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  EAccountSelectorSceneName,
+  type IServerNetwork,
+} from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 type IWalletAddressContext = {
   networkAccountMap: Record<string, INetworkAccount>;
+  networkDeriveTypeMap: Record<string, IAccountDeriveTypes>;
   accountId?: string;
   indexedAccountId: string;
-  walletId: string;
-  deriveType?: IAccountDeriveTypes;
   refreshLocalData: () => void;
 };
 
 const WalletAddressContext = createContext<IWalletAddressContext>({
   networkAccountMap: {},
+  networkDeriveTypeMap: {},
   accountId: '',
   indexedAccountId: '',
-  walletId: '',
   refreshLocalData: () => {},
 });
 
@@ -65,8 +76,7 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   const appNavigation =
     useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
   const intl = useIntl();
-  const { walletId, indexedAccountId, accountId } =
-    useContext(WalletAddressContext);
+  const { indexedAccountId } = useContext(WalletAddressContext);
 
   const { result, run: onRefreshData } = usePromiseResult(
     () =>
@@ -81,19 +91,11 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   const onPress = useCallback(() => {
     appNavigation.push(EModalWalletAddressRoutes.DeriveTypesAddress, {
       networkId: item.id,
-      walletId,
       indexedAccountId,
-      accountId,
       onUnmounted: onRefreshData,
+      actionType: EDeriveAddressActionType.Copy,
     });
-  }, [
-    appNavigation,
-    walletId,
-    indexedAccountId,
-    accountId,
-    item.id,
-    onRefreshData,
-  ]);
+  }, [appNavigation, indexedAccountId, item.id, onRefreshData]);
 
   const subtitle = useMemo(() => {
     let text = intl.formatMessage({
@@ -123,17 +125,39 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   );
 };
 
+const WalletAddressListItemIcon = ({
+  account,
+}: {
+  account?: INetworkAccount;
+}) => {
+  let name: IKeyOfIcons | undefined;
+  if (!account) {
+    name = 'PlusLargeOutline';
+  } else if (account && account.address) {
+    name = 'Copy3Outline';
+  }
+  return name ? (
+    <Icon
+      name={account ? 'Copy3Outline' : 'PlusLargeOutline'}
+      color="$iconSubdued"
+    />
+  ) : null;
+};
+
 const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const copyAccountAddress = useCopyAccountAddress();
+  const appNavigation =
+    useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
   const {
     networkAccountMap,
-    walletId,
+    networkDeriveTypeMap,
     indexedAccountId,
-    deriveType,
     refreshLocalData,
   } = useContext(WalletAddressContext);
+  const { createAddress } = useAccountSelectorCreateAddress();
+  const deriveType = networkDeriveTypeMap[item.id] || 'default';
   const account = networkAccountMap[item.id] as INetworkAccount | undefined;
   const subtitle = account
     ? accountUtils.shortenAddress({ address: account.address })
@@ -142,41 +166,56 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
       });
 
   const onPress = useCallback(async () => {
-    if (!deriveType) {
-      throw Error('deriveType must not be empty');
-    }
-    if (account) {
-      await copyAccountAddress({
-        accountId: account.id,
-        networkId: item.id,
-        deriveType,
-      });
-    } else {
+    if (!account) {
       try {
         setLoading(true);
-        await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
-          walletId,
+        const { walletId } = accountUtils.parseIndexedAccountId({
           indexedAccountId,
-          deriveType,
-          networkId: item.id,
+        });
+        await createAddress({
+          account: {
+            walletId,
+            networkId: item.id,
+            indexedAccountId,
+            deriveType,
+          },
+          selectAfterCreate: false,
+          num: 0,
         });
         Toast.success({
-          title: intl.formatMessage({ id: ETranslations.global_success }),
+          title: intl.formatMessage({
+            id: ETranslations.swap_page_toast_address_generated,
+          }),
         });
         refreshLocalData();
       } finally {
         setLoading(false);
       }
+    } else if (networkUtils.isLightningNetworkByNetworkId(item.id)) {
+      appNavigation.pushModal(EModalRoutes.ReceiveModal, {
+        screen: EModalReceiveRoutes.CreateInvoice,
+        params: {
+          networkId: item.id,
+          accountId: account.id,
+        },
+      });
+    } else if (account && account.address) {
+      await copyAccountAddress({
+        accountId: account.id,
+        networkId: item.id,
+        deriveType,
+      });
     }
   }, [
     account,
-    walletId,
+    item.id,
     indexedAccountId,
     deriveType,
-    item.id,
-    refreshLocalData,
     intl,
+    refreshLocalData,
+    appNavigation,
     copyAccountAddress,
+    createAddress,
   ]);
 
   if (item.id === getNetworkIdsMap().btc) {
@@ -195,28 +234,30 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
           <Spinner />
         </Stack>
       ) : (
-        <Icon
-          name={account ? 'Copy3Outline' : 'PlusLargeOutline'}
-          color="$iconSubdued"
-        />
+        <WalletAddressListItemIcon account={account} />
       )}
     </ListItem>
   );
 };
 
 const WalletAddressContent = ({
-  networks,
+  mainnetItems,
+  testnetItems,
   frequentlyUsedNetworks,
 }: {
-  networks: IServerNetwork[];
+  mainnetItems: IServerNetwork[];
+  testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
 }) => {
   const intl = useIntl();
   const [searchText, setSearchText] = useState('');
+  const { bottom } = useSafeAreaInsets();
+
+  const networkFuseSearch = useFuseSearch(mainnetItems);
   const sections = useMemo<ISectionItem[]>(() => {
     const searchTextTrim = searchText.trim();
     if (searchTextTrim) {
-      const data = networkFuseSearch(networks, searchTextTrim);
+      const data = networkFuseSearch(searchTextTrim);
       return data.length === 0
         ? []
         : [
@@ -225,7 +266,7 @@ const WalletAddressContent = ({
             },
           ];
     }
-    const data = networks.reduce((result, item) => {
+    const data = mainnetItems.reduce((result, item) => {
       const char = item.name[0].toUpperCase();
       if (!result[char]) {
         result[char] = [];
@@ -241,14 +282,31 @@ const WalletAddressContent = ({
       { data: frequentlyUsedNetworks },
       ...sectionList,
     ];
+    if (testnetItems.length > 0) {
+      _sections.push({
+        title: intl.formatMessage({
+          id: ETranslations.global_testnet,
+        }),
+        data: testnetItems,
+      });
+    }
     return _sections;
-  }, [networks, frequentlyUsedNetworks, searchText]);
+  }, [
+    mainnetItems,
+    frequentlyUsedNetworks,
+    searchText,
+    testnetItems,
+    intl,
+    networkFuseSearch,
+  ]);
 
   const renderSectionHeader = useCallback(
     (item: { section: { title: string } }) => {
       if (item?.section?.title) {
         return <SectionList.SectionHeader title={item?.section?.title} />;
       }
+
+      return <Stack h="$3" />;
     },
     [],
   );
@@ -262,36 +320,45 @@ const WalletAddressContent = ({
 
   return (
     <Stack flex={1}>
-      <Stack px="$5" pb="$4">
+      <Stack px="$5">
         <SearchBar
           placeholder={intl.formatMessage({
-            id: ETranslations.global_search,
+            id: ETranslations.form_search_network_placeholder,
           })}
           value={searchText}
           onChangeText={(text) => setSearchText(text)}
         />
       </Stack>
       <SectionList
-        pb="$3"
+        stickySectionHeadersEnabled
         sections={sections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}
+        ListEmptyComponent={
+          <Empty
+            icon="SearchOutline"
+            title={intl.formatMessage({ id: ETranslations.global_no_results })}
+          />
+        }
+        ListFooterComponent={<Stack h={bottom || '$3'} />}
       />
     </Stack>
   );
 };
 
 const WalletAddress = ({
-  networks,
+  mainnetItems,
+  testnetItems,
   frequentlyUsedNetworks,
 }: {
-  networks: IServerNetwork[];
+  mainnetItems: IServerNetwork[];
+  testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
 }) => {
   const intl = useIntl();
 
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.copy_address_modal_title,
@@ -299,7 +366,8 @@ const WalletAddress = ({
       />
       <Page.Body>
         <WalletAddressContent
-          networks={networks}
+          testnetItems={testnetItems}
+          mainnetItems={mainnetItems}
           frequentlyUsedNetworks={frequentlyUsedNetworks}
         />
       </Page.Body>
@@ -313,18 +381,20 @@ export default function WalletAddressPage({
   IModalWalletAddressParamList,
   EModalWalletAddressRoutes.WalletAddress
 >) {
-  const { accountId, indexedAccountId, walletId, deriveType } = route.params;
+  const { accountId, indexedAccountId } = route.params;
   const { result, run: refreshLocalData } = usePromiseResult(
     async () => {
       const networks =
         await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          { accountId },
+          { accountId, compatibleWithDeviceType: true },
         );
       const networkIds = Array.from(
         new Set(
-          [...networks.networks, ...networks.frequentlyUsedNetworks].map(
-            (o) => o.id,
-          ),
+          [
+            ...networks.mainnetItems,
+            ...networks.testnetItems,
+            ...networks.frequentlyUsedItems,
+          ].map((o) => o.id),
         ),
       );
       const networksAccount =
@@ -338,45 +408,50 @@ export default function WalletAddressPage({
       initResult: {
         networksAccount: [],
         networks: {
-          networks: [],
-          unavailableNetworks: [],
-          frequentlyUsedNetworks: [],
+          mainnetItems: [],
+          testnetItems: [],
+          unavailableItems: [],
+          frequentlyUsedItems: [],
         },
       },
     },
   );
 
   const context = useMemo(() => {
-    const networkAccountMap = result.networksAccount.reduce((acc, item) => {
-      const { network, account } = item;
+    const networkAccountMap: Record<string, INetworkAccount> = {};
+    const networkDeriveTypeMap: Record<string, IAccountDeriveTypes> = {};
+    for (let i = 0; i < result.networksAccount.length; i += 1) {
+      const item = result.networksAccount[i];
+      const { network, account, accountDeriveType } = item;
       if (account) {
-        acc[network.id] = account;
+        networkAccountMap[network.id] = account;
       }
-      return acc;
-    }, {} as Record<string, INetworkAccount>);
+      networkDeriveTypeMap[network.id] = accountDeriveType;
+    }
     return {
       networkAccountMap,
-      walletId,
-      deriveType,
+      networkDeriveTypeMap,
       accountId,
       indexedAccountId,
       refreshLocalData,
     } as IWalletAddressContext;
-  }, [
-    result.networksAccount,
-    walletId,
-    deriveType,
-    indexedAccountId,
-    accountId,
-    refreshLocalData,
-  ]);
+  }, [result.networksAccount, indexedAccountId, accountId, refreshLocalData]);
 
   return (
-    <WalletAddressContext.Provider value={context}>
-      <WalletAddress
-        networks={result.networks.networks}
-        frequentlyUsedNetworks={result.networks.frequentlyUsedNetworks}
-      />
-    </WalletAddressContext.Provider>
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <WalletAddressContext.Provider value={context}>
+        <WalletAddress
+          testnetItems={result.networks.testnetItems}
+          mainnetItems={result.networks.mainnetItems}
+          frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
+        />
+      </WalletAddressContext.Provider>
+    </AccountSelectorProviderMirror>
   );
 }

@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useWebAuthActions } from '@onekeyhq/kit/src/components/BiologyAuthComponent/hooks/useWebAuthActions';
@@ -85,7 +86,7 @@ const SocialButtonGroup = () => {
   return (
     <YStack>
       <XStack justifyContent="center">
-        <XStack space="$3" paddingVertical="$3" my="$3">
+        <XStack gap="$3" paddingVertical="$3" my="$3">
           <SocialButton
             icon="OnekeyBrand"
             url={ONEKEY_URL}
@@ -112,7 +113,7 @@ const SocialButtonGroup = () => {
       </XStack>
       <XStack justifyContent="center" py="$4">
         <SizableText
-          selectable={false}
+          userSelect="none"
           color="$textSubdued"
           onPress={handlePress}
           testID="setting-version"
@@ -140,23 +141,24 @@ export default function SettingListModal() {
     }
   }, [flag, setWebAuthEnable, credId]);
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
+
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.settings_settings,
         })}
       />
       <Page.Body>
-        <Stack pb="$2">
-          <DefaultSection />
-          <PreferenceSection />
-          <SecuritySection />
-          <AdvancedSection />
-          <ResourceSection />
-          <DevSettingsSection />
-          <SocialButtonGroup />
-        </Stack>
+        <DefaultSection />
+        <PreferenceSection />
+        <SecuritySection />
+        <AdvancedSection />
+        <ResourceSection />
+        <DevSettingsSection />
+        <SocialButtonGroup />
+        {bottom > 0 ? <Stack height={bottom || '$2'} /> : null}
       </Page.Body>
     </Page>
   );

@@ -36,7 +36,12 @@ import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
 } from '../dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { IAccountDeriveInfo, IAccountDeriveTypes } from '../vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveInfoItems,
+  IAccountDeriveTypes,
+} from '../vaults/types';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 @backgroundClass()
 class ServiceAccountSelector extends ServiceBase {
@@ -290,31 +295,57 @@ class ServiceAccountSelector extends ServiceBase {
     }
     let allNetworkDbAccounts: IDBAccount[] | undefined;
     let canCreateAddress = false;
-    if (networkId && networkUtils.isAllNetwork({ networkId })) {
+    const isAllNetwork = networkId && networkUtils.isAllNetwork({ networkId });
+    // isAllNetwork
+    if (isAllNetwork) {
+      try {
+        allNetworkDbAccounts =
+          await this.backgroundApi.serviceAllNetwork.getAllNetworkDbAccounts({
+            networkId,
+            singleNetworkDeriveType: undefined,
+            indexedAccountId,
+            othersWalletAccountId,
+          });
+      } catch (error) {
+        //
+      }
+
+      // build mocked networkAccount of all network
       if (!isOthersWallet && indexedAccountId) {
-        const dbAccounts =
-          await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
-            {
-              indexedAccountId,
-            },
-          );
-        if (dbAccounts.length) {
-          allNetworkDbAccounts = dbAccounts;
-          account =
-            await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount({
-              indexedAccountId,
-            });
-          canCreateAddress = false;
-        } else {
-          canCreateAddress = true;
+        const updateCanCreateAddressForAllNetwork = async () => {
           account = undefined;
+          canCreateAddress = true;
+        };
+        if (allNetworkDbAccounts?.length) {
+          try {
+            account =
+              await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount(
+                {
+                  indexedAccountId,
+                },
+              );
+            canCreateAddress = false;
+          } catch (error) {
+            await updateCanCreateAddressForAllNetwork();
+          }
+        } else {
+          await updateCanCreateAddressForAllNetwork();
         }
       }
     } else {
+      // single network
       canCreateAddress = !isOthersWallet && !account?.address;
     }
 
     const isNetworkNotMatched = isOthersWallet && !account && !indexedAccount;
+    let deriveInfoItems: IAccountDeriveInfoItems[] = [];
+    try {
+      deriveInfoItems = await serviceNetwork.getDeriveInfoItemsOfNetwork({
+        networkId,
+      });
+    } catch (error) {
+      //
+    }
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
       dbAccount,
@@ -326,24 +357,39 @@ class ServiceAccountSelector extends ServiceBase {
       network,
       deriveType,
       deriveInfo,
-      deriveInfoItems: await serviceNetwork.getDeriveInfoItemsOfNetwork({
-        networkId,
-      }),
+      deriveInfoItems,
       ready: true,
       isOthersWallet,
       canCreateAddress,
       isNetworkNotMatched,
     };
+
+    // const activeAccount0: IAccountSelectorActiveAccountInfo = {
+    //   account: undefined,
+    //   indexedAccount: undefined,
+    //   dbAccount: undefined,
+    //   network: undefined,
+    //   wallet: undefined,
+    //   device: undefined,
+    //   deriveType: 'default',
+    //   deriveInfo: undefined,
+    //   deriveInfoItems: [],
+    //   ready: false,
+    //   accountName: '',
+    // };
+
     const selectedAccountFixed: IAccountSelectorSelectedAccount = {
       othersWalletAccountId: isOthersWallet
         ? activeAccount?.account?.id
         : undefined,
-      indexedAccountId: activeAccount.indexedAccount?.id,
-      deriveType: activeAccount.deriveType,
-      networkId: activeAccount.network?.id,
-      walletId: activeAccount.wallet?.id,
-      focusedWallet: activeAccount.wallet?.id,
+      indexedAccountId: activeAccount?.indexedAccount?.id,
+      deriveType: activeAccount?.deriveType,
+      networkId: activeAccount?.network?.id,
+      walletId: activeAccount?.wallet?.id,
+      focusedWallet: activeAccount?.wallet?.id,
     };
+
+    // throw new Error('Method not implemented.');
     return { activeAccount, selectedAccount: selectedAccountFixed, nonce };
   }
 
@@ -353,11 +399,7 @@ class ServiceAccountSelector extends ServiceBase {
   }: {
     sceneName: EAccountSelectorSceneName;
   }) {
-    if ([EAccountSelectorSceneName.discover].includes(sceneName)) {
-      // return true;
-      return false;
-    }
-    return true;
+    return accountSelectorUtils.isSceneUseGlobalDeriveType({ sceneName });
   }
 
   @backgroundMethod()
@@ -484,6 +526,7 @@ class ServiceAccountSelector extends ServiceBase {
     linkedNetworkId?: string;
     deriveType: IAccountDeriveTypes;
   }): Promise<Array<IAccountSelectorAccountsListSectionData>> {
+    // await timerUtils.wait(1000);
     const { serviceAccount } = this.backgroundApi;
     if (!focusedWallet) {
       return [];

@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
+import { uniqBy } from 'lodash';
+
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -8,6 +10,11 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_NFT,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountNFT,
   IFetchAccountNFTsResp,
@@ -44,6 +51,11 @@ function NFTListContainer(props: ITabPageProps) {
 
       if (network.isAllNetworks) return;
 
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: true,
+        type: EHomeTab.NFT,
+      });
+
       await backgroundApiProxy.serviceNFT.abortFetchAccountNFTs();
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         accountId: account.id,
@@ -57,6 +69,11 @@ function NFTListContainer(props: ITabPageProps) {
       setIsHeaderRefreshing(false);
 
       setNftList(r.data);
+
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: false,
+        type: EHomeTab.NFT,
+      });
 
       return r.data;
     },
@@ -72,20 +89,31 @@ function NFTListContainer(props: ITabPageProps) {
     async ({
       accountId,
       networkId,
+      allNetworkDataInit,
     }: {
       accountId: string;
       networkId: string;
+      allNetworkDataInit?: boolean;
     }) => {
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         accountId,
         networkId,
         isAllNetworks: true,
+        allNetworksAccountId: account?.id,
+        allNetworksNetworkId: network?.id,
       });
       if (
+        !allNetworkDataInit &&
         !refreshAllNetworksNftList.current &&
-        r.networkId === networkIdsMap.onekeyall
+        r.networkId === networkIdsMap.onekeyall &&
+        r.isSameAllNetworksAccountData
       ) {
-        setNftList((prev) => [...prev, ...r.data]);
+        setNftList((prev) =>
+          uniqBy(
+            [...prev, ...r.data],
+            (nft) => `${nft.collectionAddress}_${nft.itemId}`,
+          ),
+        );
         setNftListState({
           initialized: true,
           isRefreshing: false,
@@ -94,20 +122,48 @@ function NFTListContainer(props: ITabPageProps) {
 
       return r;
     },
-    [],
+    [account?.id, network?.id],
   );
+
+  const handleAllNetworkRequestsFinished = useCallback(
+    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+      if (accountId !== account?.id || networkId !== network?.id) return;
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: false,
+        type: EHomeTab.NFT,
+      });
+    },
+    [account?.id, network?.id],
+  );
+
+  const handleAllNetworkRequestsStarted = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+      isRefreshing: true,
+      type: EHomeTab.NFT,
+    });
+  }, []);
 
   const handleClearAllNetworkData = useCallback(() => setNftList([]), []);
 
-  const { result: allNetworksResult, isEmptyAccount } =
-    useAllNetworkRequests<IFetchAccountNFTsResp>({
-      account,
-      network,
-      wallet,
-      allNetworkRequests: handleAllNetworkRequests,
-      clearAllNetworkData: handleClearAllNetworkData,
-      isNFTRequests: true,
-    });
+  const {
+    run: runAllNetworkRequests,
+    result: allNetworksResult,
+    isEmptyAccount,
+  } = useAllNetworkRequests<IFetchAccountNFTsResp>({
+    account,
+    network,
+    wallet,
+    allNetworkRequests: handleAllNetworkRequests,
+    clearAllNetworkData: handleClearAllNetworkData,
+    isNFTRequests: true,
+    onStarted: handleAllNetworkRequestsStarted,
+    onFinished: handleAllNetworkRequestsFinished,
+  });
+
+  const handleRefreshAllNetworkData = useCallback(() => {
+    refreshAllNetworksNftList.current = true;
+    void runAllNetworkRequests();
+  }, [runAllNetworkRequests]);
 
   useEffect(() => {
     if (refreshAllNetworksNftList.current && allNetworksResult) {
@@ -116,7 +172,12 @@ function NFTListContainer(props: ITabPageProps) {
         allNetworksNftList = allNetworksNftList.concat(r.data);
       }
 
-      setNftList(allNetworksNftList);
+      setNftList(
+        uniqBy(
+          allNetworksNftList,
+          (nft) => `${nft.collectionAddress}_${nft.itemId}`,
+        ),
+      );
     }
   }, [allNetworksResult]);
 
@@ -128,8 +189,9 @@ function NFTListContainer(props: ITabPageProps) {
       });
       updateSearchKey('');
       refreshAllNetworksNftList.current = false;
-      void backgroundApiProxy.serviceNFT.updateCurrentNetworkId({
+      void backgroundApiProxy.serviceNFT.updateCurrentAccount({
         networkId: network.id,
+        accountId: account.id,
       });
     }
   }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
@@ -149,6 +211,26 @@ function NFTListContainer(props: ITabPageProps) {
       });
     }
   }, [isEmptyAccount]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (network?.isAllNetworks) {
+        void handleRefreshAllNetworkData();
+      } else {
+        void run();
+      }
+    };
+
+    const fn = () => {
+      if (isFocused) {
+        refresh();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
+    };
+  }, [handleRefreshAllNetworkData, isFocused, network?.isAllNetworks, run]);
 
   return (
     <NFTListView

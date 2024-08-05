@@ -68,6 +68,7 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
+  qrAccountEnabled: true,
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,
@@ -104,6 +105,8 @@ const settings: IVaultSettings = {
     [networkIdMap.mantapacific]: 1.2,
     [networkIdMap.blast]: 1.2,
   },
+
+  customRpcEnabled: true,
 };
 
 export default Object.freeze(settings);

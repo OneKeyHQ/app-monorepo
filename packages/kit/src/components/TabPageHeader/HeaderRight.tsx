@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useMedia } from '@onekeyhq/components';
+import { ActionList, useMedia } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -15,6 +15,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -57,11 +58,58 @@ export function HeaderRight({
     [scanQrCode, account, allTokens, map],
   );
 
-  const openExtensionExpandTab = useCallback(async () => {
-    await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+  const openLayoutTab = useCallback(async () => {
+    const routeInfo = {
       routes: '',
+    };
+    ActionList.show({
+      title: intl.formatMessage({
+        id: ETranslations.global_layout,
+      }),
+      items: [
+        platformEnv.isExtensionUiPopup
+          ? {
+              label: intl.formatMessage({
+                id: ETranslations.open_as_sidebar,
+              }),
+              icon: 'LayoutRightOutline',
+              onPress: async () => {
+                await backgroundApiProxy.serviceApp.openExtensionSidePanelOnActionClick(
+                  true,
+                );
+                await backgroundApiProxy.serviceApp.openExtensionSidePanel(
+                  routeInfo,
+                );
+                window.close();
+              },
+            }
+          : {
+              label: intl.formatMessage({
+                id: ETranslations.open_as_popup,
+              }),
+              icon: 'LayoutTopOutline',
+              onPress: async () => {
+                await backgroundApiProxy.serviceApp.openExtensionSidePanelOnActionClick(
+                  false,
+                );
+                window.close();
+              },
+            },
+        {
+          label: intl.formatMessage({
+            id: ETranslations.global_expand_view,
+          }),
+          icon: 'ExpandOutline',
+          onPress: async () => {
+            window.close();
+            await backgroundApiProxy.serviceApp.openExtensionExpandTab(
+              routeInfo,
+            );
+          },
+        },
+      ],
     });
-  }, []);
+  }, [intl]);
 
   const media = useMedia();
   const items = useMemo(() => {
@@ -74,12 +122,13 @@ export function HeaderRight({
         onPress={openSettingPage}
       />
     );
-    const expandExtView = (
+
+    const layoutExtView = (
       <HeaderIconButton
-        key="expandExtView"
-        title={intl.formatMessage({ id: ETranslations.global_expand_view })}
-        icon="ExpandOutline"
-        onPress={openExtensionExpandTab}
+        key="layoutRightView"
+        title={intl.formatMessage({ id: ETranslations.global_layout })}
+        icon="LayoutRightOutline"
+        onPress={openLayoutTab}
       />
     );
     const scanButton = (
@@ -103,8 +152,8 @@ export function HeaderRight({
       ].filter(Boolean);
     }
 
-    if (platformEnv.isExtensionUiPopup) {
-      return [expandExtView, settingsButton];
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      return [layoutExtView, settingsButton];
     }
 
     return [scanButton, settingsButton, searchInput];
@@ -112,7 +161,7 @@ export function HeaderRight({
     intl,
     media.gtMd,
     onScanButtonPressed,
-    openExtensionExpandTab,
+    openLayoutTab,
     openSettingPage,
     sceneName,
   ]);

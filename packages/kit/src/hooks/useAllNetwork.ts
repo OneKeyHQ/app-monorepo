@@ -1,13 +1,10 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
-import {
-  IMPL_ALLNETWORKS,
-  getEnabledNFTNetworkIds,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -16,7 +13,8 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { usePromiseResult } from './usePromiseResult';
 
-const enableNFTNetworkIds = getEnabledNFTNetworkIds();
+// useRef not working as expected, so use a global object
+const currentRequestsUUID = { current: '' };
 
 function useAllNetworkRequests<T>(params: {
   account: INetworkAccount | undefined;
@@ -25,9 +23,11 @@ function useAllNetworkRequests<T>(params: {
   allNetworkRequests: ({
     accountId,
     networkId,
+    allNetworkDataInit,
   }: {
     accountId: string;
     networkId: string;
+    allNetworkDataInit?: boolean;
   }) => Promise<T | undefined>;
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
@@ -35,6 +35,14 @@ function useAllNetworkRequests<T>(params: {
   disabled?: boolean;
   interval?: number;
   shouldAlwaysFetch?: boolean;
+  onStarted?: () => void;
+  onFinished?: ({
+    accountId,
+    networkId,
+  }: {
+    accountId?: string;
+    networkId?: string;
+  }) => void;
 }) {
   const {
     account,
@@ -47,6 +55,8 @@ function useAllNetworkRequests<T>(params: {
     disabled,
     interval = 0,
     shouldAlwaysFetch,
+    onStarted,
+    onFinished,
   } = params;
   const allNetworkDataInit = useRef(false);
   const isFetching = useRef(false);
@@ -54,11 +64,12 @@ function useAllNetworkRequests<T>(params: {
 
   const { run, result } = usePromiseResult(
     async () => {
+      const requestsUUID = generateUUID();
+
       if (disabled) return;
       if (isFetching.current) return;
       if (!account || !network || !wallet) return;
       if (!network.isAllNetworks) return;
-
       isFetching.current = true;
 
       if (!allNetworkDataInit.current) {
@@ -67,44 +78,28 @@ function useAllNetworkRequests<T>(params: {
 
       abortAllNetworkRequests?.();
 
-      const allAccounts = (
-        await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
-          {
-            indexedAccountId: account.indexedAccountId ?? '',
-          },
-        )
-      ).filter((a) => a.impl !== IMPL_ALLNETWORKS);
+      const {
+        accountsInfo,
+        accountsInfoBackendIndexed,
+        accountsInfoBackendNotIndexed,
+      } = await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+        accountId: account.id,
+        networkId: network.id,
+        deriveType: undefined,
+        nftEnabledOnly: isNFTRequests,
+      });
 
-      if (!allAccounts || isEmpty(allAccounts)) {
+      if (!accountsInfo || isEmpty(accountsInfo)) {
         setIsEmptyAccount(true);
         isFetching.current = false;
         return;
       }
 
-      const concurrentNetworks = new Set<string>();
-      const sequentialNetworks = new Set<string>();
+      const concurrentNetworks = accountsInfoBackendIndexed;
+      const sequentialNetworks = accountsInfoBackendNotIndexed;
       let resp: Array<T> = [];
 
-      for (const a of allAccounts) {
-        const networks = (
-          await backgroundApiProxy.serviceNetwork.getNetworksByImpls({
-            impls: [a.impl],
-          })
-        ).networks.filter((i) => !i.isTestnet);
-
-        for (const n of networks) {
-          if (!isNFTRequests || enableNFTNetworkIds.includes(n.id)) {
-            const networkData = { accountId: a.id, networkId: n.id };
-            if (n.backendIndex) {
-              concurrentNetworks.add(JSON.stringify(networkData));
-            } else {
-              sequentialNetworks.add(JSON.stringify(networkData));
-            }
-          }
-        }
-      }
-
-      if (concurrentNetworks.size === 0 && sequentialNetworks.size === 0) {
+      if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
         setIsEmptyAccount(true);
         isFetching.current = false;
         return;
@@ -112,15 +107,24 @@ function useAllNetworkRequests<T>(params: {
 
       setIsEmptyAccount(false);
 
+      onStarted?.();
+
+      currentRequestsUUID.current = requestsUUID;
+      console.log(
+        'currentRequestsUUID set: =====>>>>>: ',
+        currentRequestsUUID.current,
+      );
+
       if (allNetworkDataInit.current) {
-        const allNetworks = [
-          ...Array.from(sequentialNetworks),
-          ...Array.from(concurrentNetworks),
-        ];
+        const allNetworks = accountsInfo;
 
         const requests = allNetworks.map((networkDataString) => {
-          const { accountId, networkId } = JSON.parse(networkDataString);
-          return allNetworkRequests({ accountId, networkId });
+          const { accountId, networkId } = networkDataString;
+          return allNetworkRequests({
+            accountId,
+            networkId,
+            allNetworkDataInit: allNetworkDataInit.current,
+          });
         });
 
         try {
@@ -133,13 +137,18 @@ function useAllNetworkRequests<T>(params: {
         // 处理并发请求的网络
         const concurrentRequests = Array.from(concurrentNetworks).map(
           (networkDataString) => {
-            const { accountId, networkId } = JSON.parse(networkDataString);
+            const { accountId, networkId, apiAddress } = networkDataString;
             console.log(
               'concurrentRequests: =====>>>>>: ',
               accountId,
               networkId,
+              apiAddress,
             );
-            return allNetworkRequests({ accountId, networkId });
+            return allNetworkRequests({
+              accountId,
+              networkId,
+              allNetworkDataInit: allNetworkDataInit.current,
+            });
           },
         );
         try {
@@ -150,20 +159,43 @@ function useAllNetworkRequests<T>(params: {
         }
 
         // 处理顺序请求的网络
-        for (const networkDataString of sequentialNetworks) {
-          const { accountId, networkId } = JSON.parse(networkDataString);
-          try {
-            await allNetworkRequests({ accountId, networkId });
-          } catch (e) {
-            console.error(e);
-            // pass
+        await (async (uuid: string) => {
+          for (const networkDataString of sequentialNetworks) {
+            console.log(
+              'currentRequestsUUID for: =====>>>>>: ',
+              currentRequestsUUID.current,
+              uuid,
+              networkDataString.networkId,
+              networkDataString.apiAddress,
+            );
+            if (
+              currentRequestsUUID.current &&
+              currentRequestsUUID.current !== uuid
+            ) {
+              break;
+            }
+            const { accountId, networkId } = networkDataString;
+            try {
+              await allNetworkRequests({
+                accountId,
+                networkId,
+                allNetworkDataInit: allNetworkDataInit.current,
+              });
+            } catch (e) {
+              console.error(e);
+              // pass
+            }
+            await waitAsync(interval);
           }
-          await waitAsync(interval);
-        }
+        })(requestsUUID);
       }
 
       allNetworkDataInit.current = true;
       isFetching.current = false;
+      onFinished?.({
+        accountId: account.id,
+        networkId: network.id,
+      });
 
       return resp;
     },
@@ -173,8 +205,10 @@ function useAllNetworkRequests<T>(params: {
       network,
       wallet,
       abortAllNetworkRequests,
-      clearAllNetworkData,
       isNFTRequests,
+      onStarted,
+      onFinished,
+      clearAllNetworkData,
       allNetworkRequests,
       interval,
     ],
@@ -185,10 +219,17 @@ function useAllNetworkRequests<T>(params: {
     },
   );
 
+  useEffect(() => {
+    if (account?.id && network?.id && wallet?.id) {
+      allNetworkDataInit.current = false;
+    }
+  }, [account?.id, network?.id, wallet?.id]);
+
   return {
     run,
     result,
     isEmptyAccount,
+    allNetworkDataInit,
   };
 }
 

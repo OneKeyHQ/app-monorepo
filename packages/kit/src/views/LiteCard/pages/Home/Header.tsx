@@ -53,7 +53,7 @@ export function Header() {
         color="white"
         iconAfter="OpenOutline"
         iconColor="white"
-        focusStyle={{ bg: 'rgba(0, 0, 0, 0.75)' }}
+        focusVisibleStyle={{ bg: 'rgba(0, 0, 0, 0.75)' }}
         hoverStyle={{ bg: 'rgba(0, 0, 0, 0.75)' }}
         onPress={() => openUrlExternal(LITE_CARD_URL)}
       >

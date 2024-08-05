@@ -155,7 +155,7 @@ const SwapsSlippageContentContainer = ({
   );
 
   return (
-    <YStack space="$4">
+    <YStack gap="$4">
       <SegmentControl
         fullWidth
         value={swapSlippageStatus.key}
@@ -186,7 +186,7 @@ const SwapsSlippageContentContainer = ({
         />
       ) : null}
       {swapSlippageStatus.key === ESwapSlippageSegmentKey.CUSTOM ? (
-        <XStack space="$2.5">
+        <XStack gap="$2.5">
           <SlippageInput
             swapSlippage={swapSlippageStatus}
             onChangeText={handleSlippageChange}

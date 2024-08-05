@@ -12,6 +12,7 @@ export type IToken = {
   // for all networks
   networkId?: string;
   accountId?: string;
+  allNetworkAccountId?: string;
 };
 
 export type ITokenFiat = {
@@ -29,6 +30,7 @@ export type ITokenFiat = {
 };
 
 export type IAccountToken = { $key: string } & IToken;
+export type ICustomTokenItem = IAccountToken;
 
 export type IFetchAccountTokensParams = {
   accountId: string;
@@ -38,11 +40,12 @@ export type IFetchAccountTokensParams = {
   hideSmallBalanceTokens?: boolean;
   hideRiskTokens?: boolean;
   contractList?: string[];
-  blockedTokens?: string[];
-  unblockedTokens?: string[];
   hiddenTokens?: string[];
   flag?: string;
   isAllNetworks?: boolean;
+
+  allNetworksAccountId?: string;
+  allNetworksNetworkId?: string;
 };
 
 export type ITokenData = {
@@ -57,7 +60,9 @@ export type IFetchAccountTokensResp = {
   tokens: ITokenData;
   riskTokens: ITokenData;
   smallBalanceTokens: ITokenData;
+  accountId?: string;
   networkId?: string;
+  isSameAllNetworksAccountData?: boolean;
 };
 
 export type IFetchTokenDetailParams = {

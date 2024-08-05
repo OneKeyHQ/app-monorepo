@@ -9,6 +9,7 @@ import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 
+import { Bootstrap } from './Bootstrap';
 import { Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
 import { SplashProvider } from './SplashProvider';
@@ -35,9 +36,10 @@ const flexStyle = { flex: 1 };
 export function KitProvider() {
   useDebugComponentRemountLog({ name: 'KitProvider' });
   return (
-    <GlobalJotaiReady>
-      <GestureHandlerRootView style={flexStyle}>
-        <ThemeProvider>
+    <GestureHandlerRootView style={flexStyle}>
+      <ThemeProvider>
+        <GlobalJotaiReady>
+          <Bootstrap />
           <SplashProvider>
             <Container />
           </SplashProvider>
@@ -46,8 +48,8 @@ export function KitProvider() {
           <LastActivityTracker />
           <SystemLocaleTracker />
           <InAppNotification />
-        </ThemeProvider>
-      </GestureHandlerRootView>
-    </GlobalJotaiReady>
+        </GlobalJotaiReady>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

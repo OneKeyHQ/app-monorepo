@@ -32,6 +32,8 @@ type IProps = {
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
   isBuyTokenSupported?: boolean;
+  onManageToken?: () => void;
+  manageTokenEnabled?: boolean;
   isAllNetworks?: boolean;
   searchAll?: boolean;
   isTokenSelectorLayout?: boolean;
@@ -50,6 +52,8 @@ function TokenListView(props: IProps) {
     onReceiveToken,
     onBuyToken,
     isBuyTokenSupported,
+    onManageToken,
+    manageTokenEnabled,
     withPresetVerticalPadding = true,
     isAllNetworks,
     searchAll,
@@ -79,29 +83,36 @@ function TokenListView(props: IProps) {
     searchTokenState.isSearching ||
     (!tokenListState.initialized && tokenListState.isRefreshing)
   ) {
-    return <ListLoading />;
+    return <ListLoading isTokenSelectorView />;
   }
 
   return (
     <ListView
       {...listViewProps}
       renderScrollComponent={renderNestedScrollView}
-      py={withPresetVerticalPadding ? '$3' : '$0'}
+      // py={withPresetVerticalPadding ? '$3' : '$0'}
       estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef}
       onLayout={onLayout}
       data={filteredTokens}
       ListHeaderComponent={
-        withHeader && tokens.length > 0 ? (
+        withHeader ? (
           <TokenListHeader
             filteredTokens={filteredTokens}
-            tableLayout={tableLayout}
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
+            {...(tokens.length > 0 && {
+              tableLayout,
+            })}
           />
         ) : null
       }
       ListEmptyComponent={
         searchKey ? (
-          EmptySearch
+          <EmptySearch
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
+          />
         ) : (
           <EmptyToken
             withBuyAndReceive={withBuyAndReceive}

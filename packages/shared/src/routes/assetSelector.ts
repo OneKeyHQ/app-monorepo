@@ -5,6 +5,7 @@ export enum EAssetSelectorRoutes {
 }
 
 export type ITokenSelectorParamList = {
+  title?: string;
   networkId: string;
   accountId: string;
   tokens?: ITokenData;
@@ -15,6 +16,8 @@ export type ITokenSelectorParamList = {
     initialized: boolean;
   };
   searchAll?: boolean;
+  isAllNetworks?: boolean;
+  searchPlaceholder?: string;
 };
 
 export type IAssetSelectorParamList = {

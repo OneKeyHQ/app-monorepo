@@ -2,14 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { ICheckedState, IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
   Checkbox,
+  Divider,
+  Icon,
   IconButton,
   NumberSizeableText,
   Page,
+  Popover,
+  Select,
   SizableText,
   Spinner,
   Stack,
@@ -18,9 +23,11 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import {
+  AccountSelectorProviderMirror,
+  ControlledNetworkSelectorTrigger,
+} from '@onekeyhq/kit/src/components/AccountSelector';
+import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -28,7 +35,11 @@ import type {
   IBatchBuildAccountsAdvancedFlowParams,
   IBatchBuildAccountsNormalFlowParams,
 } from '@onekeyhq/kit-bg/src/services/ServiceBatchCreateAccount/ServiceBatchCreateAccount';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveInfoItems,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EAccountManagerStacksRoutes,
@@ -36,6 +47,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
@@ -53,17 +65,18 @@ import type { IBatchCreateAccountFormValues } from './BatchCreateAccountFormBase
 
 function BatchCreateAccountPreviewPage({
   walletId,
-  networkId,
+  defaultNetworkId,
   defaultFrom,
   defaultCount,
   defaultIsAdvancedMode,
 }: {
   walletId: string;
-  networkId: string;
+  defaultNetworkId: string;
   defaultFrom: string; // start from 1
   defaultCount: string;
   defaultIsAdvancedMode?: boolean;
 }) {
+  const [networkId, setNetworkId] = useState(defaultNetworkId);
   const [isAdvancedMode, setIsAdvancedMode] = useState(
     defaultIsAdvancedMode ?? false,
   );
@@ -101,6 +114,43 @@ function BatchCreateAccountPreviewPage({
   const [deriveType, setDeriveType] = useState<
     IAccountDeriveTypes | undefined
   >();
+  const [deriveTypeItems, setDeriveTypeItems] =
+    useState<IAccountDeriveInfoItems[]>();
+
+  const deriveTypeTrigger = useMemo(
+    () => (
+      <XStack
+        role="button"
+        userSelect="none"
+        alignItems="center"
+        px="$2"
+        py="$2"
+        borderRadius="$full"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+      >
+        <Icon name="BranchesOutline" color="$iconSubdued" size="$6" />
+      </XStack>
+    ),
+    [],
+  );
+
+  const showPopoverDeriveTypeInfo = useMemo(
+    () =>
+      !networkUtils.getDefaultDeriveTypeVisibleNetworks().includes(networkId),
+    [networkId],
+  );
+  const currentDeriveTypeInfo = useMemo(() => {
+    if (deriveTypeItems) {
+      return deriveTypeItems.find((item) => item.value === deriveType);
+    }
+    return undefined;
+  }, [deriveType, deriveTypeItems]);
+
   const intl = useIntl();
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -147,7 +197,10 @@ function BatchCreateAccountPreviewPage({
   const previewTimes = useRef(0);
 
   const { result: network } = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId,
+      }),
     [networkId],
   );
   const [balanceMap, setBalanceMap] = useState<{
@@ -156,7 +209,11 @@ function BatchCreateAccountPreviewPage({
   const balanceMapRef = useRef(balanceMap);
   balanceMapRef.current = balanceMap;
 
-  const { result: accounts = [], isLoading } = usePromiseResult(
+  const {
+    result: accounts = [],
+    isLoading,
+    setResult,
+  } = usePromiseResult(
     async () => {
       try {
         if (!deriveType) {
@@ -191,17 +248,27 @@ function BatchCreateAccountPreviewPage({
       } catch (error) {
         // may be second time error
         if (previewTimes.current === 1) {
-          navigation.pop();
+          // If an error occurs and exits, the user cannot switch to other networks for addition, such as an error under DNX, and cannot switch to ETH
+          // navigation.pop();
         }
         throw error;
       }
     },
-    [deriveType, endIndex, fromInt, navigation, networkId, page, walletId],
+    [deriveType, endIndex, fromInt, networkId, page, walletId],
     {
       watchLoading: true,
       debounced: 300,
     },
   );
+
+  useEffect(() => {
+    if (networkId) {
+      // reset deriveType after network changed
+      setDeriveType(undefined);
+      setResult([]);
+      // DeriveTypeSelectorFormInput shouldResetDeriveTypeWhenNetworkChanged will handle this internally
+    }
+  }, [networkId, setResult]);
 
   const buildBalanceMapKey = useCallback(
     ({ account }: { account: INetworkAccount }) =>
@@ -209,45 +276,52 @@ function BatchCreateAccountPreviewPage({
     [networkId],
   );
 
-  useEffect(() => {
-    void (async () => {
-      const toFetchBalanceAccounts = [];
-      for (const account of accounts) {
-        const key: string = buildBalanceMapKey({ account });
-        if (isNil(balanceMapRef.current[key])) {
-          toFetchBalanceAccounts.push(account);
-        }
+  const refreshBalance = useDebouncedCallback(async () => {
+    const toFetchBalanceAccounts: IBatchCreateAccount[] = [];
+    for (const account of accounts) {
+      const key: string = buildBalanceMapKey({ account });
+      if (isNil(balanceMapRef.current[key])) {
+        toFetchBalanceAccounts.push(account);
       }
-      if (toFetchBalanceAccounts.length) {
-        const balancesToUpdate: {
-          [key: string]: string | undefined;
-        } = {};
+    }
+    if (toFetchBalanceAccounts.length) {
+      const balancesToUpdate: {
+        [key: string]: string | undefined;
+      } = {};
 
-        await Promise.all(
-          toFetchBalanceAccounts.map(async (account) => {
+      await Promise.all(
+        toFetchBalanceAccounts.map(async (account) => {
+          try {
             const balances: IFetchAccountDetailsResp =
-              await backgroundApiProxy.serviceAccountProfile.fetchAccountInfo({
-                accountId: account?.id || '',
-                networkId,
-                accountAddress: account?.address,
-                xpub: (account as IDBUtxoAccount)?.xpub,
-                withNetWorth: true,
-              });
+              await backgroundApiProxy.serviceAccountProfile.fetchAccountNativeBalance(
+                {
+                  account,
+                  networkId,
+                },
+              );
             // Process the balances here
             balancesToUpdate[buildBalanceMapKey({ account })] =
               balances.balanceParsed;
-          }),
-        );
+          } catch (error) {
+            //
+          }
+        }),
+      );
 
-        if (Object.keys(balancesToUpdate).length) {
-          setBalanceMap((v) => {
-            const newValue = { ...v, ...balancesToUpdate };
-            return newValue;
-          });
-        }
+      if (Object.keys(balancesToUpdate).length) {
+        setBalanceMap((v) => {
+          const newValue = { ...v, ...balancesToUpdate };
+          return newValue;
+        });
       }
-    })();
-  }, [accounts, buildBalanceMapKey, networkId]);
+    }
+  }, 600);
+
+  useEffect(() => {
+    if (accounts && !!buildBalanceMapKey && networkId) {
+      void refreshBalance();
+    }
+  }, [accounts, buildBalanceMapKey, networkId, refreshBalance]);
 
   const selectCheckBox = useCallback(
     ({
@@ -298,34 +372,44 @@ function BatchCreateAccountPreviewPage({
       <Stack flexDirection="row" alignItems="center">
         {/* {isLoading ? <Spinner mr="$4" size="small" /> : null} */}
 
-        <ListItem
-          ml="$4"
-          // variant="tertiary"
-          onPress={async () => {
-            showBatchCreateAccountPreviewAdvancedDialog({
-              networkId,
-              defaultFrom: from,
-              defaultCount: count,
-              defaultDeriveType: deriveType,
-              async onSubmit(values) {
-                if (values) enableAdvancedMode(values);
-              },
-            });
-          }}
-        >
-          <XStack alignItems="center">
-            <SizableText mr="$3">
-              {intl.formatMessage({
-                id: ETranslations.global_advanced,
-              })}
-            </SizableText>
-            <ListItem.DrillIn name="ChevronDownSmallSolid" />
-          </XStack>
-        </ListItem>
+        {showPopoverDeriveTypeInfo &&
+        currentDeriveTypeInfo &&
+        deriveTypeItems &&
+        deriveTypeItems?.length > 1 ? (
+          <Popover
+            title={intl.formatMessage({ id: ETranslations.derivation_path })}
+            renderContent={
+              <Stack
+                px="$4"
+                py="$5"
+                pt={0}
+                $gtMd={{
+                  pt: '$5',
+                }}
+              >
+                <SizableText size="$bodyLg" mb="$5">
+                  {intl.formatMessage({
+                    id: ETranslations.global_generate_amount_select_path,
+                  })}
+                </SizableText>
+                <Divider />
+                <Stack mt="$5">
+                  <Select.Item
+                    label={currentDeriveTypeInfo.label}
+                    description={currentDeriveTypeInfo.description}
+                  />
+                </Stack>
+              </Stack>
+            }
+            renderTrigger={deriveTypeTrigger}
+          />
+        ) : null}
 
-        <DeriveTypeSelectorTriggerStaticInput
+        <DeriveTypeSelectorFormInput
+          visibleOnNetworks={networkUtils.getDefaultDeriveTypeVisibleNetworks()}
           hideIfItemsLTEOne
           value={deriveType}
+          onItemsChange={setDeriveTypeItems}
           onChange={(v) => {
             if (deriveType !== v) {
               setDeriveType(v);
@@ -335,23 +419,51 @@ function BatchCreateAccountPreviewPage({
           defaultTriggerInputProps={{
             size: media.gtMd ? 'medium' : 'large',
           }}
-          renderTrigger={({ label }) => (
-            <ListItem
-            // ml="$4"
-            // variant="tertiary"
-            // title={title}
-            // avatarProps={{ src: icon, size: '$8' }}
-            >
-              <XStack alignItems="center">
-                <SizableText mr="$3">{label}</SizableText>
-                <ListItem.DrillIn name="ChevronDownSmallSolid" />
-              </XStack>
-            </ListItem>
-          )}
+          renderTrigger={({ label }) => deriveTypeTrigger}
+        />
+
+        <ControlledNetworkSelectorTrigger
+          value={networkId}
+          onChange={setNetworkId}
+          excludeAllNetworkItem
+          miniMode
+          borderWidth={0}
+          hitSlop={{
+            left: 8,
+            top: 8,
+            right: 8,
+            bottom: 8,
+          }}
+          mr="$-2"
+          px="$2"
+          py="$2"
+          borderRadius="$full"
+          // px="$4"
+          // py="$3"
+          // borderRadius="$2"
+          hoverStyle={{
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            bg: '$bgActive',
+          }}
+          $gtMd={{
+            borderRadius: '$full',
+            py: '$2',
+          }}
         />
       </Stack>
     ),
-    [count, deriveType, enableAdvancedMode, from, intl, media.gtMd, networkId],
+    [
+      currentDeriveTypeInfo,
+      deriveType,
+      deriveTypeItems,
+      deriveTypeTrigger,
+      intl,
+      media.gtMd,
+      networkId,
+      showPopoverDeriveTypeInfo,
+    ],
   );
 
   const totalCount = useMemo<number>(() => {
@@ -372,6 +484,19 @@ function BatchCreateAccountPreviewPage({
 
   const numWidth = '$20';
 
+  const buildRelPathSuffix = useCallback(
+    (account: INetworkAccount) => {
+      if (networkId === getNetworkIdsMap().dnx) {
+        return '';
+      }
+      if (account.relPath) {
+        return `/${account.relPath.replace(/^\/+/, '')}`;
+      }
+      return '';
+    },
+    [networkId],
+  );
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -385,25 +510,26 @@ function BatchCreateAccountPreviewPage({
         px="$5"
         // backgroundColor={'#eee'}
       >
-        <Stack flexDirection="row" pb="$4">
+        <Stack flexDirection="row" py="$2">
           <SizableText
             size="$bodyMd"
             w={numWidth}
             pr="$4"
             wordWrap="break-word"
+            color="$textDisabled"
           >
             {intl.formatMessage({
               id: ETranslations.global_generate_amount_number,
             })}
             {/* TestVeryLongWordTestVeryLongWordTestVeryLongWord */}
           </SizableText>
-          <SizableText size="$bodyMd">
+          <SizableText size="$bodyMd" color="$textDisabled">
             {intl.formatMessage({
               id: ETranslations.global_generate_amount_address,
             })}
           </SizableText>
           <Stack flex={1} />
-          <SizableText size="$bodyMd">
+          <SizableText size="$bodyMd" color="$textDisabled">
             {intl.formatMessage({
               id: ETranslations.global_generate_amount_balance,
             })}
@@ -452,10 +578,12 @@ function BatchCreateAccountPreviewPage({
                       });
                     }}
                     label={String((account.pathIndex ?? 0) + 1)}
-                    labelProps={{
-                      size: '$bodyMd',
-                      wordWrap: 'break-word', // TODO not working
-                    }}
+                    labelProps={
+                      {
+                        size: '$bodyMd',
+                        wordWrap: 'break-word', // TODO not working
+                      } as any
+                    }
                   />
                 </Stack>
 
@@ -467,7 +595,7 @@ function BatchCreateAccountPreviewPage({
                   </SizableText>
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {account.path}
-                    {account.relPath || ''}
+                    {buildRelPathSuffix(account)}
                   </SizableText>
                 </Stack>
                 <NumberSizeableText
@@ -516,6 +644,7 @@ function BatchCreateAccountPreviewPage({
                 toIndex: endIndex,
                 excludedIndexes: advanceExcludedIndexes,
                 saveToDb: true,
+                hideCheckingDeviceLoading: true,
               };
             } else {
               normalParams = {
@@ -526,6 +655,7 @@ function BatchCreateAccountPreviewPage({
                   .filter(([, v]) => v)
                   .map(([k]) => parseInt(k, 10)),
                 saveToDb: true,
+                hideCheckingDeviceLoading: true,
               };
             }
             if (!normalParams && !advancedParams) {
@@ -618,6 +748,23 @@ function BatchCreateAccountPreviewPage({
 
             <Stack flex={1} />
             <IconButton
+              icon="SliderThreeOutline"
+              mr="$4"
+              radiused={false} // not working
+              circular={false} // not working
+              onPress={async () => {
+                showBatchCreateAccountPreviewAdvancedDialog({
+                  networkId,
+                  defaultFrom: from,
+                  defaultCount: count,
+                  defaultDeriveType: deriveType,
+                  async onSubmit(values) {
+                    if (values) enableAdvancedMode(values);
+                  },
+                });
+              }}
+            />
+            <IconButton
               icon="ChevronLeftOutline"
               disabled={page <= minPage || isLoading}
               onPress={() => {
@@ -662,7 +809,7 @@ export default function BatchCreateAccountPreview({
   IAccountManagerStacksParamList,
   EAccountManagerStacksRoutes.BatchCreateAccountPreview
 >) {
-  const { walletId, networkId, from, count } = route.params;
+  const { walletId, networkId: defaultNetworkId, from, count } = route.params;
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
@@ -673,7 +820,7 @@ export default function BatchCreateAccountPreview({
     >
       <BatchCreateAccountPreviewPage
         walletId={walletId}
-        networkId={networkId}
+        defaultNetworkId={defaultNetworkId}
         defaultCount={count}
         defaultFrom={from}
       />

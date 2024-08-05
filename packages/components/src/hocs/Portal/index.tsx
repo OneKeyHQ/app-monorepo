@@ -29,6 +29,7 @@ function isPortalExisted(name: string): boolean {
 
 export enum EPortalContainerConstantName {
   WEB_TAB_BAR = 'ONEKEY_WEB_TAB_BAR',
+  SIDEBAR_BANNER = 'SIDEBAR_BANNER',
   APP_STATE_LOCK_CONTAINER_OVERLAY = 'APP_STATE_LOCK_CONTAINER_OVERLAY',
   SPOTLIGHT_OVERLAY_PORTAL = 'ONEKEY-Root-SPOTLIGHT_OVERLAY_PORTAL',
   FULL_WINDOW_OVERLAY_PORTAL = 'ONEKEY-Root-FullWindowOverlay',
@@ -45,7 +46,9 @@ export interface IPortalManager {
   destroy: (destroyCallback?: () => void) => void;
 }
 
-const MAX_RETRY_TIMES = 5;
+const MAX_RETRY_TIMES = 10;
+
+const retryDuration = (retryTimes: number) => 80 + retryTimes * 50;
 
 function renderToPortal(
   container: EPortalContainerConstantName,
@@ -70,7 +73,7 @@ function renderToPortal(
           container,
         );
         retryUpdate(retryTimes + 1);
-      }, 80);
+      }, retryDuration(retryTimes));
     }
   };
   retryUpdate();
@@ -182,7 +185,7 @@ function PortalRender(props: {
           container,
         );
         updateRetryTimes((i) => i + 1);
-      }, 80);
+      }, retryDuration(retryTimes));
     }
   }, [children, container, managerController, retryTimes]);
 

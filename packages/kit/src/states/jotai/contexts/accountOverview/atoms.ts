@@ -27,6 +27,6 @@ export const {
   isRefreshing: boolean;
   initialized: boolean;
 }>({
-  isRefreshing: true,
+  isRefreshing: false,
   initialized: false,
 });

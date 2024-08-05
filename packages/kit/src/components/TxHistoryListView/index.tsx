@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IListViewProps } from '@onekeyhq/components';
 import {
   ListView,
   SectionList,
@@ -36,6 +37,7 @@ type IProps = {
   onPressHistory?: (history: IAccountHistoryTx) => void;
   initialized?: boolean;
   inTabList?: boolean;
+  contentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
 };
 
 const ListFooterComponent = () => <Stack h="$5" />;
@@ -51,6 +53,7 @@ function TxHistoryListView(props: IProps) {
     onPressHistory,
     tableLayout,
     initialized,
+    contentContainerStyle,
     inTabList = false,
   } = props;
 
@@ -72,7 +75,7 @@ function TxHistoryListView(props: IProps) {
         return (
           <>
             {index === 0 ? (
-              <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" space="$2">
+              <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" gap="$2">
                 <Stack
                   w="$2"
                   height="$2"
@@ -174,7 +177,9 @@ function TxHistoryListView(props: IProps) {
       {...listViewProps}
       renderScrollComponent={renderNestedScrollView}
       ref={listViewRef}
-      py="$3"
+      contentContainerStyle={{
+        ...contentContainerStyle,
+      }}
       h="100%"
       onLayout={onLayout}
       data={filteredHistory}

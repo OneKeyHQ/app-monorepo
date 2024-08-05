@@ -38,6 +38,10 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
+import type {
   IEstimateFeeParams,
   IFeeInfoUnit,
 } from '@onekeyhq/shared/types/fee';
@@ -53,7 +57,10 @@ import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
-import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IFetchTokenDetailItem,
+} from '@onekeyhq/shared/types/token';
 import type {
   EReplaceTxType,
   IDecodedTx,
@@ -77,6 +84,7 @@ import type {
   IDBWalletType,
 } from '../../dbs/local/types';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
@@ -91,6 +99,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { MessageDescriptor } from 'react-intl';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
@@ -104,6 +113,12 @@ if (platformEnv.isExtensionUi) {
 
 export abstract class VaultBaseChainOnly extends VaultContext {
   coreApi: CoreChainApiBase | undefined;
+
+  async getXpubFromAccount(
+    networkAccount: INetworkAccount,
+  ): Promise<string | undefined> {
+    return (networkAccount as IDBUtxoAccount).xpub;
+  }
 
   // Methods not related to a single account, but implementation.
 
@@ -255,6 +270,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   }): Promise<IResolveNameResp | null> {
     return null;
   }
+
+  async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    throw new NotImplemented();
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -304,6 +325,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       txid,
       encodedTx: signedTx.encodedTx,
     };
+  }
+
+  async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    throw new NotImplemented();
   }
 
   async validateSendAmount(params: {
@@ -883,7 +910,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async getAccountXpub(): Promise<string | undefined> {
-    return ((await this.getAccount()) as IDBUtxoAccount).xpub;
+    const networkAccount = await this.getAccount();
+    return this.getXpubFromAccount(networkAccount);
   }
 
   async fillTokensDetails({
@@ -925,5 +953,16 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTx> {
     return Promise.resolve(params.encodedTx);
+  }
+
+  async activateToken(params: { token: IAccountToken }): Promise<boolean> {
+    throw new NotImplemented();
+  }
+
+  async getAddressType({ address }: { address: string }): Promise<{
+    typeKey?: MessageDescriptor['id'];
+    type?: string;
+  }> {
+    return Promise.resolve({});
   }
 }

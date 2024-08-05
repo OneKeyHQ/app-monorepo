@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import type { ITokenSelectorParamList } from './assetSelector';
+import type { IDeriveTypesAddressParams } from './walletAddress';
 import type { IToken } from '../../types/token';
 
 export enum EModalReceiveRoutes {
@@ -11,6 +12,7 @@ export enum EModalReceiveRoutes {
   CreateInvoice = 'CreateInvoice',
   ReceiveInvoice = 'ReceiveInvoice',
   ReceiveSelectToken = 'ReceiveSelectToken',
+  ReceiveSelectDeriveAddress = 'ReceiveSelectDeriveAddress',
 }
 
 export type IModalReceiveParamList = {
@@ -33,4 +35,5 @@ export type IModalReceiveParamList = {
     paymentHash: string;
   };
   [EModalReceiveRoutes.ReceiveSelectToken]: ITokenSelectorParamList;
+  [EModalReceiveRoutes.ReceiveSelectDeriveAddress]: IDeriveTypesAddressParams;
 };

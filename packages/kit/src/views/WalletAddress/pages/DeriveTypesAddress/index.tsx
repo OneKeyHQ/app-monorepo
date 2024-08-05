@@ -6,22 +6,29 @@ import {
   useState,
 } from 'react';
 
+import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Icon,
   ListView,
+  NumberSizeableText,
   Page,
   Spinner,
   Stack,
   Toast,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -32,15 +39,35 @@ import type {
   IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+import {
+  EAccountSelectorSceneName,
+  type IServerNetwork,
+} from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 const DeriveTypesAddressContent = createContext<{
   network?: IServerNetwork;
   refreshLocalData?: () => void;
-  walletId: string;
   indexedAccountId: string;
-}>({ walletId: '', indexedAccountId: '' });
+  actionType?: EDeriveAddressActionType;
+  onSelected?: ({
+    account,
+    deriveInfo,
+    deriveType,
+  }: {
+    account: INetworkAccount;
+    deriveInfo: IAccountDeriveInfo;
+    deriveType: IAccountDeriveTypes;
+  }) => void;
+  token?: IToken;
+  tokenMap?: Record<string, ITokenFiat>;
+}>({
+  indexedAccountId: '',
+  actionType: EDeriveAddressActionType.Copy,
+  tokenMap: {},
+});
 
 type IDeriveTypesAddressItemType = {
   account?: INetworkAccount;
@@ -56,37 +83,73 @@ const DeriveTypesAddressItem = ({
   const intl = useIntl();
   const copyAccountAddress = useCopyAccountAddress();
   const [loading, setLoading] = useState(false);
-  const { network, refreshLocalData, walletId, indexedAccountId } = useContext(
-    DeriveTypesAddressContent,
-  );
+  const {
+    network,
+    refreshLocalData,
+    indexedAccountId,
+    actionType,
+    onSelected,
+    token,
+    tokenMap,
+  } = useContext(DeriveTypesAddressContent);
+  const { createAddress } = useAccountSelectorCreateAddress();
+
+  const [settings] = useSettingsPersistAtom();
+  let tokenFiat: ITokenFiat | undefined;
+
+  if (tokenMap) {
+    tokenFiat = find(
+      tokenMap,
+      (_, key) =>
+        !!(
+          (item.account as IDBUtxoAccount)?.xpub &&
+          key.includes((item.account as IDBUtxoAccount)?.xpub ?? '')
+        ) || !!(item.account?.address && key.includes(item.account?.address)),
+    );
+  }
+
   const subtitle = item.account
     ? accountUtils.shortenAddress({ address: item.account.address })
     : intl.formatMessage({ id: ETranslations.wallet_no_address });
 
   const onPress = useCallback(async () => {
+    if (!network) {
+      throw new Error('network is empty');
+    }
     if (item.account) {
-      if (!network) {
-        throw new Error('network is empty');
+      if (actionType === EDeriveAddressActionType.Copy) {
+        await copyAccountAddress({
+          accountId: item.account.id,
+          networkId: network.id,
+          deriveType: item.deriveType,
+        });
+      } else if (actionType === EDeriveAddressActionType.Select) {
+        onSelected?.({
+          account: item.account,
+          deriveInfo: item.deriveInfo,
+          deriveType: item.deriveType,
+        });
       }
-      await copyAccountAddress({
-        accountId: item.account.id,
-        networkId: network.id,
-        deriveType: item.deriveType,
-      });
     } else {
       try {
         setLoading(true);
-        if (!network) {
-          throw new Error('wrong network');
-        }
-        await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
-          walletId,
-          indexedAccountId,
-          deriveType: item.deriveType,
-          networkId: network.id,
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId: indexedAccountId,
+        });
+        await createAddress({
+          selectAfterCreate: false,
+          num: 0,
+          account: {
+            walletId,
+            indexedAccountId,
+            deriveType: item.deriveType,
+            networkId: network.id,
+          },
         });
         Toast.success({
-          title: intl.formatMessage({ id: ETranslations.global_success }),
+          title: intl.formatMessage({
+            id: ETranslations.swap_page_toast_address_generated,
+          }),
         });
         refreshLocalData?.();
       } finally {
@@ -94,13 +157,17 @@ const DeriveTypesAddressItem = ({
       }
     }
   }, [
-    item,
-    copyAccountAddress,
-    refreshLocalData,
-    indexedAccountId,
+    item.account,
+    item.deriveType,
+    item.deriveInfo,
     network,
-    walletId,
+    actionType,
+    copyAccountAddress,
+    onSelected,
+    indexedAccountId,
     intl,
+    refreshLocalData,
+    createAddress,
   ]);
   return (
     <ListItem
@@ -116,12 +183,37 @@ const DeriveTypesAddressItem = ({
         <Stack p="$0.5">
           <Spinner />
         </Stack>
-      ) : (
+      ) : null}
+      {!loading && actionType === EDeriveAddressActionType.Copy ? (
         <Icon
           name={item.account ? 'Copy3Outline' : 'PlusLargeOutline'}
           color="$iconSubdued"
         />
-      )}
+      ) : null}
+      {!loading &&
+      actionType === EDeriveAddressActionType.Select &&
+      item.account ? (
+        <YStack>
+          <NumberSizeableText
+            formatter="balance"
+            formatterOptions={{ tokenSymbol: token?.symbol }}
+            numberOfLines={1}
+            textAlign="right"
+            size="$bodyLgMedium"
+          >
+            {tokenFiat?.balanceParsed ?? 0}
+          </NumberSizeableText>
+          <NumberSizeableText
+            formatter="value"
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            size="$bodyMd"
+            color="$textSubdued"
+            textAlign="right"
+          >
+            {tokenFiat?.fiatValue ?? 0}
+          </NumberSizeableText>
+        </YStack>
+      ) : null}
     </ListItem>
   );
 };
@@ -151,7 +243,15 @@ export default function DeriveTypesAddressPage({
   EModalWalletAddressRoutes.DeriveTypesAddress
 >) {
   const intl = useIntl();
-  const { indexedAccountId, networkId, walletId, onUnmounted } = route.params;
+  const {
+    indexedAccountId,
+    networkId,
+    actionType,
+    onUnmounted,
+    onSelected,
+    token,
+    tokenMap,
+  } = route.params;
   const { result, run: refreshLocalData } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
@@ -166,21 +266,40 @@ export default function DeriveTypesAddressPage({
     () => ({
       network: result?.network,
       refreshLocalData,
-      walletId,
       indexedAccountId,
+      actionType,
+      onSelected,
+      tokenMap,
+      token,
     }),
-    [result?.network, refreshLocalData, walletId, indexedAccountId],
+    [
+      result?.network,
+      refreshLocalData,
+      indexedAccountId,
+      actionType,
+      onSelected,
+      tokenMap,
+      token,
+    ],
   );
   return (
-    <DeriveTypesAddressContent.Provider value={context}>
-      <Page onUnmounted={onUnmounted}>
-        <Page.Header
-          title={intl.formatMessage({ id: ETranslations.address_type })}
-        />
-        <Page.Body>
-          <DeriveTypesAddress items={result?.networkAccounts ?? []} />
-        </Page.Body>
-      </Page>
-    </DeriveTypesAddressContent.Provider>
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <DeriveTypesAddressContent.Provider value={context}>
+        <Page onUnmounted={onUnmounted}>
+          <Page.Header
+            title={intl.formatMessage({ id: ETranslations.address_type })}
+          />
+          <Page.Body>
+            <DeriveTypesAddress items={result?.networkAccounts ?? []} />
+          </Page.Body>
+        </Page>
+      </DeriveTypesAddressContent.Provider>
+    </AccountSelectorProviderMirror>
   );
 }
