@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,7 +15,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { networkTransactionExplorerReplaceStr } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTxHistoryStatus,
   type ISwapTxHistory,
