@@ -581,7 +581,7 @@ function BatchCreateAccountPreviewPage({
                     labelProps={{
                       size: '$bodyMd',
                       wordWrap: 'break-word', // TODO not working
-                    }}
+                    } as any}
                   />
                 </Stack>
 
