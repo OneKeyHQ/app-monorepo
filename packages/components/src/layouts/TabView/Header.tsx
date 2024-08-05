@@ -8,7 +8,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import { useThemeValue } from '../../hooks';
 import { Icon } from '../../primitives';
 
-import type { StackStyleProps, TextStyleProps } from '@tamagui/web/types/types';
+import type { StackStyle, TextStyleProps } from '@tamagui/web/types/types';
 import type { NativeScrollEvent, View } from 'react-native';
 import type { GetProps } from 'tamagui';
 
@@ -21,16 +21,16 @@ export type IHeaderProps = Omit<
   | 'itemTitleSelectedStyle'
   | 'cursorStyle'
 > &
-  StackStyleProps & {
-    style?: StackStyleProps;
-    contentContainerStyle?: StackStyleProps;
-    scrollContainerStyle?: StackStyleProps;
-    containerStyle?: StackStyleProps;
-    itemContainerStyle?: StackStyleProps;
+  StackStyle & {
+    style?: StackStyle;
+    contentContainerStyle?: StackStyle;
+    scrollContainerStyle?: StackStyle;
+    containerStyle?: StackStyle;
+    itemContainerStyle?: StackStyle;
     itemTitleStyle?: TextStyleProps;
     itemTitleNormalStyle?: TextStyleProps & { color: string };
     itemTitleSelectedStyle?: TextStyleProps & { color: string };
-    cursorStyle?: StackStyleProps;
+    cursorStyle?: StackStyle;
     showHorizontalScrollButton?: boolean;
   };
 

@@ -6,14 +6,14 @@ import { styled, withStaticProperties } from 'tamagui';
 
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 
-import type { StackStyleProps } from '@tamagui/web/types/types';
+import type { StackStyle } from '@tamagui/web/types/types';
 import type { MotiSkeletonProps } from 'moti/build/skeleton/types';
 
 export type ISkeletonProps = Omit<
   MotiSkeletonProps,
   'Gradient' | 'height' | 'width'
 > &
-  StackStyleProps;
+  StackStyle;
 
 function BasicSkeleton({ children, ...props }: ISkeletonProps) {
   const [restProps, style] = usePropsAndStyle(props, {

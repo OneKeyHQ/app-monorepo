@@ -8,7 +8,7 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { SizableText } from '../../primitives/SizeableText';
 import { Stack, XStack } from '../../primitives/Stack';
 
-import type { StackStyleProps } from '@tamagui/web/types/types';
+import type { StackStyle } from '@tamagui/web/types/types';
 import type { ColorTokens, GetProps } from 'tamagui';
 
 type ISwipeableCellItemProps = {
@@ -84,7 +84,7 @@ export type ISwipeableCellRef = {
 };
 
 export type ISwipeableCellProps = GetProps<typeof Swipeable> &
-  StackStyleProps & {
+  StackStyle & {
     swipeEnabled?: boolean;
     rightItemList?: Array<ISwipeableCellItemProps>;
     leftItemList?: Array<ISwipeableCellItemProps>;

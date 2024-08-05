@@ -1,6 +1,7 @@
 import { RadioGroup } from 'tamagui';
 
 import { Label, XStack } from '../../primitives';
+import { NATIVE_HIT_SLOP } from '../../utils';
 
 import type { IFormFieldProps } from '../types';
 
@@ -34,9 +35,7 @@ export function Radio({ value, onChange, disabled, options }: IRadioProps) {
               outlineOffset: 2,
               outlineColor: '$focusRing',
             }}
-            $platform-native={{
-              hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
-            }}
+            hitSlop={NATIVE_HIT_SLOP}
           >
             <RadioGroup.Indicator
               unstyled

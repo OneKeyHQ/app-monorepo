@@ -1,8 +1,8 @@
 import type { IFormFieldProps } from '../types';
-import type { StackStyleProps } from '@tamagui/web/types/types';
+import type { StackStyle } from '@tamagui/web/types/types';
 
 type INonGestureStackStyleProps = Omit<
-  StackStyleProps,
+  StackStyle,
   | 'onPanStart'
   | 'onPanMove'
   | 'onPanEnd'
