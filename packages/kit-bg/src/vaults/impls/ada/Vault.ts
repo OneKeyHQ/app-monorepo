@@ -281,6 +281,16 @@ export default class Vault extends VaultBase {
           symbol: network.symbol,
         });
       }
+      // put native token first
+      sends.sort((a, b) => {
+        if (a.isNative && !b.isNative) {
+          return -1;
+        }
+        if (!a.isNative && b.isNative) {
+          return 1;
+        }
+        return 0;
+      });
       actions = [
         {
           type: EDecodedTxActionType.ASSET_TRANSFER,
