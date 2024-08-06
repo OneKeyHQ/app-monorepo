@@ -65,7 +65,7 @@ const SwapInputContainer = ({
 
   const fromInputHasError = useMemo(
     () =>
-      alerts?.some((item) => item.inputShowError) &&
+      alerts?.states.some((item) => item.inputShowError) &&
       direction === ESwapDirectionType.FROM,
     [direction, alerts],
   );
