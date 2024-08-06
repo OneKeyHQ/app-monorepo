@@ -46,6 +46,11 @@ const V4MigrationDevSettings = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/V4MigrationDevSettings'),
 );
 
+const ExportCustomNetworkConfig = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/ExportCustomNetworkConfig'),
+);
+
 export const ModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -89,6 +94,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevV4MigrationModal,
     component: V4MigrationDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingExportCustomNetworkConfig,
+    component: ExportCustomNetworkConfig,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,
