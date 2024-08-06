@@ -84,20 +84,21 @@ async function openUrlInTab(
 }
 
 async function isOpenPanelOnActionClick() {
-  const options = await chrome.sidePanel.getPanelBehavior();
-  return options.openPanelOnActionClick;
+  if (typeof chrome !== 'undefined' && chrome.sidePanel) {
+    const options = await chrome.sidePanel.getPanelBehavior();
+    return options.openPanelOnActionClick;
+  }
+  return false;
 }
 
 async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
-  if (chrome && chrome.sidePanel) {
-    if (await isOpenPanelOnActionClick()) {
-      const window = await chrome.windows.getCurrent({ populate: true });
-      if (window) {
-        routeInfo.params = {
-          ...routeInfo.params,
-          panelWindowId: window.id,
-        };
-      }
+  if (await isOpenPanelOnActionClick()) {
+    const window = await chrome.windows.getCurrent({ populate: true });
+    if (window) {
+      routeInfo.params = {
+        ...routeInfo.params,
+        panelWindowId: window.id,
+      };
     }
   }
   const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
@@ -177,7 +178,7 @@ async function openExpandTab(
 async function openSidePanel(
   routeInfo: IOpenUrlRouteInfo,
 ): Promise<chrome.tabs.Tab | undefined> {
-  if (chrome && chrome.sidePanel) {
+  if (typeof chrome !== 'undefined' && chrome.sidePanel) {
     if (platformEnv.isExtensionBackground) {
       if (sidePanelState.isOpen && sidePanelState.port) {
         sidePanelState.port.postMessage({
@@ -206,8 +207,8 @@ async function openSidePanel(
       windowId = window.id;
     }
     if (windowId) {
-      void chrome.sidePanel.open({ windowId });
-      void chrome.sidePanel.setOptions({
+      await chrome.sidePanel.open({ windowId });
+      await chrome.sidePanel.setOptions({
         path: url,
         enabled: true,
       });
