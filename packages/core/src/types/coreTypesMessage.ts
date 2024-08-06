@@ -25,6 +25,14 @@ export type IUnsignedMessageAptos = {
   payload?: ISignMessageRequest;
 };
 
+export type IUnsignedMessageTon = {
+  message: string;
+  payload: {
+    schemaCrc: number;
+    timestamp: number;
+  };
+};
+
 export type IUnsignedMessageAda = {
   type: EMessageTypesAda;
   message: string;
@@ -57,5 +65,6 @@ export type IUnsignedMessage =
   | IUnsignedMessageEth
   | IUnsignedMessageBtc
   | IUnsignedMessageAptos
+  | IUnsignedMessageTon
   | IUnsignedMessageAda
   | IUnsignedMessageCfx;

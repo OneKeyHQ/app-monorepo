@@ -27,6 +27,7 @@ import type {
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
+  IUnsignedMessageTon,
 } from '../../types';
 
 const curve: ICurveName = 'ed25519';
@@ -80,16 +81,20 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
-    // throw new NotImplemented();;
-    // eslint-disable-next-line prefer-destructuring
-    const unsignedMsg = payload.unsignedMsg;
+    const unsignedMsg = payload.unsignedMsg as IUnsignedMessageTon;
+    const prefix = Buffer.alloc(4 + 8);
+    prefix.writeUint32BE(unsignedMsg.payload.schemaCrc);
+    prefix.writeBigUint64BE(BigInt(unsignedMsg.payload.timestamp));
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-    const msgBytes = bufferUtils.toBuffer('');
+    const msgBytes = Buffer.concat([
+      prefix,
+      Buffer.from(unsignedMsg.message, 'base64'),
+    ]);
     const [signature] = await signer.sign(msgBytes);
-    return '';
+    return signature.toString('hex');
   }
 
   override async getAddressFromPrivate(

@@ -2,7 +2,10 @@ import TonWeb from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import { Provider } from './provider';
@@ -72,6 +75,21 @@ export function getWalletContractClass(version: string) {
   return TonWeb.Wallets.all[version as keyof typeof TonWeb.Wallets.all];
 }
 
+export function getWalletContractInstance({
+  version,
+  publicKey,
+  backgroundApi,
+}: {
+  version: string;
+  publicKey: string;
+  backgroundApi: IBackgroundApi;
+}) {
+  const Contract = getWalletContractClass(version);
+  return new Contract(new Provider(backgroundApi), {
+    publicKey: bufferUtils.hexToBytes(publicKey),
+  });
+}
+
 export async function serializeUnsignedTransaction({
   version,
   encodedTx,
@@ -101,4 +119,12 @@ export async function serializeUnsignedTransaction({
     true,
     encodedTx.expireAt,
   );
+}
+
+export function getAccountVersion(accountId: string) {
+  if (accountUtils.isImportedAccount({ accountId })) {
+    return accountId.split(SEPERATOR)[3];
+  }
+  const { idSuffix: version } = accountUtils.parseAccountId({ accountId });
+  return version;
 }

@@ -20,7 +20,10 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import { serializeUnsignedTransaction } from './sdkTon/utils';
+import {
+  getAccountVersion,
+  serializeUnsignedTransaction,
+} from './sdkTon/utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -111,9 +114,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { unsignedTx, deviceParams } = params;
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
     const encodedTx = unsignedTx.encodedTx as IEncodedTxTon;
-    const { idSuffix: version } = accountUtils.parseAccountId({
-      accountId: account.id,
-    });
+    const version = getAccountVersion(account.id);
     const serializeUnsignedTx = await serializeUnsignedTransaction({
       version,
       encodedTx,

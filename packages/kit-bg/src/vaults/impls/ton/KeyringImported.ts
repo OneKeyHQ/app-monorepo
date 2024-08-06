@@ -1,12 +1,14 @@
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
-import { serializeUnsignedTransaction } from './sdkTon/utils';
+import {
+  getAccountVersion,
+  serializeUnsignedTransaction,
+} from './sdkTon/utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -37,7 +39,7 @@ export class KeyringImported extends KeyringImportedBase {
   ): Promise<ISignedTxPro> {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxTon;
     const account = await this.vault.getAccount();
-    const version = account.id.split(SEPERATOR)[3];
+    const version = getAccountVersion(account.id);
     const serializeUnsignedTx = await serializeUnsignedTransaction({
       version,
       encodedTx,
