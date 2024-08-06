@@ -65,14 +65,24 @@ export const dangerAllNetworkRepresent: IServerNetwork = {
 
     // Group networks by impl
     const networkGroups = {};
+    const networkIdsMap = {
+      onekeyall: 'onekeyall--0',
+    };
+    const networkIds = ['onekeyall--0'];
+
     networks.forEach((network) => {
-      const { impl, shortcode } = network;
+      const { impl, shortcode, id } = network;
       if (!shortcode) return;
 
       if (!networkGroups[impl]) {
         networkGroups[impl] = [];
       }
       networkGroups[impl].push(network);
+
+      // Pre-calculate networkIdsMap and networkIds
+      const sanitizedShortcode = sanitizeShortcode(shortcode);
+      networkIdsMap[sanitizedShortcode] = id;
+      networkIds.push(sanitizedShortcode);
     });
 
     const networkMap = new Map();
@@ -126,6 +136,16 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   ${Array.from(networkMap.keys()).join(',\n  ')},
   ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
 ]);
+
+// Pre-generated networkIdsMap
+export const networkIdsMap = ${JSON.stringify(networkIdsMap, null, 2)};
+
+// Pre-generated networkIds
+export const networkIds = ${JSON.stringify(networkIds)};
+
+// Memoized functions for backward compatibility
+export const getNetworkIdsMap = memoFn(() => networkIdsMap);
+export const getNetworkIds = memoFn(() => networkIds);
 `;
     fs.writeFileSync(OUTPUT_FILE, fileContent);
     console.log(`${OUTPUT_FILE} has been generated successfully.`);
