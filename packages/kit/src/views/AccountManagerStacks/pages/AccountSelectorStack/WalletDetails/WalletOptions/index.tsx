@@ -19,6 +19,7 @@ import { Verification } from './Verification';
 import { WalletProfile } from './WalletProfile';
 
 import type { IWalletDetailsProps } from '..';
+import { HardwareLabelSetButton } from './HardwareLabelSetButton';
 
 type IWalletOptionsProps = Partial<IWalletDetailsProps>;
 
@@ -45,6 +46,7 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
           <Advance wallet={wallet} />
           <BatchCreateAccountButton wallet={wallet} />
           <HiddenWalletAddButton wallet={wallet} />
+          <HardwareLabelSetButton device={device} />
         </>
       );
     }

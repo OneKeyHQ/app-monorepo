@@ -6,7 +6,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { WalletOptionItem } from './WalletOptionItem';
 
-export function CheckFirmwareUpdateButton({
+export function HardwareLabelSetButton({
   device,
 }: {
   device: IDBDevice | undefined;
@@ -16,10 +16,9 @@ export function CheckFirmwareUpdateButton({
 
   return (
     <WalletOptionItem
-      testID="AccountSelector-WalletOption-CheckFirmwareUpdate"
-      icon="RefreshCcwOutline"
+      icon="TagOutline"
       label={intl.formatMessage({
-        id: ETranslations.global_check_for_updates,
+        id: 'setLabel',
       })}
       onPress={() => {
         actions.openChangeLogModal({
