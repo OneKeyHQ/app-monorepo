@@ -5,6 +5,7 @@ import { V4RealmSchemaAccountDerivation } from './V4RealmSchemaAccountDerivation
 import { V4RealmSchemaContext } from './V4RealmSchemaContext';
 import { V4RealmSchemaCredential } from './V4RealmSchemaCredential';
 import { V4RealmSchemaDevice } from './V4RealmSchemaDevice';
+import { V4RealmSchemaNetwork } from './V4RealmSchemaNetwork';
 import { V4RealmSchemaToken } from './V4RealmSchemaToken';
 import { V4RealmSchemaWallet } from './V4RealmSchemaWallet';
 
@@ -20,6 +21,7 @@ export const v4realmDBSchemasMap: Record<
   [EV4LocalDBStoreNames.Context]: V4RealmSchemaContext,
   [EV4LocalDBStoreNames.Credential]: V4RealmSchemaCredential,
   [EV4LocalDBStoreNames.AccountDerivation]: V4RealmSchemaAccountDerivation,
+  [EV4LocalDBStoreNames.Network]: V4RealmSchemaNetwork,
 };
 export const v4realmDBSchemas: (typeof V4RealmObjectBase<any>)[] =
   Object.values(v4realmDBSchemasMap);

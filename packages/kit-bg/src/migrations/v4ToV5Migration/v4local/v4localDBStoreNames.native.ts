@@ -16,5 +16,6 @@ export enum EV4LocalDBStoreNames {
   Account = 'Account',
   Device = 'Device',
   AccountDerivation = 'AccountDerivation',
+  Network = 'Network',
   // CustomFee = 'custom_fee',
 }

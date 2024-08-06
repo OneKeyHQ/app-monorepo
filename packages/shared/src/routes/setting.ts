@@ -9,6 +9,7 @@ export enum EModalSettingRoutes {
   SettingSignatureRecordModal = 'SettingSignatureRecordModal',
   SettingDevFirmwareUpdateModal = 'SettingDevFirmwareUpdateModal',
   SettingDevV4MigrationModal = 'SettingDevV4MigrationModal',
+  SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
 }
 
 export type IModalSettingParamList = {
@@ -22,4 +23,5 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingSignatureRecordModal]: undefined;
   [EModalSettingRoutes.SettingDevFirmwareUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevV4MigrationModal]: undefined;
+  [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
 };

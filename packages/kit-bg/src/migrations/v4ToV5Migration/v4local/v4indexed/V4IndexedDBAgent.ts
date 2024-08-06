@@ -129,6 +129,11 @@ export class V4IndexedDBAgent
         EV4LocalDBStoreNames.Device,
       );
 
+      const networkStore = this._getOrCreateObjectStore(
+        dbTx,
+        EV4LocalDBStoreNames.Network,
+      );
+
       const tx: IV4LocalDBTransaction = {
         stores: {
           [EV4LocalDBStoreNames.Context]: contextStore as any,
@@ -138,6 +143,7 @@ export class V4IndexedDBAgent
             accountDerivationStore as any,
           [EV4LocalDBStoreNames.Credential]: credentialStore as any,
           [EV4LocalDBStoreNames.Device]: deviceStore as any,
+          [EV4LocalDBStoreNames.Network]: networkStore as any,
         },
       };
 

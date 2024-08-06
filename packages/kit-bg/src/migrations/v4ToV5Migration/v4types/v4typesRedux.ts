@@ -4,6 +4,7 @@ import type {
   IV4LocaleSymbol,
   IV4WalletSwitchItem,
 } from './v4typesCommon';
+import type { IV4Token } from './v4typesToken';
 
 export type IV4SettingsDevModeInfo = {
   enable?: boolean;
@@ -137,4 +138,8 @@ export type IV4ReduxCloudBackupState = {
   enabled: boolean;
   backupRequests: number;
   lastBackup?: number;
+};
+
+export type IV4ReduxTokenState = {
+  accountTokens?: Record<string, Record<string, IV4Token[]>>;
 };

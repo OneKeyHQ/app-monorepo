@@ -1,9 +1,10 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { V4SimpleDbEntityHistory } from './v4entity/V4SimpleDbEntityHistory';
+import { V4SimpleDbEntityServerNetworks } from './v4entity/v4SimpleDbEntityNetworks';
 
 export class V4SimpleDb {
   history = new V4SimpleDbEntityHistory();
+
+  serverNetworks = new V4SimpleDbEntityServerNetworks();
 
   // pwkey = new SimpleDbEntityPwKey();
 
