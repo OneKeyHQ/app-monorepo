@@ -26,7 +26,7 @@ const useVisible = (delayMs: number) => {
 export function ImageFallback({
   delayMs = 80,
   children,
-...props
+  ...props
 }: IImageFallbackProps) {
   const visible = useVisible(delayMs);
   return visible ? (
