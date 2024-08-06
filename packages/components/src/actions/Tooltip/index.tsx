@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { InteractionManager } from 'react-native';
 import { Tooltip as TMTooltip } from 'tamagui';
+
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import { SizableText } from '../../primitives';
 
@@ -11,58 +17,52 @@ import type { PopoverContentProps } from 'tamagui';
 export function TooltipText({
   children,
   onDisplayChange,
+  onDisabledChange,
 }: ISizableTextProps & {
   onDisplayChange?: (isShow: boolean) => void;
+  onDisabledChange?: (isShow: boolean) => void;
 }) {
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   // Since the browser does not trigger mouse events when the page scrolls,
   //  it is necessary to manually close the tooltip when page elements scroll
   useEffect(() => {
     let scrolling = false;
-    let mouseMoving = false;
+    // let mouseMoving = false;
     const onScroll = () => {
       if (scrolling) {
         return;
       }
       onDisplayChange?.(false);
       scrolling = true;
-      timeoutRef.current = setTimeout(() => {
+      scrollTimeoutRef.current = setTimeout(() => {
         scrolling = false;
       }, 30);
     };
     const onScrollEnd = () => {
-      clearTimeout(timeoutRef.current);
+      clearTimeout(scrollTimeoutRef.current);
       scrolling = false;
+      document.removeEventListener('scrollend', onScrollEnd, true);
     };
-    const onMouseMove = (e: { which: number }) => {
-      if (e?.which !== 1) {
-        return;
-      }
-      if (mouseMoving) {
-        return;
-      }
-      onDisplayChange?.(false);
-      mouseMoving = true;
+    const onDragBegin = () => {
+      onDisabledChange?.(true);
     };
-    const onMouseUp = () => {
-      document.removeEventListener('mouseup', onMouseMove, true);
-      if (!mouseMoving) {
-        return;
-      }
-      mouseMoving = false;
+    const onDragEnd = () => {
+      appEventBus.off(EAppEventBusNames.onDragEndInListView, onDragEnd);
+      void InteractionManager.runAfterInteractions(() => {
+        onDisabledChange?.(false);
+      });
     };
     if (typeof document !== 'undefined') {
       document.addEventListener('scroll', onScroll, true);
-      document.addEventListener('scrollend', onScroll, true);
-      document.addEventListener('mousemove', onMouseMove, true);
-      document.addEventListener('mouseup', onMouseUp, true);
+      document.addEventListener('scrollend', onScrollEnd, true);
+      appEventBus.on(EAppEventBusNames.onDragBeginInListView, onDragBegin);
+      appEventBus.on(EAppEventBusNames.onDragEndInListView, onDragEnd);
       return () => {
         document.removeEventListener('scroll', onScroll, true);
-        document.removeEventListener('scrollend', onScrollEnd, true);
-        document.removeEventListener('mousemove', onMouseMove, true);
+        appEventBus.off(EAppEventBusNames.onDragBeginInListView, onDragBegin);
       };
     }
-  }, [onDisplayChange]);
+  }, [onDisabledChange, onDisplayChange]);
   return <SizableText size="$bodySm">{children}</SizableText>;
 }
 
@@ -101,11 +101,17 @@ export function Tooltip({
   );
 
   const [isShow, setIsShow] = useState(false);
+  const [isDisabled, setIsDisabled] = useState(false);
 
   const renderTooltipContent = useMemo(() => {
     if (typeof renderContent === 'string') {
       return (
-        <TooltipText onDisplayChange={setIsShow}>{renderContent}</TooltipText>
+        <TooltipText
+          onDisplayChange={setIsShow}
+          onDisabledChange={setIsDisabled}
+        >
+          {renderContent}
+        </TooltipText>
       );
     }
 
@@ -115,9 +121,10 @@ export function Tooltip({
   return (
     <TMTooltip
       unstyled
+      disableAutoCloseOnScroll
       delay={0}
       offset={6}
-      open={isShow}
+      open={isDisabled ? false : isShow}
       onOpenChange={setIsShow}
       allowFlip
       placement={placement}
