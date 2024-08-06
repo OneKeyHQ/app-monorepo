@@ -50,8 +50,8 @@ export function TooltipText({
       });
     };
     const onDragBegin = () => {
-      onDisabledChange?.(true);
       appEventBus.on(EAppEventBusNames.onDragEndInListView, onDragEnd);
+      onDisabledChange?.(true);
     };
     if (typeof document !== 'undefined') {
       document.addEventListener('scroll', onScroll, true);
