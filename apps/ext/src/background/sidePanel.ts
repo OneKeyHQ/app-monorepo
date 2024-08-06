@@ -32,4 +32,21 @@ export const startSidePanelPolling = () => {
   setInterval(() => {
     port.postMessage('ping');
   }, timerUtils.getTimeDurationMs({ seconds: 3 }));
+  port.onMessage.addListener(
+    (event: { action: 'router'; params: Record<string, any> }) => {
+      switch (event.action) {
+        case 'router':
+          {
+            const { screen, params } = event.params as {
+              screen: any;
+              params: any;
+            };
+            global.$navigationRef.current?.navigate(screen, params);
+          }
+          break;
+        default:
+          break;
+      }
+    },
+  );
 };

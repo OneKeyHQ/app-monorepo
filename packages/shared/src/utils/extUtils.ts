@@ -11,6 +11,10 @@ export type IOpenUrlRouteInfo = {
   routes?: string | string[];
   path?: string;
   params?: any;
+  modalParams?: {
+    screen: any;
+    params: any;
+  };
 };
 
 function buildExtRouteUrl(
@@ -174,7 +178,11 @@ async function openSidePanel(
   routeInfo: IOpenUrlRouteInfo,
 ): Promise<chrome.tabs.Tab | undefined> {
   if (chrome && chrome.sidePanel) {
-    if (sidePanelState.isOpen) {
+    if (sidePanelState.isOpen && sidePanelState.port) {
+      sidePanelState.port.postMessage({
+        action: 'router',
+        params: routeInfo?.modalParams,
+      });
     }
     const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
     let windowId: number | undefined;

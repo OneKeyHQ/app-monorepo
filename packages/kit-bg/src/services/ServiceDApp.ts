@@ -198,6 +198,7 @@ class ServiceDApp extends ServiceBase {
         await extUtils.openSidePanel({
           routes: routeNames,
           params: routeParams,
+          modalParams,
         });
       } else {
         // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
