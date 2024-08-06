@@ -12,6 +12,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { Advance } from './Advance';
 import { BatchCreateAccountButton } from './BatchCreateAccountButton';
+import { CheckFirmwareUpdateButton } from './CheckFirmwareUpdateButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
 import { Verification } from './Verification';
@@ -37,6 +38,7 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
 
       return (
         <>
+          <CheckFirmwareUpdateButton device={device} />
           <Verification device={device} />
           {/* Homescreen unsupprted yet */}
           {/* <HomeScreen /> */}
