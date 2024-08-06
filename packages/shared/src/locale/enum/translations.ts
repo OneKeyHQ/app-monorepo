@@ -684,6 +684,7 @@ export enum ETranslations {
   global_generate_amount_information = 'global.generate_amount_information',
   global_generate_amount_number = 'global.generate_amount_number',
   global_generate_amount_select = 'global.generate_amount_select',
+  global_generate_amount_select_path = 'global.generate_amount_select_path',
   global_generate_max = 'global.generate_max',
   global_get_one = 'global.get_one',
   global_github = 'global.github',

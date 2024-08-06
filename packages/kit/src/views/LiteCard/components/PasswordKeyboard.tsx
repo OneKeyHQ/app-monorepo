@@ -33,7 +33,7 @@ export function PasswordKeyboard({
       <Stack
         bg="$bgStrong"
         disabled={item.length <= 0}
-        focusStyle={{
+        focusVisibleStyle={{
           bg: '$bgActive',
         }}
         hoverStyle={{

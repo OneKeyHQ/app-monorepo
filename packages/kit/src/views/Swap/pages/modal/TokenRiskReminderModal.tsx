@@ -31,10 +31,10 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 import type { RouteProp } from '@react-navigation/core';
 
 const TokenInfoCard = ({ token }: { token: ISwapToken }) => (
-  <XStack space="$3" alignItems="center">
+  <XStack gap="$3" alignItems="center">
     <Token tokenImageUri={token.logoURI} />
-    <YStack space="$1" flex={1}>
-      <XStack space="$1" alignItems="center">
+    <YStack gap="$1" flex={1}>
+      <XStack gap="$1" alignItems="center">
         <SizableText color="$text" size="$headingLg">
           {token.name}
         </SizableText>
@@ -89,7 +89,7 @@ const SwapRiskReminderModal = ({
           id: ETranslations.token_selector_risk_reminder_title,
         })}
       />
-      <Page.Body px="$5" space="$4">
+      <Page.Body px="$5" gap="$4">
         {token.riskLevel === ETokenRiskLevel.SPAM ||
         token.riskLevel === ETokenRiskLevel.MALICIOUS ? (
           <Alert

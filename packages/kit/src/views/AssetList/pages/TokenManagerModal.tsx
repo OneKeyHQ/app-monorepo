@@ -73,6 +73,7 @@ function TokenManagerModal() {
   } = useTokenSearch({
     walletId,
     networkId,
+    accountId,
   });
 
   const dataSource = useMemo(() => {

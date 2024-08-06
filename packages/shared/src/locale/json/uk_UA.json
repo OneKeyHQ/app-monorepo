@@ -683,6 +683,7 @@
   "global.generate_amount_information": "Максимальна кількість створених облікових записів становить {max}.",
   "global.generate_amount_number": "Ні.",
   "global.generate_amount_select": "Вибрати все",
+  "global.generate_amount_select_path": "Якщо ваша адреса за замовчуванням не відображається, перевірте Налаштування > Шлях похідного облікового запису.",
   "global.generate_max": "Макс",
   "global.get_one": "Отримайте один",
   "global.github": "GitHub",

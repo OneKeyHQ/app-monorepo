@@ -595,7 +595,7 @@ function TxFeeContainer(props: IProps) {
         mb: '$0',
       }}
     >
-      <XStack space="$2" alignItems="center" pb="$1">
+      <XStack gap="$2" alignItems="center" pb="$1">
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({
             id: ETranslations.global_est_network_fee,
@@ -610,7 +610,7 @@ function TxFeeContainer(props: IProps) {
         ) : null}
         {renderFeeEditor()}
       </XStack>
-      <XStack space="$1" alignItems="center">
+      <XStack gap="$1" alignItems="center">
         {txFeeInit.current ? (
           <NumberSizeableText
             formatter="balance"
@@ -658,8 +658,8 @@ function TxFeeContainer(props: IProps) {
     //     })}
     //     renderContent={
     //       <>
-    //         <XStack space="$1">
-    //           <XStack space="$1">
+    //         <XStack gap="$1">
+    //           <XStack gap="$1">
     //             {txFeeInit.current ? (
     //               <NumberSizeableText
     //                 formatter="balance"

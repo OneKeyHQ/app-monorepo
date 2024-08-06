@@ -205,7 +205,7 @@ export const LidoApproveBaseStake = ({
 
   return (
     <YStack>
-      <Stack mx="$2" px="$3" space="$5">
+      <Stack mx="$2" px="$3" gap="$5">
         <AmountInput
           hasError={isInsufficientBalance || isLessThanMinAmount}
           value={amountValue}
@@ -290,7 +290,7 @@ export const LidoApproveBaseStake = ({
             title={intl.formatMessage({ id: ETranslations.global_protocol })}
             titleProps={fieldTitleProps}
           >
-            <XStack space="$2" alignItems="center">
+            <XStack gap="$2" alignItems="center">
               <Token size="xs" tokenImageUri={LIDO_LOGO_URI} />
               <SizableText size="$bodyLgMedium">Lido</SizableText>
             </XStack>

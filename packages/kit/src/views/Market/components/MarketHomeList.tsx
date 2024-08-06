@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import {
   Fragment,
   memo,
@@ -74,14 +73,14 @@ const colorMap = {
 function TableMdSkeletonRow() {
   return (
     <XStack h={60} jc="space-between" flex={1}>
-      <XStack space="$3" ai="center">
+      <XStack gap="$3" ai="center">
         <Skeleton w="$10" h="$10" radius="round" />
-        <YStack space="$2">
+        <YStack gap="$2">
           <Skeleton w="$16" h="$2.5" />
           <Skeleton w="$24" h="$2.5" />
         </YStack>
       </XStack>
-      <XStack space="$5" ai="center">
+      <XStack gap="$5" ai="center">
         <Skeleton w="$16" h="$2.5" />
         <Skeleton w="$16" h="$2.5" />
       </XStack>
@@ -110,7 +109,7 @@ const TouchableContainer = platformEnv.isNative
   : TouchableWithoutFeedback;
 
 const ROW_PROPS = {
-  space: '$3',
+  gap: '$3',
   px: '$3',
   mx: '$2',
 };
@@ -266,17 +265,17 @@ function BasicMarketHomeList({
             flex={1}
             justifyContent="space-between"
             userSelect="none"
-            space="$2"
+            gap="$2"
             px="$5"
             {...listItemPressStyle}
             {...(platformEnv.isNative ? pressEvents : undefined)}
           >
-            <XStack space="$3" ai="center" flexShrink={1}>
+            <XStack gap="$3" ai="center" flexShrink={1}>
               <MarketTokenIcon uri={item.image} size="$10" />
               <YStack flexShrink={1}>
                 <SizableText
                   size="$bodyLgMedium"
-                  selectable={false}
+                  userSelect="none"
                   numberOfLines={1}
                   flexShrink={1}
                 >
@@ -285,11 +284,11 @@ function BasicMarketHomeList({
                 <SizableText
                   size="$bodySm"
                   color="$textSubdued"
-                  selectable={false}
+                  userSelect="none"
                 >
                   {`VOL `}
                   <NumberSizeableText
-                    selectable={false}
+                    userSelect="none"
                     size="$bodySm"
                     formatter="marketCap"
                     color="$textSubdued"
@@ -300,9 +299,9 @@ function BasicMarketHomeList({
                 </SizableText>
               </YStack>
             </XStack>
-            <XStack ai="center" space="$5">
+            <XStack ai="center" gap="$5">
               <NumberSizeableText
-                selectable={false}
+                userSelect="none"
                 flexShrink={1}
                 numberOfLines={1}
                 size="$bodyLgMedium"
@@ -325,7 +324,7 @@ function BasicMarketHomeList({
                   borderRadius="$2"
                 >
                   <NumberSizeableText
-                    selectable={false}
+                    userSelect="none"
                     size="$bodyMdMedium"
                     color="white"
                     formatter="priceChange"
@@ -347,7 +346,7 @@ function BasicMarketHomeList({
 
   const renderSelectTrigger = useCallback(
     ({ label }: { label?: string }) => (
-      <XStack ai="center" space="$1">
+      <XStack ai="center" gap="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
           {label}
         </SizableText>
@@ -472,7 +471,7 @@ function BasicMarketHomeList({
                 <SizableText
                   size="$bodyMd"
                   color="$textSubdued"
-                  selectable={false}
+                  userSelect="none"
                 >
                   {serialNumber ?? '-'}
                 </SizableText>
@@ -484,13 +483,13 @@ function BasicMarketHomeList({
               dataIndex: 'symbol',
               columnWidth: 140,
               render: (symbol: string, record: IMarketToken) => (
-                <XStack space="$3" ai="center">
+                <XStack gap="$3" ai="center">
                   <MarketTokenIcon uri={record.image} size="$8" />
                   <YStack width="$24">
                     <SizableText
                       size="$bodyLgMedium"
                       numberOfLines={1}
-                      selectable={false}
+                      userSelect="none"
                     >
                       {symbol.toUpperCase()}
                     </SizableText>
@@ -498,7 +497,7 @@ function BasicMarketHomeList({
                       size="$bodySm"
                       color="$textSubdued"
                       numberOfLines={1}
-                      selectable={false}
+                      userSelect="none"
                     >
                       {record.name}
                     </SizableText>
@@ -536,9 +535,9 @@ function BasicMarketHomeList({
                 </XStack>
               ),
               renderSkeleton: () => (
-                <XStack space="$3">
+                <XStack gap="$3">
                   <Skeleton w="$8" h="$8" radius="round" />
-                  <YStack space="$2">
+                  <YStack gap="$2">
                     <Skeleton w="$16" h="$3" />
                     <Skeleton w="$24" h="$3" />
                   </YStack>
@@ -555,7 +554,7 @@ function BasicMarketHomeList({
               },
               render: (price: string) => (
                 <NumberSizeableText
-                  selectable={false}
+                  userSelect="none"
                   size="$bodyMd"
                   formatter="price"
                   formatterOptions={{ currency }}
@@ -632,7 +631,7 @@ function BasicMarketHomeList({
               align: 'right',
               render: (totalVolume: string) => (
                 <NumberSizeableText
-                  selectable={false}
+                  userSelect="none"
                   size="$bodyMd"
                   formatter="marketCap"
                   formatterOptions={{ currency }}
@@ -654,7 +653,7 @@ function BasicMarketHomeList({
               align: 'right',
               render: (marketCap: string) => (
                 <NumberSizeableText
-                  selectable={false}
+                  userSelect="none"
                   size="$bodyMd"
                   formatter="marketCap"
                   formatterOptions={{ currency }}
@@ -784,7 +783,7 @@ function BasicMarketHomeList({
     if (platformEnv.isNativeAndroid) {
       return null;
     }
-    return <Table.Skeleton count={6} columns={columns} />;
+    return <Table.Skeleton count={6} columns={columns} rowProps={ROW_PROPS} />;
   }, [columns]);
 
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
@@ -804,7 +803,7 @@ function BasicMarketHomeList({
           borderBottomColor="$borderSubdued"
         >
           <XStack h="$11" ai="center" justifyContent="space-between">
-            <XStack ai="center" space="$2">
+            <XStack ai="center" gap="$2">
               <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
               <Select
                 items={selectOptions}
