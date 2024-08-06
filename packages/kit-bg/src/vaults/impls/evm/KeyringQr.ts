@@ -6,6 +6,7 @@ import {
   buildSignedTxFromSignatureEvm,
   packUnsignedTxForSignEvm,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import { verifyEvmSignedTxMatched } from '@onekeyhq/core/src/chains/evm/sdkEvm/verify';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -36,7 +37,6 @@ import localDb from '../../../dbs/local/localDb';
 import { UR_DEFAULT_ORIGIN } from '../../../services/ServiceQrWallet/qrWalletConsts';
 import { KeyringQrBase } from '../../base/KeyringQrBase';
 
-import { verifyEvmSignedTxMatched } from '@onekeyhq/core/src/chains/evm/sdkEvm/verify';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IGetChildPathTemplatesParams,
