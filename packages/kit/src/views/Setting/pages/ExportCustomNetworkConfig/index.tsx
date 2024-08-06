@@ -5,6 +5,9 @@ import { useIntl } from 'react-intl';
 import { Button, Page, SizableText, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+
+import { downloadAsFile } from './downloadAsFile';
 
 const CRLF = '\r\n';
 
@@ -13,34 +16,45 @@ const ExportCustomNetworkAndToken = () => {
   const [loading, setLoading] = useState(false);
   const [empty, setEmpty] = useState(false);
   const onPress = useCallback(async () => {
-    const networkIncludeTokens =
-      await backgroundApiProxy.serviceV4Migration.getV4CustomNetworkIncludeTokens();
-    if (!networkIncludeTokens || networkIncludeTokens.length === 0) {
-      setEmpty(true);
-      return;
-    }
+    setLoading(true);
+    try {
+      const networkIncludeTokens =
+        await backgroundApiProxy.serviceV4Migration.getV4CustomNetworkIncludeTokens();
+      if (!networkIncludeTokens || networkIncludeTokens.length === 0) {
+        setEmpty(true);
+        return;
+      }
 
-    const data = networkIncludeTokens
-      ?.map((o) => {
-        let output = '';
-        output += `Network: ${o.network.name}${CRLF}`;
-        output += `RPC URL: ${o.network.rpcURL}${CRLF}`;
-        output += `Chain ID: ${o.network.id}${CRLF}`;
-        output += `Symbol: ${o.network.symbol}${CRLF}`;
-        if (o.network.explorerURL) {
-          output += `Blockchain Explore URL: ${o.network.explorerURL}${CRLF}`;
-        }
-        const addresses = o.tokens.filter((item) => item.address);
-        if (addresses.length > 0) {
-          output += addresses
-            .map((item) => `Token contract: ${item.address || '(empty)'}`)
-            .join(CRLF);
-        }
-        return output;
-      })
-      .join('--');
-    // export output
-    console.log(data);
+      const data = networkIncludeTokens
+        ?.map((o) => {
+          let output = '';
+          const chainId = networkUtils.parseNetworkId({
+            networkId: o.network.id,
+          }).chainId;
+          output += `Network: ${o.network.name}${CRLF}`;
+          output += `RPC URL: ${o.network.rpcURL}${CRLF}`;
+          output += `Chain ID: ${chainId}${CRLF}`;
+          output += `Symbol: ${o.network.symbol}${CRLF}`;
+          if (o.network.explorerURL) {
+            output += `Blockchain Explore URL: ${o.network.explorerURL}${CRLF}`;
+          }
+          const addresses = o.tokens.filter((item) => item.address);
+          if (addresses.length > 0) {
+            output += `${addresses
+              .map((item) => `Token contract: ${item.address || '(empty)'}`)
+              .join(CRLF)}${CRLF}`;
+          }
+          return output;
+        })
+        .join(`${CRLF}--${CRLF}`);
+      // export output
+      await downloadAsFile({
+        content: data,
+        filename: 'networks_and_tokens.txt',
+      });
+    } finally {
+      setLoading(false);
+    }
   }, []);
   return (
     <Stack>
@@ -50,8 +64,10 @@ const ExportCustomNetworkAndToken = () => {
         })}
       </SizableText>
       <Stack h="$2" />
-      <Button onPress={onPress}>
-        {intl.formatMessage({ id: ETranslations.global_export })}
+      <Button onPress={onPress} loading={loading} disabled={empty}>
+        {!empty
+          ? intl.formatMessage({ id: ETranslations.global_export })
+          : intl.formatMessage({ id: ETranslations.global_no_data })}
       </Button>
     </Stack>
   );
@@ -67,12 +83,18 @@ const ExportCustomRPC = () => {
         await backgroundApiProxy.serviceV4Migration.getV4CustomRpcUrls();
       if (!rpcUrlItems) {
         setEmpty(true);
+        return;
       }
-      const output = rpcUrlItems
-        ?.map((o) => `${o.networkName}${CRLF}${o.rpcUrls.join(CRLF)}`)
-        .join('--');
+      const content = rpcUrlItems
+        .map((o) => {
+          let output = '';
+          output += `${o.networkName}${CRLF}`;
+          output += `${o.rpcUrls.join(CRLF)}`;
+          return output;
+        })
+        .join(`${CRLF}--${CRLF}`);
       // export output
-      console.log(output);
+      await downloadAsFile({ content, filename: 'rpc_urls.txt' });
     } finally {
       setLoading(false);
     }

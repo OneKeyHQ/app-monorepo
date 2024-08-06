@@ -26,6 +26,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import simpleDb from '../../dbs/simple/simpleDb';
 import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
+import { v4PresetNetworkIds } from '../../migrations/v4ToV5Migration/v4data/networkIds';
 import v4dbHubs from '../../migrations/v4ToV5Migration/v4dbHubs';
 import {
   V4_INDEXED_DB_NAME,
@@ -1066,6 +1067,15 @@ class ServiceV4Migration extends ServiceBase {
     return v4networks;
   }
 
+  private async getV4PresetNetworkIdsSet() {
+    const v4ServerNetworks =
+      await v4dbHubs.v4simpleDb.serverNetworks.getServerNetworks();
+    return new Set([
+      ...v4ServerNetworks.map((o) => o.id),
+      ...v4PresetNetworkIds,
+    ]);
+  }
+
   @backgroundMethod()
   async getV4CustomRpcUrls() {
     const reduxData = await v4dbHubs.v4reduxDb.reduxData;
@@ -1086,28 +1096,25 @@ class ServiceV4Migration extends ServiceBase {
 
   private async getV4CustomEvmNetworks() {
     const v4networks = await this.getV4AllNetworks();
-    const { networkIds: allNetworkIds } =
-      await this.backgroundApi.serviceNetwork.getAllNetworkIds();
-    const allNetworkIdsSet = new Set(allNetworkIds);
-
+    const v4PresetNetworkIdsSet = await this.getV4PresetNetworkIdsSet();
     const v4CustomEvmNetworks = v4networks.filter(
       (o) =>
         networkUtils.isEvmNetwork({ networkId: o.id }) &&
-        !allNetworkIdsSet.has(o.id),
+        !v4PresetNetworkIdsSet.has(o.id),
     );
     return v4CustomEvmNetworks;
   }
 
   private async getV4CustomTokenList() {
     const reduxData = await v4dbHubs.v4reduxDb.reduxData;
-    const accountTokens = reduxData?.token?.accountTokens;
+    const accountTokens = reduxData?.tokens?.accountTokens;
     if (accountTokens) {
       return Object.entries(accountTokens)
         .map(([key, value]) => ({
           networkId: key,
           tokens: uniqBy(flatten(Object.values(value)), (o) =>
             o.address?.toLowerCase(),
-          ),
+          ).filter((o) => Boolean(o.address)),
         }))
         .reduce((result, item) => {
           result[item.networkId] = item.tokens;

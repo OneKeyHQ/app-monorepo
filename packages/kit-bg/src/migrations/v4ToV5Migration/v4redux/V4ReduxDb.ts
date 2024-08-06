@@ -15,7 +15,7 @@ type IV4SimpleDbRawData = {
   contacts: string;
   discover: string;
   cloudBackup: string;
-  token: string;
+  tokens: string;
 };
 
 export type IV4SimpleDbData = {
@@ -23,7 +23,7 @@ export type IV4SimpleDbData = {
   contacts: IV4ReduxContactsState | undefined;
   discover: IV4ReduxDiscoverState | undefined;
   cloudBackup: IV4ReduxCloudBackupState | undefined;
-  token: IV4ReduxTokenState | undefined;
+  tokens: IV4ReduxTokenState | undefined;
 };
 
 export class V4ReduxDb {
@@ -77,7 +77,7 @@ export class V4ReduxDb {
       contacts: this.parseReduxField(data.contacts),
       discover: this.parseReduxField(data.discover),
       cloudBackup: this.parseReduxField(data.cloudBackup),
-      token: this.parseReduxField(data.token),
+      tokens: this.parseReduxField(data.tokens),
     };
   }
 }
