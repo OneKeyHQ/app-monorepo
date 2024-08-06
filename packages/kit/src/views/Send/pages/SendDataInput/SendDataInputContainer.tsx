@@ -872,6 +872,13 @@ function SendDataInputContainer() {
     [addressBookEnabledNetworkIds, networkId],
   );
 
+  const handleAddressInputChangeType = useCallback(
+    (type: EInputAddressChangeType) => {
+      addressInputChangeType.current = type;
+    },
+    [],
+  );
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -960,9 +967,7 @@ function SendDataInputContainer() {
                 enableAddressInteractionStatus
                 contacts={addressBookEnabledNetworkIds.includes(networkId)}
                 accountSelector={addressInputAccountSelectorArgs}
-                onInputTypeChange={(type) => {
-                  addressInputChangeType.current = type;
-                }}
+                onInputTypeChange={handleAddressInputChangeType}
               />
             </Form.Field>
             {renderDataInput()}
