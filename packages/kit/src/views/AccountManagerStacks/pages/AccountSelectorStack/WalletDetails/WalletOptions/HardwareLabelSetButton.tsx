@@ -1,15 +1,14 @@
 import { useIntl } from 'react-intl';
 
 import { Dialog, SizableText, Spinner, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import type {
   IDBDevice,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../../../../../hooks/usePromiseResult';
 
 import { WalletOptionItem } from './WalletOptionItem';
 
@@ -61,6 +60,7 @@ export function HardwareLabelSetButton({
         id: ETranslations.global_hardware_label,
       })}
       onPress={() => {
+        // showRenameDialog
         const dialog = Dialog.show({
           title: intl.formatMessage({
             id: ETranslations.global_hardware_label,
