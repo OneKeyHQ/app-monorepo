@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -11,6 +11,7 @@ import {
   QRCode,
   SizableText,
   Stack,
+  Toast,
   useClipboard,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -18,8 +19,11 @@ import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -35,44 +39,44 @@ function ReceiveInvoice() {
     accountId,
     networkId,
   });
+  const navigation = useAppNavigation();
 
-  // TODO: check invoices state
-  // // polling check for invoice status
-  // const timerRef = useRef<ReturnType<typeof setInterval>>();
-  // useEffect(() => {
-  //   if (!paymentHash || !networkId || !accountId) return;
-  //   const { serviceLightningNetwork } = backgroundApiProxy;
-  //   timerRef.current = setInterval(() => {
-  //     serviceLightningNetwork
-  //       .fetchSpecialInvoice({
-  //         paymentHash,
-  //         networkId,
-  //         accountId,
-  //       })
-  //       .then((res) => {
-  //         if (res.is_paid) {
-  //           ToastManager.show({
-  //             title: intl.formatMessage({ id: 'msg__payment_received' }),
-  //           });
-  //           clearInterval(timerRef.current);
-  //           setTimeout(() => {
-  //             navigation?.goBack();
-  //             navigation?.goBack();
-  //           }, 500);
-  //         }
-  //       })
-  //       .catch((e) => {
-  //         // ignore because it's normal to fail when invoice is not paid
-  //         console.error(e);
-  //       });
-  //   }, getTimeDurationMs({ seconds: 5 }));
+  // polling check for invoice status
+  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  useEffect(() => {
+    if (!paymentHash || !networkId || !accountId) return;
+    const { serviceLightning } = backgroundApiProxy;
+    timerRef.current = setInterval(() => {
+      serviceLightning
+        .fetchSpecialInvoice({
+          paymentHash,
+          accountId,
+          networkId,
+        })
+        .then((res) => {
+          if (res.is_paid) {
+            Toast.success({
+              title: 'Payment Received',
+            });
+            clearInterval(timerRef.current);
+            setTimeout(() => {
+              navigation.popStack();
+              navigation.popStack();
+            }, 500);
+          }
+        })
+        .catch((e) => {
+          // ignore because it's normal to fail when invoice is not paid
+          console.error(e);
+        });
+    }, timerUtils.getTimeDurationMs({ seconds: 5 }));
 
-  //   return () => {
-  //     if (timerRef.current) {
-  //       clearInterval(timerRef.current);
-  //     }
-  //   };
-  // }, [paymentHash, networkId, accountId, intl, navigation]);
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [paymentHash, networkId, accountId, intl, navigation]);
 
   const { copyText } = useClipboard();
   const handleCopyInvoice = useCallback(() => {
