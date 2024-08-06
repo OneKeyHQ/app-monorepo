@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Tooltip as TMTooltip } from 'tamagui';
 
@@ -14,6 +14,7 @@ export function TooltipText({
 }: ISizableTextProps & {
   onDisplayChange?: (isShow: boolean) => void;
 }) {
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   // Since the browser does not trigger mouse events when the page scrolls,
   //  it is necessary to manually close the tooltip when page elements scroll
   useEffect(() => {
@@ -25,8 +26,12 @@ export function TooltipText({
       }
       onDisplayChange?.(false);
       scrolling = true;
+      timeoutRef.current = setTimeout(() => {
+        scrolling = false;
+      }, 30);
     };
     const onScrollEnd = () => {
+      clearTimeout(timeoutRef.current);
       scrolling = false;
     };
     const onMouseMove = (e: { which: number }) => {
