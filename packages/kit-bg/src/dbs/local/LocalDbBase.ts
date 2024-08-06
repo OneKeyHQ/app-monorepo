@@ -1497,7 +1497,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       await this.buildHwWalletId(params);
 
     let parentWalletId: string | undefined;
-    const deviceName = await accountUtils.buildDeviceName({ device, features });
+    const deviceName = await deviceUtils.buildDeviceName({ device, features });
     let walletName = name || deviceName;
     if (passphraseState) {
       const hiddenWalletNameInfo = await this.fixHiddenWalletName({

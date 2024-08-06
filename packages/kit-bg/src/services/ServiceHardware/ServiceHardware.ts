@@ -41,6 +41,7 @@ import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type {
   IGetDeviceAdvanceSettingsParams,
+  IGetDeviceLabelParams,
   ISetInputPinOnSoftwareParams,
   ISetPassphraseEnabledParams,
 } from './DeviceSettingsManager';
@@ -662,6 +663,11 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async getDeviceAdvanceSettings(p: IGetDeviceAdvanceSettingsParams) {
     return this.deviceSettingsManager.getDeviceAdvanceSettings(p);
+  }
+
+  @backgroundMethod()
+  async getDeviceLabel(p: IGetDeviceLabelParams) {
+    return this.deviceSettingsManager.getDeviceLabel(p);
   }
 
   @backgroundMethod()

@@ -389,7 +389,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
       features,
     });
-    let deviceName = await accountUtils.buildDeviceName({ features });
+    let deviceName = await deviceUtils.buildDeviceName({ features });
     const dbDeviceName = (
       await localDb.getDeviceByQuery({
         connectId: originalConnectId,

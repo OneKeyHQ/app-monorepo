@@ -46,7 +46,7 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
           <Advance wallet={wallet} />
           <BatchCreateAccountButton wallet={wallet} />
           <HiddenWalletAddButton wallet={wallet} />
-          <HardwareLabelSetButton device={device} />
+          <HardwareLabelSetButton wallet={wallet} />
         </>
       );
     }
