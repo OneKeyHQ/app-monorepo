@@ -44,6 +44,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IMarketCategory,
   IMarketToken,
@@ -129,16 +130,21 @@ function BasicMarketHomeList({
   const navigation = useAppNavigation();
 
   const updateAtRef = useRef(0);
+  const updateTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const [listData, setListData] = useState<IMarketToken[]>([]);
   const fetchCategory = useCallback(async () => {
     const now = Date.now();
-    if (now - updateAtRef.current > 45 * 1000) {
+    if (
+      now - updateAtRef.current >
+      timerUtils.getTimeDurationMs({ seconds: 45 })
+    ) {
       const response = await backgroundApiProxy.serviceMarket.fetchCategory(
         category.categoryId,
         category.coingeckoIds,
         true,
       );
+      updateAtRef.current = now;
       void InteractionManager.runAfterInteractions(() => {
         setListData(response);
       });
@@ -147,6 +153,12 @@ function BasicMarketHomeList({
 
   useEffect(() => {
     void fetchCategory();
+    updateTimer.current = setInterval(() => {
+      void fetchCategory();
+    }, timerUtils.getTimeDurationMs({ seconds: 50 }));
+    return () => {
+      clearInterval(updateTimer.current);
+    };
   }, [fetchCategory]);
 
   const toDetailPage = useCallback(
