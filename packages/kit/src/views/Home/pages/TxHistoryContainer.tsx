@@ -101,7 +101,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
         isRefreshing: false,
       });
       setIsHeaderRefreshing(false);
-      setHistoryData(r);
+      setHistoryData(r.txs);
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.HISTORY,

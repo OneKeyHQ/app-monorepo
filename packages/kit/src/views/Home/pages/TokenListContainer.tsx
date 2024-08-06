@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
 
 import type { ITabPageProps } from '@onekeyhq/components';
 import {
@@ -14,6 +15,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   POLLING_DEBOUNCE_INTERVAL,
+  POLLING_INTERVAL_FOR_HISTORY,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
@@ -706,6 +708,37 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     refreshAllNetworksTokenList.current = true;
     void runAllNetworksRequests();
   }, [runAllNetworksRequests]);
+
+  usePromiseResult(
+    async () => {
+      if (!account || !network) return;
+
+      if (!network.isAllNetworks) return;
+
+      const pendingTxs =
+        await backgroundApiProxy.serviceHistory.getAllNetworksPendingTxs({
+          accountId: account.id,
+          networkId: network.id,
+        });
+
+      if (isEmpty(pendingTxs)) return;
+
+      const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+        accountId: account.id,
+        networkId: network.id,
+      });
+
+      if (r.pendingTxsUpdated) {
+        handleRefreshAllNetworkData();
+      }
+    },
+    [account, handleRefreshAllNetworkData, network],
+    {
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
+      debounced: POLLING_DEBOUNCE_INTERVAL,
+      pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+    },
+  );
 
   useEffect(() => {
     const refresh = () => {
