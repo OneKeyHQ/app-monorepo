@@ -1,6 +1,7 @@
 import { isNil } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
@@ -96,7 +97,6 @@ async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
     }
   }
   const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
-  console.log('--url', url);
   let left = 0;
   let top = 0;
   // debugger
@@ -174,8 +174,11 @@ async function openSidePanel(
   routeInfo: IOpenUrlRouteInfo,
 ): Promise<chrome.tabs.Tab | undefined> {
   if (chrome && chrome.sidePanel) {
+    if (sidePanelState.isOpen) {
+    }
     const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
     let windowId: number | undefined;
+    //  `sidePanel.open()` may only be called in response to a user gesture.
     if (platformEnv.isExtensionUiStandaloneWindow) {
       const id = window.location.href
         .split('panelWindowId=')
