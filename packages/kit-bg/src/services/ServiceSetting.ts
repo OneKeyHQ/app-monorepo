@@ -232,6 +232,12 @@ class ServiceSetting extends ServiceBase {
       // clear signature record
       await this.backgroundApi.serviceSignature.deleteAllSignatureRecords();
     }
+    if (values.customToken) {
+      await this.backgroundApi.simpleDb.customTokens.clearRawData();
+    }
+    if (values.customRpc) {
+      await this.backgroundApi.simpleDb.customRpc.clearRawData();
+    }
   }
 
   @backgroundMethod()
