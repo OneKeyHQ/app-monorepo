@@ -27,12 +27,12 @@ import type {
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
 
+import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
 import type { IDBUtxoAccount } from '../dbs/local/types';
-import simpleDb from '../dbs/simple/simpleDb';
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
@@ -407,15 +407,18 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountsValue({
-    accounts,
-  }: {
-    accounts: { accountId: string; networkId: string }[];
-  }) {
-    const accountsValue = await simpleDb.accountValue.getAccountsValue({
-      accounts,
-    });
+  async getAccountsValue(params: { accounts: { accountId: string }[] }) {
+    const accountsValue = await simpleDb.accountValue.getAccountsValue(params);
     return accountsValue;
+  }
+
+  @backgroundMethod()
+  async updateAccountValue(params: {
+    accountId: string;
+    value: string;
+    currency: string;
+  }) {
+    await simpleDb.accountValue.updateAccountValue(params);
   }
 
   // Get wallet type

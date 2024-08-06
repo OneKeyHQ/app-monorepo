@@ -5,7 +5,6 @@ import BigNumber from 'bignumber.js';
 
 import type { ITabPageProps } from '@onekeyhq/components';
 import {
-  Portal,
   useMedia,
   useOnRouterChange,
   useTabIsRefreshingFocused,
@@ -22,7 +21,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
-  EAssetSelectorRoutes,
   EModalAssetDetailRoutes,
   EModalReceiveRoutes,
   EModalRoutes,

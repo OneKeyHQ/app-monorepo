@@ -15,6 +15,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
@@ -100,6 +101,26 @@ function HomeOverviewContainer() {
       appEventBus.off(EAppEventBusNames.TabListStateUpdate, fn);
     };
   }, []);
+
+  useEffect(() => {
+    if (account && network) {
+      if (
+        (accountUtils.isOthersAccount({ accountId: account.id }) &&
+          !network.isAllNetworks &&
+          account.createAtNetwork === network.id) ||
+        (!accountUtils.isOthersAccount({ accountId: account.id }) &&
+          network.isAllNetworks)
+      ) {
+        void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+          accountId: accountUtils.isOthersAccount({ accountId: account.id })
+            ? account.id
+            : (account.indexedAccountId as string),
+          value: accountWorth.worth,
+          currency: settings.currencyInfo.id,
+        });
+      }
+    }
+  }, [account, accountWorth.worth, network, settings.currencyInfo.id, wallet]);
 
   const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
