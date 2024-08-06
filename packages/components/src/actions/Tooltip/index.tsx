@@ -2,15 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { Tooltip as TMTooltip } from 'tamagui';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { SizableText } from '../../primitives';
 
+import type { ITooltipProps } from './type';
 import type { ISizableTextProps } from '../../primitives';
-import type {
-  PopoverContentProps,
-  TooltipProps as TMTooltipProps,
-} from 'tamagui';
+import type { PopoverContentProps } from 'tamagui';
 
 export function TooltipText({
   children,
@@ -21,55 +17,48 @@ export function TooltipText({
   // Since the browser does not trigger mouse events when the page scrolls,
   //  it is necessary to manually close the tooltip when page elements scroll
   useEffect(() => {
-    if (!platformEnv.isNative) {
-      let scrolling = false;
-      let mouseMoving = false;
-      const onScroll = () => {
-        if (scrolling) {
-          return;
-        }
-        onDisplayChange?.(false);
-        scrolling = true;
-      };
-      const onScrollEnd = () => {
-        scrolling = false;
-      };
-      const onMouseMove = (e: { which: number }) => {
-        if (e?.which !== 1) {
-          return;
-        }
-        if (mouseMoving) {
-          return;
-        }
-        onDisplayChange?.(false);
-        mouseMoving = true;
-      };
-      const onMouseUp = () => {
-        document.removeEventListener('mouseup', onMouseMove, true);
-        if (!mouseMoving) {
-          return;
-        }
-        mouseMoving = false;
-      };
-      if (typeof document !== 'undefined') {
-        document.addEventListener('scroll', onScroll, true);
-        document.addEventListener('scrollend', onScroll, true);
-        document.addEventListener('mousemove', onMouseMove, true);
-        document.addEventListener('mouseup', onMouseUp, true);
-        return () => {
-          document.removeEventListener('scroll', onScroll, true);
-          document.removeEventListener('scrollend', onScrollEnd, true);
-          document.removeEventListener('mousemove', onMouseMove, true);
-        };
+    let scrolling = false;
+    let mouseMoving = false;
+    const onScroll = () => {
+      if (scrolling) {
+        return;
       }
+      onDisplayChange?.(false);
+      scrolling = true;
+    };
+    const onScrollEnd = () => {
+      scrolling = false;
+    };
+    const onMouseMove = (e: { which: number }) => {
+      if (e?.which !== 1) {
+        return;
+      }
+      if (mouseMoving) {
+        return;
+      }
+      onDisplayChange?.(false);
+      mouseMoving = true;
+    };
+    const onMouseUp = () => {
+      document.removeEventListener('mouseup', onMouseMove, true);
+      if (!mouseMoving) {
+        return;
+      }
+      mouseMoving = false;
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('scroll', onScroll, true);
+      document.addEventListener('scrollend', onScroll, true);
+      document.addEventListener('mousemove', onMouseMove, true);
+      document.addEventListener('mouseup', onMouseUp, true);
+      return () => {
+        document.removeEventListener('scroll', onScroll, true);
+        document.removeEventListener('scrollend', onScrollEnd, true);
+        document.removeEventListener('mousemove', onMouseMove, true);
+      };
     }
   }, [onDisplayChange]);
   return <SizableText size="$bodySm">{children}</SizableText>;
-}
-
-export interface ITooltipProps extends TMTooltipProps {
-  renderTrigger: React.ReactNode;
-  renderContent: React.ReactNode;
 }
 
 const transformOriginMap: Record<
