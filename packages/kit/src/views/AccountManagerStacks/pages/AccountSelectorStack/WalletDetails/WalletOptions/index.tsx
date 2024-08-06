@@ -56,6 +56,16 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
       );
     }
 
+    if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
+      if (accountUtils.isHwHiddenWallet({ wallet })) {
+        return (
+          <>
+            <HiddenWalletRememberSwitch wallet={wallet} key={wallet?.id} />
+          </>
+        );
+      }
+    }
+
     return null;
   }, [device, wallet]);
 
