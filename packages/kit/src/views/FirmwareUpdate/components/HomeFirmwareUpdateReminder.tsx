@@ -34,7 +34,7 @@ export function FirmwareUpdateReminderAlert({
       bg="$bgInfoSubdued"
       borderColor="$borderInfoSubdued"
       alignItems="center"
-      space="$2"
+      gap="$2"
       flex={1}
     >
       <Icon size="$4" name="DownloadOutline" color="$iconInfo" />

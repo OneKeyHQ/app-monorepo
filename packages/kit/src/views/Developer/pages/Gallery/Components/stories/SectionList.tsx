@@ -75,7 +75,7 @@ const SectionListDemo = () => {
         <XStack bg="$borderLight">
           <SizableText>{item}</SizableText>
           <Divider />
-          <XStack space="$8">
+          <XStack gap="$8">
             <Button
               onPress={() => {
                 const sectionList = ref?.current;

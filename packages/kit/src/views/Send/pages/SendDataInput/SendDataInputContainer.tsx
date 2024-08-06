@@ -900,7 +900,7 @@ function SendDataInputContainer() {
                   borderColor="$border"
                   borderRadius="$2"
                 >
-                  <XStack alignItems="center" space="$1" flex={1}>
+                  <XStack alignItems="center" gap="$1" flex={1}>
                     <Token
                       isNFT
                       size="lg"

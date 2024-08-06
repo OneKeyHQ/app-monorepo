@@ -64,7 +64,7 @@ const ShouldUnderstand = ({
               </XStack>
             ) : null}
           </YStack>
-          <YStack mt="$5" space="$5">
+          <YStack mt="$5" gap="$5">
             {items.map((o, index) => (
               <ShouldUnderstandListItemListItem
                 key={index}

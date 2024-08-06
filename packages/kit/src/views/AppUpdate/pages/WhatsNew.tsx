@@ -24,7 +24,7 @@ function WhatsNew() {
         title={intl.formatMessage({ id: ETranslations.settings_whats_new })}
       />
       <Page.Body m="$5">
-        <YStack space="$3">
+        <YStack gap="$3">
           <>
             {intl
               .formatMessage(

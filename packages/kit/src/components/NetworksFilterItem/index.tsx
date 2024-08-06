@@ -35,7 +35,7 @@ export function NetworksFilterItem({
           pressStyle: {
             bg: '$bgStrongActive',
           },
-          focusStyle: {
+          focusVisibleStyle: {
             outlineWidth: 2,
             outlineStyle: 'solid',
             outlineColor: '$focusRing',

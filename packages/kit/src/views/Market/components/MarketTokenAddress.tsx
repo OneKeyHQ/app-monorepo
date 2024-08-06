@@ -76,9 +76,9 @@ export function MarketTokenAddress({
     );
   }, [networkId, uri]);
   return (
-    <XStack space="$1.5" ai="center">
+    <XStack gap="$1.5" ai="center">
       {renderIcon()}
-      <XStack space="$2">
+      <XStack gap="$2">
         <SizableText color={tokenNameColor} size={tokenNameSize}>{`${
           tokenName || network?.name || ''
         }:`}</SizableText>

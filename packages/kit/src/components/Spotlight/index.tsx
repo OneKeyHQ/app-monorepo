@@ -177,7 +177,7 @@ function SpotlightContent({
           bg="$bg"
           px="$4"
           py="$3.5"
-          space="$3.5"
+          gap="$3.5"
           borderRadius="$3"
           outlineColor="$borderSubdued"
           outlineStyle="solid"

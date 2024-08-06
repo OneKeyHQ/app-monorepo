@@ -21,6 +21,7 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
@@ -243,7 +244,7 @@ function ReceiveToken() {
       }
 
       return (
-        <YStack space="$5" alignItems="center">
+        <YStack gap="$5" alignItems="center">
           <Button mt="$5" variant="primary" onPress={handleVerifyOnDevicePress}>
             {intl.formatMessage({
               id: ETranslations.global_verify_on_device,
@@ -289,7 +290,7 @@ function ReceiveToken() {
     return (
       <>
         <Stack mb="$5">
-          <XStack space="$2" alignItems="center" justifyContent="center">
+          <XStack gap="$2" alignItems="center" justifyContent="center">
             <Heading size="$headingMd">
               {token?.symbol ?? network.symbol}
             </Heading>
@@ -319,14 +320,24 @@ function ReceiveToken() {
           borderColor="$borderSubdued"
           p="$4"
         >
-          <QRCode
-            value={account.address}
-            logo={{
-              uri: token?.logoURI || network.logoURI,
-            }}
-            logoSize={40}
-            size={240}
-          />
+          <Stack position="relative">
+            <QRCode value={account.address} size={240} />
+            <Stack
+              position="absolute"
+              width="100%"
+              height="100%"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <Stack p={5} borderRadius="$full" overflow="hidden" bg="$bgApp">
+                <Token
+                  size="lg"
+                  tokenImageUri={token?.logoURI || network.logoURI}
+                />
+              </Stack>
+            </Stack>
+          </Stack>
+
           {!isShowQRCode ? (
             <Stack
               position="absolute"

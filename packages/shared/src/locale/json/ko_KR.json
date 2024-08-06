@@ -683,6 +683,7 @@
   "global.generate_amount_information": "생성할 수 있는 계정의 최대 수는 {max}입니다.",
   "global.generate_amount_number": "아니요.",
   "global.generate_amount_select": "모두 선택",
+  "global.generate_amount_select_path": "기본 주소가 보이지 않는 경우, 설정 > 계정 유도 경로를 확인하세요.",
   "global.generate_max": "최대",
   "global.get_one": "하나 받으세요",
   "global.github": "GitHub",

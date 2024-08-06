@@ -44,7 +44,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       bg="$bgStrong"
       borderRadius="$3"
       minWidth={platformEnv.isNative ? undefined : '$64'}
-      $md={mdHeaderStyle}
+      $md={mdHeaderStyle as any}
       hoverStyle={{
         bg: '$bgHover',
       }}

@@ -11,7 +11,7 @@ const ButtonsGallery = () => (
       {
         title: 'State',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Alert
               title="Title"
               description="Description here..."
@@ -47,7 +47,7 @@ const ButtonsGallery = () => (
       {
         title: 'Dismiss',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Alert
               title="Title"
               description="Description here..."
@@ -60,7 +60,7 @@ const ButtonsGallery = () => (
       {
         title: 'Actions',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Alert
               title="Title"
               description="Description here..."
@@ -88,7 +88,7 @@ const ButtonsGallery = () => (
       {
         title: 'fullBleed',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Alert
               fullBleed
               title="fullBleed"

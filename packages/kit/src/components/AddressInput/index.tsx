@@ -193,7 +193,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   }
   if (result) {
     return (
-      <XStack space="$2" my="$-1" flex={1} flexWrap="wrap">
+      <XStack gap="$2" my="$-1" flex={1} flexWrap="wrap">
         {result.walletAccountName ? (
           <Badge badgeType="success" badgeSize="sm" my="$0.5">
             {result.walletAccountName}
@@ -389,7 +389,7 @@ export function AddressInput(props: IAddressInputProps) {
         flexWrap="nowrap"
         alignItems="center"
       >
-        <XStack space="$2" flex={1}>
+        <XStack gap="$2" flex={1}>
           <AddressInputBadgeGroup
             loading={loading}
             result={queryResult}
@@ -397,7 +397,7 @@ export function AddressInput(props: IAddressInputProps) {
             onRefresh={onRefresh}
           />
         </XStack>
-        <XStack space="$6">
+        <XStack gap="$6">
           {clipboard ? (
             <ClipboardPlugin
               onInputTypeChange={onInputTypeChange}

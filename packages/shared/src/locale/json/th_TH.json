@@ -683,6 +683,7 @@
   "global.generate_amount_information": "จำนวนสูงสุดของบัญชีที่สร้างขึ้นคือ {max}.",
   "global.generate_amount_number": "ไม่",
   "global.generate_amount_select": "เลือกทั้งหมด",
+  "global.generate_amount_select_path": "หากที่อยู่เริ่มต้นของคุณไม่ปรากฏ ให้ตรวจสอบ การตั้งค่า > เส้นทางการสืบทอดบัญชี",
   "global.generate_max": "สูงสุด",
   "global.get_one": "รับหนึ่ง",
   "global.github": "GitHub",

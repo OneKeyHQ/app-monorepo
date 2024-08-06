@@ -93,7 +93,7 @@ export function BeforeShowRecoveryPhrase() {
           })}
         </SizableText>
         {messages.map((item) => (
-          <ListItem space="$5" key={item.message}>
+          <ListItem gap="$5" key={item.message}>
             <Stack
               p="$2"
               borderRadius="$3"

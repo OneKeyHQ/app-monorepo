@@ -86,7 +86,7 @@ const SwapTxHistoryListCell = ({
     });
 
     return (
-      <XStack space="$2">
+      <XStack gap="$2">
         <SizableText size="$bodyMd" color="$textSubdued">
           {dateStr}
         </SizableText>
@@ -97,7 +97,7 @@ const SwapTxHistoryListCell = ({
 
   const title = useMemo(
     () => (
-      <XStack alignItems="center" space="$1">
+      <XStack alignItems="center" gap="$1">
         <SizableText size="$bodyLgMedium">
           {item.baseInfo.fromToken.symbol.toUpperCase()}
         </SizableText>
