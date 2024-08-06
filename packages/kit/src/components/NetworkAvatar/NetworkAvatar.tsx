@@ -14,17 +14,15 @@ export const NetworkAvatarBase = ({
 }) => (
   <Image size={size} src={logoURI} borderRadius="$full">
     <Image.Source source={{ uri: logoURI }} />
-    {!platformEnv.isNative ? (
-      <Image.Fallback
-        delayMs={1000}
-        alignItems="center"
-        justifyContent="center"
-        bg="$gray5"
-        padding="$1"
-      >
-        <Icon name="GlobusOutline" color="$iconSubdued" />
-      </Image.Fallback>
-    ) : null}
+    <Image.Fallback
+      delayMs={1000}
+      alignItems="center"
+      justifyContent="center"
+      bg="$gray5"
+      padding="$1"
+    >
+      <Icon name="GlobusOutline" color="$iconSubdued" />
+    </Image.Fallback>
   </Image>
 );
 
