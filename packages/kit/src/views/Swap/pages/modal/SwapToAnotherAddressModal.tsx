@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -97,6 +97,14 @@ const SwapToAnotherAddressPage = () => {
     setSwapToAddress((v) => ({ ...v, address: undefined }));
   }, [setSwapToAddress, setSettings]);
 
+  const accountSelector = useMemo(
+    () => ({
+      num: 1,
+      onBeforeAccountSelectorOpen: handleOnOpenAccountSelector,
+    }),
+    [handleOnOpenAccountSelector],
+  );
+
   return accountInfo && accountInfo?.network?.id ? (
     <Page>
       <Page.Body px="$5" gap="$4">
@@ -126,10 +134,7 @@ const SwapToAnotherAddressPage = () => {
               enableAddressBook
               enableWalletName
               contacts
-              accountSelector={{
-                num: 1,
-                onBeforeAccountSelectorOpen: handleOnOpenAccountSelector,
-              }}
+              accountSelector={accountSelector}
             />
           </Form.Field>
         </Form>
