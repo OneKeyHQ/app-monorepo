@@ -13,13 +13,13 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { Advance } from './Advance';
 import { BatchCreateAccountButton } from './BatchCreateAccountButton';
 import { CheckFirmwareUpdateButton } from './CheckFirmwareUpdateButton';
+import { HardwareLabelSetButton } from './HardwareLabelSetButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
 import { Verification } from './Verification';
 import { WalletProfile } from './WalletProfile';
 
 import type { IWalletDetailsProps } from '..';
-import { HardwareLabelSetButton } from './HardwareLabelSetButton';
 
 type IWalletOptionsProps = Partial<IWalletDetailsProps>;
 

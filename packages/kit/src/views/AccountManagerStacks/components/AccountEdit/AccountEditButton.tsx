@@ -3,17 +3,17 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ActionList, Divider } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IDBAccount,
   IDBIndexedAccount,
   IDBUtxoAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 

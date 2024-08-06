@@ -3,11 +3,7 @@ import { useIntl } from 'react-intl';
 import { Dialog, SizableText, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
-import type {
-  IDBDevice,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { WalletOptionItem } from './WalletOptionItem';
@@ -18,16 +14,22 @@ function DeviceLabelDialogContent(props: {
 }) {
   const intl = useIntl();
   const { onFail, wallet } = props;
-  const { result } = usePromiseResult(async () => {
-    try {
-      return await backgroundApiProxy.serviceHardware.getDeviceLabel({
-        walletId: wallet?.id || '',
-      });
-    } catch (error) {
-      onFail?.(error as Error);
-      throw error;
-    }
-  }, [onFail, wallet?.id]);
+  const { result } = usePromiseResult(
+    async () => {
+      try {
+        return await backgroundApiProxy.serviceHardware.getDeviceLabel({
+          walletId: wallet?.id || '',
+        });
+      } catch (error) {
+        onFail?.(error as Error);
+        throw error;
+      }
+    },
+    [onFail, wallet?.id],
+    {
+      debounced: 600,
+    },
+  );
 
   if (!result) {
     return (
