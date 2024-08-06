@@ -20,13 +20,13 @@ const useVisible = (delayMs: number) => {
       clearTimeout(timerId);
     };
   }, [delayMs]);
-  const { loading, loadedSuccessfully } = useContext(ImageContext);
-  return (loading || !loadedSuccessfully) && visible;
+  const { loadedSuccessfully } = useContext(ImageContext);
+  return !loadedSuccessfully && visible;
 };
 export function ImageFallback({
   delayMs = 80,
   children,
-  ...props
+...props
 }: IImageFallbackProps) {
   const visible = useVisible(delayMs);
   return visible ? (
