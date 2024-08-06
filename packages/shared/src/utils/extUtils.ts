@@ -78,8 +78,25 @@ async function openUrlInTab(
   });
 }
 
+async function isOpenPanelOnActionClick() {
+  const options = await chrome.sidePanel.getPanelBehavior();
+  return options.openPanelOnActionClick;
+}
+
 async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
+  if (chrome && chrome.sidePanel) {
+    if (await isOpenPanelOnActionClick()) {
+      const window = await chrome.windows.getCurrent({ populate: true });
+      if (window) {
+        routeInfo.params = {
+          ...routeInfo.params,
+          panelWindowId: window.id,
+        };
+      }
+    }
+  }
   const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
+  console.log('--url', url);
   let left = 0;
   let top = 0;
   // debugger
@@ -153,38 +170,40 @@ async function openExpandTab(
   return tab;
 }
 
-function openSidePanel(
+async function openSidePanel(
   routeInfo: IOpenUrlRouteInfo,
 ): Promise<chrome.tabs.Tab | undefined> {
-  return new Promise((resolve) => {
-    if (
-      chrome.sidePanel &&
-      chrome.sidePanel.open &&
-      chrome.sidePanel.setOptions
-    ) {
-      const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tab = tabs[0];
-        if (tab && tab.id) {
-          chrome.sidePanel.open({ tabId: tab.id }, () => {
-            void chrome.sidePanel.setOptions({
-              tabId: tab.id,
-              path: url,
-              enabled: true,
-            });
-          });
-          resolve(tab);
-        }
-      });
+  if (chrome && chrome.sidePanel) {
+    const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
+    let windowId: number | undefined;
+    if (platformEnv.isExtensionUiStandaloneWindow) {
+      const id = window.location.href
+        .split('panelWindowId=')
+        ?.pop()
+        ?.split('&')[0];
+      if (!id) {
+        throw new Error('panelWindowId not found');
+      }
+      windowId = parseInt(id, 10);
     } else {
-      return openExpandTab(routeInfo);
+      const window = await chrome.windows.getCurrent({ populate: true });
+      windowId = window.id;
     }
-  });
+    if (windowId) {
+      await chrome.sidePanel.open({ windowId });
+      await chrome.sidePanel.setOptions({
+        path: url,
+        enabled: true,
+      });
+      return;
+    }
+  }
+  return openExpandTab(routeInfo);
 }
 
-async function openPanelOnActionClick(isOpenPanelOnActionClick: boolean) {
+async function openPanelOnActionClick(enableSidePanel: boolean) {
   await chrome.sidePanel.setPanelBehavior({
-    openPanelOnActionClick: isOpenPanelOnActionClick,
+    openPanelOnActionClick: enableSidePanel,
   });
 }
 
@@ -206,4 +225,5 @@ export default {
   openSidePanel,
   openExistWindow,
   openPanelOnActionClick,
+  isOpenPanelOnActionClick,
 };
