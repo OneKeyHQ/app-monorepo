@@ -7,6 +7,7 @@ export const setupSidePanelPolling = () => {
     if (port.name === PORT_NAME) {
       let timerId: ReturnType<typeof setTimeout>;
       sidePanelState.isOpen = true;
+      sidePanelState.port = port;
 
       const closeSidePanel = () => {
         sidePanelState.isOpen = false;
@@ -17,7 +18,7 @@ export const setupSidePanelPolling = () => {
         timerId = setTimeout(() => {
           port.disconnect();
           closeSidePanel();
-        }, timerUtils.getTimeDurationMs({ seconds: 8 }));
+        }, timerUtils.getTimeDurationMs({ seconds: 5 }));
       });
       port.onDisconnect.addListener(() => {
         closeSidePanel();
@@ -30,5 +31,5 @@ export const startSidePanelPolling = () => {
   const port = chrome.runtime.connect({ name: PORT_NAME });
   setInterval(() => {
     port.postMessage('ping');
-  }, timerUtils.getTimeDurationMs({ seconds: 5 }));
+  }, timerUtils.getTimeDurationMs({ seconds: 3 }));
 };
