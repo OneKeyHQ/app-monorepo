@@ -11,6 +11,7 @@ export const setupSidePanelPolling = () => {
 
       const closeSidePanel = () => {
         sidePanelState.isOpen = false;
+        sidePanelState.port = undefined;
       };
 
       port.onMessage.addListener(() => {
