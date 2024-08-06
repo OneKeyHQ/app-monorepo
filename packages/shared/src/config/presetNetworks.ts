@@ -1526,6 +1526,35 @@ const aurora: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': false,
 };
+const holesky: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '17000',
+  'id': 'evm--17000',
+  'name': 'Garnet Holesky',
+  'symbol': 'ETH',
+  'code': 'holesky',
+  'shortcode': 'holesky',
+  'shortname': 'Holesky',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'eth',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': true,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': false,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1722914233365.0.8755229479555522.0.svg',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
 
 const btc: IServerNetwork = {
   'chainId': '0',
@@ -2415,6 +2444,7 @@ export const presetNetworksMap = {
   base,
   bob,
   aurora,
+  holesky,
 
   // cosmos
   celestia,
@@ -2518,6 +2548,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   base,
   bob,
   aurora,
+  holesky,
   // cosmos
   celestia,
   secret,
