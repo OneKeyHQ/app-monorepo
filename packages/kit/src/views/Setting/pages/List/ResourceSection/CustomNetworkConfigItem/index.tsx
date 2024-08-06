@@ -7,7 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
-export const RateAppItem = () => {
+export const CustomNetworkConfigItem = () => {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
   const onPress = useCallback(() => {
@@ -19,7 +19,9 @@ export const RateAppItem = () => {
     <ListItem
       onPress={onPress}
       icon="FileDownloadOutline"
-      title={intl.formatMessage({ id: ETranslations.settings_rate_app })}
+      title={intl.formatMessage({
+        id: ETranslations.settings_export_network_config_label,
+      })}
       drillIn
     />
   );

@@ -59,6 +59,7 @@ import type {
   IV4DBVariantAccount,
 } from '../../migrations/v4ToV5Migration/v4local/v4localDBTypesSchema';
 import type { V4LocalDbRealm } from '../../migrations/v4ToV5Migration/v4local/v4realm/V4LocalDbRealm';
+import type { IV4Token } from '../../migrations/v4ToV5Migration/v4types';
 import type { IV4MigrationAtom } from '../../states/jotai/atoms/v4migration';
 import type { VaultBase } from '../../vaults/base/VaultBase';
 
@@ -1056,26 +1057,35 @@ class ServiceV4Migration extends ServiceBase {
     return v4dbHubs.logger.clearLogs();
   }
 
-  @backgroundMethod()
-  async getV4CustomNetworkRpcUrls() {
-    const reduxData = await v4dbHubs.v4reduxDb.reduxData;
-    const customNetworkRpcMap = reduxData?.settings?.customNetworkRpcMap;
-    if (customNetworkRpcMap) {
-      return Object.entries(customNetworkRpcMap).map(([key, value]) => ({
-        networkId: key,
-        rpcUrls: value,
-      }));
-    }
-  }
-
-  @backgroundMethod()
-  async getV4CustomEvmNetworks() {
+  private async getV4AllNetworks() {
     const v4localDb = v4dbHubs.v4localDb;
     const r = await v4localDb.getAllRecords({
       name: EV4LocalDBStoreNames.Network,
     });
     const v4networks: IV4DBNetwork[] = r?.records || [];
+    return v4networks;
+  }
 
+  @backgroundMethod()
+  async getV4CustomRpcUrls() {
+    const reduxData = await v4dbHubs.v4reduxDb.reduxData;
+    const customNetworkRpcMap = reduxData?.settings?.customNetworkRpcMap;
+    if (customNetworkRpcMap) {
+      const v4networks = await this.getV4AllNetworks();
+      const networkNameMap = v4networks.reduce((result, item) => {
+        result[item.id] = item.name;
+        return result;
+      }, {} as Record<string, string>);
+      return Object.entries(customNetworkRpcMap).map(([key, value]) => ({
+        networkId: key,
+        networkName: networkNameMap[key] ?? key,
+        rpcUrls: value,
+      }));
+    }
+  }
+
+  private async getV4CustomEvmNetworks() {
+    const v4networks = await this.getV4AllNetworks();
     const { networkIds: allNetworkIds } =
       await this.backgroundApi.serviceNetwork.getAllNetworkIds();
     const allNetworkIdsSet = new Set(allNetworkIds);
@@ -1088,18 +1098,35 @@ class ServiceV4Migration extends ServiceBase {
     return v4CustomEvmNetworks;
   }
 
-  @backgroundMethod()
-  async getCustomTokenList() {
+  private async getV4CustomTokenList() {
     const reduxData = await v4dbHubs.v4reduxDb.reduxData;
     const accountTokens = reduxData?.token?.accountTokens;
     if (accountTokens) {
-      return Object.entries(accountTokens).map(([key, value]) => ({
-        networkId: key,
-        tokens: uniqBy(flatten(Object.values(value)), (o) =>
-          o.address?.toLowerCase(),
-        ),
-      }));
+      return Object.entries(accountTokens)
+        .map(([key, value]) => ({
+          networkId: key,
+          tokens: uniqBy(flatten(Object.values(value)), (o) =>
+            o.address?.toLowerCase(),
+          ),
+        }))
+        .reduce((result, item) => {
+          result[item.networkId] = item.tokens;
+          return result;
+        }, {} as Record<string, IV4Token[]>);
     }
+  }
+
+  @backgroundMethod()
+  async getV4CustomNetworkIncludeTokens() {
+    const v4EvmNetworks = await this.getV4CustomEvmNetworks();
+    const v4CustomTokenList = await this.getV4CustomTokenList();
+    return v4EvmNetworks.map((network) => {
+      const tokens = v4CustomTokenList?.[network.id] || [];
+      return {
+        network,
+        tokens,
+      };
+    });
   }
 }
 
