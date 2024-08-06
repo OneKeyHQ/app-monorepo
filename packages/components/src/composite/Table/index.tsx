@@ -11,7 +11,7 @@ import { ListView } from '../../layouts/ListView';
 import { Icon, SizableText, Stack, XStack, YStack } from '../../primitives';
 
 import type { IListViewProps, IListViewRef } from '../../layouts';
-import type { IStackProps } from '../../primitives';
+import type { IStackProps, IStackStyle } from '../../primitives';
 import type {
   ListRenderItemInfo,
   NativeScrollEvent,
@@ -173,14 +173,17 @@ function TableRow<T>({
 function TableSkeletonRow<T = any>({
   columns,
   index,
+  rowProps,
 }: {
   columns: ITableProps<T>['columns'];
   index: number;
+  rowProps?: ITableProps<T>['rowProps'];
 }) {
   return (
     <TableRow
       columns={columns}
       showSkeleton
+      rowProps={rowProps}
       item={undefined as any}
       key={index}
       index={index}
@@ -402,14 +405,21 @@ function BasicTable<T>({
 function TableSkeleton<T>({
   count,
   columns,
+  rowProps,
 }: {
   count: number;
   columns: ITableProps<T>['columns'];
+  rowProps?: ITableProps<T>['rowProps'];
 }) {
   return (
     <YStack>
       {new Array(count).fill(0).map((i) => (
-        <TableSkeletonRow index={i} columns={columns} key={i} />
+        <TableSkeletonRow
+          index={i}
+          columns={columns}
+          key={i}
+          rowProps={rowProps}
+        />
       ))}
     </YStack>
   );
