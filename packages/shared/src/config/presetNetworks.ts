@@ -955,32 +955,6 @@ const iotex: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': false,
 };
-const hmys1: IServerNetwork = {
-  'impl': 'evm',
-  'chainId': '1666600001',
-  'id': 'evm--1666600001',
-  'name': 'Harmony Mainnet Shard 1',
-  'symbol': 'ONE',
-  'code': 'hmys1',
-  'shortcode': 'hmys1',
-  'shortname': 'hmy-s1',
-  'decimals': 18,
-  'feeMeta': {
-    'code': 'one',
-    'decimals': 9,
-    'symbol': 'Gwei',
-  },
-  'status': ENetworkStatus.LISTED,
-  'isTestnet': false,
-  'extensions': {
-    'position': 9999,
-    'isTokenSupported': true,
-    'isNFTEnabled': false,
-  },
-  'logoURI': '',
-  'defaultEnabled': true,
-  'backendIndex': false,
-};
 const harmony: IServerNetwork = {
   'impl': 'evm',
   'chainId': '1666600000',
@@ -2394,7 +2368,6 @@ export const presetNetworksMap = {
   klaytn,
   kava,
   iotex,
-  hmys1,
   harmony,
   flare,
   fevm,
@@ -2497,7 +2470,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   klaytn,
   kava,
   iotex,
-  hmys1,
   harmony,
   flare,
   fevm,
