@@ -136,7 +136,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           />
           {alerts.states.length > 0 &&
           !quoteLoading &&
-          alerts.quoteId === quoteResult?.quoteId &&
+          alerts.quoteId === (quoteResult?.quoteId ?? '') &&
           !selectTokenDetailLoading.from &&
           !selectTokenDetailLoading.to ? (
             <SwapAlertContainer alerts={alerts.states} />
