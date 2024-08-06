@@ -130,7 +130,7 @@ function BasicMarketHomeList({
   const navigation = useAppNavigation();
 
   const updateAtRef = useRef(0);
-  const updateTimer = useRef<ReturnType<typeof setTimeout>>();
+  const updateTimer = useRef<ReturnType<typeof setInterval>>();
 
   const [listData, setListData] = useState<IMarketToken[]>([]);
   const fetchCategory = useCallback(async () => {
