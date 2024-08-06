@@ -56,7 +56,9 @@ function ReceiveInvoice() {
         .then((res) => {
           if (res.is_paid) {
             Toast.success({
-              title: 'Payment Received',
+              title: intl.formatMessage({
+                id: ETranslations.ln_payment_received_label,
+              }),
             });
             clearInterval(timerRef.current);
             setTimeout(() => {
