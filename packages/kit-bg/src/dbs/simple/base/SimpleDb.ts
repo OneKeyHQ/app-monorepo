@@ -1,4 +1,5 @@
 import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
+import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
@@ -20,7 +21,6 @@ import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
-import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 
 export class SimpleDb {
   browserTabs = new SimpleDbEntityBrowserTabs();

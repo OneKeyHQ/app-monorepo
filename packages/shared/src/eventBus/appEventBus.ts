@@ -162,6 +162,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
     type: EHomeTab;
+    accountId: string;
+    networkId: string;
   };
   [EAppEventBusNames.AccountDataUpdate]: undefined;
 }

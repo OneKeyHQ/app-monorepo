@@ -17,6 +17,7 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
   POLLING_INTERVAL_FOR_TOKEN,
+  TOKEN_LIST_HIGH_VALUE_MAX,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -157,6 +158,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: true,
           type: EHomeTab.TOKENS,
+          accountId: account.id,
+          networkId: network.id,
         });
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
@@ -232,12 +235,16 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
             isRefreshing: false,
             type: EHomeTab.TOKENS,
+            accountId: account.id,
+            networkId: network.id,
           });
         }
       } catch (e) {
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: false,
           type: EHomeTab.TOKENS,
+          accountId: account?.id ?? '',
+          networkId: network?.id ?? '',
         });
         if (e instanceof CanceledError) {
           console.log('fetchAccountTokens canceled');
@@ -320,35 +327,29 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           merge: true,
         });
 
+        const tokensMap = {
+          ...r.tokens.map,
+          ...r.smallBalanceTokens.map,
+        };
+
         refreshTokenListMap({
-          tokens: r.tokens.map,
+          tokens: tokensMap,
           merge: true,
-          mergeDerive: mergeDeriveAssetsEnabled,
-        });
-        refreshTokenList({
-          keys: r.tokens.keys,
-          tokens: r.tokens.data,
-          merge: true,
-          map: r.tokens.map,
           mergeDerive: mergeDeriveAssetsEnabled,
         });
 
         refreshSmallBalanceTokenListMap({
-          tokens: r.smallBalanceTokens.map,
+          tokens: tokensMap,
           merge: true,
-          mergeDerive: mergeDeriveAssetsEnabled,
-        });
-        refreshSmallBalanceTokenList({
-          keys: r.smallBalanceTokens.keys,
-          smallBalanceTokens: r.smallBalanceTokens.data,
-          merge: true,
-          map: r.smallBalanceTokens.map,
           mergeDerive: mergeDeriveAssetsEnabled,
         });
 
-        refreshSmallBalanceTokensFiatValue({
-          value: r.smallBalanceTokens.fiatValue ?? '0',
+        refreshTokenList({
+          keys: r.tokens.keys,
+          tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
           merge: true,
+          map: tokensMap,
+          mergeDerive: mergeDeriveAssetsEnabled,
         });
 
         refreshRiskyTokenListMap({
@@ -401,9 +402,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       refreshAllTokenListMap,
       refreshRiskyTokenList,
       refreshRiskyTokenListMap,
-      refreshSmallBalanceTokenList,
       refreshSmallBalanceTokenListMap,
-      refreshSmallBalanceTokensFiatValue,
       refreshTokenList,
       refreshTokenListMap,
       updateAccountOverviewState,
@@ -465,21 +464,27 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
   const handleAllNetworkRequestsFinished = useCallback(
     ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
-      if (accountId !== account?.id || networkId !== network?.id) return;
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.TOKENS,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
       });
     },
-    [account?.id, network?.id],
+    [],
   );
 
-  const handleAllNetworkRequestsStarted = useCallback(() => {
-    appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-      isRefreshing: true,
-      type: EHomeTab.TOKENS,
-    });
-  }, []);
+  const handleAllNetworkRequestsStarted = useCallback(
+    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: true,
+        type: EHomeTab.TOKENS,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+      });
+    },
+    [],
+  );
 
   const { run: runAllNetworksRequests, result: allNetworksResult } =
     useAllNetworkRequests<IFetchAccountTokensResp>({
@@ -586,25 +591,37 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           mergeDeriveAssets: mergeDeriveAssetsEnabled,
         });
 
-        smallBalanceTokensFiatValue = smallBalanceTokensFiatValue.plus(
-          r.smallBalanceTokens.fiatValue ?? '0',
-        );
-
         accountWorth = accountWorth
           .plus(r.tokens.fiatValue ?? '0')
           .plus(r.riskTokens.fiatValue ?? '0')
           .plus(r.smallBalanceTokens.fiatValue ?? '0');
       }
 
-      tokenList.tokens = sortTokensByFiatValue({
-        tokens: tokenList.tokens,
-        map: tokenListMap,
+      const mergeTokenListMap = {
+        ...tokenListMap,
+        ...smallBalanceTokenListMap,
+      };
+
+      const mergedTokens = sortTokensByFiatValue({
+        tokens: [
+          ...tokenList.tokens,
+          ...smallBalanceTokenList.smallBalanceTokens,
+        ],
+        map: mergeTokenListMap,
       });
 
-      smallBalanceTokenList.smallBalanceTokens = sortTokensByFiatValue({
-        tokens: smallBalanceTokenList.smallBalanceTokens,
-        map: smallBalanceTokenListMap,
-      });
+      tokenList.tokens = mergedTokens.slice(0, TOKEN_LIST_HIGH_VALUE_MAX);
+
+      smallBalanceTokenList.smallBalanceTokens = mergedTokens.slice(
+        TOKEN_LIST_HIGH_VALUE_MAX,
+      );
+
+      smallBalanceTokensFiatValue =
+        smallBalanceTokenList.smallBalanceTokens.reduce(
+          (acc, token) =>
+            acc.plus(mergeTokenListMap[token.$key].fiatValue ?? '0'),
+          new BigNumber(0),
+        );
 
       riskyTokenList.riskyTokens = sortTokensByFiatValue({
         tokens: riskyTokenList.riskyTokens,
@@ -614,13 +631,14 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       updateAccountWorth({ worth: accountWorth.toFixed() });
 
       refreshTokenList(tokenList);
+
       refreshTokenListMap({
-        tokens: tokenListMap,
+        tokens: mergeTokenListMap,
       });
 
       refreshSmallBalanceTokenList(smallBalanceTokenList);
       refreshSmallBalanceTokenListMap({
-        tokens: smallBalanceTokenListMap,
+        tokens: mergeTokenListMap,
       });
       refreshSmallBalanceTokensFiatValue({
         value: smallBalanceTokensFiatValue.toFixed(),

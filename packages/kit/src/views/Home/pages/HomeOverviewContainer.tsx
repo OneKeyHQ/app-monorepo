@@ -43,6 +43,8 @@ function HomeOverviewContainer() {
   const [isRefreshingNftList, setIsRefreshingNftList] = useState(false);
   const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
 
+  const listRefreshKey = useRef('');
+
   const [accountWorth] = useAccountWorthAtom();
   const [overviewState] = useAccountOverviewStateAtom();
   const { updateAccountOverviewState, updateAccountWorth } =
@@ -83,10 +85,25 @@ function HomeOverviewContainer() {
     const fn = ({
       isRefreshing,
       type,
+      accountId,
+      networkId,
     }: {
       isRefreshing: boolean;
       type: EHomeTab;
+      accountId: string;
+      networkId: string;
     }) => {
+      const key = `${accountId}-${networkId}`;
+      if (
+        !isRefreshing &&
+        listRefreshKey.current &&
+        listRefreshKey.current !== key
+      ) {
+        return;
+      }
+
+      listRefreshKey.current = key;
+
       if (type === EHomeTab.TOKENS) {
         setIsRefreshingTokenList(isRefreshing);
       } else if (type === EHomeTab.NFT) {

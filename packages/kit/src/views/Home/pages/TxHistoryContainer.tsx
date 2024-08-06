@@ -91,6 +91,8 @@ function TxHistoryListContainer(props: ITabPageProps) {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.HISTORY,
+        accountId: account.id,
+        networkId: network.id,
       });
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
@@ -105,6 +107,8 @@ function TxHistoryListContainer(props: ITabPageProps) {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.HISTORY,
+        accountId: account.id,
+        networkId: network.id,
       });
     },
     [account, network, setIsHeaderRefreshing],

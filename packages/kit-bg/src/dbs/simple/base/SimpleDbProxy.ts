@@ -3,6 +3,7 @@ import { BackgroundServiceProxyBase } from '../../../apis/BackgroundServiceProxy
 import type { SimpleDb } from './SimpleDb';
 import type { BackgroundApiProxyBase } from '../../../apis/BackgroundApiProxyBase';
 import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
+import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
@@ -24,7 +25,6 @@ import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHist
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
-import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
