@@ -5,6 +5,7 @@ import type {
   IV4DBContext,
   IV4DBCredentialBase,
   IV4DBDevice,
+  IV4DBNetwork,
   IV4DBWallet,
 } from './v4localDBTypesSchema';
 import type { V4RealmSchemaAccount } from './v4realm/schemas/V4RealmSchemaAccount';
@@ -12,6 +13,7 @@ import type { V4RealmSchemaAccountDerivation } from './v4realm/schemas/V4RealmSc
 import type { V4RealmSchemaContext } from './v4realm/schemas/V4RealmSchemaContext';
 import type { V4RealmSchemaCredential } from './v4realm/schemas/V4RealmSchemaCredential';
 import type { V4RealmSchemaDevice } from './v4realm/schemas/V4RealmSchemaDevice';
+import type { V4RealmSchemaNetwork } from './v4realm/schemas/V4RealmSchemaNetwork';
 import type { V4RealmSchemaWallet } from './v4realm/schemas/V4RealmSchemaWallet';
 import type { DBSchema, IDBPObjectStore } from 'idb';
 
@@ -22,6 +24,7 @@ export interface IV4LocalDBSchemaMap {
   [EV4LocalDBStoreNames.Account]: IV4DBAccount;
   [EV4LocalDBStoreNames.AccountDerivation]: IV4DBAccountDerivation;
   [EV4LocalDBStoreNames.Device]: IV4DBDevice;
+  [EV4LocalDBStoreNames.Network]: IV4DBNetwork;
 }
 
 export interface IV4RealmDBSchemaMap {
@@ -31,6 +34,7 @@ export interface IV4RealmDBSchemaMap {
   [EV4LocalDBStoreNames.Account]: V4RealmSchemaAccount;
   [EV4LocalDBStoreNames.AccountDerivation]: V4RealmSchemaAccountDerivation;
   [EV4LocalDBStoreNames.Device]: V4RealmSchemaDevice;
+  [EV4LocalDBStoreNames.Network]: V4RealmSchemaNetwork;
 }
 
 export interface IV4IndexedDBSchemaMap extends DBSchema {
@@ -58,6 +62,10 @@ export interface IV4IndexedDBSchemaMap extends DBSchema {
   [EV4LocalDBStoreNames.Wallet]: {
     key: string;
     value: IV4DBWallet;
+  };
+  [EV4LocalDBStoreNames.Network]: {
+    key: string;
+    value: IV4DBNetwork;
   };
 }
 
@@ -97,6 +105,12 @@ export type IV4LocalDBTransactionStores = {
     IV4IndexedDBSchemaMap,
     EV4LocalDBStoreNames.Device[],
     EV4LocalDBStoreNames.Device,
+    'readwrite'
+  >;
+  [EV4LocalDBStoreNames.Network]: IDBPObjectStore<
+    IV4IndexedDBSchemaMap,
+    EV4LocalDBStoreNames.Network[],
+    EV4LocalDBStoreNames.Network,
     'readwrite'
   >;
 };
