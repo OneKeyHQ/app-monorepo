@@ -12,3 +12,5 @@ export function Tooltip({ renderTrigger }: ITooltipProps) {
 }
 
 Tooltip.Text = TooltipText;
+
+export * from './type';

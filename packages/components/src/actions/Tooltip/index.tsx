@@ -157,3 +157,5 @@ export function Tooltip({
 }
 
 Tooltip.Text = TooltipText;
+
+export * from './type';
