@@ -34,8 +34,8 @@ function ContainerItem(props: IProps) {
   } = props;
   return (
     <Group.Item>
-      <YStack px="$4" py="$3" space="$0.5">
-        <XStack alignItems="center" space="$1">
+      <YStack px="$4" py="$3" gap="$0.5">
+        <XStack alignItems="center" gap="$1">
           {typeof title === 'string' ? (
             <SizableText
               size="$headingSm"
@@ -60,7 +60,7 @@ function ContainerItem(props: IProps) {
           )}
         </XStack>
         <XStack alignItems="center" justifyContent="space-between">
-          <XStack space="$1" alignItems="center" flex={1}>
+          <XStack gap="$1" alignItems="center" flex={1}>
             {typeof content === 'string' ? (
               <SizableText size="$bodyMdMedium" color="$text" numberOfLines={2}>
                 {content}

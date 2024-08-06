@@ -270,7 +270,7 @@ const MaticLidoOverviewContent = ({
             {totalFiatValue}
           </NumberSizeableText>
         </Stack>
-        <XStack mt="$2" space="$1">
+        <XStack mt="$2" gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage(
               { id: ETranslations.earn_token_available_to_stake },
@@ -290,7 +290,7 @@ const MaticLidoOverviewContent = ({
             )}
           </SizableText>
         </XStack>
-        <YStack space="$2" mt="$5">
+        <YStack gap="$2" mt="$5">
           <ListItemStaked
             amount={stMatic.balanceParsed}
             matic2StMatic={matic2StMatic}

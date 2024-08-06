@@ -23,7 +23,7 @@ export function TextCell({
       <SizableText size="$bodySm" color="$textSubdued">
         {title}
       </SizableText>
-      <XStack space="$1" ai="center">
+      <XStack gap="$1" ai="center">
         <NumberSizeableText
           numberOfLines={1}
           size="$bodyMdMedium"

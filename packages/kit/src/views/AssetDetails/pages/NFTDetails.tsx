@@ -239,7 +239,7 @@ export function NFTDetails() {
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
             >
               {intl.formatMessage({ id: ETranslations.global_send })}
