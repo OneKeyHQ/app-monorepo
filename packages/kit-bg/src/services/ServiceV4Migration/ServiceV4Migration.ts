@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports */
+import { flatten, uniqBy } from 'lodash';
+
 import { decryptVerifyString } from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
@@ -11,7 +13,6 @@ import {
   COINTYPE_COSMOS,
   COINTYPE_DOT,
   COINTYPE_NEXA,
-  IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { IncorrectPassword } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -1056,6 +1057,18 @@ class ServiceV4Migration extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getV4CustomNetworkRpcUrls() {
+    const reduxData = await v4dbHubs.v4reduxDb.reduxData;
+    const customNetworkRpcMap = reduxData?.settings?.customNetworkRpcMap;
+    if (customNetworkRpcMap) {
+      return Object.entries(customNetworkRpcMap).map(([key, value]) => ({
+        networkId: key,
+        rpcUrls: value,
+      }));
+    }
+  }
+
+  @backgroundMethod()
   async getV4CustomEvmNetworks() {
     const v4localDb = v4dbHubs.v4localDb;
     const r = await v4localDb.getAllRecords({
@@ -1068,23 +1081,24 @@ class ServiceV4Migration extends ServiceBase {
     const allNetworkIdsSet = new Set(allNetworkIds);
 
     const v4CustomEvmNetworks = v4networks.filter(
-      (o) => o.impl === IMPL_EVM && !allNetworkIdsSet.has(o.id),
+      (o) =>
+        networkUtils.isEvmNetwork({ networkId: o.id }) &&
+        !allNetworkIdsSet.has(o.id),
     );
-
     return v4CustomEvmNetworks;
   }
 
   @backgroundMethod()
-  async getV4CustomEvmNetworkRpcUrls() {
+  async getCustomTokenList() {
     const reduxData = await v4dbHubs.v4reduxDb.reduxData;
-    const customNetworkRpcMap = reduxData?.settings?.customNetworkRpcMap;
-    if (customNetworkRpcMap) {
-      return Object.entries(customNetworkRpcMap)
-        .map(([key, value]) => ({
-          networkId: key,
-          rpcUrls: value,
-        }))
-        .filter((o) => networkUtils.isEvmNetwork({ networkId: o.networkId }));
+    const accountTokens = reduxData?.token?.accountTokens;
+    if (accountTokens) {
+      return Object.entries(accountTokens).map(([key, value]) => ({
+        networkId: key,
+        tokens: uniqBy(flatten(Object.values(value)), (o) =>
+          o.address?.toLowerCase(),
+        ),
+      }));
     }
   }
 }
