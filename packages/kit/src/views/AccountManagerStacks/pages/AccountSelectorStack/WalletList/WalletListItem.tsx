@@ -107,11 +107,14 @@ export function WalletListItem({
                 if (e?.nativeEvent?.which !== 1) {
                   return;
                 }
+                if (!shouldOnPress) {
+                  return;
+                }
+                onLongPress();
                 shouldOnPress = false;
               },
               onPressIn: () => {
                 shouldOnPress = true;
-                onLongPress();
               },
             }
           : undefined)}

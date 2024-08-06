@@ -152,10 +152,32 @@ export function useSwapQuote() {
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageType !== EPageType.modal) {
+      setTimeout(() => {
+        // ext env txId data is undefined when useListenTabFocusState is called
+        if (pageType !== EPageType.modal) {
+          if (
+            isFocus &&
+            !isHiddenModel &&
+            !swapApprovingTxRef.current?.txId &&
+            !swapShouldRefreshRef.current
+          ) {
+            void recoverQuoteInterval(
+              activeAccountRef.current?.address,
+              activeAccountRef.current?.accountInfo?.account?.id,
+            );
+          } else {
+            cleanQuoteInterval();
+          }
+        }
+      }, 100);
+    },
+  );
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (pageType === EPageType.modal) {
         if (
-          isFocus &&
-          !isHiddenModel &&
+          isFocused &&
           !swapApprovingTxRef.current?.txId &&
           !swapShouldRefreshRef.current
         ) {
@@ -167,23 +189,6 @@ export function useSwapQuote() {
           cleanQuoteInterval();
         }
       }
-    },
-  );
-
-  useEffect(() => {
-    if (pageType === EPageType.modal) {
-      if (
-        isFocused &&
-        !swapApprovingTxRef.current?.txId &&
-        !swapShouldRefreshRef.current
-      ) {
-        void recoverQuoteInterval(
-          activeAccountRef.current?.address,
-          activeAccountRef.current?.accountInfo?.account?.id,
-        );
-      } else {
-        cleanQuoteInterval();
-      }
-    }
+    }, 100);
   }, [cleanQuoteInterval, isFocused, pageType, recoverQuoteInterval]);
 }
