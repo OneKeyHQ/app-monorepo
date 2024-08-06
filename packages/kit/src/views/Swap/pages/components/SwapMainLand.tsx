@@ -134,11 +134,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             selectLoading={fetchLoading}
             onToAnotherAddressModal={onToAnotherAddressModal}
           />
-          {alerts.length > 0 &&
+          {alerts.states.length > 0 &&
           !quoteLoading &&
+          alerts.quoteId === (quoteResult?.quoteId ?? '') &&
           !selectTokenDetailLoading.from &&
           !selectTokenDetailLoading.to ? (
-            <SwapAlertContainer alerts={alerts} />
+            <SwapAlertContainer alerts={alerts.states} />
           ) : null}
           {quoteResult ? (
             <SwapQuoteResult

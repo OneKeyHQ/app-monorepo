@@ -105,6 +105,11 @@ export const { atom: swapProviderSortAtom, use: useSwapProviderSortAtom } =
   contextAtom<ESwapProviderSort>(ESwapProviderSort.RECOMMENDED);
 
 export const {
+  atom: swapQuoteActionLockAtom,
+  use: useSwapQuoteActionLockAtom,
+} = contextAtom<boolean>(false);
+
+export const {
   atom: swapShouldRefreshQuoteAtom,
   use: useSwapShouldRefreshQuoteAtom,
 } = contextAtom<boolean>(false);
@@ -246,9 +251,10 @@ export const {
 });
 
 // swap state
-export const { atom: swapAlertsAtom, use: useSwapAlertsAtom } = contextAtom<
-  ISwapAlertState[]
->([]);
+export const { atom: swapAlertsAtom, use: useSwapAlertsAtom } = contextAtom<{
+  states: ISwapAlertState[];
+  quoteId: string;
+}>({ states: [], quoteId: '' });
 
 export const { atom: rateDifferenceAtom, use: useRateDifferenceAtom } =
   contextAtom<{ value: string; unit: ESwapRateDifferenceUnit } | undefined>(

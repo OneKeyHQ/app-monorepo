@@ -101,7 +101,7 @@ export function useSwapActionState() {
   const { getQuoteIntervalCount } = useSwapActions().current;
   const isRefreshQuote =
     getQuoteIntervalCount() >= swapQuoteIntervalMaxCount || shouldRefreshQuote;
-  const hasError = alerts.some(
+  const hasError = alerts.states.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );
   const quoteResultNoMatch = useMemo(

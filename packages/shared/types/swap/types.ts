@@ -179,6 +179,7 @@ export interface IQuoteRoutePath {
   subRoutes?: IQuoteRouteDataInfo[][];
 }
 export interface IFetchQuoteResult {
+  quoteId?: string;
   info: IFetchQuoteInfo;
   errorMessage?: string;
   fromAmount?: string;
