@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { UrlExternalListItem } from '../../../components/UrlExternalListItem';
 import { Section } from '../Section';
 
+import { CustomNetworkConfigItem } from './CustomNetworkConfigItem';
 import { RateAppItem } from './RateAppItem';
 import { StateLogsItem } from './StateLogsItem';
 
@@ -96,6 +97,7 @@ export const ResourceSection = () => {
         url={privacyPolicyUrl}
         drillIn
       />
+      <CustomNetworkConfigItem />
       <StateLogsItem />
     </Section>
   );
