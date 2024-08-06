@@ -201,8 +201,8 @@ async function openSidePanel(
       windowId = window.id;
     }
     if (windowId) {
-      await chrome.sidePanel.open({ windowId });
-      await chrome.sidePanel.setOptions({
+      void chrome.sidePanel.open({ windowId });
+      void chrome.sidePanel.setOptions({
         path: url,
         enabled: true,
       });
