@@ -620,7 +620,7 @@ const eth: IServerNetwork = {
   },
   'logoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
   'defaultEnabled': true,
-  'backendIndex': true,
+  'backendIndex': false,
 };
 const bsc: IServerNetwork = {
   'impl': 'evm',
@@ -2652,7 +2652,6 @@ export const presetNetworksMap = {
   xna,
   nexa,
   nostr,
-  scdo,
   sol,
   sui,
   tbtc,
@@ -2749,7 +2748,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   xna,
   nexa,
   nostr,
-  scdo,
   sol,
   sui,
   tbtc,
