@@ -178,11 +178,16 @@ async function openSidePanel(
   routeInfo: IOpenUrlRouteInfo,
 ): Promise<chrome.tabs.Tab | undefined> {
   if (chrome && chrome.sidePanel) {
-    if (sidePanelState.isOpen && sidePanelState.port) {
-      sidePanelState.port.postMessage({
-        action: 'router',
-        params: routeInfo?.modalParams,
-      });
+    if (platformEnv.isExtensionBackground) {
+      if (sidePanelState.isOpen && sidePanelState.port) {
+        sidePanelState.port.postMessage({
+          action: 'router',
+          params: routeInfo?.modalParams,
+        });
+      } else {
+        throw new Error('The sidePanel cannot be opened in the bg thread.');
+      }
+      return;
     }
     const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
     let windowId: number | undefined;
