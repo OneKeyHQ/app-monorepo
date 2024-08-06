@@ -43,20 +43,20 @@ export function TooltipText({
       scrolling = false;
       document.removeEventListener('scrollend', onScrollEnd, true);
     };
-    const onDragBegin = () => {
-      onDisabledChange?.(true);
-    };
     const onDragEnd = () => {
       appEventBus.off(EAppEventBusNames.onDragEndInListView, onDragEnd);
       void InteractionManager.runAfterInteractions(() => {
         onDisabledChange?.(false);
       });
     };
+    const onDragBegin = () => {
+      onDisabledChange?.(true);
+      appEventBus.on(EAppEventBusNames.onDragEndInListView, onDragEnd);
+    };
     if (typeof document !== 'undefined') {
       document.addEventListener('scroll', onScroll, true);
       document.addEventListener('scrollend', onScrollEnd, true);
       appEventBus.on(EAppEventBusNames.onDragBeginInListView, onDragBegin);
-      appEventBus.on(EAppEventBusNames.onDragEndInListView, onDragEnd);
       return () => {
         document.removeEventListener('scroll', onScroll, true);
         appEventBus.off(EAppEventBusNames.onDragBeginInListView, onDragBegin);
