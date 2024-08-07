@@ -301,9 +301,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
 
                 return (
                   <Group.Item key={`${iconName || index}-${label || index}`}>
-                    {renderContent ? (
-                      renderContent
-                    ) : (
+                    {renderContent ?? (
                       <InputAddOnItem
                         testID={testID}
                         key={`${iconName || ''}-${label || ''}`}
