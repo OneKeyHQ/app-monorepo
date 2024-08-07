@@ -24,6 +24,7 @@ import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccoun
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 
 import { UniversalSearchInput } from './UniversalSearchInput';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 export function HeaderRight({
   sceneName,
@@ -74,12 +75,8 @@ export function HeaderRight({
               }),
               icon: 'LayoutRightOutline',
               onPress: async () => {
-                await backgroundApiProxy.serviceApp.openExtensionSidePanelOnActionClick(
-                  true,
-                );
-                await backgroundApiProxy.serviceApp.openExtensionSidePanel(
-                  routeInfo,
-                );
+                await extUtils.openPanelOnActionClick(true);
+                await extUtils.openSidePanel(routeInfo);
                 window.close();
               },
             }
@@ -89,9 +86,7 @@ export function HeaderRight({
               }),
               icon: 'LayoutTopOutline',
               onPress: async () => {
-                await backgroundApiProxy.serviceApp.openExtensionSidePanelOnActionClick(
-                  false,
-                );
+                await extUtils.openPanelOnActionClick(false);
                 window.close();
               },
             },
