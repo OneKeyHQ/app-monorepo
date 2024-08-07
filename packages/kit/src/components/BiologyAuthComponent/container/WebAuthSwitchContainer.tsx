@@ -36,7 +36,8 @@ const WebAuthSwitchContainer = ({
     async (checked: boolean) => {
       try {
         if (
-          platformEnv.isExtensionUiPopup &&
+          (platformEnv.isExtensionUiPopup ||
+            platformEnv.isExtensionUiSidePanel) &&
           !skipRegistration &&
           !credId &&
           checked
