@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { Icon, Image, Skeleton, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -15,6 +15,7 @@ import {
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
 export default function DAppConnectExtensionFloatingTrigger() {
+  const [activeTabId, setActiveTabId] = useState<number | null>(null);
   const { result, run } = usePromiseResult(
     () =>
       new Promise<{
@@ -59,11 +60,42 @@ export default function DAppConnectExtensionFloatingTrigger() {
           },
         );
       }),
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeTabId],
     {
       checkIsFocused: false,
     },
   );
+
+  useEffect(() => {
+    const handleTabChange = (
+      tabId: number,
+      changeInfo: chrome.tabs.TabChangeInfo,
+      tab: chrome.tabs.Tab,
+    ) => {
+      if (changeInfo.status === 'complete' && tab.active) {
+        setActiveTabId(tabId);
+      }
+    };
+
+    const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
+      setActiveTabId(activeInfo.tabId);
+    };
+
+    chrome.tabs.onUpdated.addListener(handleTabChange);
+    chrome.tabs.onActivated.addListener(handleTabActivated);
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) {
+        setActiveTabId(tabs[0].id ?? null);
+      }
+    });
+
+    return () => {
+      chrome.tabs.onUpdated.removeListener(handleTabChange);
+      chrome.tabs.onActivated.removeListener(handleTabActivated);
+    };
+  }, []);
 
   useEffect(() => {
     appEventBus.on(EAppEventBusNames.DAppConnectUpdate, run);
