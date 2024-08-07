@@ -185,7 +185,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     // show create button if account not exists
     return (
       <AccountSelectorCreateAddressButton
-        autoCreateAddress
+        // autoCreateAddress // use EmptyAccount autoCreateAddress instead
         num={num}
         account={selectedAccount}
       />

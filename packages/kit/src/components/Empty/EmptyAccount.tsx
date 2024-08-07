@@ -10,12 +10,13 @@ type IProps = {
   name: string;
   chain: string;
   type: string;
+  autoCreateAddress?: boolean;
 };
 
 const num = 0;
 
 function EmptyAccount(props: IProps) {
-  const { name, chain, type } = props;
+  const { name, chain, type, autoCreateAddress } = props;
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   let description: string | undefined;
@@ -40,6 +41,7 @@ function EmptyAccount(props: IProps) {
           <AccountSelectorCreateAddressButton
             num={num}
             selectAfterCreate
+            autoCreateAddress={autoCreateAddress}
             account={{
               walletId: activeAccount?.wallet?.id,
               networkId: activeAccount?.network?.id,
