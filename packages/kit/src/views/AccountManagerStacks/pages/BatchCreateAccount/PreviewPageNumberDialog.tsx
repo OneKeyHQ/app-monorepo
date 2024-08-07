@@ -1,7 +1,7 @@
 import type { IInputProps } from '@onekeyhq/components';
 import { Dialog, Input } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 type IFormValues = { page?: number };
