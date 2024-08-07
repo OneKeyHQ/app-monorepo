@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import emojiRegex from 'emoji-regex';
 import { useIntl } from 'react-intl';
 
 import type { IDialogShowProps } from '@onekeyhq/components';
@@ -22,7 +23,7 @@ import { WalletOptionItem } from './WalletOptionItem';
 function RenameInputWithNameSelector({
   value,
   onChange,
-  maxLength = 80,
+  maxLength,
   disabledMaxLengthLabel = false,
 }: {
   maxLength?: number;
@@ -91,6 +92,8 @@ function DeviceLabelDialogContent(props: {
     );
   }
 
+  const maxLength = 32;
+
   return (
     <>
       <Dialog.Form formProps={{ values: { name: result || '' } }}>
@@ -100,7 +103,23 @@ function DeviceLabelDialogContent(props: {
             id: ETranslations.global_hardware_label_title,
           })}
           rules={{
-            // TODO maxLength, valid characters
+            maxLength: {
+              value: maxLength,
+              message: 'Label is too long',
+              // message: intl.formatMessage({
+              //   id: 'Label is too long',
+              // }),
+            },
+            validate: (value: string) => {
+              if (!value.length) return true;
+
+              if (emojiRegex().test(value)) {
+                return 'Invalid characters';
+                // return intl.formatMessage({
+                //   id: 'Invalid Label characters',
+                // });
+              }
+            },
             required: {
               value: true,
               message: appLocale.intl.formatMessage({
@@ -110,7 +129,7 @@ function DeviceLabelDialogContent(props: {
           }}
         >
           <RenameInputWithNameSelector
-            maxLength={80}
+            maxLength={maxLength}
             disabledMaxLengthLabel={false}
           />
         </Dialog.FormField>
