@@ -8,10 +8,15 @@ import { withStaticProperties } from 'tamagui';
 
 import { Dialog } from '../Dialog';
 
-import type { IOpenPickerFunc, IPickerImage } from './type';
+import {
+  type IOpenPickerFunc,
+  type IPickerImage,
+  RESULT_MINE_TYPE,
+} from './type';
+
 import type { CropperRef } from 'react-mobile-cropper';
 
-const MINE_TYPE = 'image/jpeg';
+const MINE_TYPE = RESULT_MINE_TYPE;
 function BasicImageCrop({
   src,
   onConfirm,
