@@ -728,11 +728,11 @@ function BatchCreateAccountPreviewPage({
         >
           <Stack
             $gtMd={{
-              mr: '$4',
+              mr: '$3',
               flex: 1,
             }}
             $md={{
-              mb: '$4',
+              mb: '$3',
             }}
             flexDirection="row"
             alignItems="center"
@@ -789,11 +789,10 @@ function BatchCreateAccountPreviewPage({
                 })()}
               />
             </Stack>
-
             <Stack flex={1} />
             <IconButton
               icon="SliderThreeOutline"
-              mr="$4"
+              mr="$3"
               radiused={false} // not working
               circular={false} // not working
               onPress={async () => {
