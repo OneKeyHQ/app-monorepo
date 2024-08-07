@@ -20,6 +20,30 @@ import type { CropperRef } from 'react-mobile-cropper';
 import type { LayoutChangeEvent } from 'react-native';
 
 const MINE_TYPE = RESULT_MINE_TYPE;
+const resizeImage = (
+  imgSrc: string,
+  width: number,
+  height: number,
+): Promise<string> =>
+  new Promise((resolve) => {
+    const img = document.createElement('img');
+
+    img.addEventListener('load', () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      canvas.width = width;
+      canvas.height = height;
+
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataURI = canvas.toDataURL(MINE_TYPE, 1.0);
+        resolve(dataURI);
+      }
+    });
+    img.src = imgSrc;
+  });
+
 function BasicImageCrop({
   src,
   onConfirm,
@@ -77,18 +101,24 @@ function BasicImageCrop({
         />
       </Stack>
       <Dialog.Footer
-        onConfirm={() => {
+        onConfirm={async () => {
           if (cropperRef.current && cropperRef.current.getCanvas()) {
             const canvas = cropperRef.current.getCanvas();
             if (canvas) {
-              const base64String = canvas.toDataURL(MINE_TYPE, 1.0);
+              const { width, height } = defaultSize;
+              const imageWidth = cropRectRef.current.width;
+              const imageHeight = cropRectRef.current.height;
+              let base64String = canvas.toDataURL(MINE_TYPE, 1.0);
+              if (imageHeight > height || imageWidth > width) {
+                base64String = await resizeImage(base64String, width, height);
+              }
               onConfirm({
                 data: base64String,
                 cropRect: cropRectRef.current,
                 path: '',
                 size: base64String.length,
-                width: cropRectRef.current.width,
-                height: cropRectRef.current.height,
+                width: Math.min(imageHeight, height),
+                height: Math.min(imageWidth, width),
                 mime: MINE_TYPE,
               });
             }
