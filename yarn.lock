@@ -6099,6 +6099,7 @@ __metadata:
     react: "npm:18.2.0"
     react-dev-utils: "npm:^12.0.1"
     react-dom: "npm:18.2.0"
+    react-mobile-cropper: "npm:^0.10.0"
     react-native: "npm:0.73.7"
     react-native-copy-asset: "npm:^3.0.2"
     react-native-draggable-flatlist: "npm:4.0.1"
@@ -13598,6 +13599,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"advanced-cropper@npm:~0.18.0":
+  version: 0.18.0
+  resolution: "advanced-cropper@npm:0.18.0"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  checksum: 10/50695ec94f4ca065cb6d923d6af3c60290ca18f98f868e0597b97875be486634721aecaf9f5f107ef8cf73158265170a472c5d514f02309e89cb37866a54fd70
+  languageName: node
+  linkType: hard
+
 "aes-js@npm:3.0.0":
   version: 3.0.0
   resolution: "aes-js@npm:3.0.0"
@@ -16409,6 +16419,13 @@ __metadata:
   version: 1.1.0
   resolution: "class-is@npm:1.1.0"
   checksum: 10/8147a3e4ce86eb103d78621d665b87e8e33fcb3f54932fdca894b8222820903b43b2f6b4335d8822104702a5dc904c8f187127fdea4e7d48d905488b35c9e6a7
+  languageName: node
+  linkType: hard
+
+"classnames@npm:^2.2.6":
+  version: 2.5.1
+  resolution: "classnames@npm:2.5.1"
+  checksum: 10/58eb394e8817021b153bb6e7d782cfb667e4ab390cb2e9dac2fc7c6b979d1cc2b2a733093955fc5c94aa79ef5c8c89f11ab77780894509be6afbb91dddd79d15
   languageName: node
   linkType: hard
 
@@ -29584,6 +29601,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-advanced-cropper@npm:~0.19.3":
+  version: 0.19.6
+  resolution: "react-advanced-cropper@npm:0.19.6"
+  dependencies:
+    advanced-cropper: "npm:~0.18.0"
+    classnames: "npm:^2.2.6"
+    tslib: "npm:^2.4.0"
+  peerDependencies:
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0
+  checksum: 10/c5ff896618ea9fb2e8b778f5fd46f6b18f52f27b3fcb5e7c2307fa105c1a3e2f7b3425442b3919b57589c516651c5dc845b06ce9f9ca7b3f0b5456c3637ab4e6
+  languageName: node
+  linkType: hard
+
 "react-async-hook@npm:^4.0.0":
   version: 4.0.0
   resolution: "react-async-hook@npm:4.0.0"
@@ -29765,6 +29795,19 @@ __metadata:
   version: 17.0.2
   resolution: "react-is@npm:17.0.2"
   checksum: 10/73b36281e58eeb27c9cc6031301b6ae19ecdc9f18ae2d518bdb39b0ac564e65c5779405d623f1df9abf378a13858b79442480244bd579968afc1faf9a2ce5e05
+  languageName: node
+  linkType: hard
+
+"react-mobile-cropper@npm:^0.10.0":
+  version: 0.10.0
+  resolution: "react-mobile-cropper@npm:0.10.0"
+  dependencies:
+    classnames: "npm:^2.2.6"
+    react-advanced-cropper: "npm:~0.19.3"
+    tslib: "npm:^2.4.0"
+  peerDependencies:
+    react: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
+  checksum: 10/70b8948da1e94f0765df5b3335cb85c2d61fd488c12b975b1e388c0b0575d66b470aa7f329f14639e5a12d0d39e0185373b292608ea1c82a5009a69695473765
   languageName: node
   linkType: hard
 

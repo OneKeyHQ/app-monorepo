@@ -13,11 +13,11 @@ const ImageCropGallery = () => (
         element: (
           <Button
             onPress={async () => {
-              const base64String = await ImageCrop.openPicker({
+              const data = await ImageCrop.openPicker({
                 width: 300,
                 height: 400,
               });
-              console.log(base64String);
+              console.log('cropImage:', data);
             }}
           >
             open image crop picker

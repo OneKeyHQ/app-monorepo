@@ -1,51 +1,55 @@
 /* eslint-disable spellcheck/spell-checker */
 /* eslint-disable camelcase */
-import { type ChangeEvent, useState } from 'react';
+import { type ChangeEvent, useCallback, useState } from 'react';
 
-import { getEditorDefaults } from '@pqina/pintura';
-import { PinturaEditorModal } from '@pqina/react-pintura';
+import { Cropper } from 'react-mobile-cropper';
+import 'react-mobile-cropper/dist/style.css';
 import { withStaticProperties } from 'tamagui';
 
 import { Portal } from '../../hocs';
 
-import '@pqina/pintura/pintura.css';
-
 import type { IOpenPickerFunc } from './type';
+import type { CropperProps, CropperRef } from 'react-mobile-cropper';
 
 function BasicImageCrop({
   src,
   onConfirm,
   onClose,
+  stencilProps,
 }: {
   src: string;
+  stencilProps: CropperProps['stencilProps'];
   onConfirm: (image: string) => void;
   onClose: () => void;
 }) {
   const [visible, setVisible] = useState(true);
+
+  const onChange = useCallback((cropper: CropperRef) => {
+    console.log(cropper);
+    console.log(cropper.getCoordinates(), cropper.getCanvas());
+  }, []);
   return visible ? (
-    <PinturaEditorModal
-      {...getEditorDefaults()}
+    <Cropper
       src={src}
-      onClose={() => {
-        setVisible(false);
-        onClose();
-      }}
-      onProcess={(res) => {
-        console.log(res.dest);
-        const reader = new FileReader();
-        reader.addEventListener('load', () => {
-          const imageSrc = reader.result?.toString();
-          if (imageSrc) {
-            onConfirm(imageSrc);
-          }
-        });
-        reader.readAsDataURL(res.dest);
-      }}
+      onChange={onChange}
+      stencilProps={stencilProps}
+      className="cropper"
+      // onProcess={(res) => {
+      //   console.log(res.dest);
+      //   const reader = new FileReader();
+      //   reader.addEventListener('load', () => {
+      //     const imageSrc = reader.result?.toString();
+      //     if (imageSrc) {
+      //       onConfirm(imageSrc);
+      //     }
+      //   });
+      //   reader.readAsDataURL(res.dest);
+      // }}
     />
   ) : null;
 }
 
-const openPicker: IOpenPickerFunc = () =>
+const openPicker: IOpenPickerFunc = ({ width, height }) =>
   new Promise((resolve) => {
     if (typeof document === 'undefined') {
       return;
@@ -64,6 +68,10 @@ const openPicker: IOpenPickerFunc = () =>
             const { destroy } = Portal.Render(
               Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
               <BasicImageCrop
+                stencilProps={{
+                  width,
+                  height,
+                }}
                 src={imageSrc}
                 onConfirm={resolve as any}
                 onClose={() => {

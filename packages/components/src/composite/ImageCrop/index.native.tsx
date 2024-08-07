@@ -4,16 +4,20 @@ import { withStaticProperties } from 'tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
-import type { IOpenPickerFunc } from './type';
+import type { IOpenPickerFunc, IPickerImage } from './type';
 
 function BasicImageCrop() {
   return null;
 }
 
-const openPicker: IOpenPickerFunc = (params: any) =>
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  nativeOpenPicker({
+const BASE64_PREFIX = 'data:image/jpeg;base64,';
+const openPicker: IOpenPickerFunc = async (params) => {
+  const response: IPickerImage = await nativeOpenPicker({
     cropping: true,
+    forceJpg: true,
+    includeBase64: true,
+    mediaType: 'photo',
+    sortOrder: 'desc',
     cropperChooseText: appLocale.intl.formatMessage({
       id: ETranslations.global_confirm,
     }),
@@ -21,7 +25,13 @@ const openPicker: IOpenPickerFunc = (params: any) =>
       id: ETranslations.global_cancel,
     }),
     ...params,
-  }) as any;
+  });
+  if (response.data) {
+    response.data = `${BASE64_PREFIX}${response.data}`;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return response as any;
+};
 
 export const ImageCrop = withStaticProperties(BasicImageCrop, {
   openPicker,
