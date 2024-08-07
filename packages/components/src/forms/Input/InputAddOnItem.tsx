@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { Icon, SizableText, Spinner, XStack, YStack } from '../../primitives';
 
 import { getSharedInputStyles } from './sharedStyles';
@@ -13,6 +15,7 @@ type IExtraProps = {
   size?: IInputProps['size'];
   error?: boolean;
   loading?: boolean;
+  renderContent?: ReactElement;
 };
 
 export type IInputAddOnProps = IExtraProps & IXStackProps;
