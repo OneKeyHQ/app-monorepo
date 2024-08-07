@@ -186,7 +186,11 @@ function DashboardContent({
     );
   }
 
-  return <Stack>{content}</Stack>;
+  return (
+    <Stack maxWidth={1280} width="100%" alignSelf="center">
+      {content}
+    </Stack>
+  );
 }
 
 export default memo(DashboardContent);

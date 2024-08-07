@@ -522,13 +522,13 @@ export default class VaultAptos extends VaultBase {
     const unsignedTx = await this.buildUnsignedTx({
       encodedTx: generateRegisterToken(token.address),
     });
-    const signedTx =
-      await this.backgroundApi.serviceSend.signAndSendTransaction({
+    const [signedTx] =
+      await this.backgroundApi.serviceSend.batchSignAndSendTransaction({
         accountId: this.accountId,
         networkId: this.networkId,
-        unsignedTx,
-        signOnly: false,
+        unsignedTxs: [unsignedTx],
+        transferPayload: undefined,
       });
-    return !!signedTx.txid;
+    return !!signedTx.signedTx.txid;
   }
 }
