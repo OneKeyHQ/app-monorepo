@@ -1,6 +1,6 @@
 /* eslint-disable spellcheck/spell-checker */
 /* eslint-disable camelcase */
-import { type ChangeEvent, useCallback, useState } from 'react';
+import { type ChangeEvent, useCallback, useRef, useState } from 'react';
 
 import { Cropper } from 'react-mobile-cropper';
 import 'react-mobile-cropper/dist/style.css';
@@ -10,9 +10,10 @@ import { Portal } from '../../hocs';
 import { Stack } from '../../primitives';
 import { Dialog } from '../Dialog';
 
-import type { IOpenPickerFunc } from './type';
+import type { IOpenPickerFunc, IPickerImage } from './type';
 import type { CropperProps, CropperRef } from 'react-mobile-cropper';
 
+const MINE_TYPE = 'image/jpeg';
 function BasicImageCrop({
   src,
   onConfirm,
@@ -23,33 +24,74 @@ function BasicImageCrop({
     height: number;
     width: number;
   };
-  onConfirm: (image: string) => void;
+  onConfirm: (data: IPickerImage) => void;
 }) {
+  const cropperRef = useRef<CropperRef>(null);
+
+  const cropRectRef = useRef({
+    x: 0,
+    y: 0,
+    height: 0,
+    width: 0,
+  });
+
   const onChange = useCallback((cropper: CropperRef) => {
     console.log(cropper);
     console.log(cropper.getCoordinates(), cropper.getCanvas());
+    const coodrdinates = cropper.getCoordinates();
+    if (coodrdinates) {
+      const { top: y, width, height, left: x } = coodrdinates;
+      cropRectRef.current = {
+        x,
+        y,
+        height,
+        width,
+      };
+    }
   }, []);
 
   return (
-    <Cropper
-      src={src}
-      onChange={onChange}
-      stencilProps={{
-        aspectRatio: defaultSize.width / defaultSize.height,
-      }}
-      className="cropper"
-      // onProcess={(res) => {
-      //   console.log(res.dest);
-      //   const reader = new FileReader();
-      //   reader.addEventListener('load', () => {
-      //     const imageSrc = reader.result?.toString();
-      //     if (imageSrc) {
-      //       onConfirm(imageSrc);
-      //     }
-      //   });
-      //   reader.readAsDataURL(res.dest);
-      // }}
-    />
+    <>
+      <Cropper
+        src={src}
+        onChange={onChange}
+        ref={cropperRef}
+        stencilProps={{
+          aspectRatio: defaultSize.width / defaultSize.height,
+        }}
+        className="cropper"
+        // onProcess={(res) => {
+        //   console.log(res.dest);
+        //   const reader = new FileReader();
+        //   reader.addEventListener('load', () => {
+        //     const imageSrc = reader.result?.toString();
+        //     if (imageSrc) {
+        //       onConfirm(imageSrc);
+        //     }
+        //   });
+        //   reader.readAsDataURL(res.dest);
+        // }}
+      />
+      <Dialog.Footer
+        onConfirm={() => {
+          if (cropperRef.current && cropperRef.current.getCanvas()) {
+            const canvas = cropperRef.current.getCanvas();
+            if (canvas) {
+              const base64String = canvas.toDataURL(MINE_TYPE, 1.0);
+              onConfirm({
+                data: base64String,
+                cropRect: cropRectRef.current,
+                path: '',
+                size: base64String.length,
+                width: cropRectRef.current.width,
+                height: cropRectRef.current.height,
+                mime: MINE_TYPE,
+              });
+            }
+          }
+        }}
+      />
+    </>
   );
 }
 
