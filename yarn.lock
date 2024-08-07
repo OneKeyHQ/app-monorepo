@@ -6003,7 +6003,6 @@ __metadata:
     "@polkadot/types": "npm:11.3.1"
     "@polkadot/util-crypto": "npm:12.6.2"
     "@pqina/pintura": "npm:^8.82.12"
-    "@pqina/react-pintura": "npm:^9.0.3"
     "@sentry/babel-plugin-component-annotate": "npm:^2.21.1"
     "@substrate/txwrapper-polkadot": "npm:7.5.1"
     "@tamagui/animations-moti": "npm:1.108.0"
@@ -7648,18 +7647,9 @@ __metadata:
   linkType: hard
 
 "@pqina/pintura@npm:^8.82.12":
-  version: 8.82.12
-  resolution: "@pqina/pintura@npm:8.82.12"
-  checksum: 10/86314bb3e2588d6322c65a251a19ab6dbf63aaeceff590bee54bee5a4de086e3edee6336ae6b9feea83d2e3aa7f16fa8c90b94c74706bdb7e084635719e9f36d
-  languageName: node
-  linkType: hard
-
-"@pqina/react-pintura@npm:^9.0.3":
-  version: 9.0.3
-  resolution: "@pqina/react-pintura@npm:9.0.3"
-  peerDependencies:
-    "@pqina/pintura": ^8.x
-  checksum: 10/a7e0c9964899c57a793d5967dd1c70d8d6b26149e6c075b6f3034c26b22bfd0761508fc35a8506c1d05668582619de2f8f64d3f106823d549862a7a5bc08230a
+  version: 8.82.18
+  resolution: "@pqina/pintura@npm:8.82.18"
+  checksum: 10/db7d0101e405c99dd6558126397e9be323a0c1fb574291c1d89bd963e52075fe8065d82b28716db02d4f7d5126a53c870e9408a1fe44687c34d481be41253500
   languageName: node
   linkType: hard
 
