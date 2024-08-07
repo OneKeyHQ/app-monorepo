@@ -12,7 +12,8 @@ import { RefreshingFocusedContainer } from '../RefreshingFocused';
 import type { ITabProps } from './types';
 import type { IFreezeContainerRef } from '../FreezeContainer';
 import type { IRefreshingFocusedContainerRef } from '../RefreshingFocused';
-import { Token } from 'tamagui';
+import type { LayoutChangeEvent } from 'react-native';
+import type { Token } from 'tamagui';
 
 export const useTabScrollViewRef = () => undefined;
 
@@ -116,61 +117,81 @@ export const TabComponent = (
     () => getTokenValue('$bgPrimaryActive' as Token, 'color') as string,
     [],
   );
+
+  const tabVieStyle = useMemo(
+    () => ({
+      'backgroundColor': convertColor(rawBackgroundColor),
+      'tabSpaceEqual': false,
+      'activeColor': convertColor(rawSelectedColor),
+      'activeLabelColor': convertColor(rawSelectedColor),
+      'labelColor': convertColor(rawNormalColor),
+      'bottomLineColor': convertColor(rawBottomBorderColor),
+      // 'bottomLineColor': '#FFFFFFFF',
+      'height': 54,
+      'inactiveColor': convertColor(rawNormalColor),
+      'indicatorColor': convertColor(rawCursorColor),
+      'labelStyle': {
+        'fontSize': 16,
+        'fontWeight': '500',
+        'lineHeight': 20,
+      },
+      'paddingX': 0,
+    }),
+    [
+      convertColor,
+      rawBackgroundColor,
+      rawBottomBorderColor,
+      rawCursorColor,
+      rawNormalColor,
+      rawSelectedColor,
+    ],
+  );
+
+  const containerStyle = useMemo(
+    () => ({
+      flex: 1,
+      height: '100%',
+      backgroundColor: convertColor(rawBackgroundColor),
+    }),
+    [convertColor, rawBackgroundColor],
+  );
+  const nestedTabViewStyle = useMemo(
+    () => [
+      {
+        flex: 1,
+        maxWidth: 1024,
+        backgroundColor: convertColor(rawBackgroundColor),
+      },
+      style,
+    ],
+    [convertColor, rawBackgroundColor, style],
+  );
+
+  const onIndexChange = useCallback(() => {}, []);
+  const onLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
+    setHeaderHeight(nativeEvent.layout.height);
+  }, []);
   return (
     // @ts-expect-error
     <NestedTabView
       key={key}
       headerHeight={headerHeight}
       defaultIndex={initialScrollIndex}
-      style={[
-        {
-          flex: 1,
-          maxWidth: 1024,
-          backgroundColor: convertColor(rawBackgroundColor),
-        },
-        style,
-      ]}
+      style={nestedTabViewStyle}
       stickyTabBar
-      onIndexChange={() => {}}
-      containerStyle={{
-        flex: 1,
-        height: '100%',
-        backgroundColor: convertColor(rawBackgroundColor),
-      }}
+      onIndexChange={onIndexChange}
+      containerStyle={containerStyle}
       disableRefresh={disableRefresh}
       spinnerColor={spinnerColor}
       disableTabSlide={false}
       scrollEnabled
-      tabViewStyle={{
-        'backgroundColor': convertColor(rawBackgroundColor),
-        'tabSpaceEqual': false,
-        'activeColor': convertColor(rawSelectedColor),
-        'activeLabelColor': convertColor(rawSelectedColor),
-        'labelColor': convertColor(rawNormalColor),
-        'bottomLineColor': convertColor(rawBottomBorderColor),
-        // 'bottomLineColor': '#FFFFFFFF',
-        'height': 54,
-        'inactiveColor': convertColor(rawNormalColor),
-        'indicatorColor': convertColor(rawCursorColor),
-        'labelStyle': {
-          'fontSize': 16,
-          'fontWeight': '500',
-          'lineHeight': 20,
-        },
-        'paddingX': 0,
-      }}
+      tabViewStyle={tabVieStyle}
       values={values}
       refresh={isRefreshing}
       onRefreshCallBack={onRefresh}
       onPageChange={onPageChange}
     >
-      <Stack
-        bg="$bgApp"
-        collapsable={false}
-        onLayout={({ nativeEvent }) => {
-          setHeaderHeight(nativeEvent.layout.height);
-        }}
-      >
+      <Stack bg="$bgApp" collapsable={false} onLayout={onLayout}>
         {ListHeaderComponent}
       </Stack>
       {renderPageContent}
