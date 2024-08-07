@@ -16,6 +16,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -24,7 +25,6 @@ import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccoun
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 
 import { UniversalSearchInput } from './UniversalSearchInput';
-import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 export function HeaderRight({
   sceneName,
