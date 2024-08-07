@@ -1862,7 +1862,7 @@ class ServiceAccount extends ServiceBase {
     deriveType: IAccountDeriveTypes;
   }) {
     if (
-      !networkUtils.isAllNetwork({ networkId }) && // all network cost too much time
+      // !networkUtils.isAllNetwork({ networkId }) && // all network cost too much time
       accountUtils.isHdWallet({ walletId })
     ) {
       const pwd = await this.backgroundApi.servicePassword.getCachedPassword();
