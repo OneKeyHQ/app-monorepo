@@ -171,6 +171,7 @@ export function HomePageView({
           <HomeSelector padding="$5" />
           <Stack flex={1} justifyContent="center">
             <EmptyAccount
+              autoCreateAddress
               name={accountName}
               chain={network?.name ?? ''}
               type={
