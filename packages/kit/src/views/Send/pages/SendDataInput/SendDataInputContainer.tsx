@@ -40,18 +40,22 @@ import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  EModalSendRoutes,
-  IModalSendParamList,
-} from '@onekeyhq/shared/src/routes';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalSendRoutes,
+  IModalSendParamList,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import {
+  EDeriveAddressActionType,
+  EInputAddressChangeType,
+} from '@onekeyhq/shared/types/address';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -96,7 +100,16 @@ function SendDataInputContainer() {
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
-  const { account, network } = useAccountData({ accountId, networkId });
+
+  const [currentAccount, setCurrentAccount] = useState({
+    accountId,
+    networkId,
+  });
+
+  const { account, network } = useAccountData({
+    accountId: currentAccount.accountId,
+    networkId: currentAccount.networkId,
+  });
   const sendConfirm = useSendConfirm({ accountId, networkId });
 
   const isSelectTokenDisabled = allTokens.tokens.length <= 1;
@@ -137,8 +150,8 @@ function SendDataInputContainer() {
 
       if (isNFT && nft) {
         nftResp = await serviceNFT.fetchNFTDetails({
-          accountId,
-          networkId,
+          accountId: account.id,
+          networkId: network.id,
           nfts: [
             {
               collectionAddress: nft.collectionAddress,
@@ -150,15 +163,15 @@ function SendDataInputContainer() {
         const checkInscriptionProtectionEnabled =
           await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
             {
-              networkId,
-              accountId,
+              networkId: network.id,
+              accountId: account.id,
             },
           );
         const withCheckInscription =
           checkInscriptionProtectionEnabled && settings.inscriptionProtection;
         tokenResp = await serviceToken.fetchTokensDetails({
-          networkId,
-          accountId,
+          networkId: network.id,
+          accountId: account.id,
           contractList: [tokenInfo.address],
           withFrozenBalance: true,
           withCheckInscription,
@@ -166,12 +179,12 @@ function SendDataInputContainer() {
       }
 
       const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-        networkId,
+        networkId: network.id,
       });
 
       const frozenBalanceSettings =
         await backgroundApiProxy.serviceSend.getFrozenBalanceSetting({
-          networkId,
+          networkId: network.id,
           tokenDetails: tokenResp?.[0],
         });
 
@@ -188,10 +201,8 @@ function SendDataInputContainer() {
     },
     [
       account,
-      accountId,
       isNFT,
       network,
-      networkId,
       nft,
       serviceNFT,
       serviceToken,
@@ -309,22 +320,76 @@ function SendDataInputContainer() {
           keys: allTokens.keys,
           map,
         },
-        onSelect: (data: IToken) => {
-          defaultLogger.transaction.send.sendSelect({
-            network: networkId,
-            tokenAddress: data.address,
-            tokenSymbol: data.symbol,
-            tokenType: 'Token',
-          });
-          setTokenInfo(data);
+        closeAfterSelect: false,
+        onSelect: async (data: IToken) => {
+          const tokenVaultSettings =
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: data.networkId ?? '',
+            });
+
+          if (
+            tokenVaultSettings.mergeDeriveAssetsEnabled &&
+            isAllNetworks &&
+            !accountUtils.isOthersAccount({
+              accountId: currentAccount.accountId,
+            })
+          ) {
+            const walletId = accountUtils.getWalletIdFromAccountId({
+              accountId: data.accountId ?? '',
+            });
+            navigation.push(EAssetSelectorRoutes.DeriveTypesAddressSelector, {
+              networkId: data.networkId ?? '',
+              indexedAccountId: account?.indexedAccountId ?? '',
+              walletId,
+              accountId: data.accountId ?? '',
+              actionType: EDeriveAddressActionType.Select,
+              token: data,
+              tokenMap: map,
+              onUnmounted: () => {},
+              onSelected: ({ account: a }: { account: INetworkAccount }) => {
+                data.accountId = a.id;
+                defaultLogger.transaction.send.sendSelect({
+                  network: data.networkId ?? networkId,
+                  tokenAddress: data.address,
+                  tokenSymbol: data.symbol,
+                  tokenType: 'Token',
+                });
+                if (data.accountId && data.networkId) {
+                  setCurrentAccount({
+                    accountId: data.accountId,
+                    networkId: data.networkId,
+                  });
+                }
+                setTokenInfo(data);
+                navigation.popStack();
+              },
+            });
+          } else {
+            defaultLogger.transaction.send.sendSelect({
+              network: data.networkId ?? networkId,
+              tokenAddress: data.address,
+              tokenSymbol: data.symbol,
+              tokenType: 'Token',
+            });
+            if (data.accountId && data.networkId) {
+              setCurrentAccount({
+                accountId: data.accountId,
+                networkId: data.networkId,
+              });
+            }
+            setTokenInfo(data);
+            navigation.popStack();
+          }
         },
         isAllNetworks,
       },
     });
   }, [
+    account?.indexedAccountId,
     accountId,
     allTokens.keys,
     allTokens.tokens,
+    currentAccount.accountId,
     isAllNetworks,
     isSelectTokenDisabled,
     map,
@@ -658,8 +723,8 @@ function SendDataInputContainer() {
             balanceHelperProps: {
               onPress: () => {
                 showBalanceDetailsDialog({
-                  accountId,
-                  networkId,
+                  accountId: currentAccount.accountId,
+                  networkId: currentAccount.networkId,
                 });
               },
             },
@@ -668,8 +733,9 @@ function SendDataInputContainer() {
       </Form.Field>
     ),
     [
-      accountId,
       currencySymbol,
+      currentAccount.accountId,
+      currentAccount.networkId,
       form,
       handleOnChangeAmountMode,
       handleOnSelectToken,
@@ -684,7 +750,6 @@ function SendDataInputContainer() {
       maxBalance,
       maxBalanceFiat,
       network?.logoURI,
-      networkId,
       nft?.metadata?.image,
       nft?.metadata?.name,
       tokenDetails?.info.decimals,
@@ -854,7 +919,7 @@ function SendDataInputContainer() {
   useEffect(() => {
     if (token || nft) {
       defaultLogger.transaction.send.sendSelect({
-        network: networkId,
+        network: currentAccount.networkId,
         tokenAddress:
           token?.address ??
           `${nft?.collectionAddress ?? ''}:${nft?.itemId ?? ''}`,
@@ -862,14 +927,14 @@ function SendDataInputContainer() {
         tokenType: isNFT ? 'NFT' : 'Token',
       });
     }
-  }, [networkId, token, nft, isNFT]);
+  }, [networkId, token, nft, isNFT, currentAccount.networkId]);
 
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>
-      addressBookEnabledNetworkIds.includes(networkId)
+      addressBookEnabledNetworkIds.includes(currentAccount.networkId)
         ? { num: 0, clearNotMatch: true }
         : undefined,
-    [addressBookEnabledNetworkIds, networkId],
+    [addressBookEnabledNetworkIds, currentAccount.networkId],
   );
 
   const handleAddressInputChangeType = useCallback(
@@ -892,7 +957,10 @@ function SendDataInputContainer() {
           }}
           enabledNum={[0]}
           availableNetworksMap={{
-            0: { networkIds: [networkId], defaultNetworkId: networkId },
+            0: {
+              networkIds: [currentAccount.networkId],
+              defaultNetworkId: currentAccount.networkId,
+            },
           }}
         >
           <Form form={form}>
@@ -959,13 +1027,15 @@ function SendDataInputContainer() {
               }}
             >
               <AddressInput
-                accountId={accountId}
-                networkId={networkId}
+                accountId={currentAccount.accountId}
+                networkId={currentAccount.networkId}
                 enableAddressBook
                 enableWalletName
                 enableVerifySendFundToSelf
                 enableAddressInteractionStatus
-                contacts={addressBookEnabledNetworkIds.includes(networkId)}
+                contacts={addressBookEnabledNetworkIds.includes(
+                  currentAccount.networkId,
+                )}
                 accountSelector={addressInputAccountSelectorArgs}
                 onInputTypeChange={handleAddressInputChangeType}
               />
