@@ -30,7 +30,7 @@ function BasicImageCrop({
     console.log(cropper.getCoordinates(), cropper.getCanvas());
   }, []);
 
-  return visible ? (
+  return (
     <Cropper
       src={src}
       onChange={onChange}
@@ -50,7 +50,7 @@ function BasicImageCrop({
       //   reader.readAsDataURL(res.dest);
       // }}
     />
-  ) : null;
+  );
 }
 
 const openPicker: IOpenPickerFunc = ({ width, height }) =>
