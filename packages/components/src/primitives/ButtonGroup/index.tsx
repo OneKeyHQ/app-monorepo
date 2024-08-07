@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { ToggleGroup } from 'tamagui';
 
@@ -18,12 +18,16 @@ export function ButtonGroup({
   orientation = 'horizontal',
   items = [],
 }: IButtonGroup) {
+  const prevValue = useRef<undefined | string>();
   const handleValueChange = useCallback(
     (value: string) => {
       if (disabled) {
         return;
       }
-      items[Number(value)].onPress?.();
+      items[Number(value !== '' ? value : prevValue.current)].onPress?.();
+      if (value !== '') {
+        prevValue.current = value;
+      }
     },
     [disabled, items],
   );
