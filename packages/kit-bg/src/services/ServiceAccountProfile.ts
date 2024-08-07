@@ -27,6 +27,7 @@ import type {
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
 
+import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -403,6 +404,21 @@ class ServiceAccountProfile extends ServiceBase {
     const data = resp.data.data.data;
 
     return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
+  }
+
+  @backgroundMethod()
+  async getAccountsValue(params: { accounts: { accountId: string }[] }) {
+    const accountsValue = await simpleDb.accountValue.getAccountsValue(params);
+    return accountsValue;
+  }
+
+  @backgroundMethod()
+  async updateAccountValue(params: {
+    accountId: string;
+    value: string;
+    currency: string;
+  }) {
+    await simpleDb.accountValue.updateAccountValue(params);
   }
 
   // Get wallet type

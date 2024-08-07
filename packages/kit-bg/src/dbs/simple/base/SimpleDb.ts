@@ -1,4 +1,5 @@
 import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
+import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
@@ -65,4 +66,6 @@ export class SimpleDb {
   customRpc = new SimpleDbEntityCustomRpc();
 
   v4MigrationResult = new SimpleDbEntityV4MigrationResult();
+
+  accountValue = new SimpleDbEntityAccountValue();
 }

@@ -188,6 +188,7 @@ function TokenDetails() {
         deriveType={deriveType}
         tokenInfo={tokenInfo}
         isAllNetworks={isAllNetworks}
+        listViewContentContainerStyle={{ pt: '$5' }}
       />
     );
   }, [

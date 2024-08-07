@@ -35,7 +35,13 @@ function useAllNetworkRequests<T>(params: {
   disabled?: boolean;
   interval?: number;
   shouldAlwaysFetch?: boolean;
-  onStarted?: () => void;
+  onStarted?: ({
+    accountId,
+    networkId,
+  }: {
+    accountId?: string;
+    networkId?: string;
+  }) => void;
   onFinished?: ({
     accountId,
     networkId,
@@ -97,7 +103,7 @@ function useAllNetworkRequests<T>(params: {
 
       const concurrentNetworks = accountsInfoBackendIndexed;
       const sequentialNetworks = accountsInfoBackendNotIndexed;
-      let resp: Array<T> = [];
+      let resp: Array<T> | null = [];
 
       if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
         setIsEmptyAccount(true);
@@ -107,7 +113,10 @@ function useAllNetworkRequests<T>(params: {
 
       setIsEmptyAccount(false);
 
-      onStarted?.();
+      onStarted?.({
+        accountId: account.id,
+        networkId: network.id,
+      });
 
       currentRequestsUUID.current = requestsUUID;
       console.log(
@@ -131,7 +140,8 @@ function useAllNetworkRequests<T>(params: {
           resp = (await Promise.all(requests)).filter(Boolean);
         } catch (e) {
           console.error(e);
-          // pass
+          resp = null;
+          abortAllNetworkRequests?.();
         }
       } else {
         // 处理并发请求的网络

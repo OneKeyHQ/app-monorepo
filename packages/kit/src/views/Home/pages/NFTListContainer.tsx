@@ -54,6 +54,8 @@ function NFTListContainer(props: ITabPageProps) {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.NFT,
+        accountId: account.id,
+        networkId: network.id,
       });
 
       await backgroundApiProxy.serviceNFT.abortFetchAccountNFTs();
@@ -73,6 +75,8 @@ function NFTListContainer(props: ITabPageProps) {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.NFT,
+        accountId: account.id,
+        networkId: network.id,
       });
 
       return r.data;
@@ -127,21 +131,27 @@ function NFTListContainer(props: ITabPageProps) {
 
   const handleAllNetworkRequestsFinished = useCallback(
     ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
-      if (accountId !== account?.id || networkId !== network?.id) return;
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.NFT,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
       });
     },
-    [account?.id, network?.id],
+    [],
   );
 
-  const handleAllNetworkRequestsStarted = useCallback(() => {
-    appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-      isRefreshing: true,
-      type: EHomeTab.NFT,
-    });
-  }, []);
+  const handleAllNetworkRequestsStarted = useCallback(
+    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: true,
+        type: EHomeTab.NFT,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+      });
+    },
+    [],
+  );
 
   const handleClearAllNetworkData = useCallback(() => setNftList([]), []);
 

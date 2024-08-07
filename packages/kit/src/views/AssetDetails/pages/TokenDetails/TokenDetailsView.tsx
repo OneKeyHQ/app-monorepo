@@ -136,7 +136,7 @@ export function TokenDetailsViews(props: IProps) {
         tokenIdOnNetwork: tokenInfo.address,
       });
       setInitialized(true);
-      return r;
+      return r.txs;
     },
     [currentAccountId, networkId, tokenInfo.address],
     {
