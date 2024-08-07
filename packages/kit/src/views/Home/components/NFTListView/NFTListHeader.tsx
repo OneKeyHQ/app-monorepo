@@ -24,7 +24,7 @@ function NFTListHeader(props: IProps) {
   const { updateSearchKey } = useNFTListActions().current;
   return (
     <ListToolToolBar
-      px="$2.5"
+      px="$5"
       searchProps={{
         placeholder: intl.formatMessage({
           id: ETranslations.global_search_asset,
