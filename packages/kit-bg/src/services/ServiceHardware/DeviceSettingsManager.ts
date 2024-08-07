@@ -27,6 +27,7 @@ export type ISetPassphraseEnabledParams = {
 
 export type IGetDeviceAdvanceSettingsParams = { walletId: string };
 export type IGetDeviceLabelParams = { walletId: string };
+export type ISetDeviceLabelParams = { walletId: string; label: string };
 
 export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
@@ -113,13 +114,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   }
 
   @backgroundMethod()
-  async setDeviceLabel({
-    walletId,
-    label,
-  }: {
-    walletId: string;
-    label: string;
-  }) {
+  async setDeviceLabel({ walletId, label }: ISetDeviceLabelParams) {
     const device = await localDb.getWalletDevice({ walletId });
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
