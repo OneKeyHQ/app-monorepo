@@ -1,11 +1,12 @@
 /* eslint-disable spellcheck/spell-checker */
 /* eslint-disable camelcase */
-import { type ChangeEvent, useCallback, useRef } from 'react';
+import { type ChangeEvent, useCallback, useRef, useState } from 'react';
 
 import { Cropper } from 'react-mobile-cropper';
 import 'react-mobile-cropper/dist/style.css';
 import { withStaticProperties } from 'tamagui';
 
+import { Stack } from '../../primitives';
 import { Dialog } from '../Dialog';
 
 import {
@@ -14,7 +15,9 @@ import {
   RESULT_MINE_TYPE,
 } from './type';
 
+import type { IStackStyle } from '../../primitives';
 import type { CropperRef } from 'react-mobile-cropper';
+import type { LayoutChangeEvent } from 'react-native';
 
 const MINE_TYPE = RESULT_MINE_TYPE;
 function BasicImageCrop({
@@ -38,9 +41,16 @@ function BasicImageCrop({
     width: 0,
   });
 
+  useState<IStackStyle['width']>('100%');
+  const onStackLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
+    if (nativeEvent.layout.width) {
+      setTimeout(() => {
+        cropperRef.current?.reset();
+      }, 300);
+    }
+  }, []);
+
   const onChange = useCallback((cropper: CropperRef) => {
-    console.log(cropper);
-    console.log(cropper.getCoordinates(), cropper.getCanvas());
     const coodrdinates = cropper.getCoordinates();
     if (coodrdinates) {
       const { top: y, width, height, left: x } = coodrdinates;
@@ -55,26 +65,17 @@ function BasicImageCrop({
 
   return (
     <>
-      <Cropper
-        src={src}
-        onChange={onChange}
-        ref={cropperRef}
-        stencilProps={{
-          aspectRatio: defaultSize.width / defaultSize.height,
-        }}
-        className="cropper"
-        // onProcess={(res) => {
-        //   console.log(res.dest);
-        //   const reader = new FileReader();
-        //   reader.addEventListener('load', () => {
-        //     const imageSrc = reader.result?.toString();
-        //     if (imageSrc) {
-        //       onConfirm(imageSrc);
-        //     }
-        //   });
-        //   reader.readAsDataURL(res.dest);
-        // }}
-      />
+      <Stack onLayout={onStackLayout}>
+        <Cropper
+          src={src}
+          onChange={onChange}
+          ref={cropperRef}
+          stencilProps={{
+            aspectRatio: defaultSize.width / defaultSize.height,
+          }}
+          className="cropper"
+        />
+      </Stack>
       <Dialog.Footer
         onConfirm={() => {
           if (cropperRef.current && cropperRef.current.getCanvas()) {
