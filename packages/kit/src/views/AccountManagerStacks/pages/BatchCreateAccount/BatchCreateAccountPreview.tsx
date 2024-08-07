@@ -837,7 +837,13 @@ function BatchCreateAccountPreviewPage({
                   onPress: () => {
                     setPageNumber(Math.max(1, page - 1));
                   },
-                  element: <Icon name="ChevronLeftOutline" pl="$1" />,
+                  element: (
+                    <Icon
+                      name="ChevronLeftOutline"
+                      pl="$1"
+                      $md={{ size: '$3' }}
+                    />
+                  ),
                 },
                 {
                   onPress: () => {
@@ -851,14 +857,24 @@ function BatchCreateAccountPreviewPage({
                     });
                   },
                   element: (
-                    <SizableText size="$bodyLgMedium">{page}</SizableText>
+                    <Stack height={38} justifyContent="center">
+                      <SizableText lineHeight={38} size="$bodyLgMedium">
+                        {page}
+                      </SizableText>
+                    </Stack>
                   ),
                 },
                 {
                   onPress: () => {
                     setPageNumber(page + 1);
                   },
-                  element: <Icon name="ChevronRightOutline" pr="$1" />,
+                  element: (
+                    <Icon
+                      name="ChevronRightOutline"
+                      pr="$1"
+                      $md={{ size: '$3' }}
+                    />
+                  ),
                 },
               ]}
             />

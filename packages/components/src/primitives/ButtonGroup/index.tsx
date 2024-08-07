@@ -39,7 +39,7 @@ export function ButtonGroup({
       {items.map(({ element }, index) => (
         <ToggleGroup.Item
           borderLeftWidth={index > 0 ? 0 : undefined}
-          width={42}
+          minWidth={42}
           height={38}
           pressStyle={{
             borderLeftWidth: index > 0 ? 0 : undefined,
