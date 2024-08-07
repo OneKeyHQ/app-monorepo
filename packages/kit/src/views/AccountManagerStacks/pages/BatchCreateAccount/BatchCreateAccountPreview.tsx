@@ -845,6 +845,9 @@ function BatchCreateAccountPreviewPage({
                       $md={{ size: '$3' }}
                     />
                   ),
+                  containerProps: {
+                    maxWidth: 42,
+                  },
                 },
                 {
                   onPress: () => {
@@ -876,6 +879,9 @@ function BatchCreateAccountPreviewPage({
                       $md={{ size: '$3' }}
                     />
                   ),
+                  containerProps: {
+                    maxWidth: 42,
+                  },
                 },
               ]}
             />
