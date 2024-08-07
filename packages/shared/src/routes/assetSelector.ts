@@ -16,7 +16,7 @@ export enum EAssetSelectorRoutes {
   DeriveTypesAddressSelector = 'DeriveTypesAddressSelector',
 }
 
-export type IDeriveTypesAddressParams = {
+export type IDeriveTypesAddressSelectorParams = {
   networkId: string;
   indexedAccountId: string;
   actionType?: EDeriveAddressActionType;
@@ -52,5 +52,5 @@ export type ITokenSelectorParamList = {
 
 export type IAssetSelectorParamList = {
   [EAssetSelectorRoutes.TokenSelector]: ITokenSelectorParamList;
-  [EAssetSelectorRoutes.DeriveTypesAddressSelector]: IDeriveTypesAddressParams;
+  [EAssetSelectorRoutes.DeriveTypesAddressSelector]: IDeriveTypesAddressSelectorParams;
 };
