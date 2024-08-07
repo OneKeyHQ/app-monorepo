@@ -1311,7 +1311,7 @@ const b2: IServerNetwork = {
   'impl': 'evm',
   'chainId': '223',
   'id': 'evm--223',
-  'name': 'B2 Mainnet',
+  'name': 'B² Mainnet',
   'symbol': 'BTC',
   'code': 'b2',
   'shortcode': 'b2',
