@@ -997,7 +997,7 @@
   "manage_token.custom_token_symbol": "สัญลักษณ์",
   "manage_token.custom_token_title": "โทเค็นที่กำหนดเอง",
   "manage_token.empty_msg": "ไม่พบโทเค็นหรือไม่? ลองคลิกปุ่มด้านล่างเพื่อเพิ่ม",
-  "manage_token.popular_token": "โทเค็นที่นิยม",
+  "manage_token.popular_token": "โทเค็นทั่วไป",
   "manage_token.title": "จัดการโทเค็น",
   "manger_token.custom_token_address_required": "ต้องการที่อยู่สัญญา.",
   "manual_backup": "การสำรองข้อมูลด้วยตนเอง",

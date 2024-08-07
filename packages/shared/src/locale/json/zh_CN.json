@@ -997,7 +997,7 @@
   "manage_token.custom_token_symbol": "符号",
   "manage_token.custom_token_title": "自定义代币",
   "manage_token.empty_msg": "找不到代币？尝试点击下面的按钮进行添加",
-  "manage_token.popular_token": "热门代币",
+  "manage_token.popular_token": "常见代币",
   "manage_token.title": "管理代币",
   "manger_token.custom_token_address_required": "需要合约地址。",
   "manual_backup": "手动备份",

@@ -997,7 +997,7 @@
   "manage_token.custom_token_symbol": "Simbolo",
   "manage_token.custom_token_title": "Token personalizzato",
   "manage_token.empty_msg": "Non riesci a trovare il token? Prova a fare clic sul pulsante qui sotto per aggiungerlo",
-  "manage_token.popular_token": "Token popolare",
+  "manage_token.popular_token": "Token comune",
   "manage_token.title": "Gestisci token",
   "manger_token.custom_token_address_required": "Indirizzo del contratto richiesto.",
   "manual_backup": "Backup manuale",
