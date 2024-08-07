@@ -16,6 +16,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -74,12 +75,8 @@ export function HeaderRight({
               }),
               icon: 'LayoutRightOutline',
               onPress: async () => {
-                await backgroundApiProxy.serviceApp.openExtensionSidePanelOnActionClick(
-                  true,
-                );
-                await backgroundApiProxy.serviceApp.openExtensionSidePanel(
-                  routeInfo,
-                );
+                await extUtils.openPanelOnActionClick(true);
+                await extUtils.openSidePanel(routeInfo);
                 window.close();
               },
             }
@@ -89,9 +86,7 @@ export function HeaderRight({
               }),
               icon: 'LayoutTopOutline',
               onPress: async () => {
-                await backgroundApiProxy.serviceApp.openExtensionSidePanelOnActionClick(
-                  false,
-                );
+                await extUtils.openPanelOnActionClick(false);
                 window.close();
               },
             },
