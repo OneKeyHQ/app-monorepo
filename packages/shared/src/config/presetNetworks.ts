@@ -360,7 +360,7 @@ const zklinknova: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/zklink-nova.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/zklinknova.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -386,7 +386,7 @@ const opbnb: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/op_bnb.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/opbnb.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -490,7 +490,7 @@ const wemix: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': '',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/wemix.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -542,7 +542,7 @@ const scr: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': '',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/scr.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -594,7 +594,7 @@ const pulse: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': '',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/pulse.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -676,7 +676,7 @@ const moonbeam: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': '',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/moonbeam.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -757,7 +757,7 @@ const metis: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': '',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/metis.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -783,7 +783,7 @@ const merlinmainnet: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/merlin-mainnet.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/merlinmainnet.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -896,7 +896,7 @@ const klaytn: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': '',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/klaytn.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -950,8 +950,7 @@ const iotex: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI':
-    'https://uni.onekey-asset.com/static/logo/IoTeXNetworkMainnet.webp',
+  'logoURI': 'https://uni.onekey-asset.com/static/logo/iotex.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -977,7 +976,7 @@ const harmony: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': '',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/harmony.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -1032,7 +1031,7 @@ const fevm: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/filecoin-fevm.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/fevm.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -1088,8 +1087,7 @@ const sepolia: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI':
-    'https://uni.onekey-asset.com/static/chain/ethereum-sepolia-testnet.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/sepolia.png',
   'defaultEnabled': false,
   'backendIndex': true,
 };
@@ -1143,7 +1141,7 @@ const ace: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': '',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/ace.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -1197,7 +1195,7 @@ const dis: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/etf.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/dis.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -1309,6 +1307,32 @@ const cfxespace: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': false,
 };
+const b2: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '223',
+  'id': 'evm--223',
+  'name': 'B² Mainnet',
+  'symbol': 'BTC',
+  'code': 'b2',
+  'shortcode': 'b2',
+  'shortname': 'b2',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'btc',
+    'decimals': 9,
+    'symbol': 'Gwei',
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/b2.png',
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
 const bouncebit: IServerNetwork = {
   'impl': 'evm',
   'chainId': '6001',
@@ -1359,7 +1383,7 @@ const boba: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/boba_1.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/boba.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -2410,6 +2434,7 @@ export const presetNetworksMap = {
   cronos,
   core,
   cfxespace,
+  b2,
   bouncebit,
   boba,
   blast,
@@ -2513,6 +2538,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   cronos,
   core,
   cfxespace,
+  b2,
   bouncebit,
   boba,
   blast,
