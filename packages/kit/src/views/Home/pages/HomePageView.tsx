@@ -5,7 +5,12 @@ import { Animated, Easing } from 'react-native';
 
 import { Empty, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -120,19 +125,24 @@ export function HomePageView({
     [intl, account?.id, network?.id, isNFTEnabled],
   );
 
+  const onRefresh = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+  }, []);
+
   const renderTabs = useCallback(
     () => (
       <Tab
-        disableRefresh
+        disableRefresh={!platformEnv.isNative}
         data={tabs}
         ListHeaderComponent={<HomeHeaderContainer />}
         initialScrollIndex={0}
         contentItemWidth={CONTENT_ITEM_WIDTH}
         contentWidth={screenWidth}
         showsVerticalScrollIndicator={false}
+        onRefresh={onRefresh}
       />
     ),
-    [tabs, screenWidth],
+    [tabs, screenWidth, onRefresh],
   );
 
   const renderHomePageContent = useCallback(() => {

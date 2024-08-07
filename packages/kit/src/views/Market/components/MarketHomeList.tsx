@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { InteractionManager } from 'react-native';
+import { InteractionManager, StyleSheet } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 import type {
@@ -811,7 +811,7 @@ function BasicMarketHomeList({
       {gtMd ? undefined : (
         <YStack
           px="$5"
-          borderBottomWidth="$px"
+          borderBottomWidth={StyleSheet.hairlineWidth}
           borderBottomColor="$borderSubdued"
         >
           <XStack h="$11" ai="center" justifyContent="space-between">

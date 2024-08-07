@@ -265,7 +265,7 @@ export function MarketDetailOverview({
   const intl = useIntl();
   return (
     <NestedScrollView>
-      <YStack pb="$10" px="$5">
+      <YStack pb="$10" $md={{ px: '$5' }}>
         <XStack
           borderWidth="$px"
           borderRadius="$2"
