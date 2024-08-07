@@ -14,8 +14,8 @@ const ImageCropGallery = () => (
           <Button
             onPress={async () => {
               const data = await ImageCrop.openPicker({
-                width: 300,
-                height: 400,
+                width: 100,
+                height: 100,
               });
               console.log('cropImage:', data);
             }}

@@ -4,6 +4,7 @@ import { withStaticProperties } from 'tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
+
 import type { IOpenPickerFunc, IPickerImage } from './type';
 
 function BasicImageCrop() {
@@ -13,6 +14,7 @@ function BasicImageCrop() {
 const BASE64_PREFIX = 'data:image/jpeg;base64,';
 const openPicker: IOpenPickerFunc = async (params) => {
   const response: IPickerImage = await nativeOpenPicker({
+    mediaType: 'photo',
     cropping: true,
     forceJpg: true,
     includeBase64: true,
@@ -24,7 +26,6 @@ const openPicker: IOpenPickerFunc = async (params) => {
       id: ETranslations.global_cancel,
     }),
     ...params,
-    mediaType: 'photo',
   });
   if (response.data) {
     response.data = `${BASE64_PREFIX}${response.data}`;
