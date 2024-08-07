@@ -11,15 +11,18 @@ import {
   Empty,
   Icon,
   IconButton,
+  SizableText,
   SortableSectionList,
   Spinner,
   Stack,
+  XStack,
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -217,6 +220,21 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       watchLoading: true,
     },
   );
+
+  const { result: accountsValue } = usePromiseResult(async () => {
+    const accounts =
+      sectionData?.flatMap((section) =>
+        section.data.flatMap((item) => ({
+          accountId: item.id,
+        })),
+      ) ?? [];
+
+    const r = await backgroundApiProxy.serviceAccountProfile.getAccountsValue({
+      accounts,
+    });
+
+    return r;
+  }, [sectionData]);
 
   useEffect(() => {
     const fn = async () => {
@@ -612,6 +630,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 : (item as IDBIndexedAccount);
 
               const subTitleInfo = buildSubTitleInfo(item);
+              const accountValue = accountsValue?.find(
+                (i) => i.accountId === item.id,
+              );
               const shouldShowCreateAddressButton =
                 linkNetwork && subTitleInfo.isEmptyAddress;
 
@@ -680,16 +701,47 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                       networkId={avatarNetworkId}
                     />
                   }
-                  title={item.name}
-                  titleProps={{
-                    numberOfLines: 1,
-                  }}
-                  subtitle={subTitleInfo.address}
-                  subtitleProps={{
-                    color: subTitleInfo.isEmptyAddress
-                      ? '$textCaution'
-                      : '$textSubdued',
-                  }}
+                  renderItemText={(textProps) => (
+                    <ListItem.Text
+                      {...textProps}
+                      flex={1}
+                      primary={
+                        <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                          {item.name}
+                        </SizableText>
+                      }
+                      secondary={
+                        <XStack alignItems="center" space="$1">
+                          {accountValue && accountValue.currency ? (
+                            <Currency
+                              size="$bodyMd"
+                              color="$textSubdued"
+                              sourceCurrency={accountValue.currency}
+                            >
+                              {accountValue?.value}
+                            </Currency>
+                          ) : null}
+                          {accountValue &&
+                          accountValue.currency &&
+                          subTitleInfo.address ? (
+                            <SizableText size="$bodyMd" color="textSubdued">
+                              ·
+                            </SizableText>
+                          ) : null}
+                          <SizableText
+                            size="$bodyMd"
+                            color={
+                              subTitleInfo.isEmptyAddress
+                                ? '$textCaution'
+                                : '$textSubdued'
+                            }
+                          >
+                            {subTitleInfo.address}
+                          </SizableText>
+                        </XStack>
+                      }
+                    />
+                  )}
                   // childrenBefore={
                   //   editMode ? (
                   //     <ListItem.IconButton
