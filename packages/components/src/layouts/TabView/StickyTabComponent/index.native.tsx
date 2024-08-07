@@ -4,7 +4,7 @@ import { NestedTabView } from '@onekeyfe/react-native-tab-page-view';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { getTokenValue, useThemeValue } from '../../../hooks';
+import { useThemeValue } from '../../../hooks';
 import { Stack } from '../../../primitives';
 import { FreezeContainer } from '../FreezeContainer';
 import { RefreshingFocusedContainer } from '../RefreshingFocused';
@@ -13,7 +13,6 @@ import type { ITabProps } from './types';
 import type { IFreezeContainerRef } from '../FreezeContainer';
 import type { IRefreshingFocusedContainerRef } from '../RefreshingFocused';
 import type { LayoutChangeEvent } from 'react-native';
-import type { Token } from 'tamagui';
 
 export const useTabScrollViewRef = () => undefined;
 
@@ -115,10 +114,7 @@ export const TabComponent = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [data, rawBackgroundColor],
   );
-  const spinnerColor = useMemo(
-    () => getTokenValue('$bgPrimaryActive' as Token, 'color') as string,
-    [],
-  );
+  const spinnerColor = useThemeValue('bgPrimaryActive');
 
   const tabVieStyle = useMemo(
     () => ({
