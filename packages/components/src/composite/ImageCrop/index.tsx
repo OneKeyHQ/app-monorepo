@@ -15,17 +15,23 @@ import type { IOpenPickerFunc } from './type';
 function BasicImageCrop({
   src,
   onConfirm,
+  onClose,
 }: {
   src: string;
   onConfirm: (image: string) => void;
+  onClose: () => void;
 }) {
   const [visible, setVisible] = useState(true);
   return visible ? (
     <PinturaEditorModal
       {...getEditorDefaults()}
       src={src}
-      onClose={() => setVisible(false)}
+      onClose={() => {
+        setVisible(false);
+        onClose();
+      }}
       onProcess={(res) => {
+        console.log(res.dest);
         const reader = new FileReader();
         reader.addEventListener('load', () => {
           const imageSrc = reader.result?.toString();
@@ -33,6 +39,7 @@ function BasicImageCrop({
             onConfirm(imageSrc);
           }
         });
+        reader.readAsDataURL(res.dest);
       }}
     />
   ) : null;
@@ -54,9 +61,15 @@ const openPicker: IOpenPickerFunc = () =>
         reader.addEventListener('load', () => {
           const imageSrc = reader.result?.toString();
           if (imageSrc) {
-            Portal.Render(
+            const { destroy } = Portal.Render(
               Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-              <BasicImageCrop src={imageSrc} onConfirm={resolve as any} />,
+              <BasicImageCrop
+                src={imageSrc}
+                onConfirm={resolve as any}
+                onClose={() => {
+                  destroy();
+                }}
+              />,
             );
           }
         });
