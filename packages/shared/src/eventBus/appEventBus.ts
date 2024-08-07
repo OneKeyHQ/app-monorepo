@@ -59,6 +59,8 @@ export enum EAppEventBusNames {
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
   AccountDataUpdate = 'AccountDataUpdate',
+  onDragBeginInListView = 'onDragBeginInListView',
+  onDragEndInListView = 'onDragEndInListView',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -162,8 +164,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
     type: EHomeTab;
+    accountId: string;
+    networkId: string;
   };
   [EAppEventBusNames.AccountDataUpdate]: undefined;
+  [EAppEventBusNames.onDragBeginInListView]: undefined;
+  [EAppEventBusNames.onDragEndInListView]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

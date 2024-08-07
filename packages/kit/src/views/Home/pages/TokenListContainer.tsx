@@ -2,10 +2,10 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
 
 import type { ITabPageProps } from '@onekeyhq/components';
 import {
-  Portal,
   useMedia,
   useOnRouterChange,
   useTabIsRefreshingFocused,
@@ -15,16 +15,19 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   POLLING_DEBOUNCE_INTERVAL,
+  POLLING_INTERVAL_FOR_HISTORY,
   POLLING_INTERVAL_FOR_TOKEN,
+  TOKEN_LIST_HIGH_VALUE_MAX,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
-  EAssetSelectorRoutes,
   EModalAssetDetailRoutes,
+  EModalReceiveRoutes,
   EModalRoutes,
+  EModalSendRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -55,7 +58,6 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { UrlAccountHomeTokenListProviderMirror } from '../components/HomeTokenListProvider/UrlAccountHomeTokenListProviderMirror';
-import { WalletActions } from '../components/WalletActions';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -111,10 +113,17 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
     if (
       // @ts-ignore
-      modalRoutes?.params?.screen === EModalRoutes.AssetSelectorModal &&
+      (modalRoutes?.params?.screen === EModalRoutes.SendModal &&
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        modalRoutes?.params?.params?.screen ===
+          EModalSendRoutes.SendSelectToken) ||
       // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      modalRoutes?.params?.params?.screen === EAssetSelectorRoutes.TokenSelector
+      (modalRoutes?.params?.screen === EModalRoutes.ReceiveModal &&
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        modalRoutes?.params?.params?.screen ===
+          EModalReceiveRoutes.ReceiveSelectToken)
     ) {
       setShouldAlwaysFetch(true);
     } else {
@@ -149,6 +158,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: true,
           type: EHomeTab.TOKENS,
+          accountId: account.id,
+          networkId: network.id,
         });
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
@@ -193,9 +204,9 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         refreshSmallBalanceTokenListMap({
           tokens: r.smallBalanceTokens.map,
         });
-        refreshSmallBalanceTokensFiatValue(
-          r.smallBalanceTokens.fiatValue ?? '0',
-        );
+        refreshSmallBalanceTokensFiatValue({
+          value: r.smallBalanceTokens.fiatValue ?? '0',
+        });
 
         if (r.allTokens) {
           refreshAllTokenList({
@@ -224,12 +235,16 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
             isRefreshing: false,
             type: EHomeTab.TOKENS,
+            accountId: account.id,
+            networkId: network.id,
           });
         }
       } catch (e) {
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: false,
           type: EHomeTab.TOKENS,
+          accountId: account?.id ?? '',
+          networkId: network?.id ?? '',
         });
         if (e instanceof CanceledError) {
           console.log('fetchAccountTokens canceled');
@@ -312,29 +327,28 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           merge: true,
         });
 
+        const tokensMap = {
+          ...r.tokens.map,
+          ...r.smallBalanceTokens.map,
+        };
+
         refreshTokenListMap({
-          tokens: r.tokens.map,
+          tokens: tokensMap,
           merge: true,
-          mergeDerive: mergeDeriveAssetsEnabled,
-        });
-        refreshTokenList({
-          keys: r.tokens.keys,
-          tokens: r.tokens.data,
-          merge: true,
-          map: r.tokens.map,
           mergeDerive: mergeDeriveAssetsEnabled,
         });
 
         refreshSmallBalanceTokenListMap({
-          tokens: r.smallBalanceTokens.map,
+          tokens: tokensMap,
           merge: true,
           mergeDerive: mergeDeriveAssetsEnabled,
         });
-        refreshSmallBalanceTokenList({
-          keys: r.smallBalanceTokens.keys,
-          smallBalanceTokens: r.smallBalanceTokens.data,
+
+        refreshTokenList({
+          keys: r.tokens.keys,
+          tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
           merge: true,
-          map: r.smallBalanceTokens.map,
+          map: tokensMap,
           mergeDerive: mergeDeriveAssetsEnabled,
         });
 
@@ -388,7 +402,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       refreshAllTokenListMap,
       refreshRiskyTokenList,
       refreshRiskyTokenListMap,
-      refreshSmallBalanceTokenList,
       refreshSmallBalanceTokenListMap,
       refreshTokenList,
       refreshTokenListMap,
@@ -400,6 +413,10 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
   const handleClearAllNetworkData = useCallback(() => {
     const emptyTokens = getEmptyTokenData();
+
+    refreshSmallBalanceTokensFiatValue({
+      value: '0',
+    });
 
     refreshAllTokenList({
       tokens: emptyTokens.allTokens.data,
@@ -440,27 +457,34 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
+    refreshSmallBalanceTokensFiatValue,
     refreshTokenList,
     refreshTokenListMap,
   ]);
 
   const handleAllNetworkRequestsFinished = useCallback(
     ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
-      if (accountId !== account?.id || networkId !== network?.id) return;
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.TOKENS,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
       });
     },
-    [account?.id, network?.id],
+    [],
   );
 
-  const handleAllNetworkRequestsStarted = useCallback(() => {
-    appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-      isRefreshing: true,
-      type: EHomeTab.TOKENS,
-    });
-  }, []);
+  const handleAllNetworkRequestsStarted = useCallback(
+    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: true,
+        type: EHomeTab.TOKENS,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+      });
+    },
+    [],
+  );
 
   const { run: runAllNetworksRequests, result: allNetworksResult } =
     useAllNetworkRequests<IFetchAccountTokensResp>({
@@ -512,6 +536,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       [key: string]: ITokenFiat;
     } = {};
     let accountWorth = new BigNumber(0);
+    let smallBalanceTokensFiatValue = new BigNumber(0);
 
     if (refreshAllNetworksTokenList.current && allNetworksResult) {
       for (const r of allNetworksResult) {
@@ -572,15 +597,31 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           .plus(r.smallBalanceTokens.fiatValue ?? '0');
       }
 
-      tokenList.tokens = sortTokensByFiatValue({
-        tokens: tokenList.tokens,
-        map: tokenListMap,
+      const mergeTokenListMap = {
+        ...tokenListMap,
+        ...smallBalanceTokenListMap,
+      };
+
+      const mergedTokens = sortTokensByFiatValue({
+        tokens: [
+          ...tokenList.tokens,
+          ...smallBalanceTokenList.smallBalanceTokens,
+        ],
+        map: mergeTokenListMap,
       });
 
-      smallBalanceTokenList.smallBalanceTokens = sortTokensByFiatValue({
-        tokens: smallBalanceTokenList.smallBalanceTokens,
-        map: smallBalanceTokenListMap,
-      });
+      tokenList.tokens = mergedTokens.slice(0, TOKEN_LIST_HIGH_VALUE_MAX);
+
+      smallBalanceTokenList.smallBalanceTokens = mergedTokens.slice(
+        TOKEN_LIST_HIGH_VALUE_MAX,
+      );
+
+      smallBalanceTokensFiatValue =
+        smallBalanceTokenList.smallBalanceTokens.reduce(
+          (acc, token) =>
+            acc.plus(mergeTokenListMap[token.$key].fiatValue ?? '0'),
+          new BigNumber(0),
+        );
 
       riskyTokenList.riskyTokens = sortTokensByFiatValue({
         tokens: riskyTokenList.riskyTokens,
@@ -590,13 +631,17 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       updateAccountWorth({ worth: accountWorth.toFixed() });
 
       refreshTokenList(tokenList);
+
       refreshTokenListMap({
-        tokens: tokenListMap,
+        tokens: mergeTokenListMap,
       });
 
       refreshSmallBalanceTokenList(smallBalanceTokenList);
       refreshSmallBalanceTokenListMap({
-        tokens: smallBalanceTokenListMap,
+        tokens: mergeTokenListMap,
+      });
+      refreshSmallBalanceTokensFiatValue({
+        value: smallBalanceTokensFiatValue.toFixed(),
       });
 
       refreshRiskyTokenList(riskyTokenList);
@@ -610,6 +655,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
+    refreshSmallBalanceTokensFiatValue,
     refreshTokenList,
     refreshTokenListMap,
     updateAccountWorth,
@@ -681,6 +727,37 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     void runAllNetworksRequests();
   }, [runAllNetworksRequests]);
 
+  usePromiseResult(
+    async () => {
+      if (!account || !network) return;
+
+      if (!network.isAllNetworks) return;
+
+      const pendingTxs =
+        await backgroundApiProxy.serviceHistory.getAllNetworksPendingTxs({
+          accountId: account.id,
+          networkId: network.id,
+        });
+
+      if (isEmpty(pendingTxs)) return;
+
+      const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+        accountId: account.id,
+        networkId: network.id,
+      });
+
+      if (r.pendingTxsUpdated) {
+        handleRefreshAllNetworkData();
+      }
+    },
+    [account, handleRefreshAllNetworkData, network],
+    {
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
+      debounced: POLLING_DEBOUNCE_INTERVAL,
+      pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+    },
+  );
+
   useEffect(() => {
     const refresh = () => {
       if (network?.isAllNetworks) {
@@ -710,35 +787,23 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   ]);
 
   return (
-    <>
-      {showWalletActions ? (
-        <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
-          <WalletActions
-            pt="$5"
-            $gtLg={{
-              pt: 0,
-            }}
-          />
-        </Portal.Body>
-      ) : null}
-      <TokenListView
-        withHeader
-        withFooter
-        withPrice
-        inTabList
-        withBuyAndReceive={isBuyAndReceiveEnabled}
-        isBuyTokenSupported={isSupported}
-        onBuyToken={handleOnBuy}
-        onReceiveToken={handleOnReceive}
-        manageTokenEnabled={manageTokenEnabled}
-        onManageToken={handleOnManageToken}
-        onPressToken={handleOnPressToken}
-        isAllNetworks={network?.isAllNetworks}
-        {...(media.gtLg && {
-          tableLayout: true,
-        })}
-      />
-    </>
+    <TokenListView
+      withHeader
+      withFooter
+      withPrice
+      inTabList
+      withBuyAndReceive={isBuyAndReceiveEnabled}
+      isBuyTokenSupported={isSupported}
+      onBuyToken={handleOnBuy}
+      onReceiveToken={handleOnReceive}
+      manageTokenEnabled={manageTokenEnabled}
+      onManageToken={handleOnManageToken}
+      onPressToken={handleOnPressToken}
+      isAllNetworks={network?.isAllNetworks}
+      {...(media.gtLg && {
+        tableLayout: true,
+      })}
+    />
   );
 }
 

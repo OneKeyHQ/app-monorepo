@@ -8,8 +8,9 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { SizableText } from '../../primitives/SizeableText';
 import { Stack, XStack } from '../../primitives/Stack';
 
-import type { StackStyleProps } from '@tamagui/web/types/types';
-import type { ColorTokens, GetProps } from 'tamagui';
+import type { StackStyle } from '@tamagui/web/types/types';
+import type { SwipeableProps } from 'react-native-gesture-handler/Swipeable';
+import type { ColorTokens } from 'tamagui';
 
 type ISwipeableCellItemProps = {
   title: string;
@@ -83,8 +84,8 @@ export type ISwipeableCellRef = {
   close: () => void;
 };
 
-export type ISwipeableCellProps = GetProps<typeof Swipeable> &
-  StackStyleProps & {
+export type ISwipeableCellProps = SwipeableProps &
+  StackStyle & {
     swipeEnabled?: boolean;
     rightItemList?: Array<ISwipeableCellItemProps>;
     leftItemList?: Array<ISwipeableCellItemProps>;
@@ -104,6 +105,7 @@ function BaseSwipeableCell(
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
+
   const innerRef = useRef<Swipeable>(null);
   useImperativeHandle(
     ref,
@@ -119,14 +121,14 @@ function BaseSwipeableCell(
   }
   const onSwipeableOpen = useCallback(
     (direction: ISwipeableSwipeDirection, swipeable: Swipeable) => {
-      restProps?.onSwipeableOpen?.(direction, swipeable);
+      (restProps as SwipeableProps)?.onSwipeableOpen?.(direction, swipeable);
       LAST_SWIPED_CELL_CLOSE = innerRef?.current?.close;
     },
     [restProps],
   );
   const onSwipeableWillOpen = useCallback(
     (direction: ISwipeableSwipeDirection) => {
-      restProps?.onSwipeableWillOpen?.(direction);
+      (restProps as SwipeableProps)?.onSwipeableWillOpen?.(direction);
       if (LAST_SWIPED_CELL_CLOSE !== innerRef?.current?.close) {
         LAST_SWIPED_CELL_CLOSE?.();
       }
@@ -163,7 +165,7 @@ function BaseSwipeableCell(
       enabled={swipeEnabled}
       renderLeftActions={renderLeftActionList}
       renderRightActions={renderRightActionList}
-      style={style}
+      containerStyle={style as any}
       {...restProps}
       onSwipeableOpen={onSwipeableOpen}
       onSwipeableWillOpen={onSwipeableWillOpen}

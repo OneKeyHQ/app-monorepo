@@ -872,6 +872,13 @@ function SendDataInputContainer() {
     [addressBookEnabledNetworkIds, networkId],
   );
 
+  const handleAddressInputChangeType = useCallback(
+    (type: EInputAddressChangeType) => {
+      addressInputChangeType.current = type;
+    },
+    [],
+  );
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -900,7 +907,7 @@ function SendDataInputContainer() {
                   borderColor="$border"
                   borderRadius="$2"
                 >
-                  <XStack alignItems="center" space="$1" flex={1}>
+                  <XStack alignItems="center" gap="$1" flex={1}>
                     <Token
                       isNFT
                       size="lg"
@@ -960,9 +967,7 @@ function SendDataInputContainer() {
                 enableAddressInteractionStatus
                 contacts={addressBookEnabledNetworkIds.includes(networkId)}
                 accountSelector={addressInputAccountSelectorArgs}
-                onInputTypeChange={(type) => {
-                  addressInputChangeType.current = type;
-                }}
+                onInputTypeChange={handleAddressInputChangeType}
               />
             </Form.Field>
             {renderDataInput()}

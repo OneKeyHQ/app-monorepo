@@ -77,7 +77,7 @@ function ActionsGroup({ items }: IActionsProp) {
             pressStyle={{
               bg: item.primary ? '$bgPrimaryActive' : '$bgStrongActive',
             }}
-            focusStyle={{
+            focusVisibleStyle={{
               outlineColor: '$focusRing',
               outlineStyle: 'solid',
               outlineWidth: 2,
@@ -244,7 +244,7 @@ export function GetStarted({
         <Stack
           py="$6"
           px="$5"
-          space="$2.5"
+          gap="$2.5"
           $gtMd={{
             maxWidth: '$96',
           }}
@@ -342,11 +342,7 @@ export function GetStarted({
         {showCloseButton ? (
           <View position="absolute" left="$5" top="$5">
             <Page.Close>
-              <IconButton
-                icon="CrossedLargeOutline"
-                variant="tertiary"
-                p="$4"
-              />
+              <IconButton icon="CrossedLargeOutline" variant="tertiary" />
             </Page.Close>
           </View>
         ) : null}
@@ -356,6 +352,13 @@ export function GetStarted({
 }
 
 export default GetStarted;
+
+export const openOnBoardingFromExt = () => {
+  if (platformEnv.isExtension && typeof window !== 'undefined') {
+    return window.location.hash.includes('fromExt=true');
+  }
+  return false;
+};
 
 export const useToOnBoardingPage = () => {
   const navigation = useAppNavigation();
@@ -375,7 +378,10 @@ export const useToOnBoardingPage = () => {
               EModalRoutes.OnboardingModal,
               EOnboardingPages.GetStarted,
             ],
-            params,
+            params: {
+              ...params,
+              fromExt: true,
+            },
           });
         } else {
           navigation[isFullModal ? 'pushFullModal' : 'pushModal'](

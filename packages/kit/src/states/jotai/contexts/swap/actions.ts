@@ -46,6 +46,7 @@ import {
   swapFromTokenAmountAtom,
   swapManualSelectQuoteProvidersAtom,
   swapNetworks,
+  swapQuoteActionLockAtom,
   swapQuoteCurrentSelectAtom,
   swapQuoteFetchingAtom,
   swapQuoteListAtom,
@@ -220,6 +221,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       if (shouldRefreshQuote) {
         this.cleanQuoteInterval();
+        set(swapQuoteActionLockAtom(), false);
         return;
       }
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
@@ -256,6 +258,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           enableInterval = false;
         }
       } finally {
+        set(swapQuoteActionLockAtom(), false);
         // if (enableInterval) {
         //   this.quoteIntervalCount += 1;
         //   if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
@@ -274,6 +277,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       blockNumber?: number,
     ) => {
+      set(swapQuoteActionLockAtom(), true);
       this.cleanQuoteInterval();
       this.quoteIntervalCount = 0;
       set(swapBuildTxFetchingAtom(), false);
@@ -305,6 +309,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         await backgroundApiProxy.serviceSwap.cancelFetchQuotes();
         set(swapQuoteFetchingAtom(), false);
         set(swapQuoteListAtom(), []);
+        set(swapQuoteActionLockAtom(), false);
       }
     },
   );
@@ -397,6 +402,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       unResetCount?: boolean,
     ) => {
+      const swapQuoteActionLock = get(swapQuoteActionLockAtom());
+      if (swapQuoteActionLock) {
+        return;
+      }
       this.cleanQuoteInterval();
       if (!unResetCount) {
         this.quoteIntervalCount = 0;
@@ -497,7 +506,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             alertLevel: ESwapAlertLevel.ERROR,
           },
         ];
-        set(swapAlertsAtom(), alertsRes);
+        set(swapAlertsAtom(), {
+          states: alertsRes,
+          quoteId: quoteResult?.quoteId ?? '',
+        });
         return;
       }
 
@@ -667,7 +679,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
-      set(swapAlertsAtom(), alertsRes);
+      set(swapAlertsAtom(), {
+        states: alertsRes,
+        quoteId: quoteResult?.quoteId ?? '',
+      });
       set(rateDifferenceAtom(), rateDifferenceRes);
     },
   );

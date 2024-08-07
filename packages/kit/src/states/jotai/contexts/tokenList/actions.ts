@@ -1,7 +1,9 @@
 import { useRef } from 'react';
 
-import { isEmpty, isEqual, uniqBy } from 'lodash';
+import BigNumber from 'bignumber.js';
+import { isEqual, uniqBy } from 'lodash';
 
+import { TOKEN_LIST_HIGH_VALUE_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   mergeDeriveTokenList,
@@ -155,7 +157,9 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
 
       if (merge) {
         if (tokens.length) {
-          let newTokens = get(tokenListAtom()).tokens;
+          let newTokens = get(tokenListAtom()).tokens.concat(
+            get(smallBalanceTokenListAtom()).smallBalanceTokens,
+          );
 
           newTokens = mergeDeriveTokenList({
             sourceTokens: tokens,
@@ -165,17 +169,38 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
 
           const tokenListMap = get(tokenListMapAtom());
 
+          const mergedTokenListMap = {
+            ...tokenListMap,
+            ...(payload.map || {}),
+          };
+
           newTokens = sortTokensByFiatValue({
             tokens: newTokens,
-            map: {
-              ...tokenListMap,
-              ...(payload.map || {}),
-            },
+            map: mergedTokenListMap,
           });
 
+          const highValueTokens = newTokens.slice(0, TOKEN_LIST_HIGH_VALUE_MAX);
+          const lowValueTokens = newTokens.slice(TOKEN_LIST_HIGH_VALUE_MAX);
+
+          const lowValueTokensFiatValue = lowValueTokens.reduce(
+            (acc, item) =>
+              acc.plus(mergedTokenListMap[item.$key]?.fiatValue ?? 0),
+            new BigNumber(0),
+          );
+
           set(tokenListAtom(), {
-            tokens: uniqBy(newTokens, (item) => item.$key),
+            tokens: uniqBy(highValueTokens, (item) => item.$key),
             keys: `${get(tokenListAtom()).keys}_${keys}`,
+          });
+
+          set(
+            smallBalanceTokensFiatValueAtom(),
+            lowValueTokensFiatValue.toFixed(),
+          );
+
+          set(smallBalanceTokenListAtom(), {
+            smallBalanceTokens: lowValueTokens,
+            keys: `${get(smallBalanceTokenListAtom()).keys}_${keys}`,
           });
         }
       } else if (!isEqual(get(tokenListAtom()).keys, keys)) {
@@ -302,6 +327,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           [key: string]: ITokenFiat;
         };
         mergeDerive?: boolean;
+        tokens?: IAccountToken[];
       },
     ) => {
       const { keys, smallBalanceTokens, merge, mergeDerive } = payload;
@@ -362,7 +388,28 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
   );
 
   refreshSmallBalanceTokensFiatValue = contextAtomMethod(
-    (get, set, value: string) => {
+    (
+      get,
+      set,
+      payload: {
+        value: string;
+        merge?: boolean;
+      },
+    ) => {
+      const { value, merge } = payload;
+
+      const smallBalanceTokensFiatValue = get(
+        smallBalanceTokensFiatValueAtom(),
+      );
+
+      if (merge) {
+        const mergedValue = new BigNumber(smallBalanceTokensFiatValue)
+          .plus(value)
+          .toFixed();
+        set(smallBalanceTokensFiatValueAtom(), mergedValue);
+        return;
+      }
+
       set(smallBalanceTokensFiatValueAtom(), value);
     },
   );

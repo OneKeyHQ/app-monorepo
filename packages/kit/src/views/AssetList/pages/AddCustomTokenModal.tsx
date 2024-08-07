@@ -334,14 +334,14 @@ function AddCustomTokenModal() {
             bg="$bgApp"
           >
             <XStack
-              space="$2.5"
+              gap="$2.5"
               $gtMd={{
                 ml: 'auto',
               }}
               flex={1}
               justifyContent="space-between"
             >
-              <XStack alignItems="center" space="$2">
+              <XStack alignItems="center" gap="$2">
                 <SizableText size="$bodyMdMedium" color="$text">
                   {intl.formatMessage({
                     id: ETranslations.manage_token_custom_token_create_address,
