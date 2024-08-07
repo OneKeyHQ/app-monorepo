@@ -1548,8 +1548,7 @@ const holesky: IServerNetwork = {
     'isTokenSupported': false,
     'isNFTEnabled': false,
   },
-  'logoURI':
-    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1722914233365.0.8755229479555522.0.svg',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/holesky.png',
   'defaultEnabled': false,
   'backendIndex': false,
 };
