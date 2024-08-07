@@ -350,6 +350,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           merge: true,
           map: tokensMap,
           mergeDerive: mergeDeriveAssetsEnabled,
+          split: true,
         });
 
         refreshRiskyTokenListMap({
