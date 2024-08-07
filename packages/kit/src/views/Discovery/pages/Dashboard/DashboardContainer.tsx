@@ -7,7 +7,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import CustomHeaderTitle from '../../components/CustomHeaderTitle';
+import CustomHeaderSearch from '../../components/CustomHeaderSearch';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import DashboardContent from './DashboardContent';
@@ -20,14 +20,14 @@ function Dashboard() {
     });
   }, [navigation]);
 
-  const headerTitle = useCallback(
-    () => <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />,
+  const headerRight = useCallback(
+    () => <CustomHeaderSearch handleSearchBarPress={handleSearchBarPress} />,
     [handleSearchBarPress],
   );
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={headerTitle} />
+      <Page.Header headerRight={headerRight} />
       <Page.Body>
         <DashboardContent />
       </Page.Body>
