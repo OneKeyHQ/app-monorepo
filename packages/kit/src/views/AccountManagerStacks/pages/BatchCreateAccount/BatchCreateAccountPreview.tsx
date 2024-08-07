@@ -11,6 +11,7 @@ import type {
 } from '@onekeyhq/components';
 import {
   Button,
+  ButtonGroup,
   Checkbox,
   Divider,
   Icon,
@@ -807,37 +808,37 @@ function BatchCreateAccountPreviewPage({
                 });
               }}
             />
-            <IconButton
-              icon="ChevronLeftOutline"
-              disabled={page <= minPage || isLoading}
-              onPress={() => {
-                setPageNumber(Math.max(1, page - 1));
-              }}
-            />
-            <Button
-              onPress={() => {
-                showBatchCreateAccountPreviewPageNumberDialog({
-                  page,
-                  onSubmit: async (values) => {
-                    if (!isNil(values?.page)) {
-                      setPageNumber(values.page);
-                    }
-                  },
-                });
-              }}
+            <ButtonGroup
               disabled={isLoading}
-              variant="tertiary"
-              mx="$1"
-              px="$4"
-            >
-              {page}
-            </Button>
-            <IconButton
-              icon="ChevronRightOutline"
-              disabled={page >= maxPage || isLoading}
-              onPress={() => {
-                setPageNumber(page + 1);
-              }}
+              items={[
+                {
+                  onPress: () => {
+                    setPageNumber(Math.max(1, page - 1));
+                  },
+                  element: <Icon name="ChevronLeftOutline" pl="$1" />,
+                },
+                {
+                  onPress: () => {
+                    showBatchCreateAccountPreviewPageNumberDialog({
+                      page,
+                      onSubmit: async (values) => {
+                        if (!isNil(values?.page)) {
+                          setPageNumber(values.page);
+                        }
+                      },
+                    });
+                  },
+                  element: (
+                    <SizableText size="$bodyLgMedium">{page}</SizableText>
+                  ),
+                },
+                {
+                  onPress: () => {
+                    setPageNumber(page + 1);
+                  },
+                  element: <Icon name="ChevronRightOutline" pr="$1" />,
+                },
+              ]}
             />
           </Stack>
         </Page.FooterActions>
