@@ -114,30 +114,28 @@ export const getSharedButtonStyles = ({
   };
 };
 
-const getSizeStyles = (size: IButtonProps['size']) => {
-  const sizes = {
-    small: {
-      py: '$1',
-      px: '$2.5',
-      borderRadius: getTokenValue('$size.2'),
-      textVariant: '$bodyMdMedium',
-    },
-    medium: {
-      py: '$1.5',
-      px: '$3.5',
-      borderRadius: getTokenValue('$size.2'),
-      textVariant: '$bodyLgMedium',
-    },
-    large: {
-      py: '$3',
-      px: '$5',
-      borderRadius: getTokenValue('$size.3'),
-      textVariant: '$bodyLgMedium',
-    },
-  };
-
-  return sizes[size || 'medium'];
+const sizes = {
+  small: {
+    py: '$1',
+    px: '$2.5',
+    borderRadius: getTokenValue('$size.2'),
+    textVariant: '$bodyMdMedium',
+  },
+  medium: {
+    py: '$1.5',
+    px: '$3.5',
+    borderRadius: getTokenValue('$size.2'),
+    textVariant: '$bodyLgMedium',
+  },
+  large: {
+    py: '$3',
+    px: '$5',
+    borderRadius: getTokenValue('$size.3'),
+    textVariant: '$bodyLgMedium',
+  },
 };
+const getSizeStyles = (size: IButtonProps['size']) =>
+  sizes[size || 'medium'] || sizes.medium;
 
 export const ButtonFrame = styled(ThemeableStack, {
   tag: 'button',
