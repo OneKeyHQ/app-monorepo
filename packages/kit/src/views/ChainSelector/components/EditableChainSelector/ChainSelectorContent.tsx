@@ -132,15 +132,25 @@ export const EditableChainSelectorContent = ({
             },
           ];
     }
-    const data = mainnetItems.reduce((result, item) => {
-      const char = item.name[0].toUpperCase();
-      if (!result[char]) {
-        result[char] = [];
-      }
-      result[char].push(item);
 
-      return result;
-    }, {} as Record<string, IServerNetwork[]>);
+    const tempFrequentlyUsedItemsSet = new Set(
+      tempFrequentlyUsedItems.map((o) => o.id),
+    );
+    const filterFrequentlyUsedNetworks = (inputs: IServerNetwork[]) =>
+      inputs.filter((o) => !tempFrequentlyUsedItemsSet.has(o.id));
+
+    const data = filterFrequentlyUsedNetworks(mainnetItems).reduce(
+      (result, item) => {
+        const char = item.name[0].toUpperCase();
+        if (!result[char]) {
+          result[char] = [];
+        }
+        result[char].push(item);
+
+        return result;
+      },
+      {} as Record<string, IServerNetwork[]>,
+    );
 
     const mainnetSections = Object.entries(data)
       .map(([key, value]) => ({ title: key, data: value }))
@@ -156,7 +166,7 @@ export const EditableChainSelectorContent = ({
         title: intl.formatMessage({
           id: ETranslations.global_testnet,
         }),
-        data: testnetItems,
+        data: filterFrequentlyUsedNetworks(testnetItems),
       });
     }
     if (unavailableItems.length > 0) {
