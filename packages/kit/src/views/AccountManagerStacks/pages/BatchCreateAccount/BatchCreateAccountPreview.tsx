@@ -4,7 +4,11 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
-import type { ICheckedState, IPageScreenProps } from '@onekeyhq/components';
+import type {
+  ICheckedState,
+  IPageScreenProps,
+  ISizableTextProps,
+} from '@onekeyhq/components';
 import {
   Button,
   Checkbox,
@@ -484,8 +488,6 @@ function BatchCreateAccountPreviewPage({
     return '';
   }, [totalCount]);
 
-  const numWidth = '$20';
-
   const buildRelPathSuffix = useCallback(
     (account: INetworkAccount) => {
       if (networkId === getNetworkIdsMap().dnx) {
@@ -509,30 +511,48 @@ function BatchCreateAccountPreviewPage({
           color: '$textDisabled',
         },
         columnProps: {
-          flexGrow: 1,
+          flexGrow: 2,
           flexBasis: 0,
         },
         dataIndex: 'checkBox',
         columnWidth: 22,
-        render: (_: any, account: IBatchCreateAccount) => (
-          <Checkbox
-            disabled={account.existsInDb}
-            // value={checkedState}
-            onChange={(val) => {
-              selectCheckBox({
-                val,
-                accountsToSelect: [account],
-              });
-            }}
-            label={String((account.pathIndex ?? 0) + 1)}
-            labelProps={
-              {
-                size: '$bodyMd',
-                wordWrap: 'break-word', // TODO not working
-              } as any
+        render: (_: any, account: IBatchCreateAccount) => {
+          const pathIndex = account.pathIndex ?? -1;
+          let checkedState: ICheckedState = false;
+          if (isAdvancedMode) {
+            checkedState = true;
+            if (advanceExcludedIndexes?.[pathIndex] === true) {
+              checkedState = false;
             }
-          />
-        ),
+          } else {
+            checkedState = normalSelectedIndexes[pathIndex] ?? false;
+          }
+          if (account.existsInDb) {
+            checkedState = 'indeterminate';
+          }
+          return (
+            <Checkbox
+              containerProps={{
+                flex: 1,
+              }}
+              disabled={account.existsInDb}
+              value={checkedState}
+              onChange={(val) => {
+                selectCheckBox({
+                  val,
+                  accountsToSelect: [account],
+                });
+              }}
+              label={String((account.pathIndex ?? 0) + 1)}
+              labelProps={
+                {
+                  size: '$bodyMd',
+                  numberOfLines: 10,
+                } as ISizableTextProps
+              }
+            />
+          );
+        },
       },
       {
         title: intl.formatMessage({
@@ -545,7 +565,7 @@ function BatchCreateAccountPreviewPage({
         align: 'left',
         dataIndex: 'address',
         columnProps: {
-          flexGrow: 7,
+          flexGrow: 6,
           flexBasis: 0,
         },
         render: (_: any, account: IBatchCreateAccount) => (
@@ -580,6 +600,10 @@ function BatchCreateAccountPreviewPage({
           <NumberSizeableText
             size="$bodyMd"
             formatter="balance"
+            numberOfLines={10}
+            style={{
+              wordBreak: 'break-all',
+            }}
             formatterOptions={{ tokenSymbol: network?.symbol }}
           >
             {balanceMap[buildBalanceMapKey({ account })] ?? '-'}
@@ -588,11 +612,14 @@ function BatchCreateAccountPreviewPage({
       },
     ],
     [
+      advanceExcludedIndexes,
       balanceMap,
       buildBalanceMapKey,
       buildRelPathSuffix,
       intl,
+      isAdvancedMode,
       network?.symbol,
+      normalSelectedIndexes,
       selectCheckBox,
     ],
   );
@@ -605,116 +632,25 @@ function BatchCreateAccountPreviewPage({
         dismissOnOverlayPress={false}
         headerRight={headerRight}
       />
-      <Page.Body
-      // backgroundColor={'#eee'}
-      >
-        <Stack flexDirection="row" py="$2">
-          <SizableText
-            size="$bodyMd"
-            w={numWidth}
-            pr="$4"
-            wordWrap="break-word"
-            color="$textDisabled"
-          >
-            {intl.formatMessage({
-              id: ETranslations.global_generate_amount_number,
-            })}
-            {/* TestVeryLongWordTestVeryLongWordTestVeryLongWord */}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textDisabled">
-            {intl.formatMessage({
-              id: ETranslations.global_generate_amount_address,
-            })}
-          </SizableText>
-          <Stack flex={1} />
-          <SizableText size="$bodyMd" color="$textDisabled">
-            {intl.formatMessage({
-              id: ETranslations.global_generate_amount_balance,
-            })}
-          </SizableText>
-        </Stack>
-
-        {isLoading ? (
-          <Stack
-            py="$20"
-            flexDirection="column"
-            justifyContent="center"
-            alignItems="center"
-          >
-            <Spinner size="large" />
-          </Stack>
-        ) : (
-          accounts.map((account) => {
-            const pathIndex = account.pathIndex ?? -1;
-            let checkedState: ICheckedState = false;
-            if (isAdvancedMode) {
-              checkedState = true;
-              if (advanceExcludedIndexes?.[pathIndex] === true) {
-                checkedState = false;
-              }
-            } else {
-              checkedState = normalSelectedIndexes[pathIndex] ?? false;
-            }
-            if (account.existsInDb) {
-              checkedState = 'indeterminate';
-            }
-            return (
-              <Stack
-                key={account.id}
-                flexDirection="row"
-                alignItems="center"
-                px="$5"
-                py="$1"
-              >
-                <Stack w={numWidth} pr="$4">
-                  <Checkbox
-                    disabled={account.existsInDb}
-                    value={checkedState}
-                    onChange={(val) => {
-                      selectCheckBox({
-                        val,
-                        accountsToSelect: [account],
-                      });
-                    }}
-                    label={String((account.pathIndex ?? 0) + 1)}
-                    labelProps={
-                      {
-                        size: '$bodyMd',
-                        wordWrap: 'break-word', // TODO not working
-                      } as any
-                    }
-                  />
-                </Stack>
-
-                <Stack pr="$4" flex={1}>
-                  <SizableText size="$bodyMd">
-                    {accountUtils.shortenAddress({
-                      address: account.address,
-                    })}
-                  </SizableText>
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {account.path}
-                    {buildRelPathSuffix(account)}
-                  </SizableText>
-                </Stack>
-                <NumberSizeableText
-                  size="$bodyMd"
-                  formatter="balance"
-                  formatterOptions={{ tokenSymbol: network?.symbol }}
-                >
-                  {balanceMap[buildBalanceMapKey({ account })] ?? '-'}
-                </NumberSizeableText>
-              </Stack>
-            );
-          })
-        )}
+      <Page.Body>
         <Table
           rowProps={{
             gap: '$4',
             px: '$5',
           }}
-          dataSource={accounts}
+          dataSource={isLoading ? [] : accounts}
           columns={columns as any}
+          TableEmptyComponent={
+            <Stack
+              py="$20"
+              flexDirection="column"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <Spinner size="large" />
+            </Stack>
+          }
+          extraData={selectedIndexesCount}
         />
       </Page.Body>
       <Page.Footer>
