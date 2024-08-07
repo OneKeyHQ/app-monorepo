@@ -53,7 +53,7 @@ class ProviderApiTon extends ProviderApiBase {
       let params;
       try {
         if (accounts && accounts.length > 0) {
-          params = this._getAccountResponse(accounts[0].account);
+          params = await this._getAccountResponse(accounts[0].account);
         }
       } catch {
         // ignore
@@ -153,21 +153,23 @@ class ProviderApiTon extends ProviderApiBase {
   @providerApiMethod()
   public async sendTransaction(
     request: IJsBridgeMessagePayload,
-    params: [TransactionPayload],
+    params: TransactionPayload,
   ): Promise<any> {
     const accounts = await this.getAccountsInfo(request);
     const account = accounts[0];
-    const tx = params[0];
-    if (tx.from) {
-      const fromAddr = new TonWeb.Address(tx.from);
-      if (fromAddr.toString() !== account.account.addressDetail.baseAddress) {
+    if (params.from) {
+      const fromAddr = new TonWeb.Address(params.from);
+      if (
+        fromAddr.toString(false, false, false) !==
+        account.account.addressDetail.baseAddress
+      ) {
         throw new Error('Invalid from address');
       }
     }
     const encodedTx: IEncodedTxTon = {
-      fromAddress: tx.from || account.account.addressDetail.displayAddress,
+      fromAddress: params.from || account.account.addressDetail.displayAddress,
       sequenceNo: 0,
-      messages: tx.messages.map((m) => ({
+      messages: params.messages.map((m) => ({
         toAddress: m.address,
         amount: new BigNumber(m.amount),
         payload: m.payload
@@ -177,7 +179,7 @@ class ProviderApiTon extends ProviderApiBase {
           ? Buffer.from(m.stateInit, 'base64').toString('hex')
           : undefined,
       })),
-      expireAt: tx.valid_until,
+      expireAt: params.valid_until,
     };
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -185,7 +187,7 @@ class ProviderApiTon extends ProviderApiBase {
         encodedTx,
         networkId: account.accountInfo?.networkId ?? '',
         accountId: account?.account.id ?? '',
-        signOnly: true,
+        signOnly: false,
       });
 
     return result.txid;

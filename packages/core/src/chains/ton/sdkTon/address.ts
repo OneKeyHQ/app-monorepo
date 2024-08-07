@@ -25,7 +25,7 @@ export async function genAddressFromAddress(address: string): Promise<{
   bounceAddress: string;
 }> {
   const addr = new TonWeb.Address(address);
-  const normalAddress = addr.toString();
+  const normalAddress = addr.toString(false, false, false);
   const nonBounceAddress = addr.toString(true, true, false);
   const bounceAddress = addr.toString(true, true, true);
   return { normalAddress, nonBounceAddress, bounceAddress };

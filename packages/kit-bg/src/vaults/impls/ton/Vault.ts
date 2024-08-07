@@ -188,6 +188,15 @@ export default class Vault extends VaultBase {
     if (params.nonceInfo) {
       encodedTx.sequenceNo = params.nonceInfo.nonce;
     }
+    const expireAt = Math.floor(Date.now() / 1000) + 60 * 3;
+    if (!encodedTx.expireAt) {
+      encodedTx.expireAt = expireAt;
+    } else if (encodedTx.expireAt.toString().length > 10) {
+      encodedTx.expireAt = Math.floor(encodedTx.expireAt / 1000);
+    }
+    if (encodedTx.expireAt < expireAt) {
+      encodedTx.expireAt = expireAt;
+    }
     return {
       ...params.unsignedTx,
     };

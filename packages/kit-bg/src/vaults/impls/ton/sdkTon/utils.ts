@@ -17,29 +17,37 @@ import type { Address } from 'tonweb/dist/types/utils/address';
 export function decodePayload(payload?: string | Uint8Array | Cell): {
   type: EDecodedTxActionType;
   tokenAddress?: string;
+  bytes?: Uint8Array;
 } {
   let type = EDecodedTxActionType.UNKNOWN;
   if (!payload) {
     type = EDecodedTxActionType.ASSET_TRANSFER;
     return { type };
   }
+  let bytes;
   if (typeof payload === 'string') {
     try {
-      const buf = Buffer.from(payload, 'base64');
-      if (
-        buf.length >= 32 &&
-        buf.subarray(0, 32).toString('hex') ===
-          '0000000000000000000000000000000000000000000000000000000000000000'
-      ) {
-        type = EDecodedTxActionType.ASSET_TRANSFER;
-        return { type };
-      }
+      bytes = Buffer.from(payload, 'base64');
     } catch (e) {
-      type = EDecodedTxActionType.ASSET_TRANSFER;
-      return { type };
+      try {
+        bytes = Buffer.from(payload, 'hex');
+      } catch (ee) {
+        // ignore
+      }
     }
+  } else if (payload instanceof Uint8Array) {
+    bytes = payload;
   }
-  return { type };
+  if (
+    bytes &&
+    bytes.length >= 32 &&
+    bytes.subarray(0, 32).toString('hex') ===
+      '0000000000000000000000000000000000000000000000000000000000000000'
+  ) {
+    type = EDecodedTxActionType.ASSET_TRANSFER;
+  }
+
+  return { type, bytes };
 }
 
 type IV4R2 = typeof TonWeb.Wallets.all.v4R2;
@@ -109,7 +117,10 @@ export async function serializeUnsignedTransaction({
     encodedTx.messages.map((message) => ({
       toAddress: message.toAddress,
       amount: message.amount,
-      payload: message.payload,
+      payload:
+        typeof message.payload === 'string'
+          ? TonWeb.boc.Cell.oneFromBoc(message.payload)
+          : message.payload,
       sendMode: message.sendMode,
       stateInit:
         typeof message.stateInit === 'string'
