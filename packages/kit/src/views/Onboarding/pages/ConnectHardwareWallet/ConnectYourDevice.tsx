@@ -5,7 +5,6 @@ import { get } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
-import type { IButtonProps } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
@@ -126,6 +125,7 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
 function ConnectByQrCode() {
   const { createQrWallet } = useCreateQrWallet();
   const intl = useIntl();
+  const navigation = useAppNavigation();
 
   return (
     <Stack flex={1} alignItems="center" justifyContent="center">
@@ -150,15 +150,19 @@ function ConnectByQrCode() {
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         onPress={async () => {
           try {
-            await createQrWallet({ isOnboarding: true });
+            await createQrWallet({
+              isOnboarding: true,
+              onFinalizeWalletSetupError: () => {
+                // only pop when finalizeWalletSetup pushed
+                navigation.pop();
+              },
+            });
           } catch (error) {
             errorUtils.toastIfError(error);
-            // TODO pop only qrcode scan modal but not device connect modal
-            // navigation.pop();
             throw error;
           }
         }}
@@ -364,11 +368,11 @@ function ConnectByUSBOrBLE({
                   }),
                   showFooter: false,
                   renderContent: (
-                    <XStack space="$2.5">
+                    <XStack gap="$2.5">
                       <Button
                         flex={1}
                         size="large"
-                        $gtMd={{ size: 'medium' } as IButtonProps}
+                        $gtMd={{ size: 'medium' } as any}
                         onPress={() => Linking.openURL(requestsUrl)}
                       >
                         {intl.formatMessage({
@@ -379,7 +383,7 @@ function ConnectByUSBOrBLE({
                         flex={1}
                         variant="primary"
                         size="large"
-                        $gtMd={{ size: 'medium' } as IButtonProps}
+                        $gtMd={{ size: 'medium' } as any}
                         onPress={async () => {
                           await packageAlertDialog.close();
                           handleRestoreWalletPress({ deviceType });
@@ -967,7 +971,7 @@ export function ConnectYourDevicePage() {
             hoverStyle={{
               color: '$textInteractiveHover',
             }}
-            href="https://shop.onekey.so/"
+            href="https://bit.ly/3YsKilK"
             target="_blank"
             size="$bodyMdMedium"
             p="$2"

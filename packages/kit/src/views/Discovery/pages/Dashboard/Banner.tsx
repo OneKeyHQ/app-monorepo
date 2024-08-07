@@ -127,7 +127,7 @@ export function Banner({
           </>
         ) : null}
         {banners.length > 1 ? (
-          <XStack space="$1" position="absolute" right="$10" bottom="$10">
+          <XStack gap="$1" position="absolute" right="$10" bottom="$10">
             {banners.map((_, index) => (
               <Stack
                 key={index}

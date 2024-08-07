@@ -9,6 +9,10 @@ import type { IDBAccount } from '../../../dbs/local/types';
 export class KeyringQr extends KeyringQrBase {
   override coreApi: CoreChainApiBase | undefined = undefined;
 
+  override verifySignedTxMatched(...args: any[]): Promise<void> {
+    throw new NotImplemented();
+  }
+
   override signTransaction(): Promise<ISignedTxPro> {
     throw new NotImplemented();
   }

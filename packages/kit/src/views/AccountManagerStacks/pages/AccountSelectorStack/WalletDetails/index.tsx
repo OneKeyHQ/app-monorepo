@@ -11,14 +11,25 @@ import {
   Empty,
   Icon,
   IconButton,
+  SizableText,
   SortableSectionList,
+  Spinner,
   Stack,
+  XStack,
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
+import type {
+  IDBAccount,
+  IDBDevice,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -30,13 +41,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
 import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/pages';
-import type {
-  IDBAccount,
-  IDBDevice,
-  IDBIndexedAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -190,6 +194,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     result: sectionData,
     run: reloadAccounts,
     setResult,
+    isLoading,
   } = usePromiseResult(
     async () => {
       if (!selectedAccount?.focusedWallet) {
@@ -212,8 +217,34 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     ],
     {
       checkIsFocused: false,
+      watchLoading: true,
     },
   );
+
+  const { result: accountsValue } = usePromiseResult(async () => {
+    const accounts =
+      sectionData?.flatMap((section) =>
+        section.data.flatMap((item) => ({
+          accountId: item.id,
+        })),
+      ) ?? [];
+
+    const r = await backgroundApiProxy.serviceAccountProfile.getAccountsValue({
+      accounts,
+    });
+
+    return r;
+  }, [sectionData]);
+
+  const accountsCount = useMemo(() => {
+    let count = 0;
+    sectionData?.forEach?.((s) => {
+      s?.data?.forEach?.(() => {
+        count += 1;
+      });
+    });
+    return count;
+  }, [sectionData]);
 
   useEffect(() => {
     const fn = async () => {
@@ -466,28 +497,34 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               }`
             }
             ListEmptyComponent={
-              <Empty
-                mt="$24"
-                icon="WalletOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_no_wallet,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.global_no_wallet_desc,
-                })}
-                buttonProps={{
-                  children: intl.formatMessage({
-                    id: ETranslations.global_create_wallet,
-                  }),
-                  onPress: () => {
-                    void toOnBoardingPage({
-                      params: {
-                        showCloseButton: true,
-                      },
-                    });
-                  },
-                }}
-              />
+              isLoading ? (
+                <Stack py="$20">
+                  <Spinner size="large" />
+                </Stack>
+              ) : (
+                <Empty
+                  mt="$24"
+                  icon="WalletOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_no_wallet,
+                  })}
+                  description={intl.formatMessage({
+                    id: ETranslations.global_no_wallet_desc,
+                  })}
+                  buttonProps={{
+                    children: intl.formatMessage({
+                      id: ETranslations.global_create_wallet,
+                    }),
+                    onPress: () => {
+                      void toOnBoardingPage({
+                        params: {
+                          showCloseButton: true,
+                        },
+                      });
+                    },
+                  }}
+                />
+              )
             }
             contentContainerStyle={{ pb: '$3' }}
             extraData={[selectedAccount.indexedAccountId, editMode, remember]}
@@ -603,6 +640,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 : (item as IDBIndexedAccount);
 
               const subTitleInfo = buildSubTitleInfo(item);
+              const accountValue = accountsValue?.find(
+                (i) => i.accountId === item.id,
+              );
               const shouldShowCreateAddressButton =
                 linkNetwork && subTitleInfo.isEmptyAddress;
 
@@ -612,6 +652,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                     <>
                       {/* TODO rename to AccountEditTrigger */}
                       <AccountEditButton
+                        accountsCount={accountsCount}
                         indexedAccount={indexedAccount}
                         firstIndexedAccount={
                           isOthersUniversal
@@ -671,16 +712,47 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                       networkId={avatarNetworkId}
                     />
                   }
-                  title={item.name}
-                  titleProps={{
-                    numberOfLines: 1,
-                  }}
-                  subtitle={subTitleInfo.address}
-                  subtitleProps={{
-                    color: subTitleInfo.isEmptyAddress
-                      ? '$textCaution'
-                      : '$textSubdued',
-                  }}
+                  renderItemText={(textProps) => (
+                    <ListItem.Text
+                      {...textProps}
+                      flex={1}
+                      primary={
+                        <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                          {item.name}
+                        </SizableText>
+                      }
+                      secondary={
+                        <XStack alignItems="center" space="$1">
+                          {accountValue && accountValue.currency ? (
+                            <Currency
+                              size="$bodyMd"
+                              color="$textSubdued"
+                              sourceCurrency={accountValue.currency}
+                            >
+                              {accountValue?.value}
+                            </Currency>
+                          ) : null}
+                          {accountValue &&
+                          accountValue.currency &&
+                          subTitleInfo.address ? (
+                            <SizableText size="$bodyMd" color="textSubdued">
+                              ·
+                            </SizableText>
+                          ) : null}
+                          <SizableText
+                            size="$bodyMd"
+                            color={
+                              subTitleInfo.isEmptyAddress
+                                ? '$textCaution'
+                                : '$textSubdued'
+                            }
+                          >
+                            {subTitleInfo.address}
+                          </SizableText>
+                        </XStack>
+                      }
+                    />
+                  )}
                   // childrenBefore={
                   //   editMode ? (
                   //     <ListItem.IconButton

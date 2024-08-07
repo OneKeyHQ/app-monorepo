@@ -68,13 +68,13 @@ export function Overview24PriceChange({
       .toNumber();
   }, [currentPrice, high, low]);
   return (
-    <YStack space="$2.5">
+    <YStack gap="$2.5">
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.market_24h_price_range })}
       </SizableText>
       <Progress value={priceChange} height="$1" />
       <XStack jc="space-between">
-        <XStack space="$1">
+        <XStack gap="$1">
           <SizableText color="$textSubdued" size="$bodyMd">
             {intl.formatMessage({ id: ETranslations.market_low })}
           </SizableText>
@@ -86,7 +86,7 @@ export function Overview24PriceChange({
             {low}
           </NumberSizeableText>
         </XStack>
-        <XStack space="$1">
+        <XStack gap="$1">
           <SizableText color="$textSubdued" size="$bodyMd">
             {intl.formatMessage({ id: ETranslations.market_high })}
           </SizableText>
@@ -126,7 +126,7 @@ function OverviewMarketVOLItem({
       <SizableText color="$textSubdued" size="$bodySm">
         {title}
       </SizableText>
-      <XStack space="$1" ai="center" pt="$0.5">
+      <XStack gap="$1" ai="center" pt="$0.5">
         <NumberSizeableText
           size="$bodyMdMedium"
           formatter="marketCap"
@@ -174,8 +174,8 @@ function OverviewMarketVOL({
   const intl = useIntl();
   return (
     <YStack pt="$10">
-      <YStack space="$3">
-        <XStack space="$4">
+      <YStack gap="$3">
+        <XStack gap="$4">
           <OverviewMarketVOLItem
             currency
             title={intl.formatMessage({ id: ETranslations.market_24h_vol_usd })}
@@ -190,7 +190,7 @@ function OverviewMarketVOL({
             {marketCap || '-'}
           </OverviewMarketVOLItem>
         </XStack>
-        <XStack space="$4">
+        <XStack gap="$4">
           <OverviewMarketVOLItem
             currency
             title={intl.formatMessage({ id: ETranslations.global_fdv })}
@@ -205,7 +205,7 @@ function OverviewMarketVOL({
             {circulatingSupply || '-'}
           </OverviewMarketVOLItem>
         </XStack>
-        <XStack space="$4">
+        <XStack gap="$4">
           <OverviewMarketVOLItem
             title={intl.formatMessage({
               id: ETranslations.global_total_supply,
@@ -230,7 +230,7 @@ function OverviewMarketVOL({
 // function GoPlus() {
 //   return (
 //     <XStack jc="space-between" ai="center">
-//       <YStack space="$1">
+//       <YStack gap="$1">
 //         <SizableText size="$headingMd">GoPlus</SizableText>
 //         <SizableText size="$bodyMd" color="$textSubdued">
 //           No risk detected
@@ -265,7 +265,7 @@ export function MarketDetailOverview({
   const intl = useIntl();
   return (
     <NestedScrollView>
-      <YStack pb="$10" px="$5">
+      <YStack pb="$10" $md={{ px: '$5' }}>
         <XStack
           borderWidth="$px"
           borderRadius="$2"

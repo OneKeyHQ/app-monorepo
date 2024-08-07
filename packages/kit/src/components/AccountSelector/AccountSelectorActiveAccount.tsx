@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   IconButton,
+  NATIVE_HIT_SLOP,
   SizableText,
   Tooltip,
   XStack,
@@ -158,18 +159,12 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
               bg: '$bgActive',
             }}
             focusable
-            focusStyle={{
+            focusVisibleStyle={{
               outlineWidth: 2,
               outlineColor: '$focusRing',
               outlineStyle: 'solid',
             }}
-            $platform-native={{
-              hitSlop: {
-                top: 8,
-                right: 8,
-                bottom: 8,
-              },
-            }}
+            hitSlop={NATIVE_HIT_SLOP}
             userSelect="none"
           >
             <SizableText size="$bodyMd">

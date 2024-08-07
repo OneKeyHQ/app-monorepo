@@ -41,6 +41,8 @@ import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type {
   IGetDeviceAdvanceSettingsParams,
+  IGetDeviceLabelParams,
+  ISetDeviceLabelParams,
   ISetInputPinOnSoftwareParams,
   ISetPassphraseEnabledParams,
 } from './DeviceSettingsManager';
@@ -322,7 +324,8 @@ class ServiceHardware extends ServiceBase {
 
           if (
             messageType.includes('@onekey/hd-core') ||
-            messageType.includes('@onekey/hd-transport')
+            messageType.includes('@onekey/hd-transport') ||
+            messageType.includes('@onekey/hd-ble-transport')
           ) {
             defaultLogger.hardware.sdkLog.log(
               messages.event,
@@ -661,6 +664,16 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async getDeviceAdvanceSettings(p: IGetDeviceAdvanceSettingsParams) {
     return this.deviceSettingsManager.getDeviceAdvanceSettings(p);
+  }
+
+  @backgroundMethod()
+  async getDeviceLabel(p: IGetDeviceLabelParams) {
+    return this.deviceSettingsManager.getDeviceLabel(p);
+  }
+
+  @backgroundMethod()
+  async setDeviceLabel(p: ISetDeviceLabelParams) {
+    return this.deviceSettingsManager.setDeviceLabel(p);
   }
 
   @backgroundMethod()

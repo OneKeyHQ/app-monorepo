@@ -35,13 +35,14 @@ function BasicNFTListItem(props: IProps) {
       group="nftItem"
       flexBasis={platformEnv.isNative ? '100%' : flexBasis}
       focusable
-      focusStyle={{
+      focusVisibleStyle={{
         outlineColor: '$focusRing',
         outlineWidth: 2,
         outlineStyle: 'solid',
         outlineOffset: -2,
       }}
       p="$2.5"
+      px="$5"
       borderRadius="$4"
       onPress={() => {
         onPress?.(nft);

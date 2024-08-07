@@ -43,9 +43,9 @@ function ConnectionListItem({
     return connectionInfo.networkImpl === IMPL_ALGO;
   };
   return (
-    <YStack space="$5" p="$5">
-      <XStack alignItems="center" justifyContent="space-between" space="$3">
-        <XStack flex={1} alignItems="center" space="$3">
+    <YStack gap="$5" p="$5">
+      <XStack alignItems="center" justifyContent="space-between" gap="$3">
+        <XStack flex={1} alignItems="center" gap="$3">
           <Image size="$10" borderRadius="$full">
             <Image.Source src={item.imageURL} />
             <Image.Fallback>
@@ -77,7 +77,7 @@ function ConnectionListItem({
             bg: '$bgActive',
           }}
           focusable
-          focusStyle={{
+          focusVisibleStyle={{
             outlineWidth: 2,
             outlineColor: '$focusRing',
             outlineStyle: 'solid',
@@ -97,7 +97,7 @@ function ConnectionListItem({
         enabledNum={Object.keys(item.connectionMap).map((num) => Number(num))}
         availableNetworksMap={item.availableNetworksMap}
       >
-        <YStack space="$2">
+        <YStack gap="$2">
           {Object.keys(item.connectionMap).map((num) => (
             <DAppAccountListItem
               key={num}

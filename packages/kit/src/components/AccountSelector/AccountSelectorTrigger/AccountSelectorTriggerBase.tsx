@@ -2,6 +2,7 @@ import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, View, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
 
 import { AccountAvatar } from '../../AccountAvatar';

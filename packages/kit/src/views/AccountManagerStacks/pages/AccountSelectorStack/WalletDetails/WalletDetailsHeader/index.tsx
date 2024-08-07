@@ -47,7 +47,7 @@ export function WalletDetailsHeader({
         <XStack
           pr="$5"
           mr="$2"
-          space="$5"
+          gap="$5"
           borderRightWidth={StyleSheet.hairlineWidth}
           borderRightColor="$borderSubdued"
         >

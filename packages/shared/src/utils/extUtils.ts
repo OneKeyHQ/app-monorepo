@@ -1,6 +1,7 @@
 import { isNil } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
@@ -10,6 +11,10 @@ export type IOpenUrlRouteInfo = {
   routes?: string | string[];
   path?: string;
   params?: any;
+  modalParams?: {
+    screen: any;
+    params: any;
+  };
 };
 
 function buildExtRouteUrl(
@@ -78,7 +83,24 @@ async function openUrlInTab(
   });
 }
 
+async function isOpenPanelOnActionClick() {
+  if (typeof chrome !== 'undefined' && chrome.sidePanel) {
+    const options = await chrome.sidePanel.getPanelBehavior();
+    return options.openPanelOnActionClick;
+  }
+  return false;
+}
+
 async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
+  if (await isOpenPanelOnActionClick()) {
+    const window = await chrome.windows.getCurrent({ populate: true });
+    if (window) {
+      routeInfo.params = {
+        ...routeInfo.params,
+        panelWindowId: window.id,
+      };
+    }
+  }
   const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
   let left = 0;
   let top = 0;
@@ -153,38 +175,52 @@ async function openExpandTab(
   return tab;
 }
 
-function openSidePanel(
+async function openSidePanel(
   routeInfo: IOpenUrlRouteInfo,
 ): Promise<chrome.tabs.Tab | undefined> {
-  return new Promise((resolve) => {
-    if (
-      chrome.sidePanel &&
-      chrome.sidePanel.open &&
-      chrome.sidePanel.setOptions
-    ) {
-      const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tab = tabs[0];
-        if (tab && tab.id) {
-          chrome.sidePanel.open({ tabId: tab.id }, () => {
-            void chrome.sidePanel.setOptions({
-              tabId: tab.id,
-              path: url,
-              enabled: true,
-            });
-          });
-          resolve(tab);
-        }
-      });
-    } else {
-      return openExpandTab(routeInfo);
+  if (typeof chrome !== 'undefined' && chrome.sidePanel) {
+    if (platformEnv.isExtensionBackground) {
+      if (sidePanelState.isOpen && sidePanelState.port) {
+        sidePanelState.port.postMessage({
+          action: 'router',
+          params: routeInfo?.modalParams,
+        });
+      } else {
+        throw new Error('The sidePanel cannot be opened in the bg thread.');
+      }
+      return;
     }
-  });
+    const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
+    let windowId: number | undefined;
+    //  `sidePanel.open()` may only be called in response to a user gesture.
+    if (platformEnv.isExtensionUiStandaloneWindow) {
+      const id = window.location.href
+        .split('panelWindowId=')
+        ?.pop()
+        ?.split('&')[0];
+      if (!id) {
+        throw new Error('panelWindowId not found');
+      }
+      windowId = parseInt(id, 10);
+    } else {
+      const window = await chrome.windows.getCurrent({ populate: true });
+      windowId = window.id;
+    }
+    if (windowId) {
+      await chrome.sidePanel.open({ windowId });
+      await chrome.sidePanel.setOptions({
+        path: url,
+        enabled: true,
+      });
+      return;
+    }
+  }
+  return openExpandTab(routeInfo);
 }
 
-async function openPanelOnActionClick(isOpenPanelOnActionClick: boolean) {
+async function openPanelOnActionClick(enableSidePanel: boolean) {
   await chrome.sidePanel.setPanelBehavior({
-    openPanelOnActionClick: isOpenPanelOnActionClick,
+    openPanelOnActionClick: enableSidePanel,
   });
 }
 
@@ -206,4 +242,5 @@ export default {
   openSidePanel,
   openExistWindow,
   openPanelOnActionClick,
+  isOpenPanelOnActionClick,
 };

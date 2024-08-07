@@ -28,6 +28,7 @@ import {
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -193,12 +194,20 @@ class ServiceDApp extends ServiceBase {
     modalParams: { screen: any; params: any };
   }) => {
     if (platformEnv.isExtension) {
-      // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
-      const extensionWindow = await extUtils.openStandaloneWindow({
-        routes: routeNames,
-        params: routeParams,
-      });
-      this.existingWindowId = extensionWindow.id;
+      if (sidePanelState.isOpen || platformEnv.isExtensionUiSidePanel) {
+        await extUtils.openSidePanel({
+          routes: routeNames,
+          params: routeParams,
+          modalParams,
+        });
+      } else {
+        // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
+        const extensionWindow = await extUtils.openStandaloneWindow({
+          routes: routeNames,
+          params: routeParams,
+        });
+        this.existingWindowId = extensionWindow.id;
+      }
     } else {
       const doOpenModal = () =>
         global.$navigationRef.current?.navigate(

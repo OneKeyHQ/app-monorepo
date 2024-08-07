@@ -131,6 +131,12 @@ export const caipsToNetworkMap: Record<string, ICaipsInfo[]> = {
       impl: IMPL_ALGO,
       namespace: 'algorand',
     },
+    {
+      caipsChainId: 'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe',
+      networkId: 'algo--4160',
+      impl: IMPL_ALGO,
+      namespace: 'algorand',
+    },
   ],
 };
 

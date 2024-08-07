@@ -125,7 +125,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
         flex={1}
         py="$2"
         px="$3"
-        space="$2"
+        gap="$2"
         bg="$bgApp"
         alignItems="center"
         userSelect="none"
@@ -144,7 +144,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
               }
         }
         focusable={!triggerDisabled}
-        focusStyle={
+        focusVisibleStyle={
           triggerDisabled
             ? undefined
             : {
@@ -200,7 +200,7 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
         bg: '$bgActive',
       }}
       focusable
-      focusStyle={{
+      focusVisibleStyle={{
         outlineWidth: 2,
         outlineColor: '$focusRing',
         outlineStyle: 'solid',

@@ -1,6 +1,10 @@
 // eslint-disable-next-line import/order
 import '@onekeyhq/shared/src/polyfills';
 
+// eslint-disable-next-line import/order
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { startSidePanelPolling } from '../background/sidePanel';
 import hotReload from '../ui/hotReload';
 import uiJsBridge from '../ui/uiJsBridge';
 
@@ -17,6 +21,10 @@ function init() {
   // popupSizeFix();
   // **** must be after popupSizeFix();
   // resizeEventOptimize();
+
+  if (platformEnv.isExtensionUiSidePanel) {
+    startSidePanelPolling();
+  }
 
   global.$$onekeyPerfTrace?.log({
     name: '[EXT]: ui.tsx init() / KitProviderExt render()',
