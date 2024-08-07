@@ -501,6 +501,27 @@ function BatchCreateAccountPreviewPage({
     },
     [networkId],
   );
+
+  const getAccountCheckedState = useCallback(
+    (account: IBatchCreateAccount) => {
+      const pathIndex = account.pathIndex ?? -1;
+      let checkedState: ICheckedState = false;
+      if (isAdvancedMode) {
+        checkedState = true;
+        if (advanceExcludedIndexes?.[pathIndex] === true) {
+          checkedState = false;
+        }
+      } else {
+        checkedState = normalSelectedIndexes[pathIndex] ?? false;
+      }
+      if (account.existsInDb) {
+        checkedState = 'indeterminate';
+      }
+      return checkedState;
+    },
+    [advanceExcludedIndexes, isAdvancedMode, normalSelectedIndexes],
+  );
+
   const columns = useMemo(
     () => [
       {
@@ -518,19 +539,7 @@ function BatchCreateAccountPreviewPage({
         dataIndex: 'checkBox',
         columnWidth: 22,
         render: (_: any, account: IBatchCreateAccount) => {
-          const pathIndex = account.pathIndex ?? -1;
-          let checkedState: ICheckedState = false;
-          if (isAdvancedMode) {
-            checkedState = true;
-            if (advanceExcludedIndexes?.[pathIndex] === true) {
-              checkedState = false;
-            }
-          } else {
-            checkedState = normalSelectedIndexes[pathIndex] ?? false;
-          }
-          if (account.existsInDb) {
-            checkedState = 'indeterminate';
-          }
+          const checkedState: ICheckedState = getAccountCheckedState(account);
           return (
             <Checkbox
               containerProps={{
@@ -613,16 +622,29 @@ function BatchCreateAccountPreviewPage({
       },
     ],
     [
-      advanceExcludedIndexes,
       balanceMap,
       buildBalanceMapKey,
       buildRelPathSuffix,
+      getAccountCheckedState,
       intl,
-      isAdvancedMode,
       network?.symbol,
-      normalSelectedIndexes,
       selectCheckBox,
     ],
+  );
+
+  const onRow = useCallback(
+    (account: IBatchCreateAccount) => ({
+      onPress: () => {
+        const checkedState: ICheckedState = getAccountCheckedState(account);
+        if (checkedState !== 'indeterminate') {
+          selectCheckBox({
+            val: !checkedState,
+            accountsToSelect: [account],
+          });
+        }
+      },
+    }),
+    [getAccountCheckedState, selectCheckBox],
   );
   return (
     <Page scrollEnabled safeAreaEnabled>
@@ -635,6 +657,7 @@ function BatchCreateAccountPreviewPage({
       />
       <Page.Body>
         <Table
+          onRow={onRow}
           rowProps={{
             gap: '$4',
             px: '$5',
