@@ -24,12 +24,10 @@ function RenameInputWithNameSelector({
   value,
   onChange,
   maxLength,
-  disabledMaxLengthLabel = false,
 }: {
   maxLength?: number;
   value?: string;
   onChange?: (val: string) => void;
-  disabledMaxLengthLabel: boolean;
 }) {
   const intl = useIntl();
 
@@ -128,10 +126,7 @@ function DeviceLabelDialogContent(props: {
             },
           }}
         >
-          <RenameInputWithNameSelector
-            maxLength={maxLength}
-            disabledMaxLengthLabel={false}
-          />
+          <RenameInputWithNameSelector maxLength={maxLength} />
         </Dialog.FormField>
       </Dialog.Form>
       <Dialog.Footer

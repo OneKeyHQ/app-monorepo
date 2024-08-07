@@ -63,6 +63,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -90,7 +91,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -772,10 +772,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async addIndexedAccount({
     walletId,
     indexes,
+    names,
     skipIfExists,
   }: {
     walletId: string;
     indexes: number[];
+    names?: {
+      [index: number]: string;
+    };
     skipIfExists: boolean;
   }) {
     const db = await this.readyDb;
@@ -785,6 +789,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         walletId,
         skipIfExists,
         indexes,
+        names,
       }),
     );
   }
@@ -793,11 +798,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     tx,
     walletId,
     indexes,
+    names,
     skipIfExists,
   }: {
     tx: ILocalDBTransaction;
     walletId: string;
     indexes: number[];
+    names?: {
+      [index: number]: string;
+    };
     skipIfExists: boolean;
   }) {
     if (
@@ -849,9 +858,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         idHash,
         walletId,
         index,
-        name: accountUtils.buildIndexedAccountName({
-          pathIndex: index,
-        }),
+        name:
+          names?.[index] ||
+          accountUtils.buildIndexedAccountName({
+            pathIndex: index,
+          }),
       };
     });
     console.log('txAddIndexedAccount txAddRecords', records);

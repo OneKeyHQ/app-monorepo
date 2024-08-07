@@ -25,6 +25,7 @@ import {
   COINTYPE_COSMOS,
   COINTYPE_DNX,
   COINTYPE_DOT,
+  COINTYPE_ETH,
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
   COINTYPE_NEXA,
@@ -621,11 +622,51 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           path: v4account.path,
         });
         if (!isNil(index)) {
+          let shouldUseV4AccountName = false;
+          // TODO sort EVM account to first
+          if (
+            v4account.coinType === COINTYPE_ETH &&
+            v4account.name !== `EVM #${index + 1}`
+          ) {
+            shouldUseV4AccountName = true;
+          }
+          // console.log('v4migration addIndexedAccount', v4account, {
+          //   index,
+          //   shouldUseV4AccountName,
+          // });
+
           const indexedAccountsAdded = await serviceAccount.addIndexedAccount({
             walletId: v5wallet.id,
             indexes: [index],
             skipIfExists: true,
+            names: {
+              [index]: shouldUseV4AccountName ? v4account.name : '',
+            },
           });
+          
+          // console.log('v4migration indexedAccountsAdded', indexedAccountsAdded);
+          
+          const indexedAccountIdAdded = indexedAccountsAdded[0]?.id;
+          if (indexedAccountIdAdded) {
+            const indexedAccount = await serviceAccount.getIndexedAccountSafe({
+              id: indexedAccountIdAdded,
+            });
+            if (
+              shouldUseV4AccountName &&
+              index === 0 &&
+              indexedAccount &&
+              accountUtils.buildIndexedAccountName({
+                pathIndex: index,
+              }) === indexedAccount.name
+            ) {
+              await serviceAccount.setAccountName({
+                indexedAccountId: indexedAccount.id,
+                name: v4account.name,
+                skipEventEmit: true,
+              });
+            }
+          }
+
           for (const indexedAccountAdded of indexedAccountsAdded || []) {
             try {
               await simpleDb.v4MigrationResult.saveMigratedIndexedAccountId({
