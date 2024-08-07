@@ -735,7 +735,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                           {accountValue &&
                           accountValue.currency &&
                           subTitleInfo.address ? (
-                            <SizableText size="$bodyMd" color="textSubdued">
+                            <SizableText size="$bodyMd" color="$textSubdued">
                               ·
                             </SizableText>
                           ) : null}
