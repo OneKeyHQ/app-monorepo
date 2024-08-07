@@ -75,7 +75,6 @@ function DowngradeWarningDialogContent({
 }
 
 function OnboardingOnMountCmp() {
-  const intl = useIntl();
   const toOnBoardingPage = useToOnBoardingPage();
   const navigation = useAppNavigation();
   const v4migrationActions = useV4MigrationActions();
@@ -143,9 +142,6 @@ function OnboardingOnMountCmp() {
       if (!isOnboardingDone && !platformEnv.isWebDappMode) {
         void toOnBoardingPage({
           isFullModal: true,
-          params: {
-            showCloseButton: true,
-          },
         });
       }
     },
