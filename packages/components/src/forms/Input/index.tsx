@@ -278,7 +278,15 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
           >
             {addOns.map(
               (
-                { iconName, iconColor, label, onPress, loading, testID = '' },
+                {
+                  iconName,
+                  iconColor,
+                  label,
+                  onPress,
+                  loading,
+                  testID = '',
+                  renderContent,
+                },
                 index,
               ) => {
                 const getIconColor = () => {
@@ -293,17 +301,21 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
 
                 return (
                   <Group.Item key={`${iconName || index}-${label || index}`}>
-                    <InputAddOnItem
-                      testID={testID}
-                      key={`${iconName || ''}-${label || ''}`}
-                      label={label}
-                      loading={loading}
-                      size={size}
-                      iconName={iconName}
-                      iconColor={getIconColor()}
-                      error={error}
-                      onPress={onPress}
-                    />
+                    {renderContent ? (
+                      renderContent
+                    ) : (
+                      <InputAddOnItem
+                        testID={testID}
+                        key={`${iconName || ''}-${label || ''}`}
+                        label={label}
+                        loading={loading}
+                        size={size}
+                        iconName={iconName}
+                        iconColor={getIconColor()}
+                        error={error}
+                        onPress={onPress}
+                      />
+                    )}
                   </Group.Item>
                 );
               },
