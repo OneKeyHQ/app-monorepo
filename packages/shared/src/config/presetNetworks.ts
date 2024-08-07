@@ -144,6 +144,46 @@ const sepolia: IServerNetwork = {
   'updatedAt': '2023-05-31T00:29:24.951Z',
 };
 
+const xodexTestnet: IServerNetwork = {
+  'balance2FeeDecimals': 9,
+  'chainId': '2416',
+  'code': 'xodex',
+  'decimals': 18,
+  'extensions': {
+    'providerOptions': {
+      'EIP1559Enabled': true,
+      'preferMetamask': true,
+    },
+  },
+  'id': 'evm--2416',
+  'impl': 'evm',
+  'isTestnet': true,
+  'logoURI':
+    'https://i.postimg.cc/XqDnc4g2/XODEX-Avatar-02-2-copy.png',
+  'name': 'Xodex Testnet',
+  'shortcode': 'xodex',
+  'shortname': 'Xodex',
+  'symbol': 'XODEX',
+  'feeMeta': {
+    'code': 'xodex',
+    'decimals': 9,
+    'symbol': 'Gwei',
+  },
+  'defaultEnabled': false,
+  'priceConfigs': [],
+  'explorers': [
+    {
+      'address': 'https://explorer.xo-dex.com/address/{address}',
+      'block': 'https://explorer.xo-dex.com/block/{block}',
+      'name': 'https://explorer.xo-dex.com/',
+      'transaction': 'https://explorer.xo-dex.com/tx/{transaction}',
+    },
+  ],
+  'status': ENetworkStatus.LISTED,
+  'createdAt': '2023-05-31T00:29:24.951Z',
+  'updatedAt': '2023-05-31T00:29:24.951Z',
+};
+
 const xodex: IServerNetwork = {
   'balance2FeeDecimals': 9,
   'chainId': '2415',
@@ -157,15 +197,15 @@ const xodex: IServerNetwork = {
   },
   'id': 'evm--2415',
   'impl': 'evm',
-  'isTestnet': true,
+  'isTestnet': false,
   'logoURI':
-    'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQjoVCQUqDp2FfBoQm4e0dLqP4u1wMCTgyVdw&s',
+    'https://i.postimg.cc/XqDnc4g2/XODEX-Avatar-02-2-copy.png',
   'name': 'Xodex',
   'shortcode': 'xodex',
   'shortname': 'Xodex',
-  'symbol': 'TETH',
+  'symbol': 'XODEX',
   'feeMeta': {
-    'code': 'sepolia',
+    'code': 'xodex',
     'decimals': 9,
     'symbol': 'Gwei',
   },
@@ -173,17 +213,16 @@ const xodex: IServerNetwork = {
   'priceConfigs': [],
   'explorers': [
     {
-      'address': 'https://explorer.xo-dex.com//address/{address}',
-      'block': 'https://explorer.xo-dex.com//block/{block}',
-      'name': 'https://explorer.xo-dex.com//',
-      'transaction': 'https://explorer.xo-dex.com//tx/{transaction}',
+      'address': 'https://explorer.xo-dex.com/address/{address}',
+      'block': 'https://explorer.xo-dex.com/block/{block}',
+      'name': 'https://explorer.xo-dex.com/',
+      'transaction': 'https://explorer.xo-dex.com/tx/{transaction}',
     },
   ],
   'status': ENetworkStatus.LISTED,
   'createdAt': '2023-05-31T00:29:24.951Z',
   'updatedAt': '2023-05-31T00:29:24.951Z',
 };
-
 
 const btc: IServerNetwork = {
   'balance2FeeDecimals': 0,
@@ -3034,9 +3073,10 @@ export const presetNetworksMap = {
   // evm
   eth,
   sepolia,
+  xodex,
+  xodexTestnet,
   op,
   xdai,
-  xodex,
   ethw,
   cfxespace,
   aurora,
@@ -3111,6 +3151,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   // evm
   eth,
   sepolia,
+  xodex,
+  xodexTestnet,
   op,
   xdai,
   ethw,
