@@ -5,17 +5,15 @@ import type {
 } from 'react-native-image-crop-picker';
 
 export interface IPickerImageOptions extends CommonOptions {
-  mediaType: 'photo';
-
   /**
    * Width of result image when used with `cropping` option.
    */
-  width?: number;
+  width: number;
 
   /**
    * Height of result image when used with `cropping` option.
    */
-  height?: number;
+  height: number;
 
   /**
    * When set to true, the image file content will be available as a base64-encoded string in
@@ -207,7 +205,7 @@ export interface IPickerImageOptions extends CommonOptions {
   compressImageQuality?: number;
 }
 
-export type IOpenPickerFunc = <T = IPickerImageOptions>(
+export type IOpenPickerFunc = <T extends IPickerImageOptions>(
   options: T,
 ) => Promise<PossibleArray<T, Image>>;
 

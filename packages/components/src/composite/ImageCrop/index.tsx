@@ -7,6 +7,8 @@ import 'react-mobile-cropper/dist/style.css';
 import { withStaticProperties } from 'tamagui';
 
 import { Portal } from '../../hocs';
+import { Stack } from '../../primitives';
+import { Dialog } from '../Dialog';
 
 import type { IOpenPickerFunc } from './type';
 import type { CropperProps, CropperRef } from 'react-mobile-cropper';
@@ -14,25 +16,27 @@ import type { CropperProps, CropperRef } from 'react-mobile-cropper';
 function BasicImageCrop({
   src,
   onConfirm,
-  onClose,
-  stencilProps,
+  defaultSize,
 }: {
   src: string;
-  stencilProps: CropperProps['stencilProps'];
+  defaultSize: {
+    height: number;
+    width: number;
+  };
   onConfirm: (image: string) => void;
-  onClose: () => void;
 }) {
-  const [visible, setVisible] = useState(true);
-
   const onChange = useCallback((cropper: CropperRef) => {
     console.log(cropper);
     console.log(cropper.getCoordinates(), cropper.getCanvas());
   }, []);
+
   return visible ? (
     <Cropper
       src={src}
       onChange={onChange}
-      stencilProps={stencilProps}
+      stencilProps={{
+        aspectRatio: defaultSize.width / defaultSize.height,
+      }}
       className="cropper"
       // onProcess={(res) => {
       //   console.log(res.dest);
@@ -65,20 +69,22 @@ const openPicker: IOpenPickerFunc = ({ width, height }) =>
         reader.addEventListener('load', () => {
           const imageSrc = reader.result?.toString();
           if (imageSrc) {
-            const { destroy } = Portal.Render(
-              Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-              <BasicImageCrop
-                stencilProps={{
-                  width,
-                  height,
-                }}
-                src={imageSrc}
-                onConfirm={resolve as any}
-                onClose={() => {
-                  destroy();
-                }}
-              />,
-            );
+            Dialog.show({
+              title: 'Crop Image',
+              sheetProps: {
+                disableDrag: true,
+              },
+              renderContent: (
+                <BasicImageCrop
+                  src={imageSrc}
+                  defaultSize={{
+                    width,
+                    height,
+                  }}
+                  onConfirm={resolve as any}
+                />
+              ),
+            });
           }
         });
         reader.readAsDataURL(event.target.files[0]);
