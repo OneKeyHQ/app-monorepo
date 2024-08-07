@@ -997,7 +997,7 @@
   "manage_token.custom_token_symbol": "प्रतीक",
   "manage_token.custom_token_title": "कस्टम टोकन",
   "manage_token.empty_msg": "टोकन नहीं मिल रहा है? नीचे दिए गए बटन पर क्लिक करके जोड़ने की कोशिश करें",
-  "manage_token.popular_token": "लोकप्रिय टोकन",
+  "manage_token.popular_token": "सामान्य टोकन",
   "manage_token.title": "टोकन प्रबंधित करें",
   "manger_token.custom_token_address_required": "अनुबंध पता आवश्यक है।",
   "manual_backup": "मैनुअल बैकअप",

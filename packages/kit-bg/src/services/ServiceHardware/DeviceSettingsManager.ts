@@ -1,12 +1,10 @@
 import { isNil } from 'lodash';
 
-import {
-  backgroundMethod,
-  toastIfError,
-} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { FirmwareVersionTooLow } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { generateConnectSrc } from '@onekeyhq/shared/src/hardware/instance';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
 
 import localDb from '../../dbs/local/localDb';
@@ -28,6 +26,8 @@ export type ISetPassphraseEnabledParams = {
 };
 
 export type IGetDeviceAdvanceSettingsParams = { walletId: string };
+export type IGetDeviceLabelParams = { walletId: string };
+export type ISetDeviceLabelParams = { walletId: string; label: string };
 
 export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
@@ -96,6 +96,36 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         },
         hideCheckingDeviceLoading: true,
         debugMethodName: 'deviceSettings.getDeviceSupportFeatures',
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async getDeviceLabel({ walletId }: IGetDeviceLabelParams) {
+    const device = await localDb.getWalletDevice({ walletId });
+    const features =
+      await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+        connectId: device.connectId,
+      });
+    const label = await deviceUtils.buildDeviceLabel({
+      features,
+    });
+    return label || 'Unknown';
+  }
+
+  @backgroundMethod()
+  async setDeviceLabel({ walletId, label }: ISetDeviceLabelParams) {
+    const device = await localDb.getWalletDevice({ walletId });
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      () =>
+        this.applySettingsToDevice(device.connectId, {
+          label,
+        }),
+      {
+        deviceParams: {
+          dbDevice: device,
+        },
+        debugMethodName: 'deviceSettings.applySettingsToDevice',
       },
     );
   }

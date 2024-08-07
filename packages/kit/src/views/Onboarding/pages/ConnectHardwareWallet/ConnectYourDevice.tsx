@@ -5,7 +5,6 @@ import { get } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
-import type { IButtonProps } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
@@ -126,6 +125,7 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
 function ConnectByQrCode() {
   const { createQrWallet } = useCreateQrWallet();
   const intl = useIntl();
+  const navigation = useAppNavigation();
 
   return (
     <Stack flex={1} alignItems="center" justifyContent="center">
@@ -154,11 +154,15 @@ function ConnectByQrCode() {
         }
         onPress={async () => {
           try {
-            await createQrWallet({ isOnboarding: true });
+            await createQrWallet({
+              isOnboarding: true,
+              onFinalizeWalletSetupError: () => {
+                // only pop when finalizeWalletSetup pushed
+                navigation.pop();
+              },
+            });
           } catch (error) {
             errorUtils.toastIfError(error);
-            // TODO pop only qrcode scan modal but not device connect modal
-            // navigation.pop();
             throw error;
           }
         }}

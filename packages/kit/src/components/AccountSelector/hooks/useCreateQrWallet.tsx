@@ -23,6 +23,7 @@ type ICreateQrWalletByScanParams = {
   isOnboarding?: boolean;
   byWallet?: IDBWallet;
   byDevice?: IDBDevice;
+  onFinalizeWalletSetupError?: () => void;
 };
 export function useCreateQrWallet() {
   const {
@@ -58,12 +59,17 @@ export function useCreateQrWallet() {
       if (isOnboarding) {
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
       }
-      const result = await actions.current.createQrWallet({
-        qrDevice,
-        airGapAccounts,
-        isOnboarding,
-      });
-      return result;
+      try {
+        const result = await actions.current.createQrWallet({
+          qrDevice,
+          airGapAccounts,
+          isOnboarding,
+        });
+        return result;
+      } catch (error) {
+        params?.onFinalizeWalletSetupError?.();
+        throw error;
+      }
     },
     [actions, navigation],
   );
