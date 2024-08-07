@@ -16,7 +16,6 @@ const openPicker: IOpenPickerFunc = async (params) => {
     cropping: true,
     forceJpg: true,
     includeBase64: true,
-    mediaType: 'photo',
     sortOrder: 'desc',
     cropperChooseText: appLocale.intl.formatMessage({
       id: ETranslations.global_confirm,
@@ -25,6 +24,7 @@ const openPicker: IOpenPickerFunc = async (params) => {
       id: ETranslations.global_cancel,
     }),
     ...params,
+    mediaType: 'photo',
   });
   if (response.data) {
     response.data = `${BASE64_PREFIX}${response.data}`;
