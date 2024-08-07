@@ -772,10 +772,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async addIndexedAccount({
     walletId,
     indexes,
+    names,
     skipIfExists,
   }: {
     walletId: string;
     indexes: number[];
+    names?: {
+      [index: number]: string;
+    };
     skipIfExists: boolean;
   }) {
     const db = await this.readyDb;
@@ -785,6 +789,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         walletId,
         skipIfExists,
         indexes,
+        names,
       }),
     );
   }
@@ -793,11 +798,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     tx,
     walletId,
     indexes,
+    names,
     skipIfExists,
   }: {
     tx: ILocalDBTransaction;
     walletId: string;
     indexes: number[];
+    names?: {
+      [index: number]: string;
+    };
     skipIfExists: boolean;
   }) {
     if (
@@ -849,9 +858,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         idHash,
         walletId,
         index,
-        name: accountUtils.buildIndexedAccountName({
-          pathIndex: index,
-        }),
+        name:
+          names?.[index] ||
+          accountUtils.buildIndexedAccountName({
+            pathIndex: index,
+          }),
       };
     });
     console.log('txAddIndexedAccount txAddRecords', records);
@@ -1497,7 +1508,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       await this.buildHwWalletId(params);
 
     let parentWalletId: string | undefined;
-    const deviceName = await accountUtils.buildDeviceName({ device, features });
+    const deviceName = await deviceUtils.buildDeviceName({ device, features });
     let walletName = name || deviceName;
     if (passphraseState) {
       const hiddenWalletNameInfo = await this.fixHiddenWalletName({
