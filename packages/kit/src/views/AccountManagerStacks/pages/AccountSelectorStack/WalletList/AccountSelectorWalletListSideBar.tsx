@@ -1,12 +1,13 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
 import {
-  ListView,
   Page,
+  SortableListView,
   Stack,
   XStack,
+  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
@@ -18,6 +19,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { analytics } from '@onekeyhq/shared/src/analytics';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   EAppEventBusNames,
@@ -30,10 +32,6 @@ import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute
 
 import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
 import { WalletListItem } from './WalletListItem';
-
-function ListItemSeparator() {
-  return <Stack h="$3" />;
-}
 
 interface IWalletListProps {
   num: number;
@@ -69,7 +67,11 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   const isEditableRouteParams = route.params?.editable;
   const { selectedAccount } = useSelectedAccount({ num });
 
-  const { result: walletsResult, run: reloadWallets } = usePromiseResult(
+  const {
+    result: walletsResult,
+    setResult,
+    run: reloadWallets,
+  } = usePromiseResult(
     () =>
       // serviceAccount.getHDAndHWWallets({
       serviceAccount.getWallets({
@@ -82,6 +84,21 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     },
   );
   const wallets = walletsResult?.wallets ?? emptyArray;
+
+  useEffect(() => {
+    const walletCount = wallets.length;
+    if (walletCount > 0) {
+      const hwWalletCount = wallets.filter(
+        (wallet) => wallet.type === 'hw',
+      ).length;
+      const appWalletCount = walletCount - hwWalletCount;
+      analytics.updateUserProfile({
+        walletCount,
+        hwWalletCount,
+        appWalletCount,
+      });
+    }
+  }, [wallets]);
 
   useEffect(() => {
     const fn = async () => {
@@ -105,6 +122,27 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     [actions, num],
   );
 
+  const CELL_HEIGHT = useMedia().gtMd ? 68 : 48;
+
+  const layoutList = useMemo(() => {
+    let offset = 0;
+    const layouts: { offset: number; length: number; index: number }[] = [];
+    wallets?.forEach?.((wallet, index) => {
+      if (index !== 0) {
+        offset += 12;
+      }
+      const hiddenWalletsLength = wallet?.hiddenWallets?.length ?? 0;
+      const height =
+        (1 + hiddenWalletsLength) * CELL_HEIGHT + hiddenWalletsLength * 12;
+      layouts.push({ offset, length: height, index: layouts.length });
+      offset += height;
+      if (hiddenWalletsLength > 0) {
+        offset += 2;
+      }
+    });
+    return layouts;
+  }, [wallets, CELL_HEIGHT]);
+
   return (
     <Stack
       testID="account-selector-wallet-list"
@@ -125,30 +163,62 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
         </XStack>
       ) : null}
       {/* Primary wallets */}
-      <ListView
+      <SortableListView
+        px="$2"
+        contentContainerStyle={{ py: '$2' }}
         showsVerticalScrollIndicator={false}
-        p="$2"
-        estimatedItemSize="$10"
-        data={wallets}
+        getItemLayout={(_, index) => layoutList[index]}
+        renderPlaceholder={({ item }) => (
+          <Stack
+            h={
+              (1 + (item?.hiddenWallets?.length ?? 0)) * CELL_HEIGHT +
+              (item?.hiddenWallets?.length ?? 0) * 12
+            }
+            mx="$2"
+            bg="$bgActive"
+            p="$1"
+            borderRadius="$3"
+            borderCurve="continuous"
+          />
+        )}
+        keyExtractor={(item) => `${item.id}`}
+        data={wallets as IDBWallet[]}
+        onDragEnd={async (result) => {
+          if (!walletsResult) {
+            return;
+          }
+          walletsResult.wallets = result.data;
+          setResult({ ...walletsResult });
+
+          const toIndex = result.to + (result.to > result.from ? 1 : 0);
+          await serviceAccount.insertWalletOrder({
+            targetWalletId: wallets[result.from].id,
+            startWalletId: wallets[toIndex - 1]?.id,
+            endWalletId: wallets[toIndex]?.id,
+            emitEvent: true,
+          });
+        }}
         extraData={selectedAccount.focusedWallet}
-        renderItem={({ item }: { item: IDBWallet }) => {
+        renderItem={({ item, drag }) => {
           let badge: number | string | undefined;
           if (accountUtils.isQrWallet({ walletId: item.id })) {
             badge = 'QR';
           }
 
           return (
-            <WalletListItem
-              key={item.id}
-              wallet={item}
-              focusedWallet={selectedAccount.focusedWallet}
-              onWalletPress={onWalletPress}
-              testID={`wallet-${item.id}`}
-              badge={badge}
-            />
+            <Stack mb="$3">
+              <WalletListItem
+                key={item.id}
+                wallet={item}
+                focusedWallet={selectedAccount.focusedWallet}
+                onWalletPress={onWalletPress}
+                onWalletLongPress={drag}
+                testID={`wallet-${item.id}`}
+                badge={badge}
+              />
+            </Stack>
           );
         }}
-        ItemSeparatorComponent={ListItemSeparator}
       />
       {/* Others */}
       {isEditableRouteParams ? (

@@ -23,6 +23,8 @@ import {
   useBrowserHistoryAction,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
@@ -173,6 +175,12 @@ function HistoryListModal() {
                       url: item.url,
                       title: item.title,
                     },
+                  });
+
+                  defaultLogger.discovery.dapp.enterDapp({
+                    dappDomain: item.url,
+                    dappName: item.title,
+                    enterMethod: EEnterMethod.history,
                   });
                 },
               })}

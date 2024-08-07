@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import {
   ButtonFrame,
   Icon,
@@ -6,10 +8,12 @@ import {
   getSharedButtonStyles,
 } from '../../primitives';
 import { useSharedPress } from '../../primitives/Button/useEvent';
+import { NATIVE_HIT_SLOP } from '../../utils';
 import { Tooltip } from '../Tooltip';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
 import type { ITooltipProps } from '../Tooltip';
+import type { GestureResponderEvent } from 'react-native';
 
 export interface IIconButtonProps
   extends Omit<IButtonProps, 'iconAfter' | 'children' | 'icon'> {
@@ -17,6 +21,8 @@ export interface IIconButtonProps
   iconSize?: IIconProps['size'];
   iconProps?: IIconProps;
   title?: ITooltipProps['renderContent'];
+  // Allow triggering via the Enter or Space key.
+  hotKey?: boolean;
 }
 
 const getSizeStyles = (size: IButtonProps['size']) => {
@@ -48,6 +54,7 @@ export const IconButton = (props: IIconButtonProps) => {
     iconProps,
     size,
     variant = 'secondary',
+    hotKey = false,
     ...rest
   } = props;
 
@@ -61,17 +68,19 @@ export const IconButton = (props: IIconButtonProps) => {
 
   const { onPress, onLongPress } = useSharedPress(rest);
 
+  const onKeyDown = useCallback((event: GestureResponderEvent) => {
+    event.preventDefault();
+  }, []);
+
   const renderIconButton = () => (
     <ButtonFrame
       p={p}
       borderRadius="$full"
       disabled={disabled || loading}
-      $platform-native={{
-        hitSlop:
-          size === 'small'
-            ? { top: 8, left: 8, right: 8, bottom: 8 }
-            : undefined,
-      }}
+      aria-disabled={disabled || loading}
+      // @ts-expect-error
+      onKeyDown={hotKey ? undefined : onKeyDown}
+      hitSlop={size === 'small' ? NATIVE_HIT_SLOP : undefined}
       {...(variant === 'tertiary' && {
         m: negativeMargin,
       })}

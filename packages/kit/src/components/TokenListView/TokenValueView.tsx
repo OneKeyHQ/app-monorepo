@@ -29,6 +29,11 @@ function TokenValueView(props: IProps) {
     ),
     [rest, settings.currencyInfo.symbol, token?.fiatValue],
   );
+
+  if (!token) {
+    return null;
+  }
+
   return content;
 }
 

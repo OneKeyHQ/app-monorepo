@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_ADA,
   IMPL_ADA,
@@ -28,6 +29,8 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+
+  supportExportedSecretKeys: [ECoreApiExportedSecretKeyType.xprvt],
 
   dappInteractionEnabled: true,
 

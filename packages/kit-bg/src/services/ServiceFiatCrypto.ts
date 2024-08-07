@@ -3,6 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -45,12 +46,15 @@ class ServiceFiatCrypto extends ServiceBase {
     const { accountId, ...rest } = params;
     let address: string | undefined;
     if (accountId) {
-      address = await this.backgroundApi.serviceAccount.getAccountAddressForApi(
-        {
-          networkId: rest.networkId,
-          accountId,
-        },
-      );
+      try {
+        address =
+          await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            networkId: rest.networkId,
+            accountId,
+          });
+      } catch (e) {
+        console.error('generateWidgetUrl', e);
+      }
     }
     return this._buildUriForFiatToken({ ...rest, address });
   }
@@ -81,7 +85,7 @@ class ServiceFiatCrypto extends ServiceBase {
   ): Promise<IFiatCryptoToken[]> {
     const { networkId, accountId } = params;
     let address: string | undefined;
-    if (accountId) {
+    if (accountId && !networkUtils.isAllNetwork({ networkId })) {
       address = await this.backgroundApi.serviceAccount.getAccountAddressForApi(
         {
           networkId,
@@ -89,11 +93,12 @@ class ServiceFiatCrypto extends ServiceBase {
         },
       );
     }
-    return this._getTokensList({
+    const result = await this._getTokensList({
       networkId,
       address,
       type: params.type,
     });
+    return result;
   }
 
   @backgroundMethod()

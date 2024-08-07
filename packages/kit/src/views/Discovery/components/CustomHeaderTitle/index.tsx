@@ -44,7 +44,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       bg="$bgStrong"
       borderRadius="$3"
       minWidth={platformEnv.isNative ? undefined : '$64'}
-      $md={mdHeaderStyle}
+      $md={mdHeaderStyle as any}
       hoverStyle={{
         bg: '$bgHover',
       }}
@@ -70,7 +70,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
         {displayUrl
           ? hiddenHttpsUrl
           : intl.formatMessage({
-              id: ETranslations.explore_search_placeholder,
+              id: ETranslations.explore_search_dapps,
             })}
       </SizableText>
       {platformEnv.isDesktop ? (

@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalStakingRoutes,
   IModalStakingParamList,
@@ -33,10 +34,19 @@ const EthLidoWithdraw = () => {
           send: { token, amount: value },
           tags: ['lido-eth'],
         },
-        onSuccess: () => appNavigation.pop(),
+        onSuccess: (txs) => {
+          appNavigation.pop();
+          defaultLogger.staking.page.unstaking({
+            token,
+            amount: value,
+            stakingProtocol: 'lido',
+            tokenValue: BigNumber(value).multipliedBy(price).toFixed(),
+            txnHash: txs[0].signedTx.txid,
+          });
+        },
       });
     },
-    [lidoWithdraw, token, appNavigation],
+    [lidoWithdraw, token, appNavigation, price],
   );
   return (
     <LidoWithdraw

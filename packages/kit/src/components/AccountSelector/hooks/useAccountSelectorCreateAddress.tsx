@@ -1,14 +1,16 @@
 import { useCallback } from 'react';
 
-import { Dialog, SizableText, Stack } from '@onekeyhq/components';
+import { Dialog, SizableText, Stack, Toast } from '@onekeyhq/components';
 import type {
+  IDBAccount,
   IDBDevice,
   IDBWalletId,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAddHDOrHWAccountsResult } from '@onekeyhq/kit-bg/src/services/ServiceAccount/ServiceAccount';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
@@ -16,7 +18,8 @@ import { useAccountSelectorActions } from '../../../states/jotai/contexts/accoun
 import { useCreateQrWallet } from './useCreateQrWallet';
 
 export function useAccountSelectorCreateAddress() {
-  const { serviceAccount, serviceQrWallet } = backgroundApiProxy;
+  const { serviceAccount, serviceQrWallet, serviceBatchCreateAccount } =
+    backgroundApiProxy;
 
   const actions = useAccountSelectorActions();
   const { createQrWallet, createQrWalletByUr } = useCreateQrWallet();
@@ -43,11 +46,21 @@ export function useAccountSelectorCreateAddress() {
         !account.indexedAccountId ||
         !account.deriveType
       ) {
+        Toast.error({
+          title: 'Create address failed',
+          message: 'Please select a valid account',
+        });
         return;
       }
 
       const handleAddAccounts = async (
-        result: IAddHDOrHWAccountsResult | undefined,
+        result:
+          | {
+              walletId: string | undefined;
+              indexedAccountId: string | undefined;
+              accounts: IDBAccount[];
+            }
+          | undefined,
       ) => {
         console.log(result);
         // await refreshCurrentAccount();
@@ -60,23 +73,50 @@ export function useAccountSelectorCreateAddress() {
             indexedAccountId: result?.indexedAccountId,
           });
         }
+        return result;
+      };
+
+      const addAccountsForAllNetwork = async () => {
+        if (account?.walletId) {
+          await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
+            {
+              walletId: account?.walletId,
+              reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+            },
+          );
+        }
+
+        await serviceBatchCreateAccount.addDefaultNetworkAccounts({
+          walletId: account?.walletId,
+          indexedAccountId: account?.indexedAccountId,
+        });
+        return handleAddAccounts({
+          walletId: account?.walletId,
+          indexedAccountId: account?.indexedAccountId,
+          accounts: [],
+        });
       };
 
       const addAccounts = async () => {
+        if (networkUtils.isAllNetwork({ networkId: account.networkId })) {
+          await addAccountsForAllNetwork();
+          return;
+        }
         const result = await serviceAccount.addHDOrHWAccounts({
           walletId: account?.walletId,
-          networkId: account?.networkId,
           indexedAccountId: account?.indexedAccountId,
+          networkId: account?.networkId,
           deriveType: account?.deriveType,
         });
-        await handleAddAccounts(result);
+        return handleAddAccounts(result);
       };
+
       const isAirGapAccountNotFound = (error: Error | unknown) =>
         (error as IOneKeyError)?.className ===
         EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound;
 
       try {
-        await addAccounts();
+        return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
           let byDevice: IDBDevice | undefined;
@@ -108,7 +148,7 @@ export function useAccountSelectorCreateAddress() {
           });
 
           try {
-            await addAccounts();
+            return await addAccounts();
           } catch (error2) {
             if (isAirGapAccountNotFound(error2)) {
               Dialog.show({
@@ -142,7 +182,13 @@ export function useAccountSelectorCreateAddress() {
         }
       }
     },
-    [actions, createQrWalletByUr, serviceAccount, serviceQrWallet],
+    [
+      actions,
+      createQrWalletByUr,
+      serviceAccount,
+      serviceBatchCreateAccount,
+      serviceQrWallet,
+    ],
   );
 
   return {

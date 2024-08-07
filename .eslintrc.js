@@ -44,6 +44,7 @@ const jsRules = {
     },
   ],
   // 'no-console': [isDev ? 'warn' : 'off'],
+  'radix': 'error',
 };
 const restrictedImportsPatterns = [
   {

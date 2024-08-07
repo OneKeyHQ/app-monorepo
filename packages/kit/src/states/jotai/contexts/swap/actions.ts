@@ -46,6 +46,7 @@ import {
   swapFromTokenAmountAtom,
   swapManualSelectQuoteProvidersAtom,
   swapNetworks,
+  swapQuoteActionLockAtom,
   swapQuoteCurrentSelectAtom,
   swapQuoteFetchingAtom,
   swapQuoteListAtom,
@@ -54,6 +55,7 @@ import {
   swapSelectTokenDetailFetchingAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
+  swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
   swapSlippagePercentageAtom,
   swapSlippagePercentageModeAtom,
@@ -216,6 +218,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       loadingDelayEnable?: boolean,
       blockNumber?: number,
     ) => {
+      const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
+      if (shouldRefreshQuote) {
+        this.cleanQuoteInterval();
+        set(swapQuoteActionLockAtom(), false);
+        return;
+      }
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
       let enableInterval = true;
       try {
@@ -250,6 +258,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           enableInterval = false;
         }
       } finally {
+        set(swapQuoteActionLockAtom(), false);
         if (enableInterval) {
           this.quoteIntervalCount += 1;
           if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
@@ -268,9 +277,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       blockNumber?: number,
     ) => {
+      set(swapQuoteActionLockAtom(), true);
       this.cleanQuoteInterval();
       this.quoteIntervalCount = 0;
       set(swapBuildTxFetchingAtom(), false);
+      set(swapShouldRefreshQuoteAtom(), false);
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -298,6 +309,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         await backgroundApiProxy.serviceSwap.cancelFetchQuotes();
         set(swapQuoteFetchingAtom(), false);
         set(swapQuoteListAtom(), []);
+        set(swapQuoteActionLockAtom(), false);
       }
     },
   );
@@ -390,6 +402,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       unResetCount?: boolean,
     ) => {
+      const swapQuoteActionLock = get(swapQuoteActionLockAtom());
+      if (swapQuoteActionLock) {
+        return;
+      }
       this.cleanQuoteInterval();
       if (!unResetCount) {
         this.quoteIntervalCount = 0;
@@ -490,7 +506,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             alertLevel: ESwapAlertLevel.ERROR,
           },
         ];
-        set(swapAlertsAtom(), alertsRes);
+        set(swapAlertsAtom(), {
+          states: alertsRes,
+          quoteId: quoteResult?.quoteId ?? '',
+        });
         return;
       }
 
@@ -660,7 +679,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
-      set(swapAlertsAtom(), alertsRes);
+      set(swapAlertsAtom(), {
+        states: alertsRes,
+        quoteId: quoteResult?.quoteId ?? '',
+      });
       set(rateDifferenceAtom(), rateDifferenceRes);
     },
   );
@@ -772,9 +794,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
       if (type === ESwapDirectionType.FROM) {
-        set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '0.0');
+        set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
       } else {
-        set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '0.0');
+        set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
       }
     },
   );
@@ -792,7 +814,7 @@ export const useSwapActions = () => {
   const recoverQuoteInterval = actions.recoverQuoteInterval.use();
   const quoteAction = actions.quoteAction.use();
   const approvingStateAction = actions.approvingStateAction.use();
-  const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 200);
+  const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 300);
   const tokenListFetchAction = actions.tokenListFetchAction.use();
 
   const loadSwapSelectTokenDetail = debounce(

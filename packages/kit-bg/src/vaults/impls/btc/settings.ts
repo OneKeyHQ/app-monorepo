@@ -1,4 +1,7 @@
-import { EAddressEncodings } from '@onekeyhq/core/src/types';
+import {
+  EAddressEncodings,
+  ECoreApiExportedSecretKeyType,
+} from '@onekeyhq/core/src/types';
 import {
   COINNAME_BTC,
   COINTYPE_BTC,
@@ -84,8 +87,14 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+  qrAccountEnabled: true,
 
   publicKeyExportEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.xprvt,
+    ECoreApiExportedSecretKeyType.xpub,
+  ],
 
   isUtxo: true,
   isSingleToken: true,
@@ -110,6 +119,8 @@ const settings: IVaultSettings = {
   showAddressType: true,
 
   dappInteractionEnabled: true,
+  customRpcEnabled: true,
+  mergeDeriveAssetsEnabled: true,
 };
 
 export default Object.freeze(settings);

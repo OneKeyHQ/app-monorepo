@@ -6,6 +6,7 @@ import { getNetworkIdsMap } from '../config/networkIds';
 import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
+  IMPL_EVM,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   SEPERATOR,
@@ -36,6 +37,10 @@ function getNetworkImpl({ networkId }: { networkId: string }): string {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { impl, chainId } = parseNetworkId({ networkId });
   return impl;
+}
+
+function isEvmNetwork({ networkId }: { networkId: string | undefined }) {
+  return Boolean(networkId && getNetworkImpl({ networkId }) === IMPL_EVM);
 }
 
 function isLightningNetwork(coinType: string) {
@@ -82,13 +87,52 @@ export function getBtcDappNetworkName(network: IServerNetwork) {
   }
 }
 
+function isAllNetwork({
+  networkId,
+}: {
+  networkId: string | undefined;
+}): boolean {
+  return Boolean(networkId && networkId === getNetworkIdsMap().onekeyall);
+}
+
+function getDefaultDeriveTypeVisibleNetworks() {
+  return [
+    getNetworkIdsMap().btc,
+    getNetworkIdsMap().tbtc,
+    getNetworkIdsMap().sbtc,
+    getNetworkIdsMap().ltc,
+  ];
+}
+
+function toNetworkIdFallback({
+  networkId,
+  allNetworkFallbackId,
+  allNetworkFallbackToBtc,
+}: {
+  networkId: string | undefined;
+  allNetworkFallbackId?: string;
+  allNetworkFallbackToBtc?: boolean;
+}): string | undefined {
+  if (isAllNetwork({ networkId })) {
+    if (allNetworkFallbackToBtc) {
+      return getNetworkIdsMap().btc;
+    }
+    return allNetworkFallbackId;
+  }
+  return networkId;
+}
+
 export default {
   getNetworkChainId,
   getNetworkImpl,
+  isEvmNetwork,
   parseNetworkId,
   isLightningNetwork,
   isLightningNetworkByImpl,
   isLightningNetworkByNetworkId,
   isBTCNetwork,
   getBtcDappNetworkName,
+  isAllNetwork,
+  getDefaultDeriveTypeVisibleNetworks,
+  toNetworkIdFallback,
 };

@@ -1,11 +1,12 @@
-import { ListView, Stack } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ListView, Stack, renderNestedScrollView } from '@onekeyhq/components';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useTabListScroll } from '../../hooks/useTabListScroll';
 import {
   useSearchKeyAtom,
+  useSearchTokenListAtom,
+  useSearchTokenStateAtom,
   useTokenListAtom,
   useTokenListStateAtom,
 } from '../../states/jotai/contexts/tokenList';
@@ -21,68 +22,97 @@ type IProps = {
   tableLayout?: boolean;
   onRefresh?: () => void;
   onPressToken?: (token: IAccountToken) => void;
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   withHeader?: boolean;
   withFooter?: boolean;
   withPrice?: boolean;
   withBuyAndReceive?: boolean;
   withPresetVerticalPadding?: boolean;
+  withNetwork?: boolean;
+  inTabList?: boolean;
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
   isBuyTokenSupported?: boolean;
+  onManageToken?: () => void;
+  manageTokenEnabled?: boolean;
+  isAllNetworks?: boolean;
+  searchAll?: boolean;
+  isTokenSelectorLayout?: boolean;
 };
 
 function TokenListView(props: IProps) {
   const {
-    onContentSizeChange,
     onPressToken,
     tableLayout,
     withHeader,
     withFooter,
     withPrice,
+    inTabList = false,
     withBuyAndReceive,
+    withNetwork,
     onReceiveToken,
     onBuyToken,
     isBuyTokenSupported,
+    onManageToken,
+    manageTokenEnabled,
     withPresetVerticalPadding = true,
+    isAllNetworks,
+    searchAll,
+    isTokenSelectorLayout,
   } = props;
 
   const [tokenList] = useTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
   const { tokens } = tokenList;
+  const [searchTokenState] = useSearchTokenStateAtom();
+  const [searchTokenList] = useSearchTokenListAtom();
 
-  const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
-
-  const { listViewProps, listViewRef } = useTabListScroll<IAccountToken>({
-    onContentSizeChange,
+  const filteredTokens = getFilteredTokenBySearchKey({
+    tokens,
+    searchKey,
+    searchAll,
+    searchTokenList: searchTokenList.tokens,
   });
 
-  if (!tokenListState.initialized && tokenListState.isRefreshing) {
-    return <ListLoading onContentSizeChange={onContentSizeChange} />;
+  const { listViewProps, listViewRef, onLayout } =
+    useTabListScroll<IAccountToken>({
+      inTabList,
+    });
+
+  if (
+    searchTokenState.isSearching ||
+    (!tokenListState.initialized && tokenListState.isRefreshing)
+  ) {
+    return <ListLoading isTokenSelectorView />;
   }
 
   return (
     <ListView
       {...listViewProps}
-      py={withPresetVerticalPadding ? '$3' : '$0'}
+      renderScrollComponent={renderNestedScrollView}
+      // py={withPresetVerticalPadding ? '$3' : '$0'}
       estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef}
-      scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
-      disableScrollViewPanResponder={!!onContentSizeChange}
+      onLayout={onLayout}
       data={filteredTokens}
       ListHeaderComponent={
-        withHeader && tokens.length > 0 ? (
+        withHeader ? (
           <TokenListHeader
             filteredTokens={filteredTokens}
-            tokens={tokens}
-            tableLayout={tableLayout}
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
+            {...(tokens.length > 0 && {
+              tableLayout,
+            })}
           />
         ) : null
       }
       ListEmptyComponent={
         searchKey ? (
-          EmptySearch
+          <EmptySearch
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
+          />
         ) : (
           <EmptyToken
             withBuyAndReceive={withBuyAndReceive}
@@ -92,14 +122,16 @@ function TokenListView(props: IProps) {
           />
         )
       }
-      renderItem={({ item, index }) => (
+      renderItem={({ item }) => (
         <TokenListItem
           token={item}
           key={item.$key}
-          index={index}
           onPress={onPressToken}
           tableLayout={tableLayout}
           withPrice={withPrice}
+          isAllNetworks={isAllNetworks}
+          withNetwork={withNetwork}
+          isTokenSelectorLayout={isTokenSelectorLayout}
         />
       )}
       ListFooterComponent={

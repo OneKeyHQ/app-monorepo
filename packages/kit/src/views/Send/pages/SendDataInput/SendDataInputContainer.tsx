@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -37,7 +37,9 @@ import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -49,6 +51,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -71,6 +74,8 @@ function SendDataInputContainer() {
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
 
+  const addressInputChangeType = useRef(EInputAddressChangeType.Manual);
+
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendDataInput>>();
 
@@ -87,6 +92,7 @@ function SendDataInputContainer() {
     onSuccess,
     onFail,
     onCancel,
+    isAllNetworks,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -129,16 +135,10 @@ function SendDataInputContainer() {
           } & ITokenFiat)[]
         | undefined;
 
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
       if (isNFT && nft) {
         nftResp = await serviceNFT.fetchNFTDetails({
           accountId,
           networkId,
-          accountAddress,
           nfts: [
             {
               collectionAddress: nft.collectionAddress,
@@ -310,111 +310,146 @@ function SendDataInputContainer() {
           map,
         },
         onSelect: (data: IToken) => {
+          defaultLogger.transaction.send.sendSelect({
+            network: networkId,
+            tokenAddress: data.address,
+            tokenSymbol: data.symbol,
+            tokenType: 'Token',
+          });
           setTokenInfo(data);
         },
+        isAllNetworks,
       },
     });
   }, [
     accountId,
     allTokens.keys,
     allTokens.tokens,
+    isAllNetworks,
     isSelectTokenDisabled,
     map,
     navigation,
     networkId,
   ]);
-  const handleOnConfirm = useCallback(async () => {
-    try {
-      if (!account) return;
-      const toAddress = form.getValues('to').resolved;
-      if (!toAddress) return;
-      let realAmount = amount;
+  const handleOnConfirm = useCallback(
+    async () =>
+      errorUtils.withErrorAutoToast(async () => {
+        try {
+          if (!account) return;
+          const toAddress = form.getValues('to').resolved;
+          if (!toAddress) return;
+          let realAmount = amount;
 
-      setIsSubmitting(true);
+          setIsSubmitting(true);
 
-      if (isNFT) {
-        realAmount = nftAmount;
-      } else {
-        realAmount = amount;
-
-        if (isUseFiat) {
-          if (
-            new BigNumber(amount).isGreaterThan(tokenDetails?.fiatValue ?? 0)
-          ) {
-            realAmount = tokenDetails?.balanceParsed ?? '0';
+          if (isNFT) {
+            realAmount = nftAmount;
           } else {
-            realAmount = linkedAmount.originalAmount;
+            realAmount = amount;
+
+            if (isUseFiat) {
+              if (
+                new BigNumber(amount).isGreaterThan(
+                  tokenDetails?.fiatValue ?? 0,
+                )
+              ) {
+                realAmount = tokenDetails?.balanceParsed ?? '0';
+              } else {
+                realAmount = linkedAmount.originalAmount;
+              }
+            }
           }
+
+          const memoValue = form.getValues('memo');
+          const paymentIdValue = form.getValues('paymentId');
+          const transfersInfo: ITransferInfo[] = [
+            {
+              from: account.address,
+              to: toAddress,
+              amount: realAmount,
+              nftInfo:
+                isNFT && nftDetails
+                  ? {
+                      nftId: nftDetails.itemId,
+                      nftAddress: nftDetails.collectionAddress,
+                      nftType: nftDetails.collectionType,
+                    }
+                  : undefined,
+              tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
+              memo: memoValue,
+              paymentId: paymentIdValue,
+            },
+          ];
+
+          defaultLogger.transaction.send.addressInput({
+            addressInputMethod: addressInputChangeType.current,
+          });
+
+          defaultLogger.transaction.send.amountInput({
+            tokenType: isNFT ? 'NFT' : 'Token',
+            tokenSymbol: isNFT
+              ? nft?.metadata?.name
+              : tokenDetails?.info.symbol,
+            tokenAddress: isNFT
+              ? `${nft?.collectionAddress ?? ''}:${nft?.itemId ?? ''}`
+              : tokenInfo?.address,
+            tokenAmount: realAmount,
+            tokenValue: linkedAmount.originalAmount,
+          });
+
+          await sendConfirm.navigationToSendConfirm({
+            transfersInfo,
+            sameModal: true,
+            onSuccess,
+            onFail,
+            onCancel,
+            transferPayload: {
+              amountToSend: realAmount,
+              isMaxSend,
+              isNFT,
+            },
+          });
+          setIsSubmitting(false);
+        } catch (e: any) {
+          setIsSubmitting(false);
+
+          if (
+            accountUtils.isWatchingAccount({ accountId: account?.id ?? '' })
+          ) {
+            throw new OneKeyError({
+              message: intl.formatMessage({
+                id: ETranslations.wallet_error_trade_with_watched_acocunt,
+              }),
+              autoToast: true,
+            });
+          }
+
+          // use the original error to avoid auto-toast twice in UI layer
+          throw e;
         }
-      }
-
-      const memoValue = form.getValues('memo');
-      const paymentIdValue = form.getValues('paymentId');
-      const transfersInfo: ITransferInfo[] = [
-        {
-          from: account.address,
-          to: toAddress,
-          amount: realAmount,
-          nftInfo:
-            isNFT && nftDetails
-              ? {
-                  nftId: nftDetails.itemId,
-                  nftAddress: nftDetails.collectionAddress,
-                  nftType: nftDetails.collectionType,
-                }
-              : undefined,
-          tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
-          memo: memoValue,
-          paymentId: paymentIdValue,
-        },
-      ];
-      await sendConfirm.navigationToSendConfirm({
-        transfersInfo,
-        sameModal: true,
-        onSuccess,
-        onFail,
-        onCancel,
-        transferPayload: {
-          amountToSend: realAmount,
-          isMaxSend,
-          isNFT,
-        },
-      });
-      setIsSubmitting(false);
-    } catch (e: any) {
-      setIsSubmitting(false);
-
-      if (accountUtils.isWatchingAccount({ accountId: account?.id ?? '' })) {
-        throw new OneKeyError({
-          message: intl.formatMessage({
-            id: ETranslations.wallet_error_trade_with_watched_acocunt,
-          }),
-          autoToast: true,
-        });
-      }
-
-      throw new OneKeyError({
-        message: e.message,
-        autoToast: true,
-      });
-    }
-  }, [
-    account,
-    amount,
-    form,
-    intl,
-    isMaxSend,
-    isNFT,
-    isUseFiat,
-    linkedAmount.originalAmount,
-    nftAmount,
-    nftDetails,
-    onCancel,
-    onFail,
-    onSuccess,
-    sendConfirm,
-    tokenDetails,
-  ]);
+      }),
+    [
+      account,
+      amount,
+      form,
+      intl,
+      isMaxSend,
+      isNFT,
+      isUseFiat,
+      linkedAmount.originalAmount,
+      nft?.collectionAddress,
+      nft?.itemId,
+      nft?.metadata?.name,
+      nftAmount,
+      nftDetails,
+      onCancel,
+      onFail,
+      onSuccess,
+      sendConfirm,
+      tokenDetails,
+      tokenInfo?.address,
+    ],
+  );
   const handleValidateTokenAmount = useCallback(
     async (value: string) => {
       const amountBN = new BigNumber(value ?? 0);
@@ -816,6 +851,19 @@ function SendDataInputContainer() {
     renderPaymentIdForm,
   ]);
 
+  useEffect(() => {
+    if (token || nft) {
+      defaultLogger.transaction.send.sendSelect({
+        network: networkId,
+        tokenAddress:
+          token?.address ??
+          `${nft?.collectionAddress ?? ''}:${nft?.itemId ?? ''}`,
+        tokenSymbol: token?.symbol,
+        tokenType: isNFT ? 'NFT' : 'Token',
+      });
+    }
+  }, [networkId, token, nft, isNFT]);
+
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>
       addressBookEnabledNetworkIds.includes(networkId)
@@ -824,8 +872,15 @@ function SendDataInputContainer() {
     [addressBookEnabledNetworkIds, networkId],
   );
 
+  const handleAddressInputChangeType = useCallback(
+    (type: EInputAddressChangeType) => {
+      addressInputChangeType.current = type;
+    },
+    [],
+  );
+
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.send_title })}
       />
@@ -852,7 +907,7 @@ function SendDataInputContainer() {
                   borderColor="$border"
                   borderRadius="$2"
                 >
-                  <XStack alignItems="center" space="$1" flex={1}>
+                  <XStack alignItems="center" gap="$1" flex={1}>
                     <Token
                       isNFT
                       size="lg"
@@ -912,6 +967,7 @@ function SendDataInputContainer() {
                 enableAddressInteractionStatus
                 contacts={addressBookEnabledNetworkIds.includes(networkId)}
                 accountSelector={addressInputAccountSelectorArgs}
+                onInputTypeChange={handleAddressInputChangeType}
               />
             </Form.Field>
             {renderDataInput()}

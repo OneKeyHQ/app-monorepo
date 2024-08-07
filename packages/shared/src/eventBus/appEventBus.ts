@@ -3,12 +3,15 @@ import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 
 import type { IQrcodeDrawType } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 
 import platformEnv from '../platformEnv';
 
-import type { EAccountSelectorSceneName } from '../../types';
+import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
+import type { IAccountToken, ITokenFiat } from '../../types/token';
+import type { IOneKeyError } from '../errors/types/errorTypes';
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -29,6 +32,7 @@ export enum EAppEventBusNames {
   GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
   AccountSelectorSelectedAccountUpdate = 'AccountSelectorSelectedAccountUpdate',
   FinalizeWalletSetupStep = 'FinalizeWalletSetupStep',
+  FinalizeWalletSetupError = 'FinalizeWalletSetupError',
   WalletConnectOpenModal = 'WalletConnectOpenModal',
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
@@ -36,6 +40,7 @@ export enum EAppEventBusNames {
   ShowQrcode = 'ShowQrcode',
   RealmInit = 'RealmInit',
   V4RealmInit = 'V4RealmInit',
+  BatchCreateAccount = 'BatchCreateAccount',
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
@@ -50,6 +55,12 @@ export enum EAppEventBusNames {
   CloseHardwareUiStateDialogManually = 'CloseHardwareUiStateDialogManually',
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
+  TokenListUpdate = 'TokenListUpdate',
+  TabListStateUpdate = 'TabListStateUpdate',
+  RefreshTokenList = 'RefreshTokenList',
+  AccountDataUpdate = 'AccountDataUpdate',
+  onDragBeginInListView = 'onDragBeginInListView',
+  onDragEndInListView = 'onDragEndInListView',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -84,6 +95,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.FinalizeWalletSetupStep]: {
     step: EFinalizeWalletSetupSteps;
   };
+  [EAppEventBusNames.FinalizeWalletSetupError]: {
+    error: IOneKeyError | undefined;
+  };
   [EAppEventBusNames.WalletConnectOpenModal]: {
     uri: string;
   };
@@ -108,6 +122,15 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;
+  [EAppEventBusNames.BatchCreateAccount]: {
+    totalCount: number;
+    createdCount: number;
+    progressTotal: number;
+    progressCurrent: number;
+    networkId?: string;
+    deriveType?: string | IAccountDeriveTypes;
+    error?: IOneKeyError;
+  };
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
   [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
     connectId: string | undefined;
@@ -131,6 +154,22 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CloseHardwareUiStateDialogManually]: undefined;
   [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
+  [EAppEventBusNames.TokenListUpdate]: {
+    tokens: IAccountToken[];
+    keys: string;
+    map: Record<string, ITokenFiat>;
+    merge?: boolean;
+  };
+  [EAppEventBusNames.RefreshTokenList]: undefined;
+  [EAppEventBusNames.TabListStateUpdate]: {
+    isRefreshing: boolean;
+    type: EHomeTab;
+    accountId: string;
+    networkId: string;
+  };
+  [EAppEventBusNames.AccountDataUpdate]: undefined;
+  [EAppEventBusNames.onDragBeginInListView]: undefined;
+  [EAppEventBusNames.onDragEndInListView]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

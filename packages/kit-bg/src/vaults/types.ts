@@ -19,6 +19,7 @@ import type {
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
   IFeeInfoUnit,
@@ -26,6 +27,7 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
+  IAllNetworkHistoryExtraItem,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
@@ -48,11 +50,8 @@ import type {
 } from './impls/evm/settings';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
-import type {
-  IDBAccount,
-  IDBWalletId,
-  IDBWalletType,
-} from '../dbs/local/types';
+import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -131,11 +130,17 @@ export type IVaultSettings = {
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
+  qrAccountEnabled?: boolean;
   publicKeyExportEnabled?: boolean;
+
+  supportExportedSecretKeys?: ECoreApiExportedSecretKeyType[];
 
   dappInteractionEnabled?: boolean;
 
   softwareAccountDisabled?: boolean;
+
+  supportedDeviceTypes?: IDeviceType[];
+
   addressBookDisabled?: boolean;
   copyAddressDisabled?: boolean;
 
@@ -211,6 +216,10 @@ export type IVaultSettings = {
   };
 
   preCheckDappTxFeeInfoRequired?: boolean;
+
+  activateTokenRequired?: boolean;
+  customRpcEnabled?: boolean;
+  mergeDeriveAssetsEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -450,6 +459,11 @@ export interface IBroadcastTransactionParams {
   signature?: string;
 }
 
+export interface IBroadcastTransactionByCustomRpcParams
+  extends IBroadcastTransactionParams {
+  customRpcInfo: IDBCustomRpc;
+}
+
 export interface IPreCheckFeeInfoParams {
   encodedTx: IEncodedTx;
   feeTokenSymbol: string;
@@ -496,6 +510,7 @@ export interface IBuildHistoryTxParams {
   nfts: Record<string, IOnChainHistoryTxNFT>;
   localHistoryPendingTxs?: IAccountHistoryTx[];
   index?: number;
+  allNetworkHistoryExtraItems?: IAllNetworkHistoryExtraItem[];
 }
 
 export type IGetPrivateKeyFromImportedParams = {

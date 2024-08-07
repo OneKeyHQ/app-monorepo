@@ -1,4 +1,7 @@
-import type { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import type {
+  ETranslations,
+  ETranslationsMock,
+} from '@onekeyhq/shared/src/locale';
 
 export enum ECustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,
@@ -20,10 +23,14 @@ export enum EOneKeyErrorClassNames {
   OneKeyAbortError = 'OneKeyAbortError',
   OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
+  PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
   OneKeyErrorNotImplemented = 'OneKeyErrorNotImplemented',
   OneKeyErrorAirGapAccountNotFound = 'OneKeyErrorAirGapAccountNotFound',
   OneKeyErrorScanQrCodeCancel = 'OneKeyErrorScanQrCodeCancel',
+  SecureQRCodeDialogCancel = 'SecureQRCodeDialogCancel',
+  FirmwareUpdateExit = 'FirmwareUpdateExit',
+  FirmwareUpdateTasksClear = 'FirmwareUpdateTasksClear',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

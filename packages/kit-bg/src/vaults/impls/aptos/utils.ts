@@ -634,3 +634,7 @@ export function generateTransferCreateNft(
     ],
   };
 }
+
+export function getExpirationTimestampSecs(): bigint {
+  return BigInt(Math.floor(Date.now() / 1000) + 3 * 60);
+}

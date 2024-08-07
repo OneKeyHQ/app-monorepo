@@ -81,6 +81,7 @@ export function HomePageView({
         : Promise.resolve(undefined),
     [network],
   ).result;
+
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
@@ -122,6 +123,7 @@ export function HomePageView({
   const renderTabs = useCallback(
     () => (
       <Tab
+        disableRefresh
         data={tabs}
         ListHeaderComponent={<HomeHeaderContainer />}
         initialScrollIndex={0}
@@ -200,7 +202,9 @@ export function HomePageView({
   ]);
 
   const renderHomePage = useCallback(() => {
-    if (!ready) return null;
+    if (!ready) {
+      return <TabPageHeader showHeaderRight sceneName={sceneName} />;
+    }
 
     let content = (
       <Stack h="100%" justifyContent="center">

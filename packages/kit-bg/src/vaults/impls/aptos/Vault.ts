@@ -5,15 +5,8 @@ import { isEmpty, isNil } from 'lodash';
 
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import type {
@@ -25,6 +18,7 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -46,15 +40,17 @@ import {
   APTOS_NATIVE_TRANSFER_FUNC,
   APTOS_TRANSFER_FUNC,
   buildSignedTx,
+  generateRegisterToken,
   generateTransferCoin,
   generateUnsignedTransaction,
+  getAccountCoinResource,
+  getExpirationTimestampSecs,
   getTransactionTypeByPayload,
 } from './utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -63,7 +59,6 @@ import type {
   IGetPrivateKeyFromImportedResult,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
 
 export default class VaultAptos extends VaultBase {
@@ -138,7 +133,7 @@ export default class VaultAptos extends VaultBase {
   private async _buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxAptos,
   ): Promise<IUnsignedTxPro> {
-    const expect = BigInt(Math.floor(Date.now() / 1000) + 100);
+    const expect = getExpirationTimestampSecs();
     if (!isNil(encodedTx.bscTxn) && !isEmpty(encodedTx.bscTxn)) {
       const deserializer = new BCS.Deserializer(
         bufferUtils.hexToBytes(encodedTx.bscTxn),
@@ -160,7 +155,7 @@ export default class VaultAptos extends VaultBase {
       newRawTx.serialize(serializer);
       encodedTx.bscTxn = bufferUtils.bytesToHex(serializer.getBytes());
     } else if (
-      encodedTx.expiration_timestamp_secs &&
+      !encodedTx.expiration_timestamp_secs ||
       BigInt(encodedTx.expiration_timestamp_secs) < expect
     ) {
       encodedTx.expiration_timestamp_secs = expect.toString();
@@ -355,6 +350,32 @@ export default class VaultAptos extends VaultBase {
     return Promise.resolve(encodedTxWithFee);
   }
 
+  private _updateExpirationTimestampSecs(encodedTx: IEncodedTxAptos) {
+    const expirationTimestampSecs = getExpirationTimestampSecs();
+    const { bscTxn } = encodedTx;
+    if (!isNil(bscTxn) && !isEmpty(bscTxn)) {
+      const deserializer = new BCS.Deserializer(bufferUtils.hexToBytes(bscTxn));
+      const rawTx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
+      const newRawTx = new TxnBuilderTypes.RawTransaction(
+        rawTx.sender,
+        rawTx.sequence_number,
+        rawTx.payload,
+        rawTx.max_gas_amount,
+        rawTx.gas_unit_price,
+        rawTx.expiration_timestamp_secs > expirationTimestampSecs
+          ? rawTx.expiration_timestamp_secs
+          : expirationTimestampSecs,
+        rawTx.chain_id,
+      );
+
+      const serializer = new BCS.Serializer();
+      newRawTx.serialize(serializer);
+      encodedTx.bscTxn = bufferUtils.bytesToHex(serializer.getBytes());
+    } else {
+      encodedTx.expiration_timestamp_secs = expirationTimestampSecs.toString();
+    }
+  }
+
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
@@ -382,6 +403,8 @@ export default class VaultAptos extends VaultBase {
       const [to] = encodedTx.arguments || [];
       encodedTx.arguments = [to, amount];
     }
+
+    this._updateExpirationTimestampSecs(encodedTx);
 
     return {
       ...unsignedTx,
@@ -457,18 +480,55 @@ export default class VaultAptos extends VaultBase {
       });
     }
 
+    const newRawTx = new TxnBuilderTypes.RawTransaction(
+      rawTx.sender,
+      rawTx.sequence_number,
+      rawTx.payload,
+      BigInt('200000'),
+      BigInt('0'),
+      rawTx.expiration_timestamp_secs || getExpirationTimestampSecs(),
+      rawTx.chain_id,
+    );
+
     const account = await this.getAccount();
     const invalidSigBytes = new Uint8Array(64);
     const { rawTx: rawSignTx } = await buildSignedTx(
-      rawTx,
+      newRawTx,
       account.pub ?? '',
       bufferUtils.bytesToHex(invalidSigBytes),
     );
+
     return {
       encodedTx: {
         ...(encodedTx as object),
         rawSignTx,
       } as unknown as IEncodedTx,
     };
+  }
+
+  override async activateToken(params: {
+    token: IAccountToken;
+  }): Promise<boolean> {
+    const { token } = params;
+    const account = await this.getAccount();
+    const coin = await getAccountCoinResource(
+      this.client,
+      account.address,
+      token.address,
+    );
+    if (coin) {
+      return true;
+    }
+    const unsignedTx = await this.buildUnsignedTx({
+      encodedTx: generateRegisterToken(token.address),
+    });
+    const signedTx =
+      await this.backgroundApi.serviceSend.signAndSendTransaction({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        unsignedTx,
+        signOnly: false,
+      });
+    return !!signedTx.txid;
   }
 }

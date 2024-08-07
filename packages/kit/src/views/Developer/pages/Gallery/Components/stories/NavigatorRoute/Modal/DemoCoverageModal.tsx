@@ -73,7 +73,7 @@ const ControlledPopoverByButton = () => {
       onOpenChange={setIsOpen}
       renderTrigger={<Button onPress={() => setIsOpen(true)}>Open</Button>}
       renderContent={
-        <Stack space="$4" p="$5">
+        <Stack gap="$4" p="$5">
           <SizableText>
             Non exercitation ea laborum cupidatat sunt amet aute exercitation
             occaecat minim incididunt non est est voluptate.

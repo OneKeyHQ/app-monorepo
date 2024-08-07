@@ -110,6 +110,7 @@ export function AssetItem({
   currencySymbol,
   isApprove,
   isApproveUnlimited,
+  isAllNetworks,
 }: {
   asset: {
     name: string;
@@ -126,6 +127,7 @@ export function AssetItem({
   currencySymbol: string;
   isApprove?: boolean;
   isApproveUnlimited?: boolean;
+  isAllNetworks?: boolean;
 }) {
   const intl = useIntl();
   let primary = null;
@@ -210,10 +212,10 @@ export function AssetItem({
       <Token
         isNFT={asset.isNFT}
         tokenImageUri={asset.icon}
-        networkImageUri={networkIcon}
+        networkImageUri={isAllNetworks ? networkIcon : undefined}
       />
       <ListItem.Text
-        primary={asset.symbol}
+        primary={asset.isNFT ? asset.name : asset.symbol}
         secondary={asset.name}
         flexShrink={0}
       />
@@ -237,8 +239,7 @@ function HistoryDetails() {
       >
     >();
 
-  const { accountId, networkId, accountAddress, historyTx, xpub } =
-    route.params;
+  const { accountId, networkId, historyTx, isAllNetworks } = route.params;
 
   const historyInit = useRef(false);
   const historyConfirmed = useRef(false);
@@ -246,7 +247,12 @@ function HistoryDetails() {
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
 
-  const { network, vaultSettings } = useAccountData({ networkId });
+  const { account, network, vaultSettings } = useAccountData({
+    networkId,
+    accountId,
+  });
+
+  const accountAddress = account?.address;
 
   const nativeToken = usePromiseResult(
     () =>
@@ -262,8 +268,6 @@ function HistoryDetails() {
       const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
         accountId,
         networkId,
-        accountAddress,
-        xpub,
         txid: historyTx.decodedTx.txid,
       });
       historyInit.current = true;
@@ -282,8 +286,6 @@ function HistoryDetails() {
     [
       accountId,
       networkId,
-      accountAddress,
-      xpub,
       historyTx.decodedTx.txid,
       historyTx.decodedTx.status,
     ],
@@ -417,6 +419,7 @@ function HistoryDetails() {
             amount={approve.amount}
             networkIcon={network?.logoURI ?? ''}
             currencySymbol={settings.currencyInfo.symbol}
+            isAllNetworks={isAllNetworks}
           />
         );
       }
@@ -440,11 +443,12 @@ function HistoryDetails() {
             amount={transfer.amount}
             networkIcon={network?.logoURI ?? ''}
             currencySymbol={settings.currencyInfo.symbol}
+            isAllNetworks={isAllNetworks}
           />
         );
       });
     },
-    [network?.logoURI, settings.currencyInfo.symbol],
+    [isAllNetworks, network?.logoURI, settings.currencyInfo.symbol],
   );
 
   const isSendToSelf = useMemo(
@@ -606,7 +610,7 @@ function HistoryDetails() {
     return (
       <XStack ml="$5">
         {canCancelTx ? (
-          <XStack space="$2">
+          <XStack gap="$2">
             <Button
               size="small"
               variant="primary"
@@ -898,12 +902,16 @@ function HistoryDetails() {
               })}
               renderContent={txInfo.txid}
               showCopy
-              openWithUrl={() => {
-                void openTransactionDetailsUrl({
-                  networkId: network?.id,
-                  txid: txInfo.txid,
-                });
-              }}
+              openWithUrl={
+                vaultSettings?.hideBlockExplorer
+                  ? undefined
+                  : () => {
+                      void openTransactionDetailsUrl({
+                        networkId: network?.id,
+                        txid: txInfo.txid,
+                      });
+                    }
+              }
             />
             <InfoItem
               label={intl.formatMessage({
@@ -980,6 +988,7 @@ function HistoryDetails() {
     vaultSettings?.nonceRequired,
     vaultSettings?.isUtxo,
     vaultSettings?.hideTxUtxoListWhenPending,
+    vaultSettings?.hideBlockExplorer,
     historyTx.decodedTx.status,
     handleViewUTXOsOnPress,
     renderAssetsChange,

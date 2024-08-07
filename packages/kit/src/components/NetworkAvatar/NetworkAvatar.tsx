@@ -1,6 +1,5 @@
 import type { IImageProps, IXStackProps } from '@onekeyhq/components';
 import { Icon, Image, XStack } from '@onekeyhq/components';
-import { CHAIN_SELECTOR_LOGO } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -16,7 +15,7 @@ export const NetworkAvatarBase = ({
   <Image size={size} src={logoURI} borderRadius="$full">
     <Image.Source source={{ uri: logoURI }} />
     <Image.Fallback
-      delayMs={platformEnv.isNativeAndroid ? 2500 : 1000}
+      delayMs={1000}
       alignItems="center"
       justifyContent="center"
       bg="$gray5"
@@ -25,10 +24,6 @@ export const NetworkAvatarBase = ({
       <Icon name="GlobusOutline" color="$iconSubdued" />
     </Image.Fallback>
   </Image>
-);
-
-export const AllNetworksAvatar = ({ size }: { size?: IImageProps['size'] }) => (
-  <NetworkAvatarBase logoURI={CHAIN_SELECTOR_LOGO} size={size} />
 );
 
 type INetworkAvatarProps = {

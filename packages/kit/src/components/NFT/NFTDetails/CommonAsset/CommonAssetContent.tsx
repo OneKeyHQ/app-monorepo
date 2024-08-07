@@ -58,7 +58,10 @@ function CommonAssetContent(props: IProps) {
         },
         {
           label: intl.formatMessage({ id: ETranslations.nft_token_id }),
-          value: nft.itemId,
+          value: accountUtils.shortenAddress({
+            address: nft.itemId,
+            leadingLength: 6,
+          }),
         },
         {
           label: intl.formatMessage({ id: ETranslations.nft_nft_standard }),
@@ -93,7 +96,7 @@ function CommonAssetContent(props: IProps) {
       $gtMd={{
         flexBasis: '66.6666%',
       }}
-      space="$5"
+      gap="$5"
     >
       <DescriptionList>
         {details.map(({ label, value, onPress, iconAfter, source }) => (
@@ -106,7 +109,7 @@ function CommonAssetContent(props: IProps) {
               {label}
             </DescriptionList.Item.Key>
             <DescriptionList.Item.Value
-              space="$1"
+              gap="$1"
               maxWidth="60%"
               onPress={onPress}
               iconAfter={iconAfter}

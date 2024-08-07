@@ -35,6 +35,7 @@ import {
   RequireBlePermissionDialog,
 } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -61,6 +62,7 @@ import {
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -73,7 +75,6 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
-import useScanQrCode from '../../../ScanQrCode/hooks/useScanQrCode';
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 
@@ -123,12 +124,6 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
 }
 
 function ConnectByQrCode() {
-  const {
-    start: startScan,
-    // close,
-  } = useScanQrCode();
-  const actions = useAccountSelectorActions();
-  const navigation = useAppNavigation();
   const { createQrWallet } = useCreateQrWallet();
   const intl = useIntl();
 
@@ -155,7 +150,7 @@ function ConnectByQrCode() {
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         onPress={async () => {
           try {
@@ -176,22 +171,29 @@ function ConnectByQrCode() {
 
 function ConnectByQrCodeComingSoon() {
   const intl = useIntl();
-  if (process.env.NODE_ENV !== 'production') {
+  const [showConnectQr, setShowConnectQr] = useState(false);
+  if (showConnectQr) {
     return <ConnectByQrCode />;
   }
 
   return (
     <Stack flex={1} alignItems="center" justifyContent="center">
-      <SizableText
-        textAlign="center"
-        color="$textSubdued"
-        maxWidth="$80"
-        pb="$5"
+      <MultipleClickStack
+        onPress={() => {
+          setShowConnectQr(true);
+        }}
       >
-        {intl.formatMessage({
-          id: ETranslations.coming_soon,
-        })}
-      </SizableText>
+        <SizableText
+          textAlign="center"
+          color="$textSubdued"
+          maxWidth="$80"
+          pb="$5"
+        >
+          {intl.formatMessage({
+            id: ETranslations.coming_soon,
+          })}
+        </SizableText>
+      </MultipleClickStack>
     </Stack>
   );
 }
@@ -249,6 +251,12 @@ function ConnectByUSBOrBLE({
     }) => {
       try {
         console.log('ConnectYourDevice -> createHwWallet', device);
+
+        defaultLogger.account.wallet.connectHWWallet({
+          connectType: platformEnv.isNative ? 'ble' : 'usb',
+          deviceType: device.deviceType,
+          deviceFmVersion: features.onekey_firmware_version,
+        });
 
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
 
@@ -356,11 +364,11 @@ function ConnectByUSBOrBLE({
                   }),
                   showFooter: false,
                   renderContent: (
-                    <XStack space="$2.5">
+                    <XStack gap="$2.5">
                       <Button
                         flex={1}
                         size="large"
-                        $gtMd={{ size: 'medium' } as IButtonProps}
+                        $gtMd={{ size: 'medium' } as any}
                         onPress={() => Linking.openURL(requestsUrl)}
                       >
                         {intl.formatMessage({
@@ -371,7 +379,7 @@ function ConnectByUSBOrBLE({
                         flex={1}
                         variant="primary"
                         size="large"
-                        $gtMd={{ size: 'medium' } as IButtonProps}
+                        $gtMd={{ size: 'medium' } as any}
                         onPress={async () => {
                           await packageAlertDialog.close();
                           handleRestoreWalletPress({ deviceType });
@@ -861,8 +869,11 @@ function ConnectByUSBOrBLE({
                   id: ETranslations.onboarding_usb_connect_help_text,
                 })}
           </SizableText>
-          {devicesData.map((item, index) => (
-            <DeviceListItem item={item} key={index} />
+          {devicesData.map((item) => (
+            <DeviceListItem
+              item={item}
+              key={item.device?.connectId ?? item.title}
+            />
           ))}
           {platformEnv.isDev ? (
             <Button
@@ -956,7 +967,7 @@ export function ConnectYourDevicePage() {
             hoverStyle={{
               color: '$textInteractiveHover',
             }}
-            href="https://shop.onekey.so/"
+            href="https://bit.ly/3YsKilK"
             target="_blank"
             size="$bodyMdMedium"
             p="$2"

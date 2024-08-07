@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IMarketDetailPool,
   IMarketTokenDetail,
@@ -23,6 +24,8 @@ import type {
 import { MarketDetailLinks } from './MarketDetailLinks';
 import { MarketDetailOverview } from './MarketDetailOverview';
 import { MarketDetailPools } from './MarketDetailPools';
+
+import type { IDeferredPromise } from '../../../hooks/useDeferredPromise';
 
 function SkeletonRow() {
   return (
@@ -67,13 +70,13 @@ function BasicTokenDetailTabs({
   listHeaderComponent,
   isRefreshing,
   onRefresh,
-  onDataLoaded,
+  defer,
 }: {
   token?: IMarketTokenDetail;
   listHeaderComponent?: ReactElement;
   onRefresh?: () => void;
   isRefreshing?: boolean;
-  onDataLoaded?: () => void;
+  defer: IDeferredPromise<unknown>;
 }) {
   const intl = useIntl();
   const { md } = useMedia();
@@ -87,30 +90,37 @@ function BasicTokenDetailTabs({
       }[]
     | undefined
   >(undefined);
-  useEffect(() => {
+
+  const init = useCallback(async () => {
     if (token?.detailPlatforms) {
-      void backgroundApiProxy.serviceMarket
-        .fetchPools(token.detailPlatforms)
-        .then((response) => {
-          setPools(response);
-          setTimeout(() => {
-            onDataLoaded?.();
-          }, 100);
-        });
+      const response = await backgroundApiProxy.serviceMarket.fetchPools(
+        token.detailPlatforms,
+      );
+      if (platformEnv.isNativeAndroid) {
+        await defer.promise;
+      } else {
+        setTimeout(() => {
+          defer.resolve(null);
+        }, 100);
+      }
+      setPools(response);
     }
-  }, [onDataLoaded, token?.detailPlatforms]);
+  }, [defer, token?.detailPlatforms]);
+  useEffect(() => {
+    void init();
+  }, [init]);
 
   const renderPoolSkeleton = useMemo(
     () =>
       md ? (
-        <YStack space="$10" px="$5" pt="$11">
+        <YStack gap="$10" px="$5" pt="$11">
           <MdSkeletonRow />
           <MdSkeletonRow />
           <MdSkeletonRow />
           <MdSkeletonRow />
         </YStack>
       ) : (
-        <YStack space="$6" px="$5" pt="$11">
+        <YStack gap="$6" px="$5" pt="$11">
           <SkeletonRow />
           <SkeletonRow />
           <SkeletonRow />
@@ -140,9 +150,7 @@ function BasicTokenDetailTabs({
                   }),
                   // eslint-disable-next-line react/no-unstable-nested-components
                   page: (props: ITabPageProps) => (
-                    <Stack px="$5">
-                      <MarketDetailOverview {...props} token={token} />
-                    </Stack>
+                    <MarketDetailOverview {...props} token={token} />
                   ),
                 }
               : undefined,
@@ -167,12 +175,13 @@ function BasicTokenDetailTabs({
       $gtMd={{ pr: '$5' }}
       $md={{ mt: '$5' }}
       data={tabConfig}
+      disableRefresh
       ListHeaderComponent={
         <Stack mb="$5">
           {listHeaderComponent}
-          {pools ? null : (
+          {/* {pools ? null : (
             <YStack $gtMd={{ px: '$5' }}>{renderPoolSkeleton}</YStack>
-          )}
+          )} */}
         </Stack>
       }
       onSelectedPageIndex={(index: number) => {

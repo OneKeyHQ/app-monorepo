@@ -7,6 +7,7 @@ import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalStakingRoutes,
   IModalStakingParamList,
@@ -49,10 +50,19 @@ const MaticLidoStake = () => {
           },
           tags: ['lido-matic'],
         },
-        onSuccess: () => appNavigation.pop(),
+        onSuccess: (txs) => {
+          appNavigation.pop();
+          defaultLogger.staking.page.staking({
+            token,
+            amount: value,
+            stakingProtocol: 'lido',
+            tokenValue: BigNumber(value).multipliedBy(price).toFixed(),
+            txnHash: txs[0].signedTx.txid,
+          });
+        },
       });
     },
-    [lidoStake, token, appNavigation, rate, stToken],
+    [lidoStake, token, appNavigation, rate, stToken, price],
   );
   const intl = useIntl();
   return (

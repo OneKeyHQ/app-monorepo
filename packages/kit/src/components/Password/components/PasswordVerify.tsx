@@ -18,7 +18,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
-import { PasswordRegex, getPasswordKeyboardType } from '../utils';
+import { getPasswordKeyboardType } from '../utils';
 
 interface IPasswordVerifyProps {
   authType: AuthenticationType[];

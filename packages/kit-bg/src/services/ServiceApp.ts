@@ -58,11 +58,29 @@ class ServiceApp extends ServiceBase {
 
   private async resetData() {
     // clean app storage
-    await appStorage.clear();
-    await v4appStorage.clear();
+    try {
+      await appStorage.clear();
+    } catch {
+      console.error('appStorage.clear() error');
+    }
 
-    // clean local db
-    await localDb.reset();
+    await timerUtils.wait(100);
+
+    try {
+      await v4appStorage.clear();
+    } catch {
+      console.error('v4appStorage.clear() error');
+    }
+
+    await timerUtils.wait(100);
+
+    try {
+      // clean local db
+      await localDb.reset();
+    } catch {
+      console.error('localDb.reset() error');
+    }
+
     await timerUtils.wait(1500);
 
     if (platformEnv.isRuntimeBrowser) {
@@ -89,7 +107,11 @@ class ServiceApp extends ServiceBase {
 
     // logout from Google Drive
     if (platformEnv.isNativeAndroid && (await isAvailable())) {
-      await logoutFromGoogleDrive(true);
+      try {
+        await logoutFromGoogleDrive(true);
+      } catch {
+        console.error('logoutFromGoogleDrive error');
+      }
       await timerUtils.wait(1000);
     }
   }

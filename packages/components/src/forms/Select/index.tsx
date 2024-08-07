@@ -75,6 +75,31 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   );
 }
 
+function SelectItemView({
+  label,
+  description,
+}: {
+  label: string;
+  description?: string;
+}) {
+  return (
+    <>
+      <SizableText
+        $gtMd={{
+          size: '$bodyMd',
+        }}
+      >
+        {label}
+      </SizableText>
+      {description ? (
+        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+          {description}
+        </SizableText>
+      ) : null}
+    </>
+  );
+}
+
 function SelectItem({
   onSelect,
   value,
@@ -115,18 +140,7 @@ function SelectItem({
           </Stack>
         ) : null}
         <Stack flex={1} userSelect="none">
-          <SizableText
-            $gtMd={{
-              size: '$bodyMd',
-            }}
-          >
-            {label}
-          </SizableText>
-          {description ? (
-            <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-              {description}
-            </SizableText>
-          ) : null}
+          <SelectItemView label={label} description={description} />
         </Stack>
         {selectedValue === value ? (
           <Icon
@@ -372,8 +386,10 @@ function SelectFrame<T extends string | ISelectItem>({
 function BasicSelect<T extends string | ISelectItem>({
   renderTrigger,
   testID = '',
+  defaultTriggerInputProps,
   ...props
 }: ISelectProps<T>) {
+  const media = useMedia();
   const defaultRenderTrigger = useCallback(
     ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
       <>
@@ -384,16 +400,24 @@ function BasicSelect<T extends string | ISelectItem>({
           readonly
           flex={1}
           testID={`${testID}-input`}
+          {...defaultTriggerInputProps}
         />
-        <Icon
+        {/* <Icon
           name="ChevronBottomSolid"
           position="absolute"
           right="$3"
           top="$2"
+        /> */}
+        <Icon
+          name="ChevronDownSmallOutline"
+          color="$iconSubdued"
+          position="absolute"
+          right="$3"
+          top={media.gtMd ? '$2' : '$3'}
         />
       </>
     ),
-    [testID],
+    [defaultTriggerInputProps, media.gtMd, testID],
   );
   return (
     <SelectFrame {...props}>
@@ -407,6 +431,7 @@ export const Select = withStaticProperties(BasicSelect, {
   Frame: SelectFrame,
   Trigger: SelectTrigger,
   Content: SelectContent,
+  Item: SelectItemView,
 });
 
 export * from './type';

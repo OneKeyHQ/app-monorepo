@@ -65,14 +65,17 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
           }
         }
       }
+      // keep the path random if the screen is not found
       if (!screen) {
-        return '';
+        return Math.random().toString();
       }
       const nextScreenConfig = screen.screens;
       if (nextScreenConfig) {
         screenConfig = nextScreenConfig;
       }
-      const screenPath = removeExtraSlash(screen.path);
+      const paths = screen.path.split('/:');
+      const rawPath = removeExtraSlash(paths[0]);
+      const screenPath = paths.length > 1 ? `${rawPath}/.` : rawPath;
       // if the path is rewritten path, the full path will be rewritten.
       return screen.exact ? screenPath : addPath(prev, screenPath);
     }, '');
@@ -84,17 +87,17 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
   // fill in the route name as the key according to the route stacks order
   // Page: /main/tab-Home/TabHomeStack1
   const rules = {
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHome}`]:
-      {
-        showUrl: true,
-        showParams: true,
-      },
+    // [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHome}`]:
+    //   {
+    //     showUrl: true,
+    //     showParams: true,
+    //   },
     // Market Pages
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.TabMarket}`]:
-      {
-        showUrl: true,
-        showParams: true,
-      },
+    // [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.TabMarket}`]:
+    //   {
+    //     showUrl: true,
+    //     showParams: true,
+    //   },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketDetail}`]:
       {
         showUrl: true,
@@ -105,38 +108,31 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     // it will automatically find the real route according to the route stacks.
 
     // Swap Pages
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Swap}${ETabSwapRoutes.TabSwap}`]:
-      {
-        showUrl: true,
-        showParams: true,
-      },
+    // [pagePath`${ERootRoutes.Main}${ETabRoutes.Swap}${ETabSwapRoutes.TabSwap}`]:
+    //   {
+    //     showUrl: true,
+    //     showParams: true,
+    //   },
 
     // Discovery Pages
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Discovery}${ETabDiscoveryRoutes.TabDiscovery}`]:
-      {
-        showUrl: true,
-        showParams: true,
-      },
+    // [pagePath`${ERootRoutes.Main}${ETabRoutes.Discovery}${ETabDiscoveryRoutes.TabDiscovery}`]:
+    //   {
+    //     showUrl: true,
+    //     showParams: true,
+    //   },
 
     // Me Pages
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Me}${ETabMeRoutes.TabMe}`]: {
-      showUrl: true,
-      showParams: true,
-    },
-
-    // Developer Pages
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.TabDeveloper}`]:
-      {
-        showUrl: true,
-        showParams: true,
-      },
+    // [pagePath`${ERootRoutes.Main}${ETabRoutes.Me}${ETabMeRoutes.TabMe}`]: {
+    //   showUrl: true,
+    //   showParams: true,
+    // },
 
     // Settings Pages
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
-      {
-        showUrl: true,
-        showParams: true,
-      },
+    // [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
+    //   {
+    //     showUrl: true,
+    //     showParams: true,
+    //   },
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isDev) {
@@ -146,6 +142,13 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showParams: true,
       };
     });
+    // Developer Pages
+    rules[
+      pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.TabDeveloper}`
+    ] = {
+      showUrl: true,
+      showParams: true,
+    };
     rules[
       pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.DevHome}`
     ] = {

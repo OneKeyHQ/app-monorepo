@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports */
+import { flatten, uniqBy } from 'lodash';
+
 import { decryptVerifyString } from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
@@ -18,11 +20,13 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import simpleDb from '../../dbs/simple/simpleDb';
 import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
+import { v4PresetNetworkIds } from '../../migrations/v4ToV5Migration/v4data/networkIds';
 import v4dbHubs from '../../migrations/v4ToV5Migration/v4dbHubs';
 import {
   V4_INDEXED_DB_NAME,
@@ -51,8 +55,12 @@ import type {
   IV4OnAccountMigrated,
   IV4OnWalletMigrated,
 } from '../../migrations/v4ToV5Migration/types';
-import type { IV4DBVariantAccount } from '../../migrations/v4ToV5Migration/v4local/v4localDBTypesSchema';
+import type {
+  IV4DBNetwork,
+  IV4DBVariantAccount,
+} from '../../migrations/v4ToV5Migration/v4local/v4localDBTypesSchema';
 import type { V4LocalDbRealm } from '../../migrations/v4ToV5Migration/v4local/v4realm/V4LocalDbRealm';
+import type { IV4Token } from '../../migrations/v4ToV5Migration/v4types';
 import type { IV4MigrationAtom } from '../../states/jotai/atoms/v4migration';
 import type { VaultBase } from '../../vaults/base/VaultBase';
 
@@ -381,6 +389,36 @@ class ServiceV4Migration extends ServiceBase {
   }
 
   @backgroundMethod()
+  async shouldMigratePassword(): Promise<{
+    isV4PasswordSet: boolean;
+    isV4AddressBookAvailable: boolean;
+    shouldMigratePassword: boolean;
+  }> {
+    return v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        // this.migrationAccount.is
+        const isV4PasswordSet = await v4dbHubs.v4localDb.isPasswordSet();
+        const addressBookItems =
+          await this.migrationAddressBook.getV4AddressBookItems();
+        const isV4AddressBookAvailable = Boolean(addressBookItems.length);
+        return {
+          isV4PasswordSet,
+          isV4AddressBookAvailable,
+          shouldMigratePassword: isV4PasswordSet || isV4AddressBookAvailable,
+        };
+      },
+      {
+        name: 'should migrate password check',
+        errorResultFn: () => ({
+          isV4AddressBookAvailable: false,
+          isV4PasswordSet: true,
+          shouldMigratePassword: true,
+        }),
+      },
+    );
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async prepareMigration({
     isAutoStartOnMount,
@@ -394,7 +432,6 @@ class ServiceV4Migration extends ServiceBase {
     let migrateV4SecurePasswordOk = false;
 
     migrateV4PasswordOk = await v4dbHubs.logger.runAsyncWithCatch(
-      // TODO if v4 not set password, should not prompt password
       async () => this.migrationAccount.migrateV4PasswordToV5(),
       {
         name: 'migrate v4 password to v5',
@@ -410,28 +447,34 @@ class ServiceV4Migration extends ServiceBase {
       },
     );
 
+    const { shouldMigratePassword } = await this.shouldMigratePassword();
+
     let v5password = '';
-    v5password = await v4dbHubs.logger.runAsyncWithCatch(
-      async () => {
-        const passwordRes =
-          await this.backgroundApi.servicePassword.promptPasswordVerify({
-            reason: EReasonForNeedPassword.Security,
-          });
+    let isV4PasswordEqualToV5: 'not-set' | boolean = 'not-set';
 
-        if (!passwordRes?.password) {
-          throw new Error('password not set');
-        }
-        return passwordRes?.password || '';
-      },
-      {
-        name: 'prompt password verify',
-        errorResultFn: 'throwError',
-      },
-    );
+    if (shouldMigratePassword) {
+      v5password = await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          const passwordRes =
+            await this.backgroundApi.servicePassword.promptPasswordVerify({
+              reason: EReasonForNeedPassword.Security,
+            });
 
-    const isV4PasswordEqualToV5 = await this.verifyV4PasswordEqualToV5({
-      v5password,
-    });
+          if (!passwordRes?.password) {
+            throw new Error('password not set');
+          }
+          return passwordRes?.password || '';
+        },
+        {
+          name: 'prompt password verify',
+          errorResultFn: 'throwError',
+        },
+      );
+
+      isV4PasswordEqualToV5 = await this.verifyV4PasswordEqualToV5({
+        v5password,
+      });
+    }
 
     const wallets = await v4dbHubs.logger.runAsyncWithCatch(
       async () => this.migrationAccount.getV4Wallets(),
@@ -910,17 +953,13 @@ class ServiceV4Migration extends ServiceBase {
 
       // **** migrate address book
       await timerUtils.wait(600);
-      const v5password = await this.getMigrationPasswordV5();
-      if (v5password) {
-        await v4dbHubs.logger.runAsyncWithCatch(
-          async () =>
-            this.migrationAddressBook.convertV4ContactsToV5(v5password),
-          {
-            name: 'convert v4 contacts to v5',
-            errorResultFn: () => undefined,
-          },
-        );
-      }
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => this.migrationAddressBook.convertV4ContactsToV5(),
+        {
+          name: 'convert v4 contacts to v5',
+          errorResultFn: () => undefined,
+        },
+      );
       await v4migrationAtom.set((v) => ({
         ...v,
         progress: maxProgress.addressBook,
@@ -1017,6 +1056,84 @@ class ServiceV4Migration extends ServiceBase {
   @toastIfError()
   async clearV4MigrationLogs() {
     return v4dbHubs.logger.clearLogs();
+  }
+
+  private async getV4AllNetworks() {
+    const v4localDb = v4dbHubs.v4localDb;
+    const r = await v4localDb.getAllRecords({
+      name: EV4LocalDBStoreNames.Network,
+    });
+    const v4networks: IV4DBNetwork[] = r?.records || [];
+    return v4networks;
+  }
+
+  private async getV4PresetNetworkIdsSet() {
+    const v4ServerNetworks =
+      await v4dbHubs.v4simpleDb.serverNetworks.getServerNetworks();
+    return new Set([
+      ...v4ServerNetworks.map((o) => o.id),
+      ...v4PresetNetworkIds,
+    ]);
+  }
+
+  @backgroundMethod()
+  async getV4CustomRpcUrls() {
+    const reduxData = await v4dbHubs.v4reduxDb.reduxData;
+    const customNetworkRpcMap = reduxData?.settings?.customNetworkRpcMap;
+    if (customNetworkRpcMap) {
+      const v4networks = await this.getV4AllNetworks();
+      const networkNameMap = v4networks.reduce((result, item) => {
+        result[item.id] = item.name;
+        return result;
+      }, {} as Record<string, string>);
+      return Object.entries(customNetworkRpcMap).map(([key, value]) => ({
+        networkId: key,
+        networkName: networkNameMap[key] ?? key,
+        rpcUrls: value,
+      }));
+    }
+  }
+
+  private async getV4CustomEvmNetworks() {
+    const v4networks = await this.getV4AllNetworks();
+    const v4PresetNetworkIdsSet = await this.getV4PresetNetworkIdsSet();
+    const v4CustomEvmNetworks = v4networks.filter(
+      (o) =>
+        networkUtils.isEvmNetwork({ networkId: o.id }) &&
+        !v4PresetNetworkIdsSet.has(o.id),
+    );
+    return v4CustomEvmNetworks;
+  }
+
+  private async getV4CustomTokenList() {
+    const reduxData = await v4dbHubs.v4reduxDb.reduxData;
+    const accountTokens = reduxData?.tokens?.accountTokens;
+    if (accountTokens) {
+      return Object.entries(accountTokens)
+        .map(([key, value]) => ({
+          networkId: key,
+          tokens: uniqBy(flatten(Object.values(value)), (o) =>
+            o.address?.toLowerCase(),
+          ).filter((o) => Boolean(o.address)),
+        }))
+        .reduce((result, item) => {
+          result[item.networkId] = item.tokens;
+          return result;
+        }, {} as Record<string, IV4Token[]>);
+    }
+  }
+
+  @backgroundMethod()
+  async getV4CustomNetworkIncludeTokens() {
+    const v4EvmNetworks = await this.getV4CustomEvmNetworks();
+    const v4CustomTokenList = await this.getV4CustomTokenList();
+    return v4EvmNetworks.map((network) => {
+      const tokens = v4CustomTokenList?.[network.id] || [];
+      return {
+        network,
+        tokens,
+      };
+    });
   }
 }
 

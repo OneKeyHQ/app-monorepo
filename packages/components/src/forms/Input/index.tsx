@@ -1,3 +1,4 @@
+import type { CompositionEventHandler, ForwardedRef, RefObject } from 'react';
 import {
   forwardRef,
   useCallback,
@@ -6,7 +7,6 @@ import {
   useMemo,
   useRef,
 } from 'react';
-import type { CompositionEventHandler, ForwardedRef, RefObject } from 'react';
 
 import { InteractionManager } from 'react-native';
 import {
@@ -39,6 +39,7 @@ import type { GetProps } from 'tamagui';
 type ITMInputProps = GetProps<typeof TMInput>;
 
 export type IInputProps = {
+  displayAsMaskWhenEmptyValue?: boolean;
   readonly?: boolean;
   size?: 'small' | 'medium' | 'large';
   leftIconName?: IKeyOfIcons;
@@ -126,6 +127,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
     selectTextOnFocus,
     onFocus,
     value,
+    displayAsMaskWhenEmptyValue,
     ...props
   } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -238,7 +240,11 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
           keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
           borderCurve="continuous"
           autoFocus={reloadAutoFocus}
-          value={value}
+          value={
+            displayAsMaskWhenEmptyValue && !value
+              ? '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••'
+              : value
+          }
           onFocus={handleFocus}
           selectTextOnFocus={selectTextOnFocus}
           editable={editable}

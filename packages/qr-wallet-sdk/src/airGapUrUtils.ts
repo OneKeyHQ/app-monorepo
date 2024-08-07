@@ -100,7 +100,10 @@ function qrcodeToUr(qrcode: string | string[]): Promise<AirGapUR> {
   return decoder.promiseResultUR;
 }
 
-function urToQrcode(ur: AirGapUR | IAirGapUrJson) {
+function urToQrcode(ur: AirGapUR | IAirGapUrJson): {
+  allParts: string[];
+  single: string;
+} {
   // eslint-disable-next-line no-param-reassign
   ur = jsonToUr({ ur });
   const encoder = createAnimatedUREncoder({

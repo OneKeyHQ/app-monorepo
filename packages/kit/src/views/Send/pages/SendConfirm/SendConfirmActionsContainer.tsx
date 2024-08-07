@@ -19,7 +19,9 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -157,6 +159,28 @@ function SendConfirmActionsContainer(props: IProps) {
           sourceInfo,
           transferPayload,
         });
+
+      const transferInfo = newUnsignedTxs?.[0].transfersInfo?.[0];
+      const swapInfo = newUnsignedTxs?.[0].swapInfo;
+      const stakingInfo = newUnsignedTxs?.[0].stakingInfo;
+      defaultLogger.transaction.send.sendConfirm({
+        txnHash: result?.[0].signedTx.txid,
+        network: networkId,
+        txnType: getTxnType({
+          actions: result?.[0].decodedTx.actions,
+          swapInfo,
+          stakingInfo,
+        }),
+        fromAddress: transferInfo?.from,
+        toAddress: transferInfo?.to,
+        fee: sendSelectedFeeInfo?.totalNative,
+        tokenAddress: transferInfo?.tokenInfo?.address,
+        tokenSymbol: transferInfo?.tokenInfo?.symbol,
+        tokenType: transferInfo?.nftInfo ? 'NFT' : 'Token',
+        tokenAmount: transferInfo?.amount,
+        tokenValue: undefined,
+        interactContract: undefined,
+      });
       onSuccess?.(result);
       setIsSubmitting(false);
       Toast.success({

@@ -11,6 +11,7 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -50,16 +51,19 @@ function showDevOnlyPasswordDialog({
   title,
   description,
   onConfirm,
+  confirmButtonProps,
 }: {
   title: string;
   description?: string;
   onConfirm: (params: IBackgroundMethodWithDevOnlyPassword) => Promise<void>;
+  confirmButtonProps?: IDialogButtonProps;
 }) {
   Dialog.show({
     title,
     description,
     confirmButtonProps: {
       variant: 'destructive',
+      ...confirmButtonProps,
     },
     renderContent: (
       <Dialog.Form formProps={{ values: { password: correctDevOnlyPwd } }}>
@@ -69,7 +73,7 @@ function showDevOnlyPasswordDialog({
             required: { value: true, message: 'password is required.' },
           }}
         >
-          <Input placeholder="devOnlyPassword" />
+          <Input testID="dev-only-password" placeholder="devOnlyPassword" />
         </Dialog.FormField>
       </Dialog.Form>
     ),
@@ -204,7 +208,7 @@ export const DevSettingsSection = () => {
         name="showDevExportPrivateKey"
         title="首页导出私钥临时入口"
         subtitle=""
-        testID="show-dev-overlay"
+        testID="export-private-key"
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
@@ -272,6 +276,10 @@ export const DevSettingsSection = () => {
         onPress={() => {
           showDevOnlyPasswordDialog({
             title: 'Danger Zone: Clear all your data',
+            confirmButtonProps: {
+              variant: 'destructive',
+              testID: 'clear-double-confirm',
+            },
             description: `This is a feature specific to development environments.
                   Function used to erase all data in the app.`,
             onConfirm: async (params) => {
@@ -378,6 +386,15 @@ export const DevSettingsSection = () => {
             title: 'Startup Time(ms)',
             renderContent: <StartTimePanel />,
           });
+        }}
+      />
+      <SectionPressItem
+        title="Reset Spotlight"
+        subtitle="Will reset after 5 seconds."
+        onPress={() => {
+          setTimeout(() => {
+            void backgroundApiProxy.serviceSpotlight.reset();
+          }, 5000);
         }}
       />
       <SectionPressItem

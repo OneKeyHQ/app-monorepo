@@ -17,7 +17,7 @@ const HistorySkeletonItem = () => (
 );
 
 export const HistorySkeleton = () => (
-  <YStack width="100%" px="$5" space="$5">
+  <YStack width="100%" px="$5" gap="$5">
     <HistorySkeletonItem />
     <HistorySkeletonItem />
     <HistorySkeletonItem />
@@ -64,7 +64,7 @@ export const OverviewSkeleton = () => (
     </Stack>
     <Stack mt="$16">
       <Skeleton width={60} height={12} />
-      <YStack space="$5" mt="$5">
+      <YStack gap="$5" mt="$5">
         <Skeleton width={280} height={12} />
         <Skeleton width={280} height={12} />
         <Skeleton width={280} height={12} />

@@ -1,6 +1,6 @@
 import { BigNumber } from 'bignumber.js';
 
-import { InsufficientBalance } from '@onekeyhq/shared/src/errors';
+import { LowerTransactionAmountError } from '@onekeyhq/shared/src/errors';
 
 import { CONFIRMATION_COUNT } from './constant';
 import { UnspentOutput } from './types';
@@ -33,7 +33,7 @@ function formatUtxo(entries: IKaspaUTXOResponse[]): IKaspaUnspentOutputInfo[] {
       scriptPubKey: scriptPublicKey.scriptPublicKey,
       scriptPublicKeyVersion: scriptPublicKey.version ?? 0,
       satoshis: +amount,
-      blockDaaScore: parseInt(blockDaaScore),
+      blockDaaScore: parseInt(blockDaaScore, 10),
     };
     result.push(item);
   }
@@ -86,10 +86,7 @@ export function selectUTXOs(
     if (totalVal >= txAmount) break;
   }
 
-  if (totalVal < txAmount)
-    throw new InsufficientBalance({
-      message: `Insufficient balance - need: ${txAmount} KAS, available: ${txAmount} KAS`,
-    });
+  if (totalVal < txAmount) throw new LowerTransactionAmountError();
 
   return {
     utxoIds,

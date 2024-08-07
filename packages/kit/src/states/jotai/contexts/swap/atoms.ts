@@ -105,6 +105,16 @@ export const { atom: swapProviderSortAtom, use: useSwapProviderSortAtom } =
   contextAtom<ESwapProviderSort>(ESwapProviderSort.RECOMMENDED);
 
 export const {
+  atom: swapQuoteActionLockAtom,
+  use: useSwapQuoteActionLockAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: swapShouldRefreshQuoteAtom,
+  use: useSwapShouldRefreshQuoteAtom,
+} = contextAtom<boolean>(false);
+
+export const {
   atom: swapSortedQuoteListAtom,
   use: useSwapSortedQuoteListAtom,
 } = contextAtomComputed<IFetchQuoteResult[]>((get) => {
@@ -131,6 +141,18 @@ export const {
   const receivedSorted = list.slice().sort((a, b) => {
     const aVal = new BigNumber(a.toAmount || 0);
     const bVal = new BigNumber(b.toAmount || 0);
+    // Check if limit exists for a and b
+    const aHasLimit = !!a.limit;
+    const bHasLimit = !!b.limit;
+
+    if (aVal.isZero() && bVal.isZero() && aHasLimit && !bHasLimit) {
+      return -1;
+    }
+
+    if (aVal.isZero() && bVal.isZero() && bHasLimit && !aHasLimit) {
+      return 1;
+    }
+
     if (
       aVal.isZero() ||
       aVal.isNaN() ||
@@ -229,9 +251,10 @@ export const {
 });
 
 // swap state
-export const { atom: swapAlertsAtom, use: useSwapAlertsAtom } = contextAtom<
-  ISwapAlertState[]
->([]);
+export const { atom: swapAlertsAtom, use: useSwapAlertsAtom } = contextAtom<{
+  states: ISwapAlertState[];
+  quoteId: string;
+}>({ states: [], quoteId: '' });
 
 export const { atom: rateDifferenceAtom, use: useRateDifferenceAtom } =
   contextAtom<{ value: string; unit: ESwapRateDifferenceUnit } | undefined>(

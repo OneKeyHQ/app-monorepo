@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import { debounce } from 'lodash';
 import { AppState } from 'react-native';
 
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -32,6 +32,7 @@ export type IPromiseResultOptions<T> = {
 
 export type IUsePromiseResultReturn<T> = {
   result: T | undefined;
+  setResult: (value: T | undefined) => void;
   isLoading: boolean | undefined;
   run: (config?: IRunnerConfig) => Promise<void>;
 };
@@ -299,7 +300,7 @@ export function usePromiseResult<T>(
     }
   }, [isFocusedRefValue, resetDefer, resolveDefer]);
 
-  return { result, isLoading, run };
+  return { result, isLoading, run, setResult };
 }
 
 export const useAsyncCall = usePromiseResult;

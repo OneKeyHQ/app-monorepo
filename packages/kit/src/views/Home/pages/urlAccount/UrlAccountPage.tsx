@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -9,16 +9,21 @@ import {
   SizableText,
   Spinner,
   Stack,
-  Toast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { ProviderJotaiContextAccountOverview } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
+import {
+  useAccountSelectorActions,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -56,6 +61,27 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
   routeParamsRef.current = routeParams;
   const routePathRef = useRef(route.path);
   routePathRef.current = route.path;
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+  const isCurrentSelectedAccountNotUrlAccount = useMemo(() => {
+    if (
+      selectedAccount.indexedAccountId &&
+      !selectedAccount?.othersWalletAccountId
+    ) {
+      return true;
+    }
+    if (
+      selectedAccount?.othersWalletAccountId &&
+      !accountUtils.isUrlAccountFn({
+        accountId: selectedAccount?.othersWalletAccountId,
+      })
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    selectedAccount.indexedAccountId,
+    selectedAccount?.othersWalletAccountId,
+  ]);
 
   useEffect(() => {
     if (
@@ -122,12 +148,16 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         hasError = true;
       }
       const prevAccount = getPrevUrlAccount();
+      const urlAccountInDb =
+        await backgroundApiProxy.serviceAccount.getUrlDBAccountSafe();
 
       if (
         networkId &&
         routeAddress &&
-        (routeAddress?.toLowerCase() !== prevAccount?.address?.toLowerCase() ||
-          networkId !== prevAccount?.networkId)
+        (!urlAccountInDb ||
+          routeAddress?.toLowerCase() !== prevAccount?.address?.toLowerCase() ||
+          networkId !== prevAccount?.networkId ||
+          isCurrentSelectedAccountNotUrlAccount)
       ) {
         try {
           const r = await backgroundApiProxy.serviceAccount.addWatchingAccount({
@@ -155,16 +185,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
           }, 600);
         } catch (error) {
           console.error('UrlAccountAutoCreate error: ', error);
-          Toast.error({
-            title: intl.formatMessage(
-              {
-                id: ETranslations.feedback_unsupported_address_or_network,
-              },
-              {
-                routeAddress,
-              },
-            ),
-          });
+          errorUtils.toastIfErrorDisable(error);
           hasError = true;
         }
       }
@@ -178,7 +199,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
           urlAccountNavigation.replaceHomePage(navigation);
           if (routeAddress) {
             await timerUtils.wait(1);
-            urlAccountNavigation.pushUrlAccountPage(navigation, {
+            await urlAccountNavigation.pushUrlAccountPage(navigation, {
               address: routeAddress,
               networkId: networkCode,
             });
@@ -186,7 +207,13 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         }
       }
     }, 0);
-  }, [intl, actions, navigation, redirectMode]);
+  }, [
+    intl,
+    actions,
+    navigation,
+    redirectMode,
+    isCurrentSelectedAccountNotUrlAccount,
+  ]);
 
   const backToHomePage = useCallback(() => {
     urlAccountNavigation.replaceHomePage(navigation);
@@ -230,15 +257,17 @@ export function UrlAccountPageContainer() {
     name: 'URLAccountMount:  UrlAccountPageContainer',
   });
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <UrlAccountAutoCreate />
-    </AccountSelectorProviderMirror>
+    <ProviderJotaiContextAccountOverview>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <UrlAccountAutoCreate />
+      </AccountSelectorProviderMirror>
+    </ProviderJotaiContextAccountOverview>
   );
 }
 
@@ -247,14 +276,16 @@ export function UrlAccountLanding() {
     name: 'URLAccountMount:  UrlAccountLanding',
   });
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <UrlAccountAutoCreate redirectMode />
-    </AccountSelectorProviderMirror>
+    <ProviderJotaiContextAccountOverview>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <UrlAccountAutoCreate redirectMode />
+      </AccountSelectorProviderMirror>
+    </ProviderJotaiContextAccountOverview>
   );
 }

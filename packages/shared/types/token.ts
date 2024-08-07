@@ -6,7 +6,13 @@ export type IToken = {
   logoURI?: string;
   isNative: boolean | undefined;
   riskLevel?: number;
+  uniqueKey?: string;
   sendAddress?: string;
+
+  // for all networks
+  networkId?: string;
+  accountId?: string;
+  allNetworkAccountId?: string;
 };
 
 export type ITokenFiat = {
@@ -24,6 +30,7 @@ export type ITokenFiat = {
 };
 
 export type IAccountToken = { $key: string } & IToken;
+export type ICustomTokenItem = IAccountToken;
 
 export type IFetchAccountTokensParams = {
   accountId: string;
@@ -33,9 +40,12 @@ export type IFetchAccountTokensParams = {
   hideSmallBalanceTokens?: boolean;
   hideRiskTokens?: boolean;
   contractList?: string[];
-  blockedTokens?: string[];
-  unblockedTokens?: string[];
+  hiddenTokens?: string[];
   flag?: string;
+  isAllNetworks?: boolean;
+
+  allNetworksAccountId?: string;
+  allNetworksNetworkId?: string;
 };
 
 export type ITokenData = {
@@ -50,6 +60,9 @@ export type IFetchAccountTokensResp = {
   tokens: ITokenData;
   riskTokens: ITokenData;
   smallBalanceTokens: ITokenData;
+  accountId?: string;
+  networkId?: string;
+  isSameAllNetworksAccountData?: boolean;
 };
 
 export type IFetchTokenDetailParams = {
@@ -58,6 +71,17 @@ export type IFetchTokenDetailParams = {
   contractList: string[];
   withFrozenBalance?: boolean;
   withCheckInscription?: boolean;
+};
+
+export type ISearchTokensParams = {
+  accountId: string;
+  networkId: string;
+  contractList?: string[];
+  keywords?: string;
+};
+
+export type ISearchTokenItem = {
+  info: IToken;
 };
 
 export type IFetchTokenDetailResp = IAccountToken[];
