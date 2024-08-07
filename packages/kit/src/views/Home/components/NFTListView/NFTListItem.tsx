@@ -42,7 +42,6 @@ function BasicNFTListItem(props: IProps) {
         outlineOffset: -2,
       }}
       p="$2.5"
-      px="$5"
       borderRadius="$4"
       onPress={() => {
         onPress?.(nft);
