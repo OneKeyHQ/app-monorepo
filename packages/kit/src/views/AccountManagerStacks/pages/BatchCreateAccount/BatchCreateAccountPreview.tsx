@@ -18,8 +18,10 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Table,
   Toast,
   XStack,
+  YStack,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -496,7 +498,104 @@ function BatchCreateAccountPreviewPage({
     },
     [networkId],
   );
-
+  const columns = useMemo(
+    () => [
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_generate_amount_number,
+        }),
+        titleProps: {
+          size: '$bodyMd',
+          color: '$textDisabled',
+        },
+        columnProps: {
+          flexGrow: 1,
+          flexBasis: 0,
+        },
+        dataIndex: 'checkBox',
+        columnWidth: 22,
+        render: (_: any, account: IBatchCreateAccount) => (
+          <Checkbox
+            disabled={account.existsInDb}
+            // value={checkedState}
+            onChange={(val) => {
+              selectCheckBox({
+                val,
+                accountsToSelect: [account],
+              });
+            }}
+            label={String((account.pathIndex ?? 0) + 1)}
+            labelProps={
+              {
+                size: '$bodyMd',
+                wordWrap: 'break-word', // TODO not working
+              } as any
+            }
+          />
+        ),
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_generate_amount_address,
+        }),
+        titleProps: {
+          size: '$bodyMd',
+          color: '$textDisabled',
+        },
+        align: 'left',
+        dataIndex: 'address',
+        columnProps: {
+          flexGrow: 7,
+          flexBasis: 0,
+        },
+        render: (_: any, account: IBatchCreateAccount) => (
+          <YStack>
+            <SizableText size="$bodyMd">
+              {accountUtils.shortenAddress({
+                address: account.address,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {account.path}
+              {buildRelPathSuffix(account)}
+            </SizableText>
+          </YStack>
+        ),
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.global_generate_amount_balance,
+        }),
+        titleProps: {
+          size: '$bodyMd',
+          color: '$textDisabled',
+        },
+        align: 'right',
+        dataIndex: 'balance',
+        columnProps: {
+          flexGrow: 2,
+          flexBasis: 0,
+        },
+        render: (_: any, account: IBatchCreateAccount) => (
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="balance"
+            formatterOptions={{ tokenSymbol: network?.symbol }}
+          >
+            {balanceMap[buildBalanceMapKey({ account })] ?? '-'}
+          </NumberSizeableText>
+        ),
+      },
+    ],
+    [
+      balanceMap,
+      buildBalanceMapKey,
+      buildRelPathSuffix,
+      intl,
+      network?.symbol,
+      selectCheckBox,
+    ],
+  );
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -507,8 +606,7 @@ function BatchCreateAccountPreviewPage({
         headerRight={headerRight}
       />
       <Page.Body
-        px="$5"
-        // backgroundColor={'#eee'}
+      // backgroundColor={'#eee'}
       >
         <Stack flexDirection="row" py="$2">
           <SizableText
@@ -565,6 +663,7 @@ function BatchCreateAccountPreviewPage({
                 key={account.id}
                 flexDirection="row"
                 alignItems="center"
+                px="$5"
                 py="$1"
               >
                 <Stack w={numWidth} pr="$4">
@@ -609,6 +708,14 @@ function BatchCreateAccountPreviewPage({
             );
           })
         )}
+        <Table
+          rowProps={{
+            gap: '$4',
+            px: '$5',
+          }}
+          dataSource={accounts}
+          columns={columns as any}
+        />
       </Page.Body>
       <Page.Footer>
         <Page.FooterActions
