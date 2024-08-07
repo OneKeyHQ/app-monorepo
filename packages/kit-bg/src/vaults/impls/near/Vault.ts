@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { getAddressFromAccountOrAddress } from 'aptos';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, sortBy } from 'lodash';
 
 import type { IEncodedTxNear } from '@onekeyhq/core/src/chains/near/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -408,7 +408,11 @@ export default class Vault extends VaultBase {
         return action;
       }),
     );
-    return actions;
+
+    return sortBy(
+      actions,
+      (action) => action.type === EDecodedTxActionType.UNKNOWN,
+    );
   }
 
   override async buildUnsignedTx(
