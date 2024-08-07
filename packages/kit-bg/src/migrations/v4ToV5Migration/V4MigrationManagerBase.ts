@@ -1,16 +1,16 @@
 import type { CoreChainScopeBase } from '@onekeyhq/core/src/base/CoreChainScopeBase';
 import { getCoreChainApiScopeByImpl } from '@onekeyhq/core/src/instance/coreChainApi';
 import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
+import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import v4dbHubs from './v4dbHubs';
 import { EV4LocalDBStoreNames } from './v4local/v4localDBStoreNames';
 
-import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
-import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { V4DbHubs } from './v4dbHubs';
 import type { IV4DBAccount, IV4DBWallet } from './v4local/v4localDBTypes';
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 export class V4MigrationManagerBase {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {

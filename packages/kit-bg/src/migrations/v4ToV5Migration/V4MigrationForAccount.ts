@@ -643,9 +643,9 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
               [index]: shouldUseV4AccountName ? v4account.name : '',
             },
           });
-          
+
           // console.log('v4migration indexedAccountsAdded', indexedAccountsAdded);
-          
+
           const indexedAccountIdAdded = indexedAccountsAdded[0]?.id;
           if (indexedAccountIdAdded) {
             const indexedAccount = await serviceAccount.getIndexedAccountSafe({
