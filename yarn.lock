@@ -6097,6 +6097,7 @@ __metadata:
     react: "npm:18.2.0"
     react-dev-utils: "npm:^12.0.1"
     react-dom: "npm:18.2.0"
+    react-mobile-cropper: "npm:^0.10.0"
     react-native: "npm:0.73.7"
     react-native-copy-asset: "npm:^3.0.2"
     react-native-draggable-flatlist: "npm:4.0.1"
@@ -6373,6 +6374,7 @@ __metadata:
     react-native-fs: "npm:^2.20.0"
     react-native-gesture-handler: "npm:2.14.1"
     react-native-get-random-values: "npm:1.9.0"
+    react-native-image-crop-picker: "npm:^0.41.2"
     react-native-keyboard-manager: "npm:^6.5.11-1"
     react-native-level-fs: "npm:^3.0.1"
     react-native-metrix: "npm:^0.6.3"
@@ -13579,6 +13581,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"advanced-cropper@npm:~0.18.0":
+  version: 0.18.0
+  resolution: "advanced-cropper@npm:0.18.0"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  checksum: 10/50695ec94f4ca065cb6d923d6af3c60290ca18f98f868e0597b97875be486634721aecaf9f5f107ef8cf73158265170a472c5d514f02309e89cb37866a54fd70
+  languageName: node
+  linkType: hard
+
 "aes-js@npm:3.0.0":
   version: 3.0.0
   resolution: "aes-js@npm:3.0.0"
@@ -16390,6 +16401,13 @@ __metadata:
   version: 1.1.0
   resolution: "class-is@npm:1.1.0"
   checksum: 10/8147a3e4ce86eb103d78621d665b87e8e33fcb3f54932fdca894b8222820903b43b2f6b4335d8822104702a5dc904c8f187127fdea4e7d48d905488b35c9e6a7
+  languageName: node
+  linkType: hard
+
+"classnames@npm:^2.2.6":
+  version: 2.5.1
+  resolution: "classnames@npm:2.5.1"
+  checksum: 10/58eb394e8817021b153bb6e7d782cfb667e4ab390cb2e9dac2fc7c6b979d1cc2b2a733093955fc5c94aa79ef5c8c89f11ab77780894509be6afbb91dddd79d15
   languageName: node
   linkType: hard
 
@@ -21017,9 +21035,9 @@ __metadata:
   linkType: hard
 
 "fast-loops@npm:^1.1.3":
-  version: 1.1.4
-  resolution: "fast-loops@npm:1.1.4"
-  checksum: 10/52516fc8bb95a60e512271e731c4dc7b7672af90c5e54681004ee2f509d6ccc8e62d5222e731377dafd48a31218f915fd6d0d02efe602b1b822e1ff93994d2a6
+  version: 1.1.3
+  resolution: "fast-loops@npm:1.1.3"
+  checksum: 10/1bf9f102d8ed48a8c8304e2b27fd32afa65d370498db9b49d5762696ac4aa8c55593d505c142c2b7e25ca79f45207c4b25f778afd80f35df98cb2caaaf9609b7
   languageName: node
   linkType: hard
 
@@ -21058,7 +21076,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-xml-parser@npm:^4.0.12, fast-xml-parser@npm:^4.2.4":
+"fast-xml-parser@npm:^4.0.12":
   version: 4.4.1
   resolution: "fast-xml-parser@npm:4.4.1"
   dependencies:
@@ -21066,6 +21084,17 @@ __metadata:
   bin:
     fxparser: src/cli/cli.js
   checksum: 10/0c05ab8703630d8c857fafadbd78d0020d3a8e54310c3842179cd4a0d9d97e96d209ce885e91241f4aa9dd8dfc2fd924a682741a423d65153cad34da2032ec44
+  languageName: node
+  linkType: hard
+
+"fast-xml-parser@npm:^4.2.4":
+  version: 4.3.4
+  resolution: "fast-xml-parser@npm:4.3.4"
+  dependencies:
+    strnum: "npm:^1.0.5"
+  bin:
+    fxparser: src/cli/cli.js
+  checksum: 10/ef859101980cdd02b111fce09e25949a80e373654a6c424091355930f0d364abec144d8bb722d250a0c070416566518e621e198204a6b976db68f20c16d9300b
   languageName: node
   linkType: hard
 
@@ -24116,29 +24145,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jayson@npm:^4.0.0":
-  version: 4.1.1
-  resolution: "jayson@npm:4.1.1"
-  dependencies:
-    "@types/connect": "npm:^3.4.33"
-    "@types/node": "npm:^12.12.54"
-    "@types/ws": "npm:^7.4.4"
-    JSONStream: "npm:^1.3.5"
-    commander: "npm:^2.20.3"
-    delay: "npm:^5.0.0"
-    es6-promisify: "npm:^5.0.0"
-    eyes: "npm:^0.1.8"
-    isomorphic-ws: "npm:^4.0.1"
-    json-stringify-safe: "npm:^5.0.1"
-    uuid: "npm:^8.3.2"
-    ws: "npm:^7.5.10"
-  bin:
-    jayson: bin/jayson.js
-  checksum: 10/8ffd219abbd4fa3231530334b81effe2d079b36b71891d2e1fc8844a487087da290b9d1d80200c63c778113382afb9a3c861f59ea4f901f8ab9831ac2ecfa7e5
-  languageName: node
-  linkType: hard
-
-"jayson@npm:^4.1.0":
+"jayson@npm:^4.0.0, jayson@npm:^4.1.0":
   version: 4.1.0
   resolution: "jayson@npm:4.1.0"
   dependencies:
@@ -29576,6 +29583,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-advanced-cropper@npm:~0.19.3":
+  version: 0.19.6
+  resolution: "react-advanced-cropper@npm:0.19.6"
+  dependencies:
+    advanced-cropper: "npm:~0.18.0"
+    classnames: "npm:^2.2.6"
+    tslib: "npm:^2.4.0"
+  peerDependencies:
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0
+  checksum: 10/c5ff896618ea9fb2e8b778f5fd46f6b18f52f27b3fcb5e7c2307fa105c1a3e2f7b3425442b3919b57589c516651c5dc845b06ce9f9ca7b3f0b5456c3637ab4e6
+  languageName: node
+  linkType: hard
+
 "react-async-hook@npm:^4.0.0":
   version: 4.0.0
   resolution: "react-async-hook@npm:4.0.0"
@@ -29757,6 +29777,19 @@ __metadata:
   version: 17.0.2
   resolution: "react-is@npm:17.0.2"
   checksum: 10/73b36281e58eeb27c9cc6031301b6ae19ecdc9f18ae2d518bdb39b0ac564e65c5779405d623f1df9abf378a13858b79442480244bd579968afc1faf9a2ce5e05
+  languageName: node
+  linkType: hard
+
+"react-mobile-cropper@npm:^0.10.0":
+  version: 0.10.0
+  resolution: "react-mobile-cropper@npm:0.10.0"
+  dependencies:
+    classnames: "npm:^2.2.6"
+    react-advanced-cropper: "npm:~0.19.3"
+    tslib: "npm:^2.4.0"
+  peerDependencies:
+    react: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
+  checksum: 10/70b8948da1e94f0765df5b3335cb85c2d61fd488c12b975b1e388c0b0575d66b470aa7f329f14639e5a12d0d39e0185373b292608ea1c82a5009a69695473765
   languageName: node
   linkType: hard
 
@@ -29969,6 +30002,15 @@ __metadata:
   peerDependencies:
     react-native: ">=0.56"
   checksum: 10/8af3ee2de0b1f811088fb068e1caddb5ea0dd31c7f8f411854d95758b19c7380d4153e8ba6879e971a76fa84c0b5f933aad5342fc023fda3bc9b2e974e039505
+  languageName: node
+  linkType: hard
+
+"react-native-image-crop-picker@npm:^0.41.2":
+  version: 0.41.2
+  resolution: "react-native-image-crop-picker@npm:0.41.2"
+  peerDependencies:
+    react-native: ">=0.40.0"
+  checksum: 10/1d82f299450b3ccae0af45aa509cf647ee385c78d392cdbbf40f280804b3a5fd997f39e13e8d5a4537ad566d129107daf63b8b68ca23df0b05bd3e514cc074c7
   languageName: node
   linkType: hard
 
@@ -36147,21 +36189,6 @@ __metadata:
     utf-8-validate:
       optional: true
   checksum: 10/171e35012934bd8788150a7f46f963e50bac43a4dc524ee714c20f258693ac4d3ba2abadb00838fdac42a47af9e958c7ae7e6f4bc56db047ba897b8a2268cf7c
-  languageName: node
-  linkType: hard
-
-"ws@npm:^7.5.10":
-  version: 7.5.10
-  resolution: "ws@npm:7.5.10"
-  peerDependencies:
-    bufferutil: ^4.0.1
-    utf-8-validate: ^5.0.2
-  peerDependenciesMeta:
-    bufferutil:
-      optional: true
-    utf-8-validate:
-      optional: true
-  checksum: 10/9c796b84ba80ffc2c2adcdfc9c8e9a219ba99caa435c9a8d45f9ac593bba325563b3f83edc5eb067cc6d21b9a6bf2c930adf76dd40af5f58a5ca6859e81858f0
   languageName: node
   linkType: hard
 
