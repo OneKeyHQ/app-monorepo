@@ -210,3 +210,5 @@ export type IOpenPickerFunc = <T extends IPickerImageOptions>(
 ) => Promise<PossibleArray<T, Image>>;
 
 export type IPickerImage = Image;
+
+export const RESULT_MINE_TYPE = 'image/jpeg';
