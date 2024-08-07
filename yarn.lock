@@ -6002,7 +6002,6 @@ __metadata:
     "@polkadot/extension-inject": "npm:0.46.6"
     "@polkadot/types": "npm:11.3.1"
     "@polkadot/util-crypto": "npm:12.6.2"
-    "@pqina/pintura": "npm:^8.82.12"
     "@sentry/babel-plugin-component-annotate": "npm:^2.21.1"
     "@substrate/txwrapper-polkadot": "npm:7.5.1"
     "@tamagui/animations-moti": "npm:1.108.0"
@@ -7643,13 +7642,6 @@ __metadata:
     tslib: "npm:^2.6.2"
     ws: "npm:^8.15.1"
   checksum: 10/de987c0a9d5df7d9eb17d96fd47afb2417eb85b7126e4e11bc4fe7dc908b54307390a1e3da61d251cd5f1f6edd054712f018bdc695ce946e0267806d1f050119
-  languageName: node
-  linkType: hard
-
-"@pqina/pintura@npm:^8.82.12":
-  version: 8.82.18
-  resolution: "@pqina/pintura@npm:8.82.18"
-  checksum: 10/db7d0101e405c99dd6558126397e9be323a0c1fb574291c1d89bd963e52075fe8065d82b28716db02d4f7d5126a53c870e9408a1fe44687c34d481be41253500
   languageName: node
   linkType: hard
 
