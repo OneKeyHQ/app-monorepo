@@ -1,17 +1,15 @@
 /* eslint-disable spellcheck/spell-checker */
 /* eslint-disable camelcase */
-import { type ChangeEvent, useCallback, useRef, useState } from 'react';
+import { type ChangeEvent, useCallback, useRef } from 'react';
 
 import { Cropper } from 'react-mobile-cropper';
 import 'react-mobile-cropper/dist/style.css';
 import { withStaticProperties } from 'tamagui';
 
-import { Portal } from '../../hocs';
-import { Stack } from '../../primitives';
 import { Dialog } from '../Dialog';
 
 import type { IOpenPickerFunc, IPickerImage } from './type';
-import type { CropperProps, CropperRef } from 'react-mobile-cropper';
+import type { CropperRef } from 'react-mobile-cropper';
 
 const MINE_TYPE = 'image/jpeg';
 function BasicImageCrop({
