@@ -950,7 +950,7 @@ const iotex: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': 'https://uni.onekey-asset.com/static/logo/iotex.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/iotex.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
