@@ -1,4 +1,4 @@
-import { assign, isEmpty, isNil, uniqBy } from 'lodash';
+import { assign, isEmpty, isNil, merge, uniqBy } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -258,6 +258,37 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
   }
 
   @backgroundMethod()
+  public async getAccountsLocalHistoryPendingTxs(
+    params: {
+      networkId: string;
+      accountAddress: string;
+      xpub?: string;
+      tokenIdOnNetwork?: string;
+    }[],
+  ) {
+    params.forEach(({ accountAddress, xpub }) => {
+      if (!accountAddress && !xpub) {
+        throw new OneKeyInternalError('accountAddress or xpub is required');
+      }
+    });
+
+    const pendingTxs = (await this.getRawData())?.pendingTxs;
+
+    let accountsPendingTxs = params.flatMap(
+      ({ networkId, accountAddress, xpub }) => {
+        const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+        return pendingTxs?.[key] ?? [];
+      },
+    );
+
+    accountsPendingTxs = this._arrangeLocalTxs({
+      txs: accountsPendingTxs,
+    });
+
+    return accountsPendingTxs;
+  }
+
+  @backgroundMethod()
   public async getAccountLocalHistoryPendingTxs(params: {
     networkId: string;
     accountAddress: string;
@@ -306,6 +337,37 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     });
 
     return accountConfirmedTxs;
+  }
+
+  @backgroundMethod()
+  public async getAccountsLocalHistoryConfirmedTxs(
+    params: {
+      networkId: string;
+      accountAddress?: string;
+      xpub?: string;
+      tokenIdOnNetwork?: string;
+    }[],
+  ) {
+    params.forEach(({ accountAddress, xpub }) => {
+      if (!accountAddress && !xpub) {
+        throw new OneKeyInternalError('accountAddress or xpub is required');
+      }
+    });
+
+    const confirmedTxs = (await this.getRawData())?.confirmedTxs;
+
+    let accountsConfirmedTxs = params.flatMap(
+      ({ networkId, accountAddress, xpub }) => {
+        const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+        return confirmedTxs?.[key] ?? [];
+      },
+    );
+
+    accountsConfirmedTxs = this._arrangeLocalTxs({
+      txs: accountsConfirmedTxs,
+    });
+
+    return accountsConfirmedTxs;
   }
 
   @backgroundMethod()
