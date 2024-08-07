@@ -997,7 +997,7 @@
   "manage_token.custom_token_symbol": "Symbole",
   "manage_token.custom_token_title": "Jeton personnalisé",
   "manage_token.empty_msg": "Vous ne trouvez pas le jeton ? Essayez de cliquer sur le bouton ci-dessous pour ajouter",
-  "manage_token.popular_token": "Token populaire",
+  "manage_token.popular_token": "Token commun",
   "manage_token.title": "Gérer le jeton",
   "manger_token.custom_token_address_required": "Adresse du contrat requise.",
   "manual_backup": "Sauvegarde manuelle",

@@ -186,6 +186,7 @@ export type IDBSetAccountNameParams = {
   indexedAccountId?: string;
   name: string;
   shouldCheckDuplicate?: boolean;
+  skipEventEmit?: boolean;
 };
 export type IDBGetWalletsParams = {
   nestedHiddenWallets?: boolean | undefined;

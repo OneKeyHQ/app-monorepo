@@ -12,6 +12,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { Advance } from './Advance';
 import { BatchCreateAccountButton } from './BatchCreateAccountButton';
+import { CheckFirmwareUpdateButton } from './CheckFirmwareUpdateButton';
+import { HardwareLabelSetButton } from './HardwareLabelSetButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
 import { Verification } from './Verification';
@@ -37,12 +39,14 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
 
       return (
         <>
+          <CheckFirmwareUpdateButton device={device} />
           <Verification device={device} />
           {/* Homescreen unsupprted yet */}
           {/* <HomeScreen /> */}
           <Advance wallet={wallet} />
           <BatchCreateAccountButton wallet={wallet} />
           <HiddenWalletAddButton wallet={wallet} />
+          <HardwareLabelSetButton wallet={wallet} />
         </>
       );
     }
@@ -54,6 +58,16 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
           <BatchCreateAccountButton wallet={wallet} />
         </>
       );
+    }
+
+    if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
+      if (accountUtils.isHwHiddenWallet({ wallet })) {
+        return (
+          <>
+            <HiddenWalletRememberSwitch wallet={wallet} key={wallet?.id} />
+          </>
+        );
+      }
     }
 
     return null;

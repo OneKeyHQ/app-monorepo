@@ -997,7 +997,7 @@
   "manage_token.custom_token_symbol": "Simbol",
   "manage_token.custom_token_title": "Token kustom",
   "manage_token.empty_msg": "Tidak dapat menemukan token? Coba klik tombol di bawah ini untuk menambahkan",
-  "manage_token.popular_token": "Token populer",
+  "manage_token.popular_token": "Token umum",
   "manage_token.title": "Kelola token",
   "manger_token.custom_token_address_required": "Alamat kontrak diperlukan.",
   "manual_backup": "Cadangan manual",

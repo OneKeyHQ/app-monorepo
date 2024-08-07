@@ -997,7 +997,7 @@
   "manage_token.custom_token_symbol": "প্রতীক",
   "manage_token.custom_token_title": "কাস্টম টোকেন",
   "manage_token.empty_msg": "টোকেনটি খুঁজে পাচ্ছেন না? যোগ করার জন্য নিচের বোতামটি ক্লিক করার চেষ্টা করুন",
-  "manage_token.popular_token": "জনপ্রিয় টোকেন",
+  "manage_token.popular_token": "সাধারণ টোকেন",
   "manage_token.title": "টোকেন পরিচালনা করুন",
   "manger_token.custom_token_address_required": "চুক্তির ঠিকানা প্রয়োজন।",
   "manual_backup": "ম্যানুয়াল ব্যাকআপ",
