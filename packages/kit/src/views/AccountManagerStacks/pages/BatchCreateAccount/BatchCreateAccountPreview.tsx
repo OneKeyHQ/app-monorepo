@@ -48,6 +48,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList,
@@ -659,7 +660,7 @@ function BatchCreateAccountPreviewPage({
         <Table
           onRow={onRow}
           rowProps={{
-            gap: '$4',
+            gap: platformEnv.isNative ? '$8' : '$4',
             px: '$5',
           }}
           dataSource={isLoading ? [] : accounts}
