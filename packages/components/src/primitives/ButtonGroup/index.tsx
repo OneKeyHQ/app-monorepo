@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 
 import { ToggleGroup } from 'tamagui';
 
+import type { IStackStyle } from '../Stack';
 import type { ToggleGroupSingleProps } from 'tamagui';
 
 export interface IButtonGroup {
@@ -10,6 +11,7 @@ export interface IButtonGroup {
   items: {
     onPress?: () => void;
     element: JSX.Element;
+    containerProps?: IStackStyle;
   }[];
 }
 
@@ -21,7 +23,7 @@ export function ButtonGroup({
   const prevValue = useRef<undefined | string>();
   const handleValueChange = useCallback(
     // Bug:
-    // clicking the same button twice consecutively will result in the value becoming an empty string 
+    // clicking the same button twice consecutively will result in the value becoming an empty string
     //  on the native platform.
     (value: string) => {
       if (disabled) {
@@ -43,7 +45,7 @@ export function ButtonGroup({
       bg="$bgStrong"
       onValueChange={handleValueChange}
     >
-      {items.map(({ element }, index) => (
+      {items.map(({ element, containerProps }, index) => (
         <ToggleGroup.Item
           borderLeftWidth={index > 0 ? 0 : undefined}
           minWidth={42}
@@ -58,6 +60,7 @@ export function ButtonGroup({
           }}
           value={String(index)}
           key={index}
+          {...containerProps}
         >
           {element}
         </ToggleGroup.Item>
