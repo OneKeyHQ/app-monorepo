@@ -7,7 +7,6 @@ import { PinturaEditorModal } from '@pqina/react-pintura';
 import { withStaticProperties } from 'tamagui';
 
 import { Portal } from '../../hocs';
-import { Stack } from '../../primitives';
 
 import '@pqina/pintura/pintura.css';
 
@@ -57,7 +56,7 @@ const openPicker: IOpenPickerFunc = () =>
           if (imageSrc) {
             Portal.Render(
               Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-              <BasicImageCrop src={imageSrc} onConfirm={resolve} />,
+              <BasicImageCrop src={imageSrc} onConfirm={resolve as any} />,
             );
           }
         });
