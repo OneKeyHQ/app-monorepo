@@ -26,6 +26,7 @@ export const TabComponent = (
     onSelectedPageIndex,
     tabContentContainerStyle,
     style,
+    onRefresh: onRefreshCallBack,
   }: ITabProps,
   // fix missing forwardRef warnings.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -46,7 +47,8 @@ export const TabComponent = (
     stickyConfig.data[
       lastIndex.current
     ].refreshingFocusedRef.current?.setIsRefreshing(true, true);
-  }, [stickyConfig.data, lastIndex]);
+    onRefreshCallBack?.();
+  }, [stickyConfig.data, onRefreshCallBack]);
   const onPageChange = useCallback(
     ({ nativeEvent: { index } }: { nativeEvent: { index: number } }) => {
       stickyConfig.data.forEach((_item, _index) => {
