@@ -20,6 +20,9 @@ export function ButtonGroup({
 }: IButtonGroup) {
   const prevValue = useRef<undefined | string>();
   const handleValueChange = useCallback(
+    // Bug:
+    // clicking the same button twice consecutively will result in the value becoming an empty string 
+    //  on the native platform.
     (value: string) => {
       if (disabled) {
         return;
@@ -53,7 +56,6 @@ export function ButtonGroup({
             borderLeftWidth: index > 0 ? 0 : undefined,
             borderColor: '$borderColor',
           }}
-          style={{ 'appearance': 'none' }}
           value={String(index)}
           key={index}
         >
