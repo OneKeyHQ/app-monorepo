@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Icon,
@@ -15,6 +15,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -148,6 +149,32 @@ function HomeOverviewContainer() {
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
   }, [isRefreshingWorth]);
 
+  const isLoading =
+    isRefreshingWorth ||
+    isRefreshingTokenList ||
+    isRefreshingNftList ||
+    isRefreshingHistoryList;
+
+  const refreshButton = useMemo(() => {
+    if (platformEnv.isNative) {
+      return isLoading ? (
+        <IconButton
+          icon="RefreshCcwOutline"
+          variant="tertiary"
+          loading={isLoading}
+        />
+      ) : undefined;
+    }
+    return platformEnv.isNative ? undefined : (
+      <IconButton
+        icon="RefreshCcwOutline"
+        variant="tertiary"
+        loading={isLoading}
+        onPress={handleRefreshWorth}
+      />
+    );
+  }, [handleRefreshWorth, isLoading]);
+
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
       <Stack py="$2.5">
@@ -233,17 +260,7 @@ function HomeOverviewContainer() {
       ) : (
         basicTextElement
       )}
-      <IconButton
-        icon="RefreshCcwOutline"
-        variant="tertiary"
-        loading={
-          isRefreshingWorth ||
-          isRefreshingTokenList ||
-          isRefreshingNftList ||
-          isRefreshingHistoryList
-        }
-        onPress={handleRefreshWorth}
-      />
+      {refreshButton}
     </XStack>
   );
 }
