@@ -110,7 +110,10 @@ function SendDataInputContainer() {
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
-  const sendConfirm = useSendConfirm({ accountId, networkId });
+  const sendConfirm = useSendConfirm({
+    accountId: currentAccount.accountId,
+    networkId: currentAccount.networkId,
+  });
 
   const isSelectTokenDisabled = allTokens.tokens.length <= 1;
 
@@ -571,11 +574,12 @@ function SendDataInputContainer() {
       try {
         const toRaw = form.getValues('to').raw;
         await backgroundApiProxy.serviceValidator.validateSendAmount({
-          accountId,
-          networkId,
+          accountId: currentAccount.accountId,
+          networkId: currentAccount.networkId,
           amount: amountBN.toString(),
           tokenBalance: tokenDetails?.balanceParsed ?? '0',
           to: toRaw ?? '',
+          isNative: tokenDetails?.info.isNative,
         });
       } catch (e) {
         console.log('error: ', e);
@@ -596,20 +600,20 @@ function SendDataInputContainer() {
       return true;
     },
     [
+      isUseFiat,
+      intl,
+      tokenSymbol,
+      tokenMinAmount,
+      vaultSettings?.minTransferAmount,
+      vaultSettings?.transferZeroNativeTokenEnabled,
       isNFT,
       tokenDetails?.info.isNative,
       tokenDetails?.fiatValue,
       tokenDetails?.price,
       tokenDetails?.balanceParsed,
-      vaultSettings?.transferZeroNativeTokenEnabled,
-      vaultSettings?.minTransferAmount,
-      isUseFiat,
-      intl,
-      tokenSymbol,
-      tokenMinAmount,
       form,
-      accountId,
-      networkId,
+      currentAccount.accountId,
+      currentAccount.networkId,
     ],
   );
 
