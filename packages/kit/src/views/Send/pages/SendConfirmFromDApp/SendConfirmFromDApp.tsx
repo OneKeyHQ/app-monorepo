@@ -13,6 +13,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
@@ -136,6 +137,20 @@ function SendConfirmFromDApp() {
         } else {
           pendingAction.current = action;
         }
+      }
+      if ($sourceInfo) {
+        defaultLogger.discovery.dapp.dappUse({
+          dappName: $sourceInfo.hostname,
+          dappDomain: $sourceInfo.origin,
+          isConnectWallet: false,
+          isSendTxn: true,
+          walletAddress: (
+            await backgroundApiProxy.serviceAccount.getAccount({
+              accountId,
+              networkId,
+            })
+          ).address,
+        });
       }
     };
 
