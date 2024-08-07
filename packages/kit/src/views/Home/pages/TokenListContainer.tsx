@@ -724,7 +724,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
   const handleRefreshAllNetworkData = useCallback(() => {
     refreshAllNetworksTokenList.current = true;
-    void runAllNetworksRequests();
+    void runAllNetworksRequests({ alwaysSetState: true });
   }, [runAllNetworksRequests]);
 
   usePromiseResult(
