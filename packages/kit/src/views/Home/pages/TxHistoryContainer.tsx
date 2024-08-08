@@ -110,6 +110,9 @@ function TxHistoryListContainer(props: ITabPageProps) {
         accountId: account.id,
         networkId: network.id,
       });
+      if (r.pendingTxsUpdated) {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      }
     },
     [account, network, setIsHeaderRefreshing],
     {

@@ -337,6 +337,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     amount: string;
     tokenBalance: string;
     to: string;
+    isNative?: boolean;
   }) {
     return Promise.resolve(true);
   }

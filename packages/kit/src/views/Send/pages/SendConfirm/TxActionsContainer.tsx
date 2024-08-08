@@ -110,6 +110,7 @@ function TxActionsContainer(props: IProps) {
         const amountToUpdate = transferAmountBN.minus(
           feeBN.times(vaultSettings?.maxSendFeeUpRatio?.[networkId] ?? 1),
         );
+
         if (amountToUpdate.gte(0)) {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: true,

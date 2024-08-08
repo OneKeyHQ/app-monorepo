@@ -29,4 +29,5 @@ export enum EAtomNames {
   accountIsAutoCreatingAtom = 'accountIsAutoCreatingAtom',
   accountManualCreatingAtom = 'accountManualCreatingAtom',
   galleryPersistAtom = 'galleryPersistAtom',
+  activeAccountValueAtom = 'activeAccountValueAtom',
 }

@@ -495,7 +495,7 @@ export default class Vault extends VaultBase {
       .encode(['address', 'uint256'], [spender, amountHex])
       .slice(2)}`;
     return {
-      from: owner.toLowerCase(),
+      from: owner,
       to: tokenInfo.address,
       value: '0x0',
       data,
@@ -713,21 +713,21 @@ export default class Vault extends VaultBase {
   }) {
     const { encodedTx, token, txDesc } = params;
 
-    let from = encodedTx.from.toLowerCase();
-    let recipient = encodedTx.to.toLowerCase();
+    let from = encodedTx.from;
+    let recipient = encodedTx.to;
     let value = ethers.BigNumber.from(0);
 
     // Function:  transfer(address _to, uint256 _value)
     if (txDesc?.name === EErc20TxDescriptionName.Transfer) {
-      from = encodedTx.from.toLowerCase();
-      recipient = (txDesc.args[0] as string).toLowerCase();
+      from = encodedTx.from;
+      recipient = txDesc.args[0] as string;
       value = txDesc.args[1] as ethers.BigNumber;
     }
 
     // Function:  transferFrom(address from, address to, uint256 value)
     if (txDesc?.name === EErc20TxDescriptionName.TransferFrom) {
-      from = (txDesc?.args[0] as string).toLowerCase();
-      recipient = (txDesc?.args[1] as string).toLowerCase();
+      from = txDesc?.args[0] as string;
+      recipient = txDesc?.args[1] as string;
       value = txDesc?.args[2] as ethers.BigNumber;
     }
 
@@ -762,7 +762,7 @@ export default class Vault extends VaultBase {
     token: IToken;
   }): Promise<IDecodedTxAction> {
     const { encodedTx, txDesc, token } = params;
-    const spender = (txDesc?.args[0] as string).toLowerCase();
+    const spender = txDesc?.args[0] as string;
     const value = txDesc?.args[1] as ethers.BigNumber;
     const amount = formatValue(value, token.decimals);
     const accountAddress = await this.getAccountAddress();

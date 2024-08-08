@@ -220,6 +220,7 @@ export type IVaultSettings = {
   activateTokenRequired?: boolean;
   customRpcEnabled?: boolean;
   mergeDeriveAssetsEnabled?: boolean;
+  sendZeroWithZeroTokenBalanceDisabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {

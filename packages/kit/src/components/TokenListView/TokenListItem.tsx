@@ -42,10 +42,6 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       onPress={() => {
         onPress?.(token);
       }}
-      // {...(tableLayout &&
-      //   index % 2 === 1 && {
-      //     bg: '$bgSubdued',
-      //   })}
       {...rest}
     >
       <TokenIconView
@@ -57,43 +53,37 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       <Stack
         flexGrow={1}
         flexBasis={0}
+        minWidth={96}
         {...(tableLayout && {
           flexDirection: 'row',
         })}
       >
-        <XStack
+        <TokenNameView
+          name={isTokenSelectorLayout ? token.symbol : token.name}
+          isNative={token.isNative}
+          isAllNetworks={isAllNetworks}
+          networkId={token.networkId}
+          withNetwork={withNetwork}
+          textProps={{
+            size: '$bodyLgMedium',
+            flexShrink: 0,
+          }}
           {...(tableLayout && {
             flexGrow: 1,
             flexBasis: 0,
-          })}
-        >
-          <TokenNameView
-            size="$bodyLgMedium"
-            minWidth={0}
-            numberOfLines={1}
-            name={isTokenSelectorLayout ? token.symbol : token.name}
-            isNative={token.isNative}
-            isAllNetworks={isAllNetworks}
-            networkId={token.networkId}
-            withNetwork={withNetwork}
-            {...(tableLayout && {
+            textProps: {
               size: '$bodyMdMedium',
-            })}
-          />
-        </XStack>
+            },
+          })}
+        />
         {isTokenSelectorLayout ? (
           <TokenNameView
-            size="$bodyMd"
-            color="$textSubdued"
-            minWidth={0}
-            numberOfLines={1}
             name={token.name}
             networkId={token.networkId}
-            {...(tableLayout && {
-              flexGrow: 1,
-              flexBasis: 0,
-              color: '$text',
-            })}
+            textProps={{
+              size: '$bodyMd',
+              color: '$textSubdued',
+            }}
           />
         ) : (
           <TokenBalanceView
@@ -114,6 +104,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       <Stack
         flexDirection={isTokenSelectorLayout ? 'column' : 'column-reverse'}
         alignItems="flex-end"
+        flexShrink={1}
         {...(tableLayout && {
           flexDirection: 'row',
           flexGrow: 1,
@@ -149,12 +140,12 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             {...(tableLayout && {
               flexGrow: 1,
               flexBasis: 0,
-              color: '$text',
             })}
           />
         ) : null}
         {isTokenSelectorLayout ? (
           <TokenValueView
+            numberOfLines={1}
             $key={token.$key ?? ''}
             size="$bodyMd"
             color="$textSubdued"
@@ -167,6 +158,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
           />
         ) : (
           <TokenValueView
+            numberOfLines={1}
             $key={token.$key ?? ''}
             size="$bodyLgMedium"
             textAlign="right"
