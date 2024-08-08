@@ -451,7 +451,7 @@ class ProviderApiAptos extends ProviderApiBase {
       params.description,
       params.supply,
       params.uri,
-      BigInt(params.max ?? 9007199254740991),
+      BigInt(params.max ?? 9_007_199_254_740_991),
       params.royalty_payee_address,
       params.royalty_points_denominator,
       params.royalty_points_numerator,

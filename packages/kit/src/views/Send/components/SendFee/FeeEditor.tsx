@@ -78,10 +78,10 @@ type IProps = {
   replaceTxOriginalFeeInfo?: IFeeInfoUnit;
 };
 
-const DEFAULT_GAS_LIMIT_MIN = 21000;
-const DEFAULT_GAS_LIMIT_MAX = 15000000;
+const DEFAULT_GAS_LIMIT_MIN = 21_000;
+const DEFAULT_GAS_LIMIT_MAX = 15_000_000;
 const DEFAULT_FEER_ATE_MIN = 0;
-const DEFAULT_FEE_RATE_MAX = 1000000; // shared cross multi-networks
+const DEFAULT_FEE_RATE_MAX = 1_000_000; // shared cross multi-networks
 
 const getPresetIndex = (
   sendSelectedFee: IProps['sendSelectedFee'],

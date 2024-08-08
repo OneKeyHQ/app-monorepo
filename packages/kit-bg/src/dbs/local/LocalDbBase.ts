@@ -109,19 +109,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         avatar: {
           img: 'othersImported',
         },
-        walletNo: 100_000_1,
+        walletNo: 1_000_001,
       },
       [WALLET_TYPE_WATCHING]: {
         avatar: {
           img: 'othersWatching',
         },
-        walletNo: 100_000_2,
+        walletNo: 1_000_002,
       },
       [WALLET_TYPE_EXTERNAL]: {
         avatar: {
           img: 'othersExternal',
         },
-        walletNo: 100_000_3,
+        walletNo: 1_000_003,
       },
     };
     const record: IDBWallet = {
@@ -599,7 +599,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (parentWallet) {
         wallet.walletOrder =
           (parentWallet.walletOrderSaved ?? parentWallet.walletNo) +
-          (wallet.walletOrderSaved ?? wallet.walletNo) / 1000000;
+          (wallet.walletOrderSaved ?? wallet.walletNo) / 1_000_000;
       }
     }
 
