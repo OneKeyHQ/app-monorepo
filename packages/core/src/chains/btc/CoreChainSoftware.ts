@@ -180,7 +180,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     return address;
   }
 
-  protected getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
+  public getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
     return new Psbt({ network });
   }
 

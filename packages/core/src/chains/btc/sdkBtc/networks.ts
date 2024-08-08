@@ -68,6 +68,7 @@ const bch: IBtcForkNetwork = {
   scriptHash: 0x05,
   wif: 0x80,
   forkId: 0x00,
+  maximumFeeRate: 10_000, // bch
 };
 
 const doge: IBtcForkNetwork = {
@@ -80,6 +81,7 @@ const doge: IBtcForkNetwork = {
   pubKeyHash: 0x1e,
   scriptHash: 0x16,
   wif: 0x9e,
+  maximumFeeRate: 1_000_000, // doge
 };
 
 const ltc: IBtcForkNetwork = {
@@ -176,6 +178,7 @@ const neurai: IBtcForkNetwork = {
   pubKeyHash: 0x35,
   scriptHash: 0x75,
   wif: 0x80,
+  maximumFeeRate: 1_000_000, // neurai
 };
 
 const extendedNetworks: Record<string, IBtcForkNetwork> = {
