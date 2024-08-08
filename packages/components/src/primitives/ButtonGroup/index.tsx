@@ -15,6 +15,11 @@ export interface IButtonGroup {
   }[];
 }
 
+const ACTIVE_STYLE = {
+  bg: '$bgStrongActive',
+  borderWidth: 0,
+  borderColor: '$borderColor',
+};
 export function ButtonGroup({
   disabled,
   orientation = 'horizontal',
@@ -51,21 +56,9 @@ export function ButtonGroup({
           minWidth={42}
           height={38}
           bg="$bgStrong"
-          hoverStyle={{
-            bg: '$bgStrongActive',
-            borderWidth: 0,
-            borderColor: '$borderColor',
-          }}
-          pressStyle={{
-            bg: '$bgStrongActive',
-            borderWidth: 0,
-            borderColor: '$borderColor',
-          }}
-          focusStyle={{
-            bg: '$bgStrongActive',
-            borderWidth: 0,
-            borderColor: '$borderColor',
-          }}
+          hoverStyle={ACTIVE_STYLE}
+          pressStyle={ACTIVE_STYLE}
+          focusStyle={ACTIVE_STYLE}
           value={String(index)}
           key={index}
           {...containerProps}
