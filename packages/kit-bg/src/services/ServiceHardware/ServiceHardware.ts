@@ -739,19 +739,25 @@ class ServiceHardware extends ServiceBase {
   async setDeviceLabel(p: ISetDeviceLabelParams) {
     const result = await this.deviceSettingsManager.setDeviceLabel(p);
     if (result.message) {
-      const device = await localDb.getWalletDevice({ walletId: p.walletId });
-      // update db features label
-      await localDb.updateDeviceFeaturesLabel({
-        dbDeviceId: device.id,
-        label: p.label,
-      });
-      // update db wallet name
-      appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
         walletId: p.walletId,
-        dbDeviceId: device.id,
-        label: p.label,
-        walletName: undefined,
       });
+      const walletName = wallet?.name;
+      const dbDeviceId = wallet?.associatedDevice;
+      if (dbDeviceId) {
+        // update db features label
+        await localDb.updateDeviceFeaturesLabel({
+          dbDeviceId,
+          label: p.label,
+        });
+        // update db wallet name
+        appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
+          walletId: p.walletId,
+          dbDeviceId,
+          label: p.label,
+          walletName,
+        });
+      }
     }
     return result;
   }
