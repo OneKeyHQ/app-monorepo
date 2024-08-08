@@ -75,7 +75,7 @@ const HeaderComponent = (
     {
       ...(props.data.length > 0
         ? {
-            h: '$11',
+            h: 52,
             bg: '$bgApp',
             borderBottomColor: '$borderSubdued',
             borderBottomWidth: StyleSheet.hairlineWidth,
