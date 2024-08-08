@@ -4,13 +4,7 @@ import '@onekeyhq/shared/src/polyfills';
 // eslint-disable-next-line import/order
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-// eslint-disable-next-line import/order
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-
-import { startSidePanelPolling } from '../background/sidePanel';
+import { setupSidePanelPortInUI } from '../background/sidePanel';
 import hotReload from '../ui/hotReload';
 import uiJsBridge from '../ui/uiJsBridge';
 
@@ -29,13 +23,7 @@ function init() {
   // resizeEventOptimize();
 
   if (platformEnv.isExtensionUiSidePanel) {
-    const port = startSidePanelPolling();
-    appEventBus.on(EAppEventBusNames.SendRejectIdInSidePanel, (rejectId) => {
-      port.postMessage({
-        type: 'rejectId',
-        payload: rejectId,
-      });
-    });
+    setupSidePanelPortInUI();
   }
 
   global.$$onekeyPerfTrace?.log({

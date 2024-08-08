@@ -3,6 +3,8 @@ import { isNil } from 'lodash';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
+import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 export const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
@@ -180,10 +182,9 @@ async function openSidePanel(
 ): Promise<chrome.tabs.Tab | undefined> {
   if (typeof chrome !== 'undefined' && chrome.sidePanel) {
     if (platformEnv.isExtensionBackground) {
-      if (sidePanelState.isOpen && sidePanelState.port) {
-        sidePanelState.port.postMessage({
-          action: 'router',
-          params: routeInfo?.modalParams,
+      if (sidePanelState.isOpen) {
+        appEventBus.emit(EAppEventBusNames.SidePanel_BG2UI_PushModal, {
+          modalParams: routeInfo?.modalParams,
         });
       } else {
         throw new Error('The sidePanel cannot be opened in the bg thread.');

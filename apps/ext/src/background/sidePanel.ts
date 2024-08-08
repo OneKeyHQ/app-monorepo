@@ -1,16 +1,18 @@
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 const PORT_NAME = 'ONEKEY_SIDE_PANEL';
-export const setupSidePanelPolling = () => {
+export const setupSidePanelPortInBg = () => {
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name === PORT_NAME) {
       sidePanelState.isOpen = true;
-      sidePanelState.port = port;
 
       let rejectId: string | number | undefined;
       const closeSidePanel = () => {
         sidePanelState.isOpen = false;
-        sidePanelState.port = undefined;
         if (rejectId) {
           const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -44,15 +46,28 @@ export const setupSidePanelPolling = () => {
       port.onDisconnect.addListener(() => {
         closeSidePanel();
       });
+
+      appEventBus.on(
+        EAppEventBusNames.SidePanel_BG2UI_PushModal,
+        (params: any) => {
+          port.postMessage({
+            type: 'router',
+            params: {
+              screen: 'Modal',
+              params,
+            },
+          });
+        },
+      );
     }
   });
 };
 
-export const startSidePanelPolling = () => {
+export const setupSidePanelPortInUI = () => {
   const port = chrome.runtime.connect({ name: PORT_NAME });
   port.onMessage.addListener(
-    (event: { action: 'router'; params: Record<string, any> }) => {
-      switch (event.action) {
+    (event: { type: 'router'; params: Record<string, any> }) => {
+      switch (event.type) {
         case 'router':
           {
             const { screen, params } = event.params as {
@@ -67,5 +82,11 @@ export const startSidePanelPolling = () => {
       }
     },
   );
-  return port;
+
+  appEventBus.on(EAppEventBusNames.SidePanel_UI2Bg_DappRejectId, (rejectId) => {
+    port.postMessage({
+      type: 'rejectId',
+      payload: rejectId,
+    });
+  });
 };
