@@ -578,7 +578,7 @@ function BasicMarketHomeList({
                   formatter="price"
                   formatterOptions={{ currency }}
                 >
-                  {price}
+                  {price || '-'}
                 </NumberSizeableText>
               ),
               renderSkeleton: () => <Skeleton w="$20" h="$3" />,

@@ -377,8 +377,6 @@ function BatchCreateAccountPreviewPage({
   const headerRight = useCallback(
     () => (
       <Stack flexDirection="row" alignItems="center">
-        {/* {isLoading ? <Spinner mr="$4" size="small" /> : null} */}
-
         {showPopoverDeriveTypeInfo &&
         currentDeriveTypeInfo &&
         deriveTypeItems &&
@@ -579,7 +577,7 @@ function BatchCreateAccountPreviewPage({
           flexBasis: 0,
         },
         render: (_: any, account: IBatchCreateAccount) => (
-          <YStack>
+          <YStack py="$1">
             <SizableText size="$bodyMd">
               {accountUtils.shortenAddress({
                 address: account.address,
@@ -610,8 +608,8 @@ function BatchCreateAccountPreviewPage({
           <NumberSizeableText
             size="$bodyMd"
             formatter="balance"
-            numberOfLines={10}
             style={{
+              textAlign: 'right',
               wordBreak: 'break-all',
             }}
             formatterOptions={{ tokenSymbol: network?.symbol }}
@@ -660,8 +658,12 @@ function BatchCreateAccountPreviewPage({
           onRow={onRow}
           rowProps={{
             gap: platformEnv.isNative ? '$8' : '$4',
-            px: '$5',
+            px: '$3',
+            mx: '$2',
+            minHeight: '$12',
           }}
+          estimatedItemSize="$12"
+          headerRowProps={{ py: '$2', minHeight: 36 }}
           dataSource={isLoading ? [] : accounts}
           columns={columns as any}
           TableEmptyComponent={
@@ -831,15 +833,25 @@ function BatchCreateAccountPreviewPage({
             />
             <ButtonGroup disabled={isLoading}>
               <ButtonGroup.Item
+                opacity={1}
                 onPress={() => {
                   setPageNumber(Math.max(1, page - 1));
                 }}
                 maxWidth={42}
                 disabled={page < 2}
               >
-                <Icon name="ChevronLeftOutline" pl="$1" $md={{ size: '$3' }} />
+                <Icon
+                  name="ChevronLeftSmallOutline"
+                  ml="$1"
+                  size="$5"
+                  style={platformEnv.isNative ? undefined: {
+                    transform: "scale(1.4)"
+                  }}
+                  opacity={page < 2 || isLoading ? 0.5 : undefined}
+                />
               </ButtonGroup.Item>
               <ButtonGroup.Item
+                opacity={1}
                 onPress={() => {
                   showBatchCreateAccountPreviewPageNumberDialog({
                     page,
@@ -852,18 +864,30 @@ function BatchCreateAccountPreviewPage({
                 }}
               >
                 <Stack height={38} justifyContent="center">
-                  <SizableText lineHeight={38} size="$bodyLgMedium">
+                  <SizableText
+                    lineHeight={38} 
+                    opacity={isLoading ? 0.5 : undefined}
+                    size="$bodyLgMedium"
+                  >
                     {page}
                   </SizableText>
                 </Stack>
               </ButtonGroup.Item>
               <ButtonGroup.Item
+                opacity={1}
                 onPress={() => {
                   setPageNumber(page + 1);
                 }}
                 maxWidth={42}
               >
-                <Icon name="ChevronRightOutline" pr="$1" $md={{ size: '$3' }} />
+                <Icon
+                  style={platformEnv.isNative ? undefined: {
+                    transform: "scale(1.4)"
+                  }}
+                  name="ChevronRightSmallOutline"
+                  mr="$1"
+                  opacity={isLoading ? 0.5 : undefined}
+                />
               </ButtonGroup.Item>
             </ButtonGroup>
           </Stack>
