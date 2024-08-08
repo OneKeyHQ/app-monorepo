@@ -377,8 +377,6 @@ function BatchCreateAccountPreviewPage({
   const headerRight = useCallback(
     () => (
       <Stack flexDirection="row" alignItems="center">
-        {/* {isLoading ? <Spinner mr="$4" size="small" /> : null} */}
-
         {showPopoverDeriveTypeInfo &&
         currentDeriveTypeInfo &&
         deriveTypeItems &&
