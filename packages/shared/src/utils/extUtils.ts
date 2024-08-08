@@ -183,8 +183,11 @@ async function openSidePanel(
   if (typeof chrome !== 'undefined' && chrome.sidePanel) {
     if (platformEnv.isExtensionBackground) {
       if (sidePanelState.isOpen) {
-        appEventBus.emit(EAppEventBusNames.SidePanel_BG2UI_PushModal, {
-          modalParams: routeInfo?.modalParams,
+        appEventBus.emit(EAppEventBusNames.SidePanel_BgToUI, {
+          type: 'pushModal',
+          payload: {
+            modalParams: routeInfo?.modalParams,
+          },
         });
       } else {
         throw new Error('The sidePanel cannot be opened in the bg thread.');

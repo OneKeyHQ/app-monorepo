@@ -1,3 +1,4 @@
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -27,14 +28,12 @@ export const setupSidePanelPortInBg = () => {
       };
 
       port.onMessage.addListener(
-        (event: {
-          type: 'rejectId';
-          payload: {
-            rejectId: string;
-          };
-        }) => {
-          switch (event?.type) {
-            case 'rejectId': {
+        (event: IAppEventBusPayload[EAppEventBusNames.SidePanel_UIToBg]) => {
+          if (!event?.type) {
+            return;
+          }
+          switch (event.type) {
+            case 'dappRejectId': {
               rejectId = event.payload.rejectId;
               break;
             }
@@ -47,18 +46,9 @@ export const setupSidePanelPortInBg = () => {
         closeSidePanel();
       });
 
-      appEventBus.on(
-        EAppEventBusNames.SidePanel_BG2UI_PushModal,
-        (params: any) => {
-          port.postMessage({
-            type: 'router',
-            params: {
-              screen: 'Modal',
-              params,
-            },
-          });
-        },
-      );
+      appEventBus.on(EAppEventBusNames.SidePanel_BgToUI, (params) => {
+        port.postMessage(params);
+      });
     }
   });
 };
@@ -66,14 +56,14 @@ export const setupSidePanelPortInBg = () => {
 export const setupSidePanelPortInUI = () => {
   const port = chrome.runtime.connect({ name: PORT_NAME });
   port.onMessage.addListener(
-    (event: { type: 'router'; params: Record<string, any> }) => {
+    (event: IAppEventBusPayload[EAppEventBusNames.SidePanel_BgToUI]) => {
+      if (!event?.type) {
+        return;
+      }
       switch (event.type) {
-        case 'router':
+        case 'pushModal':
           {
-            const { screen, params } = event.params as {
-              screen: any;
-              params: any;
-            };
+            const { screen, params } = event.payload.modalParams;
             global.$navigationRef.current?.navigate(screen, params);
           }
           break;
@@ -83,10 +73,7 @@ export const setupSidePanelPortInUI = () => {
     },
   );
 
-  appEventBus.on(EAppEventBusNames.SidePanel_UI2Bg_DappRejectId, (rejectId) => {
-    port.postMessage({
-      type: 'rejectId',
-      payload: rejectId,
-    });
+  appEventBus.on(EAppEventBusNames.SidePanel_UIToBg, (params) => {
+    port.postMessage(params);
   });
 };

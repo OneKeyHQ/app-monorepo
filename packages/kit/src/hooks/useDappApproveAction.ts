@@ -14,8 +14,11 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 const useSendRejectId = platformEnv.isExtensionUiSidePanel
   ? (id: number | string) => {
       useEffect(() => {
-        appEventBus.emit(EAppEventBusNames.SidePanel_UI2Bg_DappRejectId, {
-          rejectId: id,
+        appEventBus.emit(EAppEventBusNames.SidePanel_UIToBg, {
+          type: 'dappRejectId',
+          payload: {
+            rejectId: id,
+          },
         });
       }, [id]);
     }
