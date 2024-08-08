@@ -78,7 +78,7 @@ export function MarketDetailLinks({
           </XStack>
         </YStack>
         {
-          explorers ? (
+          explorers.length ? (
           <YStack py="$5">
             <SizableText size="$headingSm" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_explorers })}
