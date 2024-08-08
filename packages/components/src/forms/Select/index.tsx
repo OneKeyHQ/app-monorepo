@@ -262,13 +262,9 @@ function SelectContent() {
         estimatedItemSize: '$6',
         extraData: value,
         renderItem,
-        contentContainerStyle: {
-          p: '$1',
-        },
+        p: '$1',
         $md: {
-          contentContainerStyle: {
-            p: '$3',
-          },
+          p: '$3',
           // fix warning of `FlashList's rendered size is not usable`.
           // minHeight is 2 * $3 + $1(2px)
           minHeight: '$7',
