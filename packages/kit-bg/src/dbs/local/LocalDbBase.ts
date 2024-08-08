@@ -63,6 +63,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -90,7 +91,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -1670,7 +1670,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async getNormalHwWalletInSameDevice({
+  async getNormalHwQrWalletInSameDevice({
     associatedDevice,
   }: {
     associatedDevice: string | undefined;
@@ -1680,7 +1680,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       (wallet) =>
         wallet.associatedDevice &&
         wallet.associatedDevice === associatedDevice &&
-        accountUtils.isHwWallet({ walletId: wallet.id }) &&
+        (accountUtils.isHwWallet({ walletId: wallet.id }) ||
+          accountUtils.isQrWallet({ walletId: wallet.id })) &&
         !accountUtils.isHwHiddenWallet({ wallet }),
     );
   }
@@ -1692,7 +1693,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const wallet = await this.getWallet({
       walletId,
     });
-    const walletsInSameDevice = await this.getNormalHwWalletInSameDevice({
+    const walletsInSameDevice = await this.getNormalHwQrWalletInSameDevice({
       associatedDevice: wallet.associatedDevice,
     });
 
