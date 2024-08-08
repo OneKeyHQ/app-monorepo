@@ -102,9 +102,21 @@ export function WalletListItem({
                   onPress();
                 }
               },
-              // @ts-ignore
-              onMouseMove: (e: { nativeEvent: { which: number } }) => {
+              onMouseMove: (e: {
+                nativeEvent: {
+                  which: number;
+                  movementX: number;
+                  movementY: number;
+                };
+              }) => {
                 if (e?.nativeEvent?.which !== 1) {
+                  return;
+                }
+                if (
+                  Math.abs(e.nativeEvent.movementX) +
+                    Math.abs(e.nativeEvent.movementY) ===
+                  0
+                ) {
                   return;
                 }
                 if (!shouldOnPress) {

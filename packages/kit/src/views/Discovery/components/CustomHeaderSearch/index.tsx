@@ -2,6 +2,7 @@ import { useIntl } from 'react-intl';
 
 import { SearchBar, Shortcut, View, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
@@ -17,21 +18,25 @@ function CustomHeaderSearch({ handleSearchBarPress }: ICustomHeaderRightProps) {
     <XStack $gtMd={{ minWidth: 280 }}>
       <SearchBar
         placeholder={intl.formatMessage({
-          id: ETranslations.explore_search_dapps,
+          id: ETranslations.browser_search_dapp_or_enter_url,
         })}
         containerProps={{ w: '100%' }}
         $gtMd={{ size: 'small' }}
         key="MarketHomeSearchInput"
-        addOns={[
-          {
-            renderContent: (
-              <Shortcut alignSelf="center" mr="$2.5">
-                <Shortcut.Key>{shortcutsKeys.CmdOrCtrl}</Shortcut.Key>
-                <Shortcut.Key>T</Shortcut.Key>
-              </Shortcut>
-            ),
-          },
-        ]}
+        {...(platformEnv.isDesktop
+          ? {
+              addOns: [
+                {
+                  renderContent: (
+                    <Shortcut alignSelf="center" mr="$2.5">
+                      <Shortcut.Key>{shortcutsKeys.CmdOrCtrl}</Shortcut.Key>
+                      <Shortcut.Key>T</Shortcut.Key>
+                    </Shortcut>
+                  ),
+                },
+              ],
+            }
+          : {})}
       />
       <View
         position="absolute"

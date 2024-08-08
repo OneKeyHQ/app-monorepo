@@ -123,7 +123,10 @@ export const TabComponent = (
       'activeColor': convertColor(rawSelectedColor),
       'activeLabelColor': convertColor(rawSelectedColor),
       'labelColor': convertColor(rawNormalColor),
-      'bottomLineColor': convertColor(rawBottomBorderColor),
+      'bottomLineColor':
+        data.length > 0
+          ? convertColor(rawBottomBorderColor)
+          : convertColor('#00000000'),
       // 'bottomLineColor': '#FFFFFFFF',
       'height': 54,
       'inactiveColor': convertColor(rawNormalColor),
@@ -136,6 +139,7 @@ export const TabComponent = (
       'paddingX': 0,
     }),
     [
+      data,
       convertColor,
       rawBackgroundColor,
       rawBottomBorderColor,

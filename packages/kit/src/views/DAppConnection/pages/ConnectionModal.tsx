@@ -98,11 +98,11 @@ function ConnectionModal() {
       if (!$sourceInfo?.scope) {
         Toast.error({ title: 'no injected scope' });
         if ($sourceInfo) {
-          defaultLogger.discovery.dapp.connectDapp({
+          defaultLogger.discovery.dapp.dappUse({
             dappName: $sourceInfo?.hostname,
             dappDomain: $sourceInfo?.origin,
+            action: 'ConnectWallet',
             network: selectedAccount?.network?.name,
-            isSuccess: false,
             failReason: 'no injected scope',
             walletAddress: selectedAccount?.account?.address,
           });
@@ -111,11 +111,11 @@ function ConnectionModal() {
       }
       if (!selectedAccount || !selectedAccount.account) {
         Toast.error({ title: 'no account' });
-        defaultLogger.discovery.dapp.connectDapp({
+        defaultLogger.discovery.dapp.dappUse({
           dappName: $sourceInfo?.hostname,
           dappDomain: $sourceInfo?.origin,
+          action: 'ConnectWallet',
           network: selectedAccount?.network?.name,
-          isSuccess: false,
           failReason: 'no account',
           walletAddress: selectedAccount?.account?.address,
         });
@@ -143,11 +143,11 @@ function ConnectionModal() {
       if (connectedAccountInfo?.existConnectedAccount) {
         if (!isNumber(connectedAccountInfo?.num)) {
           dappApprove.reject();
-          defaultLogger.discovery.dapp.connectDapp({
+          defaultLogger.discovery.dapp.dappUse({
             dappName: $sourceInfo.hostname,
             dappDomain: $sourceInfo?.origin,
+            action: 'ConnectWallet',
             network: network?.name,
-            isSuccess: false,
             failReason: 'no accountSelectorNum',
             walletAddress: account?.address,
           });
@@ -175,11 +175,11 @@ function ConnectionModal() {
       Toast.success({
         title: intl.formatMessage({ id: ETranslations.global_connected }),
       });
-      defaultLogger.discovery.dapp.connectDapp({
+      defaultLogger.discovery.dapp.dappUse({
         dappName: $sourceInfo.hostname,
         dappDomain: $sourceInfo?.origin,
+        action: 'ConnectWallet',
         network: network?.name,
-        isSuccess: true,
         walletAddress: account?.address,
       });
     },
