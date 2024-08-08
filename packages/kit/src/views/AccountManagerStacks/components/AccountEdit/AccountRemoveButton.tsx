@@ -99,7 +99,9 @@ export function AccountRemoveButton({
 
   const desc = useMemo(() => {
     if (indexedAccount) {
-      return 'You can restore this account later in this wallet by using "Add Account" or "Bulk Add Accounts".';
+      return intl.formatMessage({
+        id: ETranslations.global_remove_account_desc,
+      });
     }
     if (account) {
       const walletId = accountUtils.getWalletIdFromAccountId({

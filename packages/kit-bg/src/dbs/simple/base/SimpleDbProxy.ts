@@ -14,6 +14,7 @@ import type { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomT
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
+import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
@@ -129,4 +130,8 @@ export class SimpleDbProxy
   accountValue = this._createProxyService(
     'accountValue',
   ) as SimpleDbEntityAccountValue;
+
+  legacyWalletNames = this._createProxyService(
+    'legacyWalletNames',
+  ) as SimpleDbEntityLegacyWalletNames;
 }
