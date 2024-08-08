@@ -843,6 +843,7 @@ function BatchCreateAccountPreviewPage({
                   name="ChevronLeftSmallOutline"
                   pl="$1"
                   $md={{ size: '$3' }}
+                  opacity={page < 2 || isLoading ? 0.5 : undefined}
                 />
               </ButtonGroup.Item>
               <ButtonGroup.Item
@@ -858,7 +859,11 @@ function BatchCreateAccountPreviewPage({
                 }}
               >
                 <Stack height={38} justifyContent="center">
-                  <SizableText lineHeight={38} size="$bodyLgMedium">
+                  <SizableText
+                    lineHeight={38} 
+                    opacity={isLoading ? 0.5 : undefined}
+                    size="$bodyLgMedium"
+                  >
                     {page}
                   </SizableText>
                 </Stack>
@@ -873,6 +878,7 @@ function BatchCreateAccountPreviewPage({
                   name="ChevronRightSmallOutline"
                   pr="$1"
                   $md={{ size: '$3' }}
+                  opacity={isLoading ? 0.5 : undefined} size="$bodyLgMedium"
                 />
               </ButtonGroup.Item>
             </ButtonGroup>
