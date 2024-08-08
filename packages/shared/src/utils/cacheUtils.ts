@@ -21,3 +21,8 @@ export const memoizee: typeof cache = (f, options) => {
 export function memoFn<T>(fn: () => T) {
   return memoizee(fn);
 }
+
+export default {
+  memoizee,
+  memoFn,
+};

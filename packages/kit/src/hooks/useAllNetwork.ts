@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { isEmpty } from 'lodash';
 
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -10,25 +11,23 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+
 import { usePromiseResult } from './usePromiseResult';
-import { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
 
-const reorderByPinnedNetworkIds = async (
-  items: IAllNetworkAccountInfo[],
-) => {
+const reorderByPinnedNetworkIds = async (items: IAllNetworkAccountInfo[]) => {
   const priorityNetworkIds =
-  await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
+    await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
 
-const priorityNetworkIdsMap = priorityNetworkIds.reduce(
-  (acc, item, index) => {
-    acc[item] = index;
-    return acc;
-  },
-  {} as Record<string, number>,
-);
+  const priorityNetworkIdsMap = priorityNetworkIds.reduce(
+    (acc, item, index) => {
+      acc[item] = index;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
   const priorityItems: IAllNetworkAccountInfo[] = [];
   const normalItems: IAllNetworkAccountInfo[] = [];
