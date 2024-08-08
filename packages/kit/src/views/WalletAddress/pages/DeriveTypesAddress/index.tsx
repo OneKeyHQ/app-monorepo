@@ -103,8 +103,8 @@ const DeriveTypesAddressItem = ({
       (_, key) =>
         !!(
           (item.account as IDBUtxoAccount)?.xpub &&
-          key.includes((item.account as IDBUtxoAccount)?.xpub ?? '')
-        ) || !!(item.account?.address && key.includes(item.account?.address)),
+          key.includes((item.account as IDBUtxoAccount)?.xpub)
+        ),
     );
   }
 

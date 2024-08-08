@@ -151,9 +151,10 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           [key: string]: ITokenFiat;
         };
         mergeDerive?: boolean;
+        split?: boolean;
       },
     ) => {
-      const { keys, tokens, merge, mergeDerive } = payload;
+      const { keys, tokens, merge, mergeDerive, split } = payload;
 
       if (merge) {
         if (tokens.length) {
@@ -179,29 +180,39 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             map: mergedTokenListMap,
           });
 
-          const highValueTokens = newTokens.slice(0, TOKEN_LIST_HIGH_VALUE_MAX);
-          const lowValueTokens = newTokens.slice(TOKEN_LIST_HIGH_VALUE_MAX);
+          if (split) {
+            const highValueTokens = newTokens.slice(
+              0,
+              TOKEN_LIST_HIGH_VALUE_MAX,
+            );
+            const lowValueTokens = newTokens.slice(TOKEN_LIST_HIGH_VALUE_MAX);
 
-          const lowValueTokensFiatValue = lowValueTokens.reduce(
-            (acc, item) =>
-              acc.plus(mergedTokenListMap[item.$key]?.fiatValue ?? 0),
-            new BigNumber(0),
-          );
+            const lowValueTokensFiatValue = lowValueTokens.reduce(
+              (acc, item) =>
+                acc.plus(mergedTokenListMap[item.$key]?.fiatValue ?? 0),
+              new BigNumber(0),
+            );
 
-          set(tokenListAtom(), {
-            tokens: uniqBy(highValueTokens, (item) => item.$key),
-            keys: `${get(tokenListAtom()).keys}_${keys}`,
-          });
+            set(tokenListAtom(), {
+              tokens: uniqBy(highValueTokens, (item) => item.$key),
+              keys: `${get(tokenListAtom()).keys}_${keys}`,
+            });
 
-          set(
-            smallBalanceTokensFiatValueAtom(),
-            lowValueTokensFiatValue.toFixed(),
-          );
+            set(
+              smallBalanceTokensFiatValueAtom(),
+              lowValueTokensFiatValue.toFixed(),
+            );
 
-          set(smallBalanceTokenListAtom(), {
-            smallBalanceTokens: lowValueTokens,
-            keys: `${get(smallBalanceTokenListAtom()).keys}_${keys}`,
-          });
+            set(smallBalanceTokenListAtom(), {
+              smallBalanceTokens: lowValueTokens,
+              keys: `${get(smallBalanceTokenListAtom()).keys}_${keys}`,
+            });
+          } else {
+            set(tokenListAtom(), {
+              tokens: uniqBy(newTokens, (item) => item.$key),
+              keys,
+            });
+          }
         }
       } else if (!isEqual(get(tokenListAtom()).keys, keys)) {
         set(tokenListAtom(), {

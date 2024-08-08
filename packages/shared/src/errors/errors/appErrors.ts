@@ -834,3 +834,14 @@ export class ConvertTxError extends OneKeyError {
     );
   }
 }
+
+export class CanNotSendZeroAmountError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'CanNotSendZeroAmountError',
+        defaultKey: ETranslations.send_cannot_send_amount_zero,
+      }),
+    );
+  }
+}
