@@ -51,6 +51,36 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
   }
 
   @backgroundMethod()
+  async addCustomTokensBatch({ tokens }: { tokens: IAccountToken[] }) {
+    await this.setRawData(({ rawData }) => {
+      const data: ICustomTokenDBStruct = {
+        hiddenTokens: { ...(rawData?.hiddenTokens || {}) },
+        customTokens: { ...(rawData?.customTokens || {}) },
+      };
+
+      const validTokens = tokens.filter(
+        (token) => token.accountId && token.networkId,
+      );
+
+      validTokens.forEach((token) => {
+        const key = this.generateKey(
+          token.networkId ?? '',
+          token.accountId ?? '',
+          token.address,
+        );
+
+        // Remove from hiddenTokens if present
+        delete data.hiddenTokens[key];
+
+        // Add to customTokens
+        data.customTokens[key] = token;
+      });
+
+      return data;
+    });
+  }
+
+  @backgroundMethod()
   async hideToken({ token }: { token: IAccountToken }) {
     await this.setRawData(({ rawData }) => {
       const data: ICustomTokenDBStruct = {
