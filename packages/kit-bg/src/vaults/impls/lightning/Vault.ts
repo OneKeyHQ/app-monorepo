@@ -575,7 +575,7 @@ export default class Vault extends VaultBase {
     tokenBalance: string;
     to: string;
   }): Promise<boolean> {
-    const ZeroInvoiceMaxSendAmount = 1000000;
+    const ZeroInvoiceMaxSendAmount = 1_000_000;
     if (new BigNumber(params.amount).isGreaterThan(ZeroInvoiceMaxSendAmount)) {
       const satsText = appLocale.intl.formatMessage({
         id: ETranslations.global_sats,

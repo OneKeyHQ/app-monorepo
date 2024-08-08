@@ -24,7 +24,7 @@ export enum ERpcMethods {
   GET_LATEST_BLOCK_HASH = 'getLatestBlockhash',
 }
 
-export const MIN_PRIORITY_FEE = 1000000;
+export const MIN_PRIORITY_FEE = 1_000_000;
 
 class ClientSol {
   private networkId: string;

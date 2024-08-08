@@ -458,7 +458,7 @@ class ServiceHistory extends ServiceBase {
       const error = e as OneKeyServerApiError;
       // Exchange the token on the first error to ensure subsequent polling requests succeed
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (error.data?.data?.message?.code === 50401) {
+      if (error.data?.data?.message?.code === 50_401) {
         // 50401 -> Lightning service special error code
         await (vault as ILightningVault).exchangeToken();
       }
