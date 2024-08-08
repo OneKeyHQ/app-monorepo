@@ -71,6 +71,29 @@ function SendConfirmFromDApp() {
     }
   }, [dappApprove]);
 
+  const sendConfirmCallback = useCallback(
+    async (result: any, error: Error | undefined) => {
+      if (!$sourceInfo) {
+        return;
+      }
+      defaultLogger.discovery.dapp.dappUse({
+        dappName: $sourceInfo.hostname,
+        dappDomain: $sourceInfo.origin,
+        action: 'SendTxn',
+        network: networkId,
+        walletAddress: (
+          await backgroundApiProxy.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          })
+        ).address,
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        failReason: error ? `${error?.message ?? error}` : undefined,
+      });
+    },
+    [$sourceInfo, accountId, networkId],
+  );
+
   useEffect(() => {
     // OK-16560: navigate when app in background would cause modal render in wrong size
     const appStateListener = AppState.addEventListener('change', (state) => {
@@ -123,6 +146,8 @@ function SendConfirmFromDApp() {
           signOnly,
           useFeeInTx,
           feeInfoEditable,
+          onSuccess: (result) => sendConfirmCallback(result, undefined),
+          onFail: (error) => sendConfirmCallback(null, error),
           // @ts-ignore
           _disabledAnimationOfNavigate: true,
           _$t,
@@ -137,20 +162,6 @@ function SendConfirmFromDApp() {
         } else {
           pendingAction.current = action;
         }
-      }
-      if ($sourceInfo) {
-        defaultLogger.discovery.dapp.dappUse({
-          dappName: $sourceInfo.hostname,
-          dappDomain: $sourceInfo.origin,
-          isConnectWallet: false,
-          isSendTxn: true,
-          walletAddress: (
-            await backgroundApiProxy.serviceAccount.getAccount({
-              accountId,
-              networkId,
-            })
-          ).address,
-        });
       }
     };
 
@@ -170,6 +181,7 @@ function SendConfirmFromDApp() {
     transfersInfo,
     useFeeInTx,
     dispatchAction,
+    sendConfirmCallback,
   ]);
 
   return (
