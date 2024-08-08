@@ -833,6 +833,7 @@ function BatchCreateAccountPreviewPage({
             />
             <ButtonGroup disabled={isLoading}>
               <ButtonGroup.Item
+                opacity={1}
                 onPress={() => {
                   setPageNumber(Math.max(1, page - 1));
                 }}
@@ -847,6 +848,7 @@ function BatchCreateAccountPreviewPage({
                 />
               </ButtonGroup.Item>
               <ButtonGroup.Item
+                opacity={1}
                 onPress={() => {
                   showBatchCreateAccountPreviewPageNumberDialog({
                     page,
@@ -869,6 +871,7 @@ function BatchCreateAccountPreviewPage({
                 </Stack>
               </ButtonGroup.Item>
               <ButtonGroup.Item
+                opacity={1}
                 onPress={() => {
                   setPageNumber(page + 1);
                 }}
