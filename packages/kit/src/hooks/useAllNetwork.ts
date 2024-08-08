@@ -16,6 +16,26 @@ import { usePromiseResult } from './usePromiseResult';
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
 
+const reorderByNetworkIds = <T extends { networkId: string }>(
+  items: T[],
+  priorityNetworkIdsMap: Record<string, number>,
+) => {
+  const priorityItems: T[] = [];
+  const normalItems: T[] = [];
+  for (let i = 0; i < items.length; i += 1) {
+    if (priorityNetworkIdsMap[items[i].networkId] !== undefined) {
+      priorityItems.push(items[i]);
+    } else {
+      normalItems.push(items[i]);
+    }
+  }
+  priorityItems.sort(
+    (a, b) =>
+      priorityNetworkIdsMap[a.networkId] - priorityNetworkIdsMap[b.networkId],
+  );
+  return [...priorityItems, ...normalItems];
+};
+
 function useAllNetworkRequests<T>(params: {
   account: INetworkAccount | undefined;
   network: IServerNetwork | undefined;
@@ -101,8 +121,24 @@ function useAllNetworkRequests<T>(params: {
         return;
       }
 
+      const priorityNetworkIds =
+        await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
+
+      const priorityNetworkIdsMap = priorityNetworkIds.reduce(
+        (acc, item, index) => {
+          acc[item] = index;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+
       const concurrentNetworks = accountsInfoBackendIndexed;
-      const sequentialNetworks = accountsInfoBackendNotIndexed;
+
+      const sequentialNetworks = reorderByNetworkIds(
+        accountsInfoBackendNotIndexed,
+        priorityNetworkIdsMap,
+      );
+
       let resp: Array<T> | null = [];
 
       if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
