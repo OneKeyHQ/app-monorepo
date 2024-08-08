@@ -20,7 +20,7 @@ describe('Kaspa UTXO Tests', () => {
       'kaspa:qrkk52m4ddq405jvvfg7acwu6g48zd25dzekger3wftq7uat6xcw6cqq63a78',
     );
 
-    const selectedUTXOs = selectUTXOs(confirmUTXOs, 100000);
+    const selectedUTXOs = selectUTXOs(confirmUTXOs, 100_000);
 
     process.stdout.write(`pubkeyInfos: ${JSON.stringify(selectedUTXOs)}\n`);
   });

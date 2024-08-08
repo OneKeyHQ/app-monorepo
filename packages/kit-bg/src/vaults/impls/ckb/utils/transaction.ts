@@ -17,7 +17,7 @@ import type {
   TransactionSkeletonType,
 } from '@ckb-lumos/helpers';
 
-export const DEFAULT_MIN_INPUT_CAPACITY = 61 * 100000000;
+export const DEFAULT_MIN_INPUT_CAPACITY = 61 * 100_000_000;
 
 export async function convertTxToTxSkeleton({
   client,
