@@ -10,18 +10,28 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-
 import { usePromiseResult } from './usePromiseResult';
+import { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
 
-const reorderByNetworkIds = <T extends { networkId: string }>(
-  items: T[],
-  priorityNetworkIdsMap: Record<string, number>,
+const reorderByPinnedNetworkIds = async (
+  items: IAllNetworkAccountInfo[],
 ) => {
-  const priorityItems: T[] = [];
-  const normalItems: T[] = [];
+  const priorityNetworkIds =
+  await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
+
+const priorityNetworkIdsMap = priorityNetworkIds.reduce(
+  (acc, item, index) => {
+    acc[item] = index;
+    return acc;
+  },
+  {} as Record<string, number>,
+);
+
+  const priorityItems: IAllNetworkAccountInfo[] = [];
+  const normalItems: IAllNetworkAccountInfo[] = [];
   for (let i = 0; i < items.length; i += 1) {
     if (priorityNetworkIdsMap[items[i].networkId] !== undefined) {
       priorityItems.push(items[i]);
@@ -121,22 +131,10 @@ function useAllNetworkRequests<T>(params: {
         return;
       }
 
-      const priorityNetworkIds =
-        await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
-
-      const priorityNetworkIdsMap = priorityNetworkIds.reduce(
-        (acc, item, index) => {
-          acc[item] = index;
-          return acc;
-        },
-        {} as Record<string, number>,
-      );
-
       const concurrentNetworks = accountsInfoBackendIndexed;
 
-      const sequentialNetworks = reorderByNetworkIds(
+      const sequentialNetworks = await reorderByPinnedNetworkIds(
         accountsInfoBackendNotIndexed,
-        priorityNetworkIdsMap,
       );
 
       let resp: Array<T> | null = [];
