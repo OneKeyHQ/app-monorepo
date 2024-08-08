@@ -12,9 +12,9 @@ import {
   Stack,
   Toast,
 } from '@onekeyhq/components';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 

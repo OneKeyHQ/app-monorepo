@@ -47,19 +47,6 @@ import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type {
-  CommonParams,
-  CoreApi,
-  CoreMessage,
-  DeviceUploadResourceParams,
-  Features,
-  IDeviceType,
-  KnownDevice,
-  SearchDevice,
-  UiEvent,
-} from '@onekeyfe/hd-core';
-import type { IHardwareUiPayload } from '../../states/jotai/atoms';
-import type { IServiceBaseProps } from '../ServiceBase';
-import type {
   IGetDeviceAdvanceSettingsParams,
   IGetDeviceLabelParams,
   ISetDeviceLabelParams,
@@ -70,6 +57,19 @@ import type {
   IFirmwareAuthenticateParams,
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
+import type { IHardwareUiPayload } from '../../states/jotai/atoms';
+import type { IServiceBaseProps } from '../ServiceBase';
+import type {
+  CommonParams,
+  CoreApi,
+  CoreMessage,
+  DeviceUploadResourceParams,
+  Features,
+  IDeviceType,
+  KnownDevice,
+  SearchDevice,
+  UiEvent,
+} from '@onekeyfe/hd-core';
 
 export type IDeviceGetFeaturesOptions = {
   connectId: string | undefined;
@@ -83,7 +83,7 @@ class ServiceHardware extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
     appEventBus.on(
-      EAppEventBusNames.HardwareLabelChanged,
+      EAppEventBusNames.SyncDeviceLabelToWalletName,
       this.handleHardwareLabelChanged,
     );
   }
@@ -93,15 +93,16 @@ class ServiceHardware extends ServiceBase {
       walletId,
       label,
       walletName,
-    }: IAppEventBusPayload[EAppEventBusNames.HardwareLabelChanged]) => {
+    }: IAppEventBusPayload[EAppEventBusNames.SyncDeviceLabelToWalletName]) => {
+      const isHw =
+        accountUtils.isHwWallet({ walletId }) &&
+        !accountUtils.isQrWallet({ walletId });
+      if (!isHw) {
+        return;
+      }
       console.log('handleHardwareLabelChanged');
       // Desktop 5.0.0 hw wallet name is not synced with device label, so we need to backup it
-      if (
-        platformEnv.isDesktop &&
-        walletId &&
-        walletName &&
-        accountUtils.isHwWallet({ walletId })
-      ) {
+      if (platformEnv.isDesktop && walletId && walletName && isHw) {
         const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
           walletId,
         });
@@ -745,7 +746,7 @@ class ServiceHardware extends ServiceBase {
         label: p.label,
       });
       // update db wallet name
-      appEventBus.emit(EAppEventBusNames.HardwareLabelChanged, {
+      appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
         walletId: p.walletId,
         dbDeviceId: device.id,
         label: p.label,

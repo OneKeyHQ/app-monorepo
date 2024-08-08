@@ -647,7 +647,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         const device = await this.getDeviceSafe(wallet.associatedDevice);
         const label = device?.featuresInfo?.label;
         if (device && label && label !== wallet.name) {
-          appEventBus.emit(EAppEventBusNames.HardwareLabelChanged, {
+          appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
             walletId: wallet.id,
             dbDeviceId: device.id,
             label,

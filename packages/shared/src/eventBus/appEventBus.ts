@@ -40,7 +40,7 @@ export enum EAppEventBusNames {
   ShowQrcode = 'ShowQrcode',
   RealmInit = 'RealmInit',
   V4RealmInit = 'V4RealmInit',
-  HardwareLabelChanged = 'HardwareLabelChanged',
+  SyncDeviceLabelToWalletName = 'SyncDeviceLabelToWalletName',
   BatchCreateAccount = 'BatchCreateAccount',
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
@@ -123,7 +123,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;
-  [EAppEventBusNames.HardwareLabelChanged]: {
+  [EAppEventBusNames.SyncDeviceLabelToWalletName]: {
     walletId: string;
     dbDeviceId: string;
     label: string;
