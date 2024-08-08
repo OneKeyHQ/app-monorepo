@@ -3,7 +3,6 @@ import { createContext, useContext, useMemo } from 'react';
 
 import { ToggleGroup, withStaticProperties } from 'tamagui';
 
-import type { IStackStyle } from '../Stack';
 import type { ToggleGroupItemProps, ToggleGroupSingleProps } from 'tamagui';
 
 export type IButtonGroup = PropsWithChildren<{
@@ -29,12 +28,12 @@ export interface IButtonGroupContext {
 const ButtonGroupContext = createContext({} as IButtonGroupContext);
 
 export function ButtonGroupItem({
-  disabled,
-  index,
+  disabled: propsDisabled,
   children,
   ...props
-}: Omit<ToggleGroupItemProps, 'value'> & { index: number | string }) {
+}: Omit<ToggleGroupItemProps, 'value'>) {
   const { disabled: contextDisabled } = useContext(ButtonGroupContext);
+  const disabled = propsDisabled || contextDisabled;
   const style = disabled ? DISABLED_ACTIVE_STYLE : ACTIVE_STYLE;
   return (
     <ToggleGroup.Item
@@ -44,12 +43,11 @@ export function ButtonGroupItem({
       height={38}
       bg="$bgStrong"
       opacity={disabled ? 0.5 : undefined}
-      disabled={disabled || contextDisabled}
+      disabled={disabled}
       hoverStyle={style}
       pressStyle={style}
       focusStyle={style}
-      value={String(index)}
-      key={index}
+      value={Math.random().toString()}
       {...props}
     >
       {children}
