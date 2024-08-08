@@ -608,8 +608,8 @@ function BatchCreateAccountPreviewPage({
           <NumberSizeableText
             size="$bodyMd"
             formatter="balance"
-            numberOfLines={10}
             style={{
+              textAlign: 'right',
               wordBreak: 'break-all',
             }}
             formatterOptions={{ tokenSymbol: network?.symbol }}
