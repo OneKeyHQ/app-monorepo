@@ -381,6 +381,19 @@ export class BleAlreadyConnectedError extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleAlreadyConnected;
 }
 
+export class BleCharacteristicNotifyChangeFailure extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BleCharacteristicNotifyChangeFailure',
+        defaultKey: ETranslations.feedback_bluetooth_issue,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.BleCharacteristicNotifyChangeFailure;
+}
+
 export class OpenBlindSign extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -392,6 +405,19 @@ export class OpenBlindSign extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.BlindSignDisabled;
+}
+
+export class ForbiddenKeyPathError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ForbiddenKeyPath',
+        defaultKey: ETranslations.feedback_forbidden_key_path_error,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.RuntimeError;
 }
 
 export class FirmwareVersionTooLow extends OneKeyHardwareError {

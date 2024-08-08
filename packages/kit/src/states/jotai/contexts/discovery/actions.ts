@@ -511,7 +511,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             tabId,
           });
         }
-
         // close deep link tab after 1s
         if (maybeDeepLink) {
           if (browserTypeHandler === 'MultiTabBrowser' && tabId) {
@@ -639,6 +638,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           Array.from(cache.keys()),
         );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+          defaultLogger.discovery.browser.logRejectUrl(url);
           handlePhishingUrl?.(url);
           return;
         }
@@ -764,9 +764,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       Array.from(cache.keys()),
     );
     if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+      defaultLogger.discovery.browser.logRejectUrl(url);
       return EValidateUrlEnum.NotSupportProtocol;
     }
     if (uriUtils.containsPunycode(url)) {
+      defaultLogger.discovery.browser.logRejectUrl(url);
       return EValidateUrlEnum.InvalidPunycode;
     }
     if (uriUtils.isValidDeepLink(url)) {

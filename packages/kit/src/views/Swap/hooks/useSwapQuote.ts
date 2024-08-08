@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import { EPageType, usePageType } from '@onekeyhq/components';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -19,6 +20,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
 } from '../../../states/jotai/contexts/swap';
 import { truncateDecimalPlaces } from '../utils/utils';
@@ -26,6 +28,7 @@ import { truncateDecimalPlaces } from '../utils/utils';
 import { useSwapAddressInfo } from './useSwapAccount';
 
 export function useSwapQuote() {
+  const intl = useIntl();
   const { quoteAction, cleanQuoteInterval, recoverQuoteInterval } =
     useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -36,6 +39,16 @@ export function useSwapQuote() {
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
+  const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
+  const swapShouldRefreshRef = useRef(swapShouldRefresh);
+  if (swapShouldRefreshRef.current !== swapShouldRefresh) {
+    swapShouldRefreshRef.current = swapShouldRefresh;
+  }
+  const isFocused = useIsFocused();
+  const isFocusRef = useRef(isFocused);
+  if (isFocusRef.current !== isFocused) {
+    isFocusRef.current = isFocused;
+  }
   const activeAccountRef = useRef<
     ReturnType<typeof useSwapAddressInfo> | undefined
   >();
@@ -56,6 +69,15 @@ export function useSwapQuote() {
       setFromTokenAmount(checkedDecimal);
     }
   }, [fromToken?.decimals, fromAmountDebounce, setFromTokenAmount]);
+
+  useEffect(() => {
+    if (!fromTokenAmount) {
+      void quoteAction(
+        activeAccountRef.current?.address,
+        activeAccountRef.current?.accountInfo?.account?.id,
+      );
+    }
+  }, [fromTokenAmount, quoteAction]);
 
   useEffect(() => {
     if (swapSlippageDialogOpening.status || swapApproveAllowanceSelectOpen) {
@@ -83,6 +105,7 @@ export function useSwapQuote() {
   ]);
 
   useEffect(() => {
+    if (!isFocusRef.current) return;
     if (
       swapApprovingTransaction &&
       swapApprovingTransaction.txId &&
@@ -96,10 +119,14 @@ export function useSwapQuote() {
         swapApprovingTransaction.blockNumber,
       );
     }
-  }, [cleanQuoteInterval, quoteAction, swapApprovingTransaction]);
+  }, [intl, cleanQuoteInterval, quoteAction, swapApprovingTransaction]);
 
   useEffect(() => {
-    if (fromToken?.networkId !== activeAccountRef.current?.networkId) {
+    if (
+      fromToken?.networkId !== activeAccountRef.current?.networkId ||
+      (fromToken?.networkId === toToken?.networkId &&
+        fromToken?.contractAddress === toToken?.contractAddress)
+    ) {
       return;
     }
     alignmentDecimal();
@@ -125,8 +152,35 @@ export function useSwapQuote() {
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageType !== EPageType.modal) {
-        if (isFocus && !isHiddenModel && !swapApprovingTxRef.current?.txId) {
+      setTimeout(() => {
+        // ext env txId data is undefined when useListenTabFocusState is called
+        if (pageType !== EPageType.modal) {
+          if (
+            isFocus &&
+            !isHiddenModel &&
+            !swapApprovingTxRef.current?.txId &&
+            !swapShouldRefreshRef.current
+          ) {
+            void recoverQuoteInterval(
+              activeAccountRef.current?.address,
+              activeAccountRef.current?.accountInfo?.account?.id,
+            );
+          } else {
+            cleanQuoteInterval();
+          }
+        }
+      }, 100);
+    },
+  );
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (pageType === EPageType.modal) {
+        if (
+          isFocused &&
+          !swapApprovingTxRef.current?.txId &&
+          !swapShouldRefreshRef.current
+        ) {
           void recoverQuoteInterval(
             activeAccountRef.current?.address,
             activeAccountRef.current?.accountInfo?.account?.id,
@@ -135,20 +189,6 @@ export function useSwapQuote() {
           cleanQuoteInterval();
         }
       }
-    },
-  );
-
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    if (pageType === EPageType.modal) {
-      if (isFocused && !swapApprovingTxRef.current?.txId) {
-        void recoverQuoteInterval(
-          activeAccountRef.current?.address,
-          activeAccountRef.current?.accountInfo?.account?.id,
-        );
-      } else {
-        cleanQuoteInterval();
-      }
-    }
+    }, 100);
   }, [cleanQuoteInterval, isFocused, pageType, recoverQuoteInterval]);
 }

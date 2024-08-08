@@ -15,7 +15,9 @@ import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -33,7 +35,7 @@ function WordButton({
   return (
     <Button
       borderWidth={2}
-      focusStyle={{
+      focusVisibleStyle={{
         bg: '$bgActive',
       }}
       onPress={handlePress}
@@ -61,7 +63,7 @@ function WordSelector({
   );
 
   return (
-    <XStack space="$2.5">
+    <XStack gap="$2.5">
       {words.map((word) => (
         <WordButton
           flex={1}
@@ -87,6 +89,7 @@ export function VerifyRecoveryPhrase({
   const intl = useIntl();
   const { servicePassword } = backgroundApiProxy;
   const { mnemonic, verifyRecoveryPhrases } = route.params || {};
+  const [settings] = useSettingsPersistAtom();
 
   ensureSensitiveTextEncoded(mnemonic);
   const navigation = useAppNavigation();
@@ -111,6 +114,9 @@ export function VerifyRecoveryPhrase({
         navigation.push(EOnboardingPages.FinalizeWalletSetup, {
           mnemonic,
         });
+        defaultLogger.account.wallet.createWallet({
+          isBiometricVerificationSet: settings.isBiologyAuthSwitchOn,
+        });
       } else {
         Toast.error({
           title: intl.formatMessage({
@@ -128,6 +134,7 @@ export function VerifyRecoveryPhrase({
     navigation,
     phrases,
     selectedWords,
+    settings.isBiologyAuthSwitchOn,
     verifyRecoveryPhrases,
   ]);
 
@@ -140,10 +147,10 @@ export function VerifyRecoveryPhrase({
       />
       <Page.Body p="$5">
         {phrases && verifyRecoveryPhrases ? (
-          <YStack space="$5">
+          <YStack gap="$5">
             {verifyRecoveryPhrases.map(([wordIndex, phraseArray], index) => (
-              <YStack key={String(wordIndex)} space="$2.5">
-                <SizableText>{`${intl.formatMessage({
+              <YStack key={String(wordIndex)} gap="$2.5">
+                <SizableText testID="wordIndex">{`${intl.formatMessage({
                   id: ETranslations.word,
                 })} #${Number(wordIndex) + 1}`}</SizableText>
                 <WordSelector

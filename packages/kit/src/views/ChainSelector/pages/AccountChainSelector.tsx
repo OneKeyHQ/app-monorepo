@@ -13,67 +13,60 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { ChainSelectorPageView } from '../components/PageView';
+import { EditableChainSelector } from '../components/EditableChainSelector';
+import { PureChainSelector } from '../components/PureChainSelector';
 
-function ChainSelector({
-  num,
-  networkIds,
-  editable,
-}: {
+const defaultChainSelectorNetworks: {
+  mainnetItems: IServerNetwork[];
+  testnetItems: IServerNetwork[];
+  unavailableItems: IServerNetwork[];
+  frequentlyUsedItems: IServerNetwork[];
+  allNetworkItem?: IServerNetwork;
+} = {
+  mainnetItems: [],
+  testnetItems: [],
+  unavailableItems: [],
+  frequentlyUsedItems: [],
+};
+
+type IChainSelectorBaseProps = {
   num: number;
   networkIds?: string[];
   editable?: boolean;
-}) {
+};
+
+type IAccountChainSelectorProps = IChainSelectorBaseProps & {
+  onPressItem: (item: IServerNetwork) => void;
+};
+
+const EditableAccountChainSelector = ({
+  num,
+  networkIds,
+  onPressItem,
+}: IAccountChainSelectorProps) => {
   const {
-    activeAccount: { network },
+    activeAccount: { network, account },
   } = useActiveAccount({ num });
-  const actions = useAccountSelectorActions();
-  const navigation = useAppNavigation();
-
-  const {
-    result: [{ networks }, pinnedNetworks],
-    run: refreshLocalData,
-  } = usePromiseResult(
-    () => {
-      let networkPromise: Promise<{ networks: IServerNetwork[] }>;
-      if (networkIds && networkIds.length > 0) {
-        networkPromise = backgroundApiProxy.serviceNetwork.getNetworksByIds({
-          networkIds: networkIds || [],
-        });
-      } else {
-        networkPromise = backgroundApiProxy.serviceNetwork.getAllNetworks();
-      }
-      const pinnedNetworksData =
-        backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks();
-      return Promise.all([networkPromise, pinnedNetworksData]);
-    },
-    [networkIds],
-    {
-      initResult: [
-        {
-          networks: [],
-        },
-        [],
-      ],
-    },
-  );
-
-  const handleListItemPress = (item: IServerNetwork) => {
-    void actions.current.updateSelectedAccountNetwork({
-      num,
-      networkId: item.id,
-    });
-    navigation.popStack();
-  };
+  const { result: chainSelectorNetworks, run: refreshLocalData } =
+    usePromiseResult(
+      async () =>
+        backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+          { accountId: account?.id, networkIds },
+        ),
+      [account?.id, networkIds],
+      { initResult: defaultChainSelectorNetworks },
+    );
 
   return (
-    <ChainSelectorPageView
-      editable={editable}
-      networks={networks}
+    <EditableChainSelector
       networkId={network?.id}
-      onPressItem={handleListItemPress}
-      defaultTopNetworks={pinnedNetworks}
-      onTopNetworksChange={async (items) => {
+      mainnetItems={chainSelectorNetworks.mainnetItems}
+      testnetItems={chainSelectorNetworks.testnetItems}
+      unavailableItems={chainSelectorNetworks.unavailableItems}
+      frequentlyUsedItems={chainSelectorNetworks.frequentlyUsedItems}
+      allNetworkItem={chainSelectorNetworks.allNetworkItem}
+      onPressItem={onPressItem}
+      onFrequentlyUsedItemsChange={async (items) => {
         await backgroundApiProxy.serviceNetwork.setNetworkSelectorPinnedNetworks(
           {
             networks: items,
@@ -81,6 +74,65 @@ function ChainSelector({
         );
         await refreshLocalData();
       }}
+    />
+  );
+};
+
+const NotEditableAccountChainSelector = ({
+  num,
+  networkIds,
+  onPressItem,
+}: IAccountChainSelectorProps) => {
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num });
+  const { result } = usePromiseResult(async () => {
+    let networks: IServerNetwork[] = [];
+    if (networkIds && networkIds.length > 0) {
+      const resp = await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+        networkIds,
+      });
+      networks = resp.networks;
+    } else {
+      const resp = await backgroundApiProxy.serviceNetwork.getAllNetworks();
+      networks = resp.networks;
+    }
+    return networks;
+  }, [networkIds]);
+  return (
+    <PureChainSelector
+      networkId={network?.id}
+      networks={result ?? []}
+      onPressItem={onPressItem}
+    />
+  );
+};
+
+function AccountChainSelector({
+  num,
+  networkIds,
+  editable,
+}: IChainSelectorBaseProps) {
+  const navigation = useAppNavigation();
+  const actions = useAccountSelectorActions();
+  const handleListItemPress = (item: IServerNetwork) => {
+    void actions.current.updateSelectedAccountNetwork({
+      num,
+      networkId: item.id,
+    });
+    navigation.popStack();
+  };
+  return editable ? (
+    <EditableAccountChainSelector
+      onPressItem={handleListItemPress}
+      num={num}
+      networkIds={networkIds}
+    />
+  ) : (
+    <NotEditableAccountChainSelector
+      onPressItem={handleListItemPress}
+      num={num}
+      networkIds={networkIds}
     />
   );
 }
@@ -100,7 +152,11 @@ export default function ChainSelectorPage({
         sceneUrl,
       }}
     >
-      <ChainSelector num={num} editable={editable} networkIds={networkIds} />
+      <AccountChainSelector
+        num={num}
+        networkIds={networkIds}
+        editable={editable}
+      />
     </AccountSelectorProviderMirror>
   );
 }

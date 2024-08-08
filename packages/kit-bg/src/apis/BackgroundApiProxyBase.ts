@@ -8,11 +8,13 @@ import {
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import {
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import type {
   EAppEventBusNames,
+  IAppEventBusPayload,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
   EEventBusBroadcastMethodNames,
-  type IAppEventBusPayload,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -64,22 +66,7 @@ export class BackgroundApiProxyBase
         await this.emitEvent(type as any, payload);
       },
     );
-    globalErrorHandler.addListener((error) => {
-      if (
-        error?.className === EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel
-      ) {
-        return;
-      }
-      // TODO log error to file if developer mode on
-      if (error && error?.autoToast) {
-        appEventBus.emit(EAppEventBusNames.ShowToast, {
-          errorCode: error.code,
-          method: 'error',
-          title: error?.message ?? 'Error',
-          message: error?.requestId,
-        });
-      }
-    });
+    globalErrorHandler.addListener(errorUtils.showToastOfError);
   }
 
   async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
@@ -138,6 +125,7 @@ export class BackgroundApiProxyBase
       serviceName = '';
     }
     let backgroundMethodName = `${INTERNAL_METHOD_PREFIX}${methodName}`;
+
     if (platformEnv.isExtension && platformEnv.isExtensionUi) {
       const data: IBackgroundApiInternalCallMessage = {
         service: serviceName,
@@ -185,17 +173,33 @@ export class BackgroundApiProxyBase
         return result;
       }
       if (!IGNORE_METHODS.includes(backgroundMethodName)) {
-        throwMethodNotFound(serviceName, backgroundMethodName);
+        return throwMethodNotFound(serviceName, backgroundMethodName);
       }
     }
   }
 
   callBackgroundSync(method: string, ...params: Array<any>): any {
-    void this.callBackgroundMethod(true, method, ...params);
+    void (async () => {
+      try {
+        await this.callBackgroundMethod(true, method, ...params);
+      } catch (error) {
+        setTimeout(() => {
+          errorUtils.showToastOfError(error as any);
+        }, 50);
+        throw error;
+      }
+    })();
   }
 
-  callBackground(method: string, ...params: Array<any>): any {
-    return this.callBackgroundMethod(false, method, ...params);
+  async callBackground(method: string, ...params: Array<any>): Promise<any> {
+    try {
+      return await this.callBackgroundMethod(false, method, ...params);
+    } catch (error) {
+      setTimeout(() => {
+        errorUtils.showToastOfError(error as any);
+      }, 50);
+      throw error;
+    }
   }
 
   handleProviderMethods(

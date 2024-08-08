@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { has } from 'lodash';
 
 import {
   backgroundClass,
@@ -32,6 +33,7 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
+  ESwapDirectionType,
   ESwapFetchCancelCause,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -45,6 +47,11 @@ export default class ServiceSwap extends ServiceBase {
   private _quoteAbortController?: AbortController;
 
   private _tokenListAbortController?: AbortController;
+
+  private _tokenDetailAbortControllerMap: Record<
+    ESwapDirectionType,
+    AbortController | undefined
+  > = { from: undefined, to: undefined };
 
   private historyStateIntervals: Record<string, ReturnType<typeof setTimeout>> =
     {};
@@ -69,6 +76,16 @@ export default class ServiceSwap extends ServiceBase {
     if (this._tokenListAbortController) {
       this._tokenListAbortController.abort();
       this._tokenListAbortController = undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async cancelFetchTokenDetail(direction?: ESwapDirectionType) {
+    if (direction && this._tokenDetailAbortControllerMap) {
+      if (has(this._tokenDetailAbortControllerMap, direction)) {
+        this._tokenDetailAbortControllerMap[direction]?.abort();
+        delete this._tokenDetailAbortControllerMap[direction];
+      }
     }
   }
 
@@ -99,7 +116,6 @@ export default class ServiceSwap extends ServiceBase {
             logoURI: clientNetwork.logoURI,
             networkId: network.networkId,
             defaultSelectToken: network.defaultSelectToken,
-            explorers: clientNetwork.explorers,
           };
         }
         return null;
@@ -192,18 +208,28 @@ export default class ServiceSwap extends ServiceBase {
     accountAddress,
     accountId,
     contractAddress,
+    direction,
   }: {
     networkId: string;
     accountAddress?: string;
     accountId?: string;
     contractAddress: string;
+    direction?: ESwapDirectionType;
   }): Promise<ISwapToken[] | undefined> {
+    await this.cancelFetchTokenDetail(direction);
     const params: IFetchTokenDetailParams = {
       protocol: EProtocolOfExchange.SWAP,
       networkId,
       accountAddress,
       contractAddress,
     };
+    if (direction) {
+      if (direction === ESwapDirectionType.FROM) {
+        this._tokenDetailAbortControllerMap.from = new AbortController();
+      } else if (direction === ESwapDirectionType.TO) {
+        this._tokenDetailAbortControllerMap.to = new AbortController();
+      }
+    }
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     if (accountId && accountAddress && networkId) {
       const accountAddressForAccountId =
@@ -234,6 +260,10 @@ export default class ServiceSwap extends ServiceBase {
       '/swap/v1/token/detail',
       {
         params,
+        signal:
+          direction === ESwapDirectionType.FROM
+            ? this._tokenDetailAbortControllerMap.from?.signal
+            : this._tokenDetailAbortControllerMap.to?.signal,
         headers:
           await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
             accountId,

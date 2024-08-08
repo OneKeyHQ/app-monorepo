@@ -119,7 +119,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           pt="$2.5"
           px="$5"
           pb="$5"
-          space="$5"
+          gap="$5"
           flex={1}
           $gtMd={{
             flex: 'unset',
@@ -134,11 +134,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             selectLoading={fetchLoading}
             onToAnotherAddressModal={onToAnotherAddressModal}
           />
-          {alerts.length > 0 &&
+          {alerts.states.length > 0 &&
           !quoteLoading &&
+          alerts.quoteId === (quoteResult?.quoteId ?? '') &&
           !selectTokenDetailLoading.from &&
           !selectTokenDetailLoading.to ? (
-            <SwapAlertContainer alerts={alerts} />
+            <SwapAlertContainer alerts={alerts.states} />
           ) : null}
           {quoteResult ? (
             <SwapQuoteResult

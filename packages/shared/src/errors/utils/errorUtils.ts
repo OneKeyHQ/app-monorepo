@@ -1,14 +1,19 @@
 import { isObject, isPlainObject, isString, isUndefined, omitBy } from 'lodash';
 
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ETranslations,
+  ETranslationsMock,
+} from '@onekeyhq/shared/src/locale';
 
+import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
-
-import type {
-  IOneKeyError,
-  IOneKeyHardwareErrorPayload,
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+  type IOneKeyHardwareErrorPayload,
 } from '../types/errorTypes';
+
 import type { MessageDescriptor } from 'react-intl';
 
 // TODO also update JsBridgeBase.toPlainError
@@ -105,7 +110,7 @@ export function normalizeErrorProps(
   props?: IOneKeyError | string,
   config?: {
     defaultMessage?: string | ETranslations;
-    defaultKey?: ETranslations;
+    defaultKey?: ETranslations | ETranslationsMock;
     defaultAutoToast?: boolean;
     alwaysAppendDefaultMessage?: boolean;
   },
@@ -186,6 +191,66 @@ function toastIfErrorDisable(error: unknown) {
   }
 }
 
+let lastToastErrorInstance: IOneKeyError | undefined;
+function showToastOfError(error: IOneKeyError | unknown | undefined) {
+  const err = error as IOneKeyError | undefined;
+  if (
+    err?.className &&
+    [
+      EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+      EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
+      EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+      EOneKeyErrorClassNames.FirmwareUpdateExit,
+      EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
+      EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
+    ].includes(err?.className)
+  ) {
+    return;
+  }
+  const isTriggered = err?.$$autoToastErrorTriggered;
+  const isSameError = lastToastErrorInstance === err;
+  // TODO log error to file if developer mode on
+  if (err && err?.autoToast && !isTriggered && !isSameError) {
+    err.$$autoToastErrorTriggered = true;
+    lastToastErrorInstance = err;
+    appEventBus.emit(EAppEventBusNames.ShowToast, {
+      errorCode: err?.code,
+      method: 'error',
+      title: err?.message ?? 'Error',
+      message: err?.requestId,
+    });
+  }
+}
+
+async function withErrorAutoToast<T>(
+  fn: () => Promise<T>,
+  options: {
+    alwaysShowToast?: boolean;
+  } = {},
+) {
+  try {
+    const result = await fn();
+    return result;
+  } catch (error: unknown) {
+    const alwaysShowToast = options?.alwaysShowToast ?? true;
+    if (alwaysShowToast) {
+      toastIfError(error);
+    }
+    showToastOfError(error);
+    throw error;
+  }
+}
+
+function isErrorByClassName({
+  error,
+  className,
+}: {
+  error: unknown;
+  className: EOneKeyErrorClassNames;
+}): boolean {
+  return Boolean((error as IOneKeyError)?.className === className && className);
+}
+
 export default {
   autoPrintErrorIgnore,
   normalizeErrorProps,
@@ -196,4 +261,7 @@ export default {
   getDeviceErrorPayloadMessage,
   toastIfError,
   toastIfErrorDisable,
+  showToastOfError,
+  withErrorAutoToast,
+  isErrorByClassName,
 };

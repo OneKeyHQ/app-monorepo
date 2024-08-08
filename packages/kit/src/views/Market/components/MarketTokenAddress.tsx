@@ -13,11 +13,11 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { openExplorerAddressUrl } from '../../../utils/explorerUtils';
 
 export function MarketTokenAddress({
   tokenName,
@@ -50,12 +50,8 @@ export function MarketTokenAddress({
     },
   );
   const handleOpenUrl = useCallback(async () => {
-    if (network?.explorers[0].address) {
-      openUrlExternal(
-        network.explorers[0].address.replace('{address}', address),
-      );
-    }
-  }, [address, network?.explorers]);
+    void openExplorerAddressUrl({ networkId, address });
+  }, [networkId, address]);
   const renderIcon = useCallback(() => {
     if (uri) {
       return (
@@ -80,9 +76,9 @@ export function MarketTokenAddress({
     );
   }, [networkId, uri]);
   return (
-    <XStack space="$1.5" ai="center">
+    <XStack gap="$1.5" ai="center">
       {renderIcon()}
-      <XStack space="$2">
+      <XStack gap="$2">
         <SizableText color={tokenNameColor} size={tokenNameSize}>{`${
           tokenName || network?.name || ''
         }:`}</SizableText>

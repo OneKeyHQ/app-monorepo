@@ -141,6 +141,7 @@ export default class Vault extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
     const { outputs, feeInfo } = encodedTx;
+    const { swapInfo } = unsignedTx;
     const network = await this.getNetwork();
     const account = await this.getAccount();
 
@@ -160,6 +161,9 @@ export default class Vault extends VaultBase {
       isMine: false, // output.address === dbAccount.address,
     }));
 
+    let sendNativeTokenAmountBN = new BigNumber(0);
+    let sendNativeTokenAmountValueBN = new BigNumber(0);
+
     let action: IDecodedTxAction = {
       type: EDecodedTxActionType.UNKNOWN,
       unknownAction: {
@@ -168,24 +172,56 @@ export default class Vault extends VaultBase {
       },
     };
 
-    if (nativeToken) {
-      const sends = [];
-      for (const output of outputs) {
-        sends.push({
-          from: account.address,
-          to: output.address,
-          isNative: true,
-          tokenIdOnNetwork: '',
-          name: nativeToken.name,
-          icon: nativeToken.logoURI ?? '',
-          amount: new BigNumber(output.value)
-            .shiftedBy(-network.decimals)
-            .toFixed(),
-          amountValue: output.value,
-          symbol: network.symbol,
-        });
+    if (swapInfo) {
+      const swapSendToken = swapInfo.sender.token;
+      const swapReceiveToken = swapInfo.receiver.token;
+      const providerInfo = swapInfo.swapBuildResData.result.info;
+      action = await this.buildTxTransferAssetAction({
+        from: swapInfo.accountAddress,
+        to: utxoTo[0].address,
+        application: {
+          name: providerInfo.providerName,
+          icon: providerInfo.providerLogo ?? '',
+        },
+        transfers: [
+          {
+            from: swapInfo.accountAddress,
+            to: '',
+            tokenIdOnNetwork: swapSendToken.contractAddress,
+            icon: swapSendToken.logoURI ?? '',
+            name: swapSendToken.name ?? '',
+            symbol: swapSendToken.symbol,
+            amount: swapInfo.sender.amount,
+            isNFT: false,
+            isNative: swapSendToken.isNative,
+          },
+          {
+            from: '',
+            to: swapInfo.receivingAddress,
+            tokenIdOnNetwork: swapReceiveToken.contractAddress,
+            icon: swapReceiveToken.logoURI ?? '',
+            name: swapReceiveToken.name ?? '',
+            symbol: swapReceiveToken.symbol,
+            amount: swapInfo.receiver.amount,
+            isNFT: false,
+            isNative: swapReceiveToken.isNative,
+          },
+        ],
+        isInternalSwap: true,
+        swapReceivedAddress: swapInfo.receivingAddress,
+        swapReceivedNetworkId: swapInfo.receiver.token.networkId,
+      });
+      if (swapSendToken.isNative) {
+        sendNativeTokenAmountBN = new BigNumber(swapInfo.sender.amount);
+        sendNativeTokenAmountValueBN = sendNativeTokenAmountBN.shiftedBy(
+          swapSendToken.decimals,
+        );
       }
-
+    } else if (nativeToken) {
+      sendNativeTokenAmountBN = new BigNumber(utxoTo[0].balance);
+      sendNativeTokenAmountValueBN = sendNativeTokenAmountBN.shiftedBy(
+        nativeToken.decimals,
+      );
       const transfer = {
         from: account.address,
         to: utxoTo[0].address,
@@ -218,6 +254,8 @@ export default class Vault extends VaultBase {
       totalFeeInNative: new BigNumber(encodedTx.feeInfo?.limit ?? '0')
         .multipliedBy(feeInfo?.price ?? '0.00000001')
         .toFixed(),
+      nativeAmount: sendNativeTokenAmountBN.toFixed(),
+      nativeAmountValue: sendNativeTokenAmountValueBN.toFixed(),
     };
   }
 

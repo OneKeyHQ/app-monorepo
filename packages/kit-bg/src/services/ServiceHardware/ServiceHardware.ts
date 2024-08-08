@@ -4,17 +4,25 @@ import { uniq } from 'lodash';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -25,6 +33,7 @@ import type {
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
+import simpleDb from '../../dbs/simple/simpleDb';
 import {
   EHardwareUiStateAction,
   hardwareUiStateAtom,
@@ -39,6 +48,8 @@ import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type {
   IGetDeviceAdvanceSettingsParams,
+  IGetDeviceLabelParams,
+  ISetDeviceLabelParams,
   ISetInputPinOnSoftwareParams,
   ISetPassphraseEnabledParams,
 } from './DeviceSettingsManager';
@@ -47,6 +58,7 @@ import type {
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
 import type { IHardwareUiPayload } from '../../states/jotai/atoms';
+import type { IServiceBaseProps } from '../ServiceBase';
 import type {
   CommonParams,
   CoreApi,
@@ -68,6 +80,61 @@ export type IDeviceGetFeaturesOptions = {
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
+  constructor(props: IServiceBaseProps) {
+    super(props);
+    appEventBus.on(
+      EAppEventBusNames.SyncDeviceLabelToWalletName,
+      this.handleHardwareLabelChanged,
+    );
+  }
+
+  handleHardwareLabelChanged = cacheUtils.memoizee(
+    async ({
+      walletId,
+      label,
+      walletName,
+    }: IAppEventBusPayload[EAppEventBusNames.SyncDeviceLabelToWalletName]) => {
+      const isHw =
+        accountUtils.isHwWallet({ walletId }) &&
+        !accountUtils.isQrWallet({ walletId });
+      if (!isHw) {
+        return;
+      }
+      console.log('handleHardwareLabelChanged');
+      // Desktop 5.0.0 hw wallet name is not synced with device label, so we need to backup it
+      if (platformEnv.isDesktop && walletId && walletName && isHw) {
+        const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+          walletId,
+        });
+        if (wallet && !accountUtils.isHwHiddenWallet({ wallet })) {
+          if (walletName !== label) {
+            try {
+              await simpleDb.legacyWalletNames.setRawData(({ rawData }) => {
+                if (rawData?.[walletId]) {
+                  return rawData;
+                }
+                return {
+                  ...rawData,
+                  [walletId]: walletName,
+                };
+              });
+            } catch (error) {
+              //
+            }
+          }
+        }
+      }
+      await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
+        walletId,
+        name: label,
+        shouldCheckDuplicate: false,
+      });
+    },
+    {
+      maxAge: 600,
+    },
+  );
+
   hardwareVerifyManager: HardwareVerifyManager = new HardwareVerifyManager({
     backgroundApi: this.backgroundApi,
   });
@@ -116,12 +183,17 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'usePreReleaseConfig',
       );
+    const debugMode =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'showDeviceDebugLogs',
+      );
     try {
       const instance = await getHardwareSDKInstance({
         // https://data.onekey.so/pre-config.json?noCache=1714090312200
         // https://data.onekey.so/config.json?nocache=0.8336416330053136
         isPreRelease: isPreRelease === true,
         hardwareConnectSrc,
+        debugMode,
       });
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
       await this.registerSdkEvents(instance);
@@ -200,7 +272,7 @@ class ServiceHardware extends ServiceBase {
       const {
         UI_EVENT,
         DEVICE,
-        // LOG_EVENT,
+        LOG_EVENT,
         FIRMWARE,
         FIRMWARE_EVENT,
         // UI_REQUEST,
@@ -208,7 +280,7 @@ class ServiceHardware extends ServiceBase {
       instance.on(UI_EVENT, async (e) => {
         const originEvent = e as UiEvent;
         const { type: uiRequestType, payload } = e;
-        console.log('=>>>> UI_EVENT: ', uiRequestType, payload);
+        // console.log('=>>>> UI_EVENT: ', uiRequestType, payload);
 
         const { device, type: eventType, passphraseState } = payload || {};
         const { deviceType, connectId, deviceId, features } = device || {};
@@ -306,6 +378,25 @@ class ServiceHardware extends ServiceBase {
           );
         }
       });
+
+      instance.on(
+        LOG_EVENT,
+        (messages: { event: string; type: string; payload: string[] }) => {
+          const messageType =
+            messages.payload.length > 0 ? messages.payload[0] : '';
+
+          if (
+            messageType.includes('@onekey/hd-core') ||
+            messageType.includes('@onekey/hd-transport') ||
+            messageType.includes('@onekey/hd-ble-transport')
+          ) {
+            defaultLogger.hardware.sdkLog.log(
+              messages.event,
+              messages.payload.join(' '),
+            );
+          }
+        },
+      );
     }
   }
 
@@ -417,6 +508,23 @@ class ServiceHardware extends ServiceBase {
       forceInputPassphrase: false,
       useEmptyPassphrase: true,
     });
+  }
+
+  @backgroundMethod()
+  async cancelByWallet({ walletId }: { walletId: string | undefined }) {
+    try {
+      if (walletId && accountUtils.isHwWallet({ walletId })) {
+        const device =
+          await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+            walletId,
+          });
+        if (device?.connectId) {
+          await this.cancel(device.connectId);
+        }
+      }
+    } catch (error) {
+      //
+    }
   }
 
   @backgroundMethod()
@@ -622,6 +730,39 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
+  async getDeviceLabel(p: IGetDeviceLabelParams) {
+    return this.deviceSettingsManager.getDeviceLabel(p);
+  }
+
+  @backgroundMethod()
+  async setDeviceLabel(p: ISetDeviceLabelParams) {
+    const result = await this.deviceSettingsManager.setDeviceLabel(p);
+    if (result.message) {
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId: p.walletId,
+      });
+      const walletName = wallet?.name;
+      const dbDeviceId = wallet?.associatedDevice;
+      if (dbDeviceId) {
+        // update db features label
+        await localDb.updateDeviceFeaturesLabel({
+          dbDeviceId,
+          label: p.label,
+        });
+        // update db wallet name
+        appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
+          walletId: p.walletId,
+          dbDeviceId,
+          label: p.label,
+          walletName,
+        });
+      }
+    }
+    return result;
+  }
+
+  @backgroundMethod()
   async shouldAuthenticateFirmware(p: IShouldAuthenticateFirmwareParams) {
     return this.hardwareVerifyManager.shouldAuthenticateFirmware(p);
   }
@@ -637,6 +778,19 @@ class ServiceHardware extends ServiceBase {
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUploadResource(connectId, params),
     );
+  }
+
+  @backgroundMethod()
+  async getLogs(): Promise<string[]> {
+    const logs: string[] = ['===== device logs ====='];
+    try {
+      const hardwareSDK = await this.getSDKInstance();
+      const messages = await convertDeviceResponse(() => hardwareSDK.getLogs());
+      logs.push(...messages);
+    } catch (error) {
+      // ignore
+    }
+    return logs;
   }
 }
 

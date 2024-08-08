@@ -1,7 +1,5 @@
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 
-import type { INetworkExplorerConfig } from '..';
-
 export enum EProtocolOfExchange {
   SWAP = 'Swap',
   LIMIT = 'Limit', // TODO
@@ -51,7 +49,6 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   symbol: string;
   shortcode?: string;
   logoURI?: string;
-  explorers?: INetworkExplorerConfig[];
 }
 
 export interface ISwapTokenBase {
@@ -182,6 +179,7 @@ export interface IQuoteRoutePath {
   subRoutes?: IQuoteRouteDataInfo[][];
 }
 export interface IFetchQuoteResult {
+  quoteId?: string;
   info: IFetchQuoteInfo;
   errorMessage?: string;
   fromAmount?: string;
@@ -203,6 +201,8 @@ export interface IFetchQuoteResult {
   fromTokenInfo: ISwapTokenBase;
   toTokenInfo: ISwapTokenBase;
   quoteResultCtx?: any;
+  protocolNoRouterInfo?: string;
+  supportUrl?: string;
 }
 
 export interface IAllowanceResult {
@@ -296,6 +296,7 @@ export interface IFetchBuildTxResponse {
   tx?: ITransaction;
   thorSwapCallData?: IThorSwapCallData;
   swftOrder?: IFetchBuildTxOrderResponse;
+  changellyOrder?: IFetchBuildTxChangellyOrderResponse;
   ctx?: any;
   socketBridgeScanUrl?: string;
   orderId?: string;
@@ -325,6 +326,11 @@ export interface IFetchBuildTxOrderResponse {
   platformAddr: string;
   depositCoinAmt: string;
   depositCoinCode: string;
+  orderId: string;
+}
+export interface IFetchBuildTxChangellyOrderResponse {
+  payinAddress: string;
+  amountExpectedFrom: string;
   orderId: string;
 }
 
@@ -381,6 +387,7 @@ export interface ISwapTxHistory {
     protocolFee?: number;
     oneKeyFee?: number;
     orderId?: string;
+    supportUrl?: string;
   };
   date: {
     created: number;

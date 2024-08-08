@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  ActionList,
   Badge,
   BlurView,
   Button,
@@ -19,9 +18,10 @@ import {
   Stack,
   Toast,
   XStack,
+  YStack,
   useClipboard,
 } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
@@ -31,6 +31,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
@@ -41,6 +42,7 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -55,20 +57,23 @@ function ReceiveToken() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
     >();
 
-  const { networkId, accountId, walletId, deriveInfo, deriveType } =
-    route.params;
-
-  const addressType = deriveInfo?.labelKey
-    ? intl.formatMessage({
-        id: deriveInfo?.labelKey,
-      })
-    : deriveInfo?.label ?? '';
+  const { networkId, accountId, walletId, deriveType, token } = route.params;
 
   const { account, network, wallet, vaultSettings } = useAccountData({
     accountId,
     networkId,
     walletId,
   });
+
+  const addressType = usePromiseResult(async () => {
+    const r = await backgroundApiProxy.serviceAccount.getAccountAddressType({
+      accountId,
+      networkId,
+      address: account?.address ?? '',
+    });
+
+    return r.typeKey ? intl.formatMessage({ id: r.typeKey }) : r.type ?? '';
+  }, [account?.address, accountId, intl, networkId]).result;
 
   const [addressState, setAddressState] = useState<EAddressState>(
     EAddressState.Unverified,
@@ -78,7 +83,7 @@ function ReceiveToken() {
 
   const { copyText } = useClipboard();
 
-  const isDeviceWallet =
+  const isHardwareWallet =
     accountUtils.isQrWallet({
       walletId,
     }) ||
@@ -87,7 +92,7 @@ function ReceiveToken() {
     });
 
   const shouldShowAddress = useMemo(() => {
-    if (!isDeviceWallet) {
+    if (!isHardwareWallet) {
       return true;
     }
 
@@ -106,7 +111,7 @@ function ReceiveToken() {
     }
 
     return false;
-  }, [addressState, hardwareUiState?.action, isDeviceWallet]);
+  }, [addressState, hardwareUiState?.action, isHardwareWallet]);
 
   const shouldHighLightAddress = useMemo(() => {
     if (
@@ -118,7 +123,7 @@ function ReceiveToken() {
   }, [addressState, hardwareUiState?.action]);
 
   const isShowQRCode = useMemo(() => {
-    if (!isDeviceWallet) {
+    if (!isHardwareWallet) {
       return true;
     }
 
@@ -130,7 +135,7 @@ function ReceiveToken() {
     }
 
     return false;
-  }, [addressState, isDeviceWallet]);
+  }, [addressState, isHardwareWallet]);
 
   const isVerifying = addressState === EAddressState.Verifying;
 
@@ -148,6 +153,17 @@ function ReceiveToken() {
 
       const isSameAddress =
         addresses?.[0]?.toLowerCase() === account?.address?.toLowerCase();
+
+      defaultLogger.transaction.receive.showReceived({
+        walletType: wallet?.type,
+        isSuccess: isSameAddress,
+        failedReason: isSameAddress
+          ? ''
+          : intl.formatMessage({
+              id: ETranslations.feedback_address_mismatch,
+            }),
+      });
+
       if (!isSameAddress) {
         Toast.error({
           title: intl.formatMessage({
@@ -164,6 +180,11 @@ function ReceiveToken() {
     } catch (e: any) {
       setAddressState(EAddressState.Unverified);
       // verifyHWAccountAddresses handler error toast
+      defaultLogger.transaction.receive.showReceived({
+        walletType: wallet?.type,
+        isSuccess: false,
+        failedReason: (e as Error).message,
+      });
       throw e;
     }
   }, [
@@ -172,6 +193,7 @@ function ReceiveToken() {
     deriveType,
     intl,
     networkId,
+    wallet?.type,
     walletId,
   ]);
 
@@ -189,37 +211,18 @@ function ReceiveToken() {
     };
   }, []);
 
-  const headerRight = () => {
-    const isForceShowAction = addressState !== EAddressState.ForceShow;
-
-    if (addressState === EAddressState.Verified) return null;
-
-    return (
-      <ActionList
-        title={intl.formatMessage({ id: ETranslations.global_more })}
-        items={[
-          {
-            icon: isForceShowAction ? 'EyeOutline' : 'EyeOffOutline',
-            label: isForceShowAction
-              ? intl.formatMessage({
-                  id: ETranslations.receive_show_address_any,
-                })
-              : intl.formatMessage({
-                  id: ETranslations.receive_hide_unverified_address,
-                }),
-            onPress: () =>
-              isForceShowAction
-                ? setAddressState(EAddressState.ForceShow)
-                : setAddressState(EAddressState.Unverified),
-          },
-        ]}
-        renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
-      />
-    );
-  };
+  useEffect(() => {
+    if (!isHardwareWallet) {
+      defaultLogger.transaction.receive.showReceived({
+        walletType: wallet?.type,
+        isSuccess: true,
+        failedReason: '',
+      });
+    }
+  }, [isHardwareWallet, wallet?.type]);
 
   const renderCopyAddressButton = useCallback(() => {
-    if (isDeviceWallet) {
+    if (isHardwareWallet) {
       if (
         addressState === EAddressState.Verified ||
         addressState === EAddressState.ForceShow ||
@@ -241,11 +244,22 @@ function ReceiveToken() {
       }
 
       return (
-        <Button mt="$5" variant="primary" onPress={handleVerifyOnDevicePress}>
-          {intl.formatMessage({
-            id: ETranslations.global_verify_on_device,
-          })}
-        </Button>
+        <YStack gap="$5" alignItems="center">
+          <Button mt="$5" variant="primary" onPress={handleVerifyOnDevicePress}>
+            {intl.formatMessage({
+              id: ETranslations.global_verify_on_device,
+            })}
+          </Button>
+          <Button
+            size="medium"
+            variant="tertiary"
+            onPress={() => setAddressState(EAddressState.ForceShow)}
+          >
+            {intl.formatMessage({
+              id: ETranslations.skip_verify_text,
+            })}
+          </Button>
+        </YStack>
       );
     }
 
@@ -266,7 +280,7 @@ function ReceiveToken() {
     copyText,
     handleVerifyOnDevicePress,
     intl,
-    isDeviceWallet,
+    isHardwareWallet,
     isVerifying,
   ]);
 
@@ -276,8 +290,10 @@ function ReceiveToken() {
     return (
       <>
         <Stack mb="$5">
-          <XStack space="$2" alignItems="center" justifyContent="center">
-            <Heading size="$headingMd">{network.name}</Heading>
+          <XStack gap="$2" alignItems="center" justifyContent="center">
+            <Heading size="$headingMd">
+              {token?.symbol ?? network.symbol}
+            </Heading>
             {vaultSettings?.showAddressType && addressType ? (
               <Badge>{addressType}</Badge>
             ) : null}
@@ -288,9 +304,14 @@ function ReceiveToken() {
             color="$textSubdued"
             textAlign="center"
           >
-            {intl.formatMessage({
-              id: ETranslations.receive_send_asset_warning_message,
-            })}
+            {intl.formatMessage(
+              {
+                id: ETranslations.receive_send_asset_warning_message,
+              },
+              {
+                network: network.name,
+              },
+            )}
           </SizableText>
         </Stack>
         <Stack
@@ -299,14 +320,24 @@ function ReceiveToken() {
           borderColor="$borderSubdued"
           p="$4"
         >
-          <QRCode
-            value={account.address}
-            logo={{
-              uri: network.logoURI,
-            }}
-            logoSize={40}
-            size={240}
-          />
+          <Stack position="relative">
+            <QRCode value={account.address} size={240} />
+            <Stack
+              position="absolute"
+              width="100%"
+              height="100%"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <Stack p={5} borderRadius="$full" overflow="hidden" bg="$bgApp">
+                <Token
+                  size="lg"
+                  tokenImageUri={token?.logoURI || network.logoURI}
+                />
+              </Stack>
+            </Stack>
+          </Stack>
+
           {!isShowQRCode ? (
             <Stack
               position="absolute"
@@ -355,27 +386,10 @@ function ReceiveToken() {
               wordBreak: 'break-all',
             }}
           >
-            {account.address}
+            {!shouldShowAddress
+              ? accountUtils.shortenAddress({ address: account.address })
+              : account.address}
           </SizableText>
-
-          {!shouldShowAddress ? (
-            <BlurView
-              // Setting both inner and outer borderRadius is for the compatibility of Web and Native styles.
-              borderRadius="$3"
-              contentStyle={{
-                borderRadius: '$3',
-                width: '100%',
-                height: '100%',
-                borderCurve: 'continuous',
-              }}
-              position="absolute"
-              intensity={38}
-              top="$0"
-              left="$0"
-              right="$0"
-              bottom="$0"
-            />
-          ) : null}
         </ConfirmHighlighter>
         {shouldShowAddress && addressState === EAddressState.ForceShow ? (
           <XStack mt="$1" justifyContent="center" alignItems="center">
@@ -397,18 +411,19 @@ function ReceiveToken() {
     vaultSettings?.showAddressType,
     addressType,
     intl,
+    token?.logoURI,
     isShowQRCode,
     shouldHighLightAddress,
     shouldShowAddress,
     addressState,
     renderCopyAddressButton,
+    token?.symbol,
   ]);
 
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
-        headerRight={isDeviceWallet ? headerRight : undefined}
       />
       <Page.Body
         flex={1}

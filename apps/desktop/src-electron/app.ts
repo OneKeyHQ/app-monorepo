@@ -25,7 +25,7 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type { IPrefType } from '@onekeyhq/shared/types/desktop';
+import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
@@ -183,12 +183,6 @@ function handleDeepLinkUrl(
   if (event) {
     event?.preventDefault();
   }
-}
-
-function clearWebData() {
-  return session.defaultSession.clearStorageData({
-    storages: ['cookies'],
-  });
 }
 
 function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
@@ -358,6 +352,14 @@ function createMainWindow() {
   });
 
   ipcMain.on(
+    ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS,
+    (event, prefType: IMediaType) => {
+      const result = systemPreferences?.getMediaAccessStatus?.(prefType);
+      event.returnValue = result;
+    },
+  );
+
+  ipcMain.on(
     ipcMessageKeys.APP_OPEN_PREFERENCES,
     (_event, prefType: IPrefType) => {
       const platform = os.type();
@@ -523,6 +525,11 @@ function createMainWindow() {
 
   browserWindow.on('hide', () => {
     browserWindow.webContents.send(ipcMessageKeys.APP_STATE, 'background');
+  });
+
+  app.on('login', (event, webContents, request, authInfo, callback) => {
+    event.preventDefault();
+    callback('onekey', 'juDUIpz3lVnubZ2aHOkwBB6SJotYynyb');
   });
 
   // Prevents clicking on links to open new Windows

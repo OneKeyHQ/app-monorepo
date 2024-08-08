@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { swapQuoteIntervalMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapCheckWarningDef,
@@ -29,6 +28,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
 } from '../../../states/jotai/contexts/swap';
 
@@ -89,6 +89,7 @@ export function useSwapActionState() {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [shouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [swapQuoteApproveAllowanceUnLimit] =
     useSwapQuoteApproveAllowanceUnLimitAtom();
   useSwapWarningCheck();
@@ -98,8 +99,9 @@ export function useSwapActionState() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { getQuoteIntervalCount } = useSwapActions().current;
-  const isRefreshQuote = getQuoteIntervalCount() >= swapQuoteIntervalMaxCount;
-  const hasError = alerts.some(
+  const isRefreshQuote =
+    getQuoteIntervalCount() >= swapQuoteIntervalMaxCount || shouldRefreshQuote;
+  const hasError = alerts.states.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );
   const quoteResultNoMatch = useMemo(
@@ -151,27 +153,9 @@ export function useSwapActionState() {
         });
       }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
-        infoRes.label = swapQuoteApproveAllowanceUnLimit
-          ? `${intl.formatMessage(
-              { id: ETranslations.swap_page_approve_button },
-              {
-                token: intl.formatMessage({
-                  id: ETranslations.swap_page_provider_approve_amount_un_limit,
-                }),
-                target: quoteCurrentSelect?.info.providerName ?? '',
-              },
-            )}`
-          : `${intl.formatMessage(
-              { id: ETranslations.swap_page_approve_button },
-              {
-                token: `${
-                  numberFormat(fromTokenAmount, {
-                    formatter: 'balance',
-                  }) as string
-                } ${fromToken?.symbol ?? ''}`,
-                target: quoteCurrentSelect?.info.providerName ?? '',
-              },
-            )}`;
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.global_approve,
+        });
       }
       if (
         quoteCurrentSelect &&
@@ -240,7 +224,6 @@ export function useSwapActionState() {
     quoteResultNoMatchDebounce,
     selectedFromTokenBalance,
     swapFromAddressInfo.address,
-    swapQuoteApproveAllowanceUnLimit,
     swapToAddressInfo.address,
     toToken,
   ]);

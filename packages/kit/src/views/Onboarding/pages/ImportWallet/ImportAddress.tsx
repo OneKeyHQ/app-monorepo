@@ -21,13 +21,13 @@ import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorTrigger,
 } from '@onekeyhq/kit/src/components/AccountSelector';
-import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   AddressInput,
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
-import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -40,6 +40,7 @@ import type {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
@@ -75,9 +76,9 @@ const FormDeriveTypeInput = ({
         })}
         name={fieldName}
       >
-        <DeriveTypeSelectorTriggerStaticInput
+        <DeriveTypeSelectorFormInput
           networkId={networkId}
-          items={deriveInfoItems}
+          enabledItems={deriveInfoItems}
           renderTrigger={({ label }) => (
             <Stack
               userSelect="none"
@@ -155,7 +156,10 @@ function ImportAddress() {
   const { clearText } = useClipboard();
   const form = useForm<IFormValues>({
     values: {
-      networkId: network?.id ?? getNetworkIdsMap().btc,
+      networkId:
+        network?.id && network.id !== getNetworkIdsMap().onekeyall
+          ? network?.id
+          : getNetworkIdsMap().btc,
       deriveType: undefined,
       publicKeyValue: '',
       addressValue: { raw: '', resolved: undefined },
@@ -224,6 +228,8 @@ function ImportAddress() {
   }, [validateFn]);
 
   const { start } = useScanQrCode();
+
+  const deriveTypeValue = form.watch('deriveType');
 
   const isEnable = useMemo(() => {
     if (method === EImportMethod.Address) {
@@ -294,6 +300,7 @@ function ImportAddress() {
                   placeholder={intl.formatMessage({
                     id: ETranslations.form_public_key_placeholder,
                   })}
+                  testID="import-address-input"
                   size={media.gtMd ? 'medium' : 'large'}
                   addOns={[
                     {
@@ -347,6 +354,7 @@ function ImportAddress() {
                     id: ETranslations.form_address_placeholder,
                   })}
                   networkId={networkIdText ?? ''}
+                  testID="import-address-input"
                 />
               </Form.Field>
             </>
@@ -364,6 +372,11 @@ function ImportAddress() {
             },
           ]}
         />
+        {process.env.NODE_ENV !== 'production' ? (
+          <>
+            <SizableText>deriveType: {deriveTypeValue}</SizableText>
+          </>
+        ) : null}
       </Page.Body>
       <Page.Footer
         confirmButtonProps={{
@@ -398,6 +411,10 @@ function ImportAddress() {
               othersWalletAccountId: accountId,
             });
             navigation.popStack();
+
+            defaultLogger.account.wallet.importWallet({
+              importMethod: 'address',
+            });
           })();
         }}
       />

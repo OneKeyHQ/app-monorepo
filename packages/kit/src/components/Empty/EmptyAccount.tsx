@@ -10,26 +10,21 @@ type IProps = {
   name: string;
   chain: string;
   type: string;
+  autoCreateAddress?: boolean;
 };
 
 const num = 0;
 
 function EmptyAccount(props: IProps) {
-  const { name, chain, type } = props;
+  const { name, chain, type, autoCreateAddress } = props;
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   let description: string | undefined;
   if (activeAccount?.canCreateAddress) {
     const showDerivationType = activeAccount.deriveInfoItems.length > 1;
-    description = intl.formatMessage(
-      {
-        id: ETranslations.wallet_no_address_desc,
-      },
-      {
-        name,
-        chain: `${chain} ${showDerivationType && type ? `(${type})` : ''}`,
-      },
-    );
+    description = intl.formatMessage({
+      id: ETranslations.wallet_no_address_desc,
+    });
   } else if (activeAccount?.isNetworkNotMatched) {
     description = intl.formatMessage({
       id: ETranslations.global_network_not_matched,
@@ -46,6 +41,7 @@ function EmptyAccount(props: IProps) {
           <AccountSelectorCreateAddressButton
             num={num}
             selectAfterCreate
+            autoCreateAddress={autoCreateAddress}
             account={{
               walletId: activeAccount?.wallet?.id,
               networkId: activeAccount?.network?.id,

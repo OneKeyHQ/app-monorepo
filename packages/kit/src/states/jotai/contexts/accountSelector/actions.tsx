@@ -4,7 +4,7 @@ import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, Spinner } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -21,12 +21,14 @@ import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
@@ -67,6 +69,7 @@ import type {
   IAccountSelectorActiveAccountInfo,
   IAccountSelectorRouteParams,
   IAccountSelectorUpdateMeta,
+  ISelectedAccountsAtomMap,
 } from './atoms';
 
 const { serviceAccount } = backgroundApiProxy;
@@ -92,13 +95,32 @@ export type IFinalizeWalletSetupCreateWalletResult = {
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
-    set(selectedAccountsAtom(), (v) => ({
-      ...v,
-      [num]: {
-        ...v[num],
-      } as any,
-    }));
+    this.setSelectedAccountsAtom(
+      set,
+      (v) => ({
+        ...v,
+        [num]: {
+          ...v[num],
+        } as any,
+      }),
+      'refresh',
+    );
   });
+
+  setSelectedAccountsAtom(
+    set: IJotaiSetter,
+    fn: (currentValue: ISelectedAccountsAtomMap) => ISelectedAccountsAtomMap,
+    reason?: string,
+  ) {
+    console.log('AccountSelectorAtomChanged  setSelectedAccountsAtom', reason);
+    set(selectedAccountsAtom(), (currentValue) => {
+      const newValue = fn(currentValue);
+      if (isEqual(currentValue, newValue)) {
+        return currentValue;
+      }
+      return newValue;
+    });
+  }
 
   mutex = new Semaphore(1);
 
@@ -117,13 +139,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         console.log('buildActiveAccountInfoFromSelectedAccount', {
           selectedAccount,
         });
-        const { activeAccount } =
-          await serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
-            {
-              selectedAccount,
-            },
-          );
-
+        let activeAccount: IAccountSelectorActiveAccountInfo | undefined;
+        try {
+          ({ activeAccount } =
+            await serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
+              {
+                selectedAccount,
+              },
+            ));
+        } catch (error) {
+          //
+          activeAccount = {
+            ...defaultActiveAccountInfo(),
+            ready: true,
+          };
+        }
         console.log('buildActiveAccountInfoFromSelectedAccount update state', {
           selectedAccount,
           activeAccount,
@@ -345,10 +375,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           newSelectedAccount.othersWalletAccountId = undefined;
         }
       }
-      set(selectedAccountsAtom(), (v) => ({
-        ...v,
-        [num]: newSelectedAccount,
-      }));
+      this.setSelectedAccountsAtom(
+        set,
+        (v) => ({
+          ...v,
+          [num]: newSelectedAccount,
+        }),
+        'updateSelectedAccount',
+      );
       set(accountSelectorUpdateMetaAtom(), (v) => ({
         ...v,
         [num]: {
@@ -511,41 +545,48 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) => Promise<void>;
       },
     ) => {
-      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
-        step: EFinalizeWalletSetupSteps.CreatingWallet,
-      });
+      try {
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+          step: EFinalizeWalletSetupSteps.CreatingWallet,
+        });
 
-      await timerUtils.wait(100);
+        await timerUtils.wait(100);
 
-      const [{ wallet, indexedAccount, hidden }] = await Promise.all([
-        await createWalletFn(),
-        await timerUtils.wait(1000),
-      ]);
+        const [{ wallet, indexedAccount, hidden }] = await Promise.all([
+          await createWalletFn(),
+          await timerUtils.wait(1000),
+        ]);
 
-      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
-        step: EFinalizeWalletSetupSteps.GeneratingAccounts,
-      });
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+          step: EFinalizeWalletSetupSteps.GeneratingAccounts,
+        });
 
-      await timerUtils.wait(100);
+        await timerUtils.wait(100);
 
-      await Promise.all([
-        generatingAccountsFn({ wallet, indexedAccount, hidden }),
-        await timerUtils.wait(1000),
-      ]);
+        await Promise.all([
+          generatingAccountsFn({ wallet, indexedAccount, hidden }),
+          await timerUtils.wait(1000),
+        ]);
 
-      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
-        step: EFinalizeWalletSetupSteps.EncryptingData,
-      });
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+          step: EFinalizeWalletSetupSteps.EncryptingData,
+        });
 
-      await timerUtils.wait(1000);
+        await timerUtils.wait(1000);
 
-      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
-        step: EFinalizeWalletSetupSteps.Ready,
-      });
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+          step: EFinalizeWalletSetupSteps.Ready,
+        });
 
-      await timerUtils.wait(0);
+        await timerUtils.wait(0);
 
-      return { wallet, indexedAccount };
+        return { wallet, indexedAccount };
+      } catch (error) {
+        appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupError, {
+          error: error as IOneKeyError,
+        });
+        throw error;
+      }
     },
   );
 
@@ -571,15 +612,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
       const networkId = selectedAccount.networkId;
       const deriveType = selectedAccount.deriveType;
-      return serviceAccount.addDefaultNetworkAccounts({
-        walletId: wallet.id,
-        indexedAccountId: indexedAccount?.id,
-        customNetworks:
-          networkId && deriveType ? [{ networkId, deriveType }] : undefined,
+      return backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
+        {
+          walletId: wallet.id,
+          indexedAccountId: indexedAccount?.id,
+          customNetworks:
+            networkId && deriveType ? [{ networkId, deriveType }] : undefined,
 
-        skipDeviceCancel,
-        hideCheckingDeviceLoading,
-      });
+          skipDeviceCancel,
+          hideCheckingDeviceLoading,
+        },
+      );
     },
   );
 
@@ -1079,7 +1122,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         selectedAccountsMapInDB &&
         !isEqual(selectedAccountsMapInDB, selectedAccountsMap)
       ) {
-        set(selectedAccountsAtom(), (v) => selectedAccountsMapInDB || v);
+        this.setSelectedAccountsAtom(
+          set,
+          (v) => selectedAccountsMapInDB || v,
+          'initFromStorage',
+        );
       }
       set(accountSelectorStorageReadyAtom(), () => true);
     },
@@ -1100,11 +1147,22 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) => {
       const { serviceAccountSelector } = backgroundApiProxy;
       await this.mutexSaveToStorage.runExclusive(async () => {
-        const { selectedAccount, sceneName, sceneUrl, num } = payload;
+        const { sceneName, sceneUrl, num } = payload;
+        let { selectedAccount } = payload;
         const { simpleDb } = backgroundApiProxy;
         const isReady = get(accountSelectorStorageReadyAtom());
         if (!isReady) {
           return;
+        }
+        if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
+          if (
+            !selectedAccount?.othersWalletAccountId ||
+            !accountUtils.isUrlAccountFn({
+              accountId: selectedAccount?.othersWalletAccountId,
+            })
+          ) {
+            selectedAccount = defaultSelectedAccount();
+          }
         }
         if (isEqual(selectedAccount, defaultSelectedAccount)) {
           console.error(
@@ -1392,6 +1450,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         triggerBy,
       });
+
+      // addressInput scene should keep empty selection, let user select account manually
+      if (!accountSelectorUtils.isSceneCanAutoSelect({ sceneName })) {
+        return;
+      }
+
       // wait activeAccount build done
       await timerUtils.wait(300);
       const storageReady = get(accountSelectorStorageReadyAtom());

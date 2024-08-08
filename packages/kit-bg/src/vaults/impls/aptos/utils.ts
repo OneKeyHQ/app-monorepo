@@ -46,7 +46,7 @@ export const APTOS_NATIVE_COIN = '0x1::aptos_coin::AptosCoin';
 export const DEFAULT_GAS_LIMIT_NATIVE_TRANSFER = '2000';
 export const DEFAULT_GAS_LIMIT_TRANSFER = '20000';
 
-const MAX_U64_BIG_INT = BigInt(9007199254740991);
+const MAX_U64_BIG_INT = BigInt(9_007_199_254_740_991);
 
 const POLL_INTERVAL = 2000;
 type IPollFn<T> = (time?: number, index?: number) => T;
@@ -633,4 +633,8 @@ export function generateTransferCreateNft(
       property_types,
     ],
   };
+}
+
+export function getExpirationTimestampSecs(): bigint {
+  return BigInt(Math.floor(Date.now() / 1000) + 3 * 60);
 }

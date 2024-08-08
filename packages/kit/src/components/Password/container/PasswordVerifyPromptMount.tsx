@@ -4,6 +4,7 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Spinner } from '@onekeyhq/components';
+import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EPasswordPromptType } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
@@ -17,14 +18,9 @@ const PasswordVerifyPromptMount = () => {
 
   const [{ passwordPromptPromiseTriggerData }] =
     usePasswordPromptPromiseTriggerAtom();
-  const onClose = useCallback(
-    (id: number) => {
-      void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id, {
-        message: intl.formatMessage({ id: ETranslations.global_close }),
-      });
-    },
-    [intl],
-  );
+  const onClose = useCallback((id: number) => {
+    void backgroundApiProxy.servicePassword.cancelPasswordPromptDialog(id);
+  }, []);
 
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
 
@@ -55,10 +51,11 @@ const PasswordVerifyPromptMount = () => {
     [intl, onClose],
   );
   const showPasswordVerifyPrompt = useCallback(
-    (id: number) => {
+    (id: number, dialogProps?: IDialogShowProps) => {
       dialogRef.current = Dialog.show({
+        ...dialogProps,
         title: intl.formatMessage({
-          id: ETranslations.auth_confirm_password_form_label,
+          id: ETranslations.enter_password,
         }),
         onClose() {
           onClose(id);
@@ -102,6 +99,7 @@ const PasswordVerifyPromptMount = () => {
       ) {
         showPasswordVerifyPromptRef.current?.(
           passwordPromptPromiseTriggerData.idNumber,
+          passwordPromptPromiseTriggerData.dialogProps,
         );
       } else {
         showPasswordSetupPromptRef.current?.(

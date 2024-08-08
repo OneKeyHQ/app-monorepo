@@ -36,11 +36,13 @@ export function AccountRenameButton({
               await serviceAccount.setAccountName({
                 indexedAccountId: indexedAccount?.id,
                 name: newName,
+                shouldCheckDuplicate: true,
               });
             } else if (account?.id && newName) {
               await serviceAccount.setAccountName({
                 accountId: account.id,
                 name: newName,
+                shouldCheckDuplicate: true,
               });
             }
           },

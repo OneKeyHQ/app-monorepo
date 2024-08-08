@@ -55,7 +55,7 @@ const InformationItem = ({
   icon: IKeyOfIcons;
   content: string;
 }) => (
-  <XStack alignItems="flex-start" space="$2">
+  <XStack alignItems="flex-start" gap="$2">
     <Icon flexShrink={0} color="$iconSubdued" size="$5" name={icon} />
     <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
       {content}
@@ -175,7 +175,10 @@ const SwapProviderSelectModal = () => {
                 }
               : undefined
           }
-          selected={item.info.provider === currentSelectQuote?.info.provider}
+          selected={Boolean(
+            item.info.provider === currentSelectQuote?.info.provider &&
+              item.info.providerName === currentSelectQuote?.info.providerName,
+          )}
           fromTokenAmount={fromTokenAmount}
           fromToken={fromToken}
           toToken={toToken}
@@ -187,6 +190,7 @@ const SwapProviderSelectModal = () => {
     },
     [
       currentSelectQuote?.info.provider,
+      currentSelectQuote?.info.providerName,
       fromToken,
       fromTokenAmount,
       onSelectQuote,
@@ -209,7 +213,7 @@ const SwapProviderSelectModal = () => {
             />
           }
           renderContent={
-            <Stack px="$4" pb="$4" space="$2">
+            <Stack px="$4" pb="$4" gap="$2">
               <SizableText size="$bodyMdMedium" color="$text">
                 {intl.formatMessage({
                   id: ETranslations.provider_ios_popover_approval_require_title,

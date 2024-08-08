@@ -105,6 +105,16 @@ export const { atom: swapProviderSortAtom, use: useSwapProviderSortAtom } =
   contextAtom<ESwapProviderSort>(ESwapProviderSort.RECOMMENDED);
 
 export const {
+  atom: swapQuoteActionLockAtom,
+  use: useSwapQuoteActionLockAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: swapShouldRefreshQuoteAtom,
+  use: useSwapShouldRefreshQuoteAtom,
+} = contextAtom<boolean>(false);
+
+export const {
   atom: swapSortedQuoteListAtom,
   use: useSwapSortedQuoteListAtom,
 } = contextAtomComputed<IFetchQuoteResult[]>((get) => {
@@ -131,6 +141,18 @@ export const {
   const receivedSorted = list.slice().sort((a, b) => {
     const aVal = new BigNumber(a.toAmount || 0);
     const bVal = new BigNumber(b.toAmount || 0);
+    // Check if limit exists for a and b
+    const aHasLimit = !!a.limit;
+    const bHasLimit = !!b.limit;
+
+    if (aVal.isZero() && bVal.isZero() && aHasLimit && !bHasLimit) {
+      return -1;
+    }
+
+    if (aVal.isZero() && bVal.isZero() && bHasLimit && !aHasLimit) {
+      return 1;
+    }
+
     if (
       aVal.isZero() ||
       aVal.isNaN() ||
@@ -156,11 +178,19 @@ export const {
     sortedList = [...receivedSorted];
   }
   return sortedList.map((p) => {
-    if (p.info.provider === receivedSorted?.[0]?.info?.provider && p.toAmount) {
+    if (
+      p.info.provider === receivedSorted?.[0]?.info?.provider &&
+      p.info.providerName === receivedSorted?.[0]?.info?.providerName &&
+      p.toAmount
+    ) {
       p.receivedBest = true;
       p.isBest = true;
     }
-    if (p.info.provider === gasFeeSorted?.[0]?.info?.provider && p.toAmount) {
+    if (
+      p.info.provider === gasFeeSorted?.[0]?.info?.provider &&
+      p.info.providerName === gasFeeSorted?.[0]?.info?.providerName &&
+      p.toAmount
+    ) {
       p.minGasCost = true;
     }
     return p;
@@ -174,7 +204,9 @@ export const {
   const list = get(swapSortedQuoteListAtom());
   const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
   const manualSelectQuoteResult = list.find(
-    (item) => item.info.provider === manualSelectQuoteProviders?.info.provider,
+    (item) =>
+      item.info.provider === manualSelectQuoteProviders?.info.provider &&
+      item.info.providerName === manualSelectQuoteProviders?.info.providerName,
   );
   return manualSelectQuoteProviders &&
     (manualSelectQuoteResult?.toAmount ||
@@ -182,7 +214,9 @@ export const {
       manualSelectQuoteResult?.limit?.min)
     ? list.find(
         (item) =>
-          item.info.provider === manualSelectQuoteProviders.info.provider,
+          item.info.provider === manualSelectQuoteProviders.info.provider &&
+          item.info.providerName ===
+            manualSelectQuoteProviders.info.providerName,
       )
     : list[0];
 });
@@ -217,9 +251,10 @@ export const {
 });
 
 // swap state
-export const { atom: swapAlertsAtom, use: useSwapAlertsAtom } = contextAtom<
-  ISwapAlertState[]
->([]);
+export const { atom: swapAlertsAtom, use: useSwapAlertsAtom } = contextAtom<{
+  states: ISwapAlertState[];
+  quoteId: string;
+}>({ states: [], quoteId: '' });
 
 export const { atom: rateDifferenceAtom, use: useRateDifferenceAtom } =
   contextAtom<{ value: string; unit: ESwapRateDifferenceUnit } | undefined>(

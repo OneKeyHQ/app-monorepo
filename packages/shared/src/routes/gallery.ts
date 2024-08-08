@@ -1,7 +1,7 @@
 export enum EGalleryRoutes {
   Components = 'components',
   ComponentTypography = 'component-typography',
-  ComponentSpotlightTour = 'component-SpotlightTour',
+  ComponentSpotlightTour = 'component-Spotlight',
   ComponentLottieView = 'component-lottieview',
   ComponentTooltip = 'component-tooltip',
   ComponentIcon = 'component-icon',
@@ -67,5 +67,7 @@ export enum EGalleryRoutes {
   ComponentMarkdown = 'component-Markdown',
   ComponentWebEmbed = 'component-WebEmbed',
   ComponentDotMap = 'component-DotMap',
-  ComponentUsePromiseResult = 'component-UsePromiseResultGallery',
+  ComponentUsePromiseResult = 'component-UsePromiseResult',
+  ComponentImageCropGallery = 'component-ImageCrop',
+  ComponentCurrency = 'component-Currency',
 }

@@ -110,6 +110,7 @@ function TxActionsContainer(props: IProps) {
         const amountToUpdate = transferAmountBN.minus(
           feeBN.times(vaultSettings?.maxSendFeeUpRatio?.[networkId] ?? 1),
         );
+
         if (amountToUpdate.gte(0)) {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: true,
@@ -159,7 +160,7 @@ function TxActionsContainer(props: IProps) {
               </Stack>
             }
             renderContent={
-              <XStack space="$3" alignItems="center">
+              <XStack gap="$3" alignItems="center">
                 <Skeleton height="$10" width="$10" radius="round" />
                 <Stack>
                   <Stack py="$1.5">

@@ -6,7 +6,6 @@ export enum ETabMarketRoutes {
 export type ITabMarketParamList = {
   [ETabMarketRoutes.TabMarket]: undefined;
   [ETabMarketRoutes.MarketDetail]: {
-    coinGeckoId: string;
-    symbol?: string;
+    token: string;
   };
 };

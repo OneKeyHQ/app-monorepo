@@ -6,7 +6,6 @@ import { debounce } from 'lodash';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
-import { inAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -47,6 +46,7 @@ import {
   swapFromTokenAmountAtom,
   swapManualSelectQuoteProvidersAtom,
   swapNetworks,
+  swapQuoteActionLockAtom,
   swapQuoteCurrentSelectAtom,
   swapQuoteFetchingAtom,
   swapQuoteListAtom,
@@ -55,6 +55,7 @@ import {
   swapSelectTokenDetailFetchingAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
+  swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
   swapSlippagePercentageAtom,
   swapSlippagePercentageModeAtom,
@@ -217,6 +218,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       loadingDelayEnable?: boolean,
       blockNumber?: number,
     ) => {
+      const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
+      if (shouldRefreshQuote) {
+        this.cleanQuoteInterval();
+        set(swapQuoteActionLockAtom(), false);
+        return;
+      }
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
       let enableInterval = true;
       try {
@@ -251,6 +258,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           enableInterval = false;
         }
       } finally {
+        set(swapQuoteActionLockAtom(), false);
         if (enableInterval) {
           this.quoteIntervalCount += 1;
           if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
@@ -269,9 +277,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       blockNumber?: number,
     ) => {
+      set(swapQuoteActionLockAtom(), true);
       this.cleanQuoteInterval();
       this.quoteIntervalCount = 0;
       set(swapBuildTxFetchingAtom(), false);
+      set(swapShouldRefreshQuoteAtom(), false);
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -299,6 +309,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         await backgroundApiProxy.serviceSwap.cancelFetchQuotes();
         set(swapQuoteFetchingAtom(), false);
         set(swapQuoteListAtom(), []);
+        set(swapQuoteActionLockAtom(), false);
       }
     },
   );
@@ -391,6 +402,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       unResetCount?: boolean,
     ) => {
+      const swapQuoteActionLock = get(swapQuoteActionLockAtom());
+      if (swapQuoteActionLock) {
+        return;
+      }
       this.cleanQuoteInterval();
       if (!unResetCount) {
         this.quoteIntervalCount = 0;
@@ -491,7 +506,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             alertLevel: ESwapAlertLevel.ERROR,
           },
         ];
-        set(swapAlertsAtom(), alertsRes);
+        set(swapAlertsAtom(), {
+          states: alertsRes,
+          quoteId: quoteResult?.quoteId ?? '',
+        });
         return;
       }
 
@@ -661,7 +679,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
-      set(swapAlertsAtom(), alertsRes);
+      set(swapAlertsAtom(), {
+        states: alertsRes,
+        quoteId: quoteResult?.quoteId ?? '',
+      });
       set(rateDifferenceAtom(), rateDifferenceRes);
     },
   );
@@ -672,8 +693,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       type: ESwapDirectionType,
       swapAddressInfo: ReturnType<typeof useSwapAddressInfo>,
+      fetchBalance?: boolean,
     ) => {
-      const { swapHistoryPendingList } = await inAppNotificationAtom.get();
       const token =
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
@@ -692,10 +713,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
           token.balanceParsed &&
-          (!swapHistoryPendingList.length ||
-            swapHistoryPendingList.every(
-              (item) => item.status !== ESwapTxHistoryStatus.SUCCESS,
-            ))
+          !fetchBalance
         ) {
           const balanceParsedBN = new BigNumber(token.balanceParsed ?? 0);
           balanceDisplay = balanceParsedBN.isNaN()
@@ -719,6 +737,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 accountAddress,
                 accountId,
                 contractAddress: token.contractAddress,
+                direction: type,
               });
             if (detailInfo?.[0]) {
               const balanceParsedBN = new BigNumber(
@@ -761,8 +780,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 }
               }
             }
-          } catch (e) {
-            balanceDisplay = '0.0';
+          } catch (e: any) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
+              balanceDisplay = '0.0';
+            }
           } finally {
             set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
               ...pre,
@@ -772,9 +794,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
       if (type === ESwapDirectionType.FROM) {
-        set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '0.0');
+        set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
       } else {
-        set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '0.0');
+        set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
       }
     },
   );
@@ -792,7 +814,7 @@ export const useSwapActions = () => {
   const recoverQuoteInterval = actions.recoverQuoteInterval.use();
   const quoteAction = actions.quoteAction.use();
   const approvingStateAction = actions.approvingStateAction.use();
-  const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 200);
+  const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 300);
   const tokenListFetchAction = actions.tokenListFetchAction.use();
 
   const loadSwapSelectTokenDetail = debounce(

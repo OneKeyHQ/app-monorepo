@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   COINTYPE_ETH,
@@ -67,6 +68,12 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
+  qrAccountEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
 
   dappInteractionEnabled: true,
 
@@ -94,10 +101,13 @@ const settings: IVaultSettings = {
 
   maxSendFeeUpRatio: {
     [networkIdMap.fevm]: 1.1,
+    [networkIdMap.flare]: 1.1,
     [networkIdMap.mantle]: 1.2,
     [networkIdMap.mantapacific]: 1.2,
     [networkIdMap.blast]: 1.2,
   },
+
+  customRpcEnabled: true,
 };
 
 export default Object.freeze(settings);

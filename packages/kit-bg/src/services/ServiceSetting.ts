@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/shared/types/setting';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
+import { currencyPersistAtom } from '../states/jotai/atoms';
 import {
   settingsLastActivityAtom,
   settingsPersistAtom,
@@ -182,6 +183,14 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async fetchCurrencyList() {
+    const currencyItems = await this._getCurrencyList();
+    await currencyPersistAtom.set({
+      currencyItems,
+    });
+  }
+
+  @backgroundMethod()
   public async setCurrency(currencyInfo: { id: string; symbol: string }) {
     const currentSettings = await settingsPersistAtom.get();
     if (isEqual(currentSettings.currencyInfo, currencyInfo)) {
@@ -222,6 +231,12 @@ class ServiceSetting extends ServiceBase {
     if (values.signatureRecord) {
       // clear signature record
       await this.backgroundApi.serviceSignature.deleteAllSignatureRecords();
+    }
+    if (values.customToken) {
+      await this.backgroundApi.simpleDb.customTokens.clearRawData();
+    }
+    if (values.customRpc) {
+      await this.backgroundApi.simpleDb.customRpc.clearRawData();
     }
   }
 
@@ -300,7 +315,7 @@ class ServiceSetting extends ServiceBase {
 
     if (platformEnv.isDev && tbtc) {
       config.push({
-        num: 10000,
+        num: 10_000,
         title: 'Test Bitcoin',
         icon: tbtc?.logoURI,
         defaultNetworkId: getNetworkIdsMap().tbtc,
@@ -335,9 +350,8 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async fetchReviewControl() {
-    const { reviewControl } = await settingsPersistAtom.get();
     const isReviewControlEnv = platformEnv.isAppleStoreEnv || platformEnv.isMas;
-    if (!reviewControl && isReviewControlEnv) {
+    if (isReviewControlEnv) {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const key = platformEnv.isAppleStoreEnv
         ? 'Intelligent_Diligent_Resourceful_Capable'
@@ -350,18 +364,18 @@ class ServiceSetting extends ServiceBase {
         },
       });
       const data = response.data.data;
-      if (data.length !== 1 && data[0].key !== key) {
-        return;
-      }
-      const reviewControlValue = data[0].value;
-      if (reviewControlValue && platformEnv.version) {
-        if (semver.lte(platformEnv.version, reviewControlValue)) {
-          await settingsPersistAtom.set((prev) => ({
-            ...prev,
-            reviewControl: true,
-          }));
+      let show = true;
+      if (data.length === 1 && data[0].key === key) {
+        const reviewVersion = data[0].value;
+        const clientVersion = platformEnv.version;
+        if (reviewVersion && clientVersion) {
+          show = semver.lte(clientVersion, reviewVersion);
         }
       }
+      await settingsPersistAtom.set((prev) => ({
+        ...prev,
+        reviewControl: show,
+      }));
     }
   }
 

@@ -9,6 +9,7 @@ import {
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectTokenDetailFetchingAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedToTokenBalanceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -37,6 +38,7 @@ const SwapQuoteInput = ({
   const swapQuoteLoading = useSwapQuoteLoading();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [swapTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
   const { alternationToken } = useSwapActions().current;
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
@@ -60,7 +62,7 @@ const SwapQuoteInput = ({
         onBalanceMaxPress={() => {
           let maxAmount = fromTokenBalance;
           if (fromToken?.reservationValue) {
-            const fromTokenBalanceBN = new BigNumber(fromTokenBalance);
+            const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
             const fromTokenReservationValueBN = new BigNumber(
               fromToken.reservationValue,
             );
@@ -84,6 +86,8 @@ const SwapQuoteInput = ({
           alignSelf="flex-end"
           icon="SwitchVerOutline"
           size="small"
+          zIndex={2}
+          disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
           onPress={alternationToken}
           mb="$-3"
         />

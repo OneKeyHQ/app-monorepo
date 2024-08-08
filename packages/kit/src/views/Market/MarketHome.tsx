@@ -115,7 +115,6 @@ function MarketHome() {
   const ref = useRef<IAnimatedIconRef>(null);
   const headerProps = useMemo(
     () => ({
-      contentContainerStyle: { paddingRight: '$5' },
       showHorizontalScrollButton: !gtMd && platformEnv.isRuntimeBrowser,
       renderItem: (item: any, index: any, titleStyle: any) =>
         index === 0 && !gtMd ? (

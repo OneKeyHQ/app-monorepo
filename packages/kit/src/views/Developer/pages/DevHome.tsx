@@ -26,72 +26,42 @@ import { useAccountSelectorActions } from '../../../states/jotai/contexts/accoun
 
 import HeaderView from './HeaderView';
 
-const FirstRoute = ({
-  onContentSizeChange,
-}: {
-  onContentSizeChange: ((w: number, h: number) => void) | undefined;
-}) => (
-  <ScrollView
-    scrollEnabled={platformEnv.isWebTouchable}
-    disableScrollViewPanResponder
-    onContentSizeChange={onContentSizeChange}
-  >
+const FirstRoute = () => (
+  <ScrollView>
     <Stack bg="#ff4081" height="$100">
       <SizableText>demo1</SizableText>
     </Stack>
   </ScrollView>
 );
-const SecondRoute = ({
-  onContentSizeChange,
-}: {
-  onContentSizeChange: ((w: number, h: number) => void) | undefined;
-}) => (
+const SecondRoute = () => (
   <ListView
     data={new Array(70).fill({})}
-    scrollEnabled={platformEnv.isWebTouchable}
-    disableScrollViewPanResponder
     renderItem={({ index }) => (
       <SizableText color="$text" key={index}>
         demo2 ${index}
       </SizableText>
     )}
     estimatedItemSize={50}
-    onContentSizeChange={onContentSizeChange}
   />
 );
 
-const OtherRoute = ({
-  onContentSizeChange,
-}: {
-  onContentSizeChange: ((w: number, h: number) => void) | undefined;
-}) => (
-  <ScrollView
-    scrollEnabled={platformEnv.isWebTouchable}
-    disableScrollViewPanResponder
-    onContentSizeChange={onContentSizeChange}
-  >
+const OtherRoute = () => (
+  <ScrollView>
     <Stack bg="#ff4081" height="$100">
       <SizableText>demo3</SizableText>
     </Stack>
   </ScrollView>
 );
 
-const ListRoute = ({
-  onContentSizeChange,
-}: {
-  onContentSizeChange: ((w: number, h: number) => void) | undefined;
-}) => (
+const ListRoute = () => (
   <ListView
     data={new Array(50).fill({})}
-    scrollEnabled={platformEnv.isWebTouchable}
-    disableScrollViewPanResponder
     renderItem={({ index }) => (
       <Stack style={{ padding: 20 }}>
         <SizableText>Row: {index}</SizableText>
       </Stack>
     )}
     estimatedItemSize={100}
-    onContentSizeChange={onContentSizeChange}
   />
 );
 

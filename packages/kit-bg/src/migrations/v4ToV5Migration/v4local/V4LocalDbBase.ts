@@ -44,15 +44,15 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
     > = {
       [WALLET_TYPE_IMPORTED]: {
         avatar: {},
-        walletNo: 100_000_1,
+        walletNo: 1_000_001,
       },
       [WALLET_TYPE_WATCHING]: {
         avatar: {},
-        walletNo: 100_000_2,
+        walletNo: 1_000_002,
       },
       [WALLET_TYPE_EXTERNAL]: {
         avatar: {},
-        walletNo: 100_000_3,
+        walletNo: 1_000_003,
       },
     };
     const record: IV4DBWallet = {
@@ -90,10 +90,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
   }
 
   async verifyPassword(password: string): Promise<void> {
-    const ctx = await this.getRecordById({
-      name: EV4LocalDBStoreNames.Context,
-      id: DB_MAIN_CONTEXT_ID,
-    });
+    const ctx = await this.getContext();
     if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
       ensureSensitiveTextEncoded(password);
       const isValid = this.checkPassword(ctx, password);
@@ -105,6 +102,25 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
       }
     }
     throw new PasswordNotSet();
+  }
+
+  async getContext(): Promise<IV4DBContext> {
+    const ctx = await this.getRecordById({
+      name: EV4LocalDBStoreNames.Context,
+      id: DB_MAIN_CONTEXT_ID,
+    });
+    if (!ctx) {
+      throw new Error('failed get local db context');
+    }
+    return ctx;
+  }
+
+  async isPasswordSet(): Promise<boolean> {
+    const ctx = await this.getContext();
+    if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
+      return true;
+    }
+    return false;
   }
 
   async updateV4Password({

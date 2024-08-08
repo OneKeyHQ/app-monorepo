@@ -22,6 +22,7 @@ import {
 import type {
   ICoreApiSignAccount,
   ICoreApiSignBtcExtraInfo,
+  ISignedTxPro,
   ITxInput,
   ITxInputToSign,
   IUnsignedMessage,
@@ -41,6 +42,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
@@ -48,6 +50,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
@@ -62,6 +68,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
+import { ClientBtc } from './sdkBtc/ClientBtc';
 
 import type {
   IDBAccount,
@@ -70,6 +77,7 @@ import type {
 } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -596,7 +604,7 @@ export default class VaultBtc extends VaultBase {
       ({ txid, vout, value, address, path }) => ({
         txId: txid,
         vout,
-        value: parseInt(value),
+        value: parseInt(value, 10),
         address,
         path,
       }),
@@ -609,6 +617,7 @@ export default class VaultBtc extends VaultBase {
         address: to,
         value: parseInt(
           new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
+          10,
         ),
       }));
     } else {
@@ -631,6 +640,7 @@ export default class VaultBtc extends VaultBase {
 
       const value = parseInt(
         new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
+        10,
       );
 
       outputsForCoinSelect = [
@@ -708,7 +718,7 @@ export default class VaultBtc extends VaultBase {
         selectedInputs ?? [],
         outputs.map((o) => ({
           address: o.address,
-          value: parseInt(o.value),
+          value: parseInt(o.value, 10),
         })) ?? [],
       );
     }
@@ -1023,8 +1033,10 @@ export default class VaultBtc extends VaultBase {
     });
   }
 
-  override async getAccountXpub(): Promise<string> {
-    const account = (await this.getAccount()) as IDBUtxoAccount;
+  override async getXpubFromAccount(
+    networkAccount: INetworkAccount,
+  ): Promise<string | undefined> {
+    const account = networkAccount as IDBUtxoAccount;
     return account.xpubSegwit ?? account.xpub;
   }
 
@@ -1054,5 +1066,69 @@ export default class VaultBtc extends VaultBase {
       }
     }
     return true;
+  }
+
+  getBlockbookCoinName() {
+    return 'Bitcoin';
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new ClientBtc(params.rpcUrl);
+    const start = performance.now();
+    const result = await client.getInfo();
+    if (result.coin !== this.getBlockbookCoinName()) {
+      throw new OneKeyInternalError('Invalid coin name');
+    }
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: result.bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new ClientBtc(rpcUrl);
+    const txid = await client.broadcastTransaction(signedTx.rawTx);
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
+  }
+
+  override async getAddressType({ address }: { address: string }) {
+    const { encoding, isValid } = await this.validateAddress(address);
+    if (isValid) {
+      let type = '';
+      switch (encoding) {
+        case EAddressEncodings.P2SH_P2WPKH:
+          type = 'Nested SegWit';
+          break;
+        case EAddressEncodings.P2TR:
+          type = 'Taproot';
+          break;
+        case EAddressEncodings.P2WPKH:
+          type = 'Native SegWit';
+          break;
+        case EAddressEncodings.P2PKH:
+          type = 'Legacy';
+          break;
+        default:
+          type = '';
+      }
+      return {
+        type,
+      };
+    }
+
+    return {};
   }
 }

@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { getTokens as coreGetTokens, useTheme } from '@tamagui/core';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -26,6 +28,7 @@ const getValue = (
     platformEnv.isNative || isRawValue
       ? theme?.[key]?.val
       : (theme?.[key]?.get() as VariableVal);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return value || fallback || key;
 };
 
@@ -43,10 +46,12 @@ export function useThemeValue(
   isRawValue?: boolean,
 ): VariableVal | VariableVal[] {
   const theme = useTheme();
-  if (Array.isArray(colorSymbol)) {
-    return colorSymbol.map((c) =>
-      getValue(theme, c, fallback, isRawValue),
-    ) as string[];
-  }
-  return getValue(theme, colorSymbol, fallback, isRawValue) as string;
+  return useMemo(() => {
+    if (Array.isArray(colorSymbol)) {
+      return colorSymbol.map((c) =>
+        getValue(theme, c, fallback, isRawValue),
+      ) as string[];
+    }
+    return getValue(theme, colorSymbol, fallback, isRawValue) as string;
+  }, [colorSymbol, fallback, isRawValue, theme]);
 }

@@ -35,6 +35,10 @@ export default class ServiceBase {
 
   backgroundApi: IBackgroundApi;
 
+  _currentNetworkId: string | undefined;
+
+  _currentAccountId: string | undefined;
+
   getClient = memoizee(
     async (endpointName: EServiceEndpointEnum) => {
       const existingClient = clients[endpointName];
@@ -81,5 +85,17 @@ export default class ServiceBase {
   async getActiveVault() {
     // const { networkId, accountId } = await this.getActiveWalletAccount();
     // return this.backgroundApi.engine.getVault({ networkId, accountId });
+  }
+
+  @backgroundMethod()
+  public async updateCurrentAccount({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    this._currentNetworkId = networkId;
+    this._currentAccountId = accountId;
   }
 }

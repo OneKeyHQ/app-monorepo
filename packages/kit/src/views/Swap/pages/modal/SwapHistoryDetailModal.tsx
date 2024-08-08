@@ -92,6 +92,7 @@ const SwapHistoryDetailModal = () => {
           index={0}
           direction={EDecodedTxDirection.IN}
           asset={toAsset}
+          isAllNetworks
           amount={txHistory.baseInfo.toAmount}
           networkIcon={txHistory.baseInfo.toNetwork?.logoURI ?? ''}
           currencySymbol={
@@ -102,6 +103,7 @@ const SwapHistoryDetailModal = () => {
           index={1}
           direction={EDecodedTxDirection.OUT}
           asset={fromAsset}
+          isAllNetworks
           amount={txHistory.baseInfo.fromAmount}
           networkIcon={txHistory.baseInfo.fromNetwork?.logoURI ?? ''}
           currencySymbol={
@@ -123,7 +125,7 @@ const SwapHistoryDetailModal = () => {
               alignItems: 'center',
               justifyContent: 'space-between',
             }
-          : { alignItems: 'flex-start', space: '$2' })}
+          : { alignItems: 'flex-start', gap: '$2' })}
       >
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}
@@ -276,7 +278,7 @@ const SwapHistoryDetailModal = () => {
               })}
               renderContent={durationTime}
             />
-            {!isNil(txHistory.swapInfo.oneKeyFee) ? (
+            {/* {!isNil(txHistory.swapInfo.oneKeyFee) ? (
               <InfoItem
                 disabledCopy
                 label={intl.formatMessage({
@@ -284,7 +286,7 @@ const SwapHistoryDetailModal = () => {
                 })}
                 renderContent={`${txHistory.swapInfo.oneKeyFee} %`}
               />
-            ) : null}
+            ) : null} */}
             {!isNil(txHistory.swapInfo.protocolFee) ? (
               <InfoItem
                 disabledCopy
@@ -343,6 +345,20 @@ const SwapHistoryDetailModal = () => {
         })}
       />
       <Page.Body>{renderSwapHistoryDetails()}</Page.Body>
+      {txHistory.swapInfo.supportUrl ? (
+        <Page.Footer
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_support,
+          })}
+          confirmButtonProps={{
+            icon: 'BubbleAnnotationOutline',
+            variant: 'secondary',
+          }}
+          onConfirm={() => {
+            onViewInBrowser(txHistory.swapInfo.supportUrl ?? '');
+          }}
+        />
+      ) : null}
     </Page>
   );
 };

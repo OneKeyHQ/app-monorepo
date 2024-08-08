@@ -5,7 +5,12 @@ import { Animated, Easing } from 'react-native';
 
 import { Empty, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -81,6 +86,7 @@ export function HomePageView({
         : Promise.resolve(undefined),
     [network],
   ).result;
+
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
@@ -116,21 +122,27 @@ export function HomePageView({
         },
       ].filter(Boolean),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [intl, network?.id, isNFTEnabled],
+    [intl, account?.id, network?.id, isNFTEnabled],
   );
+
+  const onRefresh = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+  }, []);
 
   const renderTabs = useCallback(
     () => (
       <Tab
+        disableRefresh={!platformEnv.isNative}
         data={tabs}
         ListHeaderComponent={<HomeHeaderContainer />}
         initialScrollIndex={0}
         contentItemWidth={CONTENT_ITEM_WIDTH}
         contentWidth={screenWidth}
         showsVerticalScrollIndicator={false}
+        onRefresh={onRefresh}
       />
     ),
-    [tabs, screenWidth],
+    [tabs, screenWidth, onRefresh],
   );
 
   const renderHomePageContent = useCallback(() => {
@@ -159,6 +171,7 @@ export function HomePageView({
           <HomeSelector padding="$5" />
           <Stack flex={1} justifyContent="center">
             <EmptyAccount
+              autoCreateAddress
               name={accountName}
               chain={network?.name ?? ''}
               type={
@@ -200,7 +213,9 @@ export function HomePageView({
   ]);
 
   const renderHomePage = useCallback(() => {
-    if (!ready) return null;
+    if (!ready) {
+      return <TabPageHeader showHeaderRight sceneName={sceneName} />;
+    }
 
     let content = (
       <Stack h="100%" justifyContent="center">

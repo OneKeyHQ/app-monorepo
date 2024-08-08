@@ -87,7 +87,7 @@ const SwapQuoteResult = ({
   ]);
 
   return (
-    <YStack space="$4">
+    <YStack gap="$4">
       {quoteResult.allowanceResult ? (
         <SwapApproveAllowanceSelectContainer
           allowanceResult={quoteResult.allowanceResult}

@@ -28,6 +28,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
+  EInputAddressChangeType,
   IAddressInteractionStatus,
   IAddressValidateStatus,
   IQueryCheckAddressArgs,
@@ -154,6 +155,8 @@ type IAddressInputProps = Omit<
   accountId?: string;
   enableAddressInteractionStatus?: boolean; // for check address interaction
   enableVerifySendFundToSelf?: boolean; // To verify whether funds can be sent to one's own address.
+
+  onInputTypeChange?: (type: EInputAddressChangeType) => void;
 };
 
 export type IAddressQueryResult = {
@@ -190,7 +193,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   }
   if (result) {
     return (
-      <XStack space="$2" my="$-1" flex={1} flexWrap="wrap">
+      <XStack gap="$2" my="$-1" flex={1} flexWrap="wrap">
         {result.walletAccountName ? (
           <Badge badgeType="success" badgeSize="sm" my="$0.5">
             {result.walletAccountName}
@@ -248,6 +251,7 @@ export function AddressInput(props: IAddressInputProps) {
     accountId,
     enableAddressInteractionStatus,
     enableVerifySendFundToSelf,
+    onInputTypeChange,
     ...rest
   } = props;
   const intl = useIntl();
@@ -385,7 +389,7 @@ export function AddressInput(props: IAddressInputProps) {
         flexWrap="nowrap"
         alignItems="center"
       >
-        <XStack space="$2" flex={1}>
+        <XStack gap="$2" flex={1}>
           <AddressInputBadgeGroup
             loading={loading}
             result={queryResult}
@@ -393,15 +397,17 @@ export function AddressInput(props: IAddressInputProps) {
             onRefresh={onRefresh}
           />
         </XStack>
-        <XStack space="$6">
+        <XStack gap="$6">
           {clipboard ? (
             <ClipboardPlugin
+              onInputTypeChange={onInputTypeChange}
               onChange={onChangeText}
               testID={`${rest.testID ?? ''}-clip`}
             />
           ) : null}
           {scan ? (
             <ScanPlugin
+              onInputTypeChange={onInputTypeChange}
               sceneName={scan.sceneName}
               onChange={onChangeText}
               testID={`${rest.testID ?? ''}-scan`}
@@ -409,6 +415,7 @@ export function AddressInput(props: IAddressInputProps) {
           ) : null}
           {contacts || accountSelector ? (
             <SelectorPlugin
+              onInputTypeChange={onInputTypeChange}
               onChange={onChangeText}
               networkId={networkId}
               accountId={accountId}
@@ -426,17 +433,18 @@ export function AddressInput(props: IAddressInputProps) {
     ),
     [
       loading,
-      onChangeText,
+      queryResult,
+      setResolveAddress,
+      onRefresh,
       clipboard,
+      onInputTypeChange,
+      onChangeText,
+      rest.testID,
       scan,
       contacts,
       accountSelector,
-      queryResult,
-      setResolveAddress,
       networkId,
       accountId,
-      rest.testID,
-      onRefresh,
       inputText,
     ],
   );

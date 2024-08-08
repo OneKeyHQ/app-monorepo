@@ -84,7 +84,6 @@ const SortableListViewGallery = () => {
             >
               {isEditing ? (
                 <ListItem.IconButton
-                  {...ListItem.EnterAnimationStyle}
                   key="darg"
                   cursor="move"
                   icon="DragOutline"

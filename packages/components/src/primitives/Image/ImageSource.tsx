@@ -12,6 +12,10 @@ import { preloadImage } from './ImageNet';
 import type { IImageSourceProps } from './type';
 import type { ImageStyle, ImageURISource, StyleProp } from 'react-native';
 
+const buildDelayMs = () =>
+  timerUtils.getTimeDurationMs({ seconds: 5 }) +
+  timerUtils.getTimeDurationMs({ seconds: 40 }) * Math.random();
+
 const MAX_TIMES = 5;
 const retryFetchImage = async (
   imageSource: { uri?: string },
@@ -27,7 +31,7 @@ const retryFetchImage = async (
   } catch (error) {
     setTimeout(() => {
       void retryFetchImage(imageSource, onLoadSuccess, times + 1);
-    }, timerUtils.getTimeDurationMs({ seconds: 10 }) * Math.random());
+    }, buildDelayMs());
   }
 };
 
@@ -85,7 +89,11 @@ export function ImageSource({
       return;
     }
     isRetry.current = true;
-    if (imageSource && (imageSource as ImageURISource).uri) {
+    if (
+      imageSource &&
+      (imageSource as ImageURISource).uri &&
+      (imageSource as ImageURISource).uri?.startsWith('https:')
+    ) {
       setTimeout(() => {
         void retryFetchImage(imageSource as ImageURISource, () => {
           // reload image when loaded successfully
@@ -94,7 +102,7 @@ export function ImageSource({
             setIsVisible(true);
           }, 50);
         });
-      }, 0);
+      }, buildDelayMs());
     }
   }, [handleLoadEnd, imageSource]);
 
@@ -103,6 +111,10 @@ export function ImageSource({
 
   return isVisible ? (
     <ImageComponent
+      // Browser-level image lazy loading for the web
+      // https://developer.mozilla.org/en-US/docs/Web/Performance/Lazy_loading
+      // @ts-expect-error
+      loading="lazy"
       source={imageSource}
       {...restProps}
       borderRadius={style.borderRadius as number}

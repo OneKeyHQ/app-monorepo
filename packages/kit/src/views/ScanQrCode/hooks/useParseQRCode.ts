@@ -68,7 +68,7 @@ const useParseQRCode = () => {
       switch (result.type) {
         case EQRCodeHandlerType.URL_ACCOUNT: {
           const urlAccountData = result.data as IUrlAccountValue;
-          urlAccountNavigation.pushUrlAccountPage(navigation, {
+          void urlAccountNavigation.pushUrlAccountPage(navigation, {
             networkId: urlAccountData.networkId,
             address: urlAccountData.address,
           });
@@ -76,10 +76,12 @@ const useParseQRCode = () => {
         }
         case EQRCodeHandlerType.MARKET_DETAIL:
           {
-            const marketDetailData = result.data as IMarketDetailValue;
-            void marketNavigation.pushDetailPageFromDeeplink(navigation, {
-              coinGeckoId: marketDetailData.coinGeckoId,
-            });
+            const { coinGeckoId } = result.data as IMarketDetailValue;
+            if (coinGeckoId) {
+              void marketNavigation.pushDetailPageFromDeeplink(navigation, {
+                coinGeckoId,
+              });
+            }
           }
           break;
         case EQRCodeHandlerType.BITCOIN:
@@ -127,7 +129,6 @@ const useParseQRCode = () => {
                 networkId: network.id,
                 accountId: account.id,
 
-                networkName: network.name,
                 tokens: options?.tokens,
                 onSelect: async (token) => {
                   await timerUtils.wait(600);

@@ -51,18 +51,46 @@ export const defaultSelectedAccount: () => IAccountSelectorSelectedAccount =
     deriveType: 'default',
     focusedWallet: undefined,
   });
+export type ISelectedAccountsAtomMap = Partial<{
+  [num: number]: IAccountSelectorSelectedAccount;
+}>;
 export const { atom: selectedAccountsAtom, use: useSelectedAccountsAtom } =
-  contextAtom<Partial<{ [num: number]: IAccountSelectorSelectedAccount }>>({
+  contextAtom<ISelectedAccountsAtomMap>({
     0: defaultSelectedAccount(),
   });
-export function useSelectedAccount({ num }: { num: number }): {
+
+// const atomInstance = selectedAccountsAtom();
+// const oldWrite = atomInstance.write;
+// atomInstance.write = (get, set, update) => {
+//   console.log('AccountSelectorAtomChanged selectedAccountsAtom write');
+//   oldWrite.call(atomInstance, get, set, update);
+// };
+
+export function useSelectedAccount({
+  num,
+  debugName,
+}: {
+  num: number;
+  debugName?: string;
+}): {
   selectedAccount: IAccountSelectorSelectedAccount;
   isSelectedAccountDefaultValue: boolean;
 } {
   checkIsDefined(num);
   const [selectedAccounts] = useSelectedAccountsAtom();
+  const selectedAccountOfNum = useMemo(
+    () => selectedAccounts[num],
+    [num, selectedAccounts],
+  );
+
+  if (debugName === 'HomePage') {
+    console.log(
+      'AccountSelectorAtomChanged useSelectedAccount selectedAccountOfNum: ',
+      selectedAccountOfNum,
+    );
+  }
   return useMemo(() => {
-    let selectedAccount = selectedAccounts[num];
+    let selectedAccount = selectedAccountOfNum;
     let isSelectedAccountDefaultValue = false;
     if (!selectedAccount) {
       selectedAccount = defaultSelectedAccount();
@@ -72,7 +100,7 @@ export function useSelectedAccount({ num }: { num: number }): {
       selectedAccount,
       isSelectedAccountDefaultValue,
     };
-  }, [num, selectedAccounts]);
+  }, [selectedAccountOfNum]);
 }
 
 export const {
@@ -110,6 +138,18 @@ export const {
   }>
 >({});
 
+export type IAccountSelectorSyncLoadingMeta = {
+  isLoading: boolean;
+};
+export const {
+  atom: accountSelectorSyncLoadingAtom,
+  use: useAccountSelectorSyncLoadingAtom,
+} = contextAtom<
+  Partial<{
+    [num: number]: IAccountSelectorSyncLoadingMeta;
+  }>
+>({});
+
 export interface IAccountSelectorActiveAccountInfo {
   ready: boolean;
   isOthersWallet?: boolean;
@@ -125,6 +165,7 @@ export interface IAccountSelectorActiveAccountInfo {
   deriveInfoItems: IAccountDeriveInfoItems[];
   canCreateAddress?: boolean;
   isNetworkNotMatched?: boolean;
+  allNetworkDbAccounts?: IDBAccount[] | undefined;
 }
 export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
   () => ({
@@ -147,14 +188,19 @@ export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
 export function useActiveAccount({ num }: { num: number }): {
   activeAccount: IAccountSelectorActiveAccountInfo;
 } {
-  const [selectedAccounts] = useSelectedAccountsAtom();
-  noopObject(selectedAccounts);
+  // TODO why add this deps for cosmos account model?
+  // const [selectedAccounts] = useSelectedAccountsAtom();
+  // noopObject(selectedAccounts);
+
   const [accounts] = useActiveAccountsAtom();
-  const accountInfo = accounts[num];
-  const activeAccount = accountInfo || defaultActiveAccountInfo();
-  return {
-    activeAccount,
-  };
+
+  return useMemo(() => {
+    const accountInfo = accounts[num];
+    const activeAccount = accountInfo || defaultActiveAccountInfo();
+    return {
+      activeAccount,
+    };
+  }, [accounts, num]);
 }
 
 export function useAccountSelectorSceneInfo() {

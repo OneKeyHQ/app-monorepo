@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { EPageType, Toast, usePageType } from '@onekeyhq/components';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -19,7 +19,8 @@ export function useSwapApproving() {
   const intl = useIntl();
   const { approvingStateAction, cleanApprovingInterval } =
     useSwapActions().current;
-  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
+  const [{ swapApprovingTransaction }, setInAppNotificationAtom] =
+    useInAppNotificationAtom();
   const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>();
   if (swapApprovingTxRef.current !== swapApprovingTransaction) {
     swapApprovingTxRef.current = swapApprovingTransaction;
@@ -29,7 +30,13 @@ export function useSwapApproving() {
   if (approveTxRef.current !== approveTx) {
     approveTxRef.current = approveTx;
   }
+  const isFocused = useIsFocused();
+  const isFocusRef = useRef(isFocused);
+  if (isFocusRef.current !== isFocused) {
+    isFocusRef.current = isFocused;
+  }
   useEffect(() => {
+    if (!isFocusRef.current) return;
     if (
       swapApprovingTransaction?.txId &&
       swapApprovingTransaction?.status === ESwapApproveTransactionStatus.PENDING
@@ -73,6 +80,16 @@ export function useSwapApproving() {
         });
       }
     }
+    if (
+      swapApprovingTransaction?.status ===
+        ESwapApproveTransactionStatus.FAILED ||
+      swapApprovingTransaction?.status === ESwapApproveTransactionStatus.CANCEL
+    ) {
+      setInAppNotificationAtom((prev) => ({
+        ...prev,
+        swapApprovingTransaction: undefined,
+      }));
+    }
     return () => {
       cleanApprovingInterval();
     };
@@ -80,6 +97,7 @@ export function useSwapApproving() {
     approvingStateAction,
     cleanApprovingInterval,
     intl,
+    setInAppNotificationAtom,
     swapApprovingTransaction?.resetApproveIsMax,
     swapApprovingTransaction?.resetApproveValue,
     swapApprovingTransaction?.status,
@@ -105,7 +123,6 @@ export function useSwapApproving() {
       }
     },
   );
-  const isFocused = useIsFocused();
   useEffect(() => {
     if (pageType === EPageType.modal) {
       if (

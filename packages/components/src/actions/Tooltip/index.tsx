@@ -1,65 +1,69 @@
-import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { InteractionManager } from 'react-native';
 import { Tooltip as TMTooltip } from 'tamagui';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import { SizableText } from '../../primitives';
 
+import type { ITooltipProps } from './type';
 import type { ISizableTextProps } from '../../primitives';
-import type { ScrollView } from 'react-native';
-import type {
-  PopoverContentProps,
-  TooltipProps as TMTooltipProps,
-} from 'tamagui';
+import type { PopoverContentProps } from 'tamagui';
 
 export function TooltipText({
   children,
-  scrollViewRef,
   onDisplayChange,
+  onDisabledChange,
 }: ISizableTextProps & {
-  scrollViewRef?: RefObject<ScrollView>;
   onDisplayChange?: (isShow: boolean) => void;
+  onDisabledChange?: (isShow: boolean) => void;
 }) {
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   // Since the browser does not trigger mouse events when the page scrolls,
   //  it is necessary to manually close the tooltip when page elements scroll
   useEffect(() => {
-    if (!platformEnv.isNative) {
-      let scrolling = false;
-      const onScroll = () => {
-        if (scrolling) {
-          return;
-        }
-        onDisplayChange?.(false);
-        scrolling = true;
-      };
-      const onScrollEnd = () => {
-        scrolling = false;
-      };
-      const scrollView = scrollViewRef?.current as unknown as HTMLElement;
-      if (scrollView) {
-        scrollView?.addEventListener('scroll', onScroll);
-        scrollView?.addEventListener('scrollend', onScrollEnd);
+    let scrolling = false;
+    // let mouseMoving = false;
+    const onScroll = () => {
+      if (scrolling) {
+        return;
       }
+      onDisplayChange?.(false);
+      scrolling = true;
+      scrollTimeoutRef.current = setTimeout(() => {
+        scrolling = false;
+      }, 30);
+    };
+    const onScrollEnd = () => {
+      clearTimeout(scrollTimeoutRef.current);
+      scrolling = false;
+      document.removeEventListener('scrollend', onScrollEnd, true);
+    };
+    const onDragEnd = () => {
+      appEventBus.off(EAppEventBusNames.onDragEndInListView, onDragEnd);
+      void InteractionManager.runAfterInteractions(() => {
+        onDisabledChange?.(false);
+      });
+    };
+    const onDragBegin = () => {
+      appEventBus.on(EAppEventBusNames.onDragEndInListView, onDragEnd);
+      onDisabledChange?.(true);
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('scroll', onScroll, true);
+      document.addEventListener('scrollend', onScrollEnd, true);
+      appEventBus.on(EAppEventBusNames.onDragBeginInListView, onDragBegin);
       return () => {
-        scrollView?.removeEventListener('scroll', onScroll);
-        scrollView?.removeEventListener('scrollend', onScrollEnd);
+        document.removeEventListener('scroll', onScroll, true);
+        appEventBus.off(EAppEventBusNames.onDragBeginInListView, onDragBegin);
       };
     }
-  }, [onDisplayChange, scrollViewRef]);
+  }, [onDisabledChange, onDisplayChange]);
   return <SizableText size="$bodySm">{children}</SizableText>;
-}
-
-export interface ITooltipProps extends TMTooltipProps {
-  renderTrigger: React.ReactNode;
-  renderContent: React.ReactNode;
-  scrollViewRef?: RefObject<ScrollView>;
 }
 
 const transformOriginMap: Record<
@@ -83,7 +87,6 @@ const transformOriginMap: Record<
 export function Tooltip({
   renderTrigger,
   renderContent,
-  scrollViewRef,
   placement = 'bottom',
   ...props
 }: ITooltipProps) {
@@ -98,25 +101,30 @@ export function Tooltip({
   );
 
   const [isShow, setIsShow] = useState(false);
+  const [isDisabled, setIsDisabled] = useState(false);
 
   const renderTooltipContent = useMemo(() => {
     if (typeof renderContent === 'string') {
       return (
-        <TooltipText scrollViewRef={scrollViewRef} onDisplayChange={setIsShow}>
+        <TooltipText
+          onDisplayChange={setIsShow}
+          onDisabledChange={setIsDisabled}
+        >
           {renderContent}
         </TooltipText>
       );
     }
 
     return renderContent;
-  }, [renderContent, scrollViewRef]);
+  }, [renderContent]);
 
   return (
     <TMTooltip
       unstyled
+      disableAutoCloseOnScroll
       delay={0}
       offset={6}
-      open={isShow}
+      open={isDisabled ? false : isShow}
       onOpenChange={setIsShow}
       allowFlip
       placement={placement}
@@ -149,3 +157,5 @@ export function Tooltip({
 }
 
 Tooltip.Text = TooltipText;
+
+export * from './type';

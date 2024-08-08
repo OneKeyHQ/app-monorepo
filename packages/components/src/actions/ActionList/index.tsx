@@ -1,6 +1,11 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
-import { withStaticProperties } from 'tamagui';
+import { type GestureResponderEvent } from 'react-native';
+import { useMedia, withStaticProperties } from 'tamagui';
+import { useDebouncedCallback } from 'use-debounce';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
@@ -16,7 +21,6 @@ import { Trigger } from '../Trigger';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../Popover';
-import type { GestureResponderEvent } from 'react-native';
 
 export interface IActionListItemProps {
   icon?: IKeyOfIcons;
@@ -65,11 +69,12 @@ export function ActionListItem({
       borderCurve="continuous"
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
+      aria-disabled={disabled}
       {...(!disabled && {
         hoverStyle: { bg: '$bgHover' },
         pressStyle: { bg: '$bgActive' },
         // focusable: true,
-        // focusStyle: {
+        // focusVisibleStyle: {
         //   outlineColor: '$focusRing',
         //   outlineStyle: 'solid',
         //   outlineWidth: 2,
@@ -119,6 +124,27 @@ export interface IActionListProps
   }) => React.ReactNode;
 }
 
+const useDefaultOpen = (defaultOpen: boolean) => {
+  const [isOpen, setOpenStatus] = useState(
+    platformEnv.isNativeAndroid ? false : defaultOpen,
+  );
+  // Fix the crash on Android where the view node cannot be found.
+  useEffect(() => {
+    if (platformEnv.isNativeAndroid) {
+      if (defaultOpen) {
+        setTimeout(() => {
+          setOpenStatus(defaultOpen);
+        }, 0);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return [isOpen, setOpenStatus] as [
+    boolean,
+    Dispatch<SetStateAction<boolean>>,
+  ];
+};
+
 function BasicActionList({
   items,
   sections,
@@ -129,23 +155,14 @@ function BasicActionList({
   renderItems,
   ...props
 }: IActionListProps) {
-  const [isOpen, setOpenStatus] = useState(false);
+  const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
   const handleOpenStatusChange = useCallback(
     (openStatus: boolean) => {
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
     },
-    [onOpenChange],
+    [onOpenChange, setOpenStatus],
   );
-  // Fix the crash on Android where the view node cannot be found.
-  useEffect(() => {
-    if (defaultOpen) {
-      setTimeout(() => {
-        setOpenStatus(defaultOpen);
-      }, 0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const handleActionListOpen = useCallback(() => {
     handleOpenStatusChange(true);
   }, [handleOpenStatusChange]);
@@ -206,12 +223,46 @@ function BasicActionList({
   );
 }
 
-export const ActionList = withStaticProperties(BasicActionList, {
-  show: (props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'>) => {
-    Portal.Render(
-      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-      <BasicActionList {...props} defaultOpen renderTrigger={null} />,
-    );
-  },
+const showActionList = (
+  props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'>,
+) => {
+  const ref = Portal.Render(
+    Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
+    <BasicActionList
+      {...props}
+      defaultOpen
+      renderTrigger={null}
+      onOpenChange={(isOpen) => {
+        props.onOpenChange?.(isOpen);
+        if (!isOpen) {
+          // delay the destruction of the reference to allow for the completion of the animation transition.
+          setTimeout(() => {
+            ref.destroy();
+          }, 500);
+        }
+      }}
+    />,
+  );
+};
+
+function ActionListFrame(props: IActionListProps) {
+  const { gtMd } = useMedia();
+  const { disabled, renderTrigger, ...popoverProps } = props;
+  const handleActionListOpen = useDebouncedCallback(() => {
+    showActionList(popoverProps);
+  }, 250);
+
+  if (gtMd) {
+    return <BasicActionList {...props} />;
+  }
+  return (
+    <Trigger onPress={handleActionListOpen} disabled={disabled}>
+      {renderTrigger}
+    </Trigger>
+  );
+}
+
+export const ActionList = withStaticProperties(ActionListFrame, {
+  show: showActionList,
   Item: ActionListItem,
 });

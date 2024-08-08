@@ -6,10 +6,8 @@ import { StyleSheet } from 'react-native';
 
 import {
   Divider,
-  Group,
   SizableText,
   Stack,
-  XGroup,
   YGroup,
   YStack,
 } from '@onekeyhq/components';
@@ -22,7 +20,10 @@ import { AccountSelectorTriggerDappConnection } from '@onekeyhq/kit/src/componen
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useAccountSelectorSyncLoadingAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -33,24 +34,61 @@ import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountCh
 
 import type { IHandleAccountChanged } from '../../hooks/useHandleAccountChanged';
 
-function DAppAccountListInitFromHome({ num }: { num: number }) {
+function DAppAccountListInitFromHome({
+  num,
+  shouldSyncFromHome,
+}: {
+  num: number;
+  shouldSyncFromHome: boolean;
+}) {
+  const [, setSyncLoading] = useAccountSelectorSyncLoadingAtom();
   const actions = useAccountSelectorActions();
   useEffect(() => {
     void (async () => {
-      // required delay here, should be called after AccountSelectEffects AutoSelect
-      await timerUtils.wait(600);
-      await actions.current.syncFromScene({
-        from: {
-          sceneName: EAccountSelectorSceneName.home,
-          sceneNum: 0,
-        },
-        num, // TODO multiple account selector of wallet connect
-      });
+      try {
+        setSyncLoading((v) => ({
+          ...v,
+          [num]: {
+            isLoading: true,
+          },
+        }));
+        // required delay here, should be called after AccountSelectEffects AutoSelect
+        await timerUtils.wait(600);
+        if (shouldSyncFromHome) {
+          await actions.current.syncFromScene({
+            from: {
+              sceneName: EAccountSelectorSceneName.home,
+              sceneNum: 0,
+            },
+            num, // TODO multiple account selector of wallet connect
+          });
+        }
+      } finally {
+        if (shouldSyncFromHome) {
+          await timerUtils.wait(300);
+        }
+        setSyncLoading((v) => ({
+          ...v,
+          [num]: {
+            isLoading: false,
+          },
+        }));
+      }
     })();
-  }, [actions, num]);
+
+    return () => {
+      setSyncLoading((v) => ({
+        ...v,
+        [num]: {
+          isLoading: false,
+        },
+      }));
+    };
+  }, [actions, num, setSyncLoading, shouldSyncFromHome]);
   return null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getLoadingDuration = ({
   skeletonRenderDuration,
   shouldSyncFromHome,
@@ -74,6 +112,7 @@ function DAppAccountListItem({
   compressionUiMode,
   initFromHome,
   beforeShowTrigger,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   skeletonRenderDuration,
 }: {
   num: number;
@@ -90,11 +129,14 @@ function DAppAccountListItem({
     handleAccountChanged,
   });
 
-  const shouldSyncFromHome = initFromHome && !readonly;
-  const loadingDuration = getLoadingDuration({
-    skeletonRenderDuration,
-    shouldSyncFromHome,
-  });
+  const shouldSyncFromHome = Boolean(initFromHome && !readonly);
+
+  // const loadingDuration = getLoadingDuration({
+  // skeletonRenderDuration,
+  // shouldSyncFromHome,
+  // });
+  const loadingDuration = 0; // useAccountSelectorSyncLoadingAtom will handle loading
+
   return (
     <>
       <YGroup
@@ -122,7 +164,10 @@ function DAppAccountListItem({
           />
         </YGroup.Item>
       </YGroup>
-      {shouldSyncFromHome ? <DAppAccountListInitFromHome num={num} /> : null}
+      <DAppAccountListInitFromHome
+        num={num}
+        shouldSyncFromHome={shouldSyncFromHome}
+      />
     </>
   );
 }
@@ -208,7 +253,7 @@ function DAppAccountListStandAloneItem({
   ]);
 
   return (
-    <YStack space="$2" testID="DAppAccountListStandAloneItem">
+    <YStack gap="$2" testID="DAppAccountListStandAloneItem">
       <SizableText size="$headingMd" color="$text">
         {intl.formatMessage({ id: ETranslations.global_accounts })}
       </SizableText>
@@ -240,7 +285,7 @@ function DAppAccountListStandAloneItem({
 function DAppAccountListStandAloneItemForHomeScene() {
   const intl = useIntl();
   return (
-    <YStack space="$2" testID="DAppAccountListStandAloneItem">
+    <YStack gap="$2" testID="DAppAccountListStandAloneItem">
       <SizableText size="$headingMd" color="$text">
         {intl.formatMessage({ id: ETranslations.global_accounts })}
       </SizableText>
@@ -281,7 +326,7 @@ function WalletConnectAccountTriggerList({
     {} as IAccountSelectorAvailableNetworksMap,
   );
   return (
-    <YStack space="$2">
+    <YStack gap="$2">
       <SizableText size="$headingMd" color="$text">
         Accounts
       </SizableText>
@@ -294,7 +339,7 @@ function WalletConnectAccountTriggerList({
           enabledNum={enabledNum}
           availableNetworksMap={availableNetworksMap}
         >
-          <YStack space="$2">
+          <YStack gap="$2">
             {sessionAccountsInfo.map((i) => (
               <Stack key={i.accountSelectorNum}>
                 <DAppAccountListItem

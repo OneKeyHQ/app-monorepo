@@ -1,6 +1,8 @@
+import { useIntl } from 'react-intl';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
@@ -8,7 +10,7 @@ import type {
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { ChainSelectorPageView } from '../components/PageView';
+import { PureChainSelector } from '../components/PureChainSelector';
 
 export default function ChainSelectorPage({
   route,
@@ -17,12 +19,12 @@ export default function ChainSelectorPage({
   IChainSelectorParamList,
   EChainSelectorPages.ChainSelector
 >) {
+  const intl = useIntl();
   const {
     onSelect,
     defaultNetworkId,
     networkIds,
-    title = 'Networks',
-    enableDangerNetwork,
+    title = intl.formatMessage({ id: ETranslations.global_networks }),
   } = route.params ?? {};
   const { result } = usePromiseResult(async () => {
     let networks: IServerNetwork[] = [];
@@ -35,14 +37,11 @@ export default function ChainSelectorPage({
       const resp = await backgroundApiProxy.serviceNetwork.getAllNetworks();
       networks = resp.networks;
     }
-    if (enableDangerNetwork) {
-      networks = [dangerAllNetworkRepresent, ...networks];
-    }
     return networks;
-  }, [networkIds, enableDangerNetwork]);
+  }, [networkIds]);
 
   return (
-    <ChainSelectorPageView
+    <PureChainSelector
       title={title}
       networkId={defaultNetworkId}
       networks={result ?? []}

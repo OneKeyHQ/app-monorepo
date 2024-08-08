@@ -2,6 +2,9 @@ import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { showLabelSetDialog as showHardwareLabelSetDialog } from './HardwareLabelSetDialog';
 
 export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
   const { serviceAccount } = backgroundApiProxy;
@@ -20,23 +23,48 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
         bg: '$bgActive',
       }}
       focusable
-      focusStyle={{
+      focusVisibleStyle={{
         outlineOffset: 2,
         outlineWidth: 2,
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
       }}
       onPress={async () => {
-        showRenameDialog(wallet.name, {
-          onSubmit: async (name) => {
-            if (wallet?.id && name) {
-              await serviceAccount.setWalletNameAndAvatar({
-                walletId: wallet?.id,
-                name,
-              });
-            }
-          },
-        });
+        if (
+          wallet &&
+          wallet?.id &&
+          accountUtils.isHwWallet({ walletId: wallet?.id }) &&
+          !accountUtils.isHwHiddenWallet({
+            wallet,
+          })
+        ) {
+          showHardwareLabelSetDialog(
+            {
+              wallet,
+            },
+            {
+              onSubmit: async (name) => {
+                await backgroundApiProxy.serviceHardware.setDeviceLabel({
+                  walletId: wallet?.id || '',
+                  label: name,
+                });
+              },
+            },
+          );
+        } else {
+          showRenameDialog(wallet.name, {
+            disabledMaxLengthLabel: true,
+            onSubmit: async (name) => {
+              if (wallet?.id && name) {
+                await serviceAccount.setWalletNameAndAvatar({
+                  walletId: wallet?.id,
+                  name,
+                  shouldCheckDuplicate: true,
+                });
+              }
+            },
+          });
+        }
       }}
     >
       <SizableText size="$bodyLgMedium" pr="$1.5" numberOfLines={1}>

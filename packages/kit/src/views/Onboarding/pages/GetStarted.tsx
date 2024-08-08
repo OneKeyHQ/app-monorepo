@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -29,7 +29,11 @@ import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
-import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -73,7 +77,7 @@ function ActionsGroup({ items }: IActionsProp) {
             pressStyle={{
               bg: item.primary ? '$bgPrimaryActive' : '$bgStrongActive',
             }}
-            focusStyle={{
+            focusVisibleStyle={{
               outlineColor: '$focusRing',
               outlineStyle: 'solid',
               outlineWidth: 2,
@@ -183,21 +187,9 @@ export function GetStarted({
   );
 
   return (
-    <Page>
+    <Page safeAreaEnabled>
       <Page.Header headerShown={false} />
       <Page.Body>
-        {showCloseButton ? (
-          <Page.Close>
-            <IconButton
-              icon="CrossedLargeOutline"
-              position="absolute"
-              variant="tertiary"
-              left="$5"
-              top="$5"
-              zIndex={1}
-            />
-          </Page.Close>
-        ) : null}
         <Stack flex={1}>
           <ThemeableStack
             fullscreen
@@ -252,7 +244,7 @@ export function GetStarted({
         <Stack
           py="$6"
           px="$5"
-          space="$2.5"
+          gap="$2.5"
           $gtMd={{
             maxWidth: '$96',
           }}
@@ -347,9 +339,60 @@ export function GetStarted({
             },
           )}
         </SizableText>
+        {showCloseButton ? (
+          <View position="absolute" left="$5" top="$5">
+            <Page.Close>
+              <IconButton icon="CrossedLargeOutline" variant="tertiary" />
+            </Page.Close>
+          </View>
+        ) : null}
       </Page.Body>
     </Page>
   );
 }
 
 export default GetStarted;
+
+export const openOnBoardingFromExt = () => {
+  if (platformEnv.isExtension && typeof window !== 'undefined') {
+    return window.location.hash.includes('fromExt=true');
+  }
+  return false;
+};
+
+export const useToOnBoardingPage = () => {
+  const navigation = useAppNavigation();
+  return useMemo(
+    () =>
+      async ({
+        isFullModal = false,
+        params,
+      }: {
+        isFullModal?: boolean;
+        params?: IOnboardingParamList[EOnboardingPages.GetStarted];
+      } = {}) => {
+        if (platformEnv.isExtensionUiPopup) {
+          await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+            routes: [
+              isFullModal ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
+              EModalRoutes.OnboardingModal,
+              EOnboardingPages.GetStarted,
+            ],
+            params: {
+              ...params,
+              fromExt: true,
+            },
+          });
+        } else {
+          navigation[isFullModal ? 'pushFullModal' : 'pushModal'](
+            EModalRoutes.OnboardingModal,
+            {
+              screen: EOnboardingPages.GetStarted,
+              params,
+            },
+          );
+        }
+      },
+    [navigation],
+  );
+};

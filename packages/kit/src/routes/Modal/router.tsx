@@ -25,6 +25,7 @@ import { StakingModalRouter } from '../../views/Staking/router';
 import { ModalSwapStack } from '../../views/Swap/router';
 import { TestModalRouter } from '../../views/TestModal/router';
 import { UniversalSearchRouter } from '../../views/UniversalSearch/router';
+import { WalletAddressModalRouter } from '../../views/WalletAddress/router';
 import { ModalWebViewStack } from '../../views/WebView/router';
 
 import { ModalMainStack } from './Main';
@@ -49,6 +50,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.AccountManagerStacks,
     children: AccountManagerStacks,
+    async onUnmounted() {
+      void backgroundApiProxy.serviceBatchCreateAccount.clearNetworkAccountCache();
+      // void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
+    },
   },
   {
     onMounted: () => {
@@ -129,6 +134,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.StakingModal,
     children: StakingModalRouter,
+  },
+  {
+    name: EModalRoutes.WalletAddress,
+    children: WalletAddressModalRouter,
   },
 ];
 

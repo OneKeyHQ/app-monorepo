@@ -14,14 +14,15 @@ import {
   View,
   XStack,
   YStack,
+  renderNestedScrollView,
   useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import type { IMarketResponsePool } from '@onekeyhq/shared/types/market';
 
-import { listItemPressStyle } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 
 import { MarketPoolIcon } from './MarketPoolIcon';
@@ -202,7 +203,7 @@ function NetworkIdSelect({
   onChange: (selectedIndex: number) => void;
 }) {
   return (
-    <XStack space="$2" px="$5" $gtMd={{ pr: 0 }} py="$2">
+    <XStack gap="$2" px="$5" $gtMd={{ pr: 0 }} py="$2">
       {options.map((networkId, index) => (
         <Stack
           key={networkId}
@@ -221,8 +222,6 @@ function NetworkIdSelect({
 
 export function MarketDetailPools({
   pools,
-  // eslint-disable-next-line react/prop-types
-  onContentSizeChange,
 }: ITabPageProps & { pools: IMarketResponsePool[] }) {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
@@ -256,10 +255,8 @@ export function MarketDetailPools({
   return (
     <ListView
       data={sortedListData}
+      renderScrollComponent={renderNestedScrollView}
       estimatedItemSize={38}
-      onContentSizeChange={onContentSizeChange}
-      scrollEnabled={platformEnv.isWebTouchable}
-      disableScrollViewPanResponder
       ListHeaderComponent={
         <YStack pb="$2" pt="$5">
           <NetworkIdSelect
@@ -302,18 +299,18 @@ export function MarketDetailPools({
               }}
             >
               <ItemColumn flexGrow={5}>
-                <XStack space="$2.5" ai="center">
+                <XStack gap="$2.5" ai="center">
                   <MarketPoolIcon uri={dexLogoUrl} />
                   <YStack flexShrink={1}>
                     <SizableText
                       size="$bodyMdMedium"
                       numberOfLines={1}
-                      selectable={false}
+                      userSelect="none"
                     >
                       {attributes.name}
                     </SizableText>
                     <SizableText
-                      selectable={false}
+                      userSelect="none"
                       size="$bodySm"
                       color="$textSubdued"
                       numberOfLines={1}
@@ -327,7 +324,7 @@ export function MarketDetailPools({
               {gtXl ? (
                 <ItemColumn>
                   <NumberSizeableText
-                    selectable={false}
+                    userSelect="none"
                     size="$bodyMd"
                     formatter="price"
                     formatterOptions={{ currency }}
@@ -340,7 +337,7 @@ export function MarketDetailPools({
               {gtXl ? (
                 <ItemColumn>
                   <NumberSizeableText
-                    selectable={false}
+                    userSelect="none"
                     size="$bodyMd"
                     formatter="marketCap"
                     textAlign="right"
@@ -351,7 +348,7 @@ export function MarketDetailPools({
               ) : null}
               <ItemColumn>
                 <NumberSizeableText
-                  selectable={false}
+                  userSelect="none"
                   size="$bodyMd"
                   formatter="marketCap"
                   textAlign="right"
@@ -361,7 +358,7 @@ export function MarketDetailPools({
               </ItemColumn>
               <ItemColumn>
                 <NumberSizeableText
-                  selectable={false}
+                  userSelect="none"
                   size="$bodyMd"
                   formatter="marketCap"
                   textAlign="right"

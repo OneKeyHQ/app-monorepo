@@ -71,6 +71,11 @@ function HeaderLeftToolBar({
       </Stack>
     );
   }
+  const inputProps = {
+    onPress: () => {
+      onSearch?.(url);
+    },
+  };
   return (
     <XStack alignItems="center" justifyContent="center" pl="$2">
       <HeaderButtonGroup>
@@ -93,14 +98,11 @@ function HeaderLeftToolBar({
         />
       </HeaderButtonGroup>
       <Input
-        containerProps={{ ml: '$6', w: '$80' }}
+        containerProps={{ ml: '$6', w: '$80' } as any}
         size="small"
         leftIconName={isHttpsUrl ? 'LockSolid' : 'SearchSolid'}
         value={hiddenHttpsUrl}
         selectTextOnFocus
-        onPress={() => {
-          onSearch?.(url);
-        }}
         testID="explore-index-search-input"
         addOns={[
           {
@@ -122,6 +124,7 @@ function HeaderLeftToolBar({
             }),
           },
         ]}
+        {...(inputProps as any)}
       />
     </XStack>
   );

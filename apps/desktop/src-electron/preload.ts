@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { ipcRenderer } from 'electron';
+import { verify } from 'openpgp';
 
 import type {
   IDesktopAppState,
+  IMediaType,
   IPrefType,
 } from '@onekeyhq/shared/types/desktop';
 
@@ -11,16 +13,32 @@ import { ipcMessageKeys } from './config';
 
 import type { IUpdateSettings } from './libs/store';
 
+export interface IVerifyUpdateParams {
+  downloadedFile?: string;
+  downloadUrl?: string;
+}
+
+export interface IInstallUpdateParams extends IVerifyUpdateParams {
+  dialog: {
+    message: string;
+    buttons: string[];
+  };
+}
+
 export type IDesktopAPI = {
   on: (channel: string, func: (...args: any[]) => any) => void;
   hello: string;
   arch: string;
   platform: string;
+  systemVersion: string;
   isMas: boolean;
   channel?: string;
   reload: () => void;
   ready: () => void;
   focus: () => void;
+  getMediaAccessStatus: (
+    prefType: IMediaType,
+  ) => 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
   openPreferences: (prefType: IPrefType) => void;
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
@@ -45,7 +63,8 @@ export type IDesktopAPI = {
   // Updater
   checkForUpdates: (isManual?: boolean) => void;
   downloadUpdate: () => void;
-  installUpdate: () => void;
+  verifyUpdate: (event: IVerifyUpdateParams) => void;
+  installUpdate: (event: IInstallUpdateParams) => void;
   setAutoUpdateSettings: (settings: IUpdateSettings) => void;
   touchUpdateResource: (params: {
     resourceUrl: string;
@@ -116,6 +135,7 @@ const validChannels = [
   ipcMessageKeys.UPDATE_CHECKING,
   ipcMessageKeys.UPDATE_AVAILABLE,
   ipcMessageKeys.UPDATE_NOT_AVAILABLE,
+  ipcMessageKeys.UPDATE_VERIFIED,
   ipcMessageKeys.UPDATE_ERROR,
   ipcMessageKeys.UPDATE_DOWNLOADING,
   ipcMessageKeys.UPDATE_DOWNLOADED,
@@ -147,6 +167,7 @@ const desktopApi = {
   hello: 'world',
   arch: process.arch,
   platform: process.platform,
+  systemVersion: process.getSystemVersion(),
   isMas: process.mas,
   channel: getChannel(),
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
@@ -168,6 +189,8 @@ const desktopApi = {
       ipcRenderer.removeListener(ipcMessageKeys.APP_STATE, handler);
     };
   },
+  getMediaAccessStatus: (prefType: IMediaType) =>
+    ipcRenderer.sendSync(ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS, prefType),
   openPreferences: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFERENCES),
   toggleMaximizeWindow: () =>
     ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
@@ -209,7 +232,10 @@ const desktopApi = {
   checkForUpdates: (isManual?: boolean) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_CHECK, isManual),
   downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
-  installUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL),
+  verifyUpdate: (params: IVerifyUpdateParams) =>
+    ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY, params),
+  installUpdate: (params: IInstallUpdateParams) =>
+    ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL, params),
   setAutoUpdateSettings: (settings: IUpdateSettings) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_SETTINGS, settings),
   clearAutoUpdateSettings: () =>

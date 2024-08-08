@@ -14,13 +14,13 @@ export enum EEventKind {
   Reporting = 1984,
   ZapRequest = 9734,
   Zap = 9735,
-  RelayListMetadata = 10002,
-  ClientAuthentication = 22242,
-  NostrConnect = 24133,
-  ProfileBadges = 30008,
-  BadgeDefinition = 30009,
-  LongFormContent = 30023,
-  ApplicationSpecificData = 30078,
+  RelayListMetadata = 10_002,
+  ClientAuthentication = 22_242,
+  NostrConnect = 24_133,
+  ProfileBadges = 30_008,
+  BadgeDefinition = 30_009,
+  LongFormContent = 30_023,
+  ApplicationSpecificData = 30_078,
 }
 
 export type INostrEvent = {

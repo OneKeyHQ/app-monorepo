@@ -293,10 +293,10 @@ const SortableSectionListGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableSectionList'
     ),
 );
-const SpotlightTourGallery = LazyLoadPage(
+const SpotlightGallery = LazyLoadPage(
   () =>
     import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SpotlightTour'
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Spotlight'
     ),
 );
 const SwipeableCellGallery = LazyLoadPage(
@@ -431,6 +431,20 @@ const UsePromiseResultGallery = LazyLoadPage(
     ),
 );
 
+const ImageCropGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ImageCrop'
+    ),
+);
+
+const CurrencyGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Currency'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -488,7 +502,7 @@ export const galleryScreenList: {
   },
   {
     name: EGalleryRoutes.ComponentSpotlightTour,
-    component: SpotlightTourGallery,
+    component: SpotlightGallery,
   },
   {
     name: EGalleryRoutes.ComponentSortableSectionList,
@@ -618,5 +632,13 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentUsePromiseResult,
     component: UsePromiseResultGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentImageCropGallery,
+    component: ImageCropGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentCurrency,
+    component: CurrencyGallery,
   },
 ];

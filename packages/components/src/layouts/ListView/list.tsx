@@ -1,11 +1,11 @@
 import type { ForwardedRef, MutableRefObject } from 'react';
-import { forwardRef, useCallback, useMemo } from 'react';
+import { forwardRef, useMemo } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { FlatList } from 'react-native';
 import { getTokenValue } from 'tamagui';
 
-import type { StackStyleProps, Tokens } from '@tamagui/web/types/types';
+import type { StackStyle, Tokens } from '@tamagui/web/types/types';
 import type {
   FlatListProps,
   ListRenderItem,
@@ -24,11 +24,11 @@ export type IListViewProps<T> = Omit<
   | 'data'
   | 'renderItem'
 > &
-  StackStyleProps & {
-    contentContainerStyle?: StackStyleProps;
-    columnWrapperStyle?: StackStyleProps;
-    ListHeaderComponentStyle?: StackStyleProps;
-    ListFooterComponentStyle?: StackStyleProps;
+  StackStyle & {
+    contentContainerStyle?: StackStyle;
+    columnWrapperStyle?: StackStyle;
+    ListHeaderComponentStyle?: StackStyle;
+    ListFooterComponentStyle?: StackStyle;
   } & {
     data: ArrayLike<T> | null | undefined;
     renderItem: ListRenderItem<T> | null | undefined;

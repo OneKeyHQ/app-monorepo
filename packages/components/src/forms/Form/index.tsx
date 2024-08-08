@@ -1,9 +1,4 @@
-import type {
-  PropsWithChildren,
-  ReactChildren,
-  ReactElement,
-  ReactNode,
-} from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
 import { Children, cloneElement, isValidElement, useCallback } from 'react';
 
 import { noop } from 'lodash';
@@ -18,6 +13,7 @@ import { Label, SizableText, View, XStack, YStack } from '../../primitives';
 import { Input } from '../Input';
 import { TextArea } from '../TextArea';
 
+import type { ISizableTextProps } from '../../primitives';
 import type { IPropsWithTestId } from '../../types';
 import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
 import type { GetProps } from 'tamagui';
@@ -31,7 +27,7 @@ export function FormWrapper({ form: formContext, children }: IFormProps) {
   return (
     <FormProvider {...formContext}>
       <TMForm onSubmit={noop}>
-        <YStack space="$5">{children}</YStack>
+        <YStack gap="$5">{children}</YStack>
       </TMForm>
     </FormProvider>
   );
@@ -83,8 +79,15 @@ const getChildProps = (
   }
 };
 
+export function FieldDescription(props: ISizableTextProps) {
+  return (
+    <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued" {...props} />
+  );
+}
+
 type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
+    testID?: string;
     label?: string;
     description?: string | ReactNode;
     optional?: boolean;
@@ -117,6 +120,9 @@ function Field({
     return null;
   }, [labelAddon]);
   const error = errors[name] as unknown as Error;
+  // if (error) {
+  //   debugger;
+  // }
   return (
     <Controller
       name={name}
@@ -139,7 +145,7 @@ function Field({
               {renderLabelAddon()}
             </XStack>
           ) : null}
-          {Children.map(children as ReactChildren, (child) =>
+          {Children.map(children as ReactNode[], (child) =>
             isValidElement(child)
               ? cloneElement(child, getChildProps(child, field, error))
               : child,
@@ -170,9 +176,7 @@ function Field({
             ) : null}
           </HeightTransition>
           {typeof description === 'string' ? (
-            <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued">
-              {description}
-            </SizableText>
+            <FieldDescription>{description}</FieldDescription>
           ) : (
             description
           )}
@@ -184,4 +188,5 @@ function Field({
 
 export const Form = withStaticProperties(FormWrapper, {
   Field,
+  FieldDescription,
 });

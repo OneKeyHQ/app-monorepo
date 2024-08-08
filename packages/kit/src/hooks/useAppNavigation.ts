@@ -31,6 +31,21 @@ navigate by full route path:
     
 */
 
+/* 
+replace
+import { StackActions } from '@react-navigation/native';
+
+ navigation.dispatch(
+  StackActions.replace(ERootRoutes.Main, {
+    screen: ETabRoutes.Developer,
+    params: {
+      screen: ETabDeveloperRoutes.TabDeveloper,
+    },
+  }),
+);
+
+*/
+
 let lastPushAbleNavigation:
   | ReturnType<
       typeof useNavigation<IPageNavigationProp<any> | IModalNavigationProp<any>>
@@ -177,6 +192,13 @@ function useAppNavigation<
     navigationRef.current.push(...args);
   }, []);
 
+  const replace: typeof navigationRef.current.replace = useCallback(
+    (...args) => {
+      navigationRef.current.replace(...args);
+    },
+    [],
+  );
+
   const navigate: typeof navigationRef.current.navigate = useCallback(
     (...args: any) => {
       navigationRef.current.navigate(...args);
@@ -190,6 +212,7 @@ function useAppNavigation<
       navigate,
       pop,
       popStack,
+      replace,
       push,
       pushFullModal,
       pushModal,
@@ -205,6 +228,7 @@ function useAppNavigation<
       push,
       pushFullModal,
       pushModal,
+      replace,
       reset,
       setOptions,
       switchTab,

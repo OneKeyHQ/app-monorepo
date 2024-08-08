@@ -29,6 +29,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IPublicBackupData } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 import { ERestoreResult } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ECloudBackupRoutes,
@@ -274,7 +275,9 @@ export default function Detail() {
       }
       if (result === ERestoreResult.WRONG_PASSWORD) {
         Toast.error({
-          title: ETranslations.auth_error_password_incorrect,
+          title: intl.formatMessage({
+            id: ETranslations.auth_error_password_incorrect,
+          }),
         });
       } else if (result === ERestoreResult.UNKNOWN_ERROR) {
         Toast.error({
@@ -301,6 +304,7 @@ export default function Detail() {
     } finally {
       setSubmitLoading(false);
     }
+    defaultLogger.account.wallet.importWallet({ importMethod: 'cloud' });
   }, [
     intl,
     restorePasswordVerifyDialog,
@@ -371,7 +375,7 @@ export default function Detail() {
                 }
               >
                 <XStack
-                  space="$1"
+                  gap="$1"
                   onPress={() => {
                     ActionList.show({
                       title: intl.formatMessage({

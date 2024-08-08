@@ -1,3 +1,5 @@
+import { uniq } from 'lodash';
+
 import type {
   AirGapUR,
   IAirGapMultiAccounts,
@@ -14,7 +16,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyErrorAirGapInvalidQrCode } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -23,8 +25,10 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IQrWalletDevice } from '@onekeyhq/shared/types/device';
 
+import { buildDefaultAddAccountNetworksForQrWallet } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 
 import { UR_DEFAULT_ORIGIN } from './qrWalletConsts';
@@ -91,16 +95,69 @@ class ServiceQrWallet extends ServiceBase {
     });
   }
 
+  /*
+  EVM-BSC: ETH
+  EVM-ETH: ETH
+
+  Bitcoin: BTC
+  Bitcoin Testnet: TBTC
+  Bitcoin Signet: SBTC
+  */
   async getDeviceChainNameByNetworkId({ networkId }: { networkId: string }) {
-    const ids = getNetworkIdsMap();
-    if (networkId === ids.tbtc) {
-      // eslint-disable-next-line no-param-reassign
-      networkId = ids.btc;
-    }
+    // const ids = getNetworkIdsMap();
+    // if (networkId === ids.tbtc) {
+    //   // eslint-disable-next-line no-param-reassign
+    //   networkId = ids.btc;
+    // }
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
     });
+    const impl = networkUtils.getNetworkImpl({ networkId });
+    if (impl === IMPL_EVM) {
+      return 'ETH';
+    }
     return network.symbol.toUpperCase();
+  }
+
+  async buildGetMultiAccountsParams({
+    networkId,
+    indexedAccountId,
+  }: {
+    networkId: string;
+    indexedAccountId: string;
+  }) {
+    const { serviceAccount } = this.backgroundApi;
+
+    const items =
+      await this.backgroundApi.serviceNetwork.getDeriveInfoItemsOfNetwork({
+        networkId,
+      });
+
+    const indexedAccount = await serviceAccount.getIndexedAccount({
+      id: indexedAccountId,
+    });
+    const index = indexedAccount.index;
+
+    const paths: string[] = [];
+    for (const deriveInfo of items) {
+      const fullPath = accountUtils.buildPathFromTemplate({
+        template: deriveInfo.item.template,
+        index,
+      });
+      paths.push(
+        accountUtils.removePathLastSegment({
+          path: fullPath,
+          removeCount: 2, // TODO always remove last 2 segments, only works for EVM and BTC yet
+        }),
+      );
+    }
+
+    const chain = await this.getDeviceChainNameByNetworkId({ networkId });
+
+    return {
+      chain,
+      paths,
+    };
   }
 
   @backgroundMethod()
@@ -130,31 +187,27 @@ class ServiceQrWallet extends ServiceBase {
       });
     }
 
-    const items =
-      await this.backgroundApi.serviceNetwork.getDeriveInfoItemsOfNetwork({
-        networkId,
-      });
-
-    const indexedAccount = await serviceAccount.getIndexedAccount({
-      id: indexedAccountId,
-    });
-    const index = indexedAccount.index;
-
-    const paths: string[] = [];
-    for (const deriveInfo of items) {
-      const fullPath = accountUtils.buildPathFromTemplate({
-        template: deriveInfo.item.template,
-        index,
-      });
-      paths.push(
-        accountUtils.removePathLastSegment({
-          path: fullPath,
-          removeCount: 2, // TODO always remove last 2 segments
-        }),
-      );
+    let networkIds: string[] = [];
+    const allDefaultAddAccountNetworks = uniq(
+      buildDefaultAddAccountNetworksForQrWallet().map((item) => item.networkId),
+    );
+    if (networkUtils.isAllNetwork({ networkId })) {
+      networkIds = allDefaultAddAccountNetworks;
+    } else {
+      // networkIds = [networkId];
+      // TODO always create all default networks?
+      networkIds = [...allDefaultAddAccountNetworks, networkId];
     }
 
-    const chain = await this.getDeviceChainNameByNetworkId({ networkId });
+    const params: {
+      chain: string;
+      paths: string[];
+    }[] = await Promise.all(
+      networkIds.map((n) =>
+        this.buildGetMultiAccountsParams({ networkId: n, indexedAccountId }),
+      ),
+    );
+
     const request = new OneKeyRequestDeviceQR({
       requestId: generateUUID(),
       xfp: byWallet.xfp || '',
@@ -162,12 +215,7 @@ class ServiceQrWallet extends ServiceBase {
       origin: UR_DEFAULT_ORIGIN,
       //
       method: 'getMultiAccounts',
-      params: [
-        {
-          chain,
-          paths,
-        },
-      ],
+      params,
     });
 
     console.log('prepareQrcodeWalletAddressCreate .>>> ', request);

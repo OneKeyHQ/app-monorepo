@@ -50,8 +50,19 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           iconColor: '$iconInfo',
           renderText: DownloadProgress,
         },
+        [EAppUpdateStatus.verifying]: {
+          iconName: 'RefreshCcwSolid',
+          iconColor: '$iconInfo',
+          renderText() {
+            return intl.formatMessage({
+              id: platformEnv.isNativeAndroid
+                ? ETranslations.update_verifying_sha256_and_package_name
+                : ETranslations.update_verify_file_signature,
+            });
+          },
+        },
         [EAppUpdateStatus.ready]: {
-          iconName: 'DownloadOutline',
+          iconName: 'Shield2CheckOutline',
           iconColor: '$iconSuccess',
           renderText({
             updateInfo: appUpdateInfo,
@@ -99,7 +110,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const { iconName, iconColor, renderText } = data || {};
   const Component = renderText;
   return Component ? (
-    <XStack alignItems="center" space="$2" flexShrink={1}>
+    <XStack alignItems="center" gap="$2" flexShrink={1}>
       <Icon name={iconName} color={iconColor} size="$4" flexShrink={0} />
       <SizableText size="$bodyMdMedium" color="$text" flexShrink={1}>
         <Component updateInfo={updateInfo} />
@@ -116,7 +127,7 @@ function OpenOnGithub() {
   const { gtMd } = useMedia();
   return (
     <XStack
-      space="$2"
+      gap="$2"
       justifyContent="space-between"
       alignItems="center"
       cursor="pointer"
@@ -151,13 +162,18 @@ function UpdateAction({
         [EAppUpdateStatus.downloading]: {
           label: intl.formatMessage({ id: ETranslations.global_view }),
         },
+        [EAppUpdateStatus.verifying]: {
+          label: intl.formatMessage({ id: ETranslations.global_view }),
+        },
         [EAppUpdateStatus.ready]: {
           label: intl.formatMessage({
             id: platformEnv.isNativeAndroid
-              ? ETranslations.update_install_now
+              ? ETranslations.global_install
               : ETranslations.update_restart_to_update,
           }),
-          icon: 'RestartToUpdateCustom',
+          icon: platformEnv.isNativeAndroid
+            ? undefined
+            : 'RestartToUpdateCustom',
           variant: 'primary',
         },
         [EAppUpdateStatus.failed]: {
@@ -184,7 +200,7 @@ function UpdateAction({
   }
   const { icon, label, variant, prefixElement } = data;
   return (
-    <XStack space="$4" justifyContent="space-between" alignItems="center">
+    <XStack gap="$4" justifyContent="space-between" alignItems="center">
       {prefixElement}
       <Button
         size="small"
@@ -207,6 +223,10 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
     borderColor: '$borderInfoSubdued',
   },
   [EAppUpdateStatus.downloading]: {
+    bg: '$bgInfoSubdued',
+    borderColor: '$borderInfoSubdued',
+  },
+  [EAppUpdateStatus.verifying]: {
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
   },

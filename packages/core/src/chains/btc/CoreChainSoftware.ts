@@ -40,11 +40,13 @@ import { EAddressEncodings, ECoreApiExportedSecretKeyType } from '../../types';
 import { slicePathTemplate } from '../../utils';
 
 import {
+  btcForkVersionBytesToBuffer,
   buildBtcXpubSegwit,
   getAddressFromXpub,
   getBitcoinBip32,
   getBitcoinECPair,
   getBtcForkNetwork,
+  getBtcForkVersionBytesByAddressEncoding,
   getBtcXpubFromXprvt,
   getInputsToSignFromPsbt,
   getPublicKeyFromXpub,
@@ -178,7 +180,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     return address;
   }
 
-  protected getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
+  public getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
     return new Psbt({ network });
   }
 
@@ -213,27 +215,20 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
           throw new Error('xpub is required');
         }
         const network = getBtcForkNetwork(networkInfo?.networkChainCode);
-        const networkVersionBytesMap = {
-          ...network.segwitVersionBytes,
-        };
-        if (!networkVersionBytesMap[EAddressEncodings.P2PKH]) {
-          networkVersionBytesMap[EAddressEncodings.P2PKH] = network.bip32;
-        }
-        const bip32Info = networkVersionBytesMap?.[addressEncoding];
-        if (!bip32Info) {
-          throw new Error(`Unsupported address encoding:${addressEncoding}`);
-        }
-        const xprvVersionBytes = bip32Info.private;
+
+        const versionByte = getBtcForkVersionBytesByAddressEncoding({
+          addressEncoding,
+          btcForkNetwork: network,
+        });
+
+        const xprvVersionBytes = versionByte.private;
         if (!xprvVersionBytes) {
           throw new Error('xprvVersionBytes not found');
         }
         return bs58check.encode(
           Buffer.from(bs58check.decode(account.xpub))
             .fill(
-              Buffer.from(
-                xprvVersionBytes.toString(16).padStart(8, '0'),
-                'hex',
-              ),
+              btcForkVersionBytesToBuffer({ versionBytes: xprvVersionBytes }),
               0,
               4,
             )
@@ -451,8 +446,8 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
             : pathComponent;
         if (typeof cache[currentPath] === 'undefined') {
           const index = pathComponent.endsWith("'")
-            ? parseInt(pathComponent.slice(0, -1)) + 2 ** 31
-            : parseInt(pathComponent);
+            ? parseInt(pathComponent.slice(0, -1), 10) + 2 ** 31
+            : parseInt(pathComponent, 10);
           const thisPrivKey = deriver.CKDPriv(parent, index);
           cache[currentPath] = thisPrivKey;
         }
@@ -558,7 +553,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       '0000000000000000000000000000000000000000000000000000000000000000',
       'hex',
     );
-    const prevoutIndex = 0xffffffff;
+    const prevoutIndex = 0xff_ff_ff_ff;
     const sequence = 0;
     const scriptSig = Buffer.concat([
       Buffer.from('0020', 'hex'),

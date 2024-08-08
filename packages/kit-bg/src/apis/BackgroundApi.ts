@@ -324,6 +324,26 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceBatchCreateAccount() {
+    const Service =
+      require('../services/ServiceBatchCreateAccount') as typeof import('../services/ServiceBatchCreateAccount');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceBatchCreateAccount', { value });
+    return value;
+  }
+
+  get serviceAllNetwork() {
+    const Service =
+      require('../services/ServiceAllNetwork') as typeof import('../services/ServiceAllNetwork');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceAllNetwork', { value });
+    return value;
+  }
+
   get serviceHardware() {
     const ServiceHardware =
       require('../services/ServiceHardware') as typeof import('../services/ServiceHardware');
@@ -381,6 +401,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceAppUpdate', { value });
+    return value;
+  }
+
+  get serviceSpotlight() {
+    const ServiceSpotlight =
+      require('../services/ServiceSpotlight') as typeof import('../services/ServiceSpotlight');
+    const value = new ServiceSpotlight.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceSpotlight', { value });
     return value;
   }
 
@@ -491,6 +521,26 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceExplorer', { value });
+    return value;
+  }
+
+  get serviceCustomToken() {
+    const ServiceCustomToken =
+      require('../services/ServiceCustomToken') as typeof import('../services/ServiceCustomToken');
+    const value = new ServiceCustomToken.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceCustomToken', { value });
+    return value;
+  }
+
+  get serviceCustomRpc() {
+    const ServiceCustomRpc =
+      require('../services/ServiceCustomRpc') as typeof import('../services/ServiceCustomRpc');
+    const value = new ServiceCustomRpc.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceCustomRpc', { value });
     return value;
   }
 }

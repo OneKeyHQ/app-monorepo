@@ -1,5 +1,6 @@
 import {
   getBtcForkNetwork,
+  isTaprootAddress,
   loadOPReturn,
   pubkeyToPayment,
   scriptPkToAddress,
@@ -12,6 +13,7 @@ import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import { isEmpty } from 'lodash';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EAddressEncodings } from '../../../types';
@@ -148,6 +150,25 @@ export async function buildPsbt({
   // psbt.updateGlobal({
   // })
 
+  const fixMixinOfTaproot = ({
+    mixin,
+    bip32Derivation,
+  }: {
+    mixin: IBtcForkTransactionMixin;
+    bip32Derivation: Bip32Derivation[] | TapBip32Derivation[] | undefined;
+  }) => {
+    // not allowed bip32Derivation for taproot
+    // https://github.com/bitcoinjs/bitcoinjs-lib/blob/master/src/psbt/bip371.js#L236
+    delete mixin.bip32Derivation;
+    if (bip32Derivation) {
+      mixin.tapBip32Derivation = bip32Derivation.map((item) => ({
+        ...item,
+        pubkey: toXOnly(item.pubkey),
+        leafHashes: [], // TODO how to build leafHashes
+      }));
+    }
+  };
+
   for (let i = 0; i < inputs.length; i += 1) {
     const input = inputs[i];
 
@@ -156,14 +177,14 @@ export async function buildPsbt({
     if (!encoding) {
       throw new Error(`inputAddressesEncodings missing encoding at index ${i}`);
     }
-    const mixin: IBtcForkTransactionMixin = {};
 
     const { pubkey, bip32Derivation } = await buildInputMixinInfo({
       address: input.address,
     });
 
+    const mixinInput: IBtcForkTransactionMixin = {};
     if (!isEmpty(bip32Derivation)) {
-      mixin.bip32Derivation = bip32Derivation;
+      mixinInput.bip32Derivation = bip32Derivation;
     }
 
     switch (encoding) {
@@ -171,67 +192,58 @@ export async function buildPsbt({
         const nonWitnessPrevTxs = checkIsDefined(
           btcExtraInfo?.nonWitnessPrevTxs,
         );
-        mixin.nonWitnessUtxo = Buffer.from(
+        mixinInput.nonWitnessUtxo = Buffer.from(
           nonWitnessPrevTxs[input.txid],
           'hex',
         );
         break;
       }
-      case EAddressEncodings.P2WPKH:
-        mixin.witnessUtxo = {
-          script: checkIsDefined(
-            pubkeyToPayment({
-              pubkey,
-              encoding,
-              network,
-            }),
-          ).output as Buffer,
+      case EAddressEncodings.P2WPKH: {
+        const payment = checkIsDefined(
+          pubkeyToPayment({
+            pubkey,
+            encoding,
+            network,
+          }),
+        );
+        mixinInput.witnessUtxo = {
+          script: payment.output as Buffer,
           value: inputValue,
         };
         break;
-      case EAddressEncodings.P2SH_P2WPKH:
-        {
-          const payment = checkIsDefined(
-            pubkeyToPayment({
-              pubkey,
-              encoding,
-              network,
-            }),
-          );
-          mixin.witnessUtxo = {
-            script: payment.output as Buffer,
-            value: inputValue,
-          };
-          mixin.redeemScript = payment.redeem?.output as Buffer;
-        }
+      }
+      case EAddressEncodings.P2SH_P2WPKH: {
+        const payment = checkIsDefined(
+          pubkeyToPayment({
+            pubkey,
+            encoding,
+            network,
+          }),
+        );
+        mixinInput.witnessUtxo = {
+          script: payment.output as Buffer,
+          value: inputValue,
+        };
+        mixinInput.redeemScript = payment.redeem?.output as Buffer;
         break;
-      case EAddressEncodings.P2TR:
-        {
-          const payment = checkIsDefined(
-            pubkeyToPayment({
-              pubkey,
-              encoding,
-              network,
-            }),
-          );
-          mixin.witnessUtxo = {
-            script: payment.output as Buffer,
-            value: inputValue,
-          };
-          mixin.tapInternalKey = payment.internalPubkey;
+      }
+      case EAddressEncodings.P2TR: {
+        const payment = checkIsDefined(
+          pubkeyToPayment({
+            pubkey,
+            encoding,
+            network,
+          }),
+        );
+        mixinInput.witnessUtxo = {
+          script: payment.output as Buffer,
+          value: inputValue,
+        };
+        mixinInput.tapInternalKey = payment.internalPubkey;
 
-          // not allowed bip32Derivation for taproot
-          // https://github.com/bitcoinjs/bitcoinjs-lib/blob/master/src/psbt/bip371.js#L236
-          delete mixin.bip32Derivation;
-          if (bip32Derivation) {
-            mixin.tapBip32Derivation = bip32Derivation.map((item) => ({
-              ...item,
-              pubkey: toXOnly(item.pubkey),
-              leafHashes: [], // TODO how to build leafHashes
-            }));
-          }
-        }
+        fixMixinOfTaproot({ mixin: mixinInput, bip32Derivation });
         break;
+      }
       default:
         break;
     }
@@ -239,11 +251,11 @@ export async function buildPsbt({
     psbt.addInput({
       hash: input.txid,
       index: input.vout,
-      ...mixin,
+      ...mixinInput,
     });
   }
 
-  outputs.forEach((output) => {
+  for (const output of outputs) {
     const { payload } = output;
     if (
       payload?.opReturn &&
@@ -259,11 +271,42 @@ export async function buildPsbt({
       });
     } else {
       const outputValue: number = new BigNumber(output.value).toNumber();
+      const mixinOutput: IBtcForkTransactionMixin = {};
+
+      try {
+        const { pubkey, bip32Derivation } = await buildInputMixinInfo({
+          address: output.address,
+        });
+        if (!isEmpty(bip32Derivation)) {
+          mixinOutput.bip32Derivation = bip32Derivation;
+        }
+        if (isTaprootAddress(output.address)) {
+          const payment = checkIsDefined(
+            pubkeyToPayment({
+              pubkey,
+              encoding: EAddressEncodings.P2TR,
+              network,
+            }),
+          );
+          mixinOutput.tapInternalKey = payment.internalPubkey;
+          fixMixinOfTaproot({ mixin: mixinOutput, bip32Derivation });
+        }
+      } catch (error) {
+        //
+      }
+
       psbt.addOutput({
         address: output.address,
         value: outputValue,
+        ...mixinOutput,
       });
     }
+  }
+
+  // add uuid for verifyPsbtSignMatched() check
+  psbt.addUnknownKeyValToGlobal({
+    key: Buffer.from('$OnekeyPsbtUUID', 'utf-8'),
+    value: Buffer.from(generateUUID(), 'utf-8'),
   });
 
   return psbt;

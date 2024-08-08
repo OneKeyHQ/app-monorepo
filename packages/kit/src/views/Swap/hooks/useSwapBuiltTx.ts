@@ -3,15 +3,20 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInAppNotificationAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EWrappedType } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IApproveInfo,
   ITransferInfo,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
+  EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -25,6 +30,7 @@ import {
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapShouldRefreshQuoteAtom,
   useSwapSlippagePercentageAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -39,9 +45,11 @@ export function useSwapBuildTx() {
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
+  const [{ isFirstTimeSwap }, setSettings] = useSettingsPersistAtom();
   const { navigationToSendConfirm } = useSendConfirm({
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
     networkId: swapFromAddressInfo.networkId ?? '',
@@ -94,6 +102,11 @@ export function useSwapBuildTx() {
   const handleTxFail = useCallback(() => {
     setSwapBuildTxFetching(false);
   }, [setSwapBuildTxFetching]);
+
+  const cancelBuildTx = useCallback(() => {
+    handleTxFail();
+    setSwapShouldRefreshQuote(true);
+  }, [handleTxFail, setSwapShouldRefreshQuote]);
 
   const cancelApproveTx = useCallback(() => {
     handleTxFail();
@@ -151,7 +164,6 @@ export function useSwapBuildTx() {
         wrappedInfo,
         swapInfo,
         onSuccess: handleBuildTxSuccess,
-        onFail: handleTxFail,
         onCancel: handleTxFail,
       });
     }
@@ -210,7 +222,6 @@ export function useSwapBuildTx() {
           await navigationToSendConfirm({
             approveInfo,
             onSuccess: handleApproveTxSuccess,
-            onFail: cancelApproveTx,
             onCancel: cancelApproveTx,
           });
         } catch (e) {
@@ -278,8 +289,23 @@ export function useSwapBuildTx() {
               to: res.swftOrder.platformAddr,
               amount: res.swftOrder.depositCoinAmt,
             };
-          }
-          if (res?.thorSwapCallData) {
+          } else if (res?.changellyOrder) {
+            encodedTx = undefined;
+            // changelly order
+            transferInfo = {
+              from: swapFromAddressInfo.address,
+              tokenInfo: {
+                ...res.result.fromTokenInfo,
+                isNative: !!res.result.fromTokenInfo.isNative,
+                address: res.result.fromTokenInfo.contractAddress,
+                name:
+                  res.result.fromTokenInfo.name ??
+                  res.result.fromTokenInfo.symbol,
+              },
+              to: res.changellyOrder.payinAddress,
+              amount: res.changellyOrder.amountExpectedFrom,
+            };
+          } else if (res?.thorSwapCallData) {
             encodedTx = undefined;
             transferInfo = {
               from: swapFromAddressInfo.address,
@@ -299,8 +325,7 @@ export function useSwapBuildTx() {
                 .shiftedBy(-fromToken.decimals)
                 .toFixed(),
             };
-          }
-          if (res?.tx) {
+          } else if (res?.tx) {
             transferInfo = undefined;
             if (typeof res.tx !== 'string' && res.tx.data) {
               const valueHex = toBigIntHex(new BigNumber(res.tx.value ?? 0));
@@ -332,23 +357,46 @@ export function useSwapBuildTx() {
             encodedTx,
             swapInfo,
             onSuccess: handleBuildTxSuccess,
-            onFail: handleTxFail,
-            onCancel: handleTxFail,
+            onCancel: cancelBuildTx,
           });
+          defaultLogger.swap.createSwapOrder.swapCreateOrder({
+            swapType: EProtocolOfExchange.SWAP,
+            slippage: slippageItem.value.toString(),
+            sourceChain: fromToken.networkId,
+            receivedChain: toToken.networkId,
+            fromAddress: swapFromAddressInfo.address,
+            toAddress: swapToAddressInfo.address,
+            sourceTokenSymbol: fromToken.symbol,
+            receivedTokenSymbol: toToken.symbol,
+            swapAmount: selectQuote?.fromAmount,
+            swapValue: selectQuote?.toAmount,
+            feeType: selectQuote?.fee?.percentageFee?.toString() ?? '0',
+            router: JSON.stringify(selectQuote?.routesData ?? ''),
+            isFirstTime: isFirstTimeSwap,
+          });
+          setSettings((prev) => ({
+            ...prev,
+            isFirstTimeSwap: false,
+          }));
         } else {
           setSwapBuildTxFetching(false);
+          setSwapShouldRefreshQuote(true);
         }
       } catch (e) {
         setSwapBuildTxFetching(false);
+        setSwapShouldRefreshQuote(true);
       }
     }
   }, [
+    setSettings,
     fromToken,
     toToken,
     selectQuote?.fromAmount,
     selectQuote?.toAmount,
     selectQuote?.info.provider,
     selectQuote?.quoteResultCtx,
+    selectQuote?.fee?.percentageFee,
+    selectQuote?.routesData,
     slippageItem,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
@@ -357,7 +405,9 @@ export function useSwapBuildTx() {
     setSwapBuildTxFetching,
     navigationToSendConfirm,
     handleBuildTxSuccess,
-    handleTxFail,
+    cancelBuildTx,
+    isFirstTimeSwap,
+    setSwapShouldRefreshQuote,
   ]);
 
   return { buildTx, wrappedTx, approveTx };
