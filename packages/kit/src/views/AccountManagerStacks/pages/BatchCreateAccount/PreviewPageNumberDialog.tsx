@@ -1,6 +1,7 @@
+import type { IInputProps } from '@onekeyhq/components';
 import { Dialog, Input } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 type IFormValues = { page?: number };
@@ -8,9 +9,11 @@ type IFormValues = { page?: number };
 function DialogInput({
   value,
   onChange,
+  placeholder,
 }: {
   value?: string;
   onChange?: (val: string) => void;
+  placeholder?: IInputProps['placeholder'];
 }) {
   return (
     <Input
@@ -19,6 +22,7 @@ function DialogInput({
       autoFocus
       selectTextOnFocus
       value={value}
+      placeholder={placeholder}
       onChangeText={onChange}
     />
   );
@@ -58,7 +62,7 @@ export function showBatchCreateAccountPreviewPageNumberDialog({
             // },
           }}
         >
-          <DialogInput />
+          <DialogInput placeholder={String(page)} />
         </Dialog.FormField>
       </Dialog.Form>
     ),

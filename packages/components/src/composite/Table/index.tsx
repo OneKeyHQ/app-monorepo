@@ -11,7 +11,11 @@ import { ListView } from '../../layouts/ListView';
 import { Icon, SizableText, Stack, XStack, YStack } from '../../primitives';
 
 import type { IListViewProps, IListViewRef } from '../../layouts';
-import type { IStackProps, IStackStyle } from '../../primitives';
+import type {
+  ISizableTextProps,
+  IStackProps,
+  IStackStyle,
+} from '../../primitives';
 import type {
   ListRenderItemInfo,
   NativeScrollEvent,
@@ -99,6 +103,7 @@ const renderContent = (text?: string) => (
 export interface ITableColumn<T> {
   title: string;
   dataIndex: string;
+  titleProps?: ISizableTextProps;
   columnProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   columnWidth?: IStackProps['width'];
   renderSkeleton?: () => ReactElement;
@@ -195,13 +200,14 @@ export interface ITableProps<T> {
   showBackToTopButton?: boolean;
   dataSource: T[];
   columns: ITableColumn<T>[];
-  TableFooterComponent: IListViewProps<T>['ListFooterComponent'];
-  TableEmptyComponent: IListViewProps<T>['ListEmptyComponent'];
-  extraData: IListViewProps<T>['extraData'];
-  stickyHeaderHiddenOnScroll: IListViewProps<T>['stickyHeaderHiddenOnScroll'];
+  TableFooterComponent?: IListViewProps<T>['ListFooterComponent'];
+  TableEmptyComponent?: IListViewProps<T>['ListEmptyComponent'];
+  extraData?: IListViewProps<T>['extraData'];
+  stickyHeaderHiddenOnScroll?: IListViewProps<T>['stickyHeaderHiddenOnScroll'];
   estimatedListSize?: { width: number; height: number };
   estimatedItemSize?: IListViewProps<T>['estimatedItemSize'];
   rowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
+  headerRowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   onHeaderRow?: (
     column: ITableColumn<T>,
     index: number,
@@ -234,7 +240,14 @@ function HeaderColumn<T>({
   onChangeSelectedName: (columnName: string) => void;
   onHeaderRow?: ITableProps<T>['onHeaderRow'];
 }) {
-  const { title, dataIndex, columnWidth = 40, align, columnProps } = column;
+  const {
+    title,
+    dataIndex,
+    columnWidth = 40,
+    align,
+    columnProps,
+    titleProps,
+  } = column;
   const events = onHeaderRow?.(column, index);
   const enableSortType = !!events?.onSortTypeChange;
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>();
@@ -277,7 +290,7 @@ function HeaderColumn<T>({
       cursor={cursor}
       {...columnProps}
     >
-      <SizableText color="$textSubdued" size="$bodySmMedium">
+      <SizableText color="$textSubdued" size="$bodySmMedium" {...titleProps}>
         {title}
       </SizableText>
     </Column>
@@ -289,13 +302,17 @@ const MemoHeaderColumn = memo(HeaderColumn);
 function TableHeaderRow<T>({
   columns,
   onHeaderRow,
+  rowProps,
+  headerRowProps,
 }: {
   columns: ITableProps<T>['columns'];
   onHeaderRow?: ITableProps<T>['onHeaderRow'];
+  rowProps?: ITableProps<T>['rowProps'];
+  headerRowProps?: ITableProps<T>['headerRowProps'];
 }) {
   const [selectedColumnName, setSelectedColumnName] = useState('');
   return (
-    <XStack gap="$3" px="$3" mx="$2" minHeight="$4" py="$2" borderRadius="$3">
+    <XStack {...rowProps} {...headerRowProps}>
       {columns.map((column, index) => (
         <MemoHeaderColumn
           key={column.dataIndex}
@@ -319,6 +336,7 @@ function BasicTable<T>({
   onHeaderRow,
   onRow,
   rowProps,
+  headerRowProps,
   showHeader = true,
   estimatedItemSize = 60,
   estimatedListSize = { width: 370, height: 525 },
@@ -364,7 +382,12 @@ function BasicTable<T>({
   return (
     <YStack flex={1}>
       {showHeader ? (
-        <TableHeaderRow columns={columns} onHeaderRow={onHeaderRow} />
+        <TableHeaderRow
+          columns={columns}
+          rowProps={rowProps}
+          headerRowProps={headerRowProps}
+          onHeaderRow={onHeaderRow}
+        />
       ) : null}
       <ListView
         ref={listViewRef}

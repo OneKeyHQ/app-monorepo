@@ -15,6 +15,7 @@ import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 import type {
   IActionListItemProps,
   IElement,
+  IStackStyle,
   ITableColumn,
   ITableProps,
 } from '@onekeyhq/components';
@@ -114,6 +115,12 @@ const ROW_PROPS = {
   px: '$3',
   mx: '$2',
 };
+
+const HEADER_ROW_PROPS = {
+  minHeight: '$4',
+  py: '$2',
+  borderRadius: '$3',
+} as IStackStyle;
 
 function BasicMarketHomeList({
   category,
@@ -850,6 +857,7 @@ function BasicMarketHomeList({
 
       <YStack flex={1} ref={containerRef} $gtMd={{ pt: '$3' }}>
         <Table
+          headerRowProps={HEADER_ROW_PROPS}
           showBackToTopButton
           stickyHeaderHiddenOnScroll
           onRow={onRow}
