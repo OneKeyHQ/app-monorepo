@@ -3,12 +3,20 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 const PORT_NAME = 'ONEKEY_SIDE_PANEL';
 export const setupSidePanelPortInBg = () => {
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name === PORT_NAME) {
+      // reset side panel default path after 6 seconds
+      //  to avoid the side panel being stuck in a modal on every time it opens.
+
+      setTimeout(async () => {
+        await extUtils.resetSidePanelPath();
+      }, 6000);
+
       sidePanelState.isOpen = true;
 
       let dappRejectId: string | number | undefined;
