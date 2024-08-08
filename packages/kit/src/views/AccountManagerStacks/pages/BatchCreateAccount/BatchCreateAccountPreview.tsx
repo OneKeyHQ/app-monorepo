@@ -842,8 +842,8 @@ function BatchCreateAccountPreviewPage({
               >
                 <Icon
                   name="ChevronLeftSmallOutline"
-                  pl="$1"
-                  $md={{ size: '$3' }}
+                  ml="$1"
+                  size="$5"
                   opacity={page < 2 || isLoading ? 0.5 : undefined}
                 />
               </ButtonGroup.Item>
@@ -879,9 +879,8 @@ function BatchCreateAccountPreviewPage({
               >
                 <Icon
                   name="ChevronRightSmallOutline"
-                  pr="$1"
-                  $md={{ size: '$3' }}
-                  opacity={isLoading ? 0.5 : undefined} size="$bodyLgMedium"
+                  mr="$1"
+                  opacity={isLoading ? 0.5 : undefined}
                 />
               </ButtonGroup.Item>
             </ButtonGroup>
