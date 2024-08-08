@@ -14,3 +14,4 @@ export * from './settings';
 export * from './spotlight';
 export * from './v4migration';
 export * from './gallery';
+export * from './activeAccountValue';

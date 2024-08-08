@@ -12,8 +12,8 @@ import {
   Icon,
   IconButton,
   SizableText,
+  Skeleton,
   SortableSectionList,
-  Spinner,
   Stack,
   XStack,
   useSafeAreaInsets,
@@ -22,7 +22,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -58,6 +57,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
+import { AccountValue } from './AccountValue';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { WalletOptions } from './WalletOptions';
 
@@ -498,8 +498,22 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
             }
             ListEmptyComponent={
               isLoading ? (
-                <Stack py="$20">
-                  <Spinner size="large" />
+                <Stack>
+                  {[1, 2, 3].map((i) => (
+                    <ListItem key={i}>
+                      <Stack>
+                        <Skeleton w="$10" h="$10" />
+                      </Stack>
+                      <Stack>
+                        <Stack py="$1">
+                          <Skeleton h="$4" w="$32" />
+                        </Stack>
+                        <Stack py="$1">
+                          <Skeleton h="$3" w="$24" />
+                        </Stack>
+                      </Stack>
+                    </ListItem>
+                  ))}
                 </Stack>
               ) : (
                 <Empty
@@ -722,33 +736,42 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                         </SizableText>
                       }
                       secondary={
-                        <XStack alignItems="center" space="$1">
+                        <XStack alignItems="center">
                           {accountValue && accountValue.currency ? (
-                            <Currency
-                              size="$bodyMd"
-                              color="$textSubdued"
-                              sourceCurrency={accountValue.currency}
-                            >
-                              {accountValue?.value}
-                            </Currency>
-                          ) : null}
+                            <AccountValue
+                              accountId={accountValue.accountId}
+                              currency={accountValue.currency}
+                              value={accountValue.value ?? ''}
+                            />
+                          ) : (
+                            <SizableText size="$bodyMd" color="$textDisabled">
+                              --
+                            </SizableText>
+                          )}
                           {accountValue &&
                           accountValue.currency &&
                           subTitleInfo.address ? (
-                            <SizableText size="$bodyMd" color="textSubdued">
-                              ·
+                            <Stack
+                              mx="$1.5"
+                              w="$1"
+                              h="$1"
+                              bg="$iconSubdued"
+                              borderRadius="$full"
+                            />
+                          ) : null}
+                          {subTitleInfo.address ||
+                          subTitleInfo.isEmptyAddress ? (
+                            <SizableText
+                              size="$bodyMd"
+                              color={
+                                subTitleInfo.isEmptyAddress
+                                  ? '$textCaution'
+                                  : '$textSubdued'
+                              }
+                            >
+                              {subTitleInfo.address}
                             </SizableText>
                           ) : null}
-                          <SizableText
-                            size="$bodyMd"
-                            color={
-                              subTitleInfo.isEmptyAddress
-                                ? '$textCaution'
-                                : '$textSubdued'
-                            }
-                          >
-                            {subTitleInfo.address}
-                          </SizableText>
                         </XStack>
                       }
                     />
