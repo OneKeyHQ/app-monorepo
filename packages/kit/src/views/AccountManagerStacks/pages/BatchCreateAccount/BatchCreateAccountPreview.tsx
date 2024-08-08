@@ -579,7 +579,7 @@ function BatchCreateAccountPreviewPage({
           flexBasis: 0,
         },
         render: (_: any, account: IBatchCreateAccount) => (
-          <YStack>
+          <YStack py="$1">
             <SizableText size="$bodyMd">
               {accountUtils.shortenAddress({
                 address: account.address,
@@ -661,7 +661,10 @@ function BatchCreateAccountPreviewPage({
           rowProps={{
             gap: platformEnv.isNative ? '$8' : '$4',
             px: '$5',
+            minHeight: '$12',
           }}
+          estimatedItemSize="$12"
+          headerRowProps={{ py: '$2', minHeight: 36 }}
           dataSource={isLoading ? [] : accounts}
           columns={columns as any}
           TableEmptyComponent={
@@ -837,7 +840,11 @@ function BatchCreateAccountPreviewPage({
                 maxWidth={42}
                 disabled={page < 2}
               >
-                <Icon name="ChevronLeftOutline" pl="$1" $md={{ size: '$3' }} />
+                <Icon
+                  name="ChevronLeftSmallOutline"
+                  pl="$1"
+                  $md={{ size: '$3' }}
+                />
               </ButtonGroup.Item>
               <ButtonGroup.Item
                 onPress={() => {
@@ -863,7 +870,11 @@ function BatchCreateAccountPreviewPage({
                 }}
                 maxWidth={42}
               >
-                <Icon name="ChevronRightOutline" pr="$1" $md={{ size: '$3' }} />
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  pr="$1"
+                  $md={{ size: '$3' }}
+                />
               </ButtonGroup.Item>
             </ButtonGroup>
           </Stack>
