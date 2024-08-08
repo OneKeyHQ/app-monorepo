@@ -11,15 +11,15 @@ export const setupSidePanelPortInBg = () => {
     if (port.name === PORT_NAME) {
       sidePanelState.isOpen = true;
 
-      let rejectId: string | number | undefined;
+      let dappRejectId: string | number | undefined;
       const closeSidePanel = () => {
         sidePanelState.isOpen = false;
-        if (rejectId) {
+        if (dappRejectId) {
           const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
           void backgroundApiProxy.servicePromise.rejectCallback({
-            id: rejectId,
+            id: dappRejectId,
             error: new Error(
               'Dapp authorization rejected due to SidePanel closure.',
             ),
@@ -28,13 +28,13 @@ export const setupSidePanelPortInBg = () => {
       };
 
       port.onMessage.addListener(
-        (event: IAppEventBusPayload[EAppEventBusNames.SidePanel_UIToBg]) => {
-          if (!event?.type) {
-            return;
-          }
-          switch (event.type) {
+        ({
+          type,
+          payload,
+        }: IAppEventBusPayload[EAppEventBusNames.SidePanel_UIToBg]) => {
+          switch (type) {
             case 'dappRejectId': {
-              rejectId = event.payload.rejectId;
+              dappRejectId = payload.rejectId;
               break;
             }
             default:
@@ -56,14 +56,14 @@ export const setupSidePanelPortInBg = () => {
 export const setupSidePanelPortInUI = () => {
   const port = chrome.runtime.connect({ name: PORT_NAME });
   port.onMessage.addListener(
-    (event: IAppEventBusPayload[EAppEventBusNames.SidePanel_BgToUI]) => {
-      if (!event?.type) {
-        return;
-      }
-      switch (event.type) {
+    ({
+      type,
+      payload,
+    }: IAppEventBusPayload[EAppEventBusNames.SidePanel_BgToUI]) => {
+      switch (type) {
         case 'pushModal':
           {
-            const { screen, params } = event.payload.modalParams;
+            const { screen, params } = payload.modalParams;
             global.$navigationRef.current?.navigate(screen, params);
           }
           break;
