@@ -56,6 +56,8 @@ export function ButtonGroup({
           minWidth={42}
           height={38}
           bg="$bgStrong"
+          opacity={disabled ? 0.5 : undefined}
+          disabled={disabled}
           hoverStyle={ACTIVE_STYLE}
           pressStyle={ACTIVE_STYLE}
           focusStyle={ACTIVE_STYLE}
