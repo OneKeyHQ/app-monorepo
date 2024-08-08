@@ -10,7 +10,6 @@ import type {
   ISizableTextProps,
 } from '@onekeyhq/components';
 import {
-  Button,
   ButtonGroup,
   Checkbox,
   Divider,
@@ -830,61 +829,43 @@ function BatchCreateAccountPreviewPage({
                 });
               }}
             />
-            <ButtonGroup
-              disabled={isLoading}
-              items={[
-                {
-                  onPress: () => {
-                    setPageNumber(Math.max(1, page - 1));
-                  },
-                  element: (
-                    <Icon
-                      name="ChevronLeftOutline"
-                      pl="$1"
-                      opacity={page < 2 ? 0.5 : undefined}
-                      $md={{ size: '$3' }}
-                    />
-                  ),
-                  containerProps: {
-                    maxWidth: 42,
-                  },
-                },
-                {
-                  onPress: () => {
-                    showBatchCreateAccountPreviewPageNumberDialog({
-                      page,
-                      onSubmit: async (values) => {
-                        if (!isNil(values?.page)) {
-                          setPageNumber(values.page);
-                        }
-                      },
-                    });
-                  },
-                  element: (
-                    <Stack height={38} justifyContent="center">
-                      <SizableText lineHeight={38} size="$bodyLgMedium">
-                        {page}
-                      </SizableText>
-                    </Stack>
-                  ),
-                },
-                {
-                  onPress: () => {
-                    setPageNumber(page + 1);
-                  },
-                  element: (
-                    <Icon
-                      name="ChevronRightOutline"
-                      pr="$1"
-                      $md={{ size: '$3' }}
-                    />
-                  ),
-                  containerProps: {
-                    maxWidth: 42,
-                  },
-                },
-              ]}
-            />
+            <ButtonGroup disabled={isLoading}>
+              <ButtonGroup.Item
+                onPress={() => {
+                  setPageNumber(Math.max(1, page - 1));
+                }}
+                maxWidth={42}
+                disabled={page < 2}
+              >
+                <Icon name="ChevronLeftOutline" pl="$1" $md={{ size: '$3' }} />
+              </ButtonGroup.Item>
+              <ButtonGroup.Item
+                onPress={() => {
+                  showBatchCreateAccountPreviewPageNumberDialog({
+                    page,
+                    onSubmit: async (values) => {
+                      if (!isNil(values?.page)) {
+                        setPageNumber(values.page);
+                      }
+                    },
+                  });
+                }}
+              >
+                <Stack height={38} justifyContent="center">
+                  <SizableText lineHeight={38} size="$bodyLgMedium">
+                    {page}
+                  </SizableText>
+                </Stack>
+              </ButtonGroup.Item>
+              <ButtonGroup.Item
+                onPress={() => {
+                  setPageNumber(page + 1);
+                }}
+                maxWidth={42}
+              >
+                <Icon name="ChevronRightOutline" pr="$1" $md={{ size: '$3' }} />
+              </ButtonGroup.Item>
+            </ButtonGroup>
           </Stack>
         </Page.FooterActions>
       </Page.Footer>
