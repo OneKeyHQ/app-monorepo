@@ -42,20 +42,28 @@ export function ButtonGroup({
       disabled={disabled}
       orientation={orientation}
       value={undefined}
-      bg="$bgStrong"
       onValueChange={handleValueChange}
     >
       {items.map(({ element, containerProps }, index) => (
         <ToggleGroup.Item
-          borderLeftWidth={index > 0 ? 0 : undefined}
+          borderWidth={0}
+          m={0}
           minWidth={42}
           height={38}
+          bg="$bgStrong"
+          hoverStyle={{
+            bg: '$bgStrongActive',
+            borderWidth: 0,
+            borderColor: '$borderColor',
+          }}
           pressStyle={{
-            borderLeftWidth: index > 0 ? 0 : undefined,
+            bg: '$bgStrongActive',
+            borderWidth: 0,
             borderColor: '$borderColor',
           }}
           focusStyle={{
-            borderLeftWidth: index > 0 ? 0 : undefined,
+            bg: '$bgStrongActive',
+            borderWidth: 0,
             borderColor: '$borderColor',
           }}
           value={String(index)}
