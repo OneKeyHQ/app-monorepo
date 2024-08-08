@@ -45,7 +45,7 @@ export default class CoreChainSoftware extends CoreChainSoftwareBtc {
     return new PsbtBtcFork({
       network,
       forkCoin: 'bch',
-      maximumFeeRate: 10000,
+      maximumFeeRate: network.maximumFeeRate,
     });
   }
 

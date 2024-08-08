@@ -73,5 +73,5 @@ export function startKeepAlivePolling() {
   void doPolling();
   setInterval(() => {
     void doPolling();
-  }, 20000);
+  }, 20_000);
 }
