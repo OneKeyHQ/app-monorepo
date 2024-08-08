@@ -177,6 +177,16 @@ async function openExpandTab(
   return tab;
 }
 
+async function resetSidePanelPath() {
+  if (typeof chrome !== 'undefined' && chrome.sidePanel) {
+    const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, {});
+    await chrome.sidePanel.setOptions({
+      path: url,
+      enabled: true,
+    });
+  }
+}
+
 async function openSidePanel(
   routeInfo: IOpenUrlRouteInfo,
 ): Promise<chrome.tabs.Tab | undefined> {
@@ -244,6 +254,7 @@ export default {
   openStandaloneWindow,
   openExpandTab,
   openSidePanel,
+  resetSidePanelPath,
   openExistWindow,
   openPanelOnActionClick,
   isOpenPanelOnActionClick,
