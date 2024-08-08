@@ -4,6 +4,7 @@ import { uniq } from 'lodash';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
@@ -728,6 +729,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async getDeviceLabel(p: IGetDeviceLabelParams) {
     return this.deviceSettingsManager.getDeviceLabel(p);
   }
