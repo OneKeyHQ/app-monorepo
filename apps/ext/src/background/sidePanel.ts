@@ -9,18 +9,45 @@ export const setupSidePanelPolling = () => {
       sidePanelState.isOpen = true;
       sidePanelState.port = port;
 
+      let rejectId: string | number | undefined;
       const closeSidePanel = () => {
         sidePanelState.isOpen = false;
         sidePanelState.port = undefined;
+        if (rejectId) {
+          const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+          void backgroundApiProxy.servicePromise.rejectCallback({
+            id: rejectId,
+            error: new Error(
+              'Dapp authorization rejected due to SidePanel closure.',
+            ),
+          });
+        }
       };
 
-      port.onMessage.addListener(() => {
-        clearTimeout(timerId);
-        timerId = setTimeout(() => {
-          port.disconnect();
-          closeSidePanel();
-        }, timerUtils.getTimeDurationMs({ seconds: 5 }));
-      });
+      port.onMessage.addListener(
+        (event: {
+          type: 'rejectId';
+          payload: {
+            rejectId: string;
+          };
+        }) => {
+          clearTimeout(timerId);
+          timerId = setTimeout(() => {
+            port.disconnect();
+            closeSidePanel();
+          }, timerUtils.getTimeDurationMs({ seconds: 5 }));
+          switch (event?.type) {
+            case 'rejectId': {
+              rejectId = event.payload.rejectId;
+              break;
+            }
+            default:
+              break;
+          }
+        },
+      );
       port.onDisconnect.addListener(() => {
         closeSidePanel();
       });
@@ -50,4 +77,5 @@ export const startSidePanelPolling = () => {
       }
     },
   );
+  return port;
 };

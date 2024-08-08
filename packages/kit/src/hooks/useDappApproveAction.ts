@@ -3,9 +3,23 @@ import { useCallback, useEffect, useState } from 'react';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+
+const useSendRejectId = platformEnv.isExtensionUiSidePanel
+  ? (id: number | string) => {
+      useEffect(() => {
+        appEventBus.emit(EAppEventBusNames.SendRejectIdInSidePanel, {
+          rejectId: id,
+        });
+      }, [id]);
+    }
+  : () => {};
 
 function useDappApproveAction({
   id,
@@ -22,6 +36,7 @@ function useDappApproveAction({
   const isExtStandaloneWindow = platformEnv.isExtensionUiStandaloneWindow;
   const [rejectError, setRejectError] = useState<Error | null>(null);
   // TODO ignore multiple times reject/resolve
+  useSendRejectId(id);
   const reject = useCallback(
     ({ close, error }: { close?: () => void; error?: Error } = {}) => {
       if (!id) return;
