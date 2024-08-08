@@ -161,7 +161,7 @@ class ProviderApiWalletConnect {
           id: proposal.id,
           reason: {
             message,
-            code: 40001,
+            code: 40_001,
           },
         });
         void this.backgroundApi.serviceApp.showToast({

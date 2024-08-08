@@ -10,7 +10,7 @@ function testWithRandomAccountIndexes(
 ) {
   for (let i = 0; i < 100; i += 1) {
     // Generate a random account index in the valid BIP44 range [0, 2147483647]
-    const accountIndex = Math.floor(Math.random() * 2147483648); // 2^31
+    const accountIndex = Math.floor(Math.random() * 2_147_483_648); // 2^31
     testFunc(accountIndex);
   }
 }

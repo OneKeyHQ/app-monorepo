@@ -39,9 +39,9 @@ const {
         'Account': 'rp8oYAfF2ypEDJvJgiwh47weiWZbpqsjBR',
         'Amount': '10000',
         'Destination': 'rKmyYKs9gyKV93PYFa6tdPUW5tNg1NsK2B',
-        'LastLedgerSequence': 83184401,
+        'LastLedgerSequence': 83_184_401,
         'Flags': 0,
-        'Sequence': 83184307,
+        'Sequence': 83_184_307,
         'Fee': '12',
       },
       signedTx: {

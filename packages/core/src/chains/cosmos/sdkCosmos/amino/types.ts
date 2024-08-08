@@ -18,37 +18,37 @@ export const defaultAminoMsgOpts: ICosmosMsgOpts = {
   send: {
     native: {
       type: 'cosmos-sdk/MsgSend',
-      gas: 80000,
+      gas: 80_000,
     },
   },
   ibcTransfer: {
     type: 'cosmos-sdk/MsgTransfer',
-    gas: 450000,
+    gas: 450_000,
   },
   delegate: {
     type: 'cosmos-sdk/MsgDelegate',
-    gas: 250000,
+    gas: 250_000,
   },
   undelegate: {
     type: 'cosmos-sdk/MsgUndelegate',
-    gas: 250000,
+    gas: 250_000,
   },
   redelegate: {
     type: 'cosmos-sdk/MsgBeginRedelegate',
-    gas: 250000,
+    gas: 250_000,
   },
   // The gas multiplication per rewards.
   withdrawRewards: {
     type: 'cosmos-sdk/MsgWithdrawDelegationReward',
-    gas: 140000,
+    gas: 140_000,
   },
   govVote: {
     type: 'cosmos-sdk/MsgVote',
-    gas: 250000,
+    gas: 250_000,
   },
   executeWasm: {
     type: 'wasm/MsgExecuteContract',
-    gas: 250000,
+    gas: 250_000,
   },
 };
 

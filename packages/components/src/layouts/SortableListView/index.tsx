@@ -132,7 +132,7 @@ function BaseSortableListView<T>(
       style={style as StyleProp<ViewStyle>}
       onDragBegin={handleDragBegin}
       onDragEnd={handleDragEnd}
-      activationDistance={enabled ? activeDistance : 100000}
+      activationDistance={enabled ? activeDistance : 100_000}
       containerStyle={[{ flex: 1 }, rawContainerStyle]}
       columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
       ListHeaderComponentStyle={listHeaderStyle}

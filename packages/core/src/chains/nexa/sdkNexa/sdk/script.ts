@@ -237,11 +237,11 @@ export function varintBufNum(n: number) {
   if (n < 253) {
     buf = Buffer.alloc(1);
     buf.writeUInt8(n, 0);
-  } else if (n < 0x10000) {
+  } else if (n < 0x1_00_00) {
     buf = Buffer.alloc(1 + 2);
     buf.writeUInt8(253, 0);
     buf.writeUInt16LE(n, 1);
-  } else if (n < 0x100000000) {
+  } else if (n < 0x1_00_00_00_00) {
     buf = Buffer.alloc(1 + 4);
     buf.writeUInt8(254, 0);
     buf.writeUInt32LE(n, 1);
@@ -249,7 +249,7 @@ export function varintBufNum(n: number) {
     buf = Buffer.alloc(1 + 8);
     buf.writeUInt8(255, 0);
     buf.writeInt32LE(n & -1, 1);
-    buf.writeUInt32LE(Math.floor(n / 0x100000000), 5);
+    buf.writeUInt32LE(Math.floor(n / 0x1_00_00_00_00), 5);
   }
   return buf;
 }
@@ -295,7 +295,7 @@ function readUInt64LEBN(
 } {
   const second = buffer.readUInt32LE(position);
   const first = buffer.readUInt32LE(position + 4);
-  const combined = first * 0x100000000 + second;
+  const combined = first * 0x1_00_00_00_00 + second;
   // Instantiating an instance of BN with a number is faster than with an
   // array or string. However, the maximum safe number for a double precision
   // floating point is 2 ^ 52 - 1 (0x1fffffffffffff), thus we can safely use
@@ -303,7 +303,7 @@ function readUInt64LEBN(
   // that the number is larger, we can instatiate an instance of BN by passing
   // an array from the buffer (slower) and specifying the endianness.
   let bn;
-  if (combined <= 0x1fffffffffffff) {
+  if (combined <= 0x1f_ff_ff_ff_ff_ff_ff) {
     bn = new BN(combined);
   } else {
     const data = Array.prototype.slice.call(buffer, position, position + 8);

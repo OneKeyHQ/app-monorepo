@@ -695,7 +695,7 @@ const DialogGallery = () => (
                       }, 100);
                       setTimeout(() => {
                         resolve();
-                      }, 99999999);
+                      }, 99_999_999);
                     }),
                 });
               }}

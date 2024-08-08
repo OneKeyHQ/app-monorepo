@@ -34,7 +34,7 @@ export type IFirmwareAuthenticateParams = {
   skipDeviceCancel?: boolean;
 };
 
-const deviceCheckingCodes = [10104, 10105, 10106, 10107];
+const deviceCheckingCodes = [10_104, 10_105, 10_106, 10_107];
 
 export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   @backgroundMethod()

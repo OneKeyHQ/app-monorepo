@@ -62,7 +62,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 
-const DEFAULT_TX_FEE = 1000000;
+const DEFAULT_TX_FEE = 1_000_000;
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.dynex.hd;

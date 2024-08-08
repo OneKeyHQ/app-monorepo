@@ -63,6 +63,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -90,7 +91,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -109,19 +109,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         avatar: {
           img: 'othersImported',
         },
-        walletNo: 100_000_1,
+        walletNo: 1_000_001,
       },
       [WALLET_TYPE_WATCHING]: {
         avatar: {
           img: 'othersWatching',
         },
-        walletNo: 100_000_2,
+        walletNo: 1_000_002,
       },
       [WALLET_TYPE_EXTERNAL]: {
         avatar: {
           img: 'othersExternal',
         },
-        walletNo: 100_000_3,
+        walletNo: 1_000_003,
       },
     };
     const record: IDBWallet = {
@@ -599,7 +599,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (parentWallet) {
         wallet.walletOrder =
           (parentWallet.walletOrderSaved ?? parentWallet.walletNo) +
-          (wallet.walletOrderSaved ?? wallet.walletNo) / 1000000;
+          (wallet.walletOrderSaved ?? wallet.walletNo) / 1_000_000;
       }
     }
 
@@ -1670,7 +1670,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async getNormalHwWalletInSameDevice({
+  async getNormalHwQrWalletInSameDevice({
     associatedDevice,
   }: {
     associatedDevice: string | undefined;
@@ -1680,7 +1680,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       (wallet) =>
         wallet.associatedDevice &&
         wallet.associatedDevice === associatedDevice &&
-        accountUtils.isHwWallet({ walletId: wallet.id }) &&
+        (accountUtils.isHwWallet({ walletId: wallet.id }) ||
+          accountUtils.isQrWallet({ walletId: wallet.id })) &&
         !accountUtils.isHwHiddenWallet({ wallet }),
     );
   }
@@ -1692,7 +1693,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const wallet = await this.getWallet({
       walletId,
     });
-    const walletsInSameDevice = await this.getNormalHwWalletInSameDevice({
+    const walletsInSameDevice = await this.getNormalHwQrWalletInSameDevice({
       associatedDevice: wallet.associatedDevice,
     });
 

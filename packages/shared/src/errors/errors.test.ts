@@ -14,7 +14,7 @@ describe('OneKey Error tests', () => {
     let e = new InvalidAccount();
     expect(e.message).toBe('InvalidAccount');
     expect(e.constructorName).toBe('InvalidAccount');
-    expect(e.code).toBe(-99999);
+    expect(e.code).toBe(-99_999);
 
     // e = new InvalidAccount('hello');
     e = new InvalidAddress();

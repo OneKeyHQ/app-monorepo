@@ -315,7 +315,7 @@ class ServiceSetting extends ServiceBase {
 
     if (platformEnv.isDev && tbtc) {
       config.push({
-        num: 10000,
+        num: 10_000,
         title: 'Test Bitcoin',
         icon: tbtc?.logoURI,
         defaultNetworkId: getNetworkIdsMap().tbtc,

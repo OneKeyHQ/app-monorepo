@@ -352,18 +352,18 @@ describe('Nexa Utils Tests', () => {
       'tx': {
         'blockhash':
           '883d9ab547bd3627671589481f741531cf0f4a5c3365305d97a4408ff5678b28',
-        'blocktime': 1690620568,
+        'blocktime': 1_690_620_568,
         'confirmations': 10,
         'fee': 6.57,
         'fee_satoshi': 657,
         'hash':
           '83733a87c75cd486f5de6232eb79544f8cd186f4cdc8dc7b05291bde3a078a54',
-        'height': 327692,
+        'height': 327_692,
         'hex':
           '000100f65e88bbae07d0a1f62903d7ac3711824861c741bccc6d46cdbb9ddf0e2618de64222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd40d3bfe5850c05b225c93e5312eb52025b59074cad775a43e061ae87a89e7e78c8b8fc6e279bbe09bcf1fc9675881c6f647d61be99d5fc922a51303dae9203178affffffffd1800000000000000101407e000000000000170051147cf62b8a1314b059e25d06a441e02dac445d287200000000',
         'locktime': 0,
         'size': 186,
-        'time': 1690620568,
+        'time': 1_690_620_568,
         'txid':
           '83733a87c75cd486f5de6232eb79544f8cd186f4cdc8dc7b05291bde3a078a54',
         'txidem':
@@ -380,10 +380,10 @@ describe('Nexa Utils Tests', () => {
               'hex':
                 '222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd40d3bfe5850c05b225c93e5312eb52025b59074cad775a43e061ae87a89e7e78c8b8fc6e279bbe09bcf1fc9675881c6f647d61be99d5fc922a51303dae9203178a',
             },
-            'sequence': 4294967295,
+            'sequence': 4_294_967_295,
             'value': 329.77,
             'value_coin': 329.77,
-            'value_satoshi': 32977,
+            'value_satoshi': 32_977,
           },
         ],
         'vout': [
@@ -405,7 +405,7 @@ describe('Nexa Utils Tests', () => {
             'type': 1,
             'value': 323.2,
             'value_coin': 323.2,
-            'value_satoshi': 32320,
+            'value_satoshi': 32_320,
           },
         ],
       },
@@ -435,18 +435,18 @@ describe('Nexa Utils Tests', () => {
       'tx': {
         'blockhash':
           'f45fb9167e49411aca54817b2e45399e91795553204742015ddfafb59c3f062f',
-        'blocktime': 1690620486,
+        'blocktime': 1_690_620_486,
         'confirmations': 11,
         'fee': 10.95,
         'fee_satoshi': 1095,
         'hash':
           'e3bb34578c69d7d705b9fe054a4acb76c59d1026d719fd37520564dd28c0d22f',
-        'height': 327691,
+        'height': 327_691,
         'hex':
           '00020004e5fac31a92877fa08a8d7d9847b6864128a8e927a96645b5a24fd63a7c67e464222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd40c447c903813548077c52ae6db55f208ec000dbf25d12e1f39a6ebbe42a2fe5069146e0230928ad521c0ec827a75ad7afd560a4ef5a9db855e2b61c1f859a7ec8ffffffff220200000000000000875cded686fe492a6636c99e1b5a9df8c3ec7264926391f7d0d898dad2b7c06764222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd40c447c903813548077c52ae6db55f208ec000dbf25d12e1f39a6ebbe42a2fe5069146e0230928ad521c0ec827a75ad7afd560a4ef5a9db855e2b61c1f859a7ec8ffffffffa98700000000000002012202000000000000170051147cf62b8a1314b059e25d06a441e02dac445d287201628300000000000017005114375f5e5be9ddf719d8635306663c7903b530dbab00000000',
         'locktime': 0,
         'size': 365,
-        'time': 1690620486,
+        'time': 1_690_620_486,
         'txid':
           'e3bb34578c69d7d705b9fe054a4acb76c59d1026d719fd37520564dd28c0d22f',
         'txidem':
@@ -463,7 +463,7 @@ describe('Nexa Utils Tests', () => {
               'hex':
                 '222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd40c447c903813548077c52ae6db55f208ec000dbf25d12e1f39a6ebbe42a2fe5069146e0230928ad521c0ec827a75ad7afd560a4ef5a9db855e2b61c1f859a7ec8',
             },
-            'sequence': 4294967295,
+            'sequence': 4_294_967_295,
             'value': 5.46,
             'value_coin': 5.46,
             'value_satoshi': 546,
@@ -478,10 +478,10 @@ describe('Nexa Utils Tests', () => {
               'hex':
                 '222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd40c447c903813548077c52ae6db55f208ec000dbf25d12e1f39a6ebbe42a2fe5069146e0230928ad521c0ec827a75ad7afd560a4ef5a9db855e2b61c1f859a7ec8',
             },
-            'sequence': 4294967295,
+            'sequence': 4_294_967_295,
             'value': 347.29,
             'value_coin': 347.29,
-            'value_satoshi': 34729,
+            'value_satoshi': 34_729,
           },
         ],
         'vout': [
@@ -523,7 +523,7 @@ describe('Nexa Utils Tests', () => {
             'type': 1,
             'value': 336.34,
             'value_coin': 336.34,
-            'value_satoshi': 33634,
+            'value_satoshi': 33_634,
           },
         ],
       },
@@ -553,18 +553,18 @@ describe('Nexa Utils Tests', () => {
       'tx': {
         'blockhash':
           '9d091abed6ca67fbd37afeb358d8e1a80eb97d8a018dc0b5cd9f6b9c0317e5f1',
-        'blocktime': 1690527851,
+        'blocktime': 1_690_527_851,
         'confirmations': 786,
         'fee': 6.57,
         'fee_satoshi': 657,
         'hash':
           '527224633117cd391a361b1781a8693ddf0bfa8cd5cd3e74f82501cb359c0339',
-        'height': 326916,
+        'height': 326_916,
         'hex':
           '000100146071316651d85607ea31ba13bb7122a4de2e4b9f4db037827e4b9294f2de766422210340cd9f307400d42887f4e5231a14fa16749290f2775daa6bd7e403e28440d9024067415afb814e05bc8c54f27bbccddd784ff9b3d3512c981a0aa0c5d0eae184ceb4c1092810242e3b4088aadab05ba9b6e0ade3dfdd04b6ccb4426a481c21c905ffffffff0e556905000000000201204e00000000000017005114ee199ed68abcda4139c8439527080f3a6aee3bf2015d04690500000000170051147cf62b8a1314b059e25d06a441e02dac445d287200000000',
         'locktime': 0,
         'size': 219,
-        'time': 1690527851,
+        'time': 1_690_527_851,
         'txid':
           '527224633117cd391a361b1781a8693ddf0bfa8cd5cd3e74f82501cb359c0339',
         'txidem':
@@ -581,10 +581,10 @@ describe('Nexa Utils Tests', () => {
               'hex':
                 '22210340cd9f307400d42887f4e5231a14fa16749290f2775daa6bd7e403e28440d9024067415afb814e05bc8c54f27bbccddd784ff9b3d3512c981a0aa0c5d0eae184ceb4c1092810242e3b4088aadab05ba9b6e0ade3dfdd04b6ccb4426a481c21c905',
             },
-            'sequence': 4294967295,
-            'value': 907891.34,
-            'value_coin': 907891.34,
-            'value_satoshi': 90789134,
+            'sequence': 4_294_967_295,
+            'value': 907_891.34,
+            'value_coin': 907_891.34,
+            'value_satoshi': 90_789_134,
           },
         ],
         'vout': [
@@ -606,7 +606,7 @@ describe('Nexa Utils Tests', () => {
             'type': 1,
             'value': 200,
             'value_coin': 200,
-            'value_satoshi': 20000,
+            'value_satoshi': 20_000,
           },
           {
             'n': 1,
@@ -624,9 +624,9 @@ describe('Nexa Utils Tests', () => {
               'type': 'scripttemplate',
             },
             'type': 1,
-            'value': 907684.77,
-            'value_coin': 907684.77,
-            'value_satoshi': 90768477,
+            'value': 907_684.77,
+            'value_coin': 907_684.77,
+            'value_satoshi': 90_768_477,
           },
         ],
       },
@@ -656,18 +656,18 @@ describe('Nexa Utils Tests', () => {
       'tx': {
         'blockhash':
           'f45fb9167e49411aca54817b2e45399e91795553204742015ddfafb59c3f062f',
-        'blocktime': 1690620486,
+        'blocktime': 1_690_620_486,
         'confirmations': 25,
         'fee': 6.57,
         'fee_satoshi': 657,
         'hash':
           'cfd56e4702dc445e1150c144ce1c0ff91aaedb2d3ec580d3c50df7d8bc6c0fbc',
-        'height': 327691,
+        'height': 327_691,
         'hex':
           '0001000e2acf067dae90dfa42bba210f53f9956ad9ba2f62959be1b26daf97e6d220cb64222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd408f88d1555f0ae0036eba870a7e966c98934dcfde60f571184ca560d8f2dae18ad0ef95e3f927da5fbf7ceba672f99d1d4380a078316556b0e04541d64b052bfcffffffff62830000000000000101d18000000000000017005114375f5e5be9ddf719d8635306663c7903b530dbab00000000',
         'locktime': 0,
         'size': 186,
-        'time': 1690620486,
+        'time': 1_690_620_486,
         'txid':
           'cfd56e4702dc445e1150c144ce1c0ff91aaedb2d3ec580d3c50df7d8bc6c0fbc',
         'txidem':
@@ -684,10 +684,10 @@ describe('Nexa Utils Tests', () => {
               'hex':
                 '222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd408f88d1555f0ae0036eba870a7e966c98934dcfde60f571184ca560d8f2dae18ad0ef95e3f927da5fbf7ceba672f99d1d4380a078316556b0e04541d64b052bfc',
             },
-            'sequence': 4294967295,
+            'sequence': 4_294_967_295,
             'value': 336.34,
             'value_coin': 336.34,
-            'value_satoshi': 33634,
+            'value_satoshi': 33_634,
           },
         ],
         'vout': [
@@ -709,7 +709,7 @@ describe('Nexa Utils Tests', () => {
             'type': 1,
             'value': 329.77,
             'value_coin': 329.77,
-            'value_satoshi': 32977,
+            'value_satoshi': 32_977,
           },
         ],
       },
@@ -739,18 +739,18 @@ describe('Nexa Utils Tests', () => {
       'tx': {
         'blockhash':
           'ef5c6db9a60f12476e3158753dc46477a8615bee32b11e9aa2223a15b6366647',
-        'blocktime': 1690440535,
+        'blocktime': 1_690_440_535,
         'confirmations': 1541,
         'fee': 6.57,
         'fee_satoshi': 657,
         'hash':
           'ec435f39d0d2ad77e0a0046c26d9586deeb185e2b7e7146275ac7a5951939d7b',
-        'height': 326194,
+        'height': 326_194,
         'hex':
           '00010034aefaf89ad98e8029c6f5f0984dd3f26f3b6a47a4873d94044e51bb937fb7ae6422210340cd9f307400d42887f4e5231a14fa16749290f2775daa6bd7e403e28440d90240431834e9f5de207aab26ddba0cd0945a8bf61e848fcb737553d43455eb3000981315c844660575286be056e4b4b1cad2d2f377ee134d132433e872d45000de4dffffffff78c36905000000000201e80300000000000017005114375f5e5be9ddf719d8635306663c7903b530dbab01ffbc690500000000170051147cf62b8a1314b059e25d06a441e02dac445d287200000000',
         'locktime': 0,
         'size': 219,
-        'time': 1690440535,
+        'time': 1_690_440_535,
         'txid':
           'ec435f39d0d2ad77e0a0046c26d9586deeb185e2b7e7146275ac7a5951939d7b',
         'txidem':
@@ -767,10 +767,10 @@ describe('Nexa Utils Tests', () => {
               'hex':
                 '22210340cd9f307400d42887f4e5231a14fa16749290f2775daa6bd7e403e28440d90240431834e9f5de207aab26ddba0cd0945a8bf61e848fcb737553d43455eb3000981315c844660575286be056e4b4b1cad2d2f377ee134d132433e872d45000de4d',
             },
-            'sequence': 4294967295,
-            'value': 908174,
-            'value_coin': 908174,
-            'value_satoshi': 90817400,
+            'sequence': 4_294_967_295,
+            'value': 908_174,
+            'value_coin': 908_174,
+            'value_satoshi': 90_817_400,
           },
         ],
         'vout': [
@@ -810,9 +810,9 @@ describe('Nexa Utils Tests', () => {
               'type': 'scripttemplate',
             },
             'type': 1,
-            'value': 908157.43,
-            'value_coin': 908157.43,
-            'value_satoshi': 90815743,
+            'value': 908_157.43,
+            'value_coin': 908_157.43,
+            'value_satoshi': 90_815_743,
           },
         ],
       },

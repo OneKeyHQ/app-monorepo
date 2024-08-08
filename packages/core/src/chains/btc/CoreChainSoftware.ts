@@ -180,7 +180,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     return address;
   }
 
-  protected getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
+  public getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
     return new Psbt({ network });
   }
 
@@ -553,7 +553,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       '0000000000000000000000000000000000000000000000000000000000000000',
       'hex',
     );
-    const prevoutIndex = 0xffffffff;
+    const prevoutIndex = 0xff_ff_ff_ff;
     const sequence = 0;
     const scriptSig = Buffer.concat([
       Buffer.from('0020', 'hex'),

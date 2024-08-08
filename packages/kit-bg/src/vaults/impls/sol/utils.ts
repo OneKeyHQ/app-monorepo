@@ -31,8 +31,8 @@ export const JUPITER_V6_PROGRAM_ID = new PublicKey(
   'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
 );
 
-export const MIN_PRIORITY_FEE = 100000;
-export const DEFAULT_COMPUTE_UNIT_LIMIT = 200000;
+export const MIN_PRIORITY_FEE = 100_000;
+export const DEFAULT_COMPUTE_UNIT_LIMIT = 200_000;
 export const BASE_FEE = 5000; // lamports
 export const COMPUTE_UNIT_PRICE_DECIMALS = 6;
 

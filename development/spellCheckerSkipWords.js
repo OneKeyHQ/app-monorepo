@@ -31,6 +31,7 @@ module.exports = [
   'mmkv',
   'xxxxxx',
   'faq',
+  'webextensions',
   'npx',
   'tsc',
   'autofix',

@@ -15,7 +15,7 @@ class ClientBtc {
   constructor(url: string) {
     this.request = axios.create({
       baseURL: url,
-      timeout: 20000,
+      timeout: 20_000,
     });
   }
 

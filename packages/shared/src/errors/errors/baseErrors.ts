@@ -70,11 +70,11 @@ export class OneKeyError<
       } = errorProps);
     } else {
       msg = isString(errorProps) ? errorProps : '';
-      code = -99999;
+      code = -99_999;
       infoData = info;
     }
     super(
-      code ?? -99999,
+      code ?? -99_999,
       // * empty string not allowed in Web3RpcError, give a fakeMessage by default
       // * can not access this.key before constructor
       msg ||

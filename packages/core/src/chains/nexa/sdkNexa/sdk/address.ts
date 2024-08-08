@@ -102,13 +102,14 @@ function fromUint5Array(data: Buffer) {
 
 function polymod(data: Uint8Array): bigInt.BigInteger {
   const GENERATOR = [
-    0x98f2bc8e61, 0x79b76d99e2, 0xf33e5fb3c4, 0xae2eabe2a8, 0x1e4f43e470,
+    0x98_f2_bc_8e_61, 0x79_b7_6d_99_e2, 0xf3_3e_5f_b3_c4, 0xae_2e_ab_e2_a8,
+    0x1e_4f_43_e4_70,
   ];
   let checksum = bigInt(1);
   for (let i = 0; i < data.length; i += 1) {
     const value = data[i];
     const topBits = checksum.shiftRight(35);
-    checksum = checksum.and(0x07ffffffff).shiftLeft(5).xor(value);
+    checksum = checksum.and(0x07_ff_ff_ff_ff).shiftLeft(5).xor(value);
     for (let j = 0; j < GENERATOR.length; j += 1) {
       if (topBits.shiftRight(j).and(1).equals(1)) {
         checksum = checksum.xor(GENERATOR[j]);

@@ -44,15 +44,15 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
     > = {
       [WALLET_TYPE_IMPORTED]: {
         avatar: {},
-        walletNo: 100_000_1,
+        walletNo: 1_000_001,
       },
       [WALLET_TYPE_WATCHING]: {
         avatar: {},
-        walletNo: 100_000_2,
+        walletNo: 1_000_002,
       },
       [WALLET_TYPE_EXTERNAL]: {
         avatar: {},
-        walletNo: 100_000_3,
+        walletNo: 1_000_003,
       },
     };
     const record: IV4DBWallet = {

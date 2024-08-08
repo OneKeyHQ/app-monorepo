@@ -45,7 +45,7 @@ const {
         'gasLimit': '0x5208',
         'gasPrice': '1000000000',
         'nonce': 0,
-        'epochHeight': 81203903,
+        'epochHeight': 81_203_903,
         'chainId': 1029,
         'storageLimit': '0',
       },

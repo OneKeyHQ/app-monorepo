@@ -28,7 +28,7 @@ import type {
 } from '../../types';
 import type { CardanoGetAddressMethodParams } from '@onekeyfe/hd-core';
 
-const ProtocolMagic = 764824073;
+const ProtocolMagic = 764_824_073;
 
 const getCardanoConstant = async () => {
   const { PROTO } = await CoreSDKLoader();
