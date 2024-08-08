@@ -53,6 +53,7 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
           );
         } else {
           showRenameDialog(wallet.name, {
+            disabledMaxLengthLabel: true,
             onSubmit: async (name) => {
               if (wallet?.id && name) {
                 await serviceAccount.setWalletNameAndAvatar({
