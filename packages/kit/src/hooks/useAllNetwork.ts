@@ -10,11 +10,41 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-
 import { usePromiseResult } from './usePromiseResult';
+import { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
+
+const reorderByPinnedNetworkIds = async (
+  items: IAllNetworkAccountInfo[],
+) => {
+  const priorityNetworkIds =
+  await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
+
+const priorityNetworkIdsMap = priorityNetworkIds.reduce(
+  (acc, item, index) => {
+    acc[item] = index;
+    return acc;
+  },
+  {} as Record<string, number>,
+);
+
+  const priorityItems: IAllNetworkAccountInfo[] = [];
+  const normalItems: IAllNetworkAccountInfo[] = [];
+  for (let i = 0; i < items.length; i += 1) {
+    if (priorityNetworkIdsMap[items[i].networkId] !== undefined) {
+      priorityItems.push(items[i]);
+    } else {
+      normalItems.push(items[i]);
+    }
+  }
+  priorityItems.sort(
+    (a, b) =>
+      priorityNetworkIdsMap[a.networkId] - priorityNetworkIdsMap[b.networkId],
+  );
+  return [...priorityItems, ...normalItems];
+};
 
 function useAllNetworkRequests<T>(params: {
   account: INetworkAccount | undefined;
@@ -102,7 +132,11 @@ function useAllNetworkRequests<T>(params: {
       }
 
       const concurrentNetworks = accountsInfoBackendIndexed;
-      const sequentialNetworks = accountsInfoBackendNotIndexed;
+
+      const sequentialNetworks = await reorderByPinnedNetworkIds(
+        accountsInfoBackendNotIndexed,
+      );
+
       let resp: Array<T> | null = [];
 
       if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
