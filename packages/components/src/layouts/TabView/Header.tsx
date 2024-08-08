@@ -38,7 +38,7 @@ const HeaderComponent = (
   {
     style,
     titleFromItem = (item: { title: string }) => item.title,
-    contentContainerStyle = {},
+    contentContainerStyle = { pr: '$5' },
     scrollContainerStyle = {},
     containerStyle = {},
     itemContainerStyle = { ml: '$5', pb: '$0.5', cursor: 'default' },
