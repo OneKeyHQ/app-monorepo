@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { isEmpty } from 'lodash';
 
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -15,6 +16,34 @@ import { usePromiseResult } from './usePromiseResult';
 
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
+
+const reorderByPinnedNetworkIds = async (items: IAllNetworkAccountInfo[]) => {
+  const priorityNetworkIds =
+    await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
+
+  const priorityNetworkIdsMap = priorityNetworkIds.reduce(
+    (acc, item, index) => {
+      acc[item] = index;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
+  const priorityItems: IAllNetworkAccountInfo[] = [];
+  const normalItems: IAllNetworkAccountInfo[] = [];
+  for (let i = 0; i < items.length; i += 1) {
+    if (priorityNetworkIdsMap[items[i].networkId] !== undefined) {
+      priorityItems.push(items[i]);
+    } else {
+      normalItems.push(items[i]);
+    }
+  }
+  priorityItems.sort(
+    (a, b) =>
+      priorityNetworkIdsMap[a.networkId] - priorityNetworkIdsMap[b.networkId],
+  );
+  return [...priorityItems, ...normalItems];
+};
 
 function useAllNetworkRequests<T>(params: {
   account: INetworkAccount | undefined;
@@ -102,7 +131,11 @@ function useAllNetworkRequests<T>(params: {
       }
 
       const concurrentNetworks = accountsInfoBackendIndexed;
-      const sequentialNetworks = accountsInfoBackendNotIndexed;
+
+      const sequentialNetworks = await reorderByPinnedNetworkIds(
+        accountsInfoBackendNotIndexed,
+      );
+
       let resp: Array<T> | null = [];
 
       if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
