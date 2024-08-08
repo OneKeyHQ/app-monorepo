@@ -38,6 +38,10 @@ import {
   WrongPassword,
 } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -63,7 +67,6 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
-import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -91,6 +94,7 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -610,6 +614,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       wallet.hiddenWallets = wallet.hiddenWallets.sort(this.walletSortFn);
     }
 
+    // others wallet name i18n
     if (
       accountUtils.isOthersWallet({
         walletId: wallet.id,
@@ -629,6 +634,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         wallet.name = appLocale.intl.formatMessage({
           id: ETranslations.global_private_key,
         });
+      }
+    }
+
+    // hw wallet use device label as name
+    if (
+      accountUtils.isHwWallet({ walletId: wallet.id }) &&
+      !accountUtils.isHwHiddenWallet({ wallet }) &&
+      !accountUtils.isQrWallet({ walletId: wallet.id })
+    ) {
+      if (wallet.associatedDevice) {
+        const device = await this.getDeviceSafe(wallet.associatedDevice);
+        const label = device?.featuresInfo?.label;
+        if (device && label && label !== wallet.name) {
+          appEventBus.emit(EAppEventBusNames.HardwareLabelChanged, {
+            walletId: wallet.id,
+            dbDeviceId: device.id,
+            label,
+            walletName: wallet.name,
+          });
+          wallet.name = label;
+        }
       }
     }
 
@@ -1150,6 +1176,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         ids: [device.id],
         updater: async (item) => {
           item.features = JSON.stringify(features);
+          return item;
+        },
+      });
+    });
+  }
+
+  async updateDeviceFeaturesLabel({
+    dbDeviceId,
+    label,
+  }: {
+    dbDeviceId: string;
+    label: string;
+  }) {
+    const db = await this.readyDb;
+    const device = await this.getDevice(dbDeviceId);
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          item.features = JSON.stringify({
+            ...device.featuresInfo,
+            label,
+          });
           return item;
         },
       });
@@ -2688,6 +2739,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       id: dbDeviceId,
     });
     return this.refillDeviceInfo({ device });
+  }
+
+  async getDeviceSafe(dbDeviceId: string): Promise<IDBDevice | undefined> {
+    try {
+      return await this.getDevice(dbDeviceId);
+    } catch (error) {
+      return undefined;
+    }
   }
 
   refillDeviceInfo({ device }: { device: IDBDevice }) {

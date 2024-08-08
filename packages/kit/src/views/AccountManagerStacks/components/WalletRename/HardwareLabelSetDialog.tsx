@@ -12,13 +12,11 @@ import {
   Stack,
   Toast,
 } from '@onekeyhq/components';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-
-import { WalletOptionItem } from './WalletOptionItem';
 
 function RenameInputWithNameSelector({
   value,
@@ -111,11 +109,11 @@ function DeviceLabelDialogContent(props: {
             validate: (value: string) => {
               if (!value.length) return true;
 
-              if (emojiRegex().test(value)) {
-                return 'Invalid characters';
-                // return intl.formatMessage({
-                //   id: 'Invalid Label characters',
-                // });
+              const regexRule = emojiRegex();
+              if (regexRule.test(value)) {
+                return intl.formatMessage({
+                  id: ETranslations.global_hardware_label_input_error,
+                });
               }
             },
             required: {
@@ -157,7 +155,7 @@ function DeviceLabelDialogContent(props: {
   );
 }
 
-const showLabelSetDialog = (
+export const showLabelSetDialog = (
   {
     wallet,
   }: {
@@ -173,9 +171,7 @@ const showLabelSetDialog = (
   },
 ) => {
   const dialog = Dialog.show({
-    title: appLocale.intl.formatMessage({
-      id: ETranslations.global_hardware_label,
-    }),
+    title: appLocale.intl.formatMessage({ id: ETranslations.global_rename }),
     renderContent: (
       <DeviceLabelDialogContent
         wallet={wallet}
@@ -189,35 +185,3 @@ const showLabelSetDialog = (
     ...dialogProps,
   });
 };
-
-export function HardwareLabelSetButton({
-  wallet,
-}: {
-  wallet: IDBWallet | undefined;
-}) {
-  const intl = useIntl();
-
-  return (
-    <WalletOptionItem
-      icon="TagOutline"
-      label={intl.formatMessage({
-        id: ETranslations.global_hardware_label,
-      })}
-      onPress={() => {
-        void showLabelSetDialog(
-          {
-            wallet,
-          },
-          {
-            onSubmit: async (name) => {
-              await backgroundApiProxy.serviceHardware.setDeviceLabel({
-                walletId: wallet?.id || '',
-                label: name,
-              });
-            },
-          },
-        );
-      }}
-    />
-  );
-}
