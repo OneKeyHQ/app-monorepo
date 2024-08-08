@@ -152,7 +152,10 @@ export class KeyringQr extends KeyringQrBase {
         // const sig = sdk.btc.parseSignature(ur);
         // **** sign psbt
         const psbtHex = sdk.btc.parsePSBT(checkIsDefined(signatureUr));
-        const signedPsbt = Psbt.fromHex(psbtHex);
+        const signedPsbt = Psbt.fromHex(psbtHex, {
+          network,
+          maximumFeeRate: network.maximumFeeRate,
+        });
 
         await this.verifySignedTxMatched({
           unsignedPsbt,

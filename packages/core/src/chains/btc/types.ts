@@ -18,6 +18,7 @@ export interface IBtcForkNetwork extends Network {
   //   - segwit address version bytes
   segwitVersionBytes?: Partial<Record<EAddressEncodings, Network['bip32']>>;
   forkId?: number; // bch
+  maximumFeeRate?: number;
 }
 export type IBtcForkSigner = Signer;
 

@@ -54,7 +54,7 @@ const {
         type: EMessageTypesAptos.SIGN_MESSAGE,
         message: JSON.stringify({
           'message': 'This is a sample message',
-          'nonce': 12345,
+          'nonce': 12_345,
           'fullMessage':
             'APTOS\napplication: dapp-example.onekeytest.com\nchainId: 1\nmessage: This is a sample message\nnonce: 12345',
           'application': 'dapp-example.onekeytest.com',

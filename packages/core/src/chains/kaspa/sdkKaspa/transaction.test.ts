@@ -51,7 +51,7 @@ describe('Kaspa transaction Tests', () => {
     let utxos: IKaspaUnspentOutputInfo[] = [];
     try {
       const confirmUTXOs = await queryConfirmUTXOs(client, from);
-      const selectUTXOsRes = selectUTXOs(confirmUTXOs, 100000);
+      const selectUTXOsRes = selectUTXOs(confirmUTXOs, 100_000);
       utxos = selectUTXOsRes.utxos;
     } catch (error) {
       // ignore
@@ -59,7 +59,7 @@ describe('Kaspa transaction Tests', () => {
 
     const transaction: Transaction = new Transaction()
       .from(utxos.map((utxo) => new UnspentOutput(utxo)))
-      .to(to, 100000)
+      .to(to, 100_000)
       .setVersion(0)
       .fee(3000)
       .change(from);
@@ -98,14 +98,14 @@ describe('Kaspa transaction Tests', () => {
         scriptPubKey:
           '207afdae557e69c0040fd4135adffc60f9486fb21f4cbae233fd6db3e84ba47c55ac',
         scriptPublicKeyVersion: 0,
-        satoshis: 27000000000,
-        blockDaaScore: 44431383,
+        satoshis: 27_000_000_000,
+        blockDaaScore: 44_431_383,
       }),
     ];
 
     const transaction: Transaction = new Transaction()
       .from(utxos)
-      .to(to, 100000000)
+      .to(to, 100_000_000)
       .setVersion(0)
       .fee(2069)
       .change(from);
@@ -134,7 +134,7 @@ describe('Kaspa transaction Tests', () => {
       'kaspa:qrkk52m4ddq405jvvfg7acwu6g48zd25dzekger3wftq7uat6xcw6cqq63a78',
     );
 
-    const selectedUTXOs = selectUTXOs(confirmUTXOs, 100000);
+    const selectedUTXOs = selectUTXOs(confirmUTXOs, 100_000);
 
     process.stdout.write(`pubkeyInfos: ${JSON.stringify(selectedUTXOs)}\n`);
   });

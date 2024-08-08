@@ -8,5 +8,5 @@ export enum EProtocolIndicator {
 
 export enum ETransferMethod {
   FIL = 0,
-  EVM = 3844450837,
+  EVM = 3_844_450_837,
 }

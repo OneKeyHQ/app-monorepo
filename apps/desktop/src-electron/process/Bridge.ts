@@ -92,7 +92,7 @@ export const BridgeHeart = {
       }
     };
 
-    BridgeHeart.timer = setInterval(checkBridge, 10000);
+    BridgeHeart.timer = setInterval(checkBridge, 10_000);
   },
 };
 

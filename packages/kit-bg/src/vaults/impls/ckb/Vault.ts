@@ -608,7 +608,7 @@ export default class Vault extends VaultBase {
     if (
       allInputAmount
         .minus(allOutputAmount)
-        .isGreaterThan(new BigNumber(1.5 * 100000000))
+        .isGreaterThan(new BigNumber(1.5 * 100_000_000))
     ) {
       console.log('Fee is too high, transaction: ', txs);
 
