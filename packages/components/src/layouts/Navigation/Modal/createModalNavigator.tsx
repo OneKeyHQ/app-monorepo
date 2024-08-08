@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import {
   StackRouter,
@@ -153,6 +159,16 @@ function ModalNavigator({
   }, [rootNavigation, media, screenHeight]);
 
   const stackChildrenRefList = useRef<TamaguiElement[]>([]);
+
+  useLayoutEffect(() => {
+    const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];
+    if (element) {
+      (
+        element as HTMLElement
+      ).style.transform = `translateY(${screenHeight}px)`;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -247,7 +263,6 @@ function ModalNavigator({
             }
           }}
           style={{
-            transform: [{ translateY: screenHeight }],
             transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
             willChange: 'transform',
           }}
