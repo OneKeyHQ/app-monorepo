@@ -43,7 +43,7 @@ const {
             {
               'parameter': {
                 'value': {
-                  'amount': 100000,
+                  'amount': 100_000,
                   'owner_address': '418d765ef87acee24ad4ff6f5e755f36c1ee557424',
                   'to_address': '419e9113cb852004f53b25d8d565b6a1c8c310fb61',
                 },
@@ -55,8 +55,8 @@ const {
           ],
           'ref_block_bytes': '0a95',
           'ref_block_hash': '81a16498bf36d557',
-          'expiration': 1697179737000,
-          'timestamp': 1697179677393,
+          'expiration': 1_697_179_737_000,
+          'timestamp': 1_697_179_677_393,
         },
         'raw_data_hex':
           '0a020a95220881a16498bf36d55740a8b7aebeb2315a67080112630a2d747970652e676f6f676c65617069732e636f6d2f70726f746f636f6c2e5472616e73666572436f6e747261637412320a15418d765ef87acee24ad4ff6f5e755f36c1ee5574241215419e9113cb852004f53b25d8d565b6a1c8c310fb6118a08d0670d1e5aabeb231',
