@@ -658,7 +658,8 @@ function BatchCreateAccountPreviewPage({
           onRow={onRow}
           rowProps={{
             gap: platformEnv.isNative ? '$8' : '$4',
-            px: '$5',
+            px: '$3',
+            mx: '$2',
             minHeight: '$12',
           }}
           estimatedItemSize="$12"
