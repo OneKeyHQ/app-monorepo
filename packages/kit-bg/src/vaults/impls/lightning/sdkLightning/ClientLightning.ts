@@ -24,7 +24,7 @@ function isAuthError(error: unknown): boolean {
   return (
     (error as OneKeyError) &&
     ((error as OneKeyError).code === 401 ||
-      (error as OneKeyError).code === 50401)
+      (error as OneKeyError).code === 50_401)
   );
 }
 
@@ -443,7 +443,7 @@ class ClientLightning {
       shouldRetry: (e) => {
         const error = e as OneKeyServerApiError;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        return error.data?.data?.code === 50401;
+        return error.data?.data?.code === 50_401;
       },
       onRetry: async () => {
         await this.backgroundApi.serviceLightning.exchangeToken(params);

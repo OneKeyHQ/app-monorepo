@@ -36,6 +36,7 @@ import v4localDbExists from '../../migrations/v4ToV5Migration/v4local/v4localDbE
 import { EV4LocalDBStoreNames } from '../../migrations/v4ToV5Migration/v4local/v4localDBStoreNames';
 import { V4MigrationForAccount } from '../../migrations/v4ToV5Migration/V4MigrationForAccount';
 import { V4MigrationForAddressBook } from '../../migrations/v4ToV5Migration/V4MigrationForAddressBook';
+import { V4MigrationForCustomTokens } from '../../migrations/v4ToV5Migration/V4MigrationForCustomTokens';
 import { V4MigrationForDiscover } from '../../migrations/v4ToV5Migration/V4MigrationForDiscover';
 import { V4MigrationForHistory } from '../../migrations/v4ToV5Migration/V4MigrationForHistory';
 import { V4MigrationForSecurePassword } from '../../migrations/v4ToV5Migration/V4MigrationForSecurePassword';
@@ -91,6 +92,10 @@ class ServiceV4Migration extends ServiceBase {
   });
 
   migrationSecurePassword = new V4MigrationForSecurePassword({
+    backgroundApi: this.backgroundApi,
+  });
+
+  migrationCustomTokens = new V4MigrationForCustomTokens({
     backgroundApi: this.backgroundApi,
   });
 
@@ -853,6 +858,10 @@ class ServiceV4Migration extends ServiceBase {
                 await simpleDb.v4MigrationResult.saveMigratedAccountId({
                   v4accountId: v4account?.id,
                   v5accountId: v5account?.id || '',
+                });
+                await this.migrationCustomTokens.migrateCustomTokens({
+                  v4Account: v4account,
+                  v5Account: v5account,
                 });
               } catch (error) {
                 //
