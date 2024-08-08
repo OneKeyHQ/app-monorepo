@@ -384,10 +384,16 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getNetworkSelectorPinnedNetworks(): Promise<IServerNetwork[]> {
+  async getNetworkSelectorPinnedNetworkIds() {
     const pinnedNetworkIds =
       await this.backgroundApi.simpleDb.networkSelector.getPinnedNetworkIds();
-    let networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
+    const networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
+    return networkIds;
+  }
+
+  @backgroundMethod()
+  async getNetworkSelectorPinnedNetworks(): Promise<IServerNetwork[]> {
+    let networkIds = await this.getNetworkSelectorPinnedNetworkIds();
     networkIds = networkIds.filter((id) => id !== getNetworkIdsMap().onekeyall);
     const networkIdsIndex = networkIds.reduce((result, item, index) => {
       result[item] = index;
