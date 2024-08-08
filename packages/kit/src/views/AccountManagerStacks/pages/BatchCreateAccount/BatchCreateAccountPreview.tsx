@@ -841,6 +841,7 @@ function BatchCreateAccountPreviewPage({
                     <Icon
                       name="ChevronLeftOutline"
                       pl="$1"
+                      opacity={page < 2 ? 0.5 : undefined}
                       $md={{ size: '$3' }}
                     />
                   ),
