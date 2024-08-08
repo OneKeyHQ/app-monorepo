@@ -67,7 +67,7 @@ function ListDemo() {
     <Background>
       <BlurView w="100%" h="$20" intensity={70}>
         <ListView
-          p="$2"
+          contentContainerStyle={{ p: '$2' }}
           horizontal
           data={mockData}
           showsHorizontalScrollIndicator={false}

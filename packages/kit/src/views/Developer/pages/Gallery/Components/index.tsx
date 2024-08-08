@@ -25,7 +25,9 @@ const Index = () => {
         <ListView
           estimatedItemSize="$11"
           flex={1}
-          paddingVertical={20}
+          contentContainerStyle={{
+            py: 20,
+          }}
           data={componentsRoute}
           renderItem={({ item }) => (
             <ListItem

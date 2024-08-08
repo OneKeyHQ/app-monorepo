@@ -1,70 +1,85 @@
-import { useCallback, useRef } from 'react';
+import type { PropsWithChildren } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 
-import { ToggleGroup } from 'tamagui';
+import { ToggleGroup, withStaticProperties } from 'tamagui';
 
-import type { IStackStyle } from '../Stack';
-import type { ToggleGroupSingleProps } from 'tamagui';
+import type { ToggleGroupItemProps, ToggleGroupSingleProps } from 'tamagui';
 
-export interface IButtonGroup {
+export type IButtonGroup = PropsWithChildren<{
   orientation?: ToggleGroupSingleProps['orientation'];
   disabled?: ToggleGroupSingleProps['disabled'];
-  items: {
-    onPress?: () => void;
-    element: JSX.Element;
-    containerProps?: IStackStyle;
-  }[];
+}>;
+
+const ACTIVE_STYLE = {
+  bg: '$bgStrongActive',
+  borderWidth: 0,
+  borderColor: '$borderColor',
+};
+
+const DISABLED_ACTIVE_STYLE = {
+  bg: '$bgStrong',
+  borderWidth: 0,
+  borderColor: '$borderColor',
+};
+
+export interface IButtonGroupContext {
+  disabled?: boolean;
+}
+const ButtonGroupContext = createContext({} as IButtonGroupContext);
+
+export function ButtonGroupItem({
+  disabled: propsDisabled,
+  children,
+  ...props
+}: Omit<ToggleGroupItemProps, 'value'>) {
+  const { disabled: contextDisabled } = useContext(ButtonGroupContext);
+  const disabled = propsDisabled || contextDisabled;
+  const style = disabled ? DISABLED_ACTIVE_STYLE : ACTIVE_STYLE;
+  return (
+    <ToggleGroup.Item
+      borderWidth={0}
+      m={0}
+      minWidth={42}
+      height={38}
+      bg="$bgStrong"
+      opacity={disabled ? 0.5 : undefined}
+      disabled={disabled}
+      hoverStyle={style}
+      pressStyle={style}
+      focusStyle={style}
+      value={Math.random().toString()}
+      {...props}
+    >
+      {children}
+    </ToggleGroup.Item>
+  );
 }
 
-export function ButtonGroup({
+function BasicButtonGroup({
   disabled,
   orientation = 'horizontal',
-  items = [],
+  children,
 }: IButtonGroup) {
-  const prevValue = useRef<undefined | string>();
-  const handleValueChange = useCallback(
-    // Bug:
-    // clicking the same button twice consecutively will result in the value becoming an empty string
-    //  on the native platform.
-    (value: string) => {
-      if (disabled) {
-        return;
-      }
-      items[Number(value !== '' ? value : prevValue.current)].onPress?.();
-      if (value !== '') {
-        prevValue.current = value;
-      }
-    },
-    [disabled, items],
+  const contextValue = useMemo(
+    () => ({
+      disabled,
+    }),
+    [disabled],
   );
   return (
-    <ToggleGroup
-      type="single"
-      disabled={disabled}
-      orientation={orientation}
-      value={undefined}
-      bg="$bgStrong"
-      onValueChange={handleValueChange}
-    >
-      {items.map(({ element, containerProps }, index) => (
-        <ToggleGroup.Item
-          borderLeftWidth={index > 0 ? 0 : undefined}
-          minWidth={42}
-          height={38}
-          pressStyle={{
-            borderLeftWidth: index > 0 ? 0 : undefined,
-            borderColor: '$borderColor',
-          }}
-          focusStyle={{
-            borderLeftWidth: index > 0 ? 0 : undefined,
-            borderColor: '$borderColor',
-          }}
-          value={String(index)}
-          key={index}
-          {...containerProps}
-        >
-          {element}
-        </ToggleGroup.Item>
-      ))}
-    </ToggleGroup>
+    <ButtonGroupContext.Provider value={contextValue}>
+      <ToggleGroup
+        type="single"
+        disabled={disabled}
+        orientation={orientation}
+        value={undefined}
+      >
+        {children}
+      </ToggleGroup>
+    </ButtonGroupContext.Provider>
   );
 }
+
+export const ButtonGroup = withStaticProperties(BasicButtonGroup, {
+  Item: ButtonGroupItem,
+});
