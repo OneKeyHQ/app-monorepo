@@ -460,6 +460,50 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
   const toOnBoardingPage = useToOnBoardingPage();
 
+  const renderAccountValue = useCallback(
+    ({
+      accountValue,
+      subTitleInfo,
+    }: {
+      accountValue:
+        | {
+            accountId: string;
+            currency: string | undefined;
+            value: string | undefined;
+          }
+        | undefined;
+      subTitleInfo: { address: string | undefined; isEmptyAddress: boolean };
+    }) => {
+      if (linkNetwork) return null;
+
+      return (
+        <>
+          {accountValue && accountValue.currency ? (
+            <AccountValue
+              accountId={accountValue.accountId}
+              currency={accountValue.currency}
+              value={accountValue.value ?? ''}
+            />
+          ) : (
+            <SizableText size="$bodyMd" color="$textDisabled">
+              --
+            </SizableText>
+          )}
+          {accountValue && accountValue.currency && subTitleInfo.address ? (
+            <Stack
+              mx="$1.5"
+              w="$1"
+              h="$1"
+              bg="$iconSubdued"
+              borderRadius="$full"
+            />
+          ) : null}
+        </>
+      );
+    },
+    [linkNetwork],
+  );
+
   return (
     <Stack flex={1} pb={bottom} testID="account-selector-accountList">
       <WalletDetailsHeader
@@ -737,28 +781,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                       }
                       secondary={
                         <XStack alignItems="center">
-                          {accountValue && accountValue.currency ? (
-                            <AccountValue
-                              accountId={accountValue.accountId}
-                              currency={accountValue.currency}
-                              value={accountValue.value ?? ''}
-                            />
-                          ) : (
-                            <SizableText size="$bodyMd" color="$textDisabled">
-                              --
-                            </SizableText>
-                          )}
-                          {accountValue &&
-                          accountValue.currency &&
-                          subTitleInfo.address ? (
-                            <Stack
-                              mx="$1.5"
-                              w="$1"
-                              h="$1"
-                              bg="$iconSubdued"
-                              borderRadius="$full"
-                            />
-                          ) : null}
+                          {renderAccountValue({ accountValue, subTitleInfo })}
                           {subTitleInfo.address ||
                           subTitleInfo.isEmptyAddress ? (
                             <SizableText
