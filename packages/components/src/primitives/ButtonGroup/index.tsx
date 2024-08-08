@@ -43,7 +43,7 @@ export function ButtonGroupItem({
       minWidth={42}
       height={38}
       bg="$bgStrong"
-      cursor={disabled ? "not-allowed" : undefined}
+      cursor={disabled ? 'not-allowed' : undefined}
       onPress={disabled ? undefined : onPress}
       opacity={disabled ? 0.5 : undefined}
       disabled={disabled}
