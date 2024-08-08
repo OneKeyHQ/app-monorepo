@@ -817,8 +817,7 @@ function BatchCreateAccountPreviewPage({
             <IconButton
               icon="SliderThreeOutline"
               mr="$3"
-              radiused={false} // not working
-              circular={false} // not working
+              borderRadius="$2"
               onPress={async () => {
                 showBatchCreateAccountPreviewAdvancedDialog({
                   networkId,
