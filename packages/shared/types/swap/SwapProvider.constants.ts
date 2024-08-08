@@ -268,6 +268,29 @@ export const swapDefaultSetTokens: Record<
       'isNative': false,
     },
   },
+  'evm--2415': {
+    fromToken: {
+      'networkId': 'evm--2415',
+      'contractAddress': '',
+      'name': 'Xodex',
+      'symbol': 'xodex',
+      'decimals': 18,
+      'logoURI':
+        'https://i.postimg.cc/XqDnc4g2/XODEX-Avatar-02-2-copy.png',
+
+      'isNative': true,
+    },
+    toToken: {
+      'networkId': 'evm--2415',
+      'contractAddress': '0x04068da6c83afcfa0e13ba15a6696662335d5b75',
+      'name': 'USD Coin',
+      'symbol': 'USDC',
+      'decimals': 6,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--250/tokens/0x04068da6c83afcfa0e13ba15a6696662335d5b75.png',
+      'isNative': false,
+    },
+  },
   'evm--324': {
     fromToken: {
       'networkId': 'evm--324',
