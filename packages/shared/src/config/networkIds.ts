@@ -56,7 +56,9 @@ export type INetworkShortCode =
   | 'mantle'
   | 'mantapacific'
   | 'blast'
-  | 'fevm';
+  | 'opbnb'
+  | 'fevm'
+  | 'flare';
 
 const checkErrors: string[] = [];
 // TODO generate getNetworkIdsMap in build time

@@ -1,8 +1,38 @@
-import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IToken,
+  ITokenData,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
+
+import type { INetworkAccount } from '../../types/account';
+import type { EDeriveAddressActionType } from '../../types/address';
 
 export enum EAssetSelectorRoutes {
   TokenSelector = 'TokenSelector',
+  DeriveTypesAddressSelector = 'DeriveTypesAddressSelector',
 }
+
+export type IDeriveTypesAddressSelectorParams = {
+  networkId: string;
+  indexedAccountId: string;
+  actionType?: EDeriveAddressActionType;
+  token?: IToken;
+  tokenMap?: Record<string, ITokenFiat>;
+  onSelected?: ({
+    account,
+    deriveInfo,
+    deriveType,
+  }: {
+    account: INetworkAccount;
+    deriveInfo: IAccountDeriveInfo;
+    deriveType: IAccountDeriveTypes;
+  }) => void;
+  onUnmounted?: () => void;
+};
 
 export type ITokenSelectorParamList = {
   title?: string;
@@ -22,4 +52,5 @@ export type ITokenSelectorParamList = {
 
 export type IAssetSelectorParamList = {
   [EAssetSelectorRoutes.TokenSelector]: ITokenSelectorParamList;
+  [EAssetSelectorRoutes.DeriveTypesAddressSelector]: IDeriveTypesAddressSelectorParams;
 };

@@ -103,7 +103,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    if (isEmpty(confirmedTxsToSave) && !isEmpty(confirmedTxsToRemove)) return;
+    if (isEmpty(confirmedTxsToSave) && isEmpty(confirmedTxsToRemove)) return;
 
     const rawData = await this.getRawData();
 
@@ -122,14 +122,16 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       );
     }
 
+    const mergedConfirmedTxs = assign({}, rawData?.confirmedTxs, {
+      [key]: finalConfirmedTxs,
+    });
+
     const pendingTxs = rawData?.pendingTxs || {};
 
     return this.setRawData({
       ...(rawData ?? {}),
       pendingTxs,
-      confirmedTxs: assign({}, rawData?.confirmedTxs, {
-        [key]: finalConfirmedTxs,
-      }),
+      confirmedTxs: mergedConfirmedTxs,
     });
   }
 
