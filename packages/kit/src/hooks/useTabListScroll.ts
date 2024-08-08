@@ -8,7 +8,6 @@ import type {
   IStackProps,
 } from '@onekeyhq/components';
 import { useTabScrollViewRef } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
   const scrollViewRef = useTabScrollViewRef();
@@ -86,10 +85,7 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
   }, [getListView, scrollViewRef]);
 
   const listViewProps = useMemo(
-    () =>
-      platformEnv.isNative
-        ? {}
-        : ({
+    () => ({
             style: inTabList
               ? ({
                   minHeight: 100,
