@@ -28,6 +28,13 @@ class ServiceCustomToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async addCustomTokenBatch({ tokens }: { tokens: IAccountToken[] }) {
+    return this.backgroundApi.simpleDb.customTokens.addCustomTokensBatch({
+      tokens,
+    });
+  }
+
+  @backgroundMethod()
   public async hideToken({ token }: { token: IAccountToken }) {
     return this.backgroundApi.simpleDb.customTokens.hideToken({ token });
   }
