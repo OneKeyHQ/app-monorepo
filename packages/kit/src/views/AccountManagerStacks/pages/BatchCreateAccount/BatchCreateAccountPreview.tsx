@@ -844,6 +844,9 @@ function BatchCreateAccountPreviewPage({
                   name="ChevronLeftSmallOutline"
                   ml="$1"
                   size="$5"
+                  style={platformEnv.isNative ? undefined: {
+                    transform: "scale(1.4)"
+                  }}
                   opacity={page < 2 || isLoading ? 0.5 : undefined}
                 />
               </ButtonGroup.Item>
@@ -878,6 +881,9 @@ function BatchCreateAccountPreviewPage({
                 maxWidth={42}
               >
                 <Icon
+                  style={platformEnv.isNative ? undefined: {
+                    transform: "scale(1.4)"
+                  }}
                   name="ChevronRightSmallOutline"
                   mr="$1"
                   opacity={isLoading ? 0.5 : undefined}
