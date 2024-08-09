@@ -1,47 +1,77 @@
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const PORT_NAME = 'ONEKEY_SIDE_PANEL';
-export const setupSidePanelPolling = () => {
+export const setupSidePanelPortInBg = () => {
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name === PORT_NAME) {
-      let timerId: ReturnType<typeof setTimeout>;
-      sidePanelState.isOpen = true;
-      sidePanelState.port = port;
+      // reset side panel default path after 6 seconds
+      //  to avoid the side panel being stuck in a modal on every time it opens.
 
+      setTimeout(async () => {
+        await extUtils.resetSidePanelPath();
+      }, 6000);
+
+      sidePanelState.isOpen = true;
+
+      let dappRejectId: string | number | undefined;
       const closeSidePanel = () => {
         sidePanelState.isOpen = false;
-        sidePanelState.port = undefined;
+        if (dappRejectId) {
+          const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+          void backgroundApiProxy.servicePromise.rejectCallback({
+            id: dappRejectId,
+            error: new Error(
+              'Dapp authorization rejected due to SidePanel closure.',
+            ),
+          });
+        }
       };
 
-      port.onMessage.addListener(() => {
-        clearTimeout(timerId);
-        timerId = setTimeout(() => {
-          port.disconnect();
-          closeSidePanel();
-        }, timerUtils.getTimeDurationMs({ seconds: 5 }));
-      });
+      port.onMessage.addListener(
+        ({
+          type,
+          payload,
+        }: IAppEventBusPayload[EAppEventBusNames.SidePanel_UIToBg]) => {
+          switch (type) {
+            case 'dappRejectId': {
+              dappRejectId = payload.rejectId;
+              break;
+            }
+            default:
+              break;
+          }
+        },
+      );
       port.onDisconnect.addListener(() => {
         closeSidePanel();
+      });
+
+      appEventBus.on(EAppEventBusNames.SidePanel_BgToUI, (params) => {
+        port.postMessage(params);
       });
     }
   });
 };
 
-export const startSidePanelPolling = () => {
+export const setupSidePanelPortInUI = () => {
   const port = chrome.runtime.connect({ name: PORT_NAME });
-  setInterval(() => {
-    port.postMessage('ping');
-  }, timerUtils.getTimeDurationMs({ seconds: 3 }));
   port.onMessage.addListener(
-    (event: { action: 'router'; params: Record<string, any> }) => {
-      switch (event.action) {
-        case 'router':
+    ({
+      type,
+      payload,
+    }: IAppEventBusPayload[EAppEventBusNames.SidePanel_BgToUI]) => {
+      switch (type) {
+        case 'pushModal':
           {
-            const { screen, params } = event.params as {
-              screen: any;
-              params: any;
-            };
+            const { screen, params } = payload.modalParams;
             global.$navigationRef.current?.navigate(screen, params);
           }
           break;
@@ -50,4 +80,8 @@ export const startSidePanelPolling = () => {
       }
     },
   );
+
+  appEventBus.on(EAppEventBusNames.SidePanel_UIToBg, (params) => {
+    port.postMessage(params);
+  });
 };
