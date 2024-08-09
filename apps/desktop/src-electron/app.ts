@@ -28,7 +28,7 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
-import { initLocale } from './i18n';
+import { i18nText, initLocale, ETranslations } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess, { restartBridge } from './process';
@@ -75,110 +75,113 @@ function showMainWindow() {
   mainWindow.focus();
 }
 
-const template = [
-  // { role: 'appMenu' },
-  ...(isMac
-    ? [
-        {
-          label: app.name,
+const initMenu = () => {
+  const template = [
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about', label: i18nText(ETranslations.menu_about_onekey_wallet) },
+              { type: 'separator' },
+              {
+                label: i18nText(ETranslations.menu_check_for_updates),
+                click: () => {
+                  if (mainWindow) {
+                    mainWindow.webContents.send(ipcMessageKeys.CHECK_FOR_UPDATES);
+                  }
+                },
+              },
+              { type: 'separator' },
+              {
+                label: i18nText(ETranslations.menu_preferences),
+                accelerator: 'CmdOrCtrl+,',
+                click: () => {
+                  if (mainWindow) {
+                    mainWindow.webContents.send(ipcMessageKeys.APP_OPEN_SETTINGS);
+                  }
+                },
+              },
+              { type: 'separator' },
+              {
+                label: i18nText(ETranslations.menu_lock_now),
+                click: () => {
+                  if (mainWindow) {
+                    mainWindow.webContents.send(ipcMessageKeys.APP_LOCK_NOW);
+                  }
+                },
+              },
+              { type: 'separator' },
+              { role: 'hide', accelerator: 'Alt+CmdOrCtrl+H', label: i18nText(ETranslations.menu_hide_onekey_wallet) },
+              { role: 'unhide', label: i18nText(ETranslations.menu_show_all) },
+              { type: 'separator' },
+              { role: 'quit', label: i18nText(ETranslations.menu_quit_onekey_wallet) },
+            ],
+          },
+        ]
+      : []),
+    // remove `Reload`, 'Force reload' and 'Toggle Developer Tools' from `View` menu
+    isDev || store.getDevTools()
+      ? { role: 'viewMenu' }
+      : {
+          label: 'View',
           submenu: [
-            { role: 'about', label: '关于' },
+            { role: 'resetZoom', label: i18nText(ETranslations.menu_actual_size) },
+            { role: 'zoomIn', label: i18nText(ETranslations.menu_zoom_in)  },
+            { role: 'zoomOut', label: i18nText(ETranslations.menu_zoom_out)  },
             { type: 'separator' },
-            {
-              label: 'Check for Updates',
-              click: () => {
-                if (mainWindow) {
-                  mainWindow.webContents.send(ipcMessageKeys.CHECK_FOR_UPDATES);
-                }
-              },
-            },
-            { type: 'separator' },
-            {
-              label: 'Preferences..',
-              accelerator: 'CmdOrCtrl+,',
-              click: () => {
-                if (mainWindow) {
-                  mainWindow.webContents.send(ipcMessageKeys.APP_OPEN_SETTINGS);
-                }
-              },
-            },
-            { type: 'separator' },
-            {
-              label: 'Lock Now',
-              click: () => {
-                if (mainWindow) {
-                  mainWindow.webContents.send(ipcMessageKeys.APP_LOCK_NOW);
-                }
-              },
-            },
-            { type: 'separator' },
-            { role: 'hide', accelerator: 'Alt+CmdOrCtrl+H' },
-            { role: 'unhide' },
-            { type: 'separator' },
-            { role: 'quit' },
+            { role: 'togglefullscreen', label: i18nText(ETranslations.menu_toggle_full_screen) },
           ],
         },
-      ]
-    : []),
-  // remove `Reload`, 'Force reload' and 'Toggle Developer Tools' from `View` menu
-  isDev || store.getDevTools()
-    ? { role: 'viewMenu' }
-    : {
-        label: 'View',
-        submenu: [
-          { role: 'resetZoom' },
-          { role: 'zoomIn' },
-          { role: 'zoomOut' },
-          { type: 'separator' },
-          { role: 'togglefullscreen' },
-        ],
-      },
-  {
-    label: 'Window',
-    submenu: [
-      { role: 'minimize' },
-      { role: 'zoom' },
-      ...(isMac
-        ? [
-            { type: 'separator' },
-            { role: 'front' },
-            { type: 'separator' },
-            { role: 'window' },
-          ]
-        : []),
-    ],
-  },
-  {
-    role: 'help',
-    submenu: [
-      {
-        label: 'Visit Help Center',
-        click: async () => {
-          await shell.openExternal('https://help.onekey.so');
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize', label: i18nText(ETranslations.menu_minimize) },
+        { role: 'zoom', label: i18nText(ETranslations.menu_zoom) },
+        ...(isMac
+          ? [
+              { type: 'separator' },
+              { role: 'front', label: i18nText(ETranslations.menu_bring_all_to_front) },
+              { type: 'separator' },
+              { role: 'window', label: i18nText(ETranslations.menu_window)  },
+            ]
+          : []),
+      ],
+    },
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: i18nText(ETranslations.menu_visit_help_center),
+          click: async () => {
+            await shell.openExternal('https://help.onekey.so');
+          },
         },
-      },
-      { type: 'separator' },
-      {
-        label: 'Official Website',
-        click: async () => {
-          await shell.openExternal('https://onekey.so');
+        { type: 'separator' },
+        {
+          label: i18nText(ETranslations.menu_official_website),
+          click: async () => {
+            await shell.openExternal('https://onekey.so');
+          },
         },
-      },
-      {
-        label: 'Github',
-        click: async () => {
-          await shell.openExternal('https://github.com/OneKeyHQ/app-monorepo');
+        {
+          label: 'Github',
+          click: async () => {
+            await shell.openExternal('https://github.com/OneKeyHQ/app-monorepo');
+          },
         },
-      },
-      {
-        label: 'X',
-        click: async () => {
-          await shell.openExternal('https://x.com/onekeyhq');
+        {
+          label: 'X',
+          click: async () => {
+            await shell.openExternal('https://x.com/onekeyhq');
+          },
         },
-      },
-    ],
-  },
-];
+      ],
+    },
+  ];
+  const menu = Menu.buildFromTemplate(template as any);
+  Menu.setApplicationMenu(menu);
+}
 
 const emitter = new EventEmitter();
 let isAppReady = false;
@@ -253,9 +256,7 @@ const getBackgroundColor = (key: string) =>
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 function createMainWindow() {
-
-  const menu = Menu.buildFromTemplate(template as any);
-  Menu.setApplicationMenu(menu);
+  initMenu();
 
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
