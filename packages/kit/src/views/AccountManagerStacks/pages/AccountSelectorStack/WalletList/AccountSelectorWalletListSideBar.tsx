@@ -143,6 +143,10 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     return layouts;
   }, [wallets, CELL_HEIGHT]);
 
+  const { md } = useMedia();
+
+  const isShowCloseButton =
+    md && (!platformEnv.isExtension || platformEnv.isNativeAndroid);
   return (
     <Stack
       testID="account-selector-wallet-list"
@@ -155,7 +159,7 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
       borderRightColor="$neutral3"
     >
       {/* Close action */}
-      {platformEnv.isExtension || platformEnv.isNativeAndroid ? (
+      {isShowCloseButton ? (
         <XStack py="$4" justifyContent="center">
           <Page.Close>
             <HeaderIconButton icon="CrossedLargeOutline" />
