@@ -67,7 +67,7 @@ const useDesktopEvents = platformEnv.isDesktop
             void onLock();
           });
         }
-      }, [checkForUpdates, navigation, onLock, toUpdatePreviewPage]);
+      }, [checkForUpdates, intl, navigation, onLock, toUpdatePreviewPage]);
     }
   : () => undefined;
 
