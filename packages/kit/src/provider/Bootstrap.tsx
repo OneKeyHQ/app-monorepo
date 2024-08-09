@@ -17,28 +17,42 @@ const useAppUpdateInfoCallback = platformEnv.isDesktop
   ? useAppUpdateInfo
   : () => ({} as ReturnType<typeof useAppUpdateInfo>);
 
+const useDesktopEvents = platformEnv.isDesktop
+  ? () => {
+      const navigation = useAppNavigation();
+      const onLock = useOnLockCallback();
+      const { checkForUpdates, toUpdatePreviewPage } = useAppUpdateInfoCallback(
+        false,
+        false,
+      );
+      useEffect(() => {
+        if (platformEnv.isDesktop) {
+          window.desktopApi.on('update/checkForUpdates', async () => {
+            defaultLogger.update.app.log('checkForUpdates');
+            const { isNeedUpdate, response } = await checkForUpdates();
+            if (isNeedUpdate || response === undefined) {
+              toUpdatePreviewPage(true, response);
+            }
+          });
+
+          window.desktopApi.on('app/openSettings', () => {
+            navigation.pushModal(EModalRoutes.SettingModal, {
+              screen: EModalSettingRoutes.SettingListModal,
+            });
+          });
+
+          window.desktopApi.on('app/lockNow', () => {
+            void onLock();
+          });
+        }
+      }, [checkForUpdates, navigation, onLock, toUpdatePreviewPage]);
+    }
+  : () => undefined;
+
 export function Bootstrap() {
-  const navigation = useAppNavigation();
-  const onLock = useOnLockCallback();
-  const { checkForUpdates } = useAppUpdateInfoCallback(false, false);
   useEffect(() => {
     void backgroundApiProxy.serviceSetting.fetchCurrencyList();
-    if (platformEnv.isDesktop) {
-      window.desktopApi.on('update/checkForUpdates', () => {
-        defaultLogger.update.app.log('checkForUpdates');
-        void checkForUpdates();
-      });
-
-      window.desktopApi.on('app/openSettings', () => {
-        navigation.pushModal(EModalRoutes.SettingModal, {
-          screen: EModalSettingRoutes.SettingListModal,
-        });
-      });
-
-      window.desktopApi.on('app/lockNow', () => {
-        void onLock();
-      });
-    }
-  }, [checkForUpdates, navigation, onLock]);
+  }, []);
+  useDesktopEvents();
   return null;
 }
