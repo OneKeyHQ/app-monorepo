@@ -8,18 +8,24 @@ import type {
   IStackProps,
 } from '@onekeyhq/components';
 import { useTabScrollViewRef } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
   const scrollViewRef = useTabScrollViewRef();
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
+  const listViewInstanceRef = useRef<HTMLDivElement | undefined>(undefined);
   const getListView = useCallback(
     () =>
-      (
-        listViewRef.current as unknown as {
-          _listRef?: { _scrollRef: HTMLDivElement };
+      {
+        if (!listViewInstanceRef.current) {
+          const current = (listViewRef.current as {getCurrent?: () => typeof listViewRef.current })?.getCurrent?.() || listViewRef.current
+          listViewInstanceRef.current = (
+            current as unknown as {
+              _listRef?: { _scrollRef: HTMLDivElement };
+            }
+          )?._listRef?._scrollRef;
         }
-      )?._listRef?._scrollRef,
+        return listViewInstanceRef.current;
+      },
     [],
   );
 
@@ -79,10 +85,7 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
   }, [getListView, scrollViewRef]);
 
   const listViewProps = useMemo(
-    () =>
-      platformEnv.isNative
-        ? {}
-        : ({
+    () => ({
             style: inTabList
               ? ({
                   minHeight: 100,

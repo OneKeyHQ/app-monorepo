@@ -844,9 +844,13 @@ function BatchCreateAccountPreviewPage({
                   name="ChevronLeftSmallOutline"
                   ml="$1"
                   size="$5"
-                  style={platformEnv.isNative ? undefined: {
-                    transform: "scale(1.4)"
-                  }}
+                  style={
+                    platformEnv.isNative
+                      ? undefined
+                      : {
+                          transform: 'scale(1.4)',
+                        }
+                  }
                   opacity={page < 2 || isLoading ? 0.5 : undefined}
                 />
               </ButtonGroup.Item>
@@ -865,7 +869,7 @@ function BatchCreateAccountPreviewPage({
               >
                 <Stack height={38} justifyContent="center">
                   <SizableText
-                    lineHeight={38} 
+                    lineHeight={38}
                     opacity={isLoading ? 0.5 : undefined}
                     size="$bodyLgMedium"
                   >
@@ -881,9 +885,13 @@ function BatchCreateAccountPreviewPage({
                 maxWidth={42}
               >
                 <Icon
-                  style={platformEnv.isNative ? undefined: {
-                    transform: "scale(1.4)"
-                  }}
+                  style={
+                    platformEnv.isNative
+                      ? undefined
+                      : {
+                          transform: 'scale(1.4)',
+                        }
+                  }
                   name="ChevronRightSmallOutline"
                   mr="$1"
                   opacity={isLoading ? 0.5 : undefined}

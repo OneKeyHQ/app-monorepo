@@ -148,7 +148,7 @@ function TxHistoryListView(props: IProps) {
 
   return (
     <SectionList
-      {...listViewProps}
+      {...(listViewProps as any)}
       renderScrollComponent={renderNestedScrollView}
       ref={listViewRef}
       contentContainerStyle={{
