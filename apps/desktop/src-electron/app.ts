@@ -156,7 +156,7 @@ const initMenu = () => {
       ],
     },
     {
-      label: i18nText(ETranslations.menu_window),
+      label: i18nText(ETranslations.menu_view),
       submenu: [
         { role: 'minimize', label: i18nText(ETranslations.menu_minimize) },
         { role: 'zoom', label: i18nText(ETranslations.menu_zoom) },
@@ -175,7 +175,7 @@ const initMenu = () => {
     },
     {
       role: 'help',
-      label: i18nText(ETranslations.settings_help_center),
+      label: i18nText(ETranslations.menu_help),
       submenu: [
         {
           label: i18nText(ETranslations.menu_visit_help_center),

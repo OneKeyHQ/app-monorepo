@@ -1,4 +1,5 @@
 // This file is automatically created by `yarn fetch:locale`.
+// This file is automatically created by `yarn fetch:locale`.
 export enum ETranslations {
   Toast_web_auth = 'Toast_web_auth',
   Token_manage_custom_token_address_faild = 'Token_manage.custom_token_address_faild',
@@ -1048,6 +1049,7 @@ export enum ETranslations {
   menu_actual_size = 'menu.actual_size',
   menu_bring_all_to_front = 'menu.bring_all_to_front',
   menu_check_for_updates = 'menu.check_for_updates',
+  menu_help = 'menu.help',
   menu_hide_onekey_wallet = 'menu.hide_onekey_wallet',
   menu_lock_now = 'menu.lock_now',
   menu_minimize = 'menu.minimize',
@@ -1056,6 +1058,7 @@ export enum ETranslations {
   menu_quit_onekey_wallet = 'menu.quit_onekey_wallet',
   menu_show_all = 'menu.show_all',
   menu_toggle_full_screen = 'menu.toggle_full_screen',
+  menu_view = 'menu.view',
   menu_visit_help_center = 'menu.visit_help_center',
   menu_window = 'menu.window',
   menu_zoom = 'menu.zoom',
