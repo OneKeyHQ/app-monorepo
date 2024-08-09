@@ -142,7 +142,7 @@ const initMenu = () => {
               { role: 'reload' },
               { role: 'forceReload' },
               { role: 'toggleDevTools' },
-              { role: 'separator' },
+              { type: 'separator' },
             ]
           : []),
         { role: 'resetZoom', label: i18nText(ETranslations.menu_actual_size) },
