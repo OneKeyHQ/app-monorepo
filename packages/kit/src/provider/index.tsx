@@ -36,9 +36,9 @@ const flexStyle = { flex: 1 };
 export function KitProvider() {
   useDebugComponentRemountLog({ name: 'KitProvider' });
   return (
-    <GestureHandlerRootView style={flexStyle}>
-      <ThemeProvider>
-        <GlobalJotaiReady>
+    <GlobalJotaiReady>
+      <GestureHandlerRootView style={flexStyle}>
+        <ThemeProvider>
           <SplashProvider>
             <Container />
           </SplashProvider>
@@ -47,8 +47,8 @@ export function KitProvider() {
           <LastActivityTracker />
           <SystemLocaleTracker />
           <InAppNotification />
-        </GlobalJotaiReady>
-      </ThemeProvider>
-    </GestureHandlerRootView>
+        </ThemeProvider>
+      </GestureHandlerRootView>
+    </GlobalJotaiReady>
   );
 }
