@@ -89,10 +89,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve,
     });
-    const msgBytes = Buffer.concat([
-      prefix,
-      Buffer.from(unsignedMsg.message, 'base64'),
-    ]);
+    const msg = TonWeb.boc.Cell.oneFromBoc(unsignedMsg.message);
+    const msgBytes = Buffer.concat([prefix, await msg.hash()]);
     const [signature] = await signer.sign(msgBytes);
     return signature.toString('hex');
   }
@@ -119,7 +117,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       addressEncoding as keyof typeof TonWeb.Wallets.all,
     );
     return {
-      address: addr.nonBounceAddress,
+      address: addr.normalAddress,
       publicKey,
       addresses: {},
     };

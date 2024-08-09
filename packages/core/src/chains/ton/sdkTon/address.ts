@@ -13,7 +13,7 @@ export async function genAddressFromPublicKey(
     publicKey: Buffer.from(publicKey, 'hex'),
   });
   const address = await wallet.getAddress();
-  const normalAddress = address.toString();
+  const normalAddress = address.toString(false, false, false);
   const nonBounceAddress = address.toString(true, true, false);
   const bounceAddress = address.toString(true, true, true);
   return { normalAddress, nonBounceAddress, bounceAddress };

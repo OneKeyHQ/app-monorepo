@@ -122,8 +122,8 @@ class ProviderApiTon extends ProviderApiBase {
       appVersion: platformEnv.version,
       maxProtocolVersion: 2,
       features: [
-        { name: 'SendTransaction', maxMessages: 4 },
-        { name: 'SignData' },
+        { name: 'SendTransaction', maxMessages: 1 },
+        // { name: 'SignData' },
       ],
     };
   }
@@ -197,20 +197,19 @@ class ProviderApiTon extends ProviderApiBase {
   @providerApiMethod()
   public async signData(
     request: IJsBridgeMessagePayload,
-    params: [SignDataPayload],
+    params: SignDataPayload,
   ): Promise<any> {
     const accounts = await this.getAccountsInfo(request);
     const account = accounts[0];
-    const data = params[0];
     const timestamp = Math.floor(Date.now() / 1000);
     const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       networkId: account?.accountInfo?.networkId ?? '',
       accountId: account?.account.id ?? '',
       unsignedMessage: {
-        message: data.cell,
+        message: Buffer.from(params.cell, 'base64').toString('hex'),
         payload: {
-          schemaCrc: data.schema_crc,
+          schemaCrc: params.schema_crc,
           timestamp,
         },
       },

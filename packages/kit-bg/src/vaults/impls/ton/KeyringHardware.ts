@@ -1,4 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { TonWalletVersion } from '@onekeyfe/hd-transport';
+import TonWeb from 'tonweb';
+
 import {
   genAddressFromPublicKey,
   getStateInitFromEncodedTx,
@@ -11,12 +14,13 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -31,6 +35,7 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { CommonParams, TonSignMessageParams } from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.ton.hd;
@@ -39,8 +44,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
     const { deriveInfo } = params;
-    // const chainId = await this.getNetworkChainId();
-
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
         const publicKeys = await this.baseGetDeviceAccountAddresses({
@@ -53,36 +56,22 @@ export class KeyringHardware extends KeyringHardwareBase {
             pathSuffix,
             showOnOnekeyFn,
           }) => {
-            // const sdk = await this.getHardwareSDKInstance();
+            const sdk = await this.getHardwareSDKInstance();
 
-            // const response = await sdk.aptosGetAddress(connectId, deviceId, {
-            //   ...params.deviceParams.deviceCommonParams,
-            //   bundle: usedIndexes.map((index, arrIndex) => ({
-            //     path: `${pathPrefix}/${pathSuffix.replace(
-            //       '{index}',
-            //       `${index}`,
-            //     )}`,
-            //     showOnOneKey: showOnOnekeyFn(arrIndex),
-            //     chainId: Number(chainId),
-            //   })),
-            // });
-            // return response;
-
-            console.log('ton-getAddress', { connectId, deviceId });
-            return {
-              'event': 'RESPONSE_EVENT',
-              'type': 'RESPONSE_EVENT',
-              'id': 3,
-              'success': true,
-              'payload': [
-                {
-                  'path': "m/44'/607'/0'/0'/0'/0'",
-                  'publicKey':
-                    '899f2de9fb2472a17520575be94b2e6754bea1de95f0a79e5dfe9008c5898c2e',
-                  'address': 'UQDuFJXD0qeh7XRgHIIshHVH7uh-IeF9v_f8Id4LqwoTXffI',
-                },
-              ],
-            };
+            const response = await sdk.tonGetAddress(connectId, deviceId, {
+              ...params.deviceParams.deviceCommonParams,
+              bundle: usedIndexes.map((index, arrIndex) => ({
+                path: `${pathPrefix}/${pathSuffix.replace(
+                  '{index}',
+                  `${index}`,
+                )}`,
+                showOnOneKey: showOnOnekeyFn(arrIndex),
+                walletVersion: TonWalletVersion.V4R2,
+                isBounceable: false,
+                isTestnetOnly: false,
+              })),
+            });
+            return response;
           },
         });
 
@@ -95,7 +84,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             deriveInfo.addressEncoding as 'v4R2',
           );
           const addressInfo: ICoreApiGetAddressItem = {
-            address: addr.nonBounceAddress,
+            address: addr.normalAddress,
             path,
             publicKey: publicKey || '',
           };
@@ -120,28 +109,39 @@ export class KeyringHardware extends KeyringHardwareBase {
       encodedTx,
       backgroundApi: this.vault.backgroundApi,
     });
-    const unsignedRawTx = hexUtils.hexlify(
-      await serializeUnsignedTx.signingMessage.toBoc(),
-      {
-        noPrefix: true,
-      },
-    );
-    // const result = await convertDeviceResponse(async () => {
-    //   const res = await sdk.cosmosSignTransaction(
-    //     dbDevice.connectId,
-    //     dbDevice.deviceId,
-    //     {
-    //       path: account.path,
-    //       rawTx: unsignedRawTx,
-    //       ...deviceCommonParams,
-    //     },
-    //   );
-    //   return res;
-    // });
-    const result = {
-      signature:
-        '0000000000000000000000000000000000000000000000000000000000000000',
+    if (encodedTx.messages.length !== 1) {
+      throw new OneKeyInternalError('Unsupported message count');
+    }
+    const msg = encodedTx.messages[0];
+    const versionMap = {
+      [TonWeb.Wallets.all.v4R2.name]: TonWalletVersion.V4R2,
     };
+    const hwParams: CommonParams & TonSignMessageParams = {
+      path: account.path,
+      ...deviceCommonParams,
+      destination: msg.toAddress,
+      tonAmount: Number(msg.amount.toString()),
+      seqno: encodedTx.sequenceNo,
+      expireAt: encodedTx.expireAt || 0,
+      comment: msg.payload,
+      mode: msg.sendMode,
+      walletVersion: versionMap[version],
+    };
+    if (msg.jetton?.amount) {
+      hwParams.jettonAmount = Number(msg.jetton.amount);
+      hwParams.jettonMasterAddress = msg.jetton.jettonMasterAddress;
+    }
+    const result = await convertDeviceResponse(async () => {
+      const res = await sdk.tonSignMessage(
+        dbDevice.connectId,
+        dbDevice.deviceId,
+        hwParams,
+      );
+      return res;
+    });
+    if (!result.signature) {
+      throw new OneKeyInternalError('Failed to sign message');
+    }
     const signedTx = serializeSignedTx({
       fromAddress: encodedTx.fromAddress,
       signingMessage: serializeUnsignedTx.signingMessage,

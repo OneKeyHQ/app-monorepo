@@ -10,7 +10,6 @@ import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import { Provider } from './provider';
 
-import type BigNumber from 'bignumber.js';
 import type { Cell } from 'tonweb/dist/types/boc/cell';
 import type { Address } from 'tonweb/dist/types/utils/address';
 
@@ -47,6 +46,15 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
     type = EDecodedTxActionType.ASSET_TRANSFER;
   }
 
+  if (bytes) {
+    // try {
+    //   const cell = TonWeb.boc.Cell.oneFromBoc(bytes);
+    //   if (cell.bits.ree)
+    // } catch (e) {
+    //   // ignore
+    // }
+  }
+
   return { type, bytes };
 }
 
@@ -58,7 +66,7 @@ export interface IWallet extends IV4R2 {
     sequenceNo: number,
     messages: {
       toAddress: Address | string;
-      amount: BigNumber;
+      amount: string;
       payload?: string | Uint8Array | Cell;
       sendMode?: number;
       stateInit?: Cell;
@@ -138,4 +146,55 @@ export function getAccountVersion(accountId: string) {
   }
   const { idSuffix: version } = accountUtils.parseAccountId({ accountId });
   return version;
+}
+
+export interface IJettonTransferBodyParams {
+  queryId?: number;
+  tokenAmount: string;
+  toAddress: string;
+  responseAddress: string;
+  forwardAmount?: string;
+  forwardPayload?: Uint8Array | Cell;
+}
+
+export async function encodeJettonPayload({
+  backgroundApi,
+  address,
+  masterAddress,
+  params,
+}: {
+  backgroundApi: IBackgroundApi;
+  address: string;
+  masterAddress: string;
+  params: IJettonTransferBodyParams;
+}) {
+  const jettonMinter = new TonWeb.token.jetton.JettonMinter(
+    new Provider(backgroundApi),
+    {
+      address: masterAddress,
+    } as any,
+  );
+  const jettonAddress = await jettonMinter.getJettonWalletAddress(
+    new TonWeb.Address(address),
+  );
+  const jettonWallet = new TonWeb.token.jetton.JettonWallet(
+    new Provider(backgroundApi),
+    {
+      address: jettonAddress,
+    },
+  );
+  const body = await jettonWallet.createTransferBody({
+    queryId: params.queryId,
+    tokenAmount: new TonWeb.utils.BN(params.tokenAmount),
+    toAddress: new TonWeb.Address(params.toAddress),
+    responseAddress: new TonWeb.Address(params.responseAddress),
+    forwardAmount: params.forwardAmount
+      ? new TonWeb.utils.BN(params.forwardAmount)
+      : undefined,
+    forwardPayload: params.forwardPayload,
+  });
+  return {
+    payload: Buffer.from(await body.toBoc()).toString('hex'),
+    jettonAddress: jettonAddress.toString(true, true, true),
+  };
 }

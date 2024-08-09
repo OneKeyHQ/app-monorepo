@@ -29,7 +29,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { decodePayload } from './sdkTon/utils';
+import { decodePayload, encodeJettonPayload } from './sdkTon/utils';
 import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -79,20 +79,53 @@ export default class Vault extends VaultBase {
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTx> {
     const { transfersInfo } = params;
-    if (!transfersInfo || transfersInfo.length !== 1) {
+    if (!transfersInfo) {
       throw new OneKeyInternalError('Invalid transfersInfo');
     }
-    const transfer = transfersInfo[0];
-    return {
-      fromAddress: await this.getAccountAddress(),
-      messages: [
-        {
+    const network = await this.getNetwork();
+    const fromAddress = await this.getAccountAddress();
+    const messages = await Promise.all(
+      transfersInfo.map(async (transfer) => {
+        const amount = new BigNumber(transfer.amount)
+          .shiftedBy(transfer.tokenInfo?.decimals || 0)
+          .toFixed(0);
+        const msg: IEncodedTxTon['messages'][0] = {
           toAddress: transfer.to,
-          amount: new BigNumber(transfer.amount).shiftedBy(
-            transfer.tokenInfo?.decimals || 0,
-          ),
-        },
-      ],
+          amount,
+          sendMode: 0,
+        };
+        if (
+          transfer.tokenInfo?.symbol &&
+          network.symbol !== transfer.tokenInfo.symbol
+        ) {
+          const fwdFee = TonWeb.utils.toNano('0.01').toString();
+          msg.amount = TonWeb.utils.toNano('0.05').toString();
+          const { payload, jettonAddress } = await encodeJettonPayload({
+            backgroundApi: this.backgroundApi,
+            address: fromAddress,
+            masterAddress: transfer.tokenInfo.address,
+            params: {
+              tokenAmount: amount,
+              forwardAmount: fwdFee,
+              toAddress: transfer.to,
+              responseAddress: fromAddress,
+            },
+          });
+          msg.payload = payload;
+          msg.toAddress = jettonAddress;
+          msg.jetton = {
+            amount,
+            jettonMasterAddress: transfer.tokenInfo.address,
+            fwdFee,
+          };
+        }
+        return msg;
+      }),
+    );
+
+    return {
+      fromAddress,
+      messages,
       sequenceNo: 0,
     };
   }

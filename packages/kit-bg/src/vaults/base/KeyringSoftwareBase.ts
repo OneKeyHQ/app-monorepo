@@ -317,7 +317,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   async basePrepareAccountsHd(
     params: IPrepareHdAccountsParams,
   ): Promise<Array<IDBSimpleAccount | IDBVariantAccount>> {
-    const { template } = params.deriveInfo;
+    const { template, addressEncoding } = params.deriveInfo;
     const { password } = params;
     const networkInfo = await this.getCoreApiNetworkInfo();
 
@@ -334,6 +334,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
             hdCredential: checkIsDefined(credentials.hd),
             password,
             indexes: usedIndexes,
+            addressEncoding,
           });
         return addressInfos;
       },

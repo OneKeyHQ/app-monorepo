@@ -1,11 +1,14 @@
-import type BigNumber from 'bignumber.js';
-
 export type ITonMessage = {
   toAddress: string;
-  amount: BigNumber;
+  amount: string;
   payload?: string;
   sendMode?: number;
   stateInit?: string;
+  jetton?: {
+    amount: string;
+    jettonMasterAddress: string;
+    fwdFee: string;
+  };
 };
 
 export type IEncodedTxTon = {
