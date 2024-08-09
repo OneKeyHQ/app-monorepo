@@ -17,33 +17,33 @@ import { usePromiseResult } from './usePromiseResult';
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
 
-const reorderByPinnedNetworkIds = async (items: IAllNetworkAccountInfo[]) => {
-  const priorityNetworkIds =
-    await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
+// const reorderByPinnedNetworkIds = async (items: IAllNetworkAccountInfo[]) => {
+//   const priorityNetworkIds =
+//     await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
 
-  const priorityNetworkIdsMap = priorityNetworkIds.reduce(
-    (acc, item, index) => {
-      acc[item] = index;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
+//   const priorityNetworkIdsMap = priorityNetworkIds.reduce(
+//     (acc, item, index) => {
+//       acc[item] = index;
+//       return acc;
+//     },
+//     {} as Record<string, number>,
+//   );
 
-  const priorityItems: IAllNetworkAccountInfo[] = [];
-  const normalItems: IAllNetworkAccountInfo[] = [];
-  for (let i = 0; i < items.length; i += 1) {
-    if (priorityNetworkIdsMap[items[i].networkId] !== undefined) {
-      priorityItems.push(items[i]);
-    } else {
-      normalItems.push(items[i]);
-    }
-  }
-  priorityItems.sort(
-    (a, b) =>
-      priorityNetworkIdsMap[a.networkId] - priorityNetworkIdsMap[b.networkId],
-  );
-  return [...priorityItems, ...normalItems];
-};
+//   const priorityItems: IAllNetworkAccountInfo[] = [];
+//   const normalItems: IAllNetworkAccountInfo[] = [];
+//   for (let i = 0; i < items.length; i += 1) {
+//     if (priorityNetworkIdsMap[items[i].networkId] !== undefined) {
+//       priorityItems.push(items[i]);
+//     } else {
+//       normalItems.push(items[i]);
+//     }
+//   }
+//   priorityItems.sort(
+//     (a, b) =>
+//       priorityNetworkIdsMap[a.networkId] - priorityNetworkIdsMap[b.networkId],
+//   );
+//   return [...priorityItems, ...normalItems];
+// };
 
 function useAllNetworkRequests<T>(params: {
   account: INetworkAccount | undefined;
@@ -115,8 +115,8 @@ function useAllNetworkRequests<T>(params: {
 
       const {
         accountsInfo,
-        accountsInfoBackendIndexed,
-        accountsInfoBackendNotIndexed,
+        // accountsInfoBackendIndexed,
+        // accountsInfoBackendNotIndexed,
       } = await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
         accountId: account.id,
         networkId: network.id,
@@ -130,15 +130,16 @@ function useAllNetworkRequests<T>(params: {
         return;
       }
 
-      const concurrentNetworks = accountsInfoBackendIndexed;
+      // const concurrentNetworks = accountsInfoBackendIndexed;
 
-      const sequentialNetworks = await reorderByPinnedNetworkIds(
-        accountsInfoBackendNotIndexed,
-      );
+      // const sequentialNetworks = await reorderByPinnedNetworkIds(
+      //   accountsInfoBackendNotIndexed,
+      // );
 
       let resp: Array<T> | null = [];
 
-      if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
+      // if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
+      if (accountsInfo.length === 0) {
         setIsEmptyAccount(true);
         isFetching.current = false;
         return;
@@ -178,7 +179,7 @@ function useAllNetworkRequests<T>(params: {
         }
       } else {
         // 处理并发请求的网络
-        const concurrentRequests = Array.from(concurrentNetworks).map(
+        const concurrentRequests = Array.from(accountsInfo).map(
           (networkDataString) => {
             const { accountId, networkId, apiAddress } = networkDataString;
             console.log(
@@ -201,36 +202,36 @@ function useAllNetworkRequests<T>(params: {
           // pass
         }
 
-        // 处理顺序请求的网络
-        await (async (uuid: string) => {
-          for (const networkDataString of sequentialNetworks) {
-            console.log(
-              'currentRequestsUUID for: =====>>>>>: ',
-              currentRequestsUUID.current,
-              uuid,
-              networkDataString.networkId,
-              networkDataString.apiAddress,
-            );
-            if (
-              currentRequestsUUID.current &&
-              currentRequestsUUID.current !== uuid
-            ) {
-              break;
-            }
-            const { accountId, networkId } = networkDataString;
-            try {
-              await allNetworkRequests({
-                accountId,
-                networkId,
-                allNetworkDataInit: allNetworkDataInit.current,
-              });
-            } catch (e) {
-              console.error(e);
-              // pass
-            }
-            await waitAsync(interval);
-          }
-        })(requestsUUID);
+        // // 处理顺序请求的网络
+        // await (async (uuid: string) => {
+          // for (const networkDataString of sequentialNetworks) {
+          //   console.log(
+          //     'currentRequestsUUID for: =====>>>>>: ',
+          //     currentRequestsUUID.current,
+          //     uuid,
+          //     networkDataString.networkId,
+          //     networkDataString.apiAddress,
+          //   );
+          //   if (
+          //     currentRequestsUUID.current &&
+          //     currentRequestsUUID.current !== uuid
+          //   ) {
+          //     break;
+          //   }
+          //   const { accountId, networkId } = networkDataString;
+          //   try {
+          //     await allNetworkRequests({
+          //       accountId,
+          //       networkId,
+          //       allNetworkDataInit: allNetworkDataInit.current,
+          //     });
+          //   } catch (e) {
+          //     console.error(e);
+          //     // pass
+          //   }
+          //   await waitAsync(interval);
+          // }
+        // })(requestsUUID);
       }
 
       allNetworkDataInit.current = true;
