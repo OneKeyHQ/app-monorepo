@@ -141,11 +141,11 @@ class ProviderApiWalletConnect {
         title: `ChainId: ${notSupportedChains[0]}`,
         message: 'Unsupported yet',
       });
-      defaultLogger.discovery.dapp.connectDapp({
+      defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,
         dappDomain: metadata.url,
+        action: 'ConnectWallet',
         network: optionalNamespacesString,
-        isSuccess: false,
         failReason: `Unsupported ChainId: ${notSupportedChains[0]}`,
       });
       return;
@@ -168,11 +168,11 @@ class ProviderApiWalletConnect {
           method: 'error',
           title: message,
         });
-        defaultLogger.discovery.dapp.connectDapp({
+        defaultLogger.discovery.dapp.dappUse({
           dappName: metadata.name,
           dappDomain: metadata.url,
+          action: 'ConnectWallet',
           network: optionalNamespacesString,
-          isSuccess: false,
           failReason: message,
         });
         return;
@@ -207,11 +207,11 @@ class ProviderApiWalletConnect {
         topic: newSession?.topic ?? '',
         accountsInfo: result.accountsInfo,
       });
-      defaultLogger.discovery.dapp.connectDapp({
+      defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,
         dappDomain: metadata.url,
+        action: 'ConnectWallet',
         network: optionalNamespacesString,
-        isSuccess: true,
         walletAddress: result.accountsInfo
           .map((account) => account.address)
           .join(', '),
@@ -222,11 +222,11 @@ class ProviderApiWalletConnect {
         id: proposal.id,
         reason: getSdkError('USER_REJECTED'),
       });
-      defaultLogger.discovery.dapp.connectDapp({
+      defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,
         dappDomain: metadata.url,
+        action: 'ConnectWallet',
         network: optionalNamespacesString,
-        isSuccess: false,
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         failReason: `${e?.message ?? e}`,
