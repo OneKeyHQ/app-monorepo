@@ -28,7 +28,7 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
-import { i18nText, initLocale, ETranslations } from './i18n';
+import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess, { restartBridge } from './process';
@@ -82,13 +82,18 @@ const initMenu = () => {
           {
             label: app.name,
             submenu: [
-              { role: 'about', label: i18nText(ETranslations.menu_about_onekey_wallet) },
+              {
+                role: 'about',
+                label: i18nText(ETranslations.menu_about_onekey_wallet),
+              },
               { type: 'separator' },
               {
                 label: i18nText(ETranslations.menu_check_for_updates),
                 click: () => {
                   if (mainWindow) {
-                    mainWindow.webContents.send(ipcMessageKeys.CHECK_FOR_UPDATES);
+                    mainWindow.webContents.send(
+                      ipcMessageKeys.CHECK_FOR_UPDATES,
+                    );
                   }
                 },
               },
@@ -98,7 +103,9 @@ const initMenu = () => {
                 accelerator: 'CmdOrCtrl+,',
                 click: () => {
                   if (mainWindow) {
-                    mainWindow.webContents.send(ipcMessageKeys.APP_OPEN_SETTINGS);
+                    mainWindow.webContents.send(
+                      ipcMessageKeys.APP_OPEN_SETTINGS,
+                    );
                   }
                 },
               },
@@ -112,47 +119,63 @@ const initMenu = () => {
                 },
               },
               { type: 'separator' },
-              { role: 'hide', accelerator: 'Alt+CmdOrCtrl+H', label: i18nText(ETranslations.menu_hide_onekey_wallet) },
+              {
+                role: 'hide',
+                accelerator: 'Alt+CmdOrCtrl+H',
+                label: i18nText(ETranslations.menu_hide_onekey_wallet),
+              },
               { role: 'unhide', label: i18nText(ETranslations.menu_show_all) },
               { type: 'separator' },
-              { role: 'quit', label: i18nText(ETranslations.menu_quit_onekey_wallet) },
+              {
+                role: 'quit',
+                label: i18nText(ETranslations.menu_quit_onekey_wallet),
+              },
             ],
           },
         ]
       : []),
-     {
-          label: 'View',
-          submenu: [
-            ...(isDev || store.getDevTools()) ? [
-              { type: 'reload' },
-              { type: 'forceReload' },
-              { type: 'toggleDevTools' },
-              { type: 'separator' }]
-            : [],
-            { role: 'resetZoom', label: i18nText(ETranslations.menu_actual_size) },
-            { role: 'zoomIn', label: i18nText(ETranslations.menu_zoom_in)  },
-            { role: 'zoomOut', label: i18nText(ETranslations.menu_zoom_out)  },
-            { type: 'separator' },
-            { role: 'togglefullscreen', label: i18nText(ETranslations.menu_toggle_full_screen) },
-          ],
-        },
     {
-      label: 'Window',
+      label: i18nText(ETranslations.global_view),
+      submenu: [
+        ...(isDev || store.getDevTools()
+          ? [
+              { role: 'reload' },
+              { role: 'forceReload' },
+              { role: 'toggleDevTools' },
+              { role: 'separator' },
+            ]
+          : []),
+        { role: 'resetZoom', label: i18nText(ETranslations.menu_actual_size) },
+        { role: 'zoomIn', label: i18nText(ETranslations.menu_zoom_in) },
+        { role: 'zoomOut', label: i18nText(ETranslations.menu_zoom_out) },
+        { type: 'separator' },
+        {
+          role: 'togglefullscreen',
+          label: i18nText(ETranslations.menu_toggle_full_screen),
+        },
+      ],
+    },
+    {
+      label: i18nText(ETranslations.menu_window),
       submenu: [
         { role: 'minimize', label: i18nText(ETranslations.menu_minimize) },
         { role: 'zoom', label: i18nText(ETranslations.menu_zoom) },
         ...(isMac
           ? [
               { type: 'separator' },
-              { role: 'front', label: i18nText(ETranslations.menu_bring_all_to_front) },
+              {
+                role: 'front',
+                label: i18nText(ETranslations.menu_bring_all_to_front),
+              },
               { type: 'separator' },
-              { role: 'window', label: i18nText(ETranslations.menu_window)  },
+              { role: 'window', label: i18nText(ETranslations.menu_window) },
             ]
           : []),
       ],
     },
     {
       role: 'help',
+      label: i18nText(ETranslations.settings_help_center),
       submenu: [
         {
           label: i18nText(ETranslations.menu_visit_help_center),
@@ -170,7 +193,9 @@ const initMenu = () => {
         {
           label: 'Github',
           click: async () => {
-            await shell.openExternal('https://github.com/OneKeyHQ/app-monorepo');
+            await shell.openExternal(
+              'https://github.com/OneKeyHQ/app-monorepo',
+            );
           },
         },
         {
@@ -184,7 +209,7 @@ const initMenu = () => {
   ];
   const menu = Menu.buildFromTemplate(template as any);
   Menu.setApplicationMenu(menu);
-}
+};
 
 const emitter = new EventEmitter();
 let isAppReady = false;
