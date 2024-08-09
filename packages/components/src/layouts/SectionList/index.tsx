@@ -158,6 +158,7 @@ function BaseSectionList<T>(
         viewPosition,
       });
     },
+    getCurrent: () => ref.current,
   }));
   const renderSectionAndItem = useCallback(
     ({ item }: { item: T }) => {
