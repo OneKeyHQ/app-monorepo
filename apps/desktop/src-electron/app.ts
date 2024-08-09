@@ -28,6 +28,7 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
+import { initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess, { restartBridge } from './process';
@@ -252,8 +253,6 @@ const getBackgroundColor = (key: string) =>
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 function createMainWindow() {
-  const locale = app.getLocale();
-  logger.info('locale >>>> ', locale);
 
   const menu = Menu.buildFromTemplate(template as any);
   Menu.setApplicationMenu(menu);
@@ -735,6 +734,8 @@ if (!singleInstance && !process.mas) {
 
   app.name = APP_NAME;
   app.on('ready', async () => {
+    const locale = await initLocale();
+    logger.info('locale >>>> ', locale);
     if (!mainWindow) {
       mainWindow = createMainWindow();
     }
