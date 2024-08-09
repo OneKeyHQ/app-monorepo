@@ -4,6 +4,7 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
+import { Bootstrap } from '../Bootstrap';
 
 import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
@@ -35,6 +36,7 @@ export function Container() {
       <AppStateLockContainer>
         <KeyboardContainer />
         <NavigationContainer>
+          <Bootstrap />
           <GlobalRootAppNavigationUpdate />
           <JotaiContextRootProvidersAutoMount />
           <QrcodeDialogContainer />

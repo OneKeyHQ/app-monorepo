@@ -39,7 +39,6 @@ export function KitProvider() {
     <GestureHandlerRootView style={flexStyle}>
       <ThemeProvider>
         <GlobalJotaiReady>
-          <Bootstrap />
           <SplashProvider>
             <Container />
           </SplashProvider>

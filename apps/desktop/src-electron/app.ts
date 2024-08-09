@@ -74,12 +74,6 @@ function showMainWindow() {
   mainWindow.focus();
 }
 
-function checkForUpdates() {
-  if (mainWindow) {
-    mainWindow.webContents.send(ipcMessageKeys.CHECK_FOR_UPDATES);
-  }
-}
-
 const template = [
   // { role: 'appMenu' },
   ...(isMac
@@ -91,7 +85,29 @@ const template = [
             { type: 'separator' },
             {
               label: 'Check for Updates',
-              click: checkForUpdates,
+              click: () => {
+                if (mainWindow) {
+                  mainWindow.webContents.send(ipcMessageKeys.CHECK_FOR_UPDATES);
+                }
+              },
+            },
+            { type: 'separator' },
+            {
+              label: 'Preferences..',
+              click: () => {
+                if (mainWindow) {
+                  mainWindow.webContents.send(ipcMessageKeys.APP_OPEN_SETTINGS);
+                }
+              },
+            },
+            { type: 'separator' },
+            {
+              label: 'Lock Now',
+              click: () => {
+                if (mainWindow) {
+                  mainWindow.webContents.send(ipcMessageKeys.APP_LOCK_NOW);
+                }
+              },
             },
             { type: 'separator' },
             { role: 'hide' },
