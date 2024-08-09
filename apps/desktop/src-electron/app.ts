@@ -94,6 +94,7 @@ const template = [
             { type: 'separator' },
             {
               label: 'Preferences..',
+              accelerator: 'CmdOrCtrl+,',
               click: () => {
                 if (mainWindow) {
                   mainWindow.webContents.send(ipcMessageKeys.APP_OPEN_SETTINGS);
