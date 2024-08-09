@@ -19,7 +19,7 @@ import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 
 import { setupKeepAlive } from '../background/keepAlive';
 import serviceWorker from '../background/serviceWorker';
-import { setupSidePanelPolling } from '../background/sidePanel';
+import { setupSidePanelPortInBg } from '../background/sidePanel';
 
 function initBackground() {
   // TODO use backgroundApiInit
@@ -42,7 +42,7 @@ function initBackground() {
 if (platformEnv.isExtensionBackgroundServiceWorker) {
   // axios.defaults.adapter = axiosAdapter;
   setupKeepAlive();
-  setupSidePanelPolling();
+  setupSidePanelPortInBg();
   serviceWorker.disableCacheInBackground();
 }
 console.log(
