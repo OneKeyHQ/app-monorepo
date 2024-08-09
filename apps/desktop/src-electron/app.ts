@@ -143,22 +143,36 @@ const template = [
             { role: 'front' },
             { type: 'separator' },
             { role: 'window' },
-            {
-              label: 'OneKey',
-              click: showMainWindow,
-              accelerator: 'CmdOrCtrl+O',
-            },
           ]
-        : [{ role: 'close' }]),
+        : []),
     ],
   },
   {
     role: 'help',
     submenu: [
       {
-        label: 'Learn More',
+        label: 'Visit Help Center',
+        click: async () => {
+          await shell.openExternal('https://help.onekey.so');
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Official Website',
         click: async () => {
           await shell.openExternal('https://onekey.so');
+        },
+      },
+      {
+        label: 'Github',
+        click: async () => {
+          await shell.openExternal('https://github.com/OneKeyHQ/app-monorepo');
+        },
+      },
+      {
+        label: 'X',
+        click: async () => {
+          await shell.openExternal('https://x.com/onekeyhq');
         },
       },
     ],
