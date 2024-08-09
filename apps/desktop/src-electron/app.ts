@@ -74,6 +74,12 @@ function showMainWindow() {
   mainWindow.focus();
 }
 
+function checkForUpdates() {
+  if (mainWindow) {
+    mainWindow.webContents.send(ipcMessageKeys.CHECK_FOR_UPDATES);
+  }
+}
+
 const template = [
   // { role: 'appMenu' },
   ...(isMac
@@ -81,9 +87,12 @@ const template = [
         {
           label: app.name,
           submenu: [
-            { role: 'about' },
+            { role: 'about', label: '关于' },
             { type: 'separator' },
-            { role: 'services' },
+            {
+              label: 'Check for Updates',
+              click: checkForUpdates,
+            },
             { type: 'separator' },
             { role: 'hide' },
             { role: 'hideOthers' },
@@ -140,9 +149,6 @@ const template = [
     ],
   },
 ];
-
-const menu = Menu.buildFromTemplate(template as any);
-Menu.setApplicationMenu(menu);
 
 const emitter = new EventEmitter();
 let isAppReady = false;
@@ -217,6 +223,12 @@ const getBackgroundColor = (key: string) =>
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 function createMainWindow() {
+  const locale = app.getLocale();
+  logger.info('locale >>>> ', locale);
+
+  const menu = Menu.buildFromTemplate(template as any);
+  Menu.setApplicationMenu(menu);
+
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   const ratio = 16 / 9;
