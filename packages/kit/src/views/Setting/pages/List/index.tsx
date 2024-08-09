@@ -111,16 +111,18 @@ const SocialButtonGroup = () => {
           />
         </XStack>
       </XStack>
-      <XStack justifyContent="center" py="$4">
+      <YStack jc="center" py="$4" ai="center" userSelect="none">
         <SizableText
-          userSelect="none"
           color="$textSubdued"
           onPress={handlePress}
           testID="setting-version"
         >
           {versionString}
         </SizableText>
-      </XStack>
+        <SizableText color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
+        </SizableText>
+      </YStack>
     </YStack>
   );
 };
