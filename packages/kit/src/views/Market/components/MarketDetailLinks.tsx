@@ -77,8 +77,7 @@ export function MarketDetailLinks({
             ) : null}
           </XStack>
         </YStack>
-        {
-          explorers.length ? (
+        {explorers.length ? (
           <YStack py="$5">
             <SizableText size="$headingSm" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_explorers })}
@@ -97,8 +96,7 @@ export function MarketDetailLinks({
               ))}
             </XStack>
           </YStack>
-          ) : null
-        }
+        ) : null}
       </YStack>
     </NestedScrollView>
   );

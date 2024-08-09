@@ -4,7 +4,7 @@ import '@onekeyhq/shared/src/polyfills';
 // eslint-disable-next-line import/order
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { startSidePanelPolling } from '../background/sidePanel';
+import { setupSidePanelPortInUI } from '../background/sidePanel';
 import hotReload from '../ui/hotReload';
 import uiJsBridge from '../ui/uiJsBridge';
 
@@ -23,7 +23,7 @@ function init() {
   // resizeEventOptimize();
 
   if (platformEnv.isExtensionUiSidePanel) {
-    startSidePanelPolling();
+    setupSidePanelPortInUI();
   }
 
   global.$$onekeyPerfTrace?.log({
