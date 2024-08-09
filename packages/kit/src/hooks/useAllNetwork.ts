@@ -254,7 +254,7 @@ function useAllNetworkRequests<T>(params: {
       onFinished,
       clearAllNetworkData,
       allNetworkRequests,
-      interval,
+      // interval,
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
