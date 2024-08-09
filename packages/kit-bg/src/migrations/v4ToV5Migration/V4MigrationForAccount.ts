@@ -53,6 +53,16 @@ import v4MigrationUtils from './v4MigrationUtils';
 import { EV4DBAccountType } from './v4types';
 
 import type {
+  IDBAccount,
+  IDBCreateHwWalletParams,
+  IDBDevice,
+  IDBDeviceSettings,
+  IDBUtxoAccount,
+  IDBWallet,
+} from '../../dbs/local/types';
+import type { VaultBase } from '../../vaults/base/VaultBase';
+import type VaultNexa from '../../vaults/impls/nexa/Vault';
+import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
   IV4MigrationWallet,
@@ -68,16 +78,6 @@ import type {
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
 } from './v4local/v4localDBTypes';
-import type {
-  IDBAccount,
-  IDBCreateHwWalletParams,
-  IDBDevice,
-  IDBDeviceSettings,
-  IDBUtxoAccount,
-  IDBWallet,
-} from '../../dbs/local/types';
-import type { VaultBase } from '../../vaults/base/VaultBase';
-import type VaultNexa from '../../vaults/impls/nexa/Vault';
 
 function isLightningV4Account({ v4account }: { v4account: IV4DBAccount }) {
   return [COINTYPE_LIGHTNING, COINTYPE_LIGHTNING_TESTNET].includes(
@@ -623,17 +623,17 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         });
         if (!isNil(index)) {
           let shouldUseV4AccountName = false;
-          // TODO sort EVM account to first
           if (
             v4account.coinType === COINTYPE_ETH &&
-            v4account.name !== `EVM #${index + 1}`
+            v4account.name !== `EVM #${index + 1}` &&
+            v4account.name !== `Ledger Live #${index + 1}`
           ) {
             shouldUseV4AccountName = true;
           }
-          // console.log('v4migration addIndexedAccount', v4account, {
-          //   index,
-          //   shouldUseV4AccountName,
-          // });
+          console.log('v4migration addIndexedAccount', v4account, {
+            index,
+            shouldUseV4AccountName,
+          });
 
           const indexedAccountsAdded = await serviceAccount.addIndexedAccount({
             walletId: v5wallet.id,
@@ -644,7 +644,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             },
           });
 
-          // console.log('v4migration indexedAccountsAdded', indexedAccountsAdded);
+          console.log('v4migration indexedAccountsAdded', indexedAccountsAdded);
 
           const indexedAccountIdAdded = indexedAccountsAdded[0]?.id;
           if (indexedAccountIdAdded) {
@@ -653,7 +653,6 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             });
             if (
               shouldUseV4AccountName &&
-              index === 0 &&
               indexedAccount &&
               accountUtils.buildIndexedAccountName({
                 pathIndex: index,
