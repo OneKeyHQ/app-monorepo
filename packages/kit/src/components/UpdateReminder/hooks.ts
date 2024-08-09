@@ -61,7 +61,7 @@ export const useDownloadPackage = () => {
   );
 };
 
-export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
+export const useAppUpdateInfo = (isFullModal = false) => {
   const intl = useIntl();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
@@ -118,9 +118,6 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
 
   // run only once
   useEffect(() => {
-    if (!autoCheck) {
-      return;
-    }
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
       onViewReleaseInfo();
     }
