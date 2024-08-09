@@ -223,6 +223,42 @@ export function setSendAmount(tx: TransactionWrapper, amount: string) {
   return newTx;
 }
 
+export function getSendAmount(tx: TransactionWrapper, denom: string) {
+  const aminoMsgs = tx.msg?.aminoMsgs ?? [];
+  let amount = '';
+  let amountFound = aminoMsgs.some((aminoMsg) => {
+    if (aminoMsg.type === defaultAminoMsgOpts.send.native.type) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const tokenDenom = get(aminoMsg.value.amount, '[0].denom');
+      if (tokenDenom === denom) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        amount = get(aminoMsg.value.amount, '[0].amount');
+        return true;
+      }
+    }
+    return false;
+  });
+  if (amountFound) {
+    return amount;
+  }
+
+  const protoMsgs = tx.msg?.protoMsgs ?? [];
+  amountFound = protoMsgs.some((protoMsg) => {
+    if (protoMsg.typeUrl === ECosmosMessageType.SEND) {
+      const sendMsg = MsgSend.decode(hexToBytes(protoMsg.value));
+      const tokenDenom = sendMsg.amount[0].denom;
+      if (tokenDenom === denom) {
+        amount = sendMsg.amount[0].amount;
+        return true;
+      }
+    }
+    return false;
+  });
+  if (amountFound) {
+    return amount;
+  }
+}
+
 export function getGas(signDoc: TransactionWrapper): number {
   if (signDoc.mode === 'amino') {
     const limit = getAminoSignDoc(signDoc).fee.gas;
