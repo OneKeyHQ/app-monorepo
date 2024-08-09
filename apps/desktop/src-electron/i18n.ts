@@ -54,3 +54,4 @@ export const initLocale = async () => {
 };
 
 export const i18nText = (key: ETranslations) => globalMessages[key];
+export { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
