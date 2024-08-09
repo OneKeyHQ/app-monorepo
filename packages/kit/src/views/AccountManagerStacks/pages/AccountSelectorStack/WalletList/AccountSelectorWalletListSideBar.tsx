@@ -145,8 +145,7 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
 
   const { md } = useMedia();
 
-  const isShowCloseButton =
-    md && (!platformEnv.isNative || platformEnv.isNativeAndroid);
+  const isShowCloseButton = md && !platformEnv.isNativeIOS;
   return (
     <Stack
       testID="account-selector-wallet-list"
