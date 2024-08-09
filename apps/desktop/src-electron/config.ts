@@ -43,6 +43,7 @@ export const ipcMessageKeys = {
   APP_SET_IDLE_TIME: 'app/setIdleTime',
   APP_OPEN_DEV_TOOLS: 'app/openDevTools',
   APP_OPEN_SETTINGS: 'app/openSettings',
+  APP_CHANGE_LANGUAGE: 'app/changeLanguage',
   APP_LOCK_NOW: 'app/lockNow',
   APP_GET_ENV_PATH: 'app/getEnvPath',
 

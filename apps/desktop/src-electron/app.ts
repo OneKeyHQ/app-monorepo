@@ -489,7 +489,7 @@ function createMainWindow() {
   ipcMain.on(ipcMessageKeys.APP_OPEN_DEV_TOOLS, () => {
     store.setDevTools(true);
     setTimeout(() => {
-      void app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+      app.relaunch();
       app.exit(0);
     }, 10);
   });
@@ -545,6 +545,14 @@ function createMainWindow() {
     logger.debug('restoreMainWindow receive');
     showMainWindow();
     event.reply(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, true);
+  });
+
+  ipcMain.on(ipcMessageKeys.APP_CHANGE_LANGUAGE, (event, lang: string) => {
+    store.setLanguage(lang);
+    setTimeout(() => {
+      app.relaunch();
+      app.exit();
+    }, 50);
   });
 
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {

@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import logger from 'electron-log';
 import { isFunction } from 'lodash';
 
 import type {
@@ -8,6 +9,8 @@ import type {
 } from '@onekeyhq/shared/src/locale';
 import { LOCALES } from '@onekeyhq/shared/src/locale/localeJsonMap';
 
+import * as store from './libs/store';
+
 let globalLocale = 'en-US' as ILocaleSymbol;
 let globalMessages: Record<ETranslations, string> = {} as unknown as Record<
   ETranslations,
@@ -15,7 +18,9 @@ let globalMessages: Record<ETranslations, string> = {} as unknown as Record<
 >;
 const getLocale = () => {
   const locales = Object.keys(LOCALES) as ILocaleSymbol[];
-  const current = app.getLocale();
+  const storeLocale = store.getLanguage();
+  logger.info('store locale >>>> ', storeLocale);
+  const current = storeLocale === 'system' ? app.getLocale() : storeLocale;
 
   for (let i = 0; i < locales.length; i += 1) {
     const locale = locales[i];

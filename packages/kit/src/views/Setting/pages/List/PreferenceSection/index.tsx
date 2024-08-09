@@ -11,6 +11,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations, type ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -87,7 +88,11 @@ const LanguageListItem = () => {
   const onChange = useCallback(async (text: string) => {
     await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
     setTimeout(() => {
-      backgroundApiProxy.serviceApp.restartApp();
+      if (platformEnv.isDesktop) {
+        window.desktopApi.changeLanguage(text);
+      } else {
+        backgroundApiProxy.serviceApp.restartApp();
+      }
     }, 0);
   }, []);
   return (
