@@ -62,6 +62,8 @@ export enum EAppEventBusNames {
   AccountDataUpdate = 'AccountDataUpdate',
   onDragBeginInListView = 'onDragBeginInListView',
   onDragEndInListView = 'onDragEndInListView',
+  SidePanel_BgToUI = 'SidePanel_BgToUI',
+  SidePanel_UIToBg = 'SidePanel_UIToBg',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -177,6 +179,18 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.AccountDataUpdate]: undefined;
   [EAppEventBusNames.onDragBeginInListView]: undefined;
   [EAppEventBusNames.onDragEndInListView]: undefined;
+  [EAppEventBusNames.SidePanel_BgToUI]: {
+    type: 'pushModal';
+    payload: {
+      modalParams: any;
+    };
+  };
+  [EAppEventBusNames.SidePanel_UIToBg]: {
+    type: 'dappRejectId';
+    payload: {
+      rejectId: number | string;
+    };
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
