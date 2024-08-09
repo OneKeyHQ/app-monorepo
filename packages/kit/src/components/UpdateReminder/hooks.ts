@@ -109,10 +109,12 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   const checkForUpdates = useCallback(async () => {
     const response =
       await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
-    if (response?.isForceUpdate && isNeedUpdate(response.latestVersion)) {
-      toUpdatePreviewPage(true, response);
-    }
-  }, [toUpdatePreviewPage]);
+    return {
+      isForceUpdate: !!response?.isForceUpdate,
+      isNeedUpdate: isNeedUpdate(response?.latestVersion),
+      response,
+    };
+  }, []);
 
   // run only once
   useEffect(() => {
@@ -125,7 +127,13 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     if (appUpdateInfo.status === EAppUpdateStatus.downloading) {
       void downloadPackage(appUpdateInfo);
     }
-    void checkForUpdates();
+    void checkForUpdates().then(
+      ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+        if (isForceUpdate && needUpdate) {
+          toUpdatePreviewPage(true, response);
+        }
+      },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
