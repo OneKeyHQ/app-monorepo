@@ -120,12 +120,15 @@ const initMenu = () => {
           },
         ]
       : []),
-    // remove `Reload`, 'Force reload' and 'Toggle Developer Tools' from `View` menu
-    isDev || store.getDevTools()
-      ? { role: 'viewMenu' }
-      : {
+     {
           label: 'View',
           submenu: [
+            ...(isDev || store.getDevTools()) ? [
+              { type: 'reload' },
+              { type: 'forceReload' },
+              { type: 'toggleDevTools' },
+              { type: 'separator' }]
+            : [],
             { role: 'resetZoom', label: i18nText(ETranslations.menu_actual_size) },
             { role: 'zoomIn', label: i18nText(ETranslations.menu_zoom_in)  },
             { role: 'zoomOut', label: i18nText(ETranslations.menu_zoom_out)  },
