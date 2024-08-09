@@ -111,8 +111,7 @@ const template = [
               },
             },
             { type: 'separator' },
-            { role: 'hide' },
-            { role: 'hideOthers' },
+            { role: 'hide', accelerator: 'Alt+CmdOrCtrl+H' },
             { role: 'unhide' },
             { type: 'separator' },
             { role: 'quit' },
@@ -120,7 +119,6 @@ const template = [
         },
       ]
     : []),
-  { role: 'editMenu' },
   // remove `Reload`, 'Force reload' and 'Toggle Developer Tools' from `View` menu
   isDev || store.getDevTools()
     ? { role: 'viewMenu' }
