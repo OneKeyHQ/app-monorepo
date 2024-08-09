@@ -61,7 +61,7 @@ export const useDownloadPackage = () => {
   );
 };
 
-export const useAppUpdateInfo = (isFullModal = false) => {
+export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   const intl = useIntl();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
@@ -106,24 +106,26 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     ],
   );
 
+  const checkForUpdates = useCallback(async () => {
+    const response =
+      await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
+    if (response?.isForceUpdate && isNeedUpdate(response.latestVersion)) {
+      toUpdatePreviewPage(true, response);
+    }
+  }, [toUpdatePreviewPage]);
+
   // run only once
   useEffect(() => {
+    if (!autoCheck) {
+      return;
+    }
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
       onViewReleaseInfo();
     }
     if (appUpdateInfo.status === EAppUpdateStatus.downloading) {
       void downloadPackage(appUpdateInfo);
     }
-    void backgroundApiProxy.serviceAppUpdate
-      .fetchAppUpdateInfo()
-      .then((response) => {
-        if (
-          response?.isForceUpdate &&
-          isNeedUpdate(response.latestVersion, response.status)
-        ) {
-          toUpdatePreviewPage(true, response);
-        }
-      });
+    void checkForUpdates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -162,7 +164,14 @@ export const useAppUpdateInfo = (isFullModal = false) => {
       onUpdateAction,
       toUpdatePreviewPage,
       onViewReleaseInfo,
+      checkForUpdates,
     }),
-    [appUpdateInfo, onUpdateAction, onViewReleaseInfo, toUpdatePreviewPage],
+    [
+      appUpdateInfo,
+      checkForUpdates,
+      onUpdateAction,
+      onViewReleaseInfo,
+      toUpdatePreviewPage,
+    ],
   );
 };
