@@ -11,6 +11,7 @@ import { SwapScope } from './scopes/swap';
 import { TokenScope } from './scopes/token';
 import { TransactionScope } from './scopes/transaction';
 import { UpdateScope } from './scopes/update';
+import { FiatCryptoScope } from './scopes/fiatCrypto'
 
 class Logger {
   account = new AccountScope();
@@ -38,6 +39,8 @@ class Logger {
   transaction = new TransactionScope();
 
   hardware = new HardwareScope();
+
+  fiatCrypto = new FiatCryptoScope();
 }
 
 export const defaultLogger = new Logger();
