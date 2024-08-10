@@ -55,10 +55,18 @@ const getColors = (
 function UpdateErrorTroubleshooting() {
   const intl = useIntl();
 
+  let messageIntlKey;
+  if (platformEnv.isNative) {
+    messageIntlKey = ETranslations.update_troubleshoot_connection_issues_mobile;
+  } else if (platformEnv.isDesktop) {
+    messageIntlKey =
+      ETranslations.update_troubleshoot_connection_issues_desktop;
+  } else {
+    messageIntlKey = ETranslations.update_troubleshoot_connection_issues;
+  }
+
   const message = intl.formatMessage({
-    id: platformEnv.isNative
-      ? ETranslations.update_troubleshoot_connection_issues_mobile
-      : ETranslations.update_troubleshoot_connection_issues,
+    id: messageIntlKey,
     defaultMessage:
       'If you have any questions, please refer to the troubleshooting guide.',
   });
