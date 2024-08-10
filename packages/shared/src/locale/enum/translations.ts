@@ -1,5 +1,4 @@
 // This file is automatically created by `yarn fetch:locale`.
-// This file is automatically created by `yarn fetch:locale`.
 export enum ETranslations {
   Toast_web_auth = 'Toast_web_auth',
   Token_manage_custom_token_address_faild = 'Token_manage.custom_token_address_faild',
