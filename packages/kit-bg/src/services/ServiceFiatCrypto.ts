@@ -16,6 +16,7 @@ import type {
 } from '@onekeyhq/shared/types/fiatCrypto';
 
 import ServiceBase from './ServiceBase';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 @backgroundClass()
 class ServiceFiatCrypto extends ServiceBase {
@@ -98,6 +99,7 @@ class ServiceFiatCrypto extends ServiceBase {
       address,
       type: params.type,
     });
+    defaultLogger.fiatCrypto.request.getTokensList({ params, result });
     return result;
   }
 
