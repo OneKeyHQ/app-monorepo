@@ -623,13 +623,14 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         });
         if (!isNil(index)) {
           let shouldUseV4AccountName = false;
-          // TODO sort EVM account to first
           if (
             v4account.coinType === COINTYPE_ETH &&
-            v4account.name !== `EVM #${index + 1}`
+            v4account.name !== `EVM #${index + 1}` &&
+            v4account.name !== `Ledger Live #${index + 1}`
           ) {
             shouldUseV4AccountName = true;
           }
+
           // console.log('v4migration addIndexedAccount', v4account, {
           //   index,
           //   shouldUseV4AccountName,
@@ -653,7 +654,6 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             });
             if (
               shouldUseV4AccountName &&
-              index === 0 &&
               indexedAccount &&
               accountUtils.buildIndexedAccountName({
                 pathIndex: index,

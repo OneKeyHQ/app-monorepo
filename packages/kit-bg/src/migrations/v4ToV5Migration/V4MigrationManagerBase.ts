@@ -8,9 +8,9 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import v4dbHubs from './v4dbHubs';
 import { EV4LocalDBStoreNames } from './v4local/v4localDBStoreNames';
 
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { V4DbHubs } from './v4dbHubs';
 import type { IV4DBAccount, IV4DBWallet } from './v4local/v4localDBTypes';
-import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 export class V4MigrationManagerBase {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
@@ -45,7 +45,16 @@ export class V4MigrationManagerBase {
       ids: v4wallet.accounts,
     });
     const v4accounts: IV4DBAccount[] = r?.records || [];
-    const result = v4accounts.filter(Boolean).sort((a) => {
+    const result = v4accounts.filter(Boolean).sort((a, b) => {
+      if (a.coinType === COINTYPE_ETH && b.coinType === COINTYPE_ETH) {
+        // BIP44 first, Ledger live second
+        if (a?.id?.endsWith?.('--LedgerLive')) {
+          return 1;
+        }
+        return 0;
+      }
+
+      // EVM first
       if (a.coinType === COINTYPE_ETH) {
         return -1;
       }
