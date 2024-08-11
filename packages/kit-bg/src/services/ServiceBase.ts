@@ -53,14 +53,14 @@ export default class ServiceBase {
         platformEnv.isDev && process.env.ONEKEY_PROXY
           ? {
               baseURL: platformEnv.isExtension ? 'http://localhost:3180' : '/',
-              timeout: 60 * 1000,
+              timeout: 30 * 1000,
               headers: {
                 'X-OneKey-Dev-Proxy': endpoint,
               },
             }
           : {
               baseURL: endpoint,
-              timeout: 60 * 1000,
+              timeout: 30 * 1000,
             };
       const client = axios.create(options);
       clients[endpointName] = client;
