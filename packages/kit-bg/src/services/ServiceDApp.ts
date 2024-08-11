@@ -53,7 +53,6 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-import { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 
 function buildModalRouteParams({
   screens = [],
@@ -294,7 +293,7 @@ class ServiceDApp extends ServiceBase {
     signOnly,
   }: {
     request: IJsBridgeMessagePayload;
-    encodedTx: IEncodedTxBtc;
+    encodedTx: IEncodedTx;
     accountId: string;
     networkId: string;
     transfersInfo?: ITransferInfo[];

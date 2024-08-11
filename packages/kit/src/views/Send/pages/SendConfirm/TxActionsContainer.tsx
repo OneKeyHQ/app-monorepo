@@ -134,6 +134,7 @@ function TxActionsContainer(props: IProps) {
   }, [
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
+    network?.feeMeta.maxSendFeeUpRatio,
     networkId,
     r.result,
     sendSelectedFeeInfo,
