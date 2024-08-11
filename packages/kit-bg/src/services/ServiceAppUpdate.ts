@@ -45,8 +45,9 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAppLatestInfo() {
+  async getAppLatestInfo(forceUpdate = false) {
     if (
+      !forceUpdate &&
       Date.now() - this.updateAt <
         timerUtils.getTimeDurationMs({
           minute: 5,
@@ -180,19 +181,19 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchAppUpdateInfo() {
+  public async fetchAppUpdateInfo(forceUpdate = false) {
     await this.refreshUpdateStatus();
     // downloading app or ready to update via local package
     if (!(await this.isNeedSyncAppUpdateInfo())) {
       return;
     }
 
-    const releaseInfo = await this.getAppLatestInfo();
+    const releaseInfo = await this.getAppLatestInfo(forceUpdate);
     if (releaseInfo?.version) {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         ...releaseInfo,
-        latestVersion: releaseInfo?.version || prev.latestVersion,
+        latestVersion: releaseInfo.version || prev.latestVersion,
         updateAt: Date.now(),
         status:
           releaseInfo?.version && releaseInfo.version !== prev.latestVersion

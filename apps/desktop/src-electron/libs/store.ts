@@ -2,6 +2,8 @@ import { safeStorage } from 'electron';
 import logger from 'electron-log';
 import Store from 'electron-store';
 
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+
 const store = new Store({ name: 'OneKey' });
 
 export type ILocalStore = {
@@ -20,6 +22,7 @@ const configKeys = {
   DevTools: 'devTools',
   Theme: 'theme',
   EncryptedData: 'EncryptedData',
+  Language: 'language',
 };
 
 export const getUpdateSettings = (): IUpdateSettings =>
@@ -40,6 +43,12 @@ export const setDevTools = (devTools: boolean) => {
 export const getTheme = () => store.get(configKeys.Theme, 'system') as string;
 
 export const setTheme = (theme: string) => store.set(configKeys.Theme, theme);
+
+export const getLanguage = () =>
+  store.get(configKeys.Language, 'system') as ILocaleSymbol;
+
+export const setLanguage = (lang: string) =>
+  store.set(configKeys.Language, lang);
 
 export const getWinBounds = (): Electron.Rectangle =>
   store.get(configKeys.WinBounds, {}) as Electron.Rectangle;

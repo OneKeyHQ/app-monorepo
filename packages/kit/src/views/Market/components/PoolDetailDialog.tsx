@@ -156,7 +156,7 @@ export function PoolDetailDialog({
         </PoolDetailsItem>
         <PoolDetailsItem
           title={intl.formatMessage({
-            id: ETranslations.global_age,
+            id: ETranslations.market_days_since_launch,
           })}
         >
           {intl.formatMessage(

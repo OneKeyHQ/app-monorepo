@@ -27,6 +27,21 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+export const useOnLock = () => {
+  const navigation = useAppNavigation();
+  const [passwordSetting] = usePasswordPersistAtom();
+  const onLock = useCallback(async () => {
+    if (passwordSetting.isPasswordSet) {
+      await backgroundApiProxy.servicePassword.lockApp();
+    } else {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      await backgroundApiProxy.servicePassword.lockApp();
+    }
+    navigation.popStack();
+  }, [passwordSetting.isPasswordSet, navigation]);
+  return onLock;
+};
+
 const AddressBookItem = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -77,17 +92,7 @@ const AddressBookItem = () => {
 
 const LockNowButton = () => {
   const intl = useIntl();
-  const navigation = useAppNavigation();
-  const [passwordSetting] = usePasswordPersistAtom();
-  const onLock = useCallback(async () => {
-    if (passwordSetting.isPasswordSet) {
-      await backgroundApiProxy.servicePassword.lockApp();
-    } else {
-      await backgroundApiProxy.servicePassword.promptPasswordVerify();
-      await backgroundApiProxy.servicePassword.lockApp();
-    }
-    navigation.popStack();
-  }, [passwordSetting.isPasswordSet, navigation]);
+  const onLock = useOnLock();
   return (
     <ListItem
       icon="LockOutline"

@@ -46,6 +46,7 @@ export type IDesktopAPI = {
   getEnvPath: () => { [key: string]: string };
   openDevTools: () => void;
   changeTheme: (theme: string) => void;
+  changeLanguage: (theme: string) => void;
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
   secureGetItemAsync: (key: string) => Promise<string | null>;
@@ -139,6 +140,9 @@ const validChannels = [
   ipcMessageKeys.UPDATE_ERROR,
   ipcMessageKeys.UPDATE_DOWNLOADING,
   ipcMessageKeys.UPDATE_DOWNLOADED,
+  ipcMessageKeys.CHECK_FOR_UPDATES,
+  ipcMessageKeys.APP_OPEN_SETTINGS,
+  ipcMessageKeys.APP_LOCK_NOW,
   ipcMessageKeys.TOUCH_UPDATE_RES_SUCCESS,
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
 ];
@@ -197,6 +201,9 @@ const desktopApi = {
   openDevTools: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_DEV_TOOLS),
   changeTheme: (theme: string) =>
     ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme),
+  changeLanguage: (lang: string) => {
+    ipcRenderer.send(ipcMessageKeys.APP_CHANGE_LANGUAGE, lang);
+  },
   canPromptTouchID: () =>
     ipcRenderer.sendSync(ipcMessageKeys.TOUCH_ID_CAN_PROMPT) as boolean,
   getEnvPath: () =>
@@ -252,7 +259,6 @@ const desktopApi = {
   restore: () => {
     ipcRenderer.send(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW);
   },
-
   startServer: (port: number, cb: (data: string, success: boolean) => void) => {
     ipcRenderer.on(ipcMessageKeys.SERVER_START_RES, (_, arg) => {
       const { data, success } = arg;
