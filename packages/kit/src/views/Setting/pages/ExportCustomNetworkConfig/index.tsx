@@ -81,7 +81,7 @@ const ExportCustomRPC = () => {
     try {
       const rpcUrlItems =
         await backgroundApiProxy.serviceV4Migration.getV4CustomRpcUrls();
-      if (!rpcUrlItems) {
+      if (!rpcUrlItems || rpcUrlItems.length === 0) {
         setEmpty(true);
         return;
       }
