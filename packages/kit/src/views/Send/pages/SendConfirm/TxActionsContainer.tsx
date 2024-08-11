@@ -97,10 +97,11 @@ function TxActionsContainer(props: IProps) {
 
       const nativeTokenBalanceBN = new BigNumber(nativeTokenInfo.balance);
       const feeBN = new BigNumber(sendSelectedFeeInfo?.totalNative ?? 0);
+
       if (
         transferPayload?.isMaxSend &&
         isSendNativeTokenOnly &&
-        nativeTokenTransferBN.plus(feeBN).gt(nativeTokenBalanceBN)
+        nativeTokenTransferBN.plus(feeBN).gte(nativeTokenBalanceBN)
       ) {
         const transferAmountBN = BigNumber.min(
           nativeTokenBalanceBN,
