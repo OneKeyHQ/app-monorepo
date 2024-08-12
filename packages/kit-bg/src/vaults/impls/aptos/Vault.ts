@@ -8,7 +8,7 @@ import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InvalidAccount,
-  OneKeyError,
+  ManageTokenInsufficientBalanceError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -528,8 +528,7 @@ export default class VaultAptos extends VaultBase {
       );
     } catch (e) {
       if (e instanceof InvalidAccount) {
-        throw new OneKeyError({
-          key: ETranslations.manage_token_account_no_found,
+        throw new ManageTokenInsufficientBalanceError({
           info: {
             token: 'APT',
           },
