@@ -138,7 +138,7 @@ export const DevSettingsSection = () => {
         <>
           <SectionPressItem
             title="Open Chrome DevTools in Desktop"
-            subtitle="重启后会使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
+            subtitle="启用后可以使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
             onPress={handleOpenDevTools}
           />
           <SectionPressItem
