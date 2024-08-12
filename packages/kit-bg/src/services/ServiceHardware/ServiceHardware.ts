@@ -22,6 +22,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -47,8 +48,10 @@ import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type {
+  IDeviceHomeScreenConfig,
   IGetDeviceAdvanceSettingsParams,
   IGetDeviceLabelParams,
+  ISetDeviceHomeScreenParams,
   ISetDeviceLabelParams,
   ISetInputPinOnSoftwareParams,
   ISetPassphraseEnabledParams,
@@ -766,6 +769,37 @@ class ServiceHardware extends ServiceBase {
       }
     }
     return result;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setDeviceHomeScreen(p: ISetDeviceHomeScreenParams) {
+    return this.deviceSettingsManager.setDeviceHomeScreen(p);
+  }
+
+  @backgroundMethod()
+  async getDeviceHomeScreenConfig({
+    dbDeviceId,
+    homeScreenType,
+  }: {
+    dbDeviceId: string | undefined;
+    homeScreenType: 'WallPaper' | 'Nft';
+  }): Promise<IDeviceHomeScreenConfig> {
+    const { getHomeScreenDefaultList, getHomeScreenSize } =
+      await CoreSDKLoader();
+    const device = await localDb.getDevice(checkIsDefined(dbDeviceId));
+    const names = getHomeScreenDefaultList(device.featuresInfo || ({} as any));
+    const size = getHomeScreenSize({
+      deviceType: device.deviceType,
+      homeScreenType,
+      thumbnail: false,
+    });
+    const thumbnailSize = getHomeScreenSize({
+      deviceType: device.deviceType,
+      homeScreenType,
+      thumbnail: true,
+    });
+    return { names, size, thumbnailSize };
   }
 
   @backgroundMethod()
