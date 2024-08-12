@@ -1,7 +1,6 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 
 import { EAccountSelectorSceneName } from '../../types';
-import { NETWORK_ID_ETC } from '../config/networkIds';
 
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
@@ -110,9 +109,10 @@ function buildGlobalDeriveTypesMapKey({ networkId }: { networkId: string }) {
   const impl = networkUtils.getNetworkImpl({
     networkId,
   });
-  const useNetworkId = [NETWORK_ID_ETC].includes(networkId);
-  const key = useNetworkId ? networkId : impl;
-  return key;
+  return impl;
+  // const useNetworkId = [NETWORK_ID_ETC].includes(networkId);
+  // const key = useNetworkId ? networkId : impl;
+  // return key;
 }
 
 function isSceneCanPersist({
