@@ -513,8 +513,8 @@ function createMainWindow() {
     };
   });
 
-  ipcMain.on(ipcMessageKeys.APP_OPEN_DEV_TOOLS, () => {
-    store.setDevTools(true);
+  ipcMain.on(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, (event, isOpen) => {
+    store.setDevTools(isOpen);
     refreshMenu();
   });
 

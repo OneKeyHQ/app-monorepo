@@ -50,7 +50,7 @@ export type IElectronWebView = {
   reload: () => void;
   loadURL: (...args: any) => void;
   closeDevTools: () => void;
-  openDevTools: () => void;
+  changeDevTools: () => void;
   getURL: () => string;
   getTitle: () => string;
   src: string;
