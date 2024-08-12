@@ -31,7 +31,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -68,11 +67,6 @@ import {
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
 
 import type {
-  IPromiseContainerCallbackCreate,
-  IPromiseContainerReject,
-  IPromiseContainerResolve,
-} from '../ServicePromise';
-import type {
   CoreApi,
   Success as CoreSuccess,
   DeviceUploadResourceParams,
@@ -80,6 +74,11 @@ import type {
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
+import type {
+  IPromiseContainerCallbackCreate,
+  IPromiseContainerReject,
+  IPromiseContainerResolve,
+} from '../ServicePromise';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -1275,6 +1274,25 @@ class ServiceFirmwareUpdate extends ServiceBase {
             connectId: params.releaseResult.originalConnectId,
           });
         }
+
+        // refresh features
+        void (async () => {
+          await timerUtils.wait(2000);
+          try {
+            await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+              connectId: params.releaseResult.originalConnectId,
+            });
+          } catch (error) {
+            //
+          }
+          try {
+            await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+              connectId: params.releaseResult.updatingConnectId,
+            });
+          } catch (error) {
+            //
+          }
+        })();
       },
       {
         deviceParams: {
