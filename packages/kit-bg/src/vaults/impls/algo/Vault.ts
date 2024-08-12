@@ -12,7 +12,12 @@ import {
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { ManageTokenInsufficientBalanceError, OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  ManageTokenInsufficientBalanceError,
+  OneKeyError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -63,7 +68,6 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.algo.hd;
@@ -509,15 +513,15 @@ export default class Vault extends VaultBase {
       return !!signedTx.signedTx.txid;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     } catch (e: any) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       if (e.message.includes(`overspend (account ${dbAccount.address}`)) {
         throw new ManageTokenInsufficientBalanceError({
           info: {
-            token: 'Algo'
+            token: 'Algo',
           },
         });
       }
-      throw e
+      throw e;
     }
   }
 }
