@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
@@ -101,8 +101,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     isOthersWallet,
   });
 
-  const refreshAllNetworksTokenList = useRef(false);
-
   const media = useMedia();
   const navigation = useAppNavigation();
 
@@ -182,6 +180,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         });
 
         updateAccountWorth({
+          accountId: account.id,
+          initialized: true,
           worth: accountWorth.toFixed(),
           merge: false,
         });
@@ -300,11 +300,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         allNetworksNetworkId: network?.id,
       });
 
-      if (
-        !allNetworkDataInit &&
-        !refreshAllNetworksTokenList.current &&
-        r.isSameAllNetworksAccountData
-      ) {
+      if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
         let accountWorth = new BigNumber(0);
         accountWorth = accountWorth
           .plus(r.tokens.fiatValue ?? '0')
@@ -323,6 +319,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         });
 
         updateAccountWorth({
+          accountId: account?.id ?? '',
+          initialized: true,
           worth: accountWorth.toFixed(),
           merge: true,
         });
@@ -476,7 +474,14 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   );
 
   const handleAllNetworkRequestsStarted = useCallback(
-    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+    ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+      allNetworkDataInit?: boolean;
+    }) => {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.TOKENS,
@@ -539,7 +544,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     let accountWorth = new BigNumber(0);
     let smallBalanceTokensFiatValue = new BigNumber(0);
 
-    if (refreshAllNetworksTokenList.current && allNetworksResult) {
+    if (allNetworksResult) {
       for (const r of allNetworksResult) {
         const mergeDeriveAssetsEnabled = (
           await backgroundApiProxy.serviceNetwork.getVaultSettings({
@@ -629,7 +634,11 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         map: riskyTokenListMap,
       });
 
-      updateAccountWorth({ worth: accountWorth.toFixed() });
+      updateAccountWorth({
+        accountId: account?.id ?? '',
+        initialized: true,
+        worth: accountWorth.toFixed(),
+      });
 
       refreshTokenList(tokenList);
 
@@ -651,6 +660,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       });
     }
   }, [
+    account?.id,
     allNetworksResult,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
@@ -679,7 +689,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         isRefreshing: true,
       });
       updateSearchKey('');
-      refreshAllNetworksTokenList.current = false;
       void backgroundApiProxy.serviceToken.updateCurrentAccount({
         networkId: network.id,
         accountId: account.id,
@@ -724,7 +733,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   );
 
   const handleRefreshAllNetworkData = useCallback(() => {
-    refreshAllNetworksTokenList.current = true;
     void runAllNetworksRequests({ alwaysSetState: true });
   }, [runAllNetworksRequests]);
 

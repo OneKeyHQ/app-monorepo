@@ -1005,8 +1005,6 @@ export default class Vault extends VaultBase {
   }): Promise<IEncodedTxSol> {
     const { encodedTx, feeInfo } = params;
     const client = await this.getClient();
-    const { recentBlockhash, lastValidBlockHeight } =
-      await this._getRecentBlockHash();
 
     if (feeInfo.feeSol) {
       let isComputeUnitPriceExist = false;
@@ -1065,13 +1063,10 @@ export default class Vault extends VaultBase {
             prioritizationFeeInstruction,
           );
         }
-        versionedTransactionMessage.recentBlockhash = recentBlockhash;
         nativeTx.message = versionedTransactionMessage.compileToV0Message(
           addressLookupTableAccounts,
         );
       } else if (isTransaction) {
-        nativeTx.recentBlockhash = recentBlockhash;
-        nativeTx.lastValidBlockHeight = lastValidBlockHeight;
         if (!isComputeUnitPriceExist) {
           nativeTx.instructions.unshift(prioritizationFeeInstruction);
         }
