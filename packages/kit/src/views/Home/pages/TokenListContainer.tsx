@@ -180,6 +180,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         });
 
         updateAccountWorth({
+          accountId: account.id,
+          initialized: true,
           worth: accountWorth.toFixed(),
           merge: false,
         });
@@ -317,6 +319,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         });
 
         updateAccountWorth({
+          accountId: account?.id ?? '',
+          initialized: true,
           worth: accountWorth.toFixed(),
           merge: true,
         });
@@ -470,7 +474,14 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   );
 
   const handleAllNetworkRequestsStarted = useCallback(
-    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+    ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+      allNetworkDataInit?: boolean;
+    }) => {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.TOKENS,
@@ -623,7 +634,11 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         map: riskyTokenListMap,
       });
 
-      updateAccountWorth({ worth: accountWorth.toFixed() });
+      updateAccountWorth({
+        accountId: account?.id ?? '',
+        initialized: true,
+        worth: accountWorth.toFixed(),
+      });
 
       refreshTokenList(tokenList);
 
@@ -645,6 +660,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       });
     }
   }, [
+    account?.id,
     allNetworksResult,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,

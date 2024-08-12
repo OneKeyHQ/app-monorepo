@@ -67,9 +67,11 @@ function useAllNetworkRequests<T>(params: {
   onStarted?: ({
     accountId,
     networkId,
+    allNetworkDataInit,
   }: {
     accountId?: string;
     networkId?: string;
+    allNetworkDataInit?: boolean;
   }) => void;
   onFinished?: ({
     accountId,
@@ -150,6 +152,7 @@ function useAllNetworkRequests<T>(params: {
       onStarted?.({
         accountId: account.id,
         networkId: network.id,
+        allNetworkDataInit: allNetworkDataInit.current,
       });
 
       currentRequestsUUID.current = requestsUUID;
