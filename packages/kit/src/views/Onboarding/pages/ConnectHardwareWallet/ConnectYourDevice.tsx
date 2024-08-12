@@ -1,11 +1,5 @@
-import {
-  ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { get } from 'lodash';
@@ -829,7 +823,7 @@ function ConnectByUSBOrBLE({
     if (connectStatus === EConnectionStatus.listing) {
       const timer = setTimeout(() => {
         setShowHelper(true);
-      }, 10000);
+      }, 10_000);
 
       return () => clearTimeout(timer);
     }
@@ -962,7 +956,7 @@ function ConnectByUSBOrBLE({
         ) : (
           <Accordion type="single" defaultValue="0" collapsible>
             {troubleshootingSolutions.map((list, index) => (
-              <Accordion.Item value={index.toString()}>
+              <Accordion.Item value={index.toString()} key={index.toString()}>
                 <Accordion.Trigger
                   unstyled
                   flexDirection="row"
