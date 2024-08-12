@@ -90,9 +90,8 @@ const LanguageListItem = () => {
     setTimeout(() => {
       if (platformEnv.isDesktop) {
         window.desktopApi.changeLanguage(text);
-      } else {
-        backgroundApiProxy.serviceApp.restartApp();
       }
+      backgroundApiProxy.serviceApp.restartApp();
     }, 0);
   }, []);
   return (

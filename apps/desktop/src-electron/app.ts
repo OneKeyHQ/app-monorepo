@@ -549,9 +549,9 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_CHANGE_LANGUAGE, (event, lang: string) => {
     store.setLanguage(lang);
-    setTimeout(() => {
-      app.relaunch();
-      app.exit();
+    setTimeout(async () => {
+      await initLocale();
+      initMenu();
     }, 50);
   });
 
