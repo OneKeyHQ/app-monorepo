@@ -991,6 +991,7 @@
   "login.welcome_message": "ফিরে আসার জন্য স্বাগতম",
   "low_value_assets": "নিম্ন-মূল্যের সম্পত্তি",
   "low_value_assets_desc": "আপনার মোট সম্পত্তির 0.1% এর চেয়ে কম এবং $1,000 এর চেয়ে কম মূল্যবান সম্পত্তি এই বিভাগে পড়ে।",
+  "manage_token.account_no_found": "নেটওয়ার্ক ফি মেটানোর জন্য {token} অপর্যাপ্ত। দয়া করে আরও {token} যোগ করুন এবং পুনরায় চেষ্টা করুন।",
   "manage_token.added_token": "টোকেন যোগ করা হয়েছে",
   "manage_token.custom_token_add": "2. যোগ করুন",
   "manage_token.custom_token_add_btn": "যোগ করুন",

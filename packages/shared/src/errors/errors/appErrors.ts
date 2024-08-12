@@ -845,3 +845,17 @@ export class CanNotSendZeroAmountError extends OneKeyError {
     );
   }
 }
+
+export type IManageTokenInsufficientBalanceErrorInfo = {
+  token: string;
+};
+export class ManageTokenInsufficientBalanceError extends OneKeyError<IManageTokenInsufficientBalanceErrorInfo> {
+  constructor(props?: IOneKeyError<IManageTokenInsufficientBalanceErrorInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ManageTokenInsufficientBalanceError',
+        defaultKey: ETranslations.manage_token_account_no_found,
+      }),
+    );
+  }
+}

@@ -991,6 +991,7 @@
   "login.welcome_message": "おかえりなさい",
   "low_value_assets": "低価値資産",
   "low_value_assets_desc": "総資産の0.1％以下で、かつ1,000ドル未満の資産は、このカテゴリに分類されます。",
+  "manage_token.account_no_found": "ネットワーク料金をカバーするための{token}が不足しています。もっと{token}を追加して、再試行してください。",
   "manage_token.added_token": "トークンを追加しました",
   "manage_token.custom_token_add": "2. 追加する",
   "manage_token.custom_token_add_btn": "追加",
