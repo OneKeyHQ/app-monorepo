@@ -20,7 +20,7 @@ export type ITokenListItemProps = {
   withPrice?: boolean;
   withNetwork?: boolean;
   isAllNetworks?: boolean;
-  isTokenSelectorLayout?: boolean;
+  isTokenSelector?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
@@ -31,7 +31,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     withPrice,
     isAllNetworks,
     withNetwork,
-    isTokenSelectorLayout,
+    isTokenSelector,
     ...rest
   } = props;
 
@@ -59,7 +59,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         })}
       >
         <TokenNameView
-          name={isTokenSelectorLayout ? token.symbol : token.name}
+          name={isTokenSelector ? token.symbol : token.name}
           isNative={token.isNative}
           isAllNetworks={isAllNetworks}
           networkId={token.networkId}
@@ -76,7 +76,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             },
           })}
         />
-        {isTokenSelectorLayout ? (
+        {isTokenSelector ? (
           <TokenNameView
             name={token.name}
             networkId={token.networkId}
@@ -102,7 +102,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       </Stack>
 
       <Stack
-        flexDirection={isTokenSelectorLayout ? 'column' : 'column-reverse'}
+        flexDirection={isTokenSelector ? 'column' : 'column-reverse'}
         alignItems="flex-end"
         flexShrink={1}
         {...(tableLayout && {
@@ -130,7 +130,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             <TokenPriceChangeView $key={token.$key ?? ''} size="$bodyMd" />
           </XStack>
         ) : null}
-        {isTokenSelectorLayout ? (
+        {isTokenSelector ? (
           <TokenBalanceView
             numberOfLines={1}
             textAlign="right"
@@ -143,7 +143,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             })}
           />
         ) : null}
-        {isTokenSelectorLayout ? (
+        {isTokenSelector ? (
           <TokenValueView
             numberOfLines={1}
             $key={token.$key ?? ''}

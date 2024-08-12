@@ -67,9 +67,11 @@ function useAllNetworkRequests<T>(params: {
   onStarted?: ({
     accountId,
     networkId,
+    allNetworkDataInit,
   }: {
     accountId?: string;
     networkId?: string;
+    allNetworkDataInit?: boolean;
   }) => void;
   onFinished?: ({
     accountId,
@@ -136,7 +138,7 @@ function useAllNetworkRequests<T>(params: {
       //   accountsInfoBackendNotIndexed,
       // );
 
-      let resp: Array<T> | null = [];
+      let resp: Array<T> | null = null;
 
       // if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
       if (accountsInfo.length === 0) {
@@ -150,6 +152,7 @@ function useAllNetworkRequests<T>(params: {
       onStarted?.({
         accountId: account.id,
         networkId: network.id,
+        allNetworkDataInit: allNetworkDataInit.current,
       });
 
       currentRequestsUUID.current = requestsUUID;

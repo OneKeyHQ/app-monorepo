@@ -28,6 +28,8 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       set,
       payload: {
         worth: string;
+        initialized: boolean;
+        accountId: string;
         merge?: boolean;
       },
     ) => {
@@ -37,11 +39,17 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
           worth: new BigNumber(worth ?? '0')
             .plus(payload.worth ?? '0')
             .toFixed(),
+          initialized: payload.initialized,
+          accountId: payload.accountId,
         });
         return;
       }
 
-      set(accountWorthAtom(), { worth: payload.worth });
+      set(accountWorthAtom(), {
+        worth: payload.worth,
+        initialized: payload.initialized,
+        accountId: payload.accountId,
+      });
     },
   );
 }

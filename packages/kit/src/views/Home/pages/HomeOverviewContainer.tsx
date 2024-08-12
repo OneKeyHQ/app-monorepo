@@ -73,7 +73,9 @@ function HomeOverviewContainer() {
       });
       if (network.isAllNetworks) {
         updateAccountWorth({
+          accountId: account.id,
           worth: '0',
+          initialized: false,
         });
       }
     }
@@ -125,7 +127,12 @@ function HomeOverviewContainer() {
   }, []);
 
   useEffect(() => {
-    if (account && network) {
+    if (
+      account &&
+      network &&
+      accountWorth.initialized &&
+      account.id === accountWorth.accountId
+    ) {
       if (
         (accountUtils.isOthersAccount({ accountId: account.id }) &&
           !network.isAllNetworks &&
@@ -154,6 +161,8 @@ function HomeOverviewContainer() {
     }
   }, [
     account,
+    accountWorth.accountId,
+    accountWorth.initialized,
     accountWorth.worth,
     network,
     setActiveAccountValueAtom,

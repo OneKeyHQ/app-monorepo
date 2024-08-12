@@ -66,11 +66,11 @@ function usePreloadJsUrl() {
 
 function getPartition(src: string) {
   try {
-    const url = new URL(src)
-    const value = `persist:${url.host}`
-    return value
+    const url = new URL(src);
+    const value = `persist:${url.host}`;
+    return value;
   } catch {
-    return `persist:onekey`
+    return `persist:onekey`;
   }
 }
 

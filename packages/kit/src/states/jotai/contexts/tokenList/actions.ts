@@ -30,6 +30,9 @@ import {
   tokenListAtom,
   tokenListMapAtom,
   tokenListStateAtom,
+  tokenSelectorSearchKeyAtom,
+  tokenSelectorSearchTokenListAtom,
+  tokenSelectorSearchTokenStateAtom,
 } from './atoms';
 
 class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
@@ -54,6 +57,32 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       },
     ) => {
       set(searchTokenListAtom(), { tokens: payload.tokens });
+    },
+  );
+
+  updateTokenSelectorSearchTokenState = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        isSearching: boolean;
+      },
+    ) => {
+      set(tokenSelectorSearchTokenStateAtom(), {
+        isSearching: payload.isSearching,
+      });
+    },
+  );
+
+  refreshTokenSelectorSearchTokenList = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        tokens: IAccountToken[];
+      },
+    ) => {
+      set(tokenSelectorSearchTokenListAtom(), { tokens: payload.tokens });
     },
   );
 
@@ -429,6 +458,12 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     set(searchKeyAtom(), value);
   });
 
+  updateTokenSelectorSearchKey = contextAtomMethod(
+    (get, set, value: string) => {
+      set(tokenSelectorSearchKeyAtom(), value);
+    },
+  );
+
   updateTokenListState = contextAtomMethod(
     (
       get,
@@ -494,6 +529,15 @@ export function useTokenListActions() {
 
   const updateCreateAccountState = actions.updateCreateAccountState.use();
 
+  const updateTokenSelectorSearchKey =
+    actions.updateTokenSelectorSearchKey.use();
+
+  const updateTokenSelectorSearchTokenState =
+    actions.updateTokenSelectorSearchTokenState.use();
+
+  const refreshTokenSelectorSearchTokenList =
+    actions.refreshTokenSelectorSearchTokenList.use();
+
   return useRef({
     refreshSearchTokenList,
     refreshAllTokenList,
@@ -509,5 +553,8 @@ export function useTokenListActions() {
     updateTokenListState,
     updateSearchTokenState,
     updateCreateAccountState,
+    updateTokenSelectorSearchKey,
+    updateTokenSelectorSearchTokenState,
+    refreshTokenSelectorSearchTokenList,
   });
 }
