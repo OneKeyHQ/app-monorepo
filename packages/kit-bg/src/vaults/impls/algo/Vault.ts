@@ -472,6 +472,9 @@ export default class Vault extends VaultBase {
   override async activateToken(params: {
     token: IAccountToken;
   }): Promise<boolean> {
+    if (params.token.isNative) {
+      return Promise.resolve(true);
+    }
     const { token } = params;
     const dbAccount = await this.getAccount();
     const client = await this.getClient();
