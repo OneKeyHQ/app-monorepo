@@ -211,6 +211,13 @@ const initMenu = () => {
   Menu.setApplicationMenu(menu);
 };
 
+const refreshMenu = () => {
+  setTimeout(async () => {
+    await initLocale();
+    initMenu();
+  }, 50);
+};
+
 const emitter = new EventEmitter();
 let isAppReady = false;
 function handleDeepLinkUrl(
@@ -488,10 +495,7 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_OPEN_DEV_TOOLS, () => {
     store.setDevTools(true);
-    setTimeout(() => {
-      app.relaunch();
-      app.exit(0);
-    }, 10);
+    refreshMenu();
   });
 
   ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
@@ -549,10 +553,7 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_CHANGE_LANGUAGE, (event, lang: string) => {
     store.setLanguage(lang);
-    setTimeout(() => {
-      app.relaunch();
-      app.exit();
-    }, 50);
+    refreshMenu();
   });
 
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
