@@ -1572,7 +1572,7 @@ const zircuit: IServerNetwork = {
     'isWithL1BaseFee': false,
   },
   'status': ENetworkStatus.LISTED,
-  'isTestnet': true,
+  'isTestnet': false,
   'extensions': {
     'position': 9999,
     'isTokenSupported': false,
@@ -1581,7 +1581,7 @@ const zircuit: IServerNetwork = {
   'logoURI': 'https://uni.onekey-asset.com/static/chain/zircuit.png',
   'defaultEnabled': false,
   'backendIndex': false,
-}
+};
 
 const btc: IServerNetwork = {
   'chainId': '0',
