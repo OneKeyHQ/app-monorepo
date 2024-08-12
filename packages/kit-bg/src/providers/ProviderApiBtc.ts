@@ -444,7 +444,8 @@ class ProviderApiBtc extends ProviderApiBase {
     },
   ) {
     const accountsInfo = await this.getAccountsInfo(request);
-    const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
+    const { accountInfo: { accountId, networkId, address } = {} } =
+      accountsInfo[0];
 
     if (!networkId || !accountId) {
       throw web3Errors.provider.custom({
@@ -483,6 +484,9 @@ class ProviderApiBtc extends ProviderApiBase {
           outputs: (decodedPsbt.outputInfos ?? []).map((v) => ({
             ...v,
             value: new BigNumber(v.value).toFixed(),
+            payload: {
+              isCharge: v.address === address,
+            },
           })),
           inputsForCoinSelect: [],
           outputsForCoinSelect: [],

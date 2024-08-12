@@ -72,6 +72,42 @@ const colorMap = {
   dark: ['rgba(70, 254, 165, 0.2)', 'rgba(255, 149, 146, 0.2)'],
 };
 
+const ROW_PROPS = {
+  gap: '$3',
+  px: '$3',
+  mx: '$2',
+};
+
+const HEADER_ROW_PROPS = {
+  minHeight: '$4',
+  py: '$2',
+  borderRadius: '$3',
+} as IStackStyle;
+
+function ListEmptyComponent({
+  columns,
+}: {
+  columns: ITableColumn<IMarketToken>[];
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const timerId = setTimeout(
+      () => {
+        setIsVisible(true);
+      },
+      platformEnv.isNative ? 350 : 50,
+    );
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, []);
+
+  return isVisible ? (
+    <Table.Skeleton count={6} columns={columns} rowProps={ROW_PROPS} />
+  ) : null;
+}
+
 function TableMdSkeletonRow() {
   return (
     <XStack h={60} jc="space-between" flex={1}>
@@ -109,18 +145,6 @@ type IKeyOfMarketToken = keyof IMarketToken;
 const TouchableContainer = platformEnv.isNative
   ? Fragment
   : TouchableWithoutFeedback;
-
-const ROW_PROPS = {
-  gap: '$3',
-  px: '$3',
-  mx: '$2',
-};
-
-const HEADER_ROW_PROPS = {
-  minHeight: '$4',
-  py: '$2',
-  borderRadius: '$3',
-} as IStackStyle;
 
 function BasicMarketHomeList({
   category,
@@ -578,7 +602,7 @@ function BasicMarketHomeList({
                   formatter="price"
                   formatterOptions={{ currency }}
                 >
-                  {price}
+                  {price || '-'}
                 </NumberSizeableText>
               ),
               renderSkeleton: () => <Skeleton w="$20" h="$3" />,
@@ -798,13 +822,6 @@ function BasicMarketHomeList({
     [handleSortTypeChange],
   );
 
-  const listEmptyComponent = useMemo(() => {
-    if (platformEnv.isNativeAndroid) {
-      return null;
-    }
-    return <Table.Skeleton count={6} columns={columns} rowProps={ROW_PROPS} />;
-  }, [columns]);
-
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
       <YStack flex={1} ai="center" jc="center">
@@ -868,7 +885,11 @@ function BasicMarketHomeList({
           dataSource={sortedListData as unknown as IMarketToken[]}
           TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
           extraData={gtMd ? undefined : mdColumnKeys}
-          TableEmptyComponent={listEmptyComponent}
+          TableEmptyComponent={
+            platformEnv.isNativeAndroid ? (
+              <ListEmptyComponent columns={columns} />
+            ) : null
+          }
         />
       </YStack>
     </>

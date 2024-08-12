@@ -45,7 +45,16 @@ export class V4MigrationManagerBase {
       ids: v4wallet.accounts,
     });
     const v4accounts: IV4DBAccount[] = r?.records || [];
-    const result = v4accounts.filter(Boolean).sort((a) => {
+    const result = v4accounts.filter(Boolean).sort((a, b) => {
+      if (a.coinType === COINTYPE_ETH && b.coinType === COINTYPE_ETH) {
+        // BIP44 first, Ledger live second
+        if (a?.id?.endsWith?.('--LedgerLive')) {
+          return 1;
+        }
+        return 0;
+      }
+
+      // EVM first
       if (a.coinType === COINTYPE_ETH) {
         return -1;
       }

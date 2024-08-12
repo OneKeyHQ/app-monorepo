@@ -1675,7 +1675,7 @@
   "update.server_not_responding_try_later": "Máy chủ không phản hồi, vui lòng thử lại sau.",
   "update.transferring_data": "Đang chuyển dữ liệu...",
   "update.troubleshoot_connection_issues": "Để khắc phục các vấn đề kết nối:\n\n1. Đảm bảo OneKey Bridge đã được cài đặt và đang hoạt động.\n2. Làm mới trình duyệt của bạn hoặc thử một trình duyệt khác.\n3. Sử dụng một cáp và cổng khác.\n\nNếu những biện pháp này không giúp ích, hãy liên hệ <url>Hỗ trợ OneKey</url>.",
-  "update.troubleshoot_connection_issues_desktop": "Để khắc phục sự cố kết nối, hãy làm theo các bước sau: \n\n 1. Kết nối lại thiết bị và thử lại.\n 2. Khởi động lại ứng dụng và thiết bị của bạn, sau đó thử lại.\n 3. Sử dụng cáp và cổng khác, sau đó thử lại. \n\n Nếu cách này không hiệu quả, hãy liên hệ với <url> bộ phận hỗ trợ OneKey </url> .",
+  "update.troubleshoot_connection_issues_desktop": "Để khắc phục sự cố kết nối, hãy làm theo các bước sau: \n\n 1. Kết nối lại thiết bị và thử lại.\n 2. Khởi động lại ứng dụng và thiết bị của bạn, sau đó thử lại.\n 3. Sử dụng cáp và cổng khác, sau đó thử lại.\n\n Nếu cách này không hiệu quả, hãy liên hệ với <url> bộ phận hỗ trợ OneKey </url> .",
   "update.troubleshoot_connection_issues_mobile": "Để khắc phục sự cố kết nối: \n\n 1. Đảm bảo Bluetooth đã được bật.\n 2. Kết nối lại thiết bị và thử lại.\n 3. Khởi động lại ứng dụng và thiết bị của bạn, sau đó thử lại. \n\n Nếu cách này không hiệu quả, hãy liên hệ với <url> bộ phận hỗ trợ OneKey </url> .",
   "update.unable_to_connect_to_bridge": "Không thể kết nối với cầu. Vui lòng kiểm tra kết nối internet của bạn và thử lại.",
   "update.update_app_available": "Đã có bản cập nhật ứng dụng lên {version}",

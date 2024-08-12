@@ -17,7 +17,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useWebAuthActions } from '@onekeyhq/kit/src/components/BiologyAuthComponent/hooks/useWebAuthActions';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAppUpdatePersistAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import {
   DISCORD_URL,
   GITHUB_URL,
@@ -68,6 +72,7 @@ const SocialButton: FC<ISocialButtonProps> = ({ icon, url, text }) => {
 const SocialButtonGroup = () => {
   const intl = useIntl();
   const { copyText } = useClipboard();
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
   const versionString = intl.formatMessage(
     {
       id: ETranslations.settings_version_versionnum,
@@ -111,16 +116,20 @@ const SocialButtonGroup = () => {
           />
         </XStack>
       </XStack>
-      <XStack justifyContent="center" py="$4">
+      <YStack jc="center" py="$4" ai="center" userSelect="none">
         <SizableText
-          userSelect="none"
           color="$textSubdued"
           onPress={handlePress}
           testID="setting-version"
         >
           {versionString}
         </SizableText>
-      </XStack>
+        {appUpdateInfo.status === EAppUpdateStatus.done ? (
+          <SizableText color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
+          </SizableText>
+        ) : null}
+      </YStack>
     </YStack>
   );
 };

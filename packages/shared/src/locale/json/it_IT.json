@@ -1675,7 +1675,7 @@
   "update.server_not_responding_try_later": "Il server non risponde, si prega di riprovare più tardi.",
   "update.transferring_data": "Trasferimento dati...",
   "update.troubleshoot_connection_issues": "Per risolvere i problemi di connessione:\n\n1. Assicurati che OneKey Bridge sia installato e in esecuzione.\n2. Aggiorna il tuo browser o prova un browser diverso.\n3. Usa un cavo e una porta diversi.\n\nSe ciò non aiuta, contatta il <url>supporto OneKey</url>.",
-  "update.troubleshoot_connection_issues_desktop": "Per risolvere i problemi di connessione, segui questi passaggi: \n\n 1. Ricollega il dispositivo e riprova.\n 2. Riavvia l'app e il dispositivo, quindi riprova.\n 3. Utilizzare un cavo e una porta diversi, quindi riprovare. \n\n Se questo non funziona, contattare <url> l'assistenza OneKey </url> .",
+  "update.troubleshoot_connection_issues_desktop": "Per risolvere i problemi di connessione, segui questi passaggi: \n\n 1. Ricollega il dispositivo e riprova.\n 2. Riavvia l'app e il dispositivo, quindi riprova.\n 3. Utilizzare un cavo e una porta diversi, quindi riprovare.\n\n Se questo non funziona, contattare <url> l'assistenza OneKey </url> .",
   "update.troubleshoot_connection_issues_mobile": "Per risolvere i problemi di connessione: \n\n 1. Assicurarsi che il Bluetooth sia abilitato.\n 2. Ricollega il dispositivo e riprova.\n 3. Riavvia l'app e il dispositivo, quindi riprova. \n\n Se questo non funziona, contattare <url> l'assistenza OneKey </url> .",
   "update.unable_to_connect_to_bridge": "Impossibile connettersi al ponte. Controlla la tua connessione internet e riprova.",
   "update.update_app_available": "L'aggiornamento dell'app alla {version} è disponibile",

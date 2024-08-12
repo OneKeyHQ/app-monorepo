@@ -10,7 +10,10 @@ import {
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  CanNotSendZeroAmountError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -525,5 +528,20 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async validateSendAmount({
+    isNative: isNativeToken,
+    amount,
+  }: {
+    amount: string;
+    tokenBalance: string;
+    isNative?: boolean;
+  }): Promise<boolean> {
+    if (!isNativeToken && new BigNumber(amount).isZero()) {
+      throw new CanNotSendZeroAmountError();
+    }
+
+    return true;
   }
 }

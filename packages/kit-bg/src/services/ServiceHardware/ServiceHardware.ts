@@ -4,11 +4,17 @@ import { uniq } from 'lodash';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
@@ -16,7 +22,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -27,6 +33,7 @@ import type {
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
+import simpleDb from '../../dbs/simple/simpleDb';
 import {
   EHardwareUiStateAction,
   hardwareUiStateAtom,
@@ -51,6 +58,7 @@ import type {
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
 import type { IHardwareUiPayload } from '../../states/jotai/atoms';
+import type { IServiceBaseProps } from '../ServiceBase';
 import type {
   CommonParams,
   CoreApi,
@@ -72,6 +80,61 @@ export type IDeviceGetFeaturesOptions = {
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
+  constructor(props: IServiceBaseProps) {
+    super(props);
+    appEventBus.on(
+      EAppEventBusNames.SyncDeviceLabelToWalletName,
+      this.handleHardwareLabelChanged,
+    );
+  }
+
+  handleHardwareLabelChanged = cacheUtils.memoizee(
+    async ({
+      walletId,
+      label,
+      walletName,
+    }: IAppEventBusPayload[EAppEventBusNames.SyncDeviceLabelToWalletName]) => {
+      const isHw =
+        accountUtils.isHwWallet({ walletId }) &&
+        !accountUtils.isQrWallet({ walletId });
+      if (!isHw) {
+        return;
+      }
+      console.log('handleHardwareLabelChanged');
+      // Desktop 5.0.0 hw wallet name is not synced with device label, so we need to backup it
+      if (platformEnv.isDesktop && walletId && walletName && isHw) {
+        const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+          walletId,
+        });
+        if (wallet && !accountUtils.isHwHiddenWallet({ wallet })) {
+          if (walletName !== label) {
+            try {
+              await simpleDb.legacyWalletNames.setRawData(({ rawData }) => {
+                if (rawData?.[walletId]) {
+                  return rawData;
+                }
+                return {
+                  ...rawData,
+                  [walletId]: walletName,
+                };
+              });
+            } catch (error) {
+              //
+            }
+          }
+        }
+      }
+      await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
+        walletId,
+        name: label,
+        shouldCheckDuplicate: false,
+      });
+    },
+    {
+      maxAge: 600,
+    },
+  );
+
   hardwareVerifyManager: HardwareVerifyManager = new HardwareVerifyManager({
     backgroundApi: this.backgroundApi,
   });
@@ -667,13 +730,36 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async getDeviceLabel(p: IGetDeviceLabelParams) {
     return this.deviceSettingsManager.getDeviceLabel(p);
   }
 
   @backgroundMethod()
   async setDeviceLabel(p: ISetDeviceLabelParams) {
-    return this.deviceSettingsManager.setDeviceLabel(p);
+    const result = await this.deviceSettingsManager.setDeviceLabel(p);
+    if (result.message) {
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId: p.walletId,
+      });
+      const walletName = wallet?.name;
+      const dbDeviceId = wallet?.associatedDevice;
+      if (dbDeviceId) {
+        // update db features label
+        await localDb.updateDeviceFeaturesLabel({
+          dbDeviceId,
+          label: p.label,
+        });
+        // update db wallet name
+        appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
+          walletId: p.walletId,
+          dbDeviceId,
+          label: p.label,
+          walletName,
+        });
+      }
+    }
+    return result;
   }
 
   @backgroundMethod()

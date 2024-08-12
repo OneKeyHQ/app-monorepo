@@ -1675,7 +1675,7 @@
   "update.server_not_responding_try_later": "Server tidak merespon, silakan coba lagi nanti.",
   "update.transferring_data": "Mentransfer data...",
   "update.troubleshoot_connection_issues": "Untuk memecahkan masalah koneksi:\n\n1. Pastikan OneKey Bridge telah diinstal dan berjalan.\n2. Segarkan browser Anda atau coba yang lain.\n3. Gunakan kabel dan port yang berbeda.\n\nJika ini tidak membantu, hubungi <url>dukungan OneKey</url>.",
-  "update.troubleshoot_connection_issues_desktop": "Untuk memecahkan masalah koneksi, ikuti langkah-langkah berikut: \n\n 1. Hubungkan kembali perangkat Anda dan coba lagi.\n 2. Mulai ulang aplikasi dan perangkat Anda, lalu coba lagi.\n 3. Gunakan kabel dan port lain, lalu coba lagi. \n\n Jika ini tidak membantu, hubungi <url> dukungan OneKey </url> .",
+  "update.troubleshoot_connection_issues_desktop": "Untuk memecahkan masalah koneksi, ikuti langkah-langkah berikut: \n\n 1. Hubungkan kembali perangkat Anda dan coba lagi.\n 2. Mulai ulang aplikasi dan perangkat Anda, lalu coba lagi.\n 3. Gunakan kabel dan port lain, lalu coba lagi.\n\n Jika ini tidak membantu, hubungi <url> dukungan OneKey </url> .",
   "update.troubleshoot_connection_issues_mobile": "Untuk memecahkan masalah koneksi: \n\n 1. Pastikan Bluetooth diaktifkan.\n 2. Hubungkan kembali perangkat Anda dan coba lagi.\n 3. Mulai ulang Aplikasi dan perangkat Anda, lalu coba lagi. \n\n Jika ini tidak membantu, hubungi <url> dukungan OneKey </url> .",
   "update.unable_to_connect_to_bridge": "Tidak dapat terhubung ke jembatan. Silakan periksa koneksi internet Anda dan coba lagi.",
   "update.update_app_available": "Pembaruan Aplikasi ke {version} tersedia",
