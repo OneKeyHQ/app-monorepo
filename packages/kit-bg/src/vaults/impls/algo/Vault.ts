@@ -507,7 +507,9 @@ export default class Vault extends VaultBase {
           transferPayload: undefined,
         });
       return !!signedTx.signedTx.txid;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     } catch (e: any) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (e.message.includes(`overspend (account ${dbAccount.address}`)) {
         throw new ManageTokenInsufficientBalanceError({
           info: {
