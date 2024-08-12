@@ -5,7 +5,6 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import { useSupportNetworkId } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import {
   EModalFiatCryptoRoutes,
   EModalRoutes,
@@ -18,7 +17,6 @@ function useBuyToken({
   accountId: string;
   networkId: string;
 }) {
-  const { result: isSupported } = useSupportNetworkId('buy', networkId);
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
   const navigation = useAppNavigation();
@@ -31,7 +29,7 @@ function useBuyToken({
 
   return {
     handleOnBuy,
-    isSupported: Boolean(networkId && accountId && isSupported),
+    isSupported: Boolean(networkId && accountId),
   };
 }
 
