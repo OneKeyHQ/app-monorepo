@@ -823,10 +823,10 @@ function ConnectByUSBOrBLE({
     }
   }, [connectStatus]);
 
-  function handleHelperPress() {
+  const handleHelperPress = useCallback(() => {
     setShowTroubleshooting(true);
     setShowHelper(false);
-  }
+  }, []);
 
   const usbTroubleshootingSolutions = [
     [
