@@ -136,7 +136,7 @@ function useAllNetworkRequests<T>(params: {
       //   accountsInfoBackendNotIndexed,
       // );
 
-      let resp: Array<T> | null = [];
+      let resp: Array<T> | null = null;
 
       // if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
       if (accountsInfo.length === 0) {

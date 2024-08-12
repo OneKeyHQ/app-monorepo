@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
@@ -100,8 +100,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     indexedAccountId: indexedAccount?.id,
     isOthersWallet,
   });
-
-  const refreshAllNetworksTokenList = useRef(false);
 
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -300,11 +298,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         allNetworksNetworkId: network?.id,
       });
 
-      if (
-        !allNetworkDataInit &&
-        !refreshAllNetworksTokenList.current &&
-        r.isSameAllNetworksAccountData
-      ) {
+      if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
         let accountWorth = new BigNumber(0);
         accountWorth = accountWorth
           .plus(r.tokens.fiatValue ?? '0')
@@ -539,7 +533,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     let accountWorth = new BigNumber(0);
     let smallBalanceTokensFiatValue = new BigNumber(0);
 
-    if (refreshAllNetworksTokenList.current && allNetworksResult) {
+    if (allNetworksResult) {
       for (const r of allNetworksResult) {
         const mergeDeriveAssetsEnabled = (
           await backgroundApiProxy.serviceNetwork.getVaultSettings({
@@ -679,7 +673,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         isRefreshing: true,
       });
       updateSearchKey('');
-      refreshAllNetworksTokenList.current = false;
       void backgroundApiProxy.serviceToken.updateCurrentAccount({
         networkId: network.id,
         accountId: account.id,
@@ -724,7 +717,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   );
 
   const handleRefreshAllNetworkData = useCallback(() => {
-    refreshAllNetworksTokenList.current = true;
     void runAllNetworksRequests({ alwaysSetState: true });
   }, [runAllNetworksRequests]);
 
