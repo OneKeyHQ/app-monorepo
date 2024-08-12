@@ -548,7 +548,7 @@ function ConnectByUSBOrBLE({
   const [isChecking, setIsChecking] = useState(false);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const [showHelper, setShowHelper] = useState(false);
-  const [showTroubleshoting, setShowTroubleshoting] = useState(false);
+  const [showTroubleshooting, setshowTroubleshooting] = useState(false);
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () => [
@@ -830,7 +830,7 @@ function ConnectByUSBOrBLE({
   }, [connectStatus]);
 
   function handleHelperPress() {
-    setShowTroubleshoting(true);
+    setshowTroubleshooting(true);
     setShowHelper(false);
   }
 
@@ -945,7 +945,7 @@ function ConnectByUSBOrBLE({
   return (
     <>
       <Stack bg="$bgSubdued">
-        {!showTroubleshoting ? (
+        {!showTroubleshooting ? (
           <LottieView
             width="100%"
             height="$56"
