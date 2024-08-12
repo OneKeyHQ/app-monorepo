@@ -56,6 +56,9 @@ export class V4MigrationManagerBase {
 
       // EVM first
       if (a.coinType === COINTYPE_ETH) {
+        if (a?.id?.endsWith?.('--LedgerLive')) {
+          return 1;
+        }
         return -1;
       }
       return 0;
