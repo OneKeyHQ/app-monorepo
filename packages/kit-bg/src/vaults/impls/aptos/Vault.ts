@@ -6,7 +6,12 @@ import { isEmpty, isNil } from 'lodash';
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  InvalidAccount,
+  OneKeyError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import type {
@@ -510,12 +515,27 @@ export default class VaultAptos extends VaultBase {
     token: IAccountToken;
   }): Promise<boolean> {
     const { token } = params;
+    if (token.address === APTOS_NATIVE_COIN) {
+      return true;
+    }
     const account = await this.getAccount();
-    const coin = await getAccountCoinResource(
-      this.client,
-      account.address,
-      token.address,
-    );
+    let coin;
+    try {
+      coin = await getAccountCoinResource(
+        this.client,
+        account.address,
+        token.address,
+      );
+    } catch (e) {
+      if (e instanceof InvalidAccount) {
+        throw new OneKeyError({
+          key: ETranslations.manage_token_account_no_found,
+          info: {
+            token: 'APT',
+          },
+        });
+      }
+    }
     if (coin) {
       return true;
     }
