@@ -1058,6 +1058,7 @@ export enum ETranslations {
   menu_preferences = 'menu.preferences',
   menu_quit_onekey_wallet = 'menu.quit_onekey_wallet',
   menu_redo = 'menu.redo',
+  menu_select_all = 'menu.select_all',
   menu_show_all = 'menu.show_all',
   menu_toggle_full_screen = 'menu.toggle_full_screen',
   menu_undo = 'menu.undo',

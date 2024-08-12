@@ -1581,7 +1581,7 @@ const zircuit: IServerNetwork = {
   'logoURI': 'https://uni.onekey-asset.com/static/chain/zircuit.png',
   'defaultEnabled': false,
   'backendIndex': false,
-}
+};
 
 const btc: IServerNetwork = {
   'chainId': '0',

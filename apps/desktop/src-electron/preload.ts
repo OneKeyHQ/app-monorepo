@@ -44,7 +44,7 @@ export type IDesktopAPI = {
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   canPromptTouchID: () => boolean;
   getEnvPath: () => { [key: string]: string };
-  openDevTools: () => void;
+  changeDevTools: (isOpen: boolean) => void;
   changeTheme: (theme: string) => void;
   changeLanguage: (theme: string) => void;
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
@@ -198,7 +198,8 @@ const desktopApi = {
   openPreferences: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFERENCES),
   toggleMaximizeWindow: () =>
     ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
-  openDevTools: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_DEV_TOOLS),
+  changeDevTools: (isOpen: boolean) =>
+    ipcRenderer.send(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, isOpen),
   changeTheme: (theme: string) =>
     ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme),
   changeLanguage: (lang: string) => {

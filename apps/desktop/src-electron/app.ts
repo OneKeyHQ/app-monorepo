@@ -143,6 +143,15 @@ const initMenu = () => {
         { role: 'cut', label: i18nText(ETranslations.menu_cut) },
         { role: 'copy', label: i18nText(ETranslations.global_copy) },
         { role: 'paste', label: i18nText(ETranslations.menu_paste) },
+        { type: 'separator' },
+        {
+          role: 'delete',
+          label: i18nText(ETranslations.global_delete),
+        },
+        {
+          role: 'selectAll',
+          label: i18nText(ETranslations.menu_select_all),
+        },
       ],
     },
     {
@@ -504,8 +513,8 @@ function createMainWindow() {
     };
   });
 
-  ipcMain.on(ipcMessageKeys.APP_OPEN_DEV_TOOLS, () => {
-    store.setDevTools(true);
+  ipcMain.on(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, (event, isOpen) => {
+    store.setDevTools(isOpen);
     refreshMenu();
   });
 
