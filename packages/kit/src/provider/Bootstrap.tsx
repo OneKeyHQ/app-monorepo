@@ -74,7 +74,8 @@ const useDesktopEvents = platformEnv.isDesktop
                   EModalRoutes.SettingModal
               ) {
                 if (route.name === ERootRoutes.Modal) {
-                  const routeLength = route.state?.routes?.[0]?.state?.routes.length || 1;
+                  const routeLength =
+                    route.state?.routes?.[0]?.state?.routes.length || 1;
                   for (let i = 0; i < routeLength; i += 1)
                     setTimeout(() => {
                       rootNavigationRef.current?.goBack();
