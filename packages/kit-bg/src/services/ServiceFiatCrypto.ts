@@ -76,7 +76,7 @@ class ServiceFiatCrypto extends ServiceBase {
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
     },
   );
 
