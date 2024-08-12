@@ -130,7 +130,7 @@
     "@expo/webpack-config": "~19.0.1",
     "@open-wc/webpack-import-meta-loader": "^0.4.7",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
-    "@sentry/babel-plugin-component-annotate": "^2.21.1",
+    "@sentry/babel-plugin-component-annotate": "2.21.1",
     "@tamagui/babel-plugin": "1.108.0",
     "@types/chrome": "^0.0.263",
     "@types/elliptic": "^6.4.16",
