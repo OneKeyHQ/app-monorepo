@@ -31,7 +31,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -1275,6 +1274,29 @@ class ServiceFirmwareUpdate extends ServiceBase {
             connectId: params.releaseResult.originalConnectId,
           });
         }
+
+        // refresh features
+        void (async () => {
+          await timerUtils.wait(2000);
+          try {
+            if (params.releaseResult.originalConnectId) {
+              await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+                connectId: params.releaseResult.originalConnectId,
+              });
+            }
+          } catch (error) {
+            //
+          }
+          try {
+            if (params.releaseResult.updatingConnectId) {
+              await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+                connectId: params.releaseResult.updatingConnectId,
+              });
+            }
+          } catch (error) {
+            //
+          }
+        })();
       },
       {
         deviceParams: {

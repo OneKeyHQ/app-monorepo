@@ -736,6 +736,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async setDeviceLabel(p: ISetDeviceLabelParams) {
     const result = await this.deviceSettingsManager.setDeviceLabel(p);
     if (result.message) {
