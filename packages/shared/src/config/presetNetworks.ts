@@ -1572,7 +1572,7 @@ const zircuit: IServerNetwork = {
     'isWithL1BaseFee': false,
   },
   'status': ENetworkStatus.LISTED,
-  'isTestnet': true,
+  'isTestnet': false,
   'extensions': {
     'position': 9999,
     'isTokenSupported': false,
