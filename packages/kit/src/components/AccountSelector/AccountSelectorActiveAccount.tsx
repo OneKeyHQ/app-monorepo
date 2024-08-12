@@ -175,7 +175,9 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
             testID="account-selector-address"
           >
             <SizableText testID="account-selector-address-text" size="$bodyMd">
-              {accountUtils.shortenAddress({ address: account?.address })}
+              {platformEnv.isE2E
+                ? account?.address
+                : accountUtils.shortenAddress({ address: account?.address })}
             </SizableText>
           </XStack>
         }
