@@ -1062,7 +1062,9 @@ function ConnectByUSBOrBLE({
             alignItems="center"
           >
             <Button size="small" variant="tertiary" onPress={handleHelperPress}>
-              Having trouble connecting your device?
+              {intl.formatMessage({
+                id: ETranslations.troubleshooting_show_helper_cta_label,
+              })}
             </Button>
           </Stack>
         ) : null}
