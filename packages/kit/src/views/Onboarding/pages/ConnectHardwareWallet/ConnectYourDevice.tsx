@@ -548,7 +548,7 @@ function ConnectByUSBOrBLE({
   const [isChecking, setIsChecking] = useState(false);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const [showHelper, setShowHelper] = useState(false);
-  const [showTroubleshooting, setshowTroubleshooting] = useState(false);
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () => [
@@ -635,13 +635,7 @@ function ConnectByUSBOrBLE({
       //     ]
       //   : []),
     ],
-    [
-      handleHwWalletCreateFlow,
-      handleNotActivatedDevicePress,
-      handleSetupNewWalletPress,
-      searchedDevices,
-      toOneKeyHardwareWalletPage,
-    ],
+    [handleHwWalletCreateFlow, searchedDevices],
   );
 
   const scanDevice = useCallback(() => {
@@ -830,11 +824,11 @@ function ConnectByUSBOrBLE({
   }, [connectStatus]);
 
   function handleHelperPress() {
-    setshowTroubleshooting(true);
+    setShowTroubleshooting(true);
     setShowHelper(false);
   }
 
-  const usbTroubleshotingSolutions = [
+  const usbTroubleshootingSolutions = [
     [
       intl.formatMessage({
         id: ETranslations.troubleshooting_replug_usb_cable,
@@ -888,7 +882,7 @@ function ConnectByUSBOrBLE({
     ],
   ];
 
-  const bluetoothTroubleshotingSolutions = [
+  const bluetoothTroubleshootingSolutions = [
     [
       intl.formatMessage({ id: ETranslations.troubleshooting_check_bluetooth }),
       intl.formatMessage({ id: ETranslations.troubleshooting_unlock_device }),
@@ -906,8 +900,8 @@ function ConnectByUSBOrBLE({
 
   const troubleshootingSolutions = [
     ...(platformEnv.isNative
-      ? bluetoothTroubleshotingSolutions
-      : usbTroubleshotingSolutions),
+      ? bluetoothTroubleshootingSolutions
+      : usbTroubleshootingSolutions),
     [
       intl.formatMessage(
         { id: ETranslations.troubleshooting_help_center },
