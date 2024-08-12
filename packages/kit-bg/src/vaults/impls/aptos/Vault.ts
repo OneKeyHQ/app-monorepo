@@ -11,7 +11,6 @@ import {
   ManageTokenInsufficientBalanceError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import type {
