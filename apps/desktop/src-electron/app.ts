@@ -135,7 +135,7 @@ const initMenu = () => {
         ]
       : []),
     {
-      label: 'Edit',
+      label: i18nText(ETranslations.global_edit),
       submenu: [
         { role: 'undo', label: i18nText(ETranslations.menu_undo) },
         { role: 'redo', label: i18nText(ETranslations.menu_redo) },
