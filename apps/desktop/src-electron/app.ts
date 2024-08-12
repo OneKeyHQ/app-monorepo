@@ -211,7 +211,7 @@ const initMenu = () => {
   Menu.setApplicationMenu(menu);
 };
 
-const refreshMenu = async () => {
+const refreshMenu = () => {
   setTimeout(async () => {
     await initLocale();
     initMenu();
@@ -495,7 +495,7 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_OPEN_DEV_TOOLS, () => {
     store.setDevTools(true);
-    void refreshMenu();
+    refreshMenu();
   });
 
   ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
@@ -553,7 +553,7 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_CHANGE_LANGUAGE, (event, lang: string) => {
     store.setLanguage(lang);
-    void refreshMenu();
+    refreshMenu();
   });
 
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
