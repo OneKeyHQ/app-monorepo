@@ -489,7 +489,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               --
             </SizableText>
           )}
-          {accountValue && accountValue.currency && subTitleInfo.address ? (
+          {subTitleInfo.address ? (
             <Stack
               mx="$1.5"
               w="$1"

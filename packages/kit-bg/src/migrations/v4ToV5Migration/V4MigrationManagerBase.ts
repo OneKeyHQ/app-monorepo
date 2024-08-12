@@ -8,9 +8,9 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import v4dbHubs from './v4dbHubs';
 import { EV4LocalDBStoreNames } from './v4local/v4localDBStoreNames';
 
-import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { V4DbHubs } from './v4dbHubs';
 import type { IV4DBAccount, IV4DBWallet } from './v4local/v4localDBTypes';
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 export class V4MigrationManagerBase {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
