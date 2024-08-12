@@ -67,6 +67,11 @@ import {
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
 
 import type {
+  IPromiseContainerCallbackCreate,
+  IPromiseContainerReject,
+  IPromiseContainerResolve,
+} from '../ServicePromise';
+import type {
   CoreApi,
   Success as CoreSuccess,
   DeviceUploadResourceParams,
@@ -74,11 +79,6 @@ import type {
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
-import type {
-  IPromiseContainerCallbackCreate,
-  IPromiseContainerReject,
-  IPromiseContainerResolve,
-} from '../ServicePromise';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -1279,16 +1279,20 @@ class ServiceFirmwareUpdate extends ServiceBase {
         void (async () => {
           await timerUtils.wait(2000);
           try {
-            await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
-              connectId: params.releaseResult.originalConnectId,
-            });
+            if (params.releaseResult.originalConnectId) {
+              await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+                connectId: params.releaseResult.originalConnectId,
+              });
+            }
           } catch (error) {
             //
           }
           try {
-            await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
-              connectId: params.releaseResult.updatingConnectId,
-            });
+            if (params.releaseResult.updatingConnectId) {
+              await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+                connectId: params.releaseResult.updatingConnectId,
+              });
+            }
           } catch (error) {
             //
           }
