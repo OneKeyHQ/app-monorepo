@@ -445,7 +445,7 @@ export default class VaultCosmos extends VaultBase {
       const tokenInfo = unsignedTx.transfersInfo?.[0].tokenInfo;
       const amount = new BigNumber(params.nativeAmountInfo.maxSendAmount)
         .shiftedBy(tokenInfo?.decimals ?? 0)
-        .toFixed(0);
+        .toFixed(0, BigNumber.ROUND_FLOOR);
       unsignedTx.encodedTx = setSendAmount(txWrapper, amount).toObject();
     }
 

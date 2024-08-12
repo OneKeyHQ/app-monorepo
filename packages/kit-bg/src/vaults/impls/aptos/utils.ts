@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
@@ -288,7 +289,13 @@ export async function getAccountResource(
     );
     return await Promise.resolve(resources);
   } catch (error: any) {
-    const { errorCode } = error || {};
+    let err;
+    try {
+      err = JSON.parse(error?.message);
+    } catch (e) {
+      throw error;
+    }
+    const { error_code: errorCode } = err || {};
     if (errorCode === 'account_not_found') {
       throw new InvalidAccount(errorCode);
     }
