@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -42,9 +42,11 @@ const BaseSlippageInput = ({
   props?: IInputProps;
 }) => {
   const [inputValue, setInputValue] = useState('');
+  const isOriginalNumberDot = useRef(false);
   const handleTextChange = useCallback(
     (text: string) => {
       if (validateAmountInput(text, swapSlippageDecimal)) {
+        isOriginalNumberDot.current = /^\d+\.$/.test(text);
         setInputValue(text);
         onChangeText(text);
       }
@@ -61,7 +63,9 @@ const BaseSlippageInput = ({
   );
 
   useEffect(() => {
-    setInputValue(displaySlippage);
+    if (!isOriginalNumberDot.current) {
+      setInputValue(displaySlippage);
+    }
   }, [displaySlippage]);
 
   return (

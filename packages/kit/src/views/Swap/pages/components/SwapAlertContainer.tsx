@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 
-import { Alert } from '@onekeyhq/components';
+import { Alert, YStack } from '@onekeyhq/components';
 import type { ISwapAlertState } from '@onekeyhq/shared/types/swap/types';
 import { ESwapAlertLevel } from '@onekeyhq/shared/types/swap/types';
 
@@ -24,37 +24,33 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
   );
 
   if (alertsSorted?.some((item) => item.alertLevel === ESwapAlertLevel.ERROR)) {
-    return alertsSorted
-      .filter((item) => item.alertLevel === ESwapAlertLevel.ERROR)
-      .reverse()
-      .map((item, index) => {
-        const { message } = item;
+    return (
+      <YStack gap="$2.5">
+        {alertsSorted
+          .filter((item) => item.alertLevel === ESwapAlertLevel.ERROR)
+          .reverse()
+          .map((item, index) => {
+            const { message } = item;
+            return <Alert key={index} type="critical" description={message} />;
+          })}
+      </YStack>
+    );
+  }
+  return (
+    <YStack gap="$2.5">
+      {alertsSorted?.map((item, index) => {
+        const { message, alertLevel } = item;
         return (
           <Alert
             key={index}
-            type="critical"
+            type={
+              alertLevel === ESwapAlertLevel.WARNING ? 'warning' : 'default'
+            }
             description={message}
-            {...(index !== 0 && {
-              mt: '$2.5',
-            })}
           />
         );
-      });
-  }
-  return (
-    alertsSorted?.map((item, index) => {
-      const { message, alertLevel } = item;
-      return (
-        <Alert
-          key={index}
-          type={alertLevel === ESwapAlertLevel.WARNING ? 'warning' : 'default'}
-          description={message}
-          {...(index !== 0 && {
-            mt: '$2.5',
-          })}
-        />
-      );
-    }) ?? null
+      }) ?? null}
+    </YStack>
   );
 };
 
