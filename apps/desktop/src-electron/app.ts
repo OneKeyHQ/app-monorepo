@@ -135,6 +135,17 @@ const initMenu = () => {
         ]
       : []),
     {
+      label: i18nText(ETranslations.global_edit),
+      submenu: [
+        { role: 'undo', label: i18nText(ETranslations.menu_undo) },
+        { role: 'redo', label: i18nText(ETranslations.menu_redo) },
+        { type: 'separator' },
+        { role: 'cut', label: i18nText(ETranslations.menu_cut) },
+        { role: 'copy', label: i18nText(ETranslations.global_copy) },
+        { role: 'paste', label: i18nText(ETranslations.menu_paste) },
+      ],
+    },
+    {
       label: i18nText(ETranslations.menu_view),
       submenu: [
         ...(isDev || store.getDevTools()
