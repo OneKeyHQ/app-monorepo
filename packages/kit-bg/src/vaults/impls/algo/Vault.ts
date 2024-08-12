@@ -12,7 +12,7 @@ import {
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ManageTokenInsufficientBalanceError, OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -63,6 +63,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.algo.hd;
@@ -496,13 +497,25 @@ export default class Vault extends VaultBase {
         },
       ],
     });
-    const [signedTx] =
-      await this.backgroundApi.serviceSend.batchSignAndSendTransaction({
-        accountId: this.accountId,
-        networkId: this.networkId,
-        unsignedTxs: [unsignedTx],
-        transferPayload: undefined,
-      });
-    return !!signedTx.signedTx.txid;
+
+    try {
+      const [signedTx] =
+        await this.backgroundApi.serviceSend.batchSignAndSendTransaction({
+          accountId: this.accountId,
+          networkId: this.networkId,
+          unsignedTxs: [unsignedTx],
+          transferPayload: undefined,
+        });
+      return !!signedTx.signedTx.txid;
+    } catch (e: any) {
+      if (e.message.includes(`overspend (account ${dbAccount.address}`)) {
+        throw new ManageTokenInsufficientBalanceError({
+          info: {
+            token: 'Algo'
+          },
+        });
+      }
+      throw e
+    }
   }
 }
