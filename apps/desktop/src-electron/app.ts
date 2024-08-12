@@ -135,6 +135,26 @@ const initMenu = () => {
         ]
       : []),
     {
+      label: i18nText(ETranslations.global_edit),
+      submenu: [
+        { role: 'undo', label: i18nText(ETranslations.menu_undo) },
+        { role: 'redo', label: i18nText(ETranslations.menu_redo) },
+        { type: 'separator' },
+        { role: 'cut', label: i18nText(ETranslations.menu_cut) },
+        { role: 'copy', label: i18nText(ETranslations.global_copy) },
+        { role: 'paste', label: i18nText(ETranslations.menu_paste) },
+        { type: 'separator' },
+        {
+          role: 'delete',
+          label: i18nText(ETranslations.global_delete),
+        },
+        {
+          role: 'selectAll',
+          label: i18nText(ETranslations.menu_select_all),
+        },
+      ],
+    },
+    {
       label: i18nText(ETranslations.menu_view),
       submenu: [
         ...(isDev || store.getDevTools()
@@ -209,6 +229,13 @@ const initMenu = () => {
   ];
   const menu = Menu.buildFromTemplate(template as any);
   Menu.setApplicationMenu(menu);
+};
+
+const refreshMenu = () => {
+  setTimeout(async () => {
+    await initLocale();
+    initMenu();
+  }, 50);
 };
 
 const emitter = new EventEmitter();
@@ -486,12 +513,9 @@ function createMainWindow() {
     };
   });
 
-  ipcMain.on(ipcMessageKeys.APP_OPEN_DEV_TOOLS, () => {
-    store.setDevTools(true);
-    setTimeout(() => {
-      app.relaunch();
-      app.exit(0);
-    }, 10);
+  ipcMain.on(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, (event, isOpen) => {
+    store.setDevTools(isOpen);
+    refreshMenu();
   });
 
   ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
@@ -549,10 +573,7 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_CHANGE_LANGUAGE, (event, lang: string) => {
     store.setLanguage(lang);
-    setTimeout(() => {
-      app.relaunch();
-      app.exit();
-    }, 50);
+    refreshMenu();
   });
 
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {

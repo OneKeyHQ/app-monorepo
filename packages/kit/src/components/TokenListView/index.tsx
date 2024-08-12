@@ -102,7 +102,7 @@ function TokenListView(props: IProps) {
     (!isTokenSelector && searchTokenState.isSearching) ||
     (!tokenListState.initialized && tokenListState.isRefreshing)
   ) {
-    return <ListLoading isTokenSelectorView />;
+    return <ListLoading isTokenSelectorView={!tableLayout} />;
   }
 
   return (

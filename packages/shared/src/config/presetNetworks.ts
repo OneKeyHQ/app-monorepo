@@ -1558,6 +1558,34 @@ const holesky: IServerNetwork = {
   'defaultEnabled': false,
   'backendIndex': false,
 };
+const zircuit: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '48900',
+  'id': 'evm--48900',
+  'name': 'Zircuit',
+  'symbol': 'ETH',
+  'code': 'zircuit',
+  'shortcode': 'zircuit',
+  'shortname': 'Zircuit',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'eth',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': false,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/zircuit.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
 
 const btc: IServerNetwork = {
   'chainId': '0',
@@ -2448,6 +2476,7 @@ export const presetNetworksMap = {
   bob,
   aurora,
   holesky,
+  zircuit,
 
   // cosmos
   celestia,
@@ -2552,6 +2581,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   bob,
   aurora,
   holesky,
+  zircuit,
   // cosmos
   celestia,
   secret,

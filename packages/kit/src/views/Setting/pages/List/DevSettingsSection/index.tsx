@@ -108,6 +108,7 @@ export const DevSettingsSection = () => {
       title: '关闭开发者模式',
       onConfirm: () => {
         void backgroundApiProxy.serviceDevSetting.switchDevMode(false);
+        window?.desktopApi.changeDevTools(false);
       },
     });
   }, []);
@@ -116,7 +117,7 @@ export const DevSettingsSection = () => {
     showDevOnlyPasswordDialog({
       title: 'Danger Zone: Open Chrome DevTools',
       onConfirm: async () => {
-        window?.desktopApi.openDevTools();
+        window?.desktopApi.changeDevTools(true);
       },
     });
   }, []);
@@ -138,7 +139,7 @@ export const DevSettingsSection = () => {
         <>
           <SectionPressItem
             title="Open Chrome DevTools in Desktop"
-            subtitle="重启后会使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
+            subtitle="启用后可以使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
             onPress={handleOpenDevTools}
           />
           <SectionPressItem

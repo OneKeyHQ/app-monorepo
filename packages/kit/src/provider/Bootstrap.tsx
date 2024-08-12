@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
 
+import { CommonActions } from '@react-navigation/routers';
 import { useIntl } from 'react-intl';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, rootNavigationRef } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
@@ -58,9 +60,31 @@ const useDesktopEvents = platformEnv.isDesktop
           });
 
           window.desktopApi.on('app/openSettings', () => {
-            navigation.pushModal(EModalRoutes.SettingModal, {
-              screen: EModalSettingRoutes.SettingListModal,
-            });
+            const openSettingPage = () => {
+              navigation.pushModal(EModalRoutes.SettingModal, {
+                screen: EModalSettingRoutes.SettingListModal,
+              });
+            };
+            const routeState = rootNavigationRef.current?.getRootState();
+            if (routeState) {
+              const route = routeState.routes[routeState.routes.length - 1];
+              if (
+                route &&
+                (route.params as { screen: string })?.screen ===
+                  EModalRoutes.SettingModal
+              ) {
+                if (route.name === ERootRoutes.Modal) {
+                  const routeLength =
+                    route.state?.routes?.[0]?.state?.routes.length || 1;
+                  for (let i = 0; i < routeLength; i += 1)
+                    setTimeout(() => {
+                      rootNavigationRef.current?.goBack();
+                    }, 10);
+                  return;
+                }
+              }
+            }
+            openSettingPage();
           });
 
           window.desktopApi.on('app/lockNow', () => {
