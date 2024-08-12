@@ -204,33 +204,33 @@ function useAllNetworkRequests<T>(params: {
 
         // // 处理顺序请求的网络
         // await (async (uuid: string) => {
-          // for (const networkDataString of sequentialNetworks) {
-          //   console.log(
-          //     'currentRequestsUUID for: =====>>>>>: ',
-          //     currentRequestsUUID.current,
-          //     uuid,
-          //     networkDataString.networkId,
-          //     networkDataString.apiAddress,
-          //   );
-          //   if (
-          //     currentRequestsUUID.current &&
-          //     currentRequestsUUID.current !== uuid
-          //   ) {
-          //     break;
-          //   }
-          //   const { accountId, networkId } = networkDataString;
-          //   try {
-          //     await allNetworkRequests({
-          //       accountId,
-          //       networkId,
-          //       allNetworkDataInit: allNetworkDataInit.current,
-          //     });
-          //   } catch (e) {
-          //     console.error(e);
-          //     // pass
-          //   }
-          //   await waitAsync(interval);
-          // }
+        // for (const networkDataString of sequentialNetworks) {
+        //   console.log(
+        //     'currentRequestsUUID for: =====>>>>>: ',
+        //     currentRequestsUUID.current,
+        //     uuid,
+        //     networkDataString.networkId,
+        //     networkDataString.apiAddress,
+        //   );
+        //   if (
+        //     currentRequestsUUID.current &&
+        //     currentRequestsUUID.current !== uuid
+        //   ) {
+        //     break;
+        //   }
+        //   const { accountId, networkId } = networkDataString;
+        //   try {
+        //     await allNetworkRequests({
+        //       accountId,
+        //       networkId,
+        //       allNetworkDataInit: allNetworkDataInit.current,
+        //     });
+        //   } catch (e) {
+        //     console.error(e);
+        //     // pass
+        //   }
+        //   await waitAsync(interval);
+        // }
         // })(requestsUUID);
       }
 

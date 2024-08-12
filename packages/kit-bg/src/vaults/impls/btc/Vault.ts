@@ -147,7 +147,7 @@ export default class VaultBtc extends VaultBase {
     }));
 
     const utxoTo = outputs
-      .filter((output) => !output.payload?.isCharge)
+      .filter((output) => !output.payload?.isCharge && output.address)
       .map((output) => ({
         address: output.address,
         balance: new BigNumber(output.value)

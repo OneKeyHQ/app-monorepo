@@ -475,7 +475,8 @@ function TxFeeContainer(props: IProps) {
   }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
 
   useEffect(() => {
-    if (!txFeeInit.current || nativeTokenInfo.isLoading) return;
+    if (!txFeeInit.current || nativeTokenInfo.isLoading || !nativeTokenInfo)
+      return;
 
     updateSendTxStatus({
       isInsufficientNativeBalance: nativeTokenTransferAmountToUpdate.isMaxSend
@@ -485,6 +486,7 @@ function TxFeeContainer(props: IProps) {
             .gt(nativeTokenInfo.balance ?? 0),
     });
   }, [
+    nativeTokenInfo,
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate,

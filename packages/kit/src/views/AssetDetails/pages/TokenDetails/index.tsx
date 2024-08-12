@@ -4,10 +4,12 @@ import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IActionListSection } from '@onekeyhq/components';
+import type { IActionListSection, IListViewProps } from '@onekeyhq/components';
 import {
   ActionList,
   Page,
+  Spinner,
+  Stack,
   Tab,
   getFontToken,
   useClipboard,
@@ -19,19 +21,40 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { TokenDetailsViews } from './TokenDetailsView';
+import TokenDetailsViews from './TokenDetailsView';
 
 import type { RouteProp } from '@react-navigation/core';
 
 const num = 0;
+
+export type IProps = {
+  accountId: string;
+  networkId: string;
+  walletId: string;
+  deriveInfo: IAccountDeriveInfo;
+  deriveType: IAccountDeriveTypes;
+  tokenInfo: IToken;
+  isBlocked?: boolean;
+  riskyTokens?: string[];
+  isAllNetworks?: boolean;
+  listViewContentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
+  indexedAccountId?: string;
+};
 
 function TokenDetails() {
   const intl = useIntl();
@@ -102,15 +125,22 @@ function TokenDetails() {
     );
   }, [copyText, intl, network, tokenInfo.address, tokenInfo.isNative]);
 
-  const { result } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-        {
-          networkId,
-          indexedAccountId: account?.indexedAccountId ?? '',
-        },
-      ),
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      const r =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          {
+            networkId,
+            indexedAccountId: account?.indexedAccountId ?? '',
+          },
+        );
+      await waitAsync(600);
+      return r;
+    },
     [networkId, account?.indexedAccountId],
+    {
+      watchLoading: true,
+    },
   );
 
   const fontColor = useThemeValue('text');
@@ -167,7 +197,18 @@ function TokenDetails() {
       isAllNetworks &&
       !accountUtils.isOthersWallet({ walletId })
     ) {
-      if (tabs) {
+      if (isLoading)
+        return (
+          <Stack
+            flex={1}
+            height="100%"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Spinner size="large" />
+          </Stack>
+        );
+      if (tabs && !isEmpty(tabs)) {
         return (
           <Tab.Page
             data={tabs}
@@ -196,6 +237,7 @@ function TokenDetails() {
     deriveInfo,
     deriveType,
     isAllNetworks,
+    isLoading,
     networkId,
     tabs,
     tokenInfo,

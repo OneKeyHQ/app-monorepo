@@ -3,6 +3,7 @@ import { AddressInputScope } from './scopes/addressInput';
 import { AppScope } from './scopes/app';
 import { DemoScope } from './scopes/demo';
 import { DiscoveryScope } from './scopes/discovery';
+import { FiatCryptoScope } from './scopes/fiatCrypto';
 import { HardwareScope } from './scopes/hardware';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
@@ -11,7 +12,6 @@ import { SwapScope } from './scopes/swap';
 import { TokenScope } from './scopes/token';
 import { TransactionScope } from './scopes/transaction';
 import { UpdateScope } from './scopes/update';
-import { FiatCryptoScope } from './scopes/fiatCrypto'
 
 class Logger {
   account = new AccountScope();

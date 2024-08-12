@@ -23,7 +23,7 @@ export enum EScopeName {
   swap = 'swap',
   transaction = 'transaction',
   hardware = 'hardware',
-  fiatCrypto = 'fiatCrypto'
+  fiatCrypto = 'fiatCrypto',
 }
 export interface IScope {
   getName: () => EScopeName;
