@@ -5,8 +5,6 @@ import { memoFn } from '../utils/cacheUtils';
 
 import { getPresetNetworks } from './presetNetworks';
 
-export const NETWORK_ID_ETC = 'evm--61';
-
 export type INetworkShortCode =
   | 'onekeyall'
   | 'eth'

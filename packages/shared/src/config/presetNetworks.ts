@@ -535,6 +535,7 @@ const scr: IServerNetwork = {
     'code': 'eth',
     'decimals': 9,
     'symbol': 'Gwei',
+    'isWithL1BaseFee': true,
   },
   'status': ENetworkStatus.LISTED,
   'isTestnet': false,
@@ -695,6 +696,7 @@ const mode: IServerNetwork = {
     'code': 'eth',
     'decimals': 9,
     'symbol': 'Gwei',
+    'isWithL1BaseFee': true,
   },
   'status': ENetworkStatus.LISTED,
   'isTestnet': false,
@@ -1323,6 +1325,7 @@ const b2: IServerNetwork = {
     'code': 'btc',
     'decimals': 9,
     'symbol': 'Gwei',
+    'maxSendFeeUpRatio': 1.1,
   },
   'status': ENetworkStatus.LISTED,
   'isTestnet': false,
@@ -1432,6 +1435,7 @@ const btr: IServerNetwork = {
     'code': 'btc',
     'decimals': 9,
     'symbol': 'Gwei',
+    'maxSendFeeUpRatio': 1.1,
   },
   'status': ENetworkStatus.LISTED,
   'isTestnet': false,
@@ -1572,7 +1576,7 @@ const zircuit: IServerNetwork = {
     'isWithL1BaseFee': false,
   },
   'status': ENetworkStatus.LISTED,
-  'isTestnet': true,
+  'isTestnet': false,
   'extensions': {
     'position': 9999,
     'isTokenSupported': false,
@@ -1581,7 +1585,7 @@ const zircuit: IServerNetwork = {
   'logoURI': 'https://uni.onekey-asset.com/static/chain/zircuit.png',
   'defaultEnabled': false,
   'backendIndex': false,
-}
+};
 
 const btc: IServerNetwork = {
   'chainId': '0',

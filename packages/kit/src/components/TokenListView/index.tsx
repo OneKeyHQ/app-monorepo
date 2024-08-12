@@ -7,8 +7,12 @@ import {
   useSearchKeyAtom,
   useSearchTokenListAtom,
   useSearchTokenStateAtom,
+  useSmallBalanceTokenListAtom,
   useTokenListAtom,
   useTokenListStateAtom,
+  useTokenSelectorSearchKeyAtom,
+  useTokenSelectorSearchTokenListAtom,
+  useTokenSelectorSearchTokenStateAtom,
 } from '../../states/jotai/contexts/tokenList';
 import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
@@ -28,6 +32,7 @@ type IProps = {
   withBuyAndReceive?: boolean;
   withPresetVerticalPadding?: boolean;
   withNetwork?: boolean;
+  withSmallBalanceTokens?: boolean;
   inTabList?: boolean;
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
@@ -36,7 +41,7 @@ type IProps = {
   manageTokenEnabled?: boolean;
   isAllNetworks?: boolean;
   searchAll?: boolean;
-  isTokenSelectorLayout?: boolean;
+  isTokenSelector?: boolean;
 };
 
 function TokenListView(props: IProps) {
@@ -57,21 +62,34 @@ function TokenListView(props: IProps) {
     withPresetVerticalPadding = true,
     isAllNetworks,
     searchAll,
-    isTokenSelectorLayout,
+    isTokenSelector,
   } = props;
 
   const [tokenList] = useTokenListAtom();
+  const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
-  const { tokens } = tokenList;
+  const [tokenSelectorSearchKey] = useTokenSelectorSearchKeyAtom();
+
+  const tokens = isTokenSelector
+    ? tokenList.tokens.concat(smallBalanceTokenList.smallBalanceTokens)
+    : tokenList.tokens;
   const [searchTokenState] = useSearchTokenStateAtom();
+
+  const [tokenSelectorSearchTokenState] =
+    useTokenSelectorSearchTokenStateAtom();
+
   const [searchTokenList] = useSearchTokenListAtom();
+
+  const [tokenSelectorSearchTokenList] = useTokenSelectorSearchTokenListAtom();
 
   const filteredTokens = getFilteredTokenBySearchKey({
     tokens,
-    searchKey,
+    searchKey: isTokenSelector ? tokenSelectorSearchKey : searchKey,
     searchAll,
-    searchTokenList: searchTokenList.tokens,
+    searchTokenList: isTokenSelector
+      ? tokenSelectorSearchTokenList.tokens
+      : searchTokenList.tokens,
   });
 
   const { listViewProps, listViewRef, onLayout } =
@@ -80,10 +98,11 @@ function TokenListView(props: IProps) {
     });
 
   if (
-    searchTokenState.isSearching ||
+    (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
+    (!isTokenSelector && searchTokenState.isSearching) ||
     (!tokenListState.initialized && tokenListState.isRefreshing)
   ) {
-    return <ListLoading isTokenSelectorView />;
+    return <ListLoading isTokenSelectorView={!tableLayout} />;
   }
 
   return (
@@ -131,7 +150,7 @@ function TokenListView(props: IProps) {
           withPrice={withPrice}
           isAllNetworks={isAllNetworks}
           withNetwork={withNetwork}
-          isTokenSelectorLayout={isTokenSelectorLayout}
+          isTokenSelector={isTokenSelector}
         />
       )}
       ListFooterComponent={
