@@ -102,7 +102,7 @@ function EmptyToken(props: IProps) {
           content={intl.formatMessage({
             id: ETranslations.wallet_receive_token_instruction,
           })}
-          onPress={onReceive}
+          onPress={() => onReceive?.()}
           iconProps={{
             name: 'ArrowBottomCircleSolid',
             color: '$info9',
