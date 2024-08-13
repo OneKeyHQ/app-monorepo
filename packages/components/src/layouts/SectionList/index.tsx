@@ -78,6 +78,7 @@ function BaseSectionList<T>(
     SectionSeparatorComponent = <Stack h="$5" />,
     stickySectionHeadersEnabled = false,
     keyExtractor,
+    estimatedItemSize,
     ...restProps
   }: ISectionListProps<T>,
   parentRef: ForwardedRef<IListViewRef<T>>,
@@ -221,6 +222,7 @@ function BaseSectionList<T>(
       stickyHeaderIndices={reloadStickyHeaderIndices}
       getItemType={getItemType}
       keyExtractor={platformEnv.isNative ? reloadKeyExtractor : undefined}
+      estimatedItemSize={platformEnv.isNative ? estimatedItemSize : undefined}
       {...restProps}
     />
   );
