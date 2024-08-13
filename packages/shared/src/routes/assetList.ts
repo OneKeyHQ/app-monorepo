@@ -21,7 +21,7 @@ export type IModalAssetListParamList = {
       map: Record<string, ITokenFiat>;
     };
     title?: string;
-    helpText?: string;
+    helpText?: string | string[];
     isBlocked?: boolean;
     onPressToken?: (token: IAccountToken) => void;
     deriveInfo?: IAccountDeriveInfo;

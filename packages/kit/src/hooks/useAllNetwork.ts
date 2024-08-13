@@ -5,6 +5,7 @@ import { isEmpty } from 'lodash';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
+import { executeRequestsInBatches } from '@onekeyhq/shared/src/request/utils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -191,19 +192,16 @@ function useAllNetworkRequests<T>(params: {
               networkId,
               apiAddress,
             );
-            return allNetworkRequests({
-              accountId,
-              networkId,
-              allNetworkDataInit: allNetworkDataInit.current,
-            });
+            return () =>
+              allNetworkRequests({
+                accountId,
+                networkId,
+                allNetworkDataInit: allNetworkDataInit.current,
+              });
           },
         );
-        try {
-          await Promise.all(concurrentRequests);
-        } catch (e) {
-          console.error(e);
-          // pass
-        }
+
+        await executeRequestsInBatches<T>(concurrentRequests, 10);
 
         // // 处理顺序请求的网络
         // await (async (uuid: string) => {
