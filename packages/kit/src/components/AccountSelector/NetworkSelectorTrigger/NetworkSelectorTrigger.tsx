@@ -135,10 +135,12 @@ export const NetworkSelectorTriggerHome = memo(NetworkSelectorTriggerHomeCmp);
 export function ControlledNetworkSelectorTrigger({
   forceDisabled,
   disabled,
+  networkIds,
   ...rest
 }: IChainSelectorInputProps & {
   forceDisabled?: boolean;
   disabled?: boolean; // TODO not working in form
+  networkIds?: string[];
 }) {
   const intl = useIntl();
   return (
@@ -158,6 +160,7 @@ export function ControlledNetworkSelectorTrigger({
       }}
       {...rest}
       disabled={forceDisabled || disabled}
+      networkIds={networkIds}
     />
   );
 }

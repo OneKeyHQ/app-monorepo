@@ -100,6 +100,7 @@ export const LidoWithdraw = ({
   const isDisable = useMemo(
     () =>
       BigNumber(amountValue).isNaN() ||
+      BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
       isLessThanMinAmount,
     [amountValue, isInsufficientBalance, isLessThanMinAmount],
