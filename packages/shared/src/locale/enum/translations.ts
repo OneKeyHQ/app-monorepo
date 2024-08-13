@@ -992,6 +992,7 @@ export enum ETranslations {
   login_welcome_message = 'login.welcome_message',
   low_value_assets = 'low_value_assets',
   low_value_assets_desc = 'low_value_assets_desc',
+  low_value_assets_desc_out_of_range = 'low_value_assets_desc_out_of_range',
   manage_token_account_no_found = 'manage_token.account_no_found',
   manage_token_added_token = 'manage_token.added_token',
   manage_token_custom_token_add = 'manage_token.custom_token_add',
