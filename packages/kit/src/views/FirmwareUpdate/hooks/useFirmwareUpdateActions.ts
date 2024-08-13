@@ -59,8 +59,6 @@ export function useFirmwareUpdateActions() {
         void openChangeLogOfExtension({ connectId });
         return;
       }
-      // navigation.popStack();
-      // global.$rootAppNavigation
 
       if (rootNavigationRef.current) {
         rootNavigationRef.current?.dispatch(
