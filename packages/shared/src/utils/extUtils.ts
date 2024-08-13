@@ -94,15 +94,6 @@ async function isOpenPanelOnActionClick() {
 }
 
 async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
-  if (await isOpenPanelOnActionClick()) {
-    const window = await chrome.windows.getCurrent({ populate: true });
-    if (window) {
-      routeInfo.params = {
-        ...routeInfo.params,
-        panelWindowId: window.id,
-      };
-    }
-  }
   const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
   let left = 0;
   let top = 0;
@@ -205,21 +196,8 @@ async function openSidePanel(
       return;
     }
     const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
-    let windowId: number | undefined;
-    //  `sidePanel.open()` may only be called in response to a user gesture.
-    if (platformEnv.isExtensionUiStandaloneWindow) {
-      const id = window.location.href
-        .split('panelWindowId=')
-        ?.pop()
-        ?.split('&')[0];
-      if (!id) {
-        throw new Error('panelWindowId not found');
-      }
-      windowId = parseInt(id, 10);
-    } else {
-      const window = await chrome.windows.getCurrent({ populate: true });
-      windowId = window.id;
-    }
+    const window = await chrome.windows.getCurrent({ populate: true });
+    const windowId = window.id;
     if (windowId) {
       await chrome.sidePanel.open({ windowId });
       await chrome.sidePanel.setOptions({
