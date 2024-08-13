@@ -22,7 +22,7 @@ export function CheckFirmwareUpdateButton({
         id: ETranslations.global_check_for_updates,
       })}
       onPress={() => {
-        actions.openChangeLogModal({
+        actions.showForceUpdate({
           connectId: device?.connectId,
         });
       }}
