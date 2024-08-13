@@ -51,7 +51,10 @@ const EditableAccountChainSelector = ({
     usePromiseResult(
       async () =>
         backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          { accountId: account?.id, networkIds },
+          {
+            accountId: account?.id,
+            networkIds,
+          },
         ),
       [account?.id, networkIds],
       { initResult: defaultChainSelectorNetworks },

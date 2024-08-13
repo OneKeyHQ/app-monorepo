@@ -83,6 +83,18 @@ function BatchCreateAccountPreviewPage({
   defaultCount: string;
   defaultIsAdvancedMode?: boolean;
 }) {
+  const { result: networkIdsCompatibleAccount } = usePromiseResult(
+    async () => {
+      const { networkIdsCompatible } =
+        await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
+          { walletId },
+        );
+      return networkIdsCompatible;
+    },
+    [walletId],
+    { initResult: undefined },
+  );
+
   const [networkId, setNetworkId] = useState(defaultNetworkId);
   const [isAdvancedMode, setIsAdvancedMode] = useState(
     defaultIsAdvancedMode ?? false,
@@ -429,6 +441,7 @@ function BatchCreateAccountPreviewPage({
 
         <ControlledNetworkSelectorTrigger
           value={networkId}
+          networkIds={networkIdsCompatibleAccount}
           onChange={setNetworkId}
           excludeAllNetworkItem
           miniMode
@@ -468,6 +481,7 @@ function BatchCreateAccountPreviewPage({
       media.gtMd,
       networkId,
       showPopoverDeriveTypeInfo,
+      networkIdsCompatibleAccount,
     ],
   );
 
