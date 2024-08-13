@@ -1,3 +1,4 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { chunk, isNil, range } from 'lodash';
 
 import {
@@ -7,6 +8,11 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  isHardwareErrorByCode,
+  isHardwareInterruptErrorByCode,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -69,6 +75,7 @@ export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
   customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
   skipDeviceCancel?: boolean;
   hideCheckingDeviceLoading?: boolean;
+  autoHandleExitError?: boolean;
 } & IAdvancedModeFlowParamsBase;
 
 @backgroundClass()
@@ -284,6 +291,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         customNetworks: customNetworks || [],
         skipDeviceCancel,
         hideCheckingDeviceLoading,
+        autoHandleExitError: true,
       });
     }
   }
@@ -369,6 +377,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           error,
           walletId: params.walletId,
           saveToDb,
+          autoHandleExitError: params.autoHandleExitError,
         });
       }
     }
@@ -386,10 +395,12 @@ class ServiceBatchCreateAccount extends ServiceBase {
     error,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     saveToDb,
+    autoHandleExitError,
   }: {
     walletId: string;
     error: any;
     saveToDb: boolean | undefined;
+    autoHandleExitError?: boolean;
   }) {
     if (saveToDb) {
       if (this.progressInfo) {
@@ -403,43 +414,55 @@ class ServiceBatchCreateAccount extends ServiceBase {
       }
     }
 
+    if (!autoHandleExitError) {
+      // always exit flow if any error,
+      throw error;
+    }
+
+    // batch create flow cancelled
     if (this.isCreateFlowCancelled || !this.progressInfo) {
       throw error;
     }
 
-    // always exit flow if any error,
-    throw error;
+    // batch create address preview mode
+    if (!saveToDb) {
+      throw error;
+    }
 
-    // if (!saveToDb) {
-    //   throw error;
-    // }
-    // // **** hardware terminated errors ****
-    // // Some high priority errors need to interrupt the process
-    // if (accountUtils.isHwWallet({ walletId })) {
-    //   if (isHardwareInterruptErrorByCode({ error })) {
-    //     throw error;
-    //   }
-    //   // Unplug device?
-    //   if (
-    //     isHardwareErrorByCode({
-    //       error,
-    //       code: HardwareErrorCode.DeviceNotFound,
-    //     })
-    //   ) {
-    //     throw error;
-    //   }
-    // }
-    // // **** flow cancel action
-    // // **** PIN\passphrase cancel
-    // // **** password cancel
-    // if (
-    //   errorUtils.isErrorByClassName({
-    //     error,
-    //     className: EOneKeyErrorClassNames.PasswordPromptDialogCancel,
-    //   })
-    // ) {
-    //   throw error;
-    // }
+    // **** hardware terminated errors ****
+    // Some high priority errors need to interrupt the process
+    if (accountUtils.isHwWallet({ walletId })) {
+      if (isHardwareInterruptErrorByCode({ error })) {
+        throw error;
+      }
+      // Unplug device?
+      if (
+        isHardwareErrorByCode({
+          error,
+          code: [
+            HardwareErrorCode.DeviceNotFound,
+            // **** PIN\passphrase cancel
+            HardwareErrorCode.PinCancelled,
+            HardwareErrorCode.ActionCancelled,
+          ],
+        })
+      ) {
+        throw error;
+      }
+    }
+    // **** password cancel
+    if (
+      errorUtils.isErrorByClassName({
+        error,
+        className: [
+          EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+          EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+          EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
+        ],
+      })
+    ) {
+      throw error;
+    }
   }
 
   async emitBatchCreateDoneEvents({ saveToDb }: { saveToDb?: boolean } = {}) {
