@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import BigNumber from 'bignumber.js';
 import TonWeb from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
@@ -10,13 +12,21 @@ import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import { Provider } from './provider';
 
+import type { IAddressToString, ICell } from './types';
 import type { Cell } from 'tonweb/dist/types/boc/cell';
+import type { TransferBodyParams } from 'tonweb/dist/types/contract/token/ft/jetton-wallet';
 import type { Address } from 'tonweb/dist/types/utils/address';
 
 export function decodePayload(payload?: string | Uint8Array | Cell): {
   type: EDecodedTxActionType;
-  tokenAddress?: string;
   bytes?: Uint8Array;
+  jetton?: {
+    queryId: string;
+    toAddress: string;
+    amount: string;
+    forwardAmount: string;
+    responseAddress: string;
+  };
 } {
   let type = EDecodedTxActionType.UNKNOWN;
   if (!payload) {
@@ -26,10 +36,10 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
   let bytes;
   if (typeof payload === 'string') {
     try {
-      bytes = Buffer.from(payload, 'base64');
+      bytes = Buffer.from(payload, 'hex');
     } catch (e) {
       try {
-        bytes = Buffer.from(payload, 'hex');
+        bytes = Buffer.from(payload, 'base64');
       } catch (ee) {
         // ignore
       }
@@ -46,16 +56,43 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
     type = EDecodedTxActionType.ASSET_TRANSFER;
   }
 
+  let jetton;
   if (bytes) {
-    // try {
-    //   const cell = TonWeb.boc.Cell.oneFromBoc(bytes);
-    //   if (cell.bits.ree)
-    // } catch (e) {
-    //   // ignore
-    // }
+    try {
+      const cell = TonWeb.boc.Cell.oneFromBoc(bytes.toString('hex'));
+      const slice = (cell as unknown as ICell).beginParse();
+      const data = slice.loadUint(32);
+      const op = new BigNumber(data.toString()).toString(16);
+      if (op === 'f8a7ea5') {
+        type = EDecodedTxActionType.ASSET_TRANSFER;
+        const queryId = slice.loadUint(64);
+        const amount = slice.loadCoins();
+        const toAddress = slice.loadAddress();
+        const responseAddress = slice.loadAddress();
+        slice.loadBit(); // isCustomPayload
+        const forwardAmount = slice.loadCoins();
+        jetton = {
+          queryId: queryId.toString(),
+          toAddress: (toAddress.toString as IAddressToString)(
+            true,
+            true,
+            false,
+          ),
+          amount: amount.toString(),
+          forwardAmount: forwardAmount.toString(),
+          responseAddress: (responseAddress.toString as IAddressToString)(
+            true,
+            true,
+            false,
+          ),
+        };
+      }
+    } catch (e) {
+      // ignore
+    }
   }
 
-  return { type, bytes };
+  return { type, bytes, jetton };
 }
 
 type IV4R2 = typeof TonWeb.Wallets.all.v4R2;
@@ -185,16 +222,32 @@ export async function encodeJettonPayload({
   );
   const body = await jettonWallet.createTransferBody({
     queryId: params.queryId,
-    tokenAmount: new TonWeb.utils.BN(params.tokenAmount),
+    jettonAmount: new TonWeb.utils.BN(params.tokenAmount),
     toAddress: new TonWeb.Address(params.toAddress),
     responseAddress: new TonWeb.Address(params.responseAddress),
     forwardAmount: params.forwardAmount
       ? new TonWeb.utils.BN(params.forwardAmount)
       : undefined,
     forwardPayload: params.forwardPayload,
-  });
+  } as unknown as TransferBodyParams);
   return {
     payload: Buffer.from(await body.toBoc()).toString('hex'),
     jettonAddress: jettonAddress.toString(true, true, true),
   };
+}
+
+export async function getJettonData({
+  backgroundApi,
+  address,
+}: {
+  backgroundApi: IBackgroundApi;
+  address: string;
+}) {
+  const jettonWallet = new TonWeb.token.jetton.JettonWallet(
+    new Provider(backgroundApi),
+    {
+      address,
+    } as any,
+  );
+  return jettonWallet.getData();
 }

@@ -130,6 +130,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (msg.jetton?.amount) {
       hwParams.jettonAmount = Number(msg.jetton.amount);
       hwParams.jettonMasterAddress = msg.jetton.jettonMasterAddress;
+      hwParams.fwdFee = Number(msg.jetton.fwdFee);
+      hwParams.comment = undefined;
     }
     const result = await convertDeviceResponse(async () => {
       const res = await sdk.tonSignMessage(

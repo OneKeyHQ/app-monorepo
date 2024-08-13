@@ -2405,8 +2405,7 @@ const ckb: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-const ton = {
-  'balance2FeeDecimals': 9,
+const ton: IServerNetwork = {
   'chainId': '607',
   'code': 'ton',
   'decimals': 9,
@@ -2424,23 +2423,7 @@ const ton = {
     'symbol': 'TON',
   },
   'defaultEnabled': true,
-  'priceConfigs': [
-    {
-      'channel': 'coingecko',
-      'native': 'toncoin',
-    },
-  ],
-  'explorers': [
-    {
-      'address': 'https://tonscan.com/{address}',
-      'block': 'https://tonscan.com/blocks/-1/{block}',
-      'name': 'https://tonscan.com/',
-      'transaction': 'https://tonscan.com/transactions/{transaction}',
-    },
-  ],
   'status': ENetworkStatus.LISTED,
-  'createdAt': '2024-07-26T03:44:22.510Z',
-  'updatedAt': '2024-07-26T03:44:22.510Z',
 };
 
 const chainsOnlyEnabledInDev = [

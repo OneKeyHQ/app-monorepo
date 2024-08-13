@@ -29,7 +29,11 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { decodePayload, encodeJettonPayload } from './sdkTon/utils';
+import {
+  decodePayload,
+  encodeJettonPayload,
+  getJettonData,
+} from './sdkTon/utils';
 import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -140,19 +144,38 @@ export default class Vault extends VaultBase {
       encodedTx.messages.map(async (message) => {
         const decodedPayload = decodePayload(message.payload);
         if (decodedPayload.type === EDecodedTxActionType.ASSET_TRANSFER) {
+          let tokenAddress = message.jetton?.jettonMasterAddress ?? '';
+          let to = message.toAddress;
+          let amount = message.amount.toString();
+          if (decodedPayload.jetton) {
+            to = decodedPayload.jetton.toAddress;
+            amount = decodedPayload.jetton.amount;
+            const jettonData = await getJettonData({
+              backgroundApi: this.backgroundApi,
+              address: from,
+            }).catch((e) => {
+              console.error(e);
+            });
+            if (jettonData) {
+              tokenAddress = jettonData.jettonMinterAddress.toString();
+            }
+          }
           const token = await this.backgroundApi.serviceToken.getToken({
             networkId: network.id,
             accountId: this.accountId,
-            tokenIdOnNetwork: decodedPayload.tokenAddress ?? '',
+            tokenIdOnNetwork: tokenAddress,
           });
+          if (decodedPayload.jetton && token) {
+            amount = new BigNumber(amount).shiftedBy(-token.decimals).toFixed();
+          }
           return this.buildTxTransferAssetAction({
             from,
-            to: message.toAddress,
+            to,
             transfers: [
               {
                 from,
-                to: message.toAddress,
-                amount: message.amount.toString(),
+                to,
+                amount,
                 icon: token?.logoURI ?? '',
                 symbol: token?.symbol ?? '',
                 name: token?.name ?? '',
