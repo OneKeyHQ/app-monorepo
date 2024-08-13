@@ -85,14 +85,6 @@ async function openUrlInTab(
   });
 }
 
-async function isOpenPanelOnActionClick() {
-  if (typeof chrome !== 'undefined' && chrome.sidePanel) {
-    const options = await chrome.sidePanel.getPanelBehavior();
-    return options.openPanelOnActionClick;
-  }
-  return false;
-}
-
 async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
   const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
   let left = 0;
@@ -235,5 +227,4 @@ export default {
   resetSidePanelPath,
   openExistWindow,
   openPanelOnActionClick,
-  isOpenPanelOnActionClick,
 };
