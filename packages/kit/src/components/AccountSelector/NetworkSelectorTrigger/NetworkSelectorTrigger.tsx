@@ -83,6 +83,7 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
 
   return (
     <XStack
+      testID="account-network-trigger-button"
       role="button"
       flexShrink={1}
       alignItems="center"
@@ -112,13 +113,7 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
       onPress={showChainSelector}
     >
       <NetworkAvatar networkId={network?.id} size="$5" />
-      <SizableText
-        pl="$2"
-        size="$bodyMd"
-        flexShrink={1}
-        numberOfLines={1}
-        testID="account-network-text"
-      >
+      <SizableText pl="$2" size="$bodyMd" flexShrink={1} numberOfLines={1}>
         {network?.name}
       </SizableText>
       <Icon
