@@ -1004,6 +1004,7 @@ export enum ETranslations {
   manage_token_custom_token_symbol = 'manage_token.custom_token_symbol',
   manage_token_custom_token_title = 'manage_token.custom_token_title',
   manage_token_empty_msg = 'manage_token.empty_msg',
+  manage_token_native_token_cannot_removed = 'manage_token.native_token_cannot_removed',
   manage_token_native_token_cant_remove = 'manage_token.native_token_cant_remove',
   manage_token_popular_token = 'manage_token.popular_token',
   manage_token_title = 'manage_token.title',
