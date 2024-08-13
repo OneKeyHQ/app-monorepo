@@ -42,25 +42,36 @@ index 50b1d13..b6d9317 100644
    const onPlaceholderIndexChange = useStableCallback(index => {
      var _props$onPlaceholderI;
 diff --git a/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js b/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js
-index e4e558f..a6ea9ad 100644
+index e4e558f..99a21f0 100644
 --- a/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js
 +++ b/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js
-@@ -77,13 +77,13 @@ function useSetupAnimatedValues() {
+@@ -56,6 +56,17 @@ function useSetupAnimatedValues() {
+       outerScrollInit.value = outerScrollOffset.value;
+     }
+   }, [outerScrollOffset]);
++  const dragItemOverflowHitSlop = props?.dragItemOverflowHitSlop
++  const dragItemOverflowHitSlopValue = useSharedValue(dragItemOverflowHitSlop);
++  useAnimatedReaction(
++    () => {
++      return activeIndexAnim.value;
++    },
++    (cur, prev) => {
++      dragItemOverflowHitSlopValue.value = dragItemOverflowHitSlop;
++    },
++    [dragItemOverflowHitSlop]
++  );
+   const placeholderOffset = useSharedValue(0);
+   const isDraggingCell = useDerivedValue(() => {
+     return isTouchActiveNative.value && activeIndexAnim.value >= 0;
+@@ -77,7 +88,7 @@ function useSetupAnimatedValues() {
      const offsetRelativeToScrollTop = touchPositionDiff.value + activeCellOffset.value;
      const constrained = Math.min(containerMinusActiveCell, Math.max(scrollOffset.value, offsetRelativeToScrollTop));
      const maxTranslateNegative = -activeCellOffset.value;
 -    const maxTranslatePositive = scrollViewSize.value - (activeCellOffset.value + activeCellSize.value); // Only constrain the touch position while the finger is on the screen. This allows the active cell
-+    const maxTranslatePositive = (props?.dragItemOverflowHitSlop?.bottom ?? scrollViewSize.value) - (activeCellOffset.value + activeCellSize.value); // Only constrain the touch position while the finger is on the screen. This allows the active cell
++    const maxTranslatePositive = (dragItemOverflowHitSlopValue.value?.bottom ?? scrollViewSize.value) - (activeCellOffset.value + activeCellSize.value); // Only constrain the touch position while the finger is on the screen. This allows the active cell
      // to snap above/below the fold once let go, if the drag ends at the top/bottom of the screen.
  
      const constrainedBase = isTouchActiveNative.value ? constrained - activeCellOffset.value : touchPositionDiff.value; // Make sure item is constrained to the boundaries of the scrollview
- 
-     return Math.min(Math.max(constrainedBase, maxTranslateNegative), maxTranslatePositive);
--  }, []);
-+  }, [props?.dragItemOverflowHitSlop]);
-   const hoverAnim = useDerivedValue(() => {
-     if (activeIndexAnim.value < 0) return 0;
-     return props.dragItemOverflow ? touchPositionDiff.value : touchPositionDiffConstrained.value;
 diff --git a/node_modules/react-native-draggable-flatlist/lib/typescript/types.d.ts b/node_modules/react-native-draggable-flatlist/lib/typescript/types.d.ts
 index 2abb4a2..def5fad 100644
 --- a/node_modules/react-native-draggable-flatlist/lib/typescript/types.d.ts
