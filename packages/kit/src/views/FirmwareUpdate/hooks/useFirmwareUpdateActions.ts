@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
 
+import { StackActions } from '@react-navigation/routers';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, rootNavigationRef } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -14,8 +15,6 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-
-import type { IAppNavigation } from '../../../hooks/useAppNavigation';
 
 export function useFirmwareUpdateActions() {
   const intl = useIntl();
@@ -60,13 +59,10 @@ export function useFirmwareUpdateActions() {
         void openChangeLogOfExtension({ connectId });
         return;
       }
-      // navigation.popStack();
-      // global.$rootAppNavigation
 
-      if (global.$rootAppNavigation) {
-        (global.$rootAppNavigation as IAppNavigation | undefined)?.navigate(
-          ERootRoutes.Modal,
-          {
+      if (rootNavigationRef.current) {
+        rootNavigationRef.current?.dispatch(
+          StackActions.push(ERootRoutes.Modal, {
             screen: EModalRoutes.FirmwareUpdateModal,
             params: {
               screen: EModalFirmwareUpdateRoutes.ChangeLog,
@@ -74,7 +70,7 @@ export function useFirmwareUpdateActions() {
                 connectId,
               },
             },
-          },
+          }),
         );
       } else {
         // **** navigation.pushModal not working when Dialog open
