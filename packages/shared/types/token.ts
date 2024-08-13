@@ -43,6 +43,7 @@ export type IFetchAccountTokensParams = {
   hiddenTokens?: string[];
   flag?: string;
   isAllNetworks?: boolean;
+  isManualRefresh?: boolean;
 
   allNetworksAccountId?: string;
   allNetworksNetworkId?: string;

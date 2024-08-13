@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { uniqBy } from 'lodash';
 
@@ -88,6 +88,7 @@ function NFTListContainer(props: ITabPageProps) {
     },
   );
 
+  const isAllNetworkManualRefresh = useRef(false);
   const handleAllNetworkRequests = useCallback(
     async ({
       accountId,
@@ -102,6 +103,7 @@ function NFTListContainer(props: ITabPageProps) {
         accountId,
         networkId,
         isAllNetworks: true,
+        isManualRefresh: isAllNetworkManualRefresh.current,
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
       });
@@ -122,6 +124,7 @@ function NFTListContainer(props: ITabPageProps) {
         });
       }
 
+      isAllNetworkManualRefresh.current = false;
       return r;
     },
     [account?.id, network?.id],
@@ -169,6 +172,7 @@ function NFTListContainer(props: ITabPageProps) {
   });
 
   const handleRefreshAllNetworkData = useCallback(() => {
+    isAllNetworkManualRefresh.current = true;
     void runAllNetworkRequests();
   }, [runAllNetworkRequests]);
 

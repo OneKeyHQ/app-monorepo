@@ -42,7 +42,7 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
-    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const { accountId, networkId, tokenIdOnNetwork, isManualRefresh } = params;
     const [accountAddress, xpub] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
@@ -163,6 +163,7 @@ class ServiceHistory extends ServiceBase {
     // 4. Fetch the on-chain history
     onChainHistoryTxs = await this.fetchAccountOnChainHistory({
       ...params,
+      isAllNetworks,
       accountAddress,
       xpub,
     });
@@ -406,8 +407,15 @@ class ServiceHistory extends ServiceBase {
       xpub?: string;
     },
   ) {
-    const { accountId, networkId, xpub, tokenIdOnNetwork, accountAddress } =
-      params;
+    const {
+      accountId,
+      networkId,
+      xpub,
+      tokenIdOnNetwork,
+      accountAddress,
+      isManualRefresh,
+      isAllNetworks,
+    } = params;
     const extraParams = await this.buildFetchHistoryListParams(params);
     let extraRequestParams = extraParams;
     if (networkId === getNetworkIdsMap().onekeyall) {
@@ -438,6 +446,8 @@ class ServiceHistory extends ServiceBase {
           xpub,
           tokenAddress: tokenIdOnNetwork,
           ...extraRequestParams,
+          isForceRefresh: isManualRefresh,
+          isAllNetwork: isAllNetworks,
         },
         {
           headers:

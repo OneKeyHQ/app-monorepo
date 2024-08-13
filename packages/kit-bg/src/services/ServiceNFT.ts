@@ -44,6 +44,7 @@ class ServiceNFT extends ServiceBase {
       isAllNetworks,
       allNetworksAccountId,
       allNetworksNetworkId,
+      isManualRefresh,
       ...rest
     } = params;
 
@@ -78,7 +79,17 @@ class ServiceNFT extends ServiceBase {
       data: IFetchAccountNFTsResp;
     }>(
       `/wallet/v1/account/nft/list?${qs.stringify(
-        omitBy({ networkId, accountAddress, xpub, ...rest }, isNil),
+        omitBy(
+          {
+            networkId,
+            accountAddress,
+            xpub,
+            isAllNetwork: isAllNetworks,
+            isForceRefresh: isManualRefresh,
+            ...rest,
+          },
+          isNil,
+        ),
       )}`,
       {
         signal: controller.signal,

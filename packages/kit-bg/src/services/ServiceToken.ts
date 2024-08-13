@@ -64,6 +64,7 @@ class ServiceToken extends ServiceBase {
       flag,
       accountId,
       isAllNetworks,
+      isManualRefresh,
       allNetworksAccountId,
       allNetworksNetworkId,
       ...rest
@@ -129,6 +130,8 @@ class ServiceToken extends ServiceBase {
         ...rest,
         accountAddress,
         xpub,
+        isAllNetwork: isAllNetworks,
+        isForceRefresh: isManualRefresh,
       },
       {
         signal: controller.signal,
