@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useMemo } from 'react';
+import { forwardRef, useCallback, useMemo, useRef } from 'react';
 import type { ComponentType, ReactElement } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -62,6 +62,7 @@ const PageComponent = (
     [pageManagerProps],
   );
   const Content = pageManager.renderContentView;
+  const point = useRef({ x: 0, y: 0 });
   const renderContentItem = useCallback(
     ({
       item,
@@ -74,6 +75,19 @@ const PageComponent = (
         style={{
           width: contentItemWidth,
           height: '100%',
+        }}
+        onStartShouldSetResponderCapture={(e) => {
+          const { locationX: x, locationY: y } = e.nativeEvent;
+          point.current = { x, y };
+          return false;
+        }}
+        onMoveShouldSetResponderCapture={(e) => {
+          const { locationX: x, locationY: y } = e.nativeEvent;
+          const diffX = Math.abs(x - point.current.x);
+          const diffY = Math.abs(y - point.current.y);
+          return platformEnv.isNativeIOS
+            ? diffX + diffY > 10 && diffX > diffY
+            : false;
         }}
       >
         <item.page />
