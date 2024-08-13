@@ -55,17 +55,6 @@ export function AppStateLockContainer({
   }, []);
   const handleUnlock = useCallback(async () => {
     await backgroundApiProxy.servicePassword.unLockApp();
-    if (platformEnv.isExtensionUiStandaloneWindow) {
-      if (await extUtils.isOpenPanelOnActionClick()) {
-        await extUtils.openSidePanel({
-          path: window.location.href.replace(
-            EXT_HTML_FILES.uiStandAloneWindow,
-            EXT_HTML_FILES.uiSidePanel,
-          ),
-        });
-        window.close();
-      }
-    }
   }, []);
   const handleLayout = useCallback(
     (e: LayoutChangeEvent) => {
