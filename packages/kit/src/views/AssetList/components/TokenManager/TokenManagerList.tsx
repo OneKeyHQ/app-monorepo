@@ -196,7 +196,8 @@ function TokenManagerList({
             disabled={!!(checkTokenExistInTokenList(item) && item.isNative)}
             title={
               checkTokenExistInTokenList(item) && item.isNative
-                ? intl.formatMessage({ id: ETranslations.manage_token_native_token_cannot_removed })
+                ? intl.formatMessage({ id: ETranslations.manage_token_native_token_cant_remove
+                })
                 : undefined
             }   
             icon={
