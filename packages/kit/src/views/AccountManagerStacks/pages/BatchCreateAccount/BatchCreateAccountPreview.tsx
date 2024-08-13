@@ -36,7 +36,6 @@ import {
 import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IBatchBuildAccountsAdvancedFlowParams,
@@ -84,21 +83,15 @@ function BatchCreateAccountPreviewPage({
   defaultCount: string;
   defaultIsAdvancedMode?: boolean;
 }) {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account } = activeAccount;
-
   const { result: networkIdsCompatibleAccount } = usePromiseResult(
     async () => {
-      if (account?.id) {
-        const { networkIdsCompatible } =
-          await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithAccountId(
-            { accountId: account.id, compatibleWithDeviceType: true },
-          );
-        return networkIdsCompatible;
-      }
-      return undefined;
+      const { networkIdsCompatible } =
+        await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
+          { walletId },
+        );
+      return networkIdsCompatible;
     },
-    [account?.id],
+    [walletId],
     { initResult: undefined },
   );
 

@@ -54,7 +54,6 @@ const EditableAccountChainSelector = ({
           {
             accountId: account?.id,
             networkIds,
-            compatibleWithDeviceType: true,
           },
         ),
       [account?.id, networkIds],

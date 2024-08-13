@@ -671,14 +671,12 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getNetworkIdsCompatibleWithAccountId({
-    accountId,
+  async getNetworkIdsCompatibleWithWalletId({
+    walletId,
     networkIds,
-    compatibleWithDeviceType,
   }: {
-    accountId: string;
+    walletId?: string;
     networkIds?: string[];
-    compatibleWithDeviceType?: boolean;
   }) {
     let networkVaultSettings = await this._getNetworkVaultSettings();
     if (networkIds) {
@@ -692,15 +690,9 @@ class ServiceNetwork extends ServiceBase {
       (o) => !networkUtils.isAllNetwork({ networkId: o.network.id }),
     );
 
-    let dbAccount: IDBAccount | undefined;
     let networkIdsIncompatible: string[] = [];
-
-    dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
-      accountId,
-    });
-    if (compatibleWithDeviceType) {
-      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-      const isHwWallet = accountUtils.isHwAccount({ accountId });
+    if (walletId) {
+      const isHwWallet = accountUtils.isHwWallet({ walletId });
 
       if (!isHwWallet) {
         // is software wallet
@@ -730,19 +722,20 @@ class ServiceNetwork extends ServiceBase {
           );
         }
       }
-    }
-    const isQrAccount = accountUtils.isQrAccount({ accountId });
-    if (isQrAccount) {
-      const networksQrAccountDisabled = networkVaultSettings
-        .filter((o) => {
-          const isQrAccountSupported = o.vaultSetting.qrAccountEnabled;
-          return !isQrAccountSupported;
-        })
-        .map((o) => o.network.id);
-      networkIdsIncompatible = networkIdsIncompatible.concat(
-        networksQrAccountDisabled,
-      );
-      // Qr account only support btc/evm network
+
+      const isQrWallet = accountUtils.isQrWallet({ walletId });
+      if (isQrWallet) {
+        const networksQrAccountDisabled = networkVaultSettings
+          .filter((o) => {
+            const isQrAccountSupported = o.vaultSetting.qrAccountEnabled;
+            return !isQrAccountSupported;
+          })
+          .map((o) => o.network.id);
+        networkIdsIncompatible = networkIdsIncompatible.concat(
+          networksQrAccountDisabled,
+        );
+        // Qr account only support btc/evm network
+      }
     }
 
     return {
@@ -757,11 +750,9 @@ class ServiceNetwork extends ServiceBase {
   async getChainSelectorNetworksCompatibleWithAccountId({
     accountId,
     networkIds,
-    compatibleWithDeviceType,
   }: {
     accountId?: string;
     networkIds?: string[];
-    compatibleWithDeviceType?: boolean;
   }): Promise<{
     mainnetItems: IServerNetwork[];
     testnetItems: IServerNetwork[];
@@ -788,10 +779,9 @@ class ServiceNetwork extends ServiceBase {
       dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
         accountId,
       });
-      const compatibleResp = await this.getNetworkIdsCompatibleWithAccountId({
-        accountId,
+      const compatibleResp = await this.getNetworkIdsCompatibleWithWalletId({
         networkIds,
-        compatibleWithDeviceType,
+        walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
       });
       networkIdsDisabled = compatibleResp.networkIdsIncompatible;
     }
