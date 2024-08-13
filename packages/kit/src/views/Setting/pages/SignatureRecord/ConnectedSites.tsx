@@ -41,7 +41,7 @@ const ConnectedSiteItem = ({ item }: { item: IConnectedSite }) => (
           {formatTime(new Date(item.createdAt), { hideSeconds: true })}
         </SizableText>
       </XStack>
-      <XStack p="$3" alignItems="center" >
+      <XStack p="$3" alignItems="center">
         <Image
           borderRadius="$full"
           overflow="hidden"

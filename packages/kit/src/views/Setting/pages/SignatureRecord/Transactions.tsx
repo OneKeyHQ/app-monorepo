@@ -41,13 +41,13 @@ const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => {
   const intl = useIntl();
   return (
     <XStack justifyContent="space-between" w="100%" alignItems="center">
-      <XStack alignItems="center" pr='$2'>
+      <XStack alignItems="center" pr="$2">
         <Token size="lg" tokenImageUri={data.token.logoURI} />
         <SizableText ml="$3" size="$bodyLgMedium">
           {intl.formatMessage({ id: ETranslations.global_send })}
         </SizableText>
       </XStack>
-      <XStack flex={1} justifyContent='flex-end'>
+      <XStack flex={1} justifyContent="flex-end">
         <NumberSizeableText
           size="$bodyLgMedium"
           formatter="balance"
@@ -72,7 +72,7 @@ const ApproveTransactionItem = ({
   const intl = useIntl();
   return (
     <XStack justifyContent="space-between" w="100%" alignItems="center">
-      <XStack alignItems="center" pr='$2'>
+      <XStack alignItems="center" pr="$2">
         <Token size="lg" tokenImageUri={data.token.logoURI} />
         <SizableText ml="$3" size="$bodyLgMedium">
           {intl.formatMessage({ id: ETranslations.global_approve })}
@@ -106,7 +106,7 @@ const SwapTransactionItem = ({ data }: { data: ISwapTransactionData }) => {
   const intl = useIntl();
   return (
     <XStack justifyContent="space-between" w="100%">
-      <XStack alignItems="center" pr='$2'>
+      <XStack alignItems="center" pr="$2">
         <Stack
           w={40}
           h={40}
@@ -167,7 +167,7 @@ const EarnLidoTransactionItem = ({ data }: { data: IEarnTransactionData }) => {
   }
   return (
     <XStack justifyContent="space-between" w="100%">
-      <XStack alignItems="center" pr='$2'>
+      <XStack alignItems="center" pr="$2">
         <Token
           size="lg"
           tokenImageUri={
@@ -213,7 +213,7 @@ const ContractInteractionTransactionItem = () => {
   const intl = useIntl();
   return (
     <XStack justifyContent="space-between" w="100%" alignItems="center">
-      <XStack alignItems="center" pr='$2'>
+      <XStack alignItems="center" pr="$2">
         <Image
           borderRadius="$full"
           overflow="hidden"
@@ -295,11 +295,11 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
               title={
                 item.hash
                   ? intl.formatMessage({
-                    id: ETranslations.settings_view_transaction_in_explorer,
-                  })
+                      id: ETranslations.settings_view_transaction_in_explorer,
+                    })
                   : intl.formatMessage({
-                    id: ETranslations.settings_view_address_in_explorer,
-                  })
+                      id: ETranslations.settings_view_address_in_explorer,
+                    })
               }
               icon={item.hash ? 'OpenOutline' : 'GlobusOutline'}
               size="small"
