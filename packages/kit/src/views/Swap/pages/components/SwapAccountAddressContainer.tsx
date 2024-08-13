@@ -80,7 +80,7 @@ function AddressButton({
           color={empty ? '$textCaution' : '$textSubdued'}
         >
           {empty
-            ? intl.formatMessage({ id: ETranslations.wallet_no_address })
+            ? intl.formatMessage({ id: ETranslations.swap_page_no_address })
             : address}
         </SizableText>
         {edited ? (
