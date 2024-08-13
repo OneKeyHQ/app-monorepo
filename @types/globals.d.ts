@@ -1,5 +1,4 @@
 /* eslint-disable no-var,vars-on-top */
-
 import type { LocalDbBase } from '@onekeyhq/kit-bg/src/dbs/local/LocalDbBase';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
 import type { IOffscreenApi } from '@onekeyhq/kit-bg/src/offscreens/instance/IOffscreenApi';
@@ -50,8 +49,8 @@ declare global {
   var $$appSelector: any;
   var $$appStorage: any;
   var $$allAtoms: any; // jotai global atoms
+  var $$defaultLogger: DefaultLogger;
   var $$platformEnv: any;
-  var $$debugLogger: any;
   var $$localforage: any;
   var $$navigationActions: any;
   var $$wcTransports: any;
