@@ -634,7 +634,7 @@
   "global.count_addresses": "{count} 個地址",
   "global.create_address": "創建地址",
   "global.create_invoice": "建立發票",
-  "global.create_wallet": "添加錢包",
+  "global.create_wallet": "創建錢包",
   "global.creating_address": "創建地址",
   "global.crypto": "幣種",
   "global.current": "當前",

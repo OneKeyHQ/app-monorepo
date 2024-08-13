@@ -634,7 +634,7 @@
   "global.count_addresses": "{count} ที่อยู่",
   "global.create_address": "สร้างที่อยู่",
   "global.create_invoice": "สร้างใบแจ้งหนี้",
-  "global.create_wallet": "เพิ่มกระเป๋าเงิน",
+  "global.create_wallet": "สร้างกระเป๋าสตางค์",
   "global.creating_address": "กำลังสร้างที่อยู่",
   "global.crypto": "คริปโต",
   "global.current": "ปัจจุบัน",
