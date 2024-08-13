@@ -863,14 +863,10 @@ const DialogGallery = () => (
                   const [val, setVal] = useState('Apple');
                   return (
                     <Select
-                      items={new Array(10).fill(undefined).map((_, index) => ({
+                      items={new Array(5).fill(undefined).map((_, index) => ({
                         label: String(index),
                         value: String(index),
                       }))}
-                      sheetProps={{
-                        snapPointsMode: 'percent',
-                        snapPoints: [80],
-                      }}
                       value={val}
                       onChange={setVal}
                       title="Demo Title"
