@@ -634,7 +634,7 @@
   "global.count_addresses": "{count} 件のアドレス",
   "global.create_address": "住所を作成する",
   "global.create_invoice": "請求書を作成する",
-  "global.create_wallet": "ウォレットを追加",
+  "global.create_wallet": "ウォレットを作成する",
   "global.creating_address": "アドレスを作成",
   "global.crypto": "暗号通貨",
   "global.current": "現在",
