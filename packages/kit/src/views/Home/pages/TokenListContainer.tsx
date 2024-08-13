@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
@@ -280,6 +280,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     },
   );
 
+  const isAllNetworkManualRefresh = useRef(false);
   const handleAllNetworkRequests = useCallback(
     async ({
       accountId,
@@ -295,6 +296,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         accountId,
         flag: 'home-token-list',
         isAllNetworks: true,
+        isManualRefresh: isAllNetworkManualRefresh.current,
         mergeTokens: true,
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
@@ -392,6 +394,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         }
       }
 
+      isAllNetworkManualRefresh.current = false;
       return r;
     },
     [
@@ -733,6 +736,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   );
 
   const handleRefreshAllNetworkData = useCallback(() => {
+    isAllNetworkManualRefresh.current = true;
     void runAllNetworksRequests({ alwaysSetState: true });
   }, [runAllNetworksRequests]);
 
