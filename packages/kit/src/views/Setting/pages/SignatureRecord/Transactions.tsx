@@ -41,22 +41,25 @@ const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => {
   const intl = useIntl();
   return (
     <XStack justifyContent="space-between" w="100%" alignItems="center">
-      <XStack alignItems="center">
+      <XStack alignItems="center" pr='$2'>
         <Token size="lg" tokenImageUri={data.token.logoURI} />
         <SizableText ml="$3" size="$bodyLgMedium">
           {intl.formatMessage({ id: ETranslations.global_send })}
         </SizableText>
       </XStack>
-      <NumberSizeableText
-        size="$bodyLgMedium"
-        formatter="balance"
-        formatterOptions={{
-          tokenSymbol: data.token.symbol.toUpperCase(),
-          showPlusMinusSigns: true,
-        }}
-      >
-        {`-${data.amount}`}
-      </NumberSizeableText>
+      <XStack flex={1} justifyContent='flex-end'>
+        <NumberSizeableText
+          size="$bodyLgMedium"
+          formatter="balance"
+          numberOfLines={1}
+          formatterOptions={{
+            tokenSymbol: `${data.token.symbol.toUpperCase()}`,
+            showPlusMinusSigns: true,
+          }}
+        >
+          {`-${data.amount}`}
+        </NumberSizeableText>
+      </XStack>
     </XStack>
   );
 };
@@ -69,32 +72,32 @@ const ApproveTransactionItem = ({
   const intl = useIntl();
   return (
     <XStack justifyContent="space-between" w="100%" alignItems="center">
-      <XStack alignItems="center">
+      <XStack alignItems="center" pr='$2'>
         <Token size="lg" tokenImageUri={data.token.logoURI} />
         <SizableText ml="$3" size="$bodyLgMedium">
           {intl.formatMessage({ id: ETranslations.global_approve })}
         </SizableText>
       </XStack>
-      <XStack>
-        {data.isUnlimited ? (
-          <SizableText size="$bodyLgMedium">
-            {intl.formatMessage({
-              id: ETranslations.swap_page_provider_approve_amount_un_limit,
-            })}
-          </SizableText>
-        ) : (
-          <NumberSizeableText
-            size="$bodyLgMedium"
-            formatter="balance"
-            formatterOptions={{
-              tokenSymbol: data.token.symbol.toUpperCase(),
-              showPlusMinusSigns: true,
-            }}
-          >
-            {`-${data.amount}`}
-          </NumberSizeableText>
-        )}
-      </XStack>
+      {data.isUnlimited ? (
+        <SizableText size="$bodyLgMedium">
+          {intl.formatMessage({
+            id: ETranslations.swap_page_provider_approve_amount_un_limit,
+          })}
+        </SizableText>
+      ) : (
+        <NumberSizeableText
+          size="$bodyLgMedium"
+          formatter="balance"
+          numberOfLines={1}
+          flexShrink={1}
+          formatterOptions={{
+            tokenSymbol: `${data.token.symbol.toUpperCase()}`,
+            showPlusMinusSigns: true,
+          }}
+        >
+          {`-${data.amount}`}
+        </NumberSizeableText>
+      )}
     </XStack>
   );
 };
@@ -103,7 +106,7 @@ const SwapTransactionItem = ({ data }: { data: ISwapTransactionData }) => {
   const intl = useIntl();
   return (
     <XStack justifyContent="space-between" w="100%">
-      <XStack alignItems="center">
+      <XStack alignItems="center" pr='$2'>
         <Stack
           w={40}
           h={40}
@@ -164,7 +167,7 @@ const EarnLidoTransactionItem = ({ data }: { data: IEarnTransactionData }) => {
   }
   return (
     <XStack justifyContent="space-between" w="100%">
-      <XStack alignItems="center">
+      <XStack alignItems="center" pr='$2'>
         <Token
           size="lg"
           tokenImageUri={
@@ -210,7 +213,7 @@ const ContractInteractionTransactionItem = () => {
   const intl = useIntl();
   return (
     <XStack justifyContent="space-between" w="100%" alignItems="center">
-      <XStack alignItems="center">
+      <XStack alignItems="center" pr='$2'>
         <Image
           borderRadius="$full"
           overflow="hidden"
@@ -292,11 +295,11 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
               title={
                 item.hash
                   ? intl.formatMessage({
-                      id: ETranslations.settings_view_transaction_in_explorer,
-                    })
+                    id: ETranslations.settings_view_transaction_in_explorer,
+                  })
                   : intl.formatMessage({
-                      id: ETranslations.settings_view_address_in_explorer,
-                    })
+                    id: ETranslations.settings_view_address_in_explorer,
+                  })
               }
               icon={item.hash ? 'OpenOutline' : 'GlobusOutline'}
               size="small"
