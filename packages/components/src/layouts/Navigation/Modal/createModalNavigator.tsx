@@ -32,6 +32,7 @@ import type {
   StackNavigationState,
   StackRouterOptions,
 } from '@react-navigation/native';
+import type { GestureResponderEvent } from 'react-native';
 import type { TamaguiElement } from 'tamagui';
 
 const MODAL_ANIMATED_VIEW_REF_LIST: TamaguiElement[] = [];
@@ -185,6 +186,24 @@ function ModalNavigator({
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return listener;
   }, [navigation]);
+
+  const stopPropagation = useCallback((e: GestureResponderEvent) => {
+    // Prevents bubbling to prevent the background click event from being triggered when clicking on the modal window
+    e?.stopPropagation();
+  }, []);
+
+  const onPressInTimeAt = useRef(0);
+  const handleBackDropPressIn = useCallback(() => {
+    onPressInTimeAt.current = Date.now();
+  }, []);
+
+  const handleBackDropPress = useCallback(() => {
+    const diff = Date.now() - onPressInTimeAt.current;
+    if (diff < 150) {
+      handleBackdropClick();
+    }
+  }, [handleBackdropClick]);
+
   state.routes.forEach((route, routeIndex) => {
     const routeDescriptor = descriptors[route.key];
     // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -216,12 +235,13 @@ function ModalNavigator({
   return (
     <NavigationContent>
       <Stack
-        onPress={handleBackdropClick}
         flex={1}
         $gtMd={{
           justifyContent: 'center',
           alignItems: 'center',
         }}
+        onPressIn={handleBackDropPressIn}
+        onPress={handleBackDropPress}
       >
         {currentRouteIndex <= 1 ? (
           <YStack
@@ -237,8 +257,7 @@ function ModalNavigator({
         ) : null}
 
         <Stack
-          // Prevents bubbling to prevent the background click event from being triggered when clicking on the modal window
-          onPress={(e) => e?.stopPropagation()}
+          onPress={stopPropagation}
           testID="APP-Modal-Screen"
           className="app-region-no-drag"
           bg="$bgApp"
