@@ -11,7 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
@@ -232,8 +232,15 @@ export function HomePageView({
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
         <Page.Body>
-          <UpdateReminder />
-          <HomeFirmwareUpdateReminder />
+          {
+            // The upgrade reminder does not need to be displayed on the Url Account page
+            sceneName === EAccountSelectorSceneName.home ? (
+              <>
+                <UpdateReminder />
+                <HomeFirmwareUpdateReminder />
+              </>
+            ) : null
+          }
           {content}
         </Page.Body>
       </>
