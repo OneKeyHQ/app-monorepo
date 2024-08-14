@@ -31,3 +31,11 @@ export const {
   name: EAtomNames.accountManualCreatingAtom,
   initialValue: { isLoading: false },
 });
+
+export const {
+  target: accountSelectorAccountsListIsLoadingAtom,
+  use: useAccountSelectorAccountsListIsLoadingAtom,
+} = globalAtom<boolean>({
+  name: EAtomNames.accountSelectorAccountsListIsLoadingAtom,
+  initialValue: false,
+});

@@ -1,4 +1,5 @@
 import { AccountScope } from './scopes/account';
+import { AccountSelectorScope } from './scopes/accountSelector';
 import { AddressInputScope } from './scopes/addressInput';
 import { AppScope } from './scopes/app';
 import { DemoScope } from './scopes/demo';
@@ -13,8 +14,10 @@ import { TokenScope } from './scopes/token';
 import { TransactionScope } from './scopes/transaction';
 import { UpdateScope } from './scopes/update';
 
-class Logger {
+export class DefaultLogger {
   account = new AccountScope();
+
+  accountSelector = new AccountSelectorScope();
 
   app = new AppScope();
 
@@ -43,4 +46,7 @@ class Logger {
   fiatCrypto = new FiatCryptoScope();
 }
 
-export const defaultLogger = new Logger();
+const defaultLogger = new DefaultLogger();
+global.$$defaultLogger = defaultLogger;
+
+export { defaultLogger };

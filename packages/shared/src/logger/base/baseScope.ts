@@ -1,51 +1,11 @@
-import { analytics } from '../../analytics';
 import { isPromiseObject } from '../../utils/promiseUtils';
-import { getLoggerExtension } from '../extensions';
 import { stringifyFunc } from '../stringifyFunc';
 import { Metadata } from '../types';
 
-import type { BaseScene } from './baseScene';
-import type { EScopeName, IMethodDecoratorMetadata, IScope } from '../types';
+import { logFn } from './logFn';
 
-const handleMetadata = ({
-  scopeName,
-  sceneName,
-  metadata,
-  prop,
-  rawMsg,
-  obj,
-}: {
-  scopeName: string;
-  sceneName: string;
-  metadata: IMethodDecoratorMetadata;
-  prop: string;
-  rawMsg: string;
-  obj: Metadata;
-}) => {
-  setTimeout(() => {
-    switch (metadata.type) {
-      case 'local':
-        {
-          const extensionName = `${scopeName} -> ${sceneName}`;
-          const logger = getLoggerExtension(extensionName);
-          const msg = `${scopeName} -> ${sceneName} -> ${prop}: ${rawMsg}`;
-          logger[metadata.level](msg);
-          if (metadata.level === 'error') {
-            console.error(msg);
-          }
-        }
-        break;
-      case 'server':
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        analytics.trackEvent(prop, obj.args[0]);
-        break;
-      case 'console':
-      default: {
-        console[metadata.level](...obj.args);
-      }
-    }
-  });
-};
+import type { BaseScene } from './baseScene';
+import type { EScopeName, IScope } from '../types';
 
 export abstract class BaseScope implements IScope {
   protected abstract scopeName: EScopeName;
@@ -87,21 +47,21 @@ export abstract class BaseScope implements IScope {
               if (Array.isArray(obj.metadata)) {
                 for (let i = 0; i < obj.metadata.length; i += 1) {
                   const metadata = obj.metadata[i];
-                  handleMetadata({
+                  logFn({
                     scopeName: this.scopeName,
                     sceneName,
                     metadata,
-                    prop,
+                    methodName: prop,
                     rawMsg,
                     obj,
                   });
                 }
               } else {
-                handleMetadata({
+                logFn({
                   scopeName: this.scopeName,
                   sceneName,
                   metadata: obj.metadata,
-                  prop,
+                  methodName: prop,
                   rawMsg,
                   obj,
                 });

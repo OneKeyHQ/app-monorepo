@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IAccountChainSelectorRouteParams,
   IAccountSelectorRouteParamsExtraConfig,
@@ -490,6 +491,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       } & IAccountSelectorRouteParams &
         IAccountSelectorRouteParamsExtraConfig,
     ) => {
+      defaultLogger.accountSelector.perf.showAccountSelector({
+        num,
+        sceneName,
+        sceneUrl,
+      });
+
       const activeAccountInfo = this.getActiveAccount.call(set, { num });
       if (activeAccountInfo?.wallet?.id) {
         // focus to active wallet when open selector
@@ -501,6 +508,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         });
       }
       set(accountSelectorEditModeAtom(), false);
+
       navigation.pushModal(EModalRoutes.AccountManagerStacks, {
         screen: EAccountManagerStacksRoutes.AccountSelectorStack,
         params: {
