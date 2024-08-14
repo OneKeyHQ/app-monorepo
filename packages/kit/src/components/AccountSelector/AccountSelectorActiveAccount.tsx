@@ -174,11 +174,22 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
             userSelect="none"
             testID="account-selector-address"
           >
-            <SizableText testID="account-selector-address-text" size="$bodyMd">
-              {platformEnv.isE2E
-                ? account?.address
-                : accountUtils.shortenAddress({ address: account?.address })}
-            </SizableText>
+            {platformEnv.isE2E ? (
+              <SizableText
+                testID="account-selector-address-text"
+                size="$bodyMd"
+                width={150}
+              >
+                {account?.address}
+              </SizableText>
+            ) : (
+              <SizableText
+                testID="account-selector-address-text"
+                size="$bodyMd"
+              >
+                {accountUtils.shortenAddress({ address: account?.address })}
+              </SizableText>
+            )}
           </XStack>
         }
       />
