@@ -192,18 +192,6 @@ function ModalNavigator({
     e?.stopPropagation();
   }, []);
 
-  const onPressInTimeAt = useRef(0);
-  const handleBackDropPressIn = useCallback(() => {
-    onPressInTimeAt.current = Date.now();
-  }, []);
-
-  const handleBackDropPress = useCallback(() => {
-    const diff = Date.now() - onPressInTimeAt.current;
-    if (diff < 150) {
-      handleBackdropClick();
-    }
-  }, [handleBackdropClick]);
-
   state.routes.forEach((route, routeIndex) => {
     const routeDescriptor = descriptors[route.key];
     // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -240,8 +228,7 @@ function ModalNavigator({
           justifyContent: 'center',
           alignItems: 'center',
         }}
-        onPressIn={handleBackDropPressIn}
-        onPress={handleBackDropPress}
+        onPressIn={handleBackdropClick}
       >
         {currentRouteIndex <= 1 ? (
           <YStack
@@ -257,7 +244,7 @@ function ModalNavigator({
         ) : null}
 
         <Stack
-          onPress={stopPropagation}
+          onPressIn={stopPropagation}
           testID="APP-Modal-Screen"
           className="app-region-no-drag"
           bg="$bgApp"
