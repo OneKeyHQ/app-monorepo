@@ -16,7 +16,6 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -25,6 +24,7 @@ import { settingsAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IDBAccount,
   IDBDevice,
@@ -154,6 +154,12 @@ class ServiceAccountSelector extends ServiceBase {
       networkId,
       walletId,
     } = selectedAccount;
+
+    defaultLogger.accountSelector.perf.buildActiveAccountInfoFromSelectedAccount(
+      {
+        selectedAccount,
+      },
+    );
 
     let account: INetworkAccount | undefined;
     // NetworkAccount is undefined if others wallet account not compatible with network

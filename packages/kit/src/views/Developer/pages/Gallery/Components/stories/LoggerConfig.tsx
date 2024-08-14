@@ -93,7 +93,39 @@ const LoggingConfigCheckbox = () => {
       );
     });
 
-  return <Stack>{renderCheckBoxes(config)}</Stack>;
+  return (
+    <Stack>
+      <XStack alignItems="center" mb="$4">
+        <Checkbox
+          value={isGroupChecked(config)}
+          onChange={(checked) => {
+            const newConfig = { ...config };
+            Object.keys(newConfig).forEach((key) => {
+              if (
+                typeof newConfig[key] === 'object' &&
+                newConfig[key] !== null
+              ) {
+                Object.keys(newConfig[key] as ILoggingConfig).forEach(
+                  (subKey) => {
+                    (newConfig[key] as ILoggingConfig)[subKey] = !!checked;
+                  },
+                );
+              } else {
+                newConfig[key] = !!checked;
+              }
+            });
+            handleChange([], newConfig as any);
+          }}
+          label="Select All"
+          labelProps={{
+            fontSize: '$heading2xl',
+            fontWeight: 'bold',
+          }}
+        />
+      </XStack>
+      {renderCheckBoxes(config)}
+    </Stack>
+  );
 };
 
 export default LoggingConfigCheckbox;

@@ -1,5 +1,7 @@
 import { analytics } from '../../analytics';
 import platformEnv from '../../platformEnv';
+import { formatTime } from '../../utils/dateUtils';
+import timerUtils from '../../utils/timerUtils';
 import { getLoggerExtension } from '../extensions';
 import { defaultLoggerConfig } from '../loggerConfig';
 
@@ -24,8 +26,12 @@ export const logFn = ({
     const config = await defaultLoggerConfig.savedLoggerConfigAsync;
     const shouldLogToConsole =
       !platformEnv.isDev || !!config?.[scopeName]?.[sceneName];
-    const prefix = `${scopeName} -> ${sceneName} -> ${methodName} : `;
+    const prefix = `***log*** ${scopeName} => ${sceneName} => ${methodName} : `;
     const msg = `${prefix} ${rawMsg}`;
+    const timestamp = () =>
+      formatTime(new Date(), {
+        formatTemplate: 'HH:mm:ss.SSS',
+      });
     switch (metadata.type) {
       case 'local':
         {
@@ -39,7 +45,7 @@ export const logFn = ({
           }
           if (metadata.level === 'error') {
             if (shouldLogToConsole) {
-              console.error(msg);
+              console.error(timestamp(), msg);
             }
           }
         }
@@ -51,9 +57,9 @@ export const logFn = ({
       default: {
         if (shouldLogToConsole) {
           if (platformEnv.isNative) {
-            console[metadata.level](msg);
+            console[metadata.level](timestamp(), msg);
           } else {
-            console[metadata.level](prefix, ...obj.args);
+            console[metadata.level](timestamp(), prefix, ...obj.args);
           }
         }
       }

@@ -25,6 +25,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -58,6 +59,19 @@ function OthersWalletItem({
   );
 }
 
+export function AccountSelectorWalletListSideBarPerfTest({
+  num,
+}: IWalletListProps) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const actions = useAccountSelectorActions(); // make render twice first time
+  const { selectedAccount } = useSelectedAccount({ num }); // make render twice first time
+
+  defaultLogger.accountSelector.perf.renderWalletListSideBar({
+    selectedAccount: {} as any,
+  });
+  return null;
+}
+
 export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   const { serviceAccount } = backgroundApiProxy;
   const { bottom } = useSafeAreaInsets();
@@ -67,17 +81,24 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   const isEditableRouteParams = route.params?.editable;
   const { selectedAccount } = useSelectedAccount({ num });
 
+  defaultLogger.accountSelector.perf.renderWalletListSideBar({
+    selectedAccount,
+  });
+
   const {
     result: walletsResult,
     setResult,
     run: reloadWallets,
   } = usePromiseResult(
-    () =>
+    async () => {
+      defaultLogger.accountSelector.perf.buildWalletListSideBarData();
       // serviceAccount.getHDAndHWWallets({
-      serviceAccount.getWallets({
+      const r = await serviceAccount.getWallets({
         nestedHiddenWallets: true,
         ignoreEmptySingletonWalletAccounts: true,
-      }),
+      });
+      return r;
+    },
     [serviceAccount],
     {
       checkIsFocused: false,
