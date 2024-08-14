@@ -1,4 +1,9 @@
-import { ListView, Stack, renderNestedScrollView } from '@onekeyhq/components';
+import {
+  ListView,
+  SizableText,
+  Stack,
+  renderNestedScrollView,
+} from '@onekeyhq/components';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
@@ -42,6 +47,7 @@ type IProps = {
   isAllNetworks?: boolean;
   searchAll?: boolean;
   isTokenSelector?: boolean;
+  footerTipText?: string;
 };
 
 function TokenListView(props: IProps) {
@@ -63,6 +69,7 @@ function TokenListView(props: IProps) {
     isAllNetworks,
     searchAll,
     isTokenSelector,
+    footerTipText,
   } = props;
 
   const [tokenList] = useTokenListAtom();
@@ -156,6 +163,13 @@ function TokenListView(props: IProps) {
       ListFooterComponent={
         <Stack pb="$5">
           {withFooter ? <TokenListFooter tableLayout={tableLayout} /> : null}
+          {footerTipText ? (
+            <Stack jc="center" ai="center" pt="$3">
+              <SizableText size="$bodySm" color="$textSubdued">
+                {footerTipText}
+              </SizableText>
+            </Stack>
+          ) : null}
         </Stack>
       }
     />
