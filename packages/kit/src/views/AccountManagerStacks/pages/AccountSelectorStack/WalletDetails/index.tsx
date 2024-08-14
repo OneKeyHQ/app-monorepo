@@ -175,13 +175,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     const fn = async () => {
       // await wait(300);
       await reloadFocusedWalletInfo();
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (listRef?.current?._listRef?._hasDoneInitialScroll) {
-        // @ts-ignore
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        listRef.current._listRef._hasDoneInitialScroll = false;
-      }
     };
     // TODO sync device features to DB and reload data
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
@@ -287,6 +280,15 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     setListViewLayout(e.nativeEvent.layout);
   }, []);
+  useEffect(() => {
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (listRef?.current?._listRef?._hasDoneInitialScroll) {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      listRef.current._listRef._hasDoneInitialScroll = false;
+    }
+  }, [focusedWalletInfo]);
   const initialScrollIndex = useMemo(() => {
     if (sectionData?.[0]?.data) {
       const itemIndex = sectionData[0].data?.findIndex(({ id }) =>

@@ -146,17 +146,28 @@ export default class VaultBtc extends VaultBase {
       isMine: output.address === account.address,
     }));
 
-    const utxoTo = outputs
-      .filter((output) => !output.payload?.isCharge && output.address)
-      .map((output) => ({
-        address: output.address,
-        balance: new BigNumber(output.value)
-          .shiftedBy(-network.decimals)
-          .toFixed(),
-        balanceValue: output.value,
-        symbol: network.symbol,
-        isMine: output.address === account.address,
-      }));
+    const utxoTo =
+      outputs.length > 1
+        ? outputs
+            .filter((output) => !output.payload?.isCharge && output.address)
+            .map((output) => ({
+              address: output.address,
+              balance: new BigNumber(output.value)
+                .shiftedBy(-network.decimals)
+                .toFixed(),
+              balanceValue: output.value,
+              symbol: network.symbol,
+              isMine: output.address === account.address,
+            }))
+        : outputs.map((output) => ({
+            address: output.address,
+            balance: new BigNumber(output.value)
+              .shiftedBy(-network.decimals)
+              .toFixed(),
+            balanceValue: output.value,
+            symbol: network.symbol,
+            isMine: output.address === account.address,
+          }));
 
     let sendNativeTokenAmountBN = new BigNumber(0);
     let sendNativeTokenAmountValueBN = new BigNumber(0);
