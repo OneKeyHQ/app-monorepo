@@ -9,12 +9,13 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { InteractionManager } from 'react-native';
+import { InteractionManager, StyleSheet } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 import type {
   IActionListItemProps,
   IElement,
+  IStackStyle,
   ITableColumn,
   ITableProps,
 } from '@onekeyhq/components';
@@ -51,6 +52,7 @@ import type {
 } from '@onekeyhq/shared/types/market';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePrevious } from '../../../hooks/usePrevious';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import { MarketMore } from './MarketMore';
@@ -70,6 +72,42 @@ const colorMap = {
   light: ['rgba(0, 113, 63, 0.2)', 'rgba(196, 0, 6, 0.2)'],
   dark: ['rgba(70, 254, 165, 0.2)', 'rgba(255, 149, 146, 0.2)'],
 };
+
+const ROW_PROPS = {
+  gap: '$3',
+  px: '$3',
+  mx: '$2',
+};
+
+const HEADER_ROW_PROPS = {
+  minHeight: '$4',
+  py: '$2',
+  borderRadius: '$3',
+} as IStackStyle;
+
+function ListEmptyComponent({
+  columns,
+}: {
+  columns: ITableColumn<IMarketToken>[];
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const timerId = setTimeout(
+      () => {
+        setIsVisible(true);
+      },
+      platformEnv.isNative ? 350 : 50,
+    );
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, []);
+
+  return isVisible ? (
+    <Table.Skeleton count={6} columns={columns} rowProps={ROW_PROPS} />
+  ) : null;
+}
 
 function TableMdSkeletonRow() {
   return (
@@ -109,12 +147,6 @@ const TouchableContainer = platformEnv.isNative
   ? Fragment
   : TouchableWithoutFeedback;
 
-const ROW_PROPS = {
-  gap: '$3',
-  px: '$3',
-  mx: '$2',
-};
-
 function BasicMarketHomeList({
   category,
   tabIndex = 0,
@@ -133,11 +165,14 @@ function BasicMarketHomeList({
   const updateTimer = useRef<ReturnType<typeof setInterval>>();
 
   const [listData, setListData] = useState<IMarketToken[]>([]);
+  const prevCoingeckoIdsLength = usePrevious(category.coingeckoIds.length);
+
   const fetchCategory = useCallback(async () => {
     const now = Date.now();
     if (
       now - updateAtRef.current >
-      timerUtils.getTimeDurationMs({ seconds: 45 })
+        timerUtils.getTimeDurationMs({ seconds: 45 }) ||
+      prevCoingeckoIdsLength !== category.coingeckoIds.length
     ) {
       const response = await backgroundApiProxy.serviceMarket.fetchCategory(
         category.categoryId,
@@ -149,7 +184,7 @@ function BasicMarketHomeList({
         setListData(response);
       });
     }
-  }, [category.categoryId, category.coingeckoIds]);
+  }, [category.categoryId, category.coingeckoIds, prevCoingeckoIdsLength]);
 
   useEffect(() => {
     void fetchCategory();
@@ -571,7 +606,7 @@ function BasicMarketHomeList({
                   formatter="price"
                   formatterOptions={{ currency }}
                 >
-                  {price}
+                  {price || '-'}
                 </NumberSizeableText>
               ),
               renderSkeleton: () => <Skeleton w="$20" h="$3" />,
@@ -791,13 +826,6 @@ function BasicMarketHomeList({
     [handleSortTypeChange],
   );
 
-  const listEmptyComponent = useMemo(() => {
-    if (platformEnv.isNativeAndroid) {
-      return null;
-    }
-    return <Table.Skeleton count={6} columns={columns} rowProps={ROW_PROPS} />;
-  }, [columns]);
-
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
       <YStack flex={1} ai="center" jc="center">
@@ -811,7 +839,7 @@ function BasicMarketHomeList({
       {gtMd ? undefined : (
         <YStack
           px="$5"
-          borderBottomWidth="$px"
+          borderBottomWidth={StyleSheet.hairlineWidth}
           borderBottomColor="$borderSubdued"
         >
           <XStack h="$11" ai="center" justifyContent="space-between">
@@ -850,6 +878,7 @@ function BasicMarketHomeList({
 
       <YStack flex={1} ref={containerRef} $gtMd={{ pt: '$3' }}>
         <Table
+          headerRowProps={HEADER_ROW_PROPS}
           showBackToTopButton
           stickyHeaderHiddenOnScroll
           onRow={onRow}
@@ -860,7 +889,11 @@ function BasicMarketHomeList({
           dataSource={sortedListData as unknown as IMarketToken[]}
           TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
           extraData={gtMd ? undefined : mdColumnKeys}
-          TableEmptyComponent={listEmptyComponent}
+          TableEmptyComponent={
+            platformEnv.isNativeAndroid ? (
+              <ListEmptyComponent columns={columns} />
+            ) : null
+          }
         />
       </YStack>
     </>

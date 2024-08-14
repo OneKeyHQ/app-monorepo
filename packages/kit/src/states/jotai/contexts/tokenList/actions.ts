@@ -30,6 +30,9 @@ import {
   tokenListAtom,
   tokenListMapAtom,
   tokenListStateAtom,
+  tokenSelectorSearchKeyAtom,
+  tokenSelectorSearchTokenListAtom,
+  tokenSelectorSearchTokenStateAtom,
 } from './atoms';
 
 class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
@@ -54,6 +57,32 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       },
     ) => {
       set(searchTokenListAtom(), { tokens: payload.tokens });
+    },
+  );
+
+  updateTokenSelectorSearchTokenState = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        isSearching: boolean;
+      },
+    ) => {
+      set(tokenSelectorSearchTokenStateAtom(), {
+        isSearching: payload.isSearching,
+      });
+    },
+  );
+
+  refreshTokenSelectorSearchTokenList = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        tokens: IAccountToken[];
+      },
+    ) => {
+      set(tokenSelectorSearchTokenListAtom(), { tokens: payload.tokens });
     },
   );
 
@@ -151,9 +180,10 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           [key: string]: ITokenFiat;
         };
         mergeDerive?: boolean;
+        split?: boolean;
       },
     ) => {
-      const { keys, tokens, merge, mergeDerive } = payload;
+      const { keys, tokens, merge, mergeDerive, split } = payload;
 
       if (merge) {
         if (tokens.length) {
@@ -179,29 +209,39 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             map: mergedTokenListMap,
           });
 
-          const highValueTokens = newTokens.slice(0, TOKEN_LIST_HIGH_VALUE_MAX);
-          const lowValueTokens = newTokens.slice(TOKEN_LIST_HIGH_VALUE_MAX);
+          if (split) {
+            const highValueTokens = newTokens.slice(
+              0,
+              TOKEN_LIST_HIGH_VALUE_MAX,
+            );
+            const lowValueTokens = newTokens.slice(TOKEN_LIST_HIGH_VALUE_MAX);
 
-          const lowValueTokensFiatValue = lowValueTokens.reduce(
-            (acc, item) =>
-              acc.plus(mergedTokenListMap[item.$key]?.fiatValue ?? 0),
-            new BigNumber(0),
-          );
+            const lowValueTokensFiatValue = lowValueTokens.reduce(
+              (acc, item) =>
+                acc.plus(mergedTokenListMap[item.$key]?.fiatValue ?? 0),
+              new BigNumber(0),
+            );
 
-          set(tokenListAtom(), {
-            tokens: uniqBy(highValueTokens, (item) => item.$key),
-            keys: `${get(tokenListAtom()).keys}_${keys}`,
-          });
+            set(tokenListAtom(), {
+              tokens: uniqBy(highValueTokens, (item) => item.$key),
+              keys: `${get(tokenListAtom()).keys}_${keys}`,
+            });
 
-          set(
-            smallBalanceTokensFiatValueAtom(),
-            lowValueTokensFiatValue.toFixed(),
-          );
+            set(
+              smallBalanceTokensFiatValueAtom(),
+              lowValueTokensFiatValue.toFixed(),
+            );
 
-          set(smallBalanceTokenListAtom(), {
-            smallBalanceTokens: lowValueTokens,
-            keys: `${get(smallBalanceTokenListAtom()).keys}_${keys}`,
-          });
+            set(smallBalanceTokenListAtom(), {
+              smallBalanceTokens: lowValueTokens,
+              keys: `${get(smallBalanceTokenListAtom()).keys}_${keys}`,
+            });
+          } else {
+            set(tokenListAtom(), {
+              tokens: uniqBy(newTokens, (item) => item.$key),
+              keys,
+            });
+          }
         }
       } else if (!isEqual(get(tokenListAtom()).keys, keys)) {
         set(tokenListAtom(), {
@@ -418,6 +458,12 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     set(searchKeyAtom(), value);
   });
 
+  updateTokenSelectorSearchKey = contextAtomMethod(
+    (get, set, value: string) => {
+      set(tokenSelectorSearchKeyAtom(), value);
+    },
+  );
+
   updateTokenListState = contextAtomMethod(
     (
       get,
@@ -483,6 +529,15 @@ export function useTokenListActions() {
 
   const updateCreateAccountState = actions.updateCreateAccountState.use();
 
+  const updateTokenSelectorSearchKey =
+    actions.updateTokenSelectorSearchKey.use();
+
+  const updateTokenSelectorSearchTokenState =
+    actions.updateTokenSelectorSearchTokenState.use();
+
+  const refreshTokenSelectorSearchTokenList =
+    actions.refreshTokenSelectorSearchTokenList.use();
+
   return useRef({
     refreshSearchTokenList,
     refreshAllTokenList,
@@ -498,5 +553,8 @@ export function useTokenListActions() {
     updateTokenListState,
     updateSearchTokenState,
     updateCreateAccountState,
+    updateTokenSelectorSearchKey,
+    updateTokenSelectorSearchTokenState,
+    refreshTokenSelectorSearchTokenList,
   });
 }

@@ -182,6 +182,7 @@ export function AssetItem({
   } else {
     primary = (
       <NumberSizeableText
+        numberOfLines={1}
         textAlign="right"
         size="$bodyLgMedium"
         color={direction === EDecodedTxDirection.IN ? '$textSuccess' : '$text'}
@@ -215,14 +216,19 @@ export function AssetItem({
         networkImageUri={isAllNetworks ? networkIcon : undefined}
       />
       <ListItem.Text
+        flexGrow={1}
+        flexBasis={0}
+        minWidth={96}
         primary={asset.isNFT ? asset.name : asset.symbol}
+        primaryTextProps={{
+          numberOfLines: 1,
+        }}
         secondary={asset.name}
-        flexShrink={0}
       />
       <ListItem.Text
+        flexShrink={1}
         primary={primary}
         secondary={secondary}
-        flex={1}
         align="right"
       />
     </ListItem>

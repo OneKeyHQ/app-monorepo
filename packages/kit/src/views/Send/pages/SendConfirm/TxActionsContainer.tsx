@@ -44,7 +44,7 @@ function TxActionsContainer(props: IProps) {
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [isSendNativeToken, setIsSendNativeToken] = useState(false);
-  const { vaultSettings } = useAccountData({ networkId });
+  const { vaultSettings, network } = useAccountData({ networkId });
   const swapInfo = unsignedTxs[0]?.swapInfo;
 
   const r = usePromiseResult(
@@ -97,10 +97,11 @@ function TxActionsContainer(props: IProps) {
 
       const nativeTokenBalanceBN = new BigNumber(nativeTokenInfo.balance);
       const feeBN = new BigNumber(sendSelectedFeeInfo?.totalNative ?? 0);
+
       if (
         transferPayload?.isMaxSend &&
         isSendNativeTokenOnly &&
-        nativeTokenTransferBN.plus(feeBN).gt(nativeTokenBalanceBN)
+        nativeTokenTransferBN.plus(feeBN).gte(nativeTokenBalanceBN)
       ) {
         const transferAmountBN = BigNumber.min(
           nativeTokenBalanceBN,
@@ -108,8 +109,9 @@ function TxActionsContainer(props: IProps) {
         );
 
         const amountToUpdate = transferAmountBN.minus(
-          feeBN.times(vaultSettings?.maxSendFeeUpRatio?.[networkId] ?? 1),
+          feeBN.times(network?.feeMeta.maxSendFeeUpRatio ?? 1),
         );
+
         if (amountToUpdate.gte(0)) {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: true,
@@ -133,6 +135,7 @@ function TxActionsContainer(props: IProps) {
   }, [
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
+    network?.feeMeta.maxSendFeeUpRatio,
     networkId,
     r.result,
     sendSelectedFeeInfo,

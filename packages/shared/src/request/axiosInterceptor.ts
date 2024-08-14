@@ -21,6 +21,9 @@ import {
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 axios.interceptors.request.use(async (config) => {
+  if (config.timeout === undefined) {
+    config.timeout = 30_000;
+  }
   try {
     const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
 
@@ -102,7 +105,16 @@ axios.interceptors.response.use(
 
 const orgCreate = axios.create;
 axios.create = function (config?: AxiosRequestConfig): AxiosInstance {
-  const result = orgCreate.call(this, config);
+  const defaultConfig: AxiosRequestConfig = {
+    timeout: 30_000,
+  };
+  const mergedConfig = {
+    ...defaultConfig,
+    ...config,
+    timeout:
+      config?.timeout !== undefined ? config.timeout : defaultConfig.timeout,
+  };
+  const result = orgCreate.call(this, mergedConfig);
   forEach((axios.interceptors.request as any).handlers, (handler) => {
     result.interceptors.request.use(handler.fulfilled, handler.rejected);
   });

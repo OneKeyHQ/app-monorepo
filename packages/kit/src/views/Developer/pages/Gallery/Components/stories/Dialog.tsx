@@ -695,7 +695,7 @@ const DialogGallery = () => (
                       }, 100);
                       setTimeout(() => {
                         resolve();
-                      }, 99999999);
+                      }, 99_999_999);
                     }),
                 });
               }}
@@ -829,6 +829,63 @@ const DialogGallery = () => (
               }}
             >
               showExitButton
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Dialogs',
+        element: (
+          <YStack gap="$4">
+            <Button
+              onPress={() => {
+                Dialog.show({
+                  title: 'A',
+                  description: 'AAAA',
+                  renderContent: <Stack h={200} />,
+                });
+                setTimeout(() => {
+                  Dialog.show({
+                    title: 'B',
+                    description: 'BBB',
+                    sheetProps: {
+                      zIndex: 1e5 + 2,
+                    },
+                  });
+                }, 10);
+              }}
+            >
+              Dialogs
+            </Button>
+            <Button
+              onPress={() => {
+                const SelectListItem = () => {
+                  const [val, setVal] = useState('Apple');
+                  return (
+                    <Select
+                      items={new Array(5).fill(undefined).map((_, index) => ({
+                        label: String(index),
+                        value: String(index),
+                      }))}
+                      value={val}
+                      onChange={setVal}
+                      title="Demo Title"
+                      onOpenChange={console.log}
+                    />
+                  );
+                };
+                Dialog.show({
+                  title: 'A',
+                  description: 'AAAA',
+                  renderContent: (
+                    <Stack h={200}>
+                      <SelectListItem />
+                    </Stack>
+                  ),
+                });
+              }}
+            >
+              Select In Dialog
             </Button>
           </YStack>
         ),

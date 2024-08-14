@@ -12,8 +12,8 @@ import {
   Icon,
   IconButton,
   SizableText,
+  Skeleton,
   SortableSectionList,
-  Spinner,
   Stack,
   XStack,
   useSafeAreaInsets,
@@ -22,7 +22,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -58,6 +57,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
+import { AccountValue } from './AccountValue';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { WalletOptions } from './WalletOptions';
 
@@ -175,13 +175,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     const fn = async () => {
       // await wait(300);
       await reloadFocusedWalletInfo();
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (listRef?.current?._listRef?._hasDoneInitialScroll) {
-        // @ts-ignore
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        listRef.current._listRef._hasDoneInitialScroll = false;
-      }
     };
     // TODO sync device features to DB and reload data
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
@@ -236,6 +229,16 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     return r;
   }, [sectionData]);
 
+  const accountsCount = useMemo(() => {
+    let count = 0;
+    sectionData?.forEach?.((s) => {
+      s?.data?.forEach?.(() => {
+        count += 1;
+      });
+    });
+    return count;
+  }, [sectionData]);
+
   useEffect(() => {
     const fn = async () => {
       await reloadAccounts();
@@ -277,6 +280,15 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     setListViewLayout(e.nativeEvent.layout);
   }, []);
+  useEffect(() => {
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (listRef?.current?._listRef?._hasDoneInitialScroll) {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      listRef.current._listRef._hasDoneInitialScroll = false;
+    }
+  }, [focusedWalletInfo]);
   const initialScrollIndex = useMemo(() => {
     if (sectionData?.[0]?.data) {
       const itemIndex = sectionData[0].data?.findIndex(({ id }) =>
@@ -450,6 +462,50 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
   const toOnBoardingPage = useToOnBoardingPage();
 
+  const renderAccountValue = useCallback(
+    ({
+      accountValue,
+      subTitleInfo,
+    }: {
+      accountValue:
+        | {
+            accountId: string;
+            currency: string | undefined;
+            value: string | undefined;
+          }
+        | undefined;
+      subTitleInfo: { address: string | undefined; isEmptyAddress: boolean };
+    }) => {
+      if (linkNetwork) return null;
+
+      return (
+        <>
+          {accountValue && accountValue.currency ? (
+            <AccountValue
+              accountId={accountValue.accountId}
+              currency={accountValue.currency}
+              value={accountValue.value ?? ''}
+            />
+          ) : (
+            <SizableText size="$bodyMd" color="$textDisabled">
+              --
+            </SizableText>
+          )}
+          {subTitleInfo.address ? (
+            <Stack
+              mx="$1.5"
+              w="$1"
+              h="$1"
+              bg="$iconSubdued"
+              borderRadius="$full"
+            />
+          ) : null}
+        </>
+      );
+    },
+    [linkNetwork],
+  );
+
   return (
     <Stack flex={1} pb={bottom} testID="account-selector-accountList">
       <WalletDetailsHeader
@@ -488,8 +544,22 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
             }
             ListEmptyComponent={
               isLoading ? (
-                <Stack py="$20">
-                  <Spinner size="large" />
+                <Stack>
+                  {[1, 2, 3].map((i) => (
+                    <ListItem key={i}>
+                      <Stack>
+                        <Skeleton w="$10" h="$10" />
+                      </Stack>
+                      <Stack>
+                        <Stack py="$1">
+                          <Skeleton h="$4" w="$32" />
+                        </Stack>
+                        <Stack py="$1">
+                          <Skeleton h="$3" w="$24" />
+                        </Stack>
+                      </Stack>
+                    </ListItem>
+                  ))}
                 </Stack>
               ) : (
                 <Empty
@@ -642,6 +712,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                     <>
                       {/* TODO rename to AccountEditTrigger */}
                       <AccountEditButton
+                        accountsCount={accountsCount}
                         indexedAccount={indexedAccount}
                         firstIndexedAccount={
                           isOthersUniversal
@@ -711,33 +782,21 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                         </SizableText>
                       }
                       secondary={
-                        <XStack alignItems="center" space="$1">
-                          {accountValue && accountValue.currency ? (
-                            <Currency
+                        <XStack alignItems="center">
+                          {renderAccountValue({ accountValue, subTitleInfo })}
+                          {subTitleInfo.address ||
+                          subTitleInfo.isEmptyAddress ? (
+                            <SizableText
                               size="$bodyMd"
-                              color="$textSubdued"
-                              sourceCurrency={accountValue.currency}
+                              color={
+                                subTitleInfo.isEmptyAddress
+                                  ? '$textCaution'
+                                  : '$textSubdued'
+                              }
                             >
-                              {accountValue?.value}
-                            </Currency>
-                          ) : null}
-                          {accountValue &&
-                          accountValue.currency &&
-                          subTitleInfo.address ? (
-                            <SizableText size="$bodyMd" color="textSubdued">
-                              ·
+                              {subTitleInfo.address}
                             </SizableText>
                           ) : null}
-                          <SizableText
-                            size="$bodyMd"
-                            color={
-                              subTitleInfo.isEmptyAddress
-                                ? '$textCaution'
-                                : '$textSubdued'
-                            }
-                          >
-                            {subTitleInfo.address}
-                          </SizableText>
                         </XStack>
                       }
                     />

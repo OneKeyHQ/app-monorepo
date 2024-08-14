@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Icon,
@@ -10,11 +10,15 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useActiveAccountValueAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -51,6 +55,7 @@ function HomeOverviewContainer() {
     useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
+  const [, setActiveAccountValueAtom] = useActiveAccountValueAtom();
 
   const { result: vaultSettings } = usePromiseResult(async () => {
     if (!network) return;
@@ -68,7 +73,9 @@ function HomeOverviewContainer() {
       });
       if (network.isAllNetworks) {
         updateAccountWorth({
+          accountId: account.id,
           worth: '0',
+          initialized: false,
         });
       }
     }
@@ -120,7 +127,12 @@ function HomeOverviewContainer() {
   }, []);
 
   useEffect(() => {
-    if (account && network) {
+    if (
+      account &&
+      network &&
+      accountWorth.initialized &&
+      account.id === accountWorth.accountId
+    ) {
       if (
         (accountUtils.isOthersAccount({ accountId: account.id }) &&
           !network.isAllNetworks &&
@@ -128,16 +140,35 @@ function HomeOverviewContainer() {
         (!accountUtils.isOthersAccount({ accountId: account.id }) &&
           network.isAllNetworks)
       ) {
+        const accountValueId = accountUtils.isOthersAccount({
+          accountId: account.id,
+        })
+          ? account.id
+          : (account.indexedAccountId as string);
+
+        setActiveAccountValueAtom({
+          accountId: accountValueId,
+          value: accountWorth.worth,
+          currency: settings.currencyInfo.id,
+        });
+
         void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
-          accountId: accountUtils.isOthersAccount({ accountId: account.id })
-            ? account.id
-            : (account.indexedAccountId as string),
+          accountId: accountValueId,
           value: accountWorth.worth,
           currency: settings.currencyInfo.id,
         });
       }
     }
-  }, [account, accountWorth.worth, network, settings.currencyInfo.id, wallet]);
+  }, [
+    account,
+    accountWorth.accountId,
+    accountWorth.initialized,
+    accountWorth.worth,
+    network,
+    setActiveAccountValueAtom,
+    settings.currencyInfo.id,
+    wallet,
+  ]);
 
   const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
@@ -148,6 +179,32 @@ function HomeOverviewContainer() {
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
   }, [isRefreshingWorth]);
 
+  const isLoading =
+    isRefreshingWorth ||
+    isRefreshingTokenList ||
+    isRefreshingNftList ||
+    isRefreshingHistoryList;
+
+  const refreshButton = useMemo(() => {
+    if (platformEnv.isNative) {
+      return isLoading ? (
+        <IconButton
+          icon="RefreshCcwOutline"
+          variant="tertiary"
+          loading={isLoading}
+        />
+      ) : undefined;
+    }
+    return platformEnv.isNative ? undefined : (
+      <IconButton
+        icon="RefreshCcwOutline"
+        variant="tertiary"
+        loading={isLoading}
+        onPress={handleRefreshWorth}
+      />
+    );
+  }, [handleRefreshWorth, isLoading]);
+
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
       <Stack py="$2.5">
@@ -157,7 +214,7 @@ function HomeOverviewContainer() {
 
   const balanceString = accountWorth.worth ?? '0';
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
-    { length: 25, size: '$headingXl' },
+    { length: 17, size: '$headingXl' },
     { length: 13, size: '$heading4xl' },
   ];
   const defaultBalanceSize = '$heading5xl';
@@ -233,17 +290,7 @@ function HomeOverviewContainer() {
       ) : (
         basicTextElement
       )}
-      <IconButton
-        icon="RefreshCcwOutline"
-        variant="tertiary"
-        loading={
-          isRefreshingWorth ||
-          isRefreshingTokenList ||
-          isRefreshingNftList ||
-          isRefreshingHistoryList
-        }
-        onPress={handleRefreshWorth}
-      />
+      {refreshButton}
     </XStack>
   );
 }

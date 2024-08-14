@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { View } from 'react-native';
+
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 
 export function GlobalJotaiReady({ children }: { children: any }) {
@@ -12,7 +13,7 @@ export function GlobalJotaiReady({ children }: { children: any }) {
   }, []);
 
   if (!isReady) {
-    return <Stack testID="GlobalJotaiReady-not-ready-placeholder" />;
+    return <View testID="GlobalJotaiReady-not-ready-placeholder" />;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return

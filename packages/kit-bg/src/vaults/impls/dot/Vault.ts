@@ -598,7 +598,7 @@ export default class VaultDot extends VaultBase {
         });
       return new BigNumber(account.balance ?? 0);
     },
-    { promise: true, maxAge: 10000 },
+    { promise: true, maxAge: 10_000 },
   );
 
   override async validateSendAmount({

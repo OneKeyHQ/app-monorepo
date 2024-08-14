@@ -40,7 +40,7 @@ import {
 } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNative, isNil } from 'lodash';
 
 import type {
   IEncodedTxSol,
@@ -52,7 +52,10 @@ import {
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  CanNotSendZeroAmountError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -1002,8 +1005,6 @@ export default class Vault extends VaultBase {
   }): Promise<IEncodedTxSol> {
     const { encodedTx, feeInfo } = params;
     const client = await this.getClient();
-    const { recentBlockhash, lastValidBlockHeight } =
-      await this._getRecentBlockHash();
 
     if (feeInfo.feeSol) {
       let isComputeUnitPriceExist = false;
@@ -1062,13 +1063,10 @@ export default class Vault extends VaultBase {
             prioritizationFeeInstruction,
           );
         }
-        versionedTransactionMessage.recentBlockhash = recentBlockhash;
         nativeTx.message = versionedTransactionMessage.compileToV0Message(
           addressLookupTableAccounts,
         );
       } else if (isTransaction) {
-        nativeTx.recentBlockhash = recentBlockhash;
-        nativeTx.lastValidBlockHeight = lastValidBlockHeight;
         if (!isComputeUnitPriceExist) {
           nativeTx.instructions.unshift(prioritizationFeeInstruction);
         }
@@ -1278,5 +1276,25 @@ export default class Vault extends VaultBase {
       txid,
       encodedTx: signedTx.encodedTx,
     };
+  }
+
+  override async validateSendAmount({
+    isNative: isNativeToken,
+    amount,
+    tokenBalance,
+  }: {
+    amount: string;
+    tokenBalance: string;
+    isNative?: boolean;
+  }): Promise<boolean> {
+    if (
+      !isNativeToken &&
+      new BigNumber(amount).isZero() &&
+      new BigNumber(tokenBalance).isZero()
+    ) {
+      throw new CanNotSendZeroAmountError();
+    }
+
+    return true;
   }
 }

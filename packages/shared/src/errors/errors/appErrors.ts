@@ -834,3 +834,28 @@ export class ConvertTxError extends OneKeyError {
     );
   }
 }
+
+export class CanNotSendZeroAmountError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'CanNotSendZeroAmountError',
+        defaultKey: ETranslations.send_cannot_send_amount_zero,
+      }),
+    );
+  }
+}
+
+export type IManageTokenInsufficientBalanceErrorInfo = {
+  token: string;
+};
+export class ManageTokenInsufficientBalanceError extends OneKeyError<IManageTokenInsufficientBalanceErrorInfo> {
+  constructor(props?: IOneKeyError<IManageTokenInsufficientBalanceErrorInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ManageTokenInsufficientBalanceError',
+        defaultKey: ETranslations.manage_token_account_no_found,
+      }),
+    );
+  }
+}

@@ -134,18 +134,18 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             selectLoading={fetchLoading}
             onToAnotherAddressModal={onToAnotherAddressModal}
           />
+          {quoteResult ? (
+            <SwapQuoteResult
+              onOpenProviderList={onOpenProviderList}
+              quoteResult={quoteResult}
+            />
+          ) : null}
           {alerts.states.length > 0 &&
           !quoteLoading &&
           alerts.quoteId === (quoteResult?.quoteId ?? '') &&
           !selectTokenDetailLoading.from &&
           !selectTokenDetailLoading.to ? (
             <SwapAlertContainer alerts={alerts.states} />
-          ) : null}
-          {quoteResult ? (
-            <SwapQuoteResult
-              onOpenProviderList={onOpenProviderList}
-              quoteResult={quoteResult}
-            />
           ) : null}
         </YStack>
         <SwapActionsState

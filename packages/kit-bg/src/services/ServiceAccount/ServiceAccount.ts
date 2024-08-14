@@ -64,6 +64,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
+import simpleDb from '../../dbs/simple/simpleDb';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -265,6 +266,11 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getIndexedAccount({ id }: { id: string }) {
     return localDb.getIndexedAccount({ id });
+  }
+
+  @backgroundMethod()
+  async getIndexedAccountSafe({ id }: { id: string }) {
+    return localDb.getIndexedAccountSafe({ id });
   }
 
   async getPrepareHDOrHWAccountsParams({
@@ -1458,13 +1464,22 @@ class ServiceAccount extends ServiceBase {
   async addIndexedAccount({
     walletId,
     indexes,
+    names,
     skipIfExists,
   }: {
     walletId: string;
     indexes: number[];
+    names?: {
+      [index: number]: string;
+    };
     skipIfExists: boolean;
   }) {
-    return localDb.addIndexedAccount({ walletId, indexes, skipIfExists });
+    return localDb.addIndexedAccount({
+      walletId,
+      indexes,
+      names,
+      skipIfExists,
+    });
   }
 
   @backgroundMethod()
@@ -1478,7 +1493,9 @@ class ServiceAccount extends ServiceBase {
   @toastIfError()
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
     const r = await localDb.setAccountName(params);
-    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    if (!params.skipEventEmit) {
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
     return r;
   }
 
@@ -1862,7 +1879,7 @@ class ServiceAccount extends ServiceBase {
     deriveType: IAccountDeriveTypes;
   }) {
     if (
-      !networkUtils.isAllNetwork({ networkId }) && // all network cost too much time
+      // !networkUtils.isAllNetwork({ networkId }) && // all network cost too much time
       accountUtils.isHdWallet({ walletId })
     ) {
       const pwd = await this.backgroundApi.servicePassword.getCachedPassword();

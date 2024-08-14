@@ -42,7 +42,7 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
-    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const { accountId, networkId, tokenIdOnNetwork, isManualRefresh } = params;
     const [accountAddress, xpub] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
@@ -163,6 +163,7 @@ class ServiceHistory extends ServiceBase {
     // 4. Fetch the on-chain history
     onChainHistoryTxs = await this.fetchAccountOnChainHistory({
       ...params,
+      isAllNetworks,
       accountAddress,
       xpub,
     });
@@ -196,26 +197,20 @@ class ServiceHistory extends ServiceBase {
         ),
       }));
 
-      const allNetworksPendingTxsResp = await Promise.all(
-        allNetworksParams.map((p) => this.updateAccountLocalPendingTxs(p)),
-      );
-
-      const allNetworksConfirmedTxsResp = await Promise.all(
-        allNetworksParams.map((p) => this.updateAccountLocalConfirmedTxs(p)),
-      );
-
-      finalPendingTxs = allNetworksPendingTxsResp.reduce(
-        (acc: IAccountHistoryTx[], resp) => [...acc, ...resp.finalPendingTxs],
-        [],
-      );
-
-      confirmedTxsToSave = allNetworksConfirmedTxsResp.reduce(
-        (acc: IAccountHistoryTx[], resp) => [
-          ...acc,
-          ...resp.confirmedTxsToSave,
-        ],
-        [],
-      );
+      for (let i = 0; i < allNetworksParams.length; i += 1) {
+        const pendingTxsResp = await this.updateAccountLocalPendingTxs(
+          allNetworksParams[i],
+        );
+        const confirmedTxsResp = await this.updateAccountLocalConfirmedTxs(
+          allNetworksParams[i],
+        );
+        finalPendingTxs = finalPendingTxs.concat(
+          pendingTxsResp.finalPendingTxs,
+        );
+        confirmedTxsToSave = confirmedTxsToSave.concat(
+          confirmedTxsResp.confirmedTxsToSave,
+        );
+      }
     } else {
       const pendingTxsResp = await this.updateAccountLocalPendingTxs({
         accountAddress,
@@ -412,8 +407,15 @@ class ServiceHistory extends ServiceBase {
       xpub?: string;
     },
   ) {
-    const { accountId, networkId, xpub, tokenIdOnNetwork, accountAddress } =
-      params;
+    const {
+      accountId,
+      networkId,
+      xpub,
+      tokenIdOnNetwork,
+      accountAddress,
+      isManualRefresh,
+      isAllNetworks,
+    } = params;
     const extraParams = await this.buildFetchHistoryListParams(params);
     let extraRequestParams = extraParams;
     if (networkId === getNetworkIdsMap().onekeyall) {
@@ -444,6 +446,8 @@ class ServiceHistory extends ServiceBase {
           xpub,
           tokenAddress: tokenIdOnNetwork,
           ...extraRequestParams,
+          isForceRefresh: isManualRefresh,
+          isAllNetwork: isAllNetworks,
         },
         {
           headers:
@@ -458,7 +462,7 @@ class ServiceHistory extends ServiceBase {
       const error = e as OneKeyServerApiError;
       // Exchange the token on the first error to ensure subsequent polling requests succeed
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (error.data?.data?.message?.code === 50401) {
+      if (error.data?.data?.message?.code === 50_401) {
         // 50401 -> Lightning service special error code
         await (vault as ILightningVault).exchangeToken();
       }

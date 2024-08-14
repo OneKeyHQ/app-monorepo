@@ -66,13 +66,17 @@ const BiologyAuthContainer = ({
   }, [authType, biologyAuthIsSupport, intl]);
 
   useEffect(() => {
-    if (platformEnv.isExtensionUiPopup && isBiologyAuthSwitchOn) {
+    if (
+      (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) &&
+      isBiologyAuthSwitchOn
+    ) {
       void backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(false);
     }
   }, [isBiologyAuthSwitchOn]);
 
   return (biologyAuthIsSupport || webAuthIsSupport) &&
-    !platformEnv.isExtensionUiPopup ? (
+    !platformEnv.isExtensionUiPopup &&
+    !platformEnv.isExtensionUiSidePanel ? (
     <XStack mt="$5" justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMdMedium">{settingsTitle}</SizableText>
       <Stack>

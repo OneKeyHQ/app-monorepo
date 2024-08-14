@@ -290,7 +290,8 @@ export function MarketDetailPools({
               borderRadius="$3"
               {...listItemPressStyle}
               onPress={() => {
-                Dialog.confirm({
+                Dialog.show({
+                  showFooter: false,
                   title: intl.formatMessage({
                     id: ETranslations.market_pool_details,
                   }),

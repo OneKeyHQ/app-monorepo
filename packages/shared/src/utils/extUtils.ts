@@ -3,6 +3,8 @@ import { isNil } from 'lodash';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
+import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 export const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
@@ -83,24 +85,7 @@ async function openUrlInTab(
   });
 }
 
-async function isOpenPanelOnActionClick() {
-  if (typeof chrome !== 'undefined' && chrome.sidePanel) {
-    const options = await chrome.sidePanel.getPanelBehavior();
-    return options.openPanelOnActionClick;
-  }
-  return false;
-}
-
 async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
-  if (await isOpenPanelOnActionClick()) {
-    const window = await chrome.windows.getCurrent({ populate: true });
-    if (window) {
-      routeInfo.params = {
-        ...routeInfo.params,
-        panelWindowId: window.id,
-      };
-    }
-  }
   const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
   let left = 0;
   let top = 0;
@@ -175,15 +160,27 @@ async function openExpandTab(
   return tab;
 }
 
+async function resetSidePanelPath() {
+  if (typeof chrome !== 'undefined' && chrome.sidePanel) {
+    const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, {});
+    await chrome.sidePanel.setOptions({
+      path: url,
+      enabled: true,
+    });
+  }
+}
+
 async function openSidePanel(
   routeInfo: IOpenUrlRouteInfo,
 ): Promise<chrome.tabs.Tab | undefined> {
   if (typeof chrome !== 'undefined' && chrome.sidePanel) {
     if (platformEnv.isExtensionBackground) {
-      if (sidePanelState.isOpen && sidePanelState.port) {
-        sidePanelState.port.postMessage({
-          action: 'router',
-          params: routeInfo?.modalParams,
+      if (sidePanelState.isOpen) {
+        appEventBus.emit(EAppEventBusNames.SidePanel_BgToUI, {
+          type: 'pushModal',
+          payload: {
+            modalParams: routeInfo?.modalParams,
+          },
         });
       } else {
         throw new Error('The sidePanel cannot be opened in the bg thread.');
@@ -191,21 +188,8 @@ async function openSidePanel(
       return;
     }
     const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
-    let windowId: number | undefined;
-    //  `sidePanel.open()` may only be called in response to a user gesture.
-    if (platformEnv.isExtensionUiStandaloneWindow) {
-      const id = window.location.href
-        .split('panelWindowId=')
-        ?.pop()
-        ?.split('&')[0];
-      if (!id) {
-        throw new Error('panelWindowId not found');
-      }
-      windowId = parseInt(id, 10);
-    } else {
-      const window = await chrome.windows.getCurrent({ populate: true });
-      windowId = window.id;
-    }
+    const window = await chrome.windows.getCurrent({ populate: true });
+    const windowId = window.id;
     if (windowId) {
       await chrome.sidePanel.open({ windowId });
       await chrome.sidePanel.setOptions({
@@ -240,7 +224,7 @@ export default {
   openStandaloneWindow,
   openExpandTab,
   openSidePanel,
+  resetSidePanelPath,
   openExistWindow,
   openPanelOnActionClick,
-  isOpenPanelOnActionClick,
 };

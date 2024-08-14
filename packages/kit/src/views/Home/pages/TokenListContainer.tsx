@@ -11,6 +11,7 @@ import {
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -49,7 +50,6 @@ import { TokenListView } from '../../../components/TokenListView';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useBuyToken } from '../../../hooks/useBuyToken';
 import { useManageToken } from '../../../hooks/useManageToken';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useReceiveToken } from '../../../hooks/useReceiveToken';
@@ -80,9 +80,10 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
   const { vaultSettings } = useAccountData({ networkId: network?.id ?? '' });
 
-  const { handleOnBuy, isSupported } = useBuyToken({
+  const { handleFiatCrypto, isSupported } = useFiatCrypto({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
+    fiatCryptoType: 'buy',
   });
   const { handleOnReceive } = useReceiveToken({
     accountId: account?.id ?? '',
@@ -100,8 +101,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     indexedAccountId: indexedAccount?.id,
     isOthersWallet,
   });
-
-  const refreshAllNetworksTokenList = useRef(false);
 
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -182,6 +181,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         });
 
         updateAccountWorth({
+          accountId: account.id,
+          initialized: true,
           worth: accountWorth.toFixed(),
           merge: false,
         });
@@ -280,6 +281,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     },
   );
 
+  const isAllNetworkManualRefresh = useRef(false);
   const handleAllNetworkRequests = useCallback(
     async ({
       accountId,
@@ -295,16 +297,13 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         accountId,
         flag: 'home-token-list',
         isAllNetworks: true,
+        isManualRefresh: isAllNetworkManualRefresh.current,
         mergeTokens: true,
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
       });
 
-      if (
-        !allNetworkDataInit &&
-        !refreshAllNetworksTokenList.current &&
-        r.isSameAllNetworksAccountData
-      ) {
+      if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
         let accountWorth = new BigNumber(0);
         accountWorth = accountWorth
           .plus(r.tokens.fiatValue ?? '0')
@@ -323,6 +322,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         });
 
         updateAccountWorth({
+          accountId: account?.id ?? '',
+          initialized: true,
           worth: accountWorth.toFixed(),
           merge: true,
         });
@@ -350,6 +351,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           merge: true,
           map: tokensMap,
           mergeDerive: mergeDeriveAssetsEnabled,
+          split: true,
         });
 
         refreshRiskyTokenListMap({
@@ -393,6 +395,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         }
       }
 
+      isAllNetworkManualRefresh.current = false;
       return r;
     },
     [
@@ -475,7 +478,14 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   );
 
   const handleAllNetworkRequestsStarted = useCallback(
-    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+    ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+      allNetworkDataInit?: boolean;
+    }) => {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.TOKENS,
@@ -538,7 +548,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     let accountWorth = new BigNumber(0);
     let smallBalanceTokensFiatValue = new BigNumber(0);
 
-    if (refreshAllNetworksTokenList.current && allNetworksResult) {
+    if (allNetworksResult) {
       for (const r of allNetworksResult) {
         const mergeDeriveAssetsEnabled = (
           await backgroundApiProxy.serviceNetwork.getVaultSettings({
@@ -628,7 +638,11 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         map: riskyTokenListMap,
       });
 
-      updateAccountWorth({ worth: accountWorth.toFixed() });
+      updateAccountWorth({
+        accountId: account?.id ?? '',
+        initialized: true,
+        worth: accountWorth.toFixed(),
+      });
 
       refreshTokenList(tokenList);
 
@@ -650,6 +664,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       });
     }
   }, [
+    account?.id,
     allNetworksResult,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
@@ -678,7 +693,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         isRefreshing: true,
       });
       updateSearchKey('');
-      refreshAllNetworksTokenList.current = false;
       void backgroundApiProxy.serviceToken.updateCurrentAccount({
         networkId: network.id,
         accountId: account.id,
@@ -723,8 +737,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   );
 
   const handleRefreshAllNetworkData = useCallback(() => {
-    refreshAllNetworksTokenList.current = true;
-    void runAllNetworksRequests();
+    isAllNetworkManualRefresh.current = true;
+    void runAllNetworksRequests({ alwaysSetState: true });
   }, [runAllNetworksRequests]);
 
   usePromiseResult(
@@ -794,7 +808,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       inTabList
       withBuyAndReceive={isBuyAndReceiveEnabled}
       isBuyTokenSupported={isSupported}
-      onBuyToken={handleOnBuy}
+      onBuyToken={handleFiatCrypto}
       onReceiveToken={handleOnReceive}
       manageTokenEnabled={manageTokenEnabled}
       onManageToken={handleOnManageToken}

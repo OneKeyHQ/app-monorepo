@@ -3,6 +3,7 @@ import { AddressInputScope } from './scopes/addressInput';
 import { AppScope } from './scopes/app';
 import { DemoScope } from './scopes/demo';
 import { DiscoveryScope } from './scopes/discovery';
+import { FiatCryptoScope } from './scopes/fiatCrypto';
 import { HardwareScope } from './scopes/hardware';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
@@ -38,6 +39,8 @@ class Logger {
   transaction = new TransactionScope();
 
   hardware = new HardwareScope();
+
+  fiatCrypto = new FiatCryptoScope();
 }
 
 export const defaultLogger = new Logger();

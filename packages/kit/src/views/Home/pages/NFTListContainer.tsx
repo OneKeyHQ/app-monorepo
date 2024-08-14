@@ -39,7 +39,6 @@ function NFTListContainer(props: ITabPageProps) {
     initialized: false,
     isRefreshing: false,
   });
-  const refreshAllNetworksNftList = useRef(false);
   const [nftList, setNftList] = useState<IAccountNFT[]>([]);
   const {
     activeAccount: { account, network, wallet },
@@ -89,6 +88,7 @@ function NFTListContainer(props: ITabPageProps) {
     },
   );
 
+  const isAllNetworkManualRefresh = useRef(false);
   const handleAllNetworkRequests = useCallback(
     async ({
       accountId,
@@ -103,12 +103,12 @@ function NFTListContainer(props: ITabPageProps) {
         accountId,
         networkId,
         isAllNetworks: true,
+        isManualRefresh: isAllNetworkManualRefresh.current,
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
       });
       if (
         !allNetworkDataInit &&
-        !refreshAllNetworksNftList.current &&
         r.networkId === networkIdsMap.onekeyall &&
         r.isSameAllNetworksAccountData
       ) {
@@ -124,6 +124,7 @@ function NFTListContainer(props: ITabPageProps) {
         });
       }
 
+      isAllNetworkManualRefresh.current = false;
       return r;
     },
     [account?.id, network?.id],
@@ -171,12 +172,12 @@ function NFTListContainer(props: ITabPageProps) {
   });
 
   const handleRefreshAllNetworkData = useCallback(() => {
-    refreshAllNetworksNftList.current = true;
+    isAllNetworkManualRefresh.current = true;
     void runAllNetworkRequests();
   }, [runAllNetworkRequests]);
 
   useEffect(() => {
-    if (refreshAllNetworksNftList.current && allNetworksResult) {
+    if (allNetworksResult) {
       let allNetworksNftList: IAccountNFT[] = [];
       for (const r of allNetworksResult) {
         allNetworksNftList = allNetworksNftList.concat(r.data);
@@ -198,7 +199,6 @@ function NFTListContainer(props: ITabPageProps) {
         isRefreshing: true,
       });
       updateSearchKey('');
-      refreshAllNetworksNftList.current = false;
       void backgroundApiProxy.serviceNFT.updateCurrentAccount({
         networkId: network.id,
         accountId: account.id,
