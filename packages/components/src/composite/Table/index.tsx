@@ -14,7 +14,6 @@ import type { IListViewProps, IListViewRef } from '../../layouts';
 import type {
   ISizableTextProps,
   IStackProps,
-  IStackStyle,
 } from '../../primitives';
 import type {
   ListRenderItemInfo,
