@@ -348,7 +348,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     (
       item: IDBAccount | IDBIndexedAccount,
     ): {
-      linkNetworkId: string | undefined;
+      linkedNetworkId: string | undefined;
       address: string;
       isEmptyAddress: boolean;
     } => {
@@ -372,19 +372,18 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       if (
         !address &&
         !isOthersUniversal &&
-        linkNetwork &&
-        selectedAccount.networkId &&
+        linkedNetworkId &&
         !allowEmptyAddress
       ) {
         // TODO custom style
         return {
-          linkNetworkId: selectedAccount.networkId,
+          linkedNetworkId,
           address: '',
           isEmptyAddress: true,
         };
       }
       return {
-        linkNetworkId: undefined,
+        linkedNetworkId: undefined,
         address: address
           ? accountUtils.shortenAddress({
               address,
@@ -393,7 +392,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         isEmptyAddress: false,
       };
     },
-    [isOthersUniversal, linkNetwork, selectedAccount.networkId],
+    [isOthersUniversal, linkedNetworkId],
   );
 
   // const isEmptyData = useMemo(() => {
@@ -618,8 +617,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               const accountValue = accountsValue?.find(
                 (i) => i.accountId === item.id,
               );
-              const shouldShowCreateAddressButton =
-                linkNetwork && subTitleInfo.isEmptyAddress;
+              const shouldShowCreateAddressButton = !!(
+                linkNetwork && subTitleInfo.isEmptyAddress
+              );
 
               const actionButton = (() => {
                 if (editMode) {
@@ -701,6 +701,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                           {renderAccountValue({ accountValue, subTitleInfo })}
                           <AccountAddress
                             num={num}
+                            linkedNetworkId={subTitleInfo.linkedNetworkId}
                             address={subTitleInfo.address}
                             isEmptyAddress={subTitleInfo.isEmptyAddress}
                           />

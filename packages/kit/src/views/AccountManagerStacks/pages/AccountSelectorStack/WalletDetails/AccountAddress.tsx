@@ -7,10 +7,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 export function AccountAddress({
   num,
   address,
+  linkedNetworkId,
   isEmptyAddress,
 }: {
   num: number;
   address: string;
+  linkedNetworkId?: string;
   isEmptyAddress: boolean;
 }) {
   const { activeAccount } = useActiveAccount({ num });
@@ -20,11 +22,14 @@ export function AccountAddress({
       size="$bodyMd"
       color={isEmptyAddress ? '$textCaution' : '$textSubdued'}
     >
-      {isEmptyAddress
+      {isEmptyAddress && linkedNetworkId
         ? intl.formatMessage(
             { id: ETranslations.global_no_network_address },
             {
-              network: activeAccount?.network?.shortname || '',
+              network:
+                linkedNetworkId === activeAccount?.network?.id
+                  ? activeAccount?.network?.shortname || ''
+                  : '',
               //   network: '11',
             },
           )
