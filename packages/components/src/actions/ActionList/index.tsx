@@ -237,7 +237,9 @@ const showActionList = (
       onOpenChange={(isOpen) => {
         props.onOpenChange?.(isOpen);
         if (!isOpen) {
-          props.onClose?.();
+          setTimeout(() => {
+            props.onClose?.();
+          });
           // delay the destruction of the reference to allow for the completion of the animation transition.
           setTimeout(() => {
             ref.destroy();
