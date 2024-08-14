@@ -1204,6 +1204,7 @@
   "receive.hide_unverified_address": "Sembunyikan alamat yang tidak diverifikasi",
   "receive.send_asset_warning_message": "Kirimkan aset jaringan {network} saja ke alamat ini",
   "receive.show_address_any": "Tampilkan alamat tetap",
+  "receive_token_list_footer_text": "Token tidak ditemukan? Coba cari",
   "remove_account_desc": "Akun ini akan dihapus.",
   "remove_device": "Hapus perangkat",
   "remove_device_desc": "Ini akan menghapus data Anda secara permanen. Namun, Anda masih dapat mengembalikannya dari dompet hardware yang telah memuat frasa pemulihan dari dompet ini.",

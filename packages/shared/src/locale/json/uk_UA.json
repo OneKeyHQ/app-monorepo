@@ -1204,6 +1204,7 @@
   "receive.hide_unverified_address": "Сховати неперевірену адресу",
   "receive.send_asset_warning_message": "Надсилайте активи лише мережі {network} на цю адресу",
   "receive.show_address_any": "Показати адресу все одно",
+  "receive_token_list_footer_text": "Токен не знайдено? Спробуйте пошук",
   "remove_account_desc": "Цей обліковий запис буде видалено.",
   "remove_device": "Видалити пристрій",
   "remove_device_desc": "Це назавжди видалить ваші дані. Але ви все ще можете відновити їх з апаратного гаманця, в якому зберігається фраза відновлення цього гаманця.",
