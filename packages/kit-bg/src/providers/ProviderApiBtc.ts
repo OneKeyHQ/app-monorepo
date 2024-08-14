@@ -513,9 +513,6 @@ class ProviderApiBtc extends ProviderApiBase {
         respPsbt.finalizeInput(v.index);
       });
     }
-    if (options.isBtcWalletProvider) {
-      return respPsbt.extractTransaction().toHex();
-    }
     return respPsbt.toHex();
   }
 
