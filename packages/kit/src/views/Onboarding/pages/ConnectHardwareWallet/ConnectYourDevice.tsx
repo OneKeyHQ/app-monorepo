@@ -1010,6 +1010,7 @@ function ConnectByUSBOrBLE({
                   <Accordion.Content
                     unstyled
                     animation="quick"
+                    enterStyle={{ opacity: 0 }}
                     exitStyle={{ opacity: 0 }}
                   >
                     <Stack role="list" px="$5" pt="$1" pb="$3">

@@ -9,7 +9,11 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { InteractionManager, StyleSheet } from 'react-native';
+import {
+  InteractionManager,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 import type {
@@ -196,15 +200,6 @@ function BasicMarketHomeList({
     };
   }, [fetchCategory]);
 
-  const toDetailPage = useCallback(
-    (item: IMarketToken) => {
-      navigation.push(ETabMarketRoutes.MarketDetail, {
-        token: item.coingeckoId,
-      });
-    },
-    [navigation],
-  );
-
   const { gtMd, md } = useMedia();
 
   const filterCoingeckoIdsListData = useMemo(() => {
@@ -235,71 +230,84 @@ function BasicMarketHomeList({
   ]);
 
   const actions = useWatchListAction();
+  const isShowActionSheet = useRef(false);
+
+  const toDetailPage = useCallback(
+    (item: IMarketToken) => {
+      if (isShowActionSheet.current) {
+        return;
+      }
+      navigation.push(ETabMarketRoutes.MarketDetail, {
+        token: item.coingeckoId,
+      });
+    },
+    [navigation],
+  );
+
   const handleMdItemAction = useCallback(
     async ({ coingeckoId, symbol }: IMarketToken) => {
       const isInWatchList = actions.isInWatchList(coingeckoId);
       const title = symbol.toUpperCase();
-      ActionList.show(
-        isInWatchList
-          ? {
-              title,
-              sections: [
-                {
-                  items: [
-                    {
-                      destructive: true,
-                      icon: 'DeleteOutline',
-                      label: intl.formatMessage({
-                        id: ETranslations.market_remove_from_watchlist,
-                      }),
-                      onPress: () => {
-                        actions.removeFormWatchList(coingeckoId);
-                      },
+      const onClose = () => {
+        isShowActionSheet.current = false;
+      };
+      isShowActionSheet.current = true;
+      ActionList.show({
+        title,
+        onClose,
+        sections: [
+          {
+            items: [
+              isInWatchList
+                ? {
+                    destructive: true,
+                    icon: 'DeleteOutline',
+                    label: intl.formatMessage({
+                      id: ETranslations.market_remove_from_watchlist,
+                    }),
+                    onPress: () => {
+                      actions.removeFormWatchList(coingeckoId);
                     },
-                    showMoreAction && {
-                      icon: 'ArrowTopOutline',
-                      label: intl.formatMessage({
-                        id: ETranslations.market_move_to_top,
-                      }),
-                      onPress: () => {
-                        actions.MoveToTop(coingeckoId);
-                      },
+                  }
+                : {
+                    icon: 'StarOutline',
+                    label: intl.formatMessage({
+                      id: ETranslations.market_add_to_watchlist,
+                    }),
+                    onPress: () => {
+                      actions.addIntoWatchList(coingeckoId);
                     },
-                  ].filter(Boolean) as IActionListItemProps[],
+                  },
+              showMoreAction && {
+                icon: 'ArrowTopOutline',
+                label: intl.formatMessage({
+                  id: ETranslations.market_move_to_top,
+                }),
+                onPress: () => {
+                  actions.MoveToTop(coingeckoId);
                 },
-              ],
-            }
-          : {
-              title,
-              sections: [
-                {
-                  items: [
-                    {
-                      icon: 'StarOutline',
-
-                      label: intl.formatMessage({
-                        id: ETranslations.market_add_to_watchlist,
-                      }),
-                      onPress: () => {
-                        actions.addIntoWatchList(coingeckoId);
-                      },
-                    },
-                  ],
-                },
-              ],
-            },
-      );
+              },
+            ].filter(Boolean) as IActionListItemProps[],
+          },
+        ],
+      });
     },
     [actions, intl, showMoreAction],
   );
 
+  const { width: screenWidth } = useWindowDimensions();
+
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
+
   const renderMdItem = useCallback(
     (item: IMarketToken) => {
       const pressEvents = {
         onPress: () => toDetailPage(item),
-        onLongPress: () => handleMdItemAction(item),
+        onLongPress: () => {
+          void handleMdItemAction(item);
+        },
+        delayLongPress: platformEnv.isNative ? undefined : 300,
       };
       return (
         <TouchableContainer
@@ -826,6 +834,17 @@ function BasicMarketHomeList({
     [handleSortTypeChange],
   );
 
+  const rowProps = useMemo(() => {
+    if (gtMd) {
+      return ROW_PROPS;
+    }
+    return platformEnv.isNativeAndroid
+      ? {
+          width: screenWidth,
+        }
+      : undefined;
+  }, [gtMd, screenWidth]);
+
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
       <YStack flex={1} ai="center" jc="center">
@@ -883,7 +902,7 @@ function BasicMarketHomeList({
           stickyHeaderHiddenOnScroll
           onRow={onRow}
           onHeaderRow={onHeaderRow}
-          rowProps={gtMd ? ROW_PROPS : undefined}
+          rowProps={rowProps}
           showHeader={gtMd}
           columns={columns}
           dataSource={sortedListData as unknown as IMarketToken[]}
