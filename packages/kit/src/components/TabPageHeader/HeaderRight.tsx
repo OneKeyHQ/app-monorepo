@@ -59,53 +59,6 @@ export function HeaderRight({
     [scanQrCode, account, allTokens, map],
   );
 
-  const openLayoutTab = useCallback(async () => {
-    const routeInfo = {
-      routes: '',
-    };
-    ActionList.show({
-      title: intl.formatMessage({
-        id: ETranslations.global_layout,
-      }),
-      items: [
-        platformEnv.isExtensionUiPopup
-          ? {
-              label: intl.formatMessage({
-                id: ETranslations.open_as_sidebar,
-              }),
-              icon: 'LayoutRightOutline',
-              onPress: async () => {
-                await extUtils.openPanelOnActionClick(true);
-                await extUtils.openSidePanel(routeInfo);
-                window.close();
-              },
-            }
-          : {
-              label: intl.formatMessage({
-                id: ETranslations.open_as_popup,
-              }),
-              icon: 'LayoutTopOutline',
-              onPress: async () => {
-                await extUtils.openPanelOnActionClick(false);
-                window.close();
-              },
-            },
-        {
-          label: intl.formatMessage({
-            id: ETranslations.global_expand_view,
-          }),
-          icon: 'ExpandOutline',
-          onPress: async () => {
-            window.close();
-            await backgroundApiProxy.serviceApp.openExtensionExpandTab(
-              routeInfo,
-            );
-          },
-        },
-      ],
-    });
-  }, [intl]);
-
   const media = useMedia();
   const items = useMemo(() => {
     const settingsButton = (
@@ -118,12 +71,57 @@ export function HeaderRight({
       />
     );
 
+    const routeInfo = {
+      routes: '',
+    };
     const layoutExtView = (
-      <HeaderIconButton
-        key="layoutRightView"
-        title={intl.formatMessage({ id: ETranslations.global_layout })}
-        icon="LayoutRightOutline"
-        onPress={openLayoutTab}
+      <ActionList
+        title={intl.formatMessage({
+          id: ETranslations.global_layout,
+        })}
+        items={[
+          platformEnv.isExtensionUiPopup
+            ? {
+                label: intl.formatMessage({
+                  id: ETranslations.open_as_sidebar,
+                }),
+                icon: 'LayoutRightOutline',
+                onPress: async () => {
+                  await extUtils.openPanelOnActionClick(true);
+                  await extUtils.openSidePanel(routeInfo);
+                  window.close();
+                },
+              }
+            : {
+                label: intl.formatMessage({
+                  id: ETranslations.open_as_popup,
+                }),
+                icon: 'LayoutTopOutline',
+                onPress: async () => {
+                  await extUtils.openPanelOnActionClick(false);
+                  window.close();
+                },
+              },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.global_expand_view,
+            }),
+            icon: 'ExpandOutline',
+            onPress: async () => {
+              window.close();
+              await backgroundApiProxy.serviceApp.openExtensionExpandTab(
+                routeInfo,
+              );
+            },
+          },
+        ]}
+        renderTrigger={
+          <HeaderIconButton
+            key="layoutRightView"
+            title={intl.formatMessage({ id: ETranslations.global_layout })}
+            icon="LayoutRightOutline"
+          />
+        }
       />
     );
     const scanButton = (
@@ -152,14 +150,7 @@ export function HeaderRight({
     }
 
     return [scanButton, settingsButton, searchInput];
-  }, [
-    intl,
-    media.gtMd,
-    onScanButtonPressed,
-    openLayoutTab,
-    openSettingPage,
-    sceneName,
-  ]);
+  }, [intl, media.gtMd, onScanButtonPressed, openSettingPage, sceneName]);
   return (
     <HeaderButtonGroup
       testID="Wallet-Page-Header-Right"
