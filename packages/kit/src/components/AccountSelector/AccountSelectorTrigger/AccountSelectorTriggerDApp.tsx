@@ -217,7 +217,7 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
       />
       {media.gtMd ? (
         <>
-          <View pl="$2" pr="$1" minWidth={0}>
+          <View pl="$2" pr="$1" minWidth={0} maxWidth="$24">
             <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
               {wallet?.name}
             </SizableText>
