@@ -200,15 +200,6 @@ function BasicMarketHomeList({
     };
   }, [fetchCategory]);
 
-  const toDetailPage = useCallback(
-    (item: IMarketToken) => {
-      navigation.push(ETabMarketRoutes.MarketDetail, {
-        token: item.coingeckoId,
-      });
-    },
-    [navigation],
-  );
-
   const { gtMd, md } = useMedia();
 
   const filterCoingeckoIdsListData = useMemo(() => {
@@ -239,60 +230,79 @@ function BasicMarketHomeList({
   ]);
 
   const actions = useWatchListAction();
+  const isShowActionSheet = useRef(false);
+
+  const toDetailPage = useCallback(
+    (item: IMarketToken) => {
+      if (isShowActionSheet.current) {
+        return;
+      }
+      navigation.push(ETabMarketRoutes.MarketDetail, {
+        token: item.coingeckoId,
+      });
+    },
+    [navigation],
+  );
+
   const handleMdItemAction = useCallback(
     async ({ coingeckoId, symbol }: IMarketToken) => {
       const isInWatchList = actions.isInWatchList(coingeckoId);
       const title = symbol.toUpperCase();
-      ActionList.show(
-        isInWatchList
-          ? {
-              title,
-              sections: [
-                {
-                  items: [
-                    {
-                      destructive: true,
-                      icon: 'DeleteOutline',
-                      label: intl.formatMessage({
-                        id: ETranslations.market_remove_from_watchlist,
-                      }),
-                      onPress: () => {
-                        actions.removeFormWatchList(coingeckoId);
-                      },
+      const onClose = () => {
+        isShowActionSheet.current = false;
+      };
+      isShowActionSheet.current = true;
+      ActionList.show({
+        title,
+        onClose,
+        sections: [
+          {
+            items: isInWatchList
+              ? ([
+                  {
+                    destructive: true,
+                    icon: 'DeleteOutline',
+                    label: intl.formatMessage({
+                      id: ETranslations.market_remove_from_watchlist,
+                    }),
+                    onPress: () => {
+                      actions.removeFormWatchList(coingeckoId);
                     },
-                    showMoreAction && {
-                      icon: 'ArrowTopOutline',
-                      label: intl.formatMessage({
-                        id: ETranslations.market_move_to_top,
-                      }),
-                      onPress: () => {
-                        actions.MoveToTop(coingeckoId);
-                      },
+                  },
+                  showMoreAction && {
+                    icon: 'ArrowTopOutline',
+                    label: intl.formatMessage({
+                      id: ETranslations.market_move_to_top,
+                    }),
+                    onPress: () => {
+                      actions.MoveToTop(coingeckoId);
                     },
-                  ].filter(Boolean) as IActionListItemProps[],
-                },
-              ],
-            }
-          : {
-              title,
-              sections: [
-                {
-                  items: [
-                    {
-                      icon: 'StarOutline',
-
-                      label: intl.formatMessage({
-                        id: ETranslations.market_add_to_watchlist,
-                      }),
-                      onPress: () => {
-                        actions.addIntoWatchList(coingeckoId);
-                      },
+                  },
+                ].filter(Boolean) as IActionListItemProps[])
+              : ([
+                  {
+                    destructive: true,
+                    icon: 'DeleteOutline',
+                    label: intl.formatMessage({
+                      id: ETranslations.market_remove_from_watchlist,
+                    }),
+                    onPress: () => {
+                      actions.removeFormWatchList(coingeckoId);
                     },
-                  ],
-                },
-              ],
-            },
-      );
+                  },
+                  showMoreAction && {
+                    icon: 'ArrowTopOutline',
+                    label: intl.formatMessage({
+                      id: ETranslations.market_move_to_top,
+                    }),
+                    onPress: () => {
+                      actions.MoveToTop(coingeckoId);
+                    },
+                  },
+                ].filter(Boolean) as IActionListItemProps[]),
+          },
+        ],
+      });
     },
     [actions, intl, showMoreAction],
   );
@@ -301,11 +311,15 @@ function BasicMarketHomeList({
 
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
+
   const renderMdItem = useCallback(
     (item: IMarketToken) => {
       const pressEvents = {
         onPress: () => toDetailPage(item),
-        onLongPress: () => handleMdItemAction(item),
+        onLongPress: () => {
+          void handleMdItemAction(item);
+        },
+        delayLongPress: platformEnv.isNative ? undefined : 300,
       };
       return (
         <TouchableContainer
