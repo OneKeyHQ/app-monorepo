@@ -7,6 +7,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 function DescriptionList({
   label,
@@ -32,6 +34,7 @@ type IDeviceInfo = {
   bleVersion?: string;
 };
 
+let lastFetchTime = 0;
 export function AboutDeviceInfo({
   device,
 }: {
@@ -66,6 +69,40 @@ export function AboutDeviceInfo({
     [intl],
   );
 
+  const convertDeviceVersionToInfo = useCallback(
+    async (data: IDBDevice, features?: IOneKeyDeviceFeatures) => {
+      const { bleVersion, firmwareVersion } =
+        await deviceUtils.getDeviceVersion({
+          device: data,
+          features,
+        });
+
+      return createDeviceInfo({
+        uuid: data?.uuid,
+        bleName: features?.ble_name,
+        firmwareVersion,
+        bleVersion,
+      });
+    },
+    [createDeviceInfo],
+  );
+
+  const throttledGetFeaturesWithoutCache = useCallback(
+    (params: { connectId: string }) => {
+      const now = Date.now();
+      const throttleTime = timerUtils.getTimeDurationMs({ seconds: 30 });
+      if (now - lastFetchTime < throttleTime) {
+        return null;
+      }
+      lastFetchTime = now;
+      return backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+        connectId: params.connectId,
+        params: { retryCount: 1 },
+      });
+    },
+    [],
+  );
+
   useEffect(() => {
     let isLoading = false;
     const fetchUpdatedInfo = async () => {
@@ -75,42 +112,28 @@ export function AboutDeviceInfo({
         dbDeviceId: device.id,
       });
 
-      const { bleVersion, firmwareVersion } =
-        await deviceUtils.getDeviceVersion({
-          device: dbDevice,
-          features: dbDevice?.featuresInfo,
-        });
-
-      const initialInfo = createDeviceInfo({
-        uuid: dbDevice?.uuid,
-        bleName: dbDevice?.featuresInfo?.ble_name,
-        firmwareVersion,
-        bleVersion,
-      });
+      const initialInfo = await convertDeviceVersionToInfo(
+        dbDevice,
+        dbDevice?.featuresInfo,
+      );
       setDeviceInfo(initialInfo);
 
       try {
         isLoading = true;
-        const features =
-          await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
-            connectId: device.connectId,
-            params: { retryCount: 1 },
-          });
+        const features = await throttledGetFeaturesWithoutCache({
+          connectId: device.connectId,
+        });
 
-        const {
-          bleVersion: newBleVersion,
-          firmwareVersion: newFirmwareVersion,
-        } = await deviceUtils.getDeviceVersion({
-          device,
+        if (!features) {
+          // Throttle get features
+          isLoading = false;
+          return;
+        }
+
+        const updatedInfo = await convertDeviceVersionToInfo(
+          dbDevice,
           features,
-        });
-
-        const updatedInfo = createDeviceInfo({
-          uuid: dbDevice.uuid,
-          bleName: features.ble_name,
-          firmwareVersion: newFirmwareVersion,
-          bleVersion: newBleVersion,
-        });
+        );
 
         // Compare new data with current state
         const hasChanged =
@@ -133,7 +156,7 @@ export function AboutDeviceInfo({
         void backgroundApiProxy.serviceHardware.cancel(device.connectId);
       }
     };
-  }, [device, createDeviceInfo]);
+  }, [device, throttledGetFeaturesWithoutCache, convertDeviceVersionToInfo]);
 
   return (
     <>
