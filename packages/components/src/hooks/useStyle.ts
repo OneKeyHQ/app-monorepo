@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { getTokens as coreGetTokens, useTheme } from '@tamagui/core';
 
@@ -6,6 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { VariableVal } from '@tamagui/core';
 import type { UseThemeResult } from '@tamagui/web/types/hooks/useTheme';
+import { SHEET_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 export {
   getTokens,
@@ -55,3 +56,14 @@ export function useThemeValue(
     return getValue(theme, colorSymbol, fallback, isRawValue) as string;
   }, [colorSymbol, fallback, isRawValue, theme]);
 }
+
+let sheetCount = 0;
+export const useSheetZIndex = () => {
+  useEffect(() => {
+    sheetCount += 1;
+    return () => {
+      sheetCount -= 1;
+    };
+  }, []);
+  return useMemo(() => SHEET_Z_INDEX + sheetCount, []);
+};

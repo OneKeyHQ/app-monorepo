@@ -52,6 +52,7 @@ import type {
 } from '@onekeyhq/shared/types/market';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePrevious } from '../../../hooks/usePrevious';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import { MarketMore } from './MarketMore';
@@ -164,11 +165,14 @@ function BasicMarketHomeList({
   const updateTimer = useRef<ReturnType<typeof setInterval>>();
 
   const [listData, setListData] = useState<IMarketToken[]>([]);
+  const prevCoingeckoIdsLength = usePrevious(category.coingeckoIds.length);
+
   const fetchCategory = useCallback(async () => {
     const now = Date.now();
     if (
       now - updateAtRef.current >
-      timerUtils.getTimeDurationMs({ seconds: 45 })
+        timerUtils.getTimeDurationMs({ seconds: 45 }) ||
+      prevCoingeckoIdsLength !== category.coingeckoIds.length
     ) {
       const response = await backgroundApiProxy.serviceMarket.fetchCategory(
         category.categoryId,
@@ -180,7 +184,7 @@ function BasicMarketHomeList({
         setListData(response);
       });
     }
-  }, [category.categoryId, category.coingeckoIds]);
+  }, [category.categoryId, category.coingeckoIds, prevCoingeckoIdsLength]);
 
   useEffect(() => {
     void fetchCategory();
