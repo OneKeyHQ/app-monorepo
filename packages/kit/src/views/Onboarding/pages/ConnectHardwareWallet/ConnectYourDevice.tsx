@@ -237,7 +237,6 @@ function ConnectByUSBOrBLE({
   toOneKeyHardwareWalletPage: () => void;
 }) {
   const intl = useIntl();
-  const searchStateRef = useRef<'start' | 'stop'>('stop');
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
 
   const actions = useAccountSelectorActions();
@@ -642,6 +641,10 @@ function ConnectByUSBOrBLE({
     const deviceScanner = deviceUtils.getDeviceScanner({
       backgroundApi: backgroundApiProxy,
     });
+    const stopScan = () => {
+      deviceScanner.stopScan();
+      setIsSearching(false);
+    };
     deviceScanner.startDeviceScan(
       (response) => {
         if (!response.success) {
@@ -656,7 +659,7 @@ function ConnectByUSBOrBLE({
                 title: error.message || 'DeviceScanError',
               });
             } else {
-              deviceScanner.stopScan();
+              stopScan();
             }
           } else if (
             error instanceof InitIframeLoadFail ||
@@ -670,7 +673,7 @@ function ConnectByUSBOrBLE({
               message: error.message || 'DeviceScanError',
               // message: "Check your connection and retry",
             });
-            deviceScanner.stopScan();
+            stopScan();
           }
 
           if (
@@ -685,7 +688,7 @@ function ConnectByUSBOrBLE({
               message: error.message || 'DeviceScanError',
               // message: "Please reconnect the USB and try again", // USB only
             });
-            deviceScanner.stopScan();
+            stopScan();
           }
 
           if (
@@ -700,7 +703,7 @@ function ConnectByUSBOrBLE({
               message: error.message || 'DeviceScanError',
               // message: "Please reconnect device and try again", // USB or BLE
             });
-            deviceScanner.stopScan();
+            stopScan();
           }
 
           if (error instanceof NeedOneKeyBridge) {
@@ -717,10 +720,8 @@ function ConnectByUSBOrBLE({
               onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
             });
 
-            deviceScanner.stopScan();
+            stopScan();
           }
-
-          setIsSearching(false);
           return;
         }
 
@@ -728,8 +729,11 @@ function ConnectByUSBOrBLE({
         console.log('startDeviceScan>>>>>', response.payload);
       },
       (state) => {
-        searchStateRef.current = state;
+        setIsSearching(state === 'start');
       },
+      1,
+      timerUtils.getTimeDurationMs({ seconds: 2 }),
+      200,
     );
   }, [intl]);
 
@@ -1091,20 +1095,23 @@ function ConnectByUSBOrBLE({
 
       {connectStatus === EConnectionStatus.listing ? (
         <ScrollView flex={1}>
-          <XStack
-            gap="$2"
-            alignItems="center"
-            justifyContent="center"
-            py="$2.5"
-            px="$5"
-          >
-            <Spinner size="small" />
-            <SizableText color="$textSubdued">
-              {`${intl.formatMessage({
-                id: ETranslations.onboarding_bluetooth_connect_help_text,
-              })}...`}
-            </SizableText>
-          </XStack>
+          {isSearching ? (
+            <XStack
+              gap="$2"
+              alignItems="center"
+              justifyContent="center"
+              py="$2.5"
+              px="$5"
+            >
+              <Spinner size="small" />
+              <SizableText color="$textSubdued">
+                {`${intl.formatMessage({
+                  id: ETranslations.onboarding_bluetooth_connect_help_text,
+                })}...`}
+              </SizableText>
+            </XStack>
+          ) : null}
+
           {devicesData.map((item) => (
             <DeviceListItem
               item={item}

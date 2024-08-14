@@ -42,7 +42,6 @@ export class DeviceScannerUtils {
       }
 
       searchPromise = createDeferred();
-      onSearchStateChange('start');
 
       let searchResponse;
       try {
@@ -56,9 +55,10 @@ export class DeviceScannerUtils {
       callback(searchResponse);
 
       this.tryCount += 1;
-      onSearchStateChange('stop');
       return searchResponse;
     };
+
+    onSearchStateChange('start');
 
     const poll: IPollFn<void> = async (
       time = POLL_INTERVAL,
@@ -70,6 +70,7 @@ export class DeviceScannerUtils {
       }
       if (this.tryCount > MaxTryCount) {
         this.stopScan();
+        onSearchStateChange('stop');
         return;
       }
 
