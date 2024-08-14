@@ -7,7 +7,7 @@ import type {
   IAccountManagerStacksParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { WalletDetails, WalletDetailsPerfTest } from './WalletDetails';
+import { WalletDetails } from './WalletDetails';
 import {
   AccountSelectorWalletListSideBar,
   AccountSelectorWalletListSideBarPerfTest,
