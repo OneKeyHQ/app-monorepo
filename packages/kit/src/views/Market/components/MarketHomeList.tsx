@@ -67,6 +67,7 @@ import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
 import { useSortType } from './useSortType';
 import { useWatchListAction } from './wachListHooks';
+import { MarketTokenPrice } from './MarketTokenPrice';
 
 const lineColorMap = {
   light: ['rgba(0, 113, 63)', 'rgba(196, 0, 6)'],
@@ -607,15 +608,13 @@ function BasicMarketHomeList({
                 flexGrow: 1,
                 flexBasis: 0,
               },
-              render: (price: string) => (
-                <NumberSizeableText
-                  userSelect="none"
+              render: (price: string, record: IMarketToken) => (
+                <MarketTokenPrice
                   size="$bodyMd"
-                  formatter="price"
-                  formatterOptions={{ currency }}
-                >
-                  {price || '-'}
-                </NumberSizeableText>
+                  price={price}
+                  tokenName={record.symbol}
+                  lastUpdate={record.lastUpdated}
+                />
               ),
               renderSkeleton: () => <Skeleton w="$20" h="$3" />,
             },
