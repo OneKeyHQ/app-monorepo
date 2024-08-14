@@ -21,7 +21,10 @@ import type {
   IFetchTxDetailsParams,
 } from '@onekeyhq/shared/types/history';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
-import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxStatus,
+  EReplaceTxType,
+} from '@onekeyhq/shared/types/tx';
 import type {
   IReplaceTxInfo,
   ISendTxOnSuccessData,
@@ -294,13 +297,15 @@ class ServiceHistory extends ServiceBase {
     onChainHistoryTxs: IAccountHistoryTx[];
     confirmedTxs: IAccountHistoryTx[];
   }) {
-    const vaultSettings =
-      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    const [vaultSettings, network] = await Promise.all([
+      this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+      this.backgroundApi.serviceNetwork.getNetwork({ networkId }),
+    ]);
 
     // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
     let confirmedTxsToSave: IAccountHistoryTx[] = [];
     let confirmedTxsToRemove: IAccountHistoryTx[] = [];
-    if (!vaultSettings.saveConfirmedTxsEnabled) {
+    if (!vaultSettings.saveConfirmedTxsEnabled && network.backendIndex) {
       confirmedTxsToSave = confirmedTxs.filter(
         (tx) =>
           !onChainHistoryTxs.find(
@@ -316,7 +321,15 @@ class ServiceHistory extends ServiceBase {
     }
     // If some chains require saving all confirmed transactions, save all confirmed transactions without filtering
     else {
-      confirmedTxsToSave = confirmedTxs;
+      confirmedTxsToSave = confirmedTxs.map((tx) => {
+        const onChainHistoryTx = onChainHistoryTxs.find(
+          (item) => item.id === tx.id,
+        );
+        if (onChainHistoryTx) {
+          return onChainHistoryTx;
+        }
+        return tx;
+      });
     }
 
     await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
