@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import BigNumber from 'bignumber.js';
 import TonWeb from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
@@ -22,8 +21,9 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type {
-  SignDataPayload,
-  TransactionPayload,
+  SignDataRequest,
+  SignProofRequest,
+  TransactionRequest,
 } from '@onekeyfe/cross-inpage-provider-ton/dist/types';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -35,11 +35,6 @@ enum ENetwork {
 @backgroundClass()
 class ProviderApiTon extends ProviderApiBase {
   public providerName = IInjectedProviderNames.ton;
-
-  private async _getAccount(request: IJsBridgeMessagePayload) {
-    const accounts = await this.getAccountsInfo(request);
-    return accounts[0];
-  }
 
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
@@ -153,7 +148,7 @@ class ProviderApiTon extends ProviderApiBase {
   @providerApiMethod()
   public async sendTransaction(
     request: IJsBridgeMessagePayload,
-    params: TransactionPayload,
+    params: TransactionRequest,
   ): Promise<any> {
     const accounts = await this.getAccountsInfo(request);
     const account = accounts[0];
@@ -171,7 +166,7 @@ class ProviderApiTon extends ProviderApiBase {
       sequenceNo: 0,
       messages: params.messages.map((m) => ({
         toAddress: m.address,
-        amount: new BigNumber(m.amount),
+        amount: m.amount,
         payload: m.payload
           ? Buffer.from(m.payload, 'base64').toString('hex')
           : undefined,
@@ -197,7 +192,7 @@ class ProviderApiTon extends ProviderApiBase {
   @providerApiMethod()
   public async signData(
     request: IJsBridgeMessagePayload,
-    params: SignDataPayload,
+    params: SignDataRequest,
   ): Promise<any> {
     const accounts = await this.getAccountsInfo(request);
     const account = accounts[0];
@@ -215,7 +210,45 @@ class ProviderApiTon extends ProviderApiBase {
       },
     });
 
-    return result;
+    return {
+      signature: result,
+      timestamp,
+    };
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  public async signProof(
+    request: IJsBridgeMessagePayload,
+    params: SignProofRequest,
+  ): Promise<any> {
+    const accounts = await this.getAccountsInfo(request);
+    const account = accounts[0];
+    const timestamp = Math.floor(Date.now() / 1000);
+    const appDomain = request.origin ?? '';
+    const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      networkId: account?.accountInfo?.networkId ?? '',
+      accountId: account?.account.id ?? '',
+      unsignedMessage: {
+        message: params.payload,
+        payload: {
+          isProof: true,
+          timestamp,
+          appDomain,
+          address: account.account.address,
+        },
+      },
+    });
+
+    return {
+      signature: result,
+      timestamp,
+      domain: {
+        lengthBytes: Buffer.from(appDomain).length,
+        value: appDomain,
+      },
+    };
   }
 }
 

@@ -28,8 +28,11 @@ export type IUnsignedMessageAptos = {
 export type IUnsignedMessageTon = {
   message: string;
   payload: {
-    schemaCrc: number;
+    isProof?: boolean;
+    schemaCrc?: number;
     timestamp: number;
+    appDomain?: string;
+    address?: string;
   };
 };
 

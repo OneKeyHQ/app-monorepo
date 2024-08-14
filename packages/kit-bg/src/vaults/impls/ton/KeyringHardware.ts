@@ -13,11 +13,9 @@ import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
+  IUnsignedMessageTon,
 } from '@onekeyhq/core/src/types';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -157,7 +155,37 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new NotImplemented();
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    const sdk = await this.getHardwareSDKInstance();
+    const account = await this.vault.getAccount();
+    const { messages, deviceParams } = params;
+    if (messages.length !== 1) {
+      throw new OneKeyInternalError('Unsupported message count');
+    }
+    const msg = messages[0] as IUnsignedMessageTon;
+    if (!msg.payload.isProof) {
+      throw new OneKeyInternalError('Unsupported message type');
+    }
+    const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
+    const result = await convertDeviceResponse(async () => {
+      const res = await sdk.tonSignProof(
+        dbDevice.connectId,
+        dbDevice.deviceId,
+        {
+          ...deviceCommonParams,
+          path: account.path,
+          appdomain: Buffer.from(msg.payload.appDomain ?? '').toString('hex'),
+          expireAt: msg.payload.timestamp,
+          comment: Buffer.from(msg.message).toString('hex'),
+        },
+      );
+      return res;
+    });
+    if (!result.signature) {
+      throw new OneKeyInternalError('Failed to sign message');
+    }
+    return [result.signature];
   }
 }

@@ -21,11 +21,11 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
   type: EDecodedTxActionType;
   bytes?: Uint8Array;
   jetton?: {
-    queryId: string;
+    queryId?: string;
     toAddress: string;
     amount: string;
-    forwardAmount: string;
-    responseAddress: string;
+    forwardAmount?: string;
+    responseAddress?: string;
   };
 } {
   let type = EDecodedTxActionType.UNKNOWN;
@@ -72,19 +72,17 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
         slice.loadBit(); // isCustomPayload
         const forwardAmount = slice.loadCoins();
         jetton = {
-          queryId: queryId.toString(),
+          queryId: queryId ? queryId.toString() : undefined,
           toAddress: (toAddress.toString as IAddressToString)(
             true,
             true,
             false,
           ),
           amount: amount.toString(),
-          forwardAmount: forwardAmount.toString(),
-          responseAddress: (responseAddress.toString as IAddressToString)(
-            true,
-            true,
-            false,
-          ),
+          forwardAmount: forwardAmount ? forwardAmount.toString() : undefined,
+          responseAddress: responseAddress
+            ? (responseAddress.toString as IAddressToString)(true, true, false)
+            : undefined,
         };
       }
     } catch (e) {

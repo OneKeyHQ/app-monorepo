@@ -253,6 +253,25 @@ export default class Vault extends VaultBase {
     if (encodedTx.expireAt < expireAt) {
       encodedTx.expireAt = expireAt;
     }
+
+    if (params.nativeAmountInfo && params.nativeAmountInfo.maxSendAmount) {
+      const network = await this.getNetwork();
+      const jetton = encodedTx.messages[0].jetton;
+      const token = await this.backgroundApi.serviceToken.getToken({
+        networkId: network.id,
+        accountId: this.accountId,
+        tokenIdOnNetwork: jetton ? jetton.jettonMasterAddress : '',
+      });
+      const amount = new BigNumber(params.nativeAmountInfo.maxSendAmount)
+        .shiftedBy(token?.decimals ?? 0)
+        .toFixed(0, BigNumber.ROUND_FLOOR);
+      if (encodedTx.messages[0].jetton) {
+        encodedTx.messages[0].jetton.amount = amount;
+      } else {
+        encodedTx.messages[0].amount = amount;
+      }
+    }
+
     return {
       ...params.unsignedTx,
     };

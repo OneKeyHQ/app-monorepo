@@ -11,7 +11,12 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
 import { genAddressFromPublicKey } from './sdkTon';
-import { getStateInitFromEncodedTx, serializeSignedTx } from './sdkTon/tx';
+import {
+  getStateInitFromEncodedTx,
+  serializeData,
+  serializeProof,
+  serializeSignedTx,
+} from './sdkTon/tx';
 
 import type { IEncodedTxTon } from './types';
 import type {
@@ -82,16 +87,23 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
     const unsignedMsg = payload.unsignedMsg as IUnsignedMessageTon;
-    const prefix = Buffer.alloc(4 + 8);
-    prefix.writeUint32BE(unsignedMsg.payload.schemaCrc);
-    prefix.writeBigUint64BE(BigInt(unsignedMsg.payload.timestamp));
+    const data = unsignedMsg.payload.isProof
+      ? await serializeProof({
+          message: unsignedMsg.message,
+          timestamp: unsignedMsg.payload.timestamp,
+          address: unsignedMsg.payload.address as string,
+          appDomain: unsignedMsg.payload.appDomain as string,
+        })
+      : await serializeData({
+          message: unsignedMsg.message,
+          schemaCrc: unsignedMsg.payload.schemaCrc ?? 0,
+          timestamp: unsignedMsg.payload.timestamp,
+        });
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-    const msg = TonWeb.boc.Cell.oneFromBoc(unsignedMsg.message);
-    const msgBytes = Buffer.concat([prefix, await msg.hash()]);
-    const [signature] = await signer.sign(msgBytes);
+    const [signature] = await signer.sign(data.bytes);
     return signature.toString('hex');
   }
 
