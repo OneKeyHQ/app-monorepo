@@ -36,6 +36,7 @@ export const ChainSelectorListView = ({
   networkId,
 }: IChainSelectorListViewProps) => {
   const { bottom } = useSafeAreaInsets();
+  const intl = useIntl();
 
   return (
     <ListView
@@ -48,7 +49,11 @@ export const ChainSelectorListView = ({
         <ListItem
           h={48}
           renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
-          title={item.name}
+          title={
+            item.isAllNetworks
+              ? intl.formatMessage({ id: ETranslations.global_all_networks })
+              : item.name
+          }
           titleMatch={item.titleMatch}
           onPress={() => onPressItem?.(item)}
           testID={`select-item-${item.id}`}

@@ -43,6 +43,7 @@ export type IFetchAccountNFTsParams = {
   cursor?: string;
   limit?: number;
   isAllNetworks?: boolean;
+  isManualRefresh?: boolean;
 
   allNetworksAccountId?: string;
   allNetworksNetworkId?: string;

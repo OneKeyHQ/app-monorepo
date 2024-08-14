@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
-import { useBuyToken } from '@onekeyhq/kit/src/hooks/useBuyToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -12,9 +12,10 @@ export function WalletActionBuy() {
     activeAccount: { network, account, wallet },
   } = useActiveAccount({ num: 0 });
 
-  const { isSupported, handleOnBuy } = useBuyToken({
+  const { isSupported, handleFiatCrypto } = useFiatCrypto({
     networkId: network?.id ?? '',
     accountId: account?.id ?? '',
+    fiatCryptoType: 'buy',
   });
 
   const isBuyDisabled = useMemo(() => {
@@ -29,5 +30,5 @@ export function WalletActionBuy() {
     return false;
   }, [isSupported, wallet?.type]);
 
-  return <RawActions.Buy onPress={handleOnBuy} disabled={isBuyDisabled} />;
+  return <RawActions.Buy onPress={handleFiatCrypto} disabled={isBuyDisabled} />;
 }

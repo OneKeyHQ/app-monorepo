@@ -386,7 +386,7 @@ export default function WalletAddressPage({
     async () => {
       const networks =
         await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          { accountId, compatibleWithDeviceType: true },
+          { accountId },
         );
       const networkIds = Array.from(
         new Set(

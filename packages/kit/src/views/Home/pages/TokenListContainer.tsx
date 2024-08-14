@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
@@ -11,6 +11,7 @@ import {
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -49,7 +50,6 @@ import { TokenListView } from '../../../components/TokenListView';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useBuyToken } from '../../../hooks/useBuyToken';
 import { useManageToken } from '../../../hooks/useManageToken';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useReceiveToken } from '../../../hooks/useReceiveToken';
@@ -80,9 +80,10 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
   const { vaultSettings } = useAccountData({ networkId: network?.id ?? '' });
 
-  const { handleOnBuy, isSupported } = useBuyToken({
+  const { handleFiatCrypto, isSupported } = useFiatCrypto({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
+    fiatCryptoType: 'buy',
   });
   const { handleOnReceive } = useReceiveToken({
     accountId: account?.id ?? '',
@@ -280,6 +281,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     },
   );
 
+  const isAllNetworkManualRefresh = useRef(false);
   const handleAllNetworkRequests = useCallback(
     async ({
       accountId,
@@ -295,6 +297,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         accountId,
         flag: 'home-token-list',
         isAllNetworks: true,
+        isManualRefresh: isAllNetworkManualRefresh.current,
         mergeTokens: true,
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
@@ -392,6 +395,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         }
       }
 
+      isAllNetworkManualRefresh.current = false;
       return r;
     },
     [
@@ -733,6 +737,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   );
 
   const handleRefreshAllNetworkData = useCallback(() => {
+    isAllNetworkManualRefresh.current = true;
     void runAllNetworksRequests({ alwaysSetState: true });
   }, [runAllNetworksRequests]);
 
@@ -803,7 +808,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       inTabList
       withBuyAndReceive={isBuyAndReceiveEnabled}
       isBuyTokenSupported={isSupported}
-      onBuyToken={handleOnBuy}
+      onBuyToken={handleFiatCrypto}
       onReceiveToken={handleOnReceive}
       manageTokenEnabled={manageTokenEnabled}
       onManageToken={handleOnManageToken}

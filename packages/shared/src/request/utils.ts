@@ -30,3 +30,22 @@ export function parseRPCResponse<T>(
 export function isRequestIdMessage(message?: string) {
   return message?.startsWith('RequestId:') ?? false;
 }
+
+export async function executeRequestsInBatches<T>(
+  requests: (() => Promise<T | undefined>)[],
+  batchSize: number,
+) {
+  let index = 0;
+  while (index < requests.length) {
+    const batch = requests
+      .slice(index, index + batchSize)
+      .map((request) => request());
+    try {
+      await Promise.all(batch);
+    } catch (e) {
+      console.error(e);
+      // handle error
+    }
+    index += batchSize;
+  }
+}
