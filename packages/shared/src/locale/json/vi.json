@@ -1204,6 +1204,7 @@
   "receive.hide_unverified_address": "Ẩn địa chỉ chưa được xác minh",
   "receive.send_asset_warning_message": "Chỉ gửi tài sản của mạng {network} đến địa chỉ này",
   "receive.show_address_any": "Hiển thị địa chỉ dù sao",
+  "receive_token_list_footer_text": "Không tìm thấy token? Hãy thử tìm kiếm",
   "remove_account_desc": "Tài khoản này sẽ bị xóa.",
   "remove_device": "Gỡ bỏ thiết bị",
   "remove_device_desc": "Điều này sẽ xóa vĩnh viễn dữ liệu của bạn. Nhưng bạn vẫn có thể khôi phục nó từ ví cứng đã tải cụm từ khôi phục của ví này.",

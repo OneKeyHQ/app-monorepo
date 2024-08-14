@@ -267,6 +267,9 @@ function TokenSelector() {
           withNetwork={isAllNetworks ?? network?.isAllNetworks}
           searchAll={searchAll}
           isTokenSelector
+          footerTipText={intl.formatMessage({
+            id: ETranslations.receive_token_list_footer_text,
+          })}
         />
       </Page.Body>
     </Page>
