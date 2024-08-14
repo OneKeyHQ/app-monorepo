@@ -257,9 +257,9 @@ function BasicMarketHomeList({
         onClose,
         sections: [
           {
-            items: isInWatchList
-              ? ([
-                  {
+            items: [
+              isInWatchList
+                ? {
                     destructive: true,
                     icon: 'DeleteOutline',
                     label: intl.formatMessage({
@@ -268,38 +268,26 @@ function BasicMarketHomeList({
                     onPress: () => {
                       actions.removeFormWatchList(coingeckoId);
                     },
-                  },
-                  showMoreAction && {
-                    icon: 'ArrowTopOutline',
+                  }
+                : {
+                    icon: 'StarOutline',
                     label: intl.formatMessage({
-                      id: ETranslations.market_move_to_top,
+                      id: ETranslations.market_add_to_watchlist,
                     }),
                     onPress: () => {
-                      actions.MoveToTop(coingeckoId);
+                      actions.addIntoWatchList(coingeckoId);
                     },
                   },
-                ].filter(Boolean) as IActionListItemProps[])
-              : ([
-                  {
-                    destructive: true,
-                    icon: 'DeleteOutline',
-                    label: intl.formatMessage({
-                      id: ETranslations.market_remove_from_watchlist,
-                    }),
-                    onPress: () => {
-                      actions.removeFormWatchList(coingeckoId);
-                    },
-                  },
-                  showMoreAction && {
-                    icon: 'ArrowTopOutline',
-                    label: intl.formatMessage({
-                      id: ETranslations.market_move_to_top,
-                    }),
-                    onPress: () => {
-                      actions.MoveToTop(coingeckoId);
-                    },
-                  },
-                ].filter(Boolean) as IActionListItemProps[]),
+              showMoreAction && {
+                icon: 'ArrowTopOutline',
+                label: intl.formatMessage({
+                  id: ETranslations.market_move_to_top,
+                }),
+                onPress: () => {
+                  actions.MoveToTop(coingeckoId);
+                },
+              },
+            ].filter(Boolean) as IActionListItemProps[],
           },
         ],
       });
