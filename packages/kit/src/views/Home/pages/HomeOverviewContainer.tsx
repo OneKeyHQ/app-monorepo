@@ -214,7 +214,7 @@ function HomeOverviewContainer() {
 
   const balanceString = accountWorth.worth ?? '0';
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
-    { length: 25, size: '$headingXl' },
+    { length: 17, size: '$headingXl' },
     { length: 13, size: '$heading4xl' },
   ];
   const defaultBalanceSize = '$heading5xl';
