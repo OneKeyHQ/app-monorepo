@@ -9,7 +9,11 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { InteractionManager, StyleSheet } from 'react-native';
+import {
+  InteractionManager,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 import type {
@@ -292,6 +296,8 @@ function BasicMarketHomeList({
     },
     [actions, intl, showMoreAction],
   );
+
+  const { width: screenWidth } = useWindowDimensions();
 
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
@@ -826,6 +832,17 @@ function BasicMarketHomeList({
     [handleSortTypeChange],
   );
 
+  const rowProps = useMemo(() => {
+    if (gtMd) {
+      return ROW_PROPS;
+    }
+    return platformEnv.isNativeAndroid
+      ? {
+          width: screenWidth,
+        }
+      : undefined;
+  }, [gtMd, screenWidth]);
+
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
       <YStack flex={1} ai="center" jc="center">
@@ -883,7 +900,7 @@ function BasicMarketHomeList({
           stickyHeaderHiddenOnScroll
           onRow={onRow}
           onHeaderRow={onHeaderRow}
-          rowProps={gtMd ? ROW_PROPS : undefined}
+          rowProps={rowProps}
           showHeader={gtMd}
           columns={columns}
           dataSource={sortedListData as unknown as IMarketToken[]}
