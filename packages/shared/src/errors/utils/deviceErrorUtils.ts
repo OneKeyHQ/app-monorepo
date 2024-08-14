@@ -144,6 +144,9 @@ export function convertDeviceError(
       if (message.indexOf('Forbidden key path') !== -1) {
         return new HardwareErrors.ForbiddenKeyPathError({ payload });
       }
+      if (message.includes('string overflow')) {
+        return new HardwareErrors.StringOverflowError({ payload });
+      }
       return new HardwareErrors.UnknownHardwareError({ payload });
     case HardwareErrorCode.PinInvalid:
       return new HardwareErrors.InvalidPIN({
