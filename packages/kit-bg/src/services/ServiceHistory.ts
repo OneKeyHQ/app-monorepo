@@ -21,10 +21,7 @@ import type {
   IFetchTxDetailsParams,
 } from '@onekeyhq/shared/types/history';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
-import {
-  EDecodedTxStatus,
-  EReplaceTxType,
-} from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 import type {
   IReplaceTxInfo,
   ISendTxOnSuccessData,
