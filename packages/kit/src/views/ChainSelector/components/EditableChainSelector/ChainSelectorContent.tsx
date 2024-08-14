@@ -189,6 +189,14 @@ export const EditableChainSelectorContent = ({
     networkFuseSearch,
   ]);
 
+  const dragItemOverflowHitSlop = useMemo(() => {
+    const dragCount = tempFrequentlyUsedItems.length;
+    if (dragCount <= 0) {
+      return undefined;
+    }
+    return { bottom: (dragCount + 1) * CELL_HEIGHT + 8 };
+  }, [tempFrequentlyUsedItems]);
+
   const layoutList = useMemo(() => {
     let offset = 8 + (showAllNetworkHeader ? CELL_HEIGHT : 0);
     const layouts: { offset: number; length: number; index: number }[] = [];
@@ -331,6 +339,13 @@ export const EditableChainSelectorContent = ({
                 y: 0,
                 animated: false,
               });
+              // @ts-ignore
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              if (listRef?.current?._listRef?._hasDoneInitialScroll) {
+                // @ts-ignore
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                listRef.current._listRef._hasDoneInitialScroll = false;
+              }
               setSearchText(text.trim());
             }}
           />
@@ -350,6 +365,7 @@ export const EditableChainSelectorContent = ({
                 setTempFrequentlyUsedItems(itemList);
               }}
               initialScrollIndex={initialScrollIndex}
+              dragItemOverflowHitSlop={dragItemOverflowHitSlop}
               getItemLayout={(item, index) => {
                 if (index === -1) {
                   return { index, offset: 0, length: 0 };
