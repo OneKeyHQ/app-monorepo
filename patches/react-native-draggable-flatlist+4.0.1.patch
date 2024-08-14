@@ -32,16 +32,98 @@ index 50b1d13..b6d9317 100644
    });
    const onPlaceholderIndexChange = useStableCallback(index => {
      var _props$onPlaceholderI;
-diff --git a/node_modules/react-native-draggable-flatlist/package.json b/node_modules/react-native-draggable-flatlist/package.json
-index 4092574..cca6988 100644
---- a/node_modules/react-native-draggable-flatlist/package.json
-+++ b/node_modules/react-native-draggable-flatlist/package.json
-@@ -2,7 +2,7 @@
-   "name": "react-native-draggable-flatlist",
-   "version": "4.0.1",
-   "description": "A drag-and-drop-enabled FlatList component for React Native",
--  "main": "lib/commonjs/index",
-+  "main": "lib/module/index",
-   "module": "lib/module/index",
-   "react-native": "src/index.tsx",
-   "types": "lib/typescript/index.d.ts",
+diff --git a/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js b/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js
+index e4e558f..99a21f0 100644
+--- a/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js
++++ b/node_modules/react-native-draggable-flatlist/lib/module/context/animatedValueContext.js
+@@ -56,6 +56,17 @@ function useSetupAnimatedValues() {
+       outerScrollInit.value = outerScrollOffset.value;
+     }
+   }, [outerScrollOffset]);
++  const dragItemOverflowHitSlop = props?.dragItemOverflowHitSlop
++  const dragItemOverflowHitSlopValue = useSharedValue(dragItemOverflowHitSlop);
++  useAnimatedReaction(
++    () => {
++      return activeIndexAnim.value;
++    },
++    (cur, prev) => {
++      dragItemOverflowHitSlopValue.value = dragItemOverflowHitSlop;
++    },
++    [dragItemOverflowHitSlop]
++  );
+   const placeholderOffset = useSharedValue(0);
+   const isDraggingCell = useDerivedValue(() => {
+     return isTouchActiveNative.value && activeIndexAnim.value >= 0;
+@@ -77,7 +88,7 @@ function useSetupAnimatedValues() {
+     const offsetRelativeToScrollTop = touchPositionDiff.value + activeCellOffset.value;
+     const constrained = Math.min(containerMinusActiveCell, Math.max(scrollOffset.value, offsetRelativeToScrollTop));
+     const maxTranslateNegative = -activeCellOffset.value;
+-    const maxTranslatePositive = scrollViewSize.value - (activeCellOffset.value + activeCellSize.value); // Only constrain the touch position while the finger is on the screen. This allows the active cell
++    const maxTranslatePositive = (dragItemOverflowHitSlopValue.value?.bottom ?? scrollViewSize.value) - (activeCellOffset.value + activeCellSize.value); // Only constrain the touch position while the finger is on the screen. This allows the active cell
+     // to snap above/below the fold once let go, if the drag ends at the top/bottom of the screen.
+ 
+     const constrainedBase = isTouchActiveNative.value ? constrained - activeCellOffset.value : touchPositionDiff.value; // Make sure item is constrained to the boundaries of the scrollview
+diff --git a/node_modules/react-native-draggable-flatlist/lib/typescript/types.d.ts b/node_modules/react-native-draggable-flatlist/lib/typescript/types.d.ts
+index 2abb4a2..def5fad 100644
+--- a/node_modules/react-native-draggable-flatlist/lib/typescript/types.d.ts
++++ b/node_modules/react-native-draggable-flatlist/lib/typescript/types.d.ts
+@@ -20,6 +20,7 @@ export declare type DraggableFlatListProps<T> = Modify<FlatListProps<T>, {
+     containerStyle?: StyleProp<ViewStyle>;
+     debug?: boolean;
+     dragItemOverflow?: boolean;
++    dragItemOverflowHitSlop?: Insets;
+     keyExtractor: (item: T, index: number) => string;
+     onDragBegin?: (index: number) => void;
+     onDragEnd?: (params: DragEndParams<T>) => void;
+diff --git a/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx b/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
+index 6ff1ed5..3e06756 100644
+--- a/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
+@@ -83,6 +83,18 @@ function useSetupAnimatedValues<T>() {
+     [outerScrollOffset]
+   );
+ 
++  const dragItemOverflowHitSlop = props?.dragItemOverflowHitSlop
++  const dragItemOverflowHitSlopValue = useSharedValue(dragItemOverflowHitSlop);
++  useAnimatedReaction(
++    () => {
++      return activeIndexAnim.value;
++    },
++    (cur, prev) => {
++      dragItemOverflowHitSlopValue.value = dragItemOverflowHitSlop;
++    },
++    [dragItemOverflowHitSlop]
++  );
++
+   const placeholderOffset = useSharedValue(0);
+ 
+   const isDraggingCell = useDerivedValue(() => {
+@@ -118,7 +130,7 @@ function useSetupAnimatedValues<T>() {
+ 
+     const maxTranslateNegative = -activeCellOffset.value;
+     const maxTranslatePositive =
+-      scrollViewSize.value - (activeCellOffset.value + activeCellSize.value);
++      (dragItemOverflowHitSlopValue.value?.bottom ?? scrollViewSize.value) - (activeCellOffset.value + activeCellSize.value);
+ 
+     // Only constrain the touch position while the finger is on the screen. This allows the active cell
+     // to snap above/below the fold once let go, if the drag ends at the top/bottom of the screen.
+diff --git a/node_modules/react-native-draggable-flatlist/src/types.ts b/node_modules/react-native-draggable-flatlist/src/types.ts
+index d6755c8..a6e1db0 100644
+--- a/node_modules/react-native-draggable-flatlist/src/types.ts
++++ b/node_modules/react-native-draggable-flatlist/src/types.ts
+@@ -12,6 +12,7 @@ import Animated, {
+   WithSpringConfig,
+ } from "react-native-reanimated";
+ import { DEFAULT_PROPS } from "./constants";
++import type { Insets } from 'react-native'
+ 
+ export type DragEndParams<T> = {
+   data: T[];
+@@ -33,6 +34,7 @@ export type DraggableFlatListProps<T> = Modify<
+     containerStyle?: StyleProp<ViewStyle>;
+     debug?: boolean;
+     dragItemOverflow?: boolean;
++    dragItemOverflowHitSlop?: Insets;
+     keyExtractor: (item: T, index: number) => string;
+     onDragBegin?: (index: number) => void;
+     onDragEnd?: (params: DragEndParams<T>) => void;
