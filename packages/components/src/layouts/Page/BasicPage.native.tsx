@@ -72,7 +72,6 @@ function LoadingScreen({
   return (
     <View flex={1} minHeight={minHeight} bg="$bgApp">
       {showChildren ? children : null}
-      {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
       <AnimatePresence>
         {showLoading ? (
           <Stack
@@ -104,6 +103,7 @@ export function BasicPage({
 }: IBasicPageProps) {
   return (
     <Stack bg="$bgApp" flex={1}>
+      {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
       {skipLoading ? (
         children
       ) : (
