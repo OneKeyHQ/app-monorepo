@@ -65,13 +65,14 @@ function usePreloadJsUrl() {
 }
 
 function getPartition(src: string) {
-  try {
-    const url = new URL(src);
-    const value = `persist:${url.host}`;
-    return value;
-  } catch {
-    return `persist:onekey`;
-  }
+  // try {
+  //   const url = new URL(src);
+  //   const value = `persist:${url.host}`;
+  //   return value;
+  // } catch {
+  //   return `persist:onekey`;
+  // }
+  return `persist:onekey`;
 }
 
 // Used for webview type referencing
