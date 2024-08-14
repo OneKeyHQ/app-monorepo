@@ -11,10 +11,7 @@ import { ListView } from '../../layouts/ListView';
 import { Icon, SizableText, Stack, XStack, YStack } from '../../primitives';
 
 import type { IListViewProps, IListViewRef } from '../../layouts';
-import type {
-  ISizableTextProps,
-  IStackProps,
-} from '../../primitives';
+import type { ISizableTextProps, IStackProps } from '../../primitives';
 import type {
   ListRenderItemInfo,
   NativeScrollEvent,
