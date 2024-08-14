@@ -1,6 +1,14 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, View, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  View,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
 
@@ -9,22 +17,34 @@ import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
 
 export function AccountSelectorTriggerBase({
   num,
+  autoWidthForHome,
   ...others
 }: {
   num: number;
+  autoWidthForHome?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const {
     activeAccount: { account, dbAccount, indexedAccount, accountName, wallet },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num, ...others });
   const intl = useIntl();
+  const media = useMedia();
+
+  const maxWidth = useMemo(() => {
+    if (autoWidthForHome) {
+      if (media.gtLg || media.sm) {
+        return '$80';
+      }
+    }
+    return '$48';
+  }, [autoWidthForHome, media.gtLg, media.sm]);
 
   return (
     <XStack
       testID="AccountSelectorTriggerBase"
       role="button"
       alignItems="center"
-      maxWidth="$48"
+      maxWidth={maxWidth}
       py="$0.5"
       px="$1.5"
       mx="$-1.5"
@@ -45,7 +65,7 @@ export function AccountSelectorTriggerBase({
         account={account}
         dbAccount={dbAccount}
       />
-      <View pl="$2" pr="$1" minWidth={0}>
+      <View pl="$2" pr="$1" minWidth={0} flex={1}>
         <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
           {wallet?.name ||
             intl.formatMessage({ id: ETranslations.global_no_wallet })}
