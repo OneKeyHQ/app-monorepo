@@ -420,7 +420,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     // must include accountId here, so that two account wont share same tx history
     const historyId = accountUtils.buildLocalHistoryId({
-      networkId: this.networkId,
+      networkId,
       txid,
       accountAddress,
       xpub,
@@ -453,6 +453,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     let accountId = originAccountId;
     let networkId = originNetworkId;
     let accountAddress = originAccountAddress;
+
     if (originNetworkId === getNetworkIdsMap().onekeyall) {
       const allNetworkAccount = allNetworkHistoryExtraItems?.find(
         (i) => i.networkId === onChainHistoryTx.networkId,
