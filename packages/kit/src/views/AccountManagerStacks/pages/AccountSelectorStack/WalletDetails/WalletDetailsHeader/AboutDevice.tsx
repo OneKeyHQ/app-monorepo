@@ -1,10 +1,14 @@
+import { useCallback, useEffect, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Dialog, IconButton, SizableText, XStack } from '@onekeyhq/components';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 function DescriptionList({
   label,
@@ -22,39 +26,154 @@ function DescriptionList({
     </XStack>
   );
 }
-export function AboutDevice({ device }: { device?: IDBDevice | undefined }) {
-  const intl = useIntl();
 
-  const { result: listData = [] } = usePromiseResult(async () => {
-    const featuresInfo = device?.featuresInfo;
-    if (!featuresInfo) {
-      return [];
-    }
-    const { bleVersion, firmwareVersion } = await deviceUtils.getDeviceVersion({
-      device,
-      features: device.featuresInfo,
-    });
-    return [
+type IDeviceInfo = {
+  uuid?: string;
+  bleName?: string;
+  firmwareVersion?: string;
+  bleVersion?: string;
+};
+
+let lastFetchTime = 0;
+export function AboutDeviceInfo({
+  device,
+}: {
+  device?: IDBDevice | undefined;
+}) {
+  const intl = useIntl();
+  const [deviceInfo, setDeviceInfo] = useState<
+    Array<{ label: string; description: string }>
+  >([]);
+
+  const createDeviceInfo = useCallback(
+    (data: IDeviceInfo) => [
       {
         label: intl.formatMessage({ id: ETranslations.global_serial_number }),
-        description: device.uuid || '--',
+        description: data.uuid || '--',
       },
       {
         label: intl.formatMessage({ id: ETranslations.global_bluetooth }),
-        description: featuresInfo.ble_name || '--',
+        description: data.bleName || '--',
       },
       {
         label: intl.formatMessage({ id: ETranslations.global_firmware }),
-        description: firmwareVersion || '--',
+        description: data.firmwareVersion || '--',
       },
       {
         label: intl.formatMessage({
           id: ETranslations.global_bluetooth_firmware,
         }),
-        description: bleVersion || '--',
+        description: data.bleVersion || '--',
       },
-    ];
-  }, [device, intl]);
+    ],
+    [intl],
+  );
+
+  const convertDeviceVersionToInfo = useCallback(
+    async (data: IDBDevice, features?: IOneKeyDeviceFeatures) => {
+      const { bleVersion, firmwareVersion } =
+        await deviceUtils.getDeviceVersion({
+          device: data,
+          features,
+        });
+
+      return createDeviceInfo({
+        uuid: data?.uuid,
+        bleName: features?.ble_name,
+        firmwareVersion,
+        bleVersion,
+      });
+    },
+    [createDeviceInfo],
+  );
+
+  const throttledGetFeaturesWithoutCache = useCallback(
+    (params: { connectId: string }) => {
+      const now = Date.now();
+      const throttleTime = timerUtils.getTimeDurationMs({ seconds: 30 });
+      if (now - lastFetchTime < throttleTime) {
+        return null;
+      }
+      lastFetchTime = now;
+      return backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+        connectId: params.connectId,
+        params: { retryCount: 1 },
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    let isLoading = false;
+    const fetchUpdatedInfo = async () => {
+      if (!device?.featuresInfo || !device?.connectId) return;
+
+      const dbDevice = await backgroundApiProxy.serviceAccount.getDevice({
+        dbDeviceId: device.id,
+      });
+
+      const initialInfo = await convertDeviceVersionToInfo(
+        dbDevice,
+        dbDevice?.featuresInfo,
+      );
+      setDeviceInfo(initialInfo);
+
+      try {
+        isLoading = true;
+        const features = await throttledGetFeaturesWithoutCache({
+          connectId: device.connectId,
+        });
+
+        if (!features) {
+          // Throttle get features
+          isLoading = false;
+          return;
+        }
+
+        const updatedInfo = await convertDeviceVersionToInfo(
+          dbDevice,
+          features,
+        );
+
+        // Compare new data with current state
+        const hasChanged =
+          JSON.stringify(updatedInfo) !== JSON.stringify(initialInfo);
+
+        if (hasChanged) {
+          setDeviceInfo(updatedInfo);
+        }
+      } catch (error) {
+        console.error('Error fetching updated device info:', error);
+      } finally {
+        isLoading = false;
+      }
+    };
+
+    void fetchUpdatedInfo();
+
+    return () => {
+      if (isLoading && device?.connectId) {
+        void backgroundApiProxy.serviceHardware.cancel(device.connectId);
+      }
+    };
+  }, [device, throttledGetFeaturesWithoutCache, convertDeviceVersionToInfo]);
+
+  return (
+    <>
+      {deviceInfo.map((item) => (
+        <DescriptionList
+          key={item.label}
+          label={item.label}
+          description={item.description}
+        />
+      ))}
+    </>
+  );
+}
+
+export function AboutDevice({ device }: { device?: IDBDevice | undefined }) {
+  const intl = useIntl();
+
   return (
     <IconButton
       title={intl.formatMessage({ id: ETranslations.global_about })}
@@ -64,17 +183,7 @@ export function AboutDevice({ device }: { device?: IDBDevice | undefined }) {
         Dialog.show({
           title: intl.formatMessage({ id: ETranslations.global_about }),
           showFooter: false,
-          renderContent: (
-            <>
-              {listData.map((item) => (
-                <DescriptionList
-                  key={item.label}
-                  label={item.label}
-                  description={item.description}
-                />
-              ))}
-            </>
-          ),
+          renderContent: <AboutDeviceInfo device={device} />,
         })
       }
     />

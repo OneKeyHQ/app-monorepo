@@ -1274,29 +1274,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
             connectId: params.releaseResult.originalConnectId,
           });
         }
-
-        // refresh features
-        void (async () => {
-          await timerUtils.wait(2000);
-          try {
-            if (params.releaseResult.originalConnectId) {
-              await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
-                connectId: params.releaseResult.originalConnectId,
-              });
-            }
-          } catch (error) {
-            //
-          }
-          try {
-            if (params.releaseResult.updatingConnectId) {
-              await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
-                connectId: params.releaseResult.updatingConnectId,
-              });
-            }
-          } catch (error) {
-            //
-          }
-        })();
       },
       {
         deviceParams: {
