@@ -64,17 +64,6 @@ function usePreloadJsUrl() {
   return preloadJsUrl as string;
 }
 
-function getPartition(src: string) {
-  // try {
-  //   const url = new URL(src);
-  //   const value = `persist:${url.host}`;
-  //   return value;
-  // } catch {
-  //   return `persist:onekey`;
-  // }
-  return `persist:onekey`;
-}
-
 // Used for webview type referencing
 const WEBVIEW_TAG = 'webview';
 
@@ -352,7 +341,7 @@ const DesktopWebView = forwardRef(
           ref={initWebviewByRef}
           preload={preloadJsUrl}
           src={src}
-          partition={getPartition(src)}
+          partition="persist:onekey"
           style={{
             'width': '100%',
             'height': '100%',
