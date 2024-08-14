@@ -1204,6 +1204,7 @@
   "receive.hide_unverified_address": "অপরিদর্শিত ঠিকানা লুকান",
   "receive.send_asset_warning_message": "শুধুমাত্র {network} নেটওয়ার্কের সম্পদ এই ঠিকানায় পাঠান",
   "receive.show_address_any": "ঠিকানা তথাপি দেখান",
+  "receive_token_list_footer_text": "টোকেন পাওয়া যাচ্ছে না? অনুসন্ধান করার চেষ্টা করুন",
   "remove_account_desc": "এই অ্যাকাউন্টটি মুছে ফেলা হবে।",
   "remove_device": "ডিভাইস মুছুন",
   "remove_device_desc": "এটি আপনার ডাটা চিরতরে মুছে ফেলবে। তবে আপনি এখনও হার্ডওয়্যার ওয়ালেট থেকে এটি পুনরুদ্ধার করতে পারেন যা এই ওয়ালেটের পুনরুদ্ধার বাক্য লোড করেছে।",

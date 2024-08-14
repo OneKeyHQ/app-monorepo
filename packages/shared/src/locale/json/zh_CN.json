@@ -1204,6 +1204,7 @@
   "receive.hide_unverified_address": "隐藏未验证的地址",
   "receive.send_asset_warning_message": "仅支持接收 {network} 网络资产",
   "receive.show_address_any": "仍要显示地址",
+  "receive_token_list_footer_text": "找不到代币？试试搜索",
   "remove_account_desc": "此账户将被删除。",
   "remove_device": "移除设备",
   "remove_device_desc": "这将永久删除您的数据。但您仍然可以从已加载此钱包的助记词的硬件钱包中恢复。",

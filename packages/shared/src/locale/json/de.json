@@ -1204,6 +1204,7 @@
   "receive.hide_unverified_address": "Unbestätigte Adresse ausblenden",
   "receive.send_asset_warning_message": "Senden Sie nur Vermögenswerte des {network} Netzwerks an diese Adresse",
   "receive.show_address_any": "Adresse trotzdem anzeigen",
+  "receive_token_list_footer_text": "Token nicht gefunden? Versuchen Sie zu suchen",
   "remove_account_desc": "Dieses Konto wird entfernt.",
   "remove_device": "Gerät entfernen",
   "remove_device_desc": "Dies wird Ihre Daten dauerhaft löschen. Sie können sie jedoch noch von der Hardware-Wallet wiederherstellen, auf der der Wiederherstellungssatz dieser Wallet geladen ist.",

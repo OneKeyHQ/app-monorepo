@@ -1204,6 +1204,7 @@
   "receive.hide_unverified_address": "ซ่อนที่อยู่ที่ไม่ได้รับการยืนยัน",
   "receive.send_asset_warning_message": "ส่งเฉพาะสินทรัพย์ของเครือข่าย {network} ไปยังที่อยู่นี้เท่านั้น",
   "receive.show_address_any": "แสดงที่อยู่อย่างไรก็ตาม",
+  "receive_token_list_footer_text": "ไม่พบโทเค็น? ลองค้นหาดู",
   "remove_account_desc": "บัญชีนี้จะถูกลบออก",
   "remove_device": "นำอุปกรณ์ออก",
   "remove_device_desc": "การดำเนินการนี้จะลบข้อมูลของคุณอย่างถาวร แต่คุณยังสามารถกู้คืนข้อมูลได้จากกระเป๋าสตางค์ฮาร์ดแวร์ที่ได้โหลด recovery phrase ของกระเป๋าสตางค์นี้ไว้",
