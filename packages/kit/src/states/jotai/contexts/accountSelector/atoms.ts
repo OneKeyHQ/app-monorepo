@@ -13,7 +13,6 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   EAccountSelectorSceneName,
   IServerNetwork,
