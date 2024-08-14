@@ -1,4 +1,8 @@
-import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type {
+  IAccountSelectorFocusedWallet,
+  IAccountSelectorSelectedAccount,
+} from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -38,7 +42,15 @@ export class AccountSelectorPerfScene extends BaseScene {
   }
 
   @LogToConsole()
-  public renderWalletListSideBar({
+  public renderWalletListSideBar(params: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+    walletsCount: number;
+  }) {
+    return [params];
+  }
+
+  @LogToConsole()
+  public renderAccountsList({
     selectedAccount,
   }: {
     selectedAccount: IAccountSelectorSelectedAccount;
@@ -47,11 +59,17 @@ export class AccountSelectorPerfScene extends BaseScene {
   }
 
   @LogToConsole()
-  public renderAccountList({
-    selectedAccount,
-  }: {
-    selectedAccount: IAccountSelectorSelectedAccount;
+  buildAccountSelectorAccountsListData(params: {
+    focusedWallet: IAccountSelectorFocusedWallet;
+    othersNetworkId?: string;
+    linkedNetworkId?: string;
+    deriveType: IAccountDeriveTypes;
   }) {
-    return [selectedAccount];
+    return [params];
+  }
+
+  @LogToConsole()
+  public renderAccountsSectionList(params: { accountsCount: number }) {
+    return [params];
   }
 }

@@ -7,7 +7,7 @@ import type {
   IAccountManagerStacksParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { WalletDetails } from './WalletDetails';
+import { WalletDetails, WalletDetailsPerfTest } from './WalletDetails';
 import {
   AccountSelectorWalletListSideBar,
   AccountSelectorWalletListSideBarPerfTest,
@@ -20,6 +20,8 @@ export function AccountSelectorStack({ num }: { num: number }) {
       <Page.Body flexDirection="row">
         {/* <AccountSelectorWalletListSideBarPerfTest num={num} /> */}
         <AccountSelectorWalletListSideBar num={num} />
+
+        {/* <WalletDetailsPerfTest num={num} /> */}
         <WalletDetails num={num} />
       </Page.Body>
     </Page>

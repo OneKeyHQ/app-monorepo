@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -24,7 +25,6 @@ import { settingsAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IDBAccount,
   IDBDevice,
@@ -593,7 +593,7 @@ class ServiceAccountSelector extends ServiceBase {
         title: title ?? '',
         data: accounts,
         walletId,
-        emptyText: 'No account',
+        emptyText: 'No accounts',
       };
     };
     if (focusedWallet === '$$others') {
@@ -687,10 +687,107 @@ class ServiceAccountSelector extends ServiceBase {
     return [
       buildAccountsData({
         accounts,
+        // accounts: [],
         walletId,
         title: '',
       }),
     ];
+  }
+
+  @backgroundMethod()
+  async getFocusedWalletInfo({
+    focusedWallet,
+  }: {
+    focusedWallet: IAccountSelectorFocusedWallet;
+  }) {
+    if (!focusedWallet) {
+      return undefined;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const isHd = accountUtils.isHdWallet({
+      walletId: focusedWallet,
+    });
+    const isHw = accountUtils.isHwWallet({
+      walletId: focusedWallet,
+    });
+    try {
+      const wallet = await this.backgroundApi.serviceAccount.getWallet({
+        walletId: focusedWallet,
+      });
+
+      let device: IDBDevice | undefined;
+      if (isHw) {
+        device = await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+          walletId: focusedWallet,
+        });
+      }
+
+      return {
+        wallet,
+        device,
+      };
+    } catch (error) {
+      // wallet may be removed
+      console.error(error);
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async buildAccountSelectorAccountsListData({
+    focusedWallet,
+    othersNetworkId,
+    linkedNetworkId,
+    deriveType,
+  }: {
+    focusedWallet: IAccountSelectorFocusedWallet;
+    othersNetworkId?: string;
+    linkedNetworkId?: string;
+    deriveType: IAccountDeriveTypes;
+  }) {
+    defaultLogger.accountSelector.perf.buildAccountSelectorAccountsListData({
+      focusedWallet,
+      othersNetworkId,
+      linkedNetworkId,
+      deriveType,
+    });
+
+    const sectionData = await this.getAccountSelectorAccountsListSectionData({
+      focusedWallet,
+      othersNetworkId,
+      linkedNetworkId,
+      deriveType,
+    });
+
+    const focusedWalletInfo = await this.getFocusedWalletInfo({
+      focusedWallet,
+    });
+
+    const accountsForValuesQuery: {
+      accountId: string;
+    }[] = [];
+    let accountsCount = 0;
+
+    sectionData?.forEach?.((s) => {
+      s?.data?.forEach?.((account) => {
+        accountsCount += 1;
+        accountsForValuesQuery.push({
+          accountId: account.id,
+        });
+      });
+    });
+
+    const accountsValue =
+      await this.backgroundApi.serviceAccountProfile.getAccountsValue({
+        accounts: accountsForValuesQuery,
+      });
+
+    return {
+      sectionData,
+      focusedWalletInfo,
+      accountsCount,
+      accountsValue,
+    };
   }
 }
 

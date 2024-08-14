@@ -11,14 +11,14 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
@@ -81,10 +81,6 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   const isEditableRouteParams = route.params?.editable;
   const { selectedAccount } = useSelectedAccount({ num });
 
-  defaultLogger.accountSelector.perf.renderWalletListSideBar({
-    selectedAccount,
-  });
-
   const {
     result: walletsResult,
     setResult,
@@ -105,6 +101,11 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     },
   );
   const wallets = walletsResult?.wallets ?? emptyArray;
+
+  defaultLogger.accountSelector.perf.renderWalletListSideBar({
+    selectedAccount,
+    walletsCount: wallets?.length ?? 0,
+  });
 
   useEffect(() => {
     const walletCount = wallets.length;
