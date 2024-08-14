@@ -382,33 +382,25 @@ export default class ServiceSwap extends ServiceBase {
       url: '/swap/v1/quote/events',
       params,
     });
-    console.log('swap__EventUrl--', swapEventUrl);
-    // const event = new EventSource(swapEventUrl);
-    // event.onmessage = (e) => {
-    //   console.log('swap__onmessage-----', e);
-    // };
-    // 创建 EventSource 实例，连接到 SSE 端点
+
     const eventSource = new EventSource(swapEventUrl);
 
-    // 监听 message 事件，处理服务器发送的数据
     eventSource.onmessage = (event) => {
-      console.log('Received data:', event.data);
-      // 你可以在这里处理接收到的数据
+      console.log('swap__Received data:', event.data);
     };
 
-    // 监听 error 事件，处理错误
     eventSource.onerror = (event) => {
-      console.error('EventSource error:', event);
+      console.error('swap__EventSource error--------:', event);
+      eventSource.close();
       if (eventSource.readyState === EventSource.CLOSED) {
-        console.log('Connection was closed.');
+        console.log('swap__Connection was closed.');
       } else if (eventSource.readyState === EventSource.CONNECTING) {
-        console.log('Reconnecting...');
+        console.log('swap__Reconnecting...');
       }
     };
 
-    // 可选：监听 open 事件，确认连接已打开
     eventSource.onopen = () => {
-      console.log('Connection opened.');
+      console.log('swap__Connection opened.');
     };
   }
 
