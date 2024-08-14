@@ -1204,6 +1204,7 @@
   "receive.hide_unverified_address": "Hide unverified address",
   "receive.send_asset_warning_message": "Send only {network} network assets to this address",
   "receive.show_address_any": "Show address anyway",
+  "receive_token_list_footer_text": "Token not found? Try searching",
   "remove_account_desc": "This account will be removed.",
   "remove_device": "Remove device",
   "remove_device_desc": "This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.",

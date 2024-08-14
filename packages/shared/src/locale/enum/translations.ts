@@ -1205,6 +1205,7 @@ export enum ETranslations {
   receive_hide_unverified_address = 'receive.hide_unverified_address',
   receive_send_asset_warning_message = 'receive.send_asset_warning_message',
   receive_show_address_any = 'receive.show_address_any',
+  receive_token_list_footer_text = 'receive_token_list_footer_text',
   remove_account_desc = 'remove_account_desc',
   remove_device = 'remove_device',
   remove_device_desc = 'remove_device_desc',

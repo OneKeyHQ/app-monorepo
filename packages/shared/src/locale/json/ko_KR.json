@@ -1204,6 +1204,7 @@
   "receive.hide_unverified_address": "인증되지 않은 주소 숨기기",
   "receive.send_asset_warning_message": "이 주소로 {network} 네트워크 자산만 보내주세요",
   "receive.show_address_any": "어쨌든 주소 보여주기",
+  "receive_token_list_footer_text": "토큰을 찾지 못하셨나요? 검색해보세요",
   "remove_account_desc": "이 계정은 삭제될 것입니다.",
   "remove_device": "장치 제거",
   "remove_device_desc": "이 작업은 귀하의 데이터를 영구적으로 삭제합니다. 그러나 이 지갑의 복구 구문이 로드된 하드웨어 지갑에서 데이터를 복원할 수는 있습니다.",

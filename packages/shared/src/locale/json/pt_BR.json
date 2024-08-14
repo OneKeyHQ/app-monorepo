@@ -1204,6 +1204,7 @@
   "receive.hide_unverified_address": "Ocultar endereço não verificado",
   "receive.send_asset_warning_message": "Envie apenas ativos da rede {network} para este endereço",
   "receive.show_address_any": "Mostrar endereço mesmo assim",
+  "receive_token_list_footer_text": "Token não encontrado? Tente pesquisar",
   "remove_account_desc": "Esta conta será removida.",
   "remove_device": "Remover dispositivo",
   "remove_device_desc": "Isso irá apagar permanentemente seus dados. Mas você ainda pode restaurá-los a partir da carteira de hardware que carrega a frase de recuperação desta carteira.",
