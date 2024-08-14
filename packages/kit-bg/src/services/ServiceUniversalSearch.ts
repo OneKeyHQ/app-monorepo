@@ -17,6 +17,8 @@ import type {
 } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
+import { getVaultSettings } from '../vaults/settings';
+
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -139,21 +141,26 @@ class ServiceUniversalSearch extends ServiceBase {
     }
 
     for (const batchNetworkId of batchValidateResult.networkIds) {
-      const network = await serviceNetwork.getNetworkSafe({
-        networkId: batchNetworkId,
-      });
-      const localValidateResult = await serviceValidator.localValidateAddress({
-        networkId: batchNetworkId,
-        address: input,
-      });
-      if (network && localValidateResult.isValid) {
-        items.push({
-          type: EUniversalSearchType.Address,
-          payload: {
-            addressInfo: localValidateResult,
-            network,
+      const settings = await getVaultSettings({ networkId: batchNetworkId });
+      if (settings.watchingAccountEnabled) {
+        const network = await serviceNetwork.getNetworkSafe({
+          networkId: batchNetworkId,
+        });
+        const localValidateResult = await serviceValidator.localValidateAddress(
+          {
+            networkId: batchNetworkId,
+            address: input,
           },
-        } as IUniversalSearchResultItem);
+        );
+        if (network && localValidateResult.isValid) {
+          items.push({
+            type: EUniversalSearchType.Address,
+            payload: {
+              addressInfo: localValidateResult,
+              network,
+            },
+          } as IUniversalSearchResultItem);
+        }
       }
     }
 
