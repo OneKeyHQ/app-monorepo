@@ -701,6 +701,7 @@ export enum ETranslations {
   global_hardware_label_title = 'global.hardware_label_title',
   global_hardware_name_desc = 'global.hardware_name_desc',
   global_hardware_name_input_error = 'global.hardware_name_input_error',
+  global_hardware_name_input_max = 'global.hardware_name_input_max',
   global_hide = 'global.hide',
   global_history = 'global.history',
   global_homescreen = 'global.homescreen',
