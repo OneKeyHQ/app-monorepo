@@ -370,16 +370,16 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setNetworkSelectorPinnedNetworks({
-    networks,
+  async setNetworkSelectorPinnedNetworkIds({
+    networkIds,
   }: {
-    networks: IServerNetwork[];
+    networkIds: string[];
   }) {
-    const networkIds = networks
-      .map((o) => o.id)
-      .filter((id) => id !== getNetworkIdsMap().onekeyall);
+    const inputs = networkIds.filter(
+      (networkId) => !networkUtils.isAllNetwork({ networkId }),
+    );
     return this.backgroundApi.simpleDb.networkSelector.setPinnedNetworkIds({
-      networkIds,
+      networkIds: inputs,
     });
   }
 
