@@ -3,10 +3,10 @@ import { useEffect, useMemo } from 'react';
 import { getTokens as coreGetTokens, useTheme } from '@tamagui/core';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { SHEET_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import type { VariableVal } from '@tamagui/core';
 import type { UseThemeResult } from '@tamagui/web/types/hooks/useTheme';
-import { SHEET_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 export {
   getTokens,

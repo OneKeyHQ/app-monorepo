@@ -1,5 +1,12 @@
 import { AccountSelectorTriggerBase } from './AccountSelectorTriggerBase';
 
 export function AccountSelectorTriggerHome({ num }: { num: number }) {
-  return <AccountSelectorTriggerBase num={num} linkNetwork={false} editable />;
+  return (
+    <AccountSelectorTriggerBase
+      autoWidthForHome
+      num={num}
+      linkNetwork={false}
+      editable
+    />
+  );
 }
