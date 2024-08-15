@@ -245,6 +245,14 @@ class ServiceHistory extends ServiceBase {
       (tx) => tx.id,
     );
 
+    for (let i = 0; i < result.length; i += 1) {
+      const tx = result[i];
+      const network = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId: tx.decodedTx.networkId,
+      });
+      tx.decodedTx.networkLogoURI = network.logoURI;
+    }
+
     return {
       txs: result,
       pendingTxsUpdated:
