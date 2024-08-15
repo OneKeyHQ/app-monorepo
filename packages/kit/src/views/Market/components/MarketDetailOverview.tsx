@@ -24,6 +24,7 @@ import type {
 
 import { MarketAbout } from './MarketAbout';
 import { MarketDetailOverviewContract } from './MarketDetailOverviewContract';
+import { useTokenPrice } from './MarketTokenPrice';
 import { PriceChangePercentage } from './PriceChangePercentage';
 
 function OverviewPriceChange({
@@ -49,24 +50,31 @@ export function Overview24PriceChange({
   currentPrice,
   low,
   high,
+  lastUpdated,
 }: {
   currentPrice: string;
   low: number;
   high: number;
+  lastUpdated: string;
 }) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
+  const price = useTokenPrice(
+    currency,
+    currentPrice,
+    new Date(lastUpdated).getTime(),
+  );
   const priceChange = useMemo(() => {
     const lowBN = new BigNumber(low);
     const highBN = new BigNumber(high);
-    const priceBN = new BigNumber(currentPrice);
+    const priceBN = new BigNumber(price);
     return priceBN
       .minus(lowBN)
       .div(highBN.minus(lowBN))
       .shiftedBy(2)
       .toNumber();
-  }, [currentPrice, high, low]);
+  }, [price, high, low]);
   return (
     <YStack gap="$2.5">
       <SizableText size="$bodyMd" color="$textSubdued">
@@ -249,6 +257,7 @@ export function MarketDetailOverview({
       totalSupply,
       circulatingSupply,
       currentPrice,
+      lastUpdated,
       performance,
       volume24h,
       marketCap,
@@ -298,6 +307,7 @@ export function MarketDetailOverview({
           currentPrice={currentPrice}
           low={low24h}
           high={high24h}
+          lastUpdated={lastUpdated}
         />
         <OverviewMarketVOL
           volume24h={volume24h}
