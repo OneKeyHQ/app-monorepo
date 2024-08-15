@@ -50,7 +50,7 @@ class MarketTokenPriceEvent {
 
 const marketTokenPriceEvent = new MarketTokenPriceEvent();
 
-const useTokenPrice = (
+export const useTokenPrice = (
   tokenName: string,
   tokenPrice: string,
   tokenLastUpdated: number,
