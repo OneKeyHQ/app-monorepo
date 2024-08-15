@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { CommonActions } from '@react-navigation/routers';
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Dialog, rootNavigationRef } from '@onekeyhq/components';
@@ -59,7 +60,7 @@ const useDesktopEvents = platformEnv.isDesktop
             }
           });
 
-          window.desktopApi.on('app/openSettings', () => {
+          const debounceOpenSettings = debounce(() => {
             const openSettingPage = () => {
               navigation.pushModal(EModalRoutes.SettingModal, {
                 screen: EModalSettingRoutes.SettingListModal,
@@ -85,7 +86,9 @@ const useDesktopEvents = platformEnv.isDesktop
               }
             }
             openSettingPage();
-          });
+          }, 200);
+
+          window.desktopApi.on('app/openSettings', debounceOpenSettings);
 
           window.desktopApi.on('app/lockNow', () => {
             void onLock();
