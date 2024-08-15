@@ -62,12 +62,12 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { MarketMore } from './MarketMore';
 import { MarketStar } from './MarketStar';
 import { MarketTokenIcon } from './MarketTokenIcon';
+import { MarketTokenPrice } from './MarketTokenPrice';
 import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
 import { useSortType } from './useSortType';
 import { useWatchListAction } from './wachListHooks';
-import { MarketTokenPrice } from './MarketTokenPrice';
 
 const lineColorMap = {
   light: ['rgba(0, 113, 63)', 'rgba(196, 0, 6)'],
@@ -356,16 +356,25 @@ function BasicMarketHomeList({
               </YStack>
             </XStack>
             <XStack ai="center" gap="$5">
-              <NumberSizeableText
-                userSelect="none"
-                flexShrink={1}
-                numberOfLines={1}
-                size="$bodyLgMedium"
-                formatter={mdColumnKeys[0] === 'price' ? 'price' : 'marketCap'}
-                formatterOptions={{ currency }}
-              >
-                {item[mdColumnKeys[0]] as string}
-              </NumberSizeableText>
+              {mdColumnKeys[0] === 'price' ? (
+                <MarketTokenPrice
+                  size="$bodyLgMedium"
+                  price={String(item[mdColumnKeys[0]])}
+                  tokenName={item.symbol}
+                  lastUpdate={item.lastUpdated}
+                />
+              ) : (
+                <NumberSizeableText
+                  userSelect="none"
+                  flexShrink={1}
+                  numberOfLines={1}
+                  size="$bodyLgMedium"
+                  formatter="marketCap"
+                  formatterOptions={{ currency }}
+                >
+                  {item[mdColumnKeys[0]] as string}
+                </NumberSizeableText>
+              )}
               {item[mdColumnKeys[1]] ? (
                 <XStack
                   width="$20"
