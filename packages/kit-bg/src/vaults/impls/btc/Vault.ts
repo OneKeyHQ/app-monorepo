@@ -22,6 +22,7 @@ import {
 import type {
   ICoreApiSignAccount,
   ICoreApiSignBtcExtraInfo,
+  IEncodedTx,
   ISignedTxPro,
   ITxInput,
   ITxInputToSign,
@@ -1141,5 +1142,17 @@ export default class VaultBtc extends VaultBase {
     }
 
     return {};
+  }
+
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTxBtc;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTxBtc> {
+    const { encodedTx } = params;
+    if (encodedTx.psbtHex && Array.isArray(encodedTx.inputsToSign)) {
+      // @ts-expect-error
+      return '';
+    }
+    return encodedTx;
   }
 }
