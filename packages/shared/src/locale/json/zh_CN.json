@@ -992,7 +992,7 @@
   "login.welcome_message": "欢迎回来",
   "low_value_assets": "低价值资产",
   "low_value_assets_desc": "总资产中占比低于 0.1 % 且少于 $1,000 的资产，将归入此类别。",
-  "low_value_assets_desc_out_of_range": "拥有众多资产时，资产总值排名在 50 名之后的资产",
+  "low_value_assets_desc_out_of_range": "拥有众多资产时，资产总值排名在 50 名之后的资产。",
   "manage_token.account_no_found": "网络费用不足以支付{token}。请添加更多的{token}并重试。",
   "manage_token.added_token": "已添加代币",
   "manage_token.custom_token_add": "2. 添加",

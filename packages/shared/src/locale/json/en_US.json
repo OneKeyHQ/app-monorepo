@@ -992,7 +992,7 @@
   "login.welcome_message": "Welcome back",
   "low_value_assets": "Low-value assets",
   "low_value_assets_desc": "Assets valued below 0.1% of your total holdings and less than $1,000 fall into this category.",
-  "low_value_assets_desc_out_of_range": "Assets ranked below the top 50 in total value when owning multiple assets",
+  "low_value_assets_desc_out_of_range": "Assets ranked below the top 50 in total value when owning multiple assets.",
   "manage_token.account_no_found": "Insufficient {token} to cover network fee. Please add more {token} and retry.",
   "manage_token.added_token": "Added token",
   "manage_token.custom_token_add": "2. Add",
