@@ -26,6 +26,7 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
     amount: string;
     forwardAmount?: string;
     responseAddress?: string;
+    forwardPayload?: Uint8Array;
   };
 } {
   let type = EDecodedTxActionType.UNKNOWN;
@@ -64,13 +65,25 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
       const data = slice.loadUint(32);
       const op = new BigNumber(data.toString()).toString(16);
       if (op === 'f8a7ea5') {
-        type = EDecodedTxActionType.ASSET_TRANSFER;
         const queryId = slice.loadUint(64);
         const amount = slice.loadCoins();
         const toAddress = slice.loadAddress();
         const responseAddress = slice.loadAddress();
         slice.loadBit(); // isCustomPayload
         const forwardAmount = slice.loadCoins();
+        const isForwardPayloadRef = slice.loadBit();
+        let forwardPayload;
+        if (isForwardPayloadRef) {
+          const ref = slice.loadRef();
+          if (ref && ref.getFreeBits() > 0) {
+            forwardPayload = ref.loadBits(ref.getFreeBits());
+          }
+        } else if (slice.getFreeBits() > 0) {
+          forwardPayload = slice.loadBits(slice.getFreeBits());
+        }
+        if (!forwardPayload) {
+          type = EDecodedTxActionType.ASSET_TRANSFER;
+        }
         jetton = {
           queryId: queryId ? queryId.toString() : undefined,
           toAddress: (toAddress.toString as IAddressToString)(
@@ -83,6 +96,7 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
           responseAddress: responseAddress
             ? (responseAddress.toString as IAddressToString)(true, true, false)
             : undefined,
+          forwardPayload,
         };
       }
     } catch (e) {
