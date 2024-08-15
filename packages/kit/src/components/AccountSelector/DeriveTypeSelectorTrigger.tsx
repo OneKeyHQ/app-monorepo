@@ -4,13 +4,22 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ISelectItem, ISelectProps } from '@onekeyhq/components';
-import { Form, Select, Stack, useMedia } from '@onekeyhq/components';
+import {
+  Form,
+  Icon,
+  Select,
+  SizableText,
+  Stack,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -183,6 +192,77 @@ export function DeriveTypeSelectorTrigger({
       }}
       renderTrigger={renderTrigger}
       placement={placement}
+    />
+  );
+}
+
+function DeriveTypeSelectorTriggerIconRenderer({
+  label,
+  autoShowLabel,
+}: {
+  label?: string | undefined;
+  autoShowLabel?: boolean;
+}) {
+  const media = useMedia();
+  const hitSlop = platformEnv.isNative
+    ? {
+        right: 16,
+        top: 16,
+        bottom: 16,
+      }
+    : undefined;
+  return (
+    <XStack
+      testID="wallet-derivation-path-selector-trigger"
+      role="button"
+      borderRadius="$2"
+      userSelect="none"
+      alignItems="center"
+      p="$1"
+      my="$-1"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusVisibleStyle={{
+        outlineWidth: 2,
+        outlineOffset: 0,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+      }}
+      hitSlop={hitSlop}
+      focusable
+    >
+      <Icon name="BranchesOutline" color="$iconSubdued" size="$4.5" />
+      {media.gtSm && autoShowLabel ? (
+        <SizableText pl="$2" pr="$1" size="$bodyMd" color="$textSubdued">
+          {label}
+        </SizableText>
+      ) : null}
+    </XStack>
+  );
+}
+
+export function DeriveTypeSelectorTriggerForHome({ num }: { num: number }) {
+  return (
+    <DeriveTypeSelectorTrigger
+      renderTrigger={({ label }) => (
+        <DeriveTypeSelectorTriggerIconRenderer label={label} autoShowLabel />
+      )}
+      num={num}
+    />
+  );
+}
+
+export function DeriveTypeSelectorTriggerForDapp({ num }: { num: number }) {
+  return (
+    <DeriveTypeSelectorTrigger
+      renderTrigger={({ label }) => (
+        <DeriveTypeSelectorTriggerIconRenderer label={label} />
+      )}
+      num={num}
     />
   );
 }

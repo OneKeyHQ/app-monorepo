@@ -573,19 +573,24 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     const walletConnectProvider =
       provider instanceof WalletConnectDappSideProvider ? provider : undefined;
 
+    let addresses: `0x${string}`[] = [];
     if (walletConnectProvider) {
       const wcChain = await this.getWcChain({ networkId });
-      return (await walletConnectProvider.request(
+      addresses = (await walletConnectProvider.request(
         {
           method: 'eth_accounts',
         },
         wcChain,
       )) as `0x${string}`[];
+    } else {
+      addresses = await provider.request({
+        method: 'eth_accounts',
+      });
     }
 
-    return provider.request({
-      method: 'eth_accounts',
-    });
+    return addresses.map((address) =>
+      (address || '')?.toLowerCase(),
+    ) as `0x${string}`[];
   }
 
   override async checkNetworkOrAddressMatched(
@@ -599,7 +604,9 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     const peerChainIdNum = await this.requestChainId({ connector, networkId });
     const peerAddresses = await this.requestAccounts({ connector, networkId });
 
-    if (!peerAddresses.includes(account.address as any)) {
+    if (
+      !peerAddresses.includes((account.address || '')?.toLowerCase() as any)
+    ) {
       throw new Error(
         `${appLocale.intl.formatMessage({
           id: ETranslations.feedback_address_not_matched,
