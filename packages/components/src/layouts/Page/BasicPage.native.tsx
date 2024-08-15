@@ -1,8 +1,8 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect, useState } from 'react';
 
-import { Dimensions } from 'react-native';
-import { AnimatePresence } from 'tamagui';
+import { Dimensions, StatusBar } from 'react-native';
+import { AnimatePresence, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -37,6 +37,20 @@ const useMinHeight = (isFullPage: boolean) => {
   }
   return undefined;
 };
+
+function PageStatusBar() {
+  const pageType = usePageType();
+  const themeName: 'light' | 'dark' = useThemeName();
+
+  if (themeName === 'dark') {
+    return <StatusBar animated barStyle="light-content" />;
+  }
+
+  if (pageType === EPageType.modal) {
+    return <StatusBar animated barStyle="light-content" />;
+  }
+  return <StatusBar animated barStyle="dark-content" />;
+}
 
 function LoadingScreen({
   children,
@@ -89,6 +103,7 @@ export function BasicPage({
 }: IBasicPageProps) {
   return (
     <Stack bg="$bgApp" flex={1}>
+      {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
       {skipLoading ? (
         children
       ) : (

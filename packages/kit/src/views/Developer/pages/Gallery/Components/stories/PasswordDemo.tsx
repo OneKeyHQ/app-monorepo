@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
   useTheme,
+  useThemeName,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import BiologyAuthSwitchContainer from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
@@ -20,7 +21,7 @@ import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/conta
 import { Layout } from './utils/Layout';
 
 const PasswordDemoGallery = () => {
-  const theme = useTheme();
+  const theme = useThemeName();
   console.log(theme);
   const { verifiedPasswordWebAuth } = useWebAuthActions();
   const handlePasswordVerify = async () => {
