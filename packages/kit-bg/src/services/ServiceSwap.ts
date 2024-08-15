@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { has } from 'lodash';
-
 import {
   backgroundClass,
   backgroundMethod,
