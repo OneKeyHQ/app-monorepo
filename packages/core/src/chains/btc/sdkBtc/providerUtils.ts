@@ -18,16 +18,16 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EAddressEncodings } from '../../../types';
 
+import type {
+  Bip32Derivation,
+  TapBip32Derivation,
+} from 'bip174/src/lib/interfaces';
 import type { ICoreApiSignBtcExtraInfo, IUnsignedTxPro } from '../../../types';
 import type {
   IBtcForkNetwork,
   IBtcForkTransactionMixin,
   IEncodedTxBtc,
 } from '../types';
-import type {
-  Bip32Derivation,
-  TapBip32Derivation,
-} from 'bip174/src/lib/interfaces';
 
 export function formatPsbtHex(psbtHex: string) {
   let formatData = '';
@@ -273,26 +273,29 @@ export async function buildPsbt({
       const outputValue: number = new BigNumber(output.value).toNumber();
       const mixinOutput: IBtcForkTransactionMixin = {};
 
-      try {
-        const { pubkey, bip32Derivation } = await buildInputMixinInfo({
-          address: output.address,
-        });
-        if (!isEmpty(bip32Derivation)) {
-          mixinOutput.bip32Derivation = bip32Derivation;
+      // Change output needs to mark bip32Derivation to facilitate hardware to calculate the actual amount of transfer
+      if (output?.payload?.isChange) {
+        try {
+          const { pubkey, bip32Derivation } = await buildInputMixinInfo({
+            address: output.address,
+          });
+          if (!isEmpty(bip32Derivation)) {
+            mixinOutput.bip32Derivation = bip32Derivation;
+          }
+          if (isTaprootAddress(output.address)) {
+            const payment = checkIsDefined(
+              pubkeyToPayment({
+                pubkey,
+                encoding: EAddressEncodings.P2TR,
+                network,
+              }),
+            );
+            mixinOutput.tapInternalKey = payment.internalPubkey;
+            fixMixinOfTaproot({ mixin: mixinOutput, bip32Derivation });
+          }
+        } catch (error) {
+          //
         }
-        if (isTaprootAddress(output.address)) {
-          const payment = checkIsDefined(
-            pubkeyToPayment({
-              pubkey,
-              encoding: EAddressEncodings.P2TR,
-              network,
-            }),
-          );
-          mixinOutput.tapInternalKey = payment.internalPubkey;
-          fixMixinOfTaproot({ mixin: mixinOutput, bip32Derivation });
-        }
-      } catch (error) {
-        //
       }
 
       psbt.addOutput({
