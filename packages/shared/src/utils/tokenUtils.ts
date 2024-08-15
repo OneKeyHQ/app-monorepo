@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { forEach, uniqBy } from 'lodash';
+import { forEach, isNil, uniqBy } from 'lodash';
 
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
@@ -116,6 +116,22 @@ export function sortTokensByFiatValue({
     const bFiat = map[b.$key]?.fiatValue ?? 0;
 
     return new BigNumber(bFiat).comparedTo(aFiat);
+  });
+}
+
+export function sortTokensByOrder({ tokens }: { tokens: IAccountToken[] }) {
+  return tokens.sort((a, b) => {
+    if (!isNil(a.order) && !isNil(b.order)) {
+      return new BigNumber(a.order).comparedTo(b.order);
+    }
+    if (isNil(a.order) && !isNil(b.order)) {
+      return 1;
+    }
+    if (!isNil(a.order) && isNil(b.order)) {
+      return -1;
+    }
+
+    return 0;
   });
 }
 

@@ -28,15 +28,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type {
-  IBatchBuildAccountsAdvancedFlowParams,
-  IBatchBuildAccountsNormalFlowParams,
-} from '@onekeyhq/kit-bg/src/services/ServiceBatchCreateAccount/ServiceBatchCreateAccount';
-import type {
-  IAccountDeriveInfoItems,
-  IAccountDeriveTypes,
-} from '@onekeyhq/kit-bg/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
@@ -46,6 +37,15 @@ import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/Accoun
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IBatchBuildAccountsAdvancedFlowParams,
+  IBatchBuildAccountsNormalFlowParams,
+} from '@onekeyhq/kit-bg/src/services/ServiceBatchCreateAccount/ServiceBatchCreateAccount';
+import type {
+  IAccountDeriveInfoItems,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
