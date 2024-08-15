@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Progress as TMProgress } from 'tamagui';
 
@@ -10,14 +10,21 @@ export type IProgressProps = {
   size?: 'small' | 'medium';
 } & Omit<TMProgressProps, 'size'>;
 
-export const Progress = ({ size, value, ...props }: IProgressProps) => {
-  const val = useMemo(() => {
-    // Fix the issue where the progress bar shows 100% when the value is 0
-    if (platformEnv.isNative) {
-      return !value || value < 0.1 ? 0.1 : value;
+const useProgressValue = platformEnv.isNative
+  ? (value: number | null | undefined) => {
+      const [val, setVal] = useState(platformEnv.isNative ? undefined : value);
+      useEffect(() => {
+        setTimeout(() => {
+          setVal(!value || value < 0.1 ? 0.1 : value);
+        }, 10);
+      }, [value]);
+      return val;
     }
-    return value;
-  }, [value]);
+  : (value: number | null | undefined) => value;
+
+export const Progress = ({ size, value, ...props }: IProgressProps) => {
+  const val = useProgressValue(value);
+
   return (
     <TMProgress
       backgroundColor="$neutral5"
