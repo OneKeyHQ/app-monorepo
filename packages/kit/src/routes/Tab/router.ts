@@ -6,6 +6,7 @@ import type {
   ITabNavigatorExtraConfig,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -13,6 +14,7 @@ import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
 
 import { discoveryRouters } from './Discovery/router';
+import { earnRouters } from './Earn/router';
 import { marketRouters } from './Marktet/router';
 import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
@@ -74,6 +76,16 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           rewrite: '/market',
           exact: true,
           children: marketRouters,
+        },
+        {
+          name: ETabRoutes.Earn,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'ChartColumnar3Solid' : 'ChartColumnar3Outline',
+          translationId: ETranslationsMock.global_earn,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          rewrite: '/earn',
+          exact: true,
+          children: earnRouters,
         },
         {
           name: ETabRoutes.Swap,
