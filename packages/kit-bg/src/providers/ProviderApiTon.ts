@@ -117,8 +117,8 @@ class ProviderApiTon extends ProviderApiBase {
       appVersion: platformEnv.version,
       maxProtocolVersion: 2,
       features: [
-        { name: 'SendTransaction', maxMessages: 1 },
-        // { name: 'SignData' },
+        { name: 'SendTransaction', maxMessages: 4 },
+        // { name: 'SignData' }, // experimental feature
       ],
     };
   }
