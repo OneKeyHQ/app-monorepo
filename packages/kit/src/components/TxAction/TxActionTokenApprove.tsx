@@ -122,6 +122,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       replaceType={replaceType}
       status={decodedTx.status}
       networkId={decodedTx.networkId}
+      networkLogoURI={decodedTx.networkLogoURI}
       {...componentProps}
     />
   );
