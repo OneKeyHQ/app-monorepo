@@ -66,9 +66,12 @@ export function Overview24PriceChange({
     new Date(lastUpdated).getTime(),
   );
   const priceChange = useMemo(() => {
+    const priceBN = new BigNumber(price);
+    if (priceBN.isNaN()) {
+      return 0;
+    }
     const lowBN = new BigNumber(low);
     const highBN = new BigNumber(high);
-    const priceBN = new BigNumber(price);
     return priceBN
       .minus(lowBN)
       .div(highBN.minus(lowBN))
