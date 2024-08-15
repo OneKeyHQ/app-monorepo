@@ -411,11 +411,14 @@ function BasicMarketHomeList({
 
   const renderSelectTrigger = useCallback(
     ({ label }: { label?: string }) => (
-      <XStack ai="center" gap="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {label}
-        </SizableText>
-        <Icon name="ChevronDownSmallSolid" size="$4" />
+      <XStack ai="center" gap="$2">
+        <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
+        <XStack ai="center" gap="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {label}
+          </SizableText>
+          <Icon name="ChevronDownSmallSolid" size="$4" />
+        </XStack>
       </XStack>
     ),
     [],
@@ -870,16 +873,13 @@ function BasicMarketHomeList({
           borderBottomColor="$borderSubdued"
         >
           <XStack h="$11" ai="center" justifyContent="space-between">
-            <XStack ai="center" gap="$2">
-              <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
-              <Select
-                items={selectOptions}
-                title={intl.formatMessage({ id: ETranslations.market_sort_by })}
-                value={mdSortByType}
-                onChange={handleMdSortByTypeChange}
-                renderTrigger={renderSelectTrigger}
-              />
-            </XStack>
+            <Select
+              items={selectOptions}
+              title={intl.formatMessage({ id: ETranslations.market_sort_by })}
+              value={mdSortByType}
+              onChange={handleMdSortByTypeChange}
+              renderTrigger={renderSelectTrigger}
+            />
             {/* <Popover
               title="Settings"
               renderTrigger={
