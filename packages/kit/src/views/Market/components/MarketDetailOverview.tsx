@@ -67,25 +67,26 @@ export function Overview24PriceChange({
     currentPrice,
     new Date(lastUpdated).getTime(),
   );
+  const lowPrice = Math.min(Number(low), Number(price));
+  const highPrice = Math.max(Number(high), Number(price));
   const priceChange = useMemo(() => {
     const priceBN = new BigNumber(price);
     if (priceBN.isNaN()) {
-      return 0;
+      return undefined;
     }
-    const lowBN = new BigNumber(low);
-    const highBN = new BigNumber(high);
-    return priceBN
-      .minus(lowBN)
-      .div(highBN.minus(lowBN))
-      .shiftedBy(2)
-      .toNumber();
-  }, [price, high, low]);
+    const lowBN = new BigNumber(lowPrice);
+    const highBN = new BigNumber(highPrice);
+    return Number(
+      priceBN.minus(lowBN).div(highBN.minus(lowBN)).shiftedBy(2).toFixed(0),
+    );
+  }, [price, lowPrice, highPrice]);
+  console.log('priceChange-out', priceChange);
   return (
     <YStack gap="$2.5">
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.market_24h_price_range })}
       </SizableText>
-      <Progress value={priceChange} height="$1" />
+      <Progress key={priceChange} value={priceChange} height="$1" />
       <XStack jc="space-between">
         <XStack gap="$1">
           <SizableText color="$textSubdued" size="$bodyMd">
@@ -96,7 +97,7 @@ export function Overview24PriceChange({
             formatter="price"
             formatterOptions={{ currency }}
           >
-            {low}
+            {lowPrice}
           </NumberSizeableText>
         </XStack>
         <XStack gap="$1">
@@ -108,7 +109,7 @@ export function Overview24PriceChange({
             formatter="price"
             formatterOptions={{ currency }}
           >
-            {high}
+            {highPrice}
           </NumberSizeableText>
         </XStack>
       </XStack>
