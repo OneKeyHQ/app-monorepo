@@ -10,6 +10,7 @@ import { useAccountSelectorContextDataAtom } from '@onekeyhq/kit/src/states/jota
 import { WalletRemoveButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRemove';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AboutDevice } from './AboutDevice';
 
@@ -73,7 +74,10 @@ export function WalletDetailsHeader({
             : intl.formatMessage({ id: ETranslations.global_edit })}
         </Button>
       ) : null}
-      {linkedNetworkId && !isNil(num) ? (
+      {linkedNetworkId &&
+      !isNil(num) &&
+      accountSelectorContextData?.sceneName ===
+        EAccountSelectorSceneName.discover ? (
         <DeriveTypeSelectorTriggerForDapp num={num} />
       ) : null}
     </ListItem>
