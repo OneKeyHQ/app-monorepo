@@ -63,6 +63,7 @@ import type {
   CommonParams,
   CoreApi,
   CoreMessage,
+  DeviceSupportFeaturesPayload,
   DeviceUploadResourceParams,
   Features,
   IDeviceType,
@@ -335,16 +336,20 @@ class ServiceHardware extends ServiceBase {
         });
       });
 
-      instance.on(DEVICE.FEATURES, (features: IOneKeyDeviceFeatures) => {
-        if (!features || !features.device_id) return;
+      instance.on(
+        DEVICE.SUPPORT_FEATURES,
+        (message: DeviceSupportFeaturesPayload) => {
+          const { features } = message.device || {};
+          if (!features || !features.device_id) return;
 
-        // TODO: save features to dbDevice
-        serviceHardwareUtils.hardwareLog('features update', features);
+          // TODO: save features to dbDevice
+          serviceHardwareUtils.hardwareLog('features update', features);
 
-        void localDb.updateDevice({
-          features,
-        });
-      });
+          void localDb.updateDevice({
+            features,
+          });
+        },
+      );
 
       // TODO how to emit this event?
       // call getFeatures() or checkFirmwareRelease();
