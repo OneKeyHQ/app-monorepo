@@ -47,11 +47,13 @@ function OverviewPriceChange({
 }
 
 export function Overview24PriceChange({
+  symbol,
   currentPrice,
   low,
   high,
   lastUpdated,
 }: {
+  symbol: string;
   currentPrice: string;
   low: number;
   high: number;
@@ -61,7 +63,7 @@ export function Overview24PriceChange({
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   const price = useTokenPrice(
-    currency,
+    symbol,
     currentPrice,
     new Date(lastUpdated).getTime(),
   );
@@ -254,6 +256,7 @@ function OverviewMarketVOL({
 
 export function MarketDetailOverview({
   token: {
+    symbol,
     detailPlatforms,
     stats: {
       maxSupply,
@@ -307,6 +310,7 @@ export function MarketDetailOverview({
           </OverviewPriceChange>
         </XStack>
         <Overview24PriceChange
+          symbol={symbol}
           currentPrice={currentPrice}
           low={low24h}
           high={high24h}
