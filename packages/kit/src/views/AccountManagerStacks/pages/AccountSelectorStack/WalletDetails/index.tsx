@@ -872,6 +872,8 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         }}
         editMode={editMode}
         editable={editable}
+        linkedNetworkId={linkedNetworkId}
+        num={num}
         onEditButtonPress={() => {
           setEditMode((v) => !v);
         }}
