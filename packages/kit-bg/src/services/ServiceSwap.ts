@@ -1,4 +1,5 @@
 import axios from 'axios';
+import EventSource from 'react-native-sse';
 import { has } from 'lodash';
 import {
   backgroundClass,
@@ -40,6 +41,7 @@ import {
 import { inAppNotificationAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
@@ -382,25 +384,31 @@ export default class ServiceSwap extends ServiceBase {
       params,
     });
 
-    const eventSource = new EventSource(swapEventUrl);
+    const headers = await getRequestHeaders();
 
-    eventSource.onmessage = (event) => {
+    console.log('swap__headers:', headers);
+
+    const eventSource = new EventSource(swapEventUrl, {
+      headers,
+      pollingInterval: 0,
+    });
+
+    eventSource.addEventListener('message', (event) => {
       console.log('swap__Received data:', event.data);
-    };
+    });
 
-    eventSource.onerror = (event) => {
+    eventSource.addEventListener('open', (event) => {
+      console.log('swap__EventSource opened:', event);
+    });
+
+    eventSource.addEventListener('close', (event) => {
+      console.log('swap__EventSource closed:', event);
+    });
+
+    eventSource.addEventListener('error', (event) => {
       console.error('swap__EventSource error--------:', event);
       eventSource.close();
-      if (eventSource.readyState === EventSource.CLOSED) {
-        console.log('swap__Connection was closed.');
-      } else if (eventSource.readyState === EventSource.CONNECTING) {
-        console.log('swap__Reconnecting...');
-      }
-    };
-
-    eventSource.onopen = () => {
-      console.log('swap__Connection opened.');
-    };
+    });
   }
 
   @backgroundMethod()
