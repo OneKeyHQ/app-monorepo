@@ -48,6 +48,7 @@ export type ITokenSelectorParamList = {
   searchAll?: boolean;
   isAllNetworks?: boolean;
   searchPlaceholder?: string;
+  footerTipText?: string;
 };
 
 export type IAssetSelectorParamList = {
