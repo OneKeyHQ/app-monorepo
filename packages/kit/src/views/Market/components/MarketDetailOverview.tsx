@@ -77,16 +77,15 @@ export function Overview24PriceChange({
     const lowBN = new BigNumber(lowPrice);
     const highBN = new BigNumber(highPrice);
     return Number(
-      priceBN.minus(lowBN).div(highBN.minus(lowBN)).shiftedBy(2).toFixed(0),
+      priceBN.minus(lowBN).div(highBN.minus(lowBN)).shiftedBy(2).toFixed(2),
     );
   }, [price, lowPrice, highPrice]);
-  console.log('priceChange-out', priceChange);
   return (
     <YStack gap="$2.5">
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.market_24h_price_range })}
       </SizableText>
-      <Progress key={priceChange} value={priceChange} height="$1" />
+      {priceChange !== undefined ? <Progress value={1} height="$1" /> : null}
       <XStack jc="space-between">
         <XStack gap="$1">
           <SizableText color="$textSubdued" size="$bodyMd">
