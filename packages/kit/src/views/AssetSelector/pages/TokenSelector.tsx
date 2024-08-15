@@ -61,6 +61,7 @@ function TokenSelector() {
     searchAll,
     isAllNetworks,
     searchPlaceholder,
+    footerTipText,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -267,9 +268,7 @@ function TokenSelector() {
           withNetwork={isAllNetworks ?? network?.isAllNetworks}
           searchAll={searchAll}
           isTokenSelector
-          footerTipText={intl.formatMessage({
-            id: ETranslations.receive_token_list_footer_text,
-          })}
+          footerTipText={footerTipText}
         />
       </Page.Body>
     </Page>

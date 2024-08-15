@@ -51,7 +51,8 @@ export const logFn = ({
         }
         break;
       case 'server':
-        analytics.trackEvent(methodName, { msg });
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        analytics.trackEvent(methodName, obj.args[0]);
         break;
       case 'console':
       default: {
