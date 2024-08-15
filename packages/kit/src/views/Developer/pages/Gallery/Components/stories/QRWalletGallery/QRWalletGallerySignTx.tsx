@@ -168,7 +168,7 @@ export function QRWalletGallerySignTx() {
                 'address':
                   'bc1pw8tt6lrnkwva9l3twexqzl857pgga9uq570nmgemvhfr7c5hhlkq33puph',
                 'value': '45000',
-                'payload': { 'isCharge': true, 'bip44Path': "m/86'/0'/0'/0/0" },
+                'payload': { 'isChange': true, 'bip44Path': "m/86'/0'/0'/0/0" },
               },
             ],
             'fee': '5744',

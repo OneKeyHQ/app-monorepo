@@ -59,6 +59,16 @@ export class V4MigrationForHistory extends V4MigrationManagerBase {
 
   convertV4BtcForkEncodedTxToV5(v4EncodedTx: IV4EncodedTx) {
     const v4EncodedTxBtc = v4EncodedTx as IV4EncodedTxBtc;
+    v4EncodedTxBtc.outputs?.forEach((output) => {
+      try {
+        if (output.payload) {
+          output.payload.isChange = output.payload.isCharge;
+          delete output.payload.isCharge;
+        }
+      } catch (error) {
+        //
+      }
+    });
     const v5EncodedTx: IEncodedTxBtc = {
       inputs: v4EncodedTxBtc.inputs,
       outputs: v4EncodedTxBtc.outputs,

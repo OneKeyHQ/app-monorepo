@@ -340,7 +340,12 @@ export type IV4EncodedTxBtc = {
   outputs: {
     address: string;
     value: string;
-    payload?: { isCharge?: boolean; bip44Path?: string; opReturn?: string };
+    payload?: {
+      isChange?: boolean;
+      isCharge?: boolean;
+      bip44Path?: string;
+      opReturn?: string;
+    };
   }[];
   feeRate: string;
   totalFee: string;

@@ -150,7 +150,7 @@ export default class VaultBtc extends VaultBase {
     const utxoTo =
       outputs.length > 1
         ? outputs
-            .filter((output) => !output.payload?.isCharge && output.address)
+            .filter((output) => !output.payload?.isChange && output.address)
             .map((output) => ({
               address: output.address,
               balance: new BigNumber(output.value)
@@ -571,7 +571,7 @@ export default class VaultBtc extends VaultBase {
           payload: address
             ? undefined
             : {
-                isCharge: true,
+                isChange: true,
                 bip44Path: getBIP44Path(account, account.address),
               },
         };

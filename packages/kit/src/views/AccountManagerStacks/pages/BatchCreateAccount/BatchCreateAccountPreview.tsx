@@ -28,14 +28,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  AccountSelectorProviderMirror,
-  ControlledNetworkSelectorTrigger,
-} from '@onekeyhq/kit/src/components/AccountSelector';
-import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IBatchBuildAccountsAdvancedFlowParams,
@@ -45,6 +37,15 @@ import type {
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  AccountSelectorProviderMirror,
+  ControlledNetworkSelectorTrigger,
+} from '@onekeyhq/kit/src/components/AccountSelector';
+import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -83,6 +84,7 @@ function BatchCreateAccountPreviewPage({
   defaultCount: string;
   defaultIsAdvancedMode?: boolean;
 }) {
+  const [, setEditMode] = useAccountSelectorEditModeAtom();
   const { result: networkIdsCompatibleAccount } = usePromiseResult(
     async () => {
       const { networkIdsCompatible } =
@@ -752,17 +754,22 @@ function BatchCreateAccountPreviewPage({
             });
             await timerUtils.wait(600);
 
-            await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
-              isAdvancedMode
-                ? {
-                    mode: 'advanced',
-                    params: checkIsDefined(advancedParams),
-                  }
-                : {
-                    mode: 'normal',
-                    params: checkIsDefined(normalParams),
-                  },
-            );
+            const result =
+              await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
+                isAdvancedMode
+                  ? {
+                      mode: 'advanced',
+                      params: checkIsDefined(advancedParams),
+                    }
+                  : {
+                      mode: 'normal',
+                      params: checkIsDefined(normalParams),
+                    },
+              );
+
+            if (result?.accountsForCreate) {
+              setEditMode(false);
+            }
           }}
         >
           <Stack
