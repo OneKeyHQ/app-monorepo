@@ -1,4 +1,8 @@
+import { useMemo } from 'react';
+
 import { Progress as TMProgress } from 'tamagui';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ProgressProps as TMProgressProps } from 'tamagui';
 
@@ -6,17 +10,30 @@ export type IProgressProps = {
   size?: 'small' | 'medium';
 } & Omit<TMProgressProps, 'size'>;
 
-export const Progress = ({ size, value, ...props }: IProgressProps) => (
-  <TMProgress
-    backgroundColor="$neutral5"
-    value={value}
-    h={size === 'medium' ? '$1' : '$0.5'}
-    {...props}
-  >
-    <TMProgress.Indicator
-      animation="quick"
-      backgroundColor="$bgPrimary"
-      borderRadius="$full"
-    />
-  </TMProgress>
-);
+export const Progress = ({ size, value, ...props }: IProgressProps) => {
+  const val = useMemo(() => {
+    // Fix the issue where the progress bar shows 100% when the value is 0
+    if (value === 0) {
+      return 0.01;
+    }
+    if (platformEnv.isNative) {
+      return value === 0 ? 0.01 : value;
+    }
+    return value;
+  }, [value]);
+  return (
+    <TMProgress
+      backgroundColor="$neutral5"
+      value={val}
+      h={size === 'medium' ? '$1' : '$0.5'}
+      max={100}
+      {...props}
+    >
+      <TMProgress.Indicator
+        animation="quick"
+        backgroundColor="$bgPrimary"
+        borderRadius="$full"
+      />
+    </TMProgress>
+  );
+};
