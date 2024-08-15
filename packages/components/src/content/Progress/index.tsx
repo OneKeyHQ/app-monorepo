@@ -14,7 +14,7 @@ export const Progress = ({ size, value, ...props }: IProgressProps) => {
   const val = useMemo(() => {
     // Fix the issue where the progress bar shows 100% when the value is 0
     if (platformEnv.isNative) {
-      return value < 0.1 ? 0.1 : value;
+      return !value || value < 0.1 ? 0.1 : value;
     }
     return value;
   }, [value]);
