@@ -12,6 +12,7 @@ export type IProgressProps = {
 
 const useProgressValue = platformEnv.isNative
   ? (value: number | null | undefined) => {
+      // Fix the issue where the progress bar shows 100% when the value is 0
       const [val, setVal] = useState(platformEnv.isNative ? undefined : value);
       useEffect(() => {
         setTimeout(() => {
