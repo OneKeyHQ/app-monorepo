@@ -4,7 +4,7 @@ import { Semaphore } from 'async-mutex';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
 import stringify from 'fast-json-stable-stringify';
-import { isNil } from 'lodash';
+import { get, isNil } from 'lodash';
 
 import { hashMessage } from '@onekeyhq/core/src/chains/evm/message';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
@@ -515,6 +515,25 @@ class ProviderApiEthereum extends ProviderApiBase {
     }, 500);
     // Metamask return null
     return null;
+  }
+
+  /**
+   * https://github.com/MetaMask/metamask-improvement-proposals/blob/main/MIPs/mip-2.md
+   */
+  @providerApiMethod()
+  async wallet_revokePermissions(
+    request: IJsBridgeMessagePayload,
+    params: Record<string, unknown>,
+  ) {
+    if (get(params, 'eth_accounts', null) && request.origin) {
+      await this.backgroundApi.serviceDApp.disconnectWebsite({
+        origin: request.origin,
+        storageType: 'injectedProvider',
+      });
+      return null;
+    }
+
+    throw web3Errors.rpc.invalidRequest('Unsupported permission type');
   }
 
   _switchEthereumChainMemo = memoizee(

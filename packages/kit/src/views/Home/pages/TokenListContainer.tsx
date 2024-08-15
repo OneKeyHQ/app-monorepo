@@ -2,7 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
-import { isEmpty, throttle } from 'lodash';
+import { isEmpty } from 'lodash';
+import { useThrottledCallback } from 'use-debounce';
 
 import type { ITabPageProps } from '@onekeyhq/components';
 import {
@@ -303,59 +304,47 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
   const isAllNetworkManualRefresh = useRef(false);
 
-  const updateAllNetworkData = throttle(
-    useCallback(() => {
-      refreshTokenListMap({
-        tokens: tokenListRef.current.map,
-        merge: true,
-        mergeDerive: true,
-      });
+  const updateAllNetworkData = useThrottledCallback(() => {
+    refreshTokenListMap({
+      tokens: tokenListRef.current.map,
+      merge: true,
+      mergeDerive: true,
+    });
 
-      refreshSmallBalanceTokenListMap({
-        tokens: tokenListRef.current.map,
-        merge: true,
-        mergeDerive: true,
-      });
+    refreshSmallBalanceTokenListMap({
+      tokens: tokenListRef.current.map,
+      merge: true,
+      mergeDerive: true,
+    });
 
-      refreshTokenList({
-        keys: tokenListRef.current.keys,
-        tokens: tokenListRef.current.tokens,
-        merge: true,
-        map: tokenListRef.current.map,
-        mergeDerive: true,
-        split: true,
-      });
+    refreshTokenList({
+      keys: tokenListRef.current.keys,
+      tokens: tokenListRef.current.tokens,
+      merge: true,
+      map: tokenListRef.current.map,
+      mergeDerive: true,
+      split: true,
+    });
 
-      refreshRiskyTokenListMap({
-        tokens: riskyTokenListRef.current.map,
-        merge: true,
-        mergeDerive: true,
-      });
-      refreshRiskyTokenList({
-        keys: riskyTokenListRef.current.keys,
-        riskyTokens: riskyTokenListRef.current.tokens,
-        merge: true,
-        map: riskyTokenListRef.current.map,
-        mergeDerive: true,
-      });
+    refreshRiskyTokenListMap({
+      tokens: riskyTokenListRef.current.map,
+      merge: true,
+      mergeDerive: true,
+    });
+    refreshRiskyTokenList({
+      keys: riskyTokenListRef.current.keys,
+      riskyTokens: riskyTokenListRef.current.tokens,
+      merge: true,
+      map: riskyTokenListRef.current.map,
+      mergeDerive: true,
+    });
 
-      tokenListRef.current.tokens = [];
-      tokenListRef.current.keys = '';
+    tokenListRef.current.tokens = [];
+    tokenListRef.current.keys = '';
 
-      riskyTokenListRef.current.tokens = [];
-      riskyTokenListRef.current.keys = '';
-    }, [
-      refreshRiskyTokenList,
-      refreshRiskyTokenListMap,
-      refreshSmallBalanceTokenListMap,
-      refreshTokenList,
-      refreshTokenListMap,
-    ]),
-    1000,
-    {
-      leading: true,
-    },
-  );
+    riskyTokenListRef.current.tokens = [];
+    riskyTokenListRef.current.keys = '';
+  }, 1000);
 
   const handleAllNetworkRequests = useCallback(
     async ({

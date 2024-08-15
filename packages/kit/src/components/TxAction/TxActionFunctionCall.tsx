@@ -70,6 +70,7 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
       replaceType={replaceType}
       status={decodedTx.status}
       networkId={decodedTx.networkId}
+      networkLogoURI={decodedTx.networkLogoURI}
       {...componentProps}
     />
   );
