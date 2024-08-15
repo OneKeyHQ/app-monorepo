@@ -77,16 +77,18 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           exact: true,
           children: marketRouters,
         },
-        {
-          name: ETabRoutes.Earn,
-          tabBarIcon: (focused?: boolean) =>
-            focused ? 'ChartColumnar3Solid' : 'ChartColumnar3Outline',
-          translationId: ETranslationsMock.global_earn,
-          freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/earn',
-          exact: true,
-          children: earnRouters,
-        },
+        platformEnv.isDev
+          ? {
+              name: ETabRoutes.Earn,
+              tabBarIcon: (focused?: boolean) =>
+                focused ? 'ChartColumnar3Solid' : 'ChartColumnar3Outline',
+              translationId: ETranslationsMock.global_earn,
+              freezeOnBlur: Boolean(params?.freezeOnBlur),
+              rewrite: '/earn',
+              exact: true,
+              children: earnRouters,
+            }
+          : null,
         {
           name: ETabRoutes.Swap,
           tabBarIcon: (focused?: boolean) =>
