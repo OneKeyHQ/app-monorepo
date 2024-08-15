@@ -57,6 +57,7 @@ export type ITxActionCommonListViewProps = {
   hideFeeInfo?: boolean;
   replaceType?: EReplaceTxType;
   networkId: string;
+  networkLogoURI?: string;
 };
 
 export type ITxActionCommonDetailViewProps = {

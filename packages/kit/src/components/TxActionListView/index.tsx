@@ -46,6 +46,7 @@ function TxActionsListView(props: IProps) {
 
   return (
     <TxActionComponent
+      key={decodedTx.txid}
       action={action}
       decodedTx={decodedTx}
       tableLayout={tableLayout}

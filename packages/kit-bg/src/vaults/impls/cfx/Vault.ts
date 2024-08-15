@@ -347,14 +347,11 @@ export default class Vault extends VaultBase {
           abiDecodeResult.name === 'transfer' ||
           abiDecodeResult.name === 'transferFrom'
         ) {
-          const { sender, recipient } = abiDecodeResult.object;
-          if (sender === encodedTx.from && recipient === encodedTx.from) {
-            action = await this._buildTxTransferTokenAction({
-              encodedTx,
-              abiDecodeResult,
-              tokenInfo,
-            });
-          }
+          action = await this._buildTxTransferTokenAction({
+            encodedTx,
+            abiDecodeResult,
+            tokenInfo,
+          });
         } else if (abiDecodeResult.name === 'approve') {
           action = await this._buildTxApproveTokenAction({
             encodedTx,

@@ -251,7 +251,8 @@ function buildTransferChangeInfo({
 function TxActionTransferListView(props: ITxActionProps) {
   const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
     props;
-  const { networkId, payload, nativeAmount, actions } = decodedTx;
+  const { networkId, payload, nativeAmount, actions, networkLogoURI } =
+    decodedTx;
   const { type } = payload ?? {};
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -435,6 +436,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       replaceType={replaceType}
       status={decodedTx.status}
       networkId={networkId}
+      networkLogoURI={networkLogoURI}
       {...componentProps}
     />
   );
