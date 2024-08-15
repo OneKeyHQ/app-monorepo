@@ -10,6 +10,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
 
 import { AccountAvatar } from '../../AccountAvatar';
@@ -32,12 +33,18 @@ export function AccountSelectorTriggerBase({
 
   const maxWidth = useMemo(() => {
     if (autoWidthForHome) {
-      if (media.gtLg || media.sm) {
+      if (media.gtLg) {
         return '$80';
+      }
+      if (media.sm) {
+        return '$60';
+      }
+      if (media.md) {
+        return '$48';
       }
     }
     return '$48';
-  }, [autoWidthForHome, media.gtLg, media.sm]);
+  }, [autoWidthForHome, media.gtLg, media.md, media.sm]);
 
   return (
     <XStack
@@ -45,6 +52,9 @@ export function AccountSelectorTriggerBase({
       role="button"
       alignItems="center"
       maxWidth={maxWidth}
+      width="$full"
+      // width="$80"
+      // flex={1}
       py="$0.5"
       px="$1.5"
       mx="$-1.5"
@@ -65,7 +75,13 @@ export function AccountSelectorTriggerBase({
         account={account}
         dbAccount={dbAccount}
       />
-      <View pl="$2" pr="$1" minWidth={0} flex={1}>
+      <View
+        pl="$2"
+        pr="$1"
+        minWidth={0}
+        // flex={1}
+        flex={platformEnv.isNative ? undefined : 1}
+      >
         <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
           {wallet?.name ||
             intl.formatMessage({ id: ETranslations.global_no_wallet })}

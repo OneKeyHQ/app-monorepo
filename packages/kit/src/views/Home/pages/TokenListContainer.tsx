@@ -402,6 +402,12 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           merge: true,
         });
 
+        const mergeDeriveAssetsEnabled = !!(
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          })
+        ).mergeDeriveAssetsEnabled;
+
         tokenListRef.current.tokens = tokenListRef.current.tokens.concat([
           ...r.tokens.data,
           ...r.smallBalanceTokens.data,
@@ -426,6 +432,18 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         };
 
         if (r.allTokens) {
+          refreshAllTokenListMap({
+            tokens: r.allTokens.map,
+            merge: true,
+            mergeDerive: mergeDeriveAssetsEnabled,
+          });
+          refreshAllTokenList({
+            keys: r.allTokens.keys,
+            tokens: r.allTokens.data,
+            map: r.allTokens.map,
+            merge: true,
+            mergeDerive: mergeDeriveAssetsEnabled,
+          });
           appEventBus.emit(EAppEventBusNames.TokenListUpdate, {
             tokens: r.allTokens.data,
             keys: r.allTokens.keys,
@@ -443,6 +461,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     [
       account?.id,
       network?.id,
+      refreshAllTokenList,
+      refreshAllTokenListMap,
       updateAccountOverviewState,
       updateAccountWorth,
       updateAllNetworkData,
