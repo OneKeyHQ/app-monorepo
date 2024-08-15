@@ -485,7 +485,7 @@ class ProviderApiBtc extends ProviderApiBase {
             ...v,
             value: new BigNumber(v.value).toFixed(),
             payload: {
-              isCharge: v.address === address,
+              isChange: v.address === address,
             },
           })),
           inputsForCoinSelect: [],

@@ -114,7 +114,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   private buildHardwareOutput = async (
     output: IBtcOutput,
   ): Promise<Messages.TxOutputType> => {
-    const { isCharge, bip44Path, opReturn } = output.payload || {};
+    const { isChange, bip44Path, opReturn } = output.payload || {};
 
     if (opReturn && typeof opReturn === 'string' && opReturn.length > 0) {
       return {
@@ -123,7 +123,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         op_return_data: bufferUtils.bytesToHex(Buffer.from(opReturn)),
       };
     }
-    if (isCharge && bip44Path) {
+    if (isChange && bip44Path) {
       const { getHDPath, getOutputScriptType } = await CoreSDKLoader();
       const addressN = getHDPath(bip44Path);
       const scriptType = getOutputScriptType(addressN);
