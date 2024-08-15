@@ -6,9 +6,10 @@ export type IProgressProps = {
   size?: 'small' | 'medium';
 } & Omit<TMProgressProps, 'size'>;
 
-export const Progress = ({ size, ...props }: IProgressProps) => (
+export const Progress = ({ size, value, ...props }: IProgressProps) => (
   <TMProgress
     backgroundColor="$neutral5"
+    value={value}
     h={size === 'medium' ? '$1' : '$0.5'}
     {...props}
   >
