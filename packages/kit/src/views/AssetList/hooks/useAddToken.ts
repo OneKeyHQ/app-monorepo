@@ -142,7 +142,7 @@ export function useAddToken({
           {
             walletId,
             networkId: params.networkId,
-            contractAddress: params.value,
+            contractAddress: params.value.trim(),
             isNative: token?.isNative ?? false,
           },
         );

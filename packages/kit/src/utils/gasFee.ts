@@ -90,12 +90,19 @@ export function calculateTotalFeeRange({
       maxForDisplay: nanToZeroString(maxForDisplay),
     };
   }
+  if (feeInfo.feeUTXO) {
+    let fee = '0';
+    if (feeInfo.feeUTXO.feeValue) {
+      fee = new BigNumber(feeInfo.feeUTXO.feeValue)
+        .decimalPlaces(feeInfo.common.feeDecimals, BigNumber.ROUND_CEIL)
+        .toFixed();
+    } else if (feeInfo.feeUTXO.feeRate) {
+      fee = new BigNumber(feeInfo.feeUTXO.feeRate)
+        .multipliedBy(txSize ?? 0)
+        .decimalPlaces(feeInfo.common.feeDecimals, BigNumber.ROUND_CEIL)
+        .toFixed();
+    }
 
-  if (feeInfo.feeUTXO?.feeRate) {
-    const fee = new BigNumber(feeInfo.feeUTXO.feeRate)
-      .multipliedBy(txSize ?? 0)
-      .decimalPlaces(feeInfo.common.feeDecimals, BigNumber.ROUND_CEIL)
-      .toFixed();
     return {
       min: nanToZeroString(fee),
       max: nanToZeroString(fee),
