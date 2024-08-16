@@ -46,7 +46,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
 
   const headerRight = useMemo(() => {
     if (unavailableItems.length > 0) {
-      return undefined;
+      // return undefined;
     }
     return () =>
       getHeaderRightComponent(
