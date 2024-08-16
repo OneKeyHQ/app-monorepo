@@ -36,12 +36,6 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const [isFocus, setIsFocus] = useState(false);
-  const timerIdRef = useRef<ReturnType<typeof setTimeout>>();
-  useEffect(() => {
-    timerIdRef.current = setTimeout(() => {
-      setIsFocus(true);
-    }, 50);
-  }, []);
   const { handleWalletAddress, isEnable } = useWalletAddress({ activeAccount });
   // const { isFirstVisit, tourVisited } = useSpotlight(
   //   ESpotlightTour.createAllNetworks,
@@ -49,8 +43,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   useListenTabFocusState(
     ETabRoutes.Home,
     async (focus: boolean, hideByModal: boolean) => {
-      clearInterval(timerIdRef.current);
-      setIsFocus(focus && !hideByModal);
+      setIsFocus(!hideByModal);
     },
   );
   if (!isEnable) {
