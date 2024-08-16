@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -7,6 +7,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import type {
   ICheckedState,
   IPageScreenProps,
+  ISelectRenderTriggerProps,
   ISizableTextProps,
 } from '@onekeyhq/components';
 import {
@@ -70,6 +71,30 @@ import { showBatchCreateAccountPreviewPageNumberDialog } from './PreviewPageNumb
 import { showBatchCreateAccountProcessingDialog } from './ProcessingDialog';
 
 import type { IBatchCreateAccountFormValues } from './BatchCreateAccountFormBase';
+
+function DeriveTypeTrigger({ onPress }: ISelectRenderTriggerProps) {
+  return (
+    <XStack
+      role="button"
+      userSelect="none"
+      alignItems="center"
+      px="$2"
+      py="$2"
+      borderRadius="$full"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      onPress={onPress}
+    >
+      <Icon name="BranchesOutline" color="$iconSubdued" size="$6" />
+    </XStack>
+  );
+}
+
+const MemoDeriveTypeTrigger = memo(DeriveTypeTrigger);
 
 function BatchCreateAccountPreviewPage({
   walletId,
@@ -137,28 +162,6 @@ function BatchCreateAccountPreviewPage({
   >();
   const [deriveTypeItems, setDeriveTypeItems] =
     useState<IAccountDeriveInfoItems[]>();
-
-  const deriveTypeTrigger = useMemo(
-    () => (
-      <XStack
-        role="button"
-        userSelect="none"
-        alignItems="center"
-        px="$2"
-        py="$2"
-        borderRadius="$full"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-      >
-        <Icon name="BranchesOutline" color="$iconSubdued" size="$6" />
-      </XStack>
-    ),
-    [],
-  );
 
   const showPopoverDeriveTypeInfo = useMemo(
     () =>
@@ -420,7 +423,7 @@ function BatchCreateAccountPreviewPage({
                 </Stack>
               </Stack>
             }
-            renderTrigger={deriveTypeTrigger}
+            renderTrigger={<MemoDeriveTypeTrigger />}
           />
         ) : null}
 
@@ -438,7 +441,7 @@ function BatchCreateAccountPreviewPage({
           defaultTriggerInputProps={{
             size: media.gtMd ? 'medium' : 'large',
           }}
-          renderTrigger={({ label }) => deriveTypeTrigger}
+          renderTrigger={DeriveTypeTrigger}
         />
 
         <ControlledNetworkSelectorTrigger
@@ -478,7 +481,6 @@ function BatchCreateAccountPreviewPage({
       currentDeriveTypeInfo,
       deriveType,
       deriveTypeItems,
-      deriveTypeTrigger,
       intl,
       media.gtMd,
       networkId,

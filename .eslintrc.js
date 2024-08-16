@@ -173,6 +173,7 @@ module.exports = {
     'use-effect-no-deps',
     'ban',
     'unicorn',
+    'props-checker',
   ],
   settings: {
     'import/extensions': [
@@ -236,6 +237,22 @@ module.exports = {
         ],
         'skipIfMatch': ['http://[^s]*'],
         'minLength': 3,
+      },
+    ],
+    'props-checker/validator': [
+      'error',
+      {
+        props: [
+          {
+            propName: 'onPress',
+            components: [
+              { component: 'Stack', dependOn: 'pressStyle' },
+              { component: 'XStack', dependOn: 'pressStyle' },
+              { component: 'YStack', dependOn: 'pressStyle' },
+            ],
+          },
+          { propName: 'accessible', components: ['TextInput'] },
+        ],
       },
     ],
   },

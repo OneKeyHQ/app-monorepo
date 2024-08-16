@@ -141,7 +141,7 @@ export function ExploreView({
           items={selectOptions}
           value={selectedCategory}
           onChange={setSelectedCategory}
-          renderTrigger={({ label }) => (
+          renderTrigger={({ label, onPress }) => (
             <XStack
               mr="$2.5"
               py="$1.5"
@@ -156,6 +156,7 @@ export function ExploreView({
               pressStyle={{
                 bg: '$bgStrongActive',
               }}
+              onPress={onPress}
             >
               <SizableText size="$bodyMdMedium" px="$1">
                 {label}

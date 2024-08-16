@@ -79,7 +79,7 @@ const FormDeriveTypeInput = ({
         <DeriveTypeSelectorFormInput
           networkId={networkId}
           enabledItems={deriveInfoItems}
-          renderTrigger={({ label }) => (
+          renderTrigger={({ label, onPress }) => (
             <Stack
               userSelect="none"
               flexDirection="row"
@@ -100,6 +100,7 @@ const FormDeriveTypeInput = ({
               pressStyle={{
                 bg: '$bgActive',
               }}
+              onPress={onPress}
             >
               <SizableText flex={1}>{label}</SizableText>
               <Icon
