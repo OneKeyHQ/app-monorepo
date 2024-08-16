@@ -104,7 +104,7 @@ jobs:
           echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
 
       - name: Publish and Sign Static Linux / Macos / Windows Installer
-        if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/onekey') }}
+        if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/x') }}
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
