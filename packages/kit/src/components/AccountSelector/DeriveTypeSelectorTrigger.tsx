@@ -199,9 +199,11 @@ export function DeriveTypeSelectorTrigger({
 function DeriveTypeSelectorTriggerIconRenderer({
   label,
   autoShowLabel,
+  onPress,
 }: {
   label?: string | undefined;
   autoShowLabel?: boolean;
+  onPress?: () => void;
 }) {
   const media = useMedia();
   const hitSlop = platformEnv.isNative
@@ -233,6 +235,7 @@ function DeriveTypeSelectorTriggerIconRenderer({
         outlineStyle: 'solid',
       }}
       hitSlop={hitSlop}
+      onPress={onPress}
       focusable
     >
       <Icon name="BranchesOutline" color="$iconSubdued" size="$4.5" />
@@ -248,8 +251,12 @@ function DeriveTypeSelectorTriggerIconRenderer({
 export function DeriveTypeSelectorTriggerForHome({ num }: { num: number }) {
   return (
     <DeriveTypeSelectorTrigger
-      renderTrigger={({ label }) => (
-        <DeriveTypeSelectorTriggerIconRenderer label={label} autoShowLabel />
+      renderTrigger={({ label, onPress }) => (
+        <DeriveTypeSelectorTriggerIconRenderer
+          label={label}
+          autoShowLabel
+          onPress={onPress}
+        />
       )}
       num={num}
     />
@@ -259,8 +266,11 @@ export function DeriveTypeSelectorTriggerForHome({ num }: { num: number }) {
 export function DeriveTypeSelectorTriggerForDapp({ num }: { num: number }) {
   return (
     <DeriveTypeSelectorTrigger
-      renderTrigger={({ label }) => (
-        <DeriveTypeSelectorTriggerIconRenderer label={label} />
+      renderTrigger={({ label, onPress }) => (
+        <DeriveTypeSelectorTriggerIconRenderer
+          label={label}
+          onPress={onPress}
+        />
       )}
       num={num}
     />
