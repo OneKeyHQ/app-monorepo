@@ -435,9 +435,11 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
   const renderAccountValue = useCallback(
     ({
+      index,
       accountValue,
       subTitleInfo,
     }: {
+      index: number;
       accountValue:
         | {
             accountId: string;
@@ -453,6 +455,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         <>
           {accountValue && accountValue.currency ? (
             <AccountValue
+              showSpotlight={index === 0}
               accountId={accountValue.accountId}
               currency={accountValue.currency}
               value={accountValue.value ?? ''}
@@ -596,10 +599,12 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               </>
             )}
             renderItem={({
+              index,
               item,
               drag,
               section,
             }: {
+              index: number;
               item: IDBIndexedAccount | IDBAccount;
               section: IAccountSelectorAccountsListSectionData;
               drag?: () => void;
@@ -698,7 +703,11 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                       }
                       secondary={
                         <XStack alignItems="center">
-                          {renderAccountValue({ accountValue, subTitleInfo })}
+                          {renderAccountValue({
+                            index,
+                            accountValue,
+                            subTitleInfo,
+                          })}
                           <AccountAddress
                             num={num}
                             linkedNetworkId={subTitleInfo.linkedNetworkId}
