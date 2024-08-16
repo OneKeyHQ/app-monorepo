@@ -19,6 +19,14 @@ import {
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
+import type {
+  IDBAccount,
+  IDBDevice,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
@@ -31,14 +39,6 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
-import type {
-  IDBAccount,
-  IDBDevice,
-  IDBIndexedAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -237,7 +237,12 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     return layouts;
   }, [sectionData, headerHeight]);
 
-  const [listViewLayout, setListViewLayout] = useState({} as LayoutRectangle);
+  const [listViewLayout, setListViewLayout] = useState<LayoutRectangle>({
+    x: 0,
+    y: 0,
+    height: 400,
+    width: 200,
+  });
   const listViewLayoutRef = useRef(listViewLayout);
   listViewLayoutRef.current = listViewLayout;
   const handleLayoutForContainer = useCallback((e: LayoutChangeEvent) => {
@@ -266,6 +271,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   );
   const handleLayoutCacheSet = useCallback(
     (key: 'container' | 'header' | 'list', fn: () => void) => {
+      // TODO: comment out for better performance and disable onLayout
       handleLayoutCache.current[key] = fn;
       handleLayoutExecuteDebounced();
     },
