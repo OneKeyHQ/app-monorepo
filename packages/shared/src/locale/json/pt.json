@@ -1418,6 +1418,7 @@
   "slippage_tolerance.warning_message_1": "Uma alta tolerância ao deslizamento pode causar a perda do seu ativo.",
   "slippage_tolerance.warning_message_2": "Deslizamento abaixo de {number}% pode causar falha na negociação.",
   "speed_up_cancellation": "Acelerar o cancelamento",
+  "spotlight.enable_account_asset_message": "Se os saldos estiverem faltando, vá para \"Redes\" na página inicial e selecione \"Todas as redes\" primeiro.",
   "spotlight.enable_network_message": "Se você não vê nenhum ativo listado em 'Todas as Redes', clique aqui para adicionar a rede que está faltando.",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",

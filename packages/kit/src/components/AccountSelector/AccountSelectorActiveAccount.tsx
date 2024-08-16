@@ -28,7 +28,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import { Spotlight, useSpotlight } from '../Spotlight';
+import { SpotlightView, useSpotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
@@ -49,10 +49,30 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   if (!isEnable) {
     return null;
   }
-
-  const visible = isFirstVisit && isFocus;
+  /*
   return (
     <Spotlight
+      isVisible={isFocus}
+      message={intl.formatMessage({
+        id: ETranslations.spotlight_enable_network_message,
+      })}
+      tourName={ESpotlightTour.createAllNetworks}
+    >
+      <IconButton
+        title={intl.formatMessage({ id: ETranslations.global_copy_address })}
+        variant="tertiary"
+        icon="Copy3Outline"
+        size="small"
+        onPress={handleWalletAddress}
+      />
+    </Spotlight>
+  );
+  */
+
+  const visible = isFirstVisit && isFocus;
+  console.log('AllNetworkAccountSelector____visible', visible);
+  return (
+    <SpotlightView
       visible={visible}
       content={
         <SizableText size="$bodyMd">
@@ -70,7 +90,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
         size="small"
         onPress={handleWalletAddress}
       />
-    </Spotlight>
+    </SpotlightView>
   );
 };
 
