@@ -208,9 +208,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     }
   }, [focusedWalletInfo]);
 
-  const { scrollToLocation, onLayout: handleLayoutForSectionList } =
-    useSafelyScrollToLocation(listRef);
-
   const [headerHeight, setHeaderHeight] = useState(0);
   const headerHeightRef = useRef(headerHeight);
   headerHeightRef.current = headerHeight;
@@ -245,16 +242,22 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   });
   const listViewLayoutRef = useRef(listViewLayout);
   listViewLayoutRef.current = listViewLayout;
+
+  const { scrollToLocation, onLayout: handleLayoutForSectionList } =
+    useSafelyScrollToLocation(listRef);
+
   const handleLayoutForContainer = useCallback((e: LayoutChangeEvent) => {
     if (isEqual(listViewLayoutRef.current, e.nativeEvent.layout)) {
       return;
     }
     setListViewLayout(e.nativeEvent.layout);
   }, []);
+
   const handleLayoutForHeader = useCallback((e: LayoutChangeEvent) => {
-    if (headerHeightRef.current !== e.nativeEvent.layout.height) {
-      setHeaderHeight(e.nativeEvent.layout.height);
+    if (headerHeightRef.current === e.nativeEvent.layout.height) {
+      return;
     }
+    setHeaderHeight(e.nativeEvent.layout.height);
   }, []);
   const handleLayoutCache = useRef<{
     [key in 'container' | 'header' | 'list']?: () => void;
@@ -271,7 +274,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   );
   const handleLayoutCacheSet = useCallback(
     (key: 'container' | 'header' | 'list', fn: () => void) => {
-      // TODO: comment out for better performance and disable onLayout
+      // *** execute onLayout() immediately which cause re-render many times
+      // fn();
+
+      // *** comment out for better performance and disable onLayout() totally
       handleLayoutCache.current[key] = fn;
       handleLayoutExecuteDebounced();
     },
