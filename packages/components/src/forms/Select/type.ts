@@ -2,6 +2,7 @@ import type { PropsWithChildren, ReactElement } from 'react';
 
 import type { IPopoverProps } from '../../actions';
 import type { IInputProps } from '../Input';
+import type { GestureResponderEvent } from 'react-native';
 import type { ListItemProps, SheetProps } from 'tamagui';
 
 export interface ISelectRenderTriggerProps {
@@ -9,6 +10,7 @@ export interface ISelectRenderTriggerProps {
   label?: string;
   placeholder?: string;
   disabled?: boolean;
+  onPress?: (event: GestureResponderEvent) => void;
 }
 
 export interface ISelectTriggerProps {

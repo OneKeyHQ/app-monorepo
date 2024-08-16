@@ -20,6 +20,7 @@ import type {
   ISelectTriggerProps,
 } from './type';
 import type { IListViewProps, ISectionListProps } from '../../layouts';
+import type { GestureResponderEvent } from 'react-native';
 
 const useTriggerLabel = (value: string) => {
   const { sections, items } = useContext(SelectContext);
@@ -59,6 +60,13 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   const handleTriggerPressed = useCallback(() => {
     changeOpenStatus?.(true);
   }, [changeOpenStatus]);
+  const renderTriggerOnPress = useCallback(
+    (event: GestureResponderEvent) => {
+      handleTriggerPressed();
+      event.stopPropagation();
+    },
+    [handleTriggerPressed],
+  );
   const renderValue = labelInValue
     ? (value as ISelectItem)?.value
     : (value as string);
@@ -66,6 +74,7 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   return (
     <Trigger onPress={handleTriggerPressed} disabled={disabled}>
       {renderTrigger({
+        onPress: renderTriggerOnPress,
         value: renderValue,
         label,
         placeholder,
