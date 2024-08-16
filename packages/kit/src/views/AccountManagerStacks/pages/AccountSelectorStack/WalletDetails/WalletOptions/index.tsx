@@ -1,11 +1,6 @@
 import { useMemo } from 'react';
 
-import {
-  AnimatePresence,
-  Divider,
-  HeightTransition,
-  Stack,
-} from '@onekeyhq/components';
+import { Divider, Stack } from '@onekeyhq/components';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -72,31 +67,33 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
   }, [device, wallet]);
 
   return (
-    <HeightTransition>
-      <AnimatePresence>
-        {editMode ? (
-          <Stack
-            testID="wallet-edit-options"
-            animation="quick"
-            exitStyle={{
-              opacity: 0,
-            }}
-            enterStyle={{
-              opacity: 0,
-            }}
-          >
-            {/* Profile: Avatar, Rename */}
-            {wallet ? <WalletProfile wallet={wallet} /> : null}
+    // <HeightTransition></HeightTransition>
+    <Stack>
+      {/* <AnimatePresence>
+      </AnimatePresence> */}
+      {editMode ? (
+        <Stack
+          testID="wallet-edit-options"
+          // TODO: remove animation for better performance which cause SectionList re-render
+          // animation="quick"
+          // exitStyle={{
+          //   opacity: 0,
+          // }}
+          // enterStyle={{
+          //   opacity: 0,
+          // }}
+        >
+          {/* Profile: Avatar, Rename */}
+          {wallet ? <WalletProfile wallet={wallet} /> : null}
 
-            {/* Options: Backup, Verification, HomeScreen, Advance  */}
-            {walletSpecifiedOptions}
+          {/* Options: Backup, Verification, HomeScreen, Advance  */}
+          {walletSpecifiedOptions}
 
-            <Stack py="$2.5">
-              <Divider mt="auto" />
-            </Stack>
+          <Stack py="$2.5">
+            <Divider mt="auto" />
           </Stack>
-        ) : null}
-      </AnimatePresence>
-    </HeightTransition>
+        </Stack>
+      ) : null}
+    </Stack>
   );
 }

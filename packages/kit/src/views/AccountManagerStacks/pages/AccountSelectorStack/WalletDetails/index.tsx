@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -18,14 +19,6 @@ import {
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
-import type {
-  IDBAccount,
-  IDBDevice,
-  IDBIndexedAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
@@ -38,6 +31,14 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
+import type {
+  IDBAccount,
+  IDBDevice,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -62,7 +63,6 @@ import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { WalletOptions } from './WalletOptions';
 
-import { isEqual } from 'lodash';
 import type { LayoutChangeEvent, LayoutRectangle } from 'react-native';
 
 export interface IWalletDetailsProps {
@@ -251,23 +251,25 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       setHeaderHeight(e.nativeEvent.layout.height);
     }
   }, []);
-  const handleLayoutCache = useRef<(() => void)[]>([]);
-  const handleLayoutExecDebounced = useDebouncedCallback(
+  const handleLayoutCache = useRef<{
+    [key in 'container' | 'header' | 'list']?: () => void;
+  }>({});
+  const handleLayoutExecuteDebounced = useDebouncedCallback(
     () => {
-      handleLayoutCache.current.forEach((fn) => {
+      Object.values(handleLayoutCache.current).forEach((fn) => {
         fn();
       });
-      handleLayoutCache.current = [];
+      handleLayoutCache.current = {};
     },
     200,
     { leading: false, trailing: true },
   );
-  const handleLayoutCachePush = useCallback(
-    (fn: () => void) => {
-      handleLayoutCache.current.push(fn);
-      handleLayoutExecDebounced();
+  const handleLayoutCacheSet = useCallback(
+    (key: 'container' | 'header' | 'list', fn: () => void) => {
+      handleLayoutCache.current[key] = fn;
+      handleLayoutExecuteDebounced();
     },
-    [handleLayoutExecDebounced],
+    [handleLayoutExecuteDebounced],
   );
   useEffect(() => {
     // @ts-ignore
@@ -523,7 +525,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         flex={1}
         // TODO performance
         onLayout={(e) =>
-          handleLayoutCachePush(() => handleLayoutForContainer(e))
+          handleLayoutCacheSet('container', () => handleLayoutForContainer(e))
         }
       >
         {(() => {
@@ -538,7 +540,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             ref={listRef}
             // TODO performance
             onLayout={(e) =>
-              handleLayoutCachePush(() => handleLayoutForSectionList(e))
+              handleLayoutCacheSet('list', () => handleLayoutForSectionList(e))
             }
             enabled={editMode}
             onDragEnd={onDragEnd}
@@ -567,7 +569,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                 <Stack
                   // TODO performance
                   onLayout={(e) =>
-                    handleLayoutCachePush(() => handleLayoutForHeader(e))
+                    handleLayoutCacheSet('header', () =>
+                      handleLayoutForHeader(e),
+                    )
                   }
                 >
                   <WalletOptions
@@ -892,7 +896,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       handleLayoutForHeader,
       handleLayoutForContainer,
       handleLayoutForSectionList,
-      handleLayoutCachePush,
+      handleLayoutCacheSet,
       handleImportPrivatekeyAccount,
       handleImportWatchingAccount,
       initialScrollIndex,
