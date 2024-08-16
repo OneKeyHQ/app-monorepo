@@ -14,6 +14,7 @@ export type IToken = {
   networkId?: string;
   accountId?: string;
   allNetworkAccountId?: string;
+  mergeAssets?: boolean;
 };
 
 export type ITokenFiat = {
