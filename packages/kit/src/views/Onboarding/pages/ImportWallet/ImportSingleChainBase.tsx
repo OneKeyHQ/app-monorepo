@@ -183,7 +183,7 @@ export function ImportSingleChainBase({
               <DeriveTypeSelectorFormInput
                 networkId={form.getValues().networkId || ''}
                 enabledItems={validateResult?.deriveInfoItems || []}
-                renderTrigger={({ label }) => (
+                renderTrigger={({ label, onPress }) => (
                   <Stack
                     userSelect="none"
                     flexDirection="row"
@@ -204,6 +204,7 @@ export function ImportSingleChainBase({
                     pressStyle={{
                       bg: '$bgActive',
                     }}
+                    onPress={onPress}
                   >
                     <SizableText flex={1}>{label}</SizableText>
                     <Icon
