@@ -114,7 +114,7 @@ function MobileBrowser() {
 
   const handleSearchBarPress = useCallback(
     (url: string) => {
-      navigation.pushFullModal(EModalRoutes.DiscoveryModal, {
+      navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
         params: {
           url,
