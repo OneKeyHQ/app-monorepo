@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -36,7 +36,6 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const [isFocus, setIsFocus] = useState(false);
-
   const { handleWalletAddress, isEnable } = useWalletAddress({ activeAccount });
   // const { isFirstVisit, tourVisited } = useSpotlight(
   //   ESpotlightTour.createAllNetworks,
