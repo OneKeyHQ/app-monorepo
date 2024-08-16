@@ -191,6 +191,11 @@ export default function Detail() {
     return sections ?? [];
   }, [segmentValue, diffData]);
 
+  const handleDelete = useCallback(async () => {
+    await deleteBackupDialog.show(filename);
+    navigation.pop();
+  }, [deleteBackupDialog, filename, navigation]);
+
   const showDeleteActionList = useCallback(() => {
     if (submitLoading) {
       return;
@@ -202,14 +207,13 @@ export default function Detail() {
           label: intl.formatMessage({ id: ETranslations.global_delete }),
           icon: 'DeleteOutline',
           destructive: true,
-          onPress: async () => {
-            await deleteBackupDialog.show(filename);
-            navigation.pop();
+          onPress: () => {
+            void handleDelete();
           },
         },
       ],
     });
-  }, [intl, deleteBackupDialog, title, filename, navigation, submitLoading]);
+  }, [submitLoading, title, intl, handleDelete]);
 
   const renderHeaderRight = useCallback(
     () => (
