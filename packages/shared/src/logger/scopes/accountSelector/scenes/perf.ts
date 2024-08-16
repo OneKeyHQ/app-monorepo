@@ -52,10 +52,12 @@ export class AccountSelectorPerfScene extends BaseScene {
   @LogToConsole()
   public renderAccountsList({
     selectedAccount,
+    editMode,
   }: {
+    editMode: boolean;
     selectedAccount: IAccountSelectorSelectedAccount;
   }) {
-    return [selectedAccount];
+    return [selectedAccount, editMode];
   }
 
   @LogToConsole()
@@ -69,7 +71,15 @@ export class AccountSelectorPerfScene extends BaseScene {
   }
 
   @LogToConsole()
-  public renderAccountsSectionList(params: { accountsCount: number }) {
+  public renderAccountsSectionList(params: {
+    accountsCount: number;
+    walletName?: string;
+  }) {
     return [params];
+  }
+
+  @LogToConsole()
+  public renderAccountsSectionListMock() {
+    return [true];
   }
 }

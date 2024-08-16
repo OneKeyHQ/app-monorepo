@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type {
   IButtonProps,
@@ -17,6 +18,14 @@ import {
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
+import type {
+  IDBAccount,
+  IDBDevice,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
@@ -29,14 +38,6 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
-import type {
-  IDBAccount,
-  IDBDevice,
-  IDBIndexedAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -61,6 +62,7 @@ import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { WalletOptions } from './WalletOptions';
 
+import { isEqual } from 'lodash';
 import type { LayoutChangeEvent, LayoutRectangle } from 'react-native';
 
 export interface IWalletDetailsProps {
@@ -83,7 +85,7 @@ function PlusButton({ onPress, loading }: IButtonProps) {
   );
 }
 
-export function WalletDetails({ num }: IWalletDetailsProps) {
+function WalletDetailsView({ num }: IWalletDetailsProps) {
   const intl = useIntl();
   const [editMode, setEditMode] = useAccountSelectorEditModeAtom();
   const { serviceAccount, serviceAccountSelector, serviceNetwork } =
@@ -96,7 +98,10 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   const isEditableRouteParams = route.params?.editable;
   const linkedNetworkId = linkNetwork ? selectedAccount?.networkId : undefined;
 
-  defaultLogger.accountSelector.perf.renderAccountsList({ selectedAccount });
+  defaultLogger.accountSelector.perf.renderAccountsList({
+    editMode,
+    selectedAccount,
+  });
 
   const navigation = useAppNavigation();
 
@@ -139,8 +144,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       if (!selectedAccount?.focusedWallet) {
         return Promise.resolve(undefined);
       }
-
-      // await timerUtils.wait(3000);
+      // await timerUtils.wait(1000);
       return serviceAccountSelector.buildAccountSelectorAccountsListData({
         focusedWallet: selectedAccount?.focusedWallet,
         linkedNetworkId,
@@ -204,9 +208,13 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     }
   }, [focusedWalletInfo]);
 
-  const { scrollToLocation, onLayout } = useSafelyScrollToLocation(listRef);
+  const { scrollToLocation, onLayout: handleLayoutForSectionList } =
+    useSafelyScrollToLocation(listRef);
 
   const [headerHeight, setHeaderHeight] = useState(0);
+  const headerHeightRef = useRef(headerHeight);
+  headerHeightRef.current = headerHeight;
+
   const layoutList = useMemo(() => {
     let offset = 0;
     const layouts: { offset: number; length: number; index: number }[] = [];
@@ -230,9 +238,37 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   }, [sectionData, headerHeight]);
 
   const [listViewLayout, setListViewLayout] = useState({} as LayoutRectangle);
-  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+  const listViewLayoutRef = useRef(listViewLayout);
+  listViewLayoutRef.current = listViewLayout;
+  const handleLayoutForContainer = useCallback((e: LayoutChangeEvent) => {
+    if (isEqual(listViewLayoutRef.current, e.nativeEvent.layout)) {
+      return;
+    }
     setListViewLayout(e.nativeEvent.layout);
   }, []);
+  const handleLayoutForHeader = useCallback((e: LayoutChangeEvent) => {
+    if (headerHeightRef.current !== e.nativeEvent.layout.height) {
+      setHeaderHeight(e.nativeEvent.layout.height);
+    }
+  }, []);
+  const handleLayoutCache = useRef<(() => void)[]>([]);
+  const handleLayoutExecDebounced = useDebouncedCallback(
+    () => {
+      handleLayoutCache.current.forEach((fn) => {
+        fn();
+      });
+      handleLayoutCache.current = [];
+    },
+    200,
+    { leading: false, trailing: true },
+  );
+  const handleLayoutCachePush = useCallback(
+    (fn: () => void) => {
+      handleLayoutCache.current.push(fn);
+      handleLayoutExecDebounced();
+    },
+    [handleLayoutExecDebounced],
+  );
   useEffect(() => {
     // @ts-ignore
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -480,19 +516,30 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     [linkNetwork],
   );
 
+  // useCallback cause re-render when unmount, but useMemo not
   const sectionListMemo = useMemo(
     () => (
-      <Stack flex={1} onLayout={handleLayout}>
+      <Stack
+        flex={1}
+        // TODO performance
+        onLayout={(e) =>
+          handleLayoutCachePush(() => handleLayoutForContainer(e))
+        }
+      >
         {(() => {
           defaultLogger.accountSelector.perf.renderAccountsSectionList({
             accountsCount,
+            walletName: focusedWalletInfo?.wallet?.name,
           });
           return null;
         })()}
         {listViewLayout.height ? (
           <SortableSectionList
             ref={listRef}
-            onLayout={onLayout}
+            // TODO performance
+            onLayout={(e) =>
+              handleLayoutCachePush(() => handleLayoutForSectionList(e))
+            }
             enabled={editMode}
             onDragEnd={onDragEnd}
             initialScrollIndex={initialScrollIndex}
@@ -518,13 +565,10 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
             ListHeaderComponent={
               isOthersUniversal ? null : (
                 <Stack
-                  onLayout={({
-                    nativeEvent: {
-                      layout: { height },
-                    },
-                  }) => {
-                    setHeaderHeight(height);
-                  }}
+                  // TODO performance
+                  onLayout={(e) =>
+                    handleLayoutCachePush(() => handleLayoutForHeader(e))
+                  }
                 >
                   <WalletOptions
                     wallet={focusedWalletInfo?.wallet}
@@ -618,7 +662,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
               const subTitleInfo = buildSubTitleInfo(item);
 
-              // TODO performace
+              // TODO performance
               const accountValue = accountsValue?.find(
                 (i) => i.accountId === item.id,
               );
@@ -845,9 +889,12 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       editable,
       focusedWalletInfo,
       handleAddExternalAccount,
+      handleLayoutForHeader,
+      handleLayoutForContainer,
+      handleLayoutForSectionList,
+      handleLayoutCachePush,
       handleImportPrivatekeyAccount,
       handleImportWatchingAccount,
-      handleLayout,
       initialScrollIndex,
       intl,
       isEditableRouteParams,
@@ -859,7 +906,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       navigation,
       num,
       onDragEnd,
-      onLayout,
       remember,
       renderAccountValue,
       sectionData,
@@ -870,6 +916,11 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       serviceAccount,
     ],
   );
+
+  const SectionListMemoMock = useCallback(() => {
+    defaultLogger.accountSelector.perf.renderAccountsSectionListMock();
+    return null;
+  }, []);
 
   return (
     <Stack flex={1} pb={bottom} testID="account-selector-accountList">
@@ -891,6 +942,21 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         })}
       />
       {sectionListMemo}
+      {/* <DelayedRender delay={1000}>
+        <SectionListMemoMock />
+      </DelayedRender> */}
     </Stack>
   );
 }
+
+/* render times:
+- init
+- atom ready
+- fetch data
+- onLayout1: Stack onLayout
+- onLayout2: SectionList onLayout
+- onLayout3: SectionHeader onLayout
+
+accountsValue use array.find but not map
+*/
+export const WalletDetails = memo(WalletDetailsView);
