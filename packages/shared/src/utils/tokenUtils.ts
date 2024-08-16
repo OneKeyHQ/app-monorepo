@@ -232,7 +232,9 @@ export function mergeDeriveTokenList({
       const keyArr = token.$key.split('_');
       const mergedDeriveKey = `${keyArr[0]}_${keyArr[keyArr.length - 1]}`;
 
-      if (!newTokens.find((item) => item.$key === mergedDeriveKey)) {
+      if (!token.mergeAssets) {
+        newTokens.push(token);
+      } else if (!newTokens.find((item) => item.$key === mergedDeriveKey)) {
         newTokens.push({
           ...token,
           $key: mergedDeriveKey,
