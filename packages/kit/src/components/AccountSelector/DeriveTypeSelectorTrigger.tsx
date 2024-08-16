@@ -7,6 +7,7 @@ import type { ISelectItem, ISelectProps } from '@onekeyhq/components';
 import {
   Form,
   Icon,
+  IconButton,
   Select,
   SizableText,
   Stack,
@@ -268,10 +269,12 @@ export function DeriveTypeSelectorTriggerForHome({ num }: { num: number }) {
 export function DeriveTypeSelectorTriggerForDapp({ num }: { num: number }) {
   return (
     <DeriveTypeSelectorTrigger
+      placement="bottom-end"
       renderTrigger={({ label, onPress }) => (
-        <DeriveTypeSelectorTriggerIconRenderer
-          label={label}
+        <IconButton
           onPress={onPress}
+          icon="BranchesOutline"
+          variant="tertiary"
         />
       )}
       num={num}
