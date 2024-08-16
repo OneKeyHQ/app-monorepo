@@ -56,9 +56,8 @@ const CurrencyItem: FC<{
   );
 };
 
-const keyExtractor = (item: unknown) => {
-  const key = (item as ICurrencyItem).id;
-  return key;
+const keyExtractor = (_: unknown, index: number) => {
+  return `${index}`;
 };
 
 export default function SettingCurrencyModal() {
@@ -163,7 +162,7 @@ export default function SettingCurrencyModal() {
       />
       <Page.Body>
         <SectionList
-          estimatedItemSize="$6"
+          estimatedItemSize={60}
           ListEmptyComponent={
             <Empty
               icon="SearchOutline"
