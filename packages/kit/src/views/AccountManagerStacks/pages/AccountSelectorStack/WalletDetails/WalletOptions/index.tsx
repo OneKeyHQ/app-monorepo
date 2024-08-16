@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { Divider, Stack } from '@onekeyhq/components';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { Advance } from './Advance';
@@ -17,7 +18,7 @@ import type { IWalletDetailsProps } from '..';
 
 type IWalletOptionsProps = Partial<IWalletDetailsProps>;
 
-export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
+function WalletOptionsView({ wallet, device }: IWalletOptionsProps) {
   const [editMode] = useAccountSelectorEditModeAtom();
 
   const walletSpecifiedOptions = useMemo(() => {
@@ -83,6 +84,13 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
           //   opacity: 0,
           // }}
         >
+          {(() => {
+            defaultLogger.accountSelector.perf.renderWalletOptions({
+              wallet,
+            });
+            return null;
+          })()}
+
           {/* Profile: Avatar, Rename */}
           {wallet ? <WalletProfile wallet={wallet} /> : null}
 
@@ -97,3 +105,5 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
     </Stack>
   );
 }
+
+export const WalletOptions = memo(WalletOptionsView);

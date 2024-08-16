@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,7 +6,6 @@ import { ActionList, Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IDBAccount,
@@ -15,6 +14,7 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AccountExportPrivateKeyButton } from './AccountExportPrivateKeyButton';
@@ -22,7 +22,7 @@ import { AccountMoveToTopButton } from './AccountMoveToTopButton';
 import { AccountRemoveButton } from './AccountRemoveButton';
 import { AccountRenameButton } from './AccountRenameButton';
 
-export function AccountEditButton({
+function AccountEditButtonView({
   accountsCount,
   indexedAccount,
   firstIndexedAccount,
@@ -83,10 +83,7 @@ export function AccountEditButton({
     [account, indexedAccount, wallet?.id],
   );
 
-  const { result: exportKeysVisible } = usePromiseResult<{
-    showExportPrivateKey: boolean;
-    showExportPublicKey: boolean;
-  }>(async () => {
+  const getExportKeysVisible = useCallback(async () => {
     if (
       (isImportedAccount && account?.createAtNetwork) ||
       (isWatchingAccount &&
@@ -128,16 +125,27 @@ export function AccountEditButton({
     };
   }, [account, isHdAccount, isImportedAccount, isWatchingAccount]);
 
-  if (!config) {
-    return null;
-  }
-  return (
-    <ActionList
-      title={name}
-      renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
-      renderItems={({ handleActionListClose }) => (
+  const renderItems = useCallback(
+    async ({
+      handleActionListClose,
+    }: {
+      handleActionListClose: () => void;
+    }) => {
+      if (!config) {
+        return null;
+      }
+      const exportKeysVisible = await getExportKeysVisible();
+      return (
         // fix missing context in popover
         <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
+          {(() => {
+            defaultLogger.accountSelector.perf.renderAccountEditOptions({
+              wallet,
+              indexedAccount,
+              account,
+            });
+            return null;
+          })()}
           <AccountRenameButton
             name={name}
             indexedAccount={indexedAccount}
@@ -189,7 +197,29 @@ export function AccountEditButton({
             </>
           ) : null}
         </AccountSelectorProviderMirror>
-      )}
+      );
+    },
+    [
+      account,
+      config,
+      firstAccount,
+      firstIndexedAccount,
+      getExportKeysVisible,
+      indexedAccount,
+      intl,
+      name,
+      showRemoveButton,
+      wallet,
+    ],
+  );
+
+  return (
+    <ActionList
+      title={name}
+      renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
+      renderItems={renderItems}
     />
   );
 }
+
+export const AccountEditButton = memo(AccountEditButtonView);

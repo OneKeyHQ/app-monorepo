@@ -1,4 +1,9 @@
 import type {
+  IDBAccount,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
   IAccountSelectorFocusedWallet,
   IAccountSelectorSelectedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
@@ -81,5 +86,23 @@ export class AccountSelectorPerfScene extends BaseScene {
   @LogToConsole()
   public renderAccountsSectionListMock() {
     return [true];
+  }
+
+  @LogToConsole()
+  public renderWalletOptions({ wallet }: { wallet: IDBWallet | undefined }) {
+    return [wallet?.name];
+  }
+
+  @LogToConsole()
+  public renderAccountEditOptions({
+    wallet,
+    indexedAccount,
+    account,
+  }: {
+    wallet: IDBWallet | undefined;
+    indexedAccount?: IDBIndexedAccount;
+    account?: IDBAccount;
+  }) {
+    return [wallet?.name, indexedAccount?.name, account?.name];
   }
 }
