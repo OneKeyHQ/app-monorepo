@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { INavSearchBarProps } from '@onekeyhq/components';
-import { Empty, Page, SectionList } from '@onekeyhq/components';
+import { Empty, Page, SectionList, NativeSectionList } from '@onekeyhq/components';
 import {} from '@onekeyhq/components/src/layouts/SectionList';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -162,8 +162,7 @@ export default function SettingCurrencyModal() {
         headerSearchBarOptions={headerSearchBarOptions}
       />
       <Page.Body>
-        <SectionList
-          estimatedItemSize="$6"
+        <NativeSectionList
           ListEmptyComponent={
             <Empty
               icon="SearchOutline"
