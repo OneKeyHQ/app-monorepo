@@ -269,7 +269,7 @@ export function UniversalSearch({
                   price={String(price)}
                   size="$bodyLgMedium"
                   lastUpdate={lastUpdated}
-                  tokenName="symbol"
+                  tokenName={symbol}
                 />
                 <MarketStar coingeckoId={coingeckoId} ml="$3" />
               </XStack>
