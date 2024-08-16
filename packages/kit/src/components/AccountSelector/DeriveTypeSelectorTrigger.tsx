@@ -33,6 +33,8 @@ import {
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector';
 
+import type { GestureResponderEvent } from 'react-native';
+
 type IDeriveTypeSelectorTriggerPropsBase = {
   renderTrigger?: ISelectProps<ISelectItem>['renderTrigger'];
   defaultTriggerInputProps?: ISelectProps<ISelectItem>['defaultTriggerInputProps'];
@@ -203,7 +205,7 @@ function DeriveTypeSelectorTriggerIconRenderer({
 }: {
   label?: string | undefined;
   autoShowLabel?: boolean;
-  onPress?: () => void;
+  onPress?: (event: GestureResponderEvent) => void;
 }) {
   const media = useMedia();
   const hitSlop = platformEnv.isNative
