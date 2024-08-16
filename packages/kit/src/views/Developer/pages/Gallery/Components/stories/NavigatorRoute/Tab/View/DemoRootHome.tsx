@@ -57,6 +57,9 @@ const DemoRootHome = () => {
             outlineColor: '$focusRing',
           }}
           borderRadius="$2"
+          onPress={() => {
+            console.log('onPress Row');
+          }}
         >
           <Stack
             w="$6"
