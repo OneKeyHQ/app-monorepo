@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   HeaderIconButton,
   NavBackButton,
-  NumberSizeableText,
   Page,
   ScrollView,
   SizableText,
@@ -18,10 +17,7 @@ import {
   useShare,
 } from '@onekeyhq/components';
 import type { IPageScreenProps } from '@onekeyhq/components';
-import {
-  EJotaiContextStoreNames,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -39,6 +35,7 @@ import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
 import { MarketStar } from './components/MarketStar';
 import { MarketTokenIcon } from './components/MarketTokenIcon';
+import { MarketTokenPrice } from './components/MarketTokenPrice';
 import { PriceChangePercentage } from './components/PriceChangePercentage';
 import { TextCell } from './components/TextCell';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
@@ -54,11 +51,10 @@ function TokenDetailHeader({
   token: IMarketTokenDetail;
 }) {
   const intl = useIntl();
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
   const [token, setToken] = useState(responseToken);
   const {
     name,
+    symbol,
     stats: {
       performance,
       volume24h,
@@ -66,6 +62,7 @@ function TokenDetailHeader({
       marketCapRank,
       fdv,
       currentPrice,
+      lastUpdated,
     },
   } = token;
   const { gtMd } = useMedia();
@@ -88,13 +85,12 @@ function TokenDetailHeader({
           {name}
         </SizableText>
         <XStack ai="center" jc="space-between" pt="$2">
-          <NumberSizeableText
+          <MarketTokenPrice
             size="$heading3xl"
-            formatterOptions={{ currency }}
-            formatter="price"
-          >
-            {currentPrice || 0}
-          </NumberSizeableText>
+            price={currentPrice}
+            tokenName={symbol}
+            lastUpdate={lastUpdated}
+          />
           <MarketStar coingeckoId={coinGeckoId} mr="$-2" size="medium" />
         </XStack>
         <PriceChangePercentage pt="$0.5">

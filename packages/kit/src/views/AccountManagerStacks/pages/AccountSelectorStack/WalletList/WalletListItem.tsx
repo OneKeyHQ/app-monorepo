@@ -109,6 +109,7 @@ export function WalletListItem({
             mt="$1"
             size="$bodySm"
             color={selected ? '$text' : '$textSubdued'}
+            textAlign="center"
           >
             {i18nWalletName}
           </SizableText>

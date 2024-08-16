@@ -31,15 +31,16 @@ import type {
 
 function TxActionCommonAvatar({
   avatar,
-  networkId,
-}: Pick<ITxActionCommonListViewProps, 'avatar' | 'tableLayout' | 'networkId'>) {
+  networkLogoURI,
+}: Pick<
+  ITxActionCommonListViewProps,
+  'avatar' | 'tableLayout' | 'networkLogoURI'
+>) {
   const containerSize = '$10';
 
   const {
     activeAccount: { network: activeNetwork },
   } = useActiveAccount({ num: 0 });
-
-  const { network } = useAccountData({ networkId });
 
   if (!avatar.src || typeof avatar.src === 'string') {
     return (
@@ -49,7 +50,7 @@ function TxActionCommonAvatar({
         fallbackIcon={avatar.fallbackIcon}
         tokenImageUri={avatar.src}
         networkImageUri={
-          activeNetwork?.isAllNetworks ? network?.logoURI : undefined
+          activeNetwork?.isAllNetworks ? networkLogoURI : undefined
         }
       />
     );
@@ -69,7 +70,7 @@ function TxActionCommonAvatar({
           fallbackIcon={avatar.fallbackIcon}
           tokenImageUri={avatar.src[0]}
           networkImageUri={
-            activeNetwork?.isAllNetworks ? network?.logoURI : undefined
+            activeNetwork?.isAllNetworks ? networkLogoURI : undefined
           }
         />
       </Stack>
@@ -85,7 +86,7 @@ function TxActionCommonAvatar({
           fallbackIcon={avatar.fallbackIcon}
           tokenImageUri={avatar.src[1]}
           networkImageUri={
-            activeNetwork?.isAllNetworks ? network?.logoURI : undefined
+            activeNetwork?.isAllNetworks ? networkLogoURI : undefined
           }
         />
       </Stack>
@@ -249,6 +250,7 @@ function TxActionCommonListView(
     hideFeeInfo,
     replaceType,
     networkId,
+    networkLogoURI,
     ...rest
   } = props;
   const [settings] = useSettingsPersistAtom();
@@ -278,7 +280,7 @@ function TxActionCommonListView(
             <TxActionCommonAvatar
               avatar={avatar}
               tableLayout={tableLayout}
-              networkId={networkId}
+              networkLogoURI={networkLogoURI}
             />
           ) : null}
           <Stack flex={1}>

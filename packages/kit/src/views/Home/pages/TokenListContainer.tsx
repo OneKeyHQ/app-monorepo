@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
+import { useThrottledCallback } from 'use-debounce';
 
 import type { ITabPageProps } from '@onekeyhq/components';
 import {
@@ -77,6 +78,26 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
     },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
+
+  const tokenListRef = useRef<{
+    keys: string;
+    tokens: IAccountToken[];
+    map: { [key: string]: ITokenFiat };
+  }>({
+    keys: '',
+    tokens: [],
+    map: {},
+  });
+
+  const riskyTokenListRef = useRef<{
+    keys: string;
+    tokens: IAccountToken[];
+    map: { [key: string]: ITokenFiat };
+  }>({
+    keys: '',
+    tokens: [],
+    map: {},
+  });
 
   const { vaultSettings } = useAccountData({ networkId: network?.id ?? '' });
 
@@ -282,6 +303,49 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   );
 
   const isAllNetworkManualRefresh = useRef(false);
+
+  const updateAllNetworkData = useThrottledCallback(() => {
+    refreshTokenListMap({
+      tokens: tokenListRef.current.map,
+      merge: true,
+      mergeDerive: true,
+    });
+
+    refreshSmallBalanceTokenListMap({
+      tokens: tokenListRef.current.map,
+      merge: true,
+      mergeDerive: true,
+    });
+
+    refreshTokenList({
+      keys: tokenListRef.current.keys,
+      tokens: tokenListRef.current.tokens,
+      merge: true,
+      map: tokenListRef.current.map,
+      mergeDerive: true,
+      split: true,
+    });
+
+    refreshRiskyTokenListMap({
+      tokens: riskyTokenListRef.current.map,
+      merge: true,
+      mergeDerive: true,
+    });
+    refreshRiskyTokenList({
+      keys: riskyTokenListRef.current.keys,
+      riskyTokens: riskyTokenListRef.current.tokens,
+      merge: true,
+      map: riskyTokenListRef.current.map,
+      mergeDerive: true,
+    });
+
+    tokenListRef.current.tokens = [];
+    tokenListRef.current.keys = '';
+
+    riskyTokenListRef.current.tokens = [];
+    riskyTokenListRef.current.keys = '';
+  }, 1000);
+
   const handleAllNetworkRequests = useCallback(
     async ({
       accountId,
@@ -310,11 +374,10 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           .plus(r.riskTokens.fiatValue ?? '0')
           .plus(r.smallBalanceTokens.fiatValue ?? '0');
 
-        const mergeDeriveAssetsEnabled = !!(
-          await backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId,
-          })
-        ).mergeDeriveAssetsEnabled;
+        updateTokenListState({
+          initialized: true,
+          isRefreshing: false,
+        });
 
         updateAccountOverviewState({
           isRefreshing: false,
@@ -328,49 +391,34 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           merge: true,
         });
 
-        const tokensMap = {
+        const mergeDeriveAssetsEnabled = !!(
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          })
+        ).mergeDeriveAssetsEnabled;
+
+        tokenListRef.current.tokens = tokenListRef.current.tokens.concat([
+          ...r.tokens.data,
+          ...r.smallBalanceTokens.data,
+        ]);
+
+        tokenListRef.current.keys = `${tokenListRef.current.keys}_${r.tokens.keys}`;
+
+        tokenListRef.current.map = {
           ...r.tokens.map,
           ...r.smallBalanceTokens.map,
+          ...tokenListRef.current.map,
         };
 
-        refreshTokenListMap({
-          tokens: tokensMap,
-          merge: true,
-          mergeDerive: mergeDeriveAssetsEnabled,
-        });
+        riskyTokenListRef.current.tokens =
+          riskyTokenListRef.current.tokens.concat([...r.riskTokens.data]);
 
-        refreshSmallBalanceTokenListMap({
-          tokens: tokensMap,
-          merge: true,
-          mergeDerive: mergeDeriveAssetsEnabled,
-        });
+        riskyTokenListRef.current.keys = `${riskyTokenListRef.current.keys}_${r.riskTokens.keys}`;
 
-        refreshTokenList({
-          keys: r.tokens.keys,
-          tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
-          merge: true,
-          map: tokensMap,
-          mergeDerive: mergeDeriveAssetsEnabled,
-          split: true,
-        });
-
-        refreshRiskyTokenListMap({
-          tokens: r.riskTokens.map,
-          merge: true,
-          mergeDerive: mergeDeriveAssetsEnabled,
-        });
-        refreshRiskyTokenList({
-          keys: r.riskTokens.keys,
-          riskyTokens: r.riskTokens.data,
-          merge: true,
-          map: r.riskTokens.map,
-          mergeDerive: mergeDeriveAssetsEnabled,
-        });
-
-        updateTokenListState({
-          initialized: true,
-          isRefreshing: false,
-        });
+        riskyTokenListRef.current.map = {
+          ...r.riskTokens.map,
+          ...riskyTokenListRef.current.map,
+        };
 
         if (r.allTokens) {
           refreshAllTokenListMap({
@@ -385,7 +433,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
             merge: true,
             mergeDerive: mergeDeriveAssetsEnabled,
           });
-
           appEventBus.emit(EAppEventBusNames.TokenListUpdate, {
             tokens: r.allTokens.data,
             keys: r.allTokens.keys,
@@ -393,6 +440,8 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
             merge: true,
           });
         }
+
+        updateAllNetworkData();
       }
 
       isAllNetworkManualRefresh.current = false;
@@ -403,13 +452,9 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       network?.id,
       refreshAllTokenList,
       refreshAllTokenListMap,
-      refreshRiskyTokenList,
-      refreshRiskyTokenListMap,
-      refreshSmallBalanceTokenListMap,
-      refreshTokenList,
-      refreshTokenListMap,
       updateAccountOverviewState,
       updateAccountWorth,
+      updateAllNetworkData,
       updateTokenListState,
     ],
   );

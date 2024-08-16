@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useTokenListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useAllTokenListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -19,7 +19,7 @@ export function useTokenManagement({
 }) {
   const intl = useIntl();
   const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
-  const [tokenList] = useTokenListAtom();
+  const [tokenList] = useAllTokenListAtom();
 
   const {
     result,

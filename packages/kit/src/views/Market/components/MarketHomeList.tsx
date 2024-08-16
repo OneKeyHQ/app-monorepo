@@ -9,7 +9,11 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { InteractionManager, StyleSheet } from 'react-native';
+import {
+  InteractionManager,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 import type {
@@ -58,6 +62,7 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { MarketMore } from './MarketMore';
 import { MarketStar } from './MarketStar';
 import { MarketTokenIcon } from './MarketTokenIcon';
+import { MarketTokenPrice } from './MarketTokenPrice';
 import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
@@ -196,15 +201,6 @@ function BasicMarketHomeList({
     };
   }, [fetchCategory]);
 
-  const toDetailPage = useCallback(
-    (item: IMarketToken) => {
-      navigation.push(ETabMarketRoutes.MarketDetail, {
-        token: item.coingeckoId,
-      });
-    },
-    [navigation],
-  );
-
   const { gtMd, md } = useMedia();
 
   const filterCoingeckoIdsListData = useMemo(() => {
@@ -235,71 +231,84 @@ function BasicMarketHomeList({
   ]);
 
   const actions = useWatchListAction();
+  const isShowActionSheet = useRef(false);
+
+  const toDetailPage = useCallback(
+    (item: IMarketToken) => {
+      if (isShowActionSheet.current) {
+        return;
+      }
+      navigation.push(ETabMarketRoutes.MarketDetail, {
+        token: item.coingeckoId,
+      });
+    },
+    [navigation],
+  );
+
   const handleMdItemAction = useCallback(
     async ({ coingeckoId, symbol }: IMarketToken) => {
       const isInWatchList = actions.isInWatchList(coingeckoId);
       const title = symbol.toUpperCase();
-      ActionList.show(
-        isInWatchList
-          ? {
-              title,
-              sections: [
-                {
-                  items: [
-                    {
-                      destructive: true,
-                      icon: 'DeleteOutline',
-                      label: intl.formatMessage({
-                        id: ETranslations.market_remove_from_watchlist,
-                      }),
-                      onPress: () => {
-                        actions.removeFormWatchList(coingeckoId);
-                      },
+      const onClose = () => {
+        isShowActionSheet.current = false;
+      };
+      isShowActionSheet.current = true;
+      ActionList.show({
+        title,
+        onClose,
+        sections: [
+          {
+            items: [
+              isInWatchList
+                ? {
+                    destructive: true,
+                    icon: 'DeleteOutline',
+                    label: intl.formatMessage({
+                      id: ETranslations.market_remove_from_watchlist,
+                    }),
+                    onPress: () => {
+                      actions.removeFormWatchList(coingeckoId);
                     },
-                    showMoreAction && {
-                      icon: 'ArrowTopOutline',
-                      label: intl.formatMessage({
-                        id: ETranslations.market_move_to_top,
-                      }),
-                      onPress: () => {
-                        actions.MoveToTop(coingeckoId);
-                      },
+                  }
+                : {
+                    icon: 'StarOutline',
+                    label: intl.formatMessage({
+                      id: ETranslations.market_add_to_watchlist,
+                    }),
+                    onPress: () => {
+                      actions.addIntoWatchList(coingeckoId);
                     },
-                  ].filter(Boolean) as IActionListItemProps[],
+                  },
+              showMoreAction && {
+                icon: 'ArrowTopOutline',
+                label: intl.formatMessage({
+                  id: ETranslations.market_move_to_top,
+                }),
+                onPress: () => {
+                  actions.MoveToTop(coingeckoId);
                 },
-              ],
-            }
-          : {
-              title,
-              sections: [
-                {
-                  items: [
-                    {
-                      icon: 'StarOutline',
-
-                      label: intl.formatMessage({
-                        id: ETranslations.market_add_to_watchlist,
-                      }),
-                      onPress: () => {
-                        actions.addIntoWatchList(coingeckoId);
-                      },
-                    },
-                  ],
-                },
-              ],
-            },
-      );
+              },
+            ].filter(Boolean) as IActionListItemProps[],
+          },
+        ],
+      });
     },
     [actions, intl, showMoreAction],
   );
 
+  const { width: screenWidth } = useWindowDimensions();
+
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
+
   const renderMdItem = useCallback(
     (item: IMarketToken) => {
       const pressEvents = {
         onPress: () => toDetailPage(item),
-        onLongPress: () => handleMdItemAction(item),
+        onLongPress: () => {
+          void handleMdItemAction(item);
+        },
+        delayLongPress: platformEnv.isNative ? undefined : 300,
       };
       return (
         <TouchableContainer
@@ -347,16 +356,25 @@ function BasicMarketHomeList({
               </YStack>
             </XStack>
             <XStack ai="center" gap="$5">
-              <NumberSizeableText
-                userSelect="none"
-                flexShrink={1}
-                numberOfLines={1}
-                size="$bodyLgMedium"
-                formatter={mdColumnKeys[0] === 'price' ? 'price' : 'marketCap'}
-                formatterOptions={{ currency }}
-              >
-                {item[mdColumnKeys[0]] as string}
-              </NumberSizeableText>
+              {mdColumnKeys[0] === 'price' ? (
+                <MarketTokenPrice
+                  size="$bodyLgMedium"
+                  price={String(item[mdColumnKeys[0]])}
+                  tokenName={item.symbol}
+                  lastUpdate={item.lastUpdated}
+                />
+              ) : (
+                <NumberSizeableText
+                  userSelect="none"
+                  flexShrink={1}
+                  numberOfLines={1}
+                  size="$bodyLgMedium"
+                  formatter="marketCap"
+                  formatterOptions={{ currency }}
+                >
+                  {item[mdColumnKeys[0]] as string}
+                </NumberSizeableText>
+              )}
               {item[mdColumnKeys[1]] ? (
                 <XStack
                   width="$20"
@@ -393,11 +411,14 @@ function BasicMarketHomeList({
 
   const renderSelectTrigger = useCallback(
     ({ label }: { label?: string }) => (
-      <XStack ai="center" gap="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {label}
-        </SizableText>
-        <Icon name="ChevronDownSmallSolid" size="$4" />
+      <XStack ai="center" gap="$2">
+        <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
+        <XStack ai="center" gap="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {label}
+          </SizableText>
+          <Icon name="ChevronDownSmallSolid" size="$4" />
+        </XStack>
       </XStack>
     ),
     [],
@@ -599,15 +620,13 @@ function BasicMarketHomeList({
                 flexGrow: 1,
                 flexBasis: 0,
               },
-              render: (price: string) => (
-                <NumberSizeableText
-                  userSelect="none"
+              render: (price: string, record: IMarketToken) => (
+                <MarketTokenPrice
                   size="$bodyMd"
-                  formatter="price"
-                  formatterOptions={{ currency }}
-                >
-                  {price || '-'}
-                </NumberSizeableText>
+                  price={price}
+                  tokenName={record.symbol}
+                  lastUpdate={record.lastUpdated}
+                />
               ),
               renderSkeleton: () => <Skeleton w="$20" h="$3" />,
             },
@@ -826,6 +845,17 @@ function BasicMarketHomeList({
     [handleSortTypeChange],
   );
 
+  const rowProps = useMemo(() => {
+    if (gtMd) {
+      return ROW_PROPS;
+    }
+    return platformEnv.isNativeAndroid
+      ? {
+          width: screenWidth,
+        }
+      : undefined;
+  }, [gtMd, screenWidth]);
+
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
       <YStack flex={1} ai="center" jc="center">
@@ -843,16 +873,13 @@ function BasicMarketHomeList({
           borderBottomColor="$borderSubdued"
         >
           <XStack h="$11" ai="center" justifyContent="space-between">
-            <XStack ai="center" gap="$2">
-              <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
-              <Select
-                items={selectOptions}
-                title={intl.formatMessage({ id: ETranslations.market_sort_by })}
-                value={mdSortByType}
-                onChange={handleMdSortByTypeChange}
-                renderTrigger={renderSelectTrigger}
-              />
-            </XStack>
+            <Select
+              items={selectOptions}
+              title={intl.formatMessage({ id: ETranslations.market_sort_by })}
+              value={mdSortByType}
+              onChange={handleMdSortByTypeChange}
+              renderTrigger={renderSelectTrigger}
+            />
             {/* <Popover
               title="Settings"
               renderTrigger={
@@ -883,7 +910,7 @@ function BasicMarketHomeList({
           stickyHeaderHiddenOnScroll
           onRow={onRow}
           onHeaderRow={onHeaderRow}
-          rowProps={gtMd ? ROW_PROPS : undefined}
+          rowProps={rowProps}
           showHeader={gtMd}
           columns={columns}
           dataSource={sortedListData as unknown as IMarketToken[]}
