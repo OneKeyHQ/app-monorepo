@@ -10,10 +10,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
-import {
-  useActiveAccountValueAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -55,7 +52,6 @@ function HomeOverviewContainer() {
     useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
-  const [, setActiveAccountValueAtom] = useActiveAccountValueAtom();
 
   const { result: vaultSettings } = usePromiseResult(async () => {
     if (!network) return;
@@ -146,12 +142,6 @@ function HomeOverviewContainer() {
           ? account.id
           : (account.indexedAccountId as string);
 
-        setActiveAccountValueAtom({
-          accountId: accountValueId,
-          value: accountWorth.worth,
-          currency: settings.currencyInfo.id,
-        });
-
         void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
           accountId: accountValueId,
           value: accountWorth.worth,
@@ -165,7 +155,6 @@ function HomeOverviewContainer() {
     accountWorth.initialized,
     accountWorth.worth,
     network,
-    setActiveAccountValueAtom,
     settings.currencyInfo.id,
     wallet,
   ]);
