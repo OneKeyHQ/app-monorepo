@@ -56,9 +56,7 @@ const CurrencyItem: FC<{
   );
 };
 
-const keyExtractor = (_: unknown, index: number) => {
-  return `${index}`;
-};
+const keyExtractor = (_: unknown, index: number) => `${index}`;
 
 export default function SettingCurrencyModal() {
   const [settings] = useSettingsPersistAtom();
