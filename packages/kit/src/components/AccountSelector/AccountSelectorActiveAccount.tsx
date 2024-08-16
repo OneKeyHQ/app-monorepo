@@ -49,6 +49,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   useListenTabFocusState(
     ETabRoutes.Home,
     async (focus: boolean, hideByModal: boolean) => {
+      clearInterval(timerIdRef.current);
       setIsFocus(focus && !hideByModal);
     },
   );
