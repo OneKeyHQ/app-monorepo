@@ -1,13 +1,17 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
@@ -38,6 +42,7 @@ function useReceiveToken({
     initialized: boolean;
   };
 }) {
+  const intl = useIntl();
   const { vaultSettings, account, network } = useAccountData({
     networkId,
     accountId,
@@ -76,29 +81,47 @@ function useReceiveToken({
         navigation.pushModal(EModalRoutes.ReceiveModal, {
           screen: EModalReceiveRoutes.ReceiveSelectToken,
           params: {
+            title: intl.formatMessage({ id: ETranslations.global_receive }),
             networkId,
             accountId,
             tokens,
             tokenListState,
             searchAll: true,
             closeAfterSelect: false,
+            footerTipText: intl.formatMessage({
+              id: ETranslations.receive_token_list_footer_text,
+            }),
             onSelect: async (t: IToken) => {
+              if (networkUtils.isLightningNetworkByNetworkId(t.networkId)) {
+                navigation.pushModal(EModalRoutes.ReceiveModal, {
+                  screen: EModalReceiveRoutes.CreateInvoice,
+                  params: {
+                    networkId: t.networkId ?? '',
+                    accountId: t.accountId ?? '',
+                  },
+                });
+                return;
+              }
+
               const settings =
                 await backgroundApiProxy.serviceNetwork.getVaultSettings({
                   networkId: t.networkId ?? '',
                 });
 
-              if (settings.mergeDeriveAssetsEnabled && network?.isAllNetworks) {
+              if (
+                settings.mergeDeriveAssetsEnabled &&
+                network?.isAllNetworks &&
+                !accountUtils.isOthersWallet({ walletId })
+              ) {
                 navigation.push(
                   EModalReceiveRoutes.ReceiveSelectDeriveAddress,
                   {
                     networkId: t.networkId ?? '',
                     indexedAccountId: account?.indexedAccountId ?? '',
-                    walletId,
                     token: t,
+                    tokenMap: tokens?.map,
                     accountId: t.accountId ?? '',
                     actionType: EDeriveAddressActionType.Select,
-                    onUnmounted: () => {},
                     onSelected: ({
                       account: a,
                       deriveInfo: di,
@@ -140,6 +163,7 @@ function useReceiveToken({
       accountId,
       deriveInfo,
       deriveType,
+      intl,
       navigation,
       network?.isAllNetworks,
       networkId,

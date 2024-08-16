@@ -1,16 +1,26 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
   Empty,
   SearchBar,
   SectionList,
   SortableSectionList,
   Stack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+// import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
@@ -40,8 +50,13 @@ const ListHeaderComponent = () => {
   const { allNetworkItem, searchText } = useContext(
     EditableChainSelectorContext,
   );
-  if (!allNetworkItem || searchText?.trim()) return null;
-  return <EditableListItem item={allNetworkItem} isEditable={false} />;
+  return (
+    <Stack mt="$2">
+      {!allNetworkItem || searchText?.trim() ? null : (
+        <EditableListItem item={allNetworkItem} isEditable={false} />
+      )}
+    </Stack>
+  );
 };
 
 type IEditableChainSelectorContentProps = {
@@ -68,12 +83,18 @@ export const EditableChainSelectorContent = ({
   onFrequentlyUsedItemsChange,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   const [searchText, setSearchText] = useState('');
   const [tempFrequentlyUsedItems, setTempFrequentlyUsedItems] = useState(
     frequentlyUsedItems ?? [],
   );
+  const listRef = useRef<ISortableSectionListRef<any> | null>(null);
   const lastIsEditMode = usePrevious(isEditMode);
   const searchTextTrim = searchText.trim();
+  const showAllNetworkHeader = useMemo(
+    () => (allNetworkItem && !searchText?.trim?.()) ?? true,
+    [allNetworkItem, searchText],
+  );
 
   useEffect(() => {
     if (!isEditMode && lastIsEditMode) {
@@ -111,15 +132,25 @@ export const EditableChainSelectorContent = ({
             },
           ];
     }
-    const data = mainnetItems.reduce((result, item) => {
-      const char = item.name[0].toUpperCase();
-      if (!result[char]) {
-        result[char] = [];
-      }
-      result[char].push(item);
 
-      return result;
-    }, {} as Record<string, IServerNetwork[]>);
+    const tempFrequentlyUsedItemsSet = new Set(
+      tempFrequentlyUsedItems.map((o) => o.id),
+    );
+    const filterFrequentlyUsedNetworks = (inputs: IServerNetwork[]) =>
+      inputs.filter((o) => !tempFrequentlyUsedItemsSet.has(o.id));
+
+    const data = filterFrequentlyUsedNetworks(mainnetItems).reduce(
+      (result, item) => {
+        const char = item.name[0].toUpperCase();
+        if (!result[char]) {
+          result[char] = [];
+        }
+        result[char].push(item);
+
+        return result;
+      },
+      {} as Record<string, IServerNetwork[]>,
+    );
 
     const mainnetSections = Object.entries(data)
       .map(([key, value]) => ({ title: key, data: value }))
@@ -135,7 +166,7 @@ export const EditableChainSelectorContent = ({
         title: intl.formatMessage({
           id: ETranslations.global_testnet,
         }),
-        data: testnetItems,
+        data: filterFrequentlyUsedNetworks(testnetItems),
       });
     }
     if (unavailableItems.length > 0) {
@@ -158,15 +189,23 @@ export const EditableChainSelectorContent = ({
     networkFuseSearch,
   ]);
 
+  const dragItemOverflowHitSlop = useMemo(() => {
+    const dragCount = tempFrequentlyUsedItems.length;
+    if (dragCount <= 0) {
+      return undefined;
+    }
+    return { bottom: (dragCount + 1) * CELL_HEIGHT + 8 };
+  }, [tempFrequentlyUsedItems]);
+
   const layoutList = useMemo(() => {
-    let offset = 0;
+    let offset = 8 + (showAllNetworkHeader ? CELL_HEIGHT : 0);
     const layouts: { offset: number; length: number; index: number }[] = [];
     sections.forEach((section, sectionIndex) => {
       if (sectionIndex !== 0) {
         layouts.push({ offset, length: 20, index: layouts.length });
         offset += 20;
       }
-      const headerHeight = section.title ? 36 : 8;
+      const headerHeight = section.title ? 36 : 0;
       layouts.push({ offset, length: headerHeight, index: layouts.length });
       offset += headerHeight;
       section.data.forEach(() => {
@@ -179,33 +218,56 @@ export const EditableChainSelectorContent = ({
     });
     layouts.push({ offset, length: 8, index: layouts.length });
     return layouts;
-  }, [sections]);
+  }, [sections, showAllNetworkHeader]);
 
   const initialScrollIndex = useMemo(() => {
+    if (searchText.trim()) {
+      return undefined;
+    }
     let _initialScrollIndex:
       | { sectionIndex: number; itemIndex?: number }
       | undefined;
     sections.forEach((section, sectionIndex) => {
       section.data.forEach((item, itemIndex) => {
         if (item.id === networkId && _initialScrollIndex === undefined) {
-          _initialScrollIndex = { sectionIndex, itemIndex: itemIndex - 1 };
+          _initialScrollIndex = {
+            sectionIndex,
+            itemIndex: itemIndex - ((section?.title?.length ?? 0) > 0 ? 1 : 0),
+          };
           if (
             _initialScrollIndex &&
-            (_initialScrollIndex?.itemIndex ?? 0) <= 0
+            _initialScrollIndex.itemIndex !== undefined
           ) {
-            _initialScrollIndex.itemIndex = undefined;
+            // if (!platformEnv.isNative) {
+            //   _initialScrollIndex.itemIndex += 1;
+            // }
+            const _itemIndex = _initialScrollIndex?.itemIndex ?? 0;
+            if (_itemIndex === -1) {
+              _initialScrollIndex.itemIndex = undefined;
+            }
+            if (
+              _itemIndex === section.data.length &&
+              sectionIndex !== sections.length - 1
+            ) {
+              _initialScrollIndex.sectionIndex += 1;
+              _initialScrollIndex.itemIndex = undefined;
+            }
           }
         }
       });
     });
     if (
-      _initialScrollIndex?.sectionIndex === 0 &&
-      (_initialScrollIndex?.itemIndex ?? 0) <= 10
+      _initialScrollIndex?.sectionIndex !== undefined &&
+      sections
+        .slice(0, _initialScrollIndex.sectionIndex)
+        .reduce((prev, section) => prev + section.data.length, 0) +
+        (_initialScrollIndex?.itemIndex ?? 0) <=
+        7
     ) {
-      _initialScrollIndex.itemIndex = undefined;
+      return { sectionIndex: 0, itemIndex: undefined };
     }
     return _initialScrollIndex;
-  }, [sections, networkId]);
+  }, [sections, networkId, searchText]);
 
   const context = useMemo<IEditableChainSelectorContext>(
     () => ({
@@ -271,14 +333,30 @@ export const EditableChainSelectorContent = ({
               id: ETranslations.global_search,
             })}
             value={searchText}
-            onChangeText={(text) => setSearchText(text.trim())}
+            onChangeText={(text) => {
+              // @ts-ignore
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+              listRef?.current?._listRef?._scrollRef?.scrollTo?.({
+                y: 0,
+                animated: false,
+              });
+              // @ts-ignore
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              if (listRef?.current?._listRef?._hasDoneInitialScroll) {
+                // @ts-ignore
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                listRef.current._listRef._hasDoneInitialScroll = false;
+              }
+              setSearchText(text.trim());
+            }}
           />
         </Stack>
         <Stack flex={1}>
           {sections.length > 0 ? (
             <SortableSectionList
+              ref={listRef}
               enabled={isEditMode}
-              // stickySectionHeadersEnabled
+              stickySectionHeadersEnabled
               sections={sections}
               renderItem={renderItem}
               keyExtractor={(item) => (item as IServerNetwork).id}
@@ -288,6 +366,7 @@ export const EditableChainSelectorContent = ({
                 setTempFrequentlyUsedItems(itemList);
               }}
               initialScrollIndex={initialScrollIndex}
+              dragItemOverflowHitSlop={dragItemOverflowHitSlop}
               getItemLayout={(item, index) => {
                 if (index === -1) {
                   return { index, offset: 0, length: 0 };
@@ -296,7 +375,7 @@ export const EditableChainSelectorContent = ({
               }}
               ListHeaderComponent={ListHeaderComponent}
               renderSectionHeader={renderSectionHeader}
-              ListFooterComponent={<Stack h="$2" />} // Act as padding bottom
+              ListFooterComponent={<Stack h={bottom || '$2'} />} // Act as padding bottom
             />
           ) : (
             <ListEmptyComponent />

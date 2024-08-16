@@ -22,6 +22,9 @@ export enum EScopeName {
   token = 'token',
   swap = 'swap',
   transaction = 'transaction',
+  hardware = 'hardware',
+  fiatCrypto = 'fiatCrypto',
+  accountSelector = 'accountSelector',
 }
 export interface IScope {
   getName: () => EScopeName;

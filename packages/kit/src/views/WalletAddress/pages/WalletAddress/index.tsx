@@ -25,6 +25,8 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -35,19 +37,25 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  EModalReceiveRoutes,
+  EModalRoutes,
   EModalWalletAddressRoutes,
   type IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  EAccountSelectorSceneName,
+  type IServerNetwork,
+} from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 type IWalletAddressContext = {
   networkAccountMap: Record<string, INetworkAccount>;
   networkDeriveTypeMap: Record<string, IAccountDeriveTypes>;
   accountId?: string;
   indexedAccountId: string;
-  walletId: string;
   refreshLocalData: () => void;
 };
 
@@ -56,7 +64,6 @@ const WalletAddressContext = createContext<IWalletAddressContext>({
   networkDeriveTypeMap: {},
   accountId: '',
   indexedAccountId: '',
-  walletId: '',
   refreshLocalData: () => {},
 });
 
@@ -69,8 +76,7 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   const appNavigation =
     useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
   const intl = useIntl();
-  const { walletId, indexedAccountId, accountId } =
-    useContext(WalletAddressContext);
+  const { indexedAccountId } = useContext(WalletAddressContext);
 
   const { result, run: onRefreshData } = usePromiseResult(
     () =>
@@ -85,19 +91,11 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   const onPress = useCallback(() => {
     appNavigation.push(EModalWalletAddressRoutes.DeriveTypesAddress, {
       networkId: item.id,
-      walletId,
       indexedAccountId,
-      accountId,
       onUnmounted: onRefreshData,
+      actionType: EDeriveAddressActionType.Copy,
     });
-  }, [
-    appNavigation,
-    walletId,
-    indexedAccountId,
-    accountId,
-    item.id,
-    onRefreshData,
-  ]);
+  }, [appNavigation, indexedAccountId, item.id, onRefreshData]);
 
   const subtitle = useMemo(() => {
     let text = intl.formatMessage({
@@ -150,13 +148,15 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const copyAccountAddress = useCopyAccountAddress();
+  const appNavigation =
+    useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
   const {
     networkAccountMap,
     networkDeriveTypeMap,
-    walletId,
     indexedAccountId,
     refreshLocalData,
   } = useContext(WalletAddressContext);
+  const { createAddress } = useAccountSelectorCreateAddress();
   const deriveType = networkDeriveTypeMap[item.id] || 'default';
   const account = networkAccountMap[item.id] as INetworkAccount | undefined;
   const subtitle = account
@@ -169,19 +169,36 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     if (!account) {
       try {
         setLoading(true);
-        await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
-          walletId,
+        const { walletId } = accountUtils.parseIndexedAccountId({
           indexedAccountId,
-          deriveType,
-          networkId: item.id,
+        });
+        await createAddress({
+          account: {
+            walletId,
+            networkId: item.id,
+            indexedAccountId,
+            deriveType,
+          },
+          selectAfterCreate: false,
+          num: 0,
         });
         Toast.success({
-          title: intl.formatMessage({ id: ETranslations.global_success }),
+          title: intl.formatMessage({
+            id: ETranslations.swap_page_toast_address_generated,
+          }),
         });
         refreshLocalData();
       } finally {
         setLoading(false);
       }
+    } else if (networkUtils.isLightningNetworkByNetworkId(item.id)) {
+      appNavigation.pushModal(EModalRoutes.ReceiveModal, {
+        screen: EModalReceiveRoutes.CreateInvoice,
+        params: {
+          networkId: item.id,
+          accountId: account.id,
+        },
+      });
     } else if (account && account.address) {
       await copyAccountAddress({
         accountId: account.id,
@@ -191,13 +208,14 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     }
   }, [
     account,
-    walletId,
+    item.id,
     indexedAccountId,
     deriveType,
-    item.id,
-    refreshLocalData,
     intl,
+    refreshLocalData,
+    appNavigation,
     copyAccountAddress,
+    createAddress,
   ]);
 
   if (item.id === getNetworkIdsMap().btc) {
@@ -363,7 +381,7 @@ export default function WalletAddressPage({
   IModalWalletAddressParamList,
   EModalWalletAddressRoutes.WalletAddress
 >) {
-  const { accountId, indexedAccountId, walletId } = route.params;
+  const { accountId, indexedAccountId } = route.params;
   const { result, run: refreshLocalData } = usePromiseResult(
     async () => {
       const networks =
@@ -413,26 +431,27 @@ export default function WalletAddressPage({
     return {
       networkAccountMap,
       networkDeriveTypeMap,
-      walletId,
       accountId,
       indexedAccountId,
       refreshLocalData,
     } as IWalletAddressContext;
-  }, [
-    result.networksAccount,
-    walletId,
-    indexedAccountId,
-    accountId,
-    refreshLocalData,
-  ]);
+  }, [result.networksAccount, indexedAccountId, accountId, refreshLocalData]);
 
   return (
-    <WalletAddressContext.Provider value={context}>
-      <WalletAddress
-        testnetItems={result.networks.testnetItems}
-        mainnetItems={result.networks.mainnetItems}
-        frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
-      />
-    </WalletAddressContext.Provider>
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <WalletAddressContext.Provider value={context}>
+        <WalletAddress
+          testnetItems={result.networks.testnetItems}
+          mainnetItems={result.networks.mainnetItems}
+          frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
+        />
+      </WalletAddressContext.Provider>
+    </AccountSelectorProviderMirror>
   );
 }

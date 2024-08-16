@@ -15,7 +15,6 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AccountExportPrivateKeyButton } from './AccountExportPrivateKeyButton';
@@ -24,12 +23,14 @@ import { AccountRemoveButton } from './AccountRemoveButton';
 import { AccountRenameButton } from './AccountRenameButton';
 
 export function AccountEditButton({
+  accountsCount,
   indexedAccount,
   firstIndexedAccount,
   account,
   firstAccount,
   wallet,
 }: {
+  accountsCount: number;
   indexedAccount?: IDBIndexedAccount;
   firstIndexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
@@ -44,7 +45,12 @@ export function AccountEditButton({
   //   return null;
   // }
 
-  const showRemoveButton = !indexedAccount || platformEnv.isDev;
+  const showRemoveButton = useMemo(() => {
+    if (indexedAccount && accountsCount <= 1) {
+      return false;
+    }
+    return true;
+  }, [accountsCount, indexedAccount]);
 
   const isImportedAccount = useMemo(
     () =>

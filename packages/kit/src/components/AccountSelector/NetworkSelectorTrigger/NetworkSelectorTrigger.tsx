@@ -2,7 +2,13 @@ import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  NATIVE_HIT_SLOP,
+  Select,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
@@ -16,6 +22,8 @@ import {
 import { ChainSelectorInput } from '../../ChainSelectorInput';
 import { NetworkAvatar } from '../../NetworkAvatar';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
+
+import type { IChainSelectorInputProps } from '../../ChainSelectorInput';
 
 function useNetworkSelectorItems() {
   const { serviceNetwork } = backgroundApiProxy;
@@ -79,6 +87,8 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
 
+  const intl = useIntl();
+
   useDebugComponentRemountLog({ name: 'NetworkSelectorTriggerHome' });
 
   return (
@@ -97,24 +107,20 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
         bg: '$bgActive',
       }}
       focusable
-      focusStyle={{
+      focusVisibleStyle={{
         outlineWidth: 2,
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
       }}
-      $platform-native={{
-        hitSlop: {
-          top: 8,
-          bottom: 8,
-          left: 8,
-        },
-      }}
+      hitSlop={NATIVE_HIT_SLOP}
       userSelect="none"
       onPress={showChainSelector}
     >
       <NetworkAvatar networkId={network?.id} size="$5" />
       <SizableText pl="$2" size="$bodyMd" flexShrink={1} numberOfLines={1}>
-        {network?.name}
+        {network?.isAllNetworks
+          ? intl.formatMessage({ id: ETranslations.global_all_networks })
+          : network?.name}
       </SizableText>
       <Icon
         name="ChevronDownSmallOutline"
@@ -128,32 +134,20 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
 export const NetworkSelectorTriggerHome = memo(NetworkSelectorTriggerHomeCmp);
 
 export function ControlledNetworkSelectorTrigger({
-  value,
-  onChange,
-  networkIds,
   forceDisabled,
   disabled,
-  editable,
-}: {
-  value?: string;
-  onChange?: (networkId: string) => void;
-  networkIds?: string[];
+  networkIds,
+  ...rest
+}: IChainSelectorInputProps & {
   forceDisabled?: boolean;
   disabled?: boolean; // TODO not working in form
-  editable?: boolean | undefined;
+  networkIds?: string[];
 }) {
   const intl = useIntl();
   return (
     <ChainSelectorInput
       testID="network-selector-input"
       title={intl.formatMessage({ id: ETranslations.global_networks })}
-      value={value}
-      onChange={onChange}
-      editable={editable}
-      disabled={forceDisabled || disabled}
-      // editable={false}
-      // disabled
-      networkIds={networkIds}
       borderRadius="$3"
       borderWidth={1}
       borderCurve="continuous"
@@ -165,6 +159,9 @@ export function ControlledNetworkSelectorTrigger({
         borderRadius: '$2',
         py: '$2',
       }}
+      {...rest}
+      disabled={forceDisabled || disabled}
+      networkIds={networkIds}
     />
   );
 }

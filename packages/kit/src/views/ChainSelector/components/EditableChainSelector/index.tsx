@@ -43,21 +43,18 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
 }) => {
   const intl = useIntl();
   const [isEditMode, setIsEditMode] = useState(false);
-
-  const headerRight = useMemo(() => {
-    if (unavailableItems.length > 0) {
-      return undefined;
-    }
-    return () =>
+  const headerRight = useMemo(
+    () => () =>
       getHeaderRightComponent(
         isEditMode
           ? intl.formatMessage({ id: ETranslations.global_done })
           : intl.formatMessage({ id: ETranslations.global_edit }),
         () => setIsEditMode(!isEditMode),
-      );
-  }, [intl, isEditMode, unavailableItems]);
+      ),
+    [intl, isEditMode],
+  );
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_networks })}
         headerRight={headerRight}

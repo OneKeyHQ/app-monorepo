@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
-import { Checkbox, Dialog, useClipboard } from '@onekeyhq/components';
+import { Checkbox, Dialog, Stack, useClipboard } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function CopyPrivateKeysDialog({
@@ -25,14 +25,16 @@ export function CopyPrivateKeysDialog({
   return (
     <>
       {showCheckBox ? (
-        <Checkbox
-          testID="private-key-copy-check"
-          value={value}
-          onChange={handleChange}
-          label={intl.formatMessage({
-            id: ETranslations.global_private_key_copy_check,
-          })}
-        />
+        <Stack pr="$1">
+          <Checkbox
+            testID="private-key-copy-check"
+            value={value}
+            onChange={handleChange}
+            label={intl.formatMessage({
+              id: ETranslations.global_private_key_copy_check,
+            })}
+          />
+        </Stack>
       ) : null}
       <Dialog.Footer
         onConfirmText={intl.formatMessage({ id: ETranslations.global_copy })}

@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IAccountChainSelectorRouteParams,
   IAccountSelectorRouteParamsExtraConfig,
@@ -490,6 +491,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       } & IAccountSelectorRouteParams &
         IAccountSelectorRouteParamsExtraConfig,
     ) => {
+      defaultLogger.accountSelector.perf.showAccountSelector({
+        num,
+        sceneName,
+        sceneUrl,
+      });
+
       const activeAccountInfo = this.getActiveAccount.call(set, { num });
       if (activeAccountInfo?.wallet?.id) {
         // focus to active wallet when open selector
@@ -501,6 +508,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         });
       }
       set(accountSelectorEditModeAtom(), false);
+
       navigation.pushModal(EModalRoutes.AccountManagerStacks, {
         screen: EAccountManagerStacksRoutes.AccountSelectorStack,
         params: {
@@ -1147,11 +1155,22 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) => {
       const { serviceAccountSelector } = backgroundApiProxy;
       await this.mutexSaveToStorage.runExclusive(async () => {
-        const { selectedAccount, sceneName, sceneUrl, num } = payload;
+        const { sceneName, sceneUrl, num } = payload;
+        let { selectedAccount } = payload;
         const { simpleDb } = backgroundApiProxy;
         const isReady = get(accountSelectorStorageReadyAtom());
         if (!isReady) {
           return;
+        }
+        if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
+          if (
+            !selectedAccount?.othersWalletAccountId ||
+            !accountUtils.isUrlAccountFn({
+              accountId: selectedAccount?.othersWalletAccountId,
+            })
+          ) {
+            selectedAccount = defaultSelectedAccount();
+          }
         }
         if (isEqual(selectedAccount, defaultSelectedAccount)) {
           console.error(
@@ -1439,6 +1458,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         triggerBy,
       });
+
+      // addressInput scene should keep empty selection, let user select account manually
+      if (!accountSelectorUtils.isSceneCanAutoSelect({ sceneName })) {
+        return;
+      }
+
       // wait activeAccount build done
       await timerUtils.wait(300);
       const storageReady = get(accountSelectorStorageReadyAtom());

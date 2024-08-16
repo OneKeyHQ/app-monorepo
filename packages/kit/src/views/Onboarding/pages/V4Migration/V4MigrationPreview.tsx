@@ -112,7 +112,7 @@ function BackupDialogContent({
             bg: '$bgActive',
           }}
           focusable
-          focusStyle={{
+          focusVisibleStyle={{
             outlineWidth: 2,
             outlineColor: '$focusRing',
             outlineStyle: 'solid',

@@ -6,6 +6,7 @@ import {
   ZStack as TMZStack,
 } from 'tamagui';
 
+import type { StackStyle } from '@tamagui/web/types/types';
 import type {
   StackProps,
   ThemeableStackProps,
@@ -16,6 +17,7 @@ import type {
 
 export const Stack = TMStack;
 
+export type IStackStyle = StackStyle;
 export type IStackProps = StackProps;
 
 export const XStack = TMXStack;

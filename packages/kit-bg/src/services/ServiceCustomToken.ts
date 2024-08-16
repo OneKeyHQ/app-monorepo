@@ -3,6 +3,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountToken,
@@ -13,6 +14,8 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
+import type { IAllNetworkAccountsParamsForApi } from './ServiceAllNetwork/ServiceAllNetwork';
+
 @backgroundClass()
 class ServiceCustomToken extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -22,6 +25,13 @@ class ServiceCustomToken extends ServiceBase {
   @backgroundMethod()
   public async addCustomToken({ token }: { token: IAccountToken }) {
     return this.backgroundApi.simpleDb.customTokens.addCustomToken({ token });
+  }
+
+  @backgroundMethod()
+  public async addCustomTokenBatch({ tokens }: { tokens: IAccountToken[] }) {
+    return this.backgroundApi.simpleDb.customTokens.addCustomTokensBatch({
+      tokens,
+    });
   }
 
   @backgroundMethod()
@@ -66,20 +76,37 @@ class ServiceCustomToken extends ServiceBase {
   @backgroundMethod()
   async searchTokenByKeywords({
     walletId,
+    accountId,
     networkId,
     keywords,
   }: {
     walletId: string;
+    accountId: string;
     networkId: string;
     keywords: string;
   }) {
     if (!keywords) {
       return [];
     }
+    let allNetworkAccounts: IAllNetworkAccountsParamsForApi[] | undefined;
+    if (networkUtils.isAllNetwork({ networkId })) {
+      const { allNetworkAccounts: allNetworkAccountsWithAccountId } =
+        await this.backgroundApi.serviceAllNetwork.buildAllNetworkAccountsForApiParam(
+          {
+            accountId,
+            networkId,
+          },
+        );
+      allNetworkAccounts = allNetworkAccountsWithAccountId.map((i) => ({
+        networkId: i.networkId,
+        accountAddress: i.accountAddress,
+        xpub: i.accountXpub,
+      }));
+    }
     return this._searchTokens({
       walletId,
       networkId,
-      searchParams: { keywords },
+      searchParams: { keywords, allNetworkAccounts },
     });
   }
 
@@ -113,7 +140,11 @@ class ServiceCustomToken extends ServiceBase {
   }: {
     walletId: string;
     networkId: string;
-    searchParams: { keywords?: string; contractList?: string[] };
+    searchParams: {
+      keywords?: string;
+      contractList?: string[];
+      allNetworkAccounts?: IAllNetworkAccountsParamsForApi[];
+    };
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const response = await client.post<{ data: IFetchTokenDetailItem[] }>(

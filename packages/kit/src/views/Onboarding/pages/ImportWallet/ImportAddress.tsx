@@ -21,7 +21,7 @@ import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorTrigger,
 } from '@onekeyhq/kit/src/components/AccountSelector';
-import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import {
@@ -76,10 +76,10 @@ const FormDeriveTypeInput = ({
         })}
         name={fieldName}
       >
-        <DeriveTypeSelectorTriggerStaticInput
+        <DeriveTypeSelectorFormInput
           networkId={networkId}
           enabledItems={deriveInfoItems}
-          renderTrigger={({ label }) => (
+          renderTrigger={({ label, onPress }) => (
             <Stack
               testID={'derive-type-input'}
               userSelect="none"
@@ -101,6 +101,7 @@ const FormDeriveTypeInput = ({
               pressStyle={{
                 bg: '$bgActive',
               }}
+              onPress={onPress}
             >
               <SizableText flex={1}>{label}</SizableText>
               <Icon

@@ -45,7 +45,12 @@ export function AccountSelectorCreateWalletButton() {
       {media.gtMd ? (
         <>
           {onboardingButton}
-          <SizableText size="$bodySm" color="$textSubdued" mt="$1">
+          <SizableText
+            textAlign="center"
+            size="$bodySm"
+            color="$textSubdued"
+            mt="$1"
+          >
             {intl.formatMessage({ id: ETranslations.global_add_wallet })}
           </SizableText>
         </>

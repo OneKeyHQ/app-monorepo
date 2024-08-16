@@ -5,6 +5,7 @@ export enum EAtomNames {
   settingsPersistAtom = 'settingsPersistAtom',
   settingsAtom = 'settingsAtom',
   devSettingsPersistAtom = 'devSettingsPersistAtom',
+  currencyPersistAtom = 'currencyPersistAtom',
   settingsLastActivityAtom = 'settingsLastActivityAtom',
   cloudBackupPersistAtom = 'cloudBackupPersistAtom',
   passwordAtom = 'passwordAtom',
@@ -28,4 +29,7 @@ export enum EAtomNames {
   accountIsAutoCreatingAtom = 'accountIsAutoCreatingAtom',
   accountManualCreatingAtom = 'accountManualCreatingAtom',
   galleryPersistAtom = 'galleryPersistAtom',
+  activeAccountValueAtom = 'activeAccountValueAtom',
+
+  accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
 }

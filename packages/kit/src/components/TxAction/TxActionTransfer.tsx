@@ -251,7 +251,8 @@ function buildTransferChangeInfo({
 function TxActionTransferListView(props: ITxActionProps) {
   const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
     props;
-  const { networkId, payload, nativeAmount, actions } = decodedTx;
+  const { networkId, payload, nativeAmount, actions, networkLogoURI } =
+    decodedTx;
   const { type } = payload ?? {};
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -435,6 +436,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       replaceType={replaceType}
       status={decodedTx.status}
       networkId={networkId}
+      networkLogoURI={networkLogoURI}
       {...componentProps}
     />
   );
@@ -657,7 +659,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             compact
             label={intl.formatMessage({ id: ETranslations.network__network })}
             renderContent={
-              <XStack alignItems="center" space="$2">
+              <XStack alignItems="center" gap="$2">
                 <XStack alignItems="center">
                   <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
                   <Stack
@@ -687,7 +689,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             compact
             label={intl.formatMessage({ id: ETranslations.network__network })}
             renderContent={
-              <XStack alignItems="center" space="$2">
+              <XStack alignItems="center" gap="$2">
                 <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {network?.name}
@@ -708,7 +710,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
               id: ETranslations.transaction_application,
             })}
             renderContent={
-              <XStack alignItems="center" space="$2">
+              <XStack alignItems="center" gap="$2">
                 <Image
                   borderRadius="$1"
                   w="$5"

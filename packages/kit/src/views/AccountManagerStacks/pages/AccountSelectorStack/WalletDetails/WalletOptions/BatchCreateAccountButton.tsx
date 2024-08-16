@@ -4,11 +4,13 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { WalletOptionItem } from './WalletOptionItem';
@@ -29,10 +31,12 @@ function BatchCreateAccountButtonView({
       label={intl.formatMessage({ id: ETranslations.global_bulk_add_accounts })}
       onPress={() => {
         navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-          screen: EAccountManagerStacksRoutes.BatchCreateAccountForm,
+          screen: EAccountManagerStacksRoutes.BatchCreateAccountPreview,
           params: {
             walletId: wallet?.id || '',
-            networkId: activeAccount?.network?.id,
+            networkId: networkUtils.toNetworkIdFallback({
+              networkId: activeAccount?.network?.id,
+            }),
           },
         });
       }}

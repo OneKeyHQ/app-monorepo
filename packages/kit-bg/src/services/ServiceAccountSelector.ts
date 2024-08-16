@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -154,6 +155,12 @@ class ServiceAccountSelector extends ServiceBase {
       walletId,
     } = selectedAccount;
 
+    defaultLogger.accountSelector.perf.buildActiveAccountInfoFromSelectedAccount(
+      {
+        selectedAccount,
+      },
+    );
+
     let account: INetworkAccount | undefined;
     // NetworkAccount is undefined if others wallet account not compatible with network
     // in this case, we should use dbAccount
@@ -294,23 +301,28 @@ class ServiceAccountSelector extends ServiceBase {
     }
     let allNetworkDbAccounts: IDBAccount[] | undefined;
     let canCreateAddress = false;
-    if (networkId && networkUtils.isAllNetwork({ networkId })) {
+    const isAllNetwork = networkId && networkUtils.isAllNetwork({ networkId });
+    // isAllNetwork
+    if (isAllNetwork) {
+      try {
+        allNetworkDbAccounts =
+          await this.backgroundApi.serviceAllNetwork.getAllNetworkDbAccounts({
+            networkId,
+            singleNetworkDeriveType: undefined,
+            indexedAccountId,
+            othersWalletAccountId,
+          });
+      } catch (error) {
+        //
+      }
+
+      // build mocked networkAccount of all network
       if (!isOthersWallet && indexedAccountId) {
-        let dbAccounts: IDBAccount[] = [];
-
-        try {
-          dbAccounts =
-            await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
-              {
-                indexedAccountId,
-              },
-            );
-        } catch (error) {
-          //
-        }
-
-        if (dbAccounts.length) {
-          allNetworkDbAccounts = dbAccounts;
+        const updateCanCreateAddressForAllNetwork = async () => {
+          account = undefined;
+          canCreateAddress = true;
+        };
+        if (allNetworkDbAccounts?.length) {
           try {
             account =
               await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount(
@@ -320,15 +332,14 @@ class ServiceAccountSelector extends ServiceBase {
               );
             canCreateAddress = false;
           } catch (error) {
-            account = undefined;
-            canCreateAddress = true;
+            await updateCanCreateAddressForAllNetwork();
           }
         } else {
-          account = undefined;
-          canCreateAddress = true;
+          await updateCanCreateAddressForAllNetwork();
         }
       }
     } else {
+      // single network
       canCreateAddress = !isOthersWallet && !account?.address;
     }
 
@@ -394,11 +405,7 @@ class ServiceAccountSelector extends ServiceBase {
   }: {
     sceneName: EAccountSelectorSceneName;
   }) {
-    if ([EAccountSelectorSceneName.discover].includes(sceneName)) {
-      // return true;
-      return false;
-    }
-    return true;
+    return accountSelectorUtils.isSceneUseGlobalDeriveType({ sceneName });
   }
 
   @backgroundMethod()
@@ -525,6 +532,7 @@ class ServiceAccountSelector extends ServiceBase {
     linkedNetworkId?: string;
     deriveType: IAccountDeriveTypes;
   }): Promise<Array<IAccountSelectorAccountsListSectionData>> {
+    // await timerUtils.wait(1000);
     const { serviceAccount } = this.backgroundApi;
     if (!focusedWallet) {
       return [];
@@ -585,7 +593,7 @@ class ServiceAccountSelector extends ServiceBase {
         title: title ?? '',
         data: accounts,
         walletId,
-        emptyText: 'No account',
+        emptyText: 'No accounts',
       };
     };
     if (focusedWallet === '$$others') {
@@ -679,10 +687,107 @@ class ServiceAccountSelector extends ServiceBase {
     return [
       buildAccountsData({
         accounts,
+        // accounts: [],
         walletId,
         title: '',
       }),
     ];
+  }
+
+  @backgroundMethod()
+  async getFocusedWalletInfo({
+    focusedWallet,
+  }: {
+    focusedWallet: IAccountSelectorFocusedWallet;
+  }) {
+    if (!focusedWallet) {
+      return undefined;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const isHd = accountUtils.isHdWallet({
+      walletId: focusedWallet,
+    });
+    const isHw = accountUtils.isHwWallet({
+      walletId: focusedWallet,
+    });
+    try {
+      const wallet = await this.backgroundApi.serviceAccount.getWallet({
+        walletId: focusedWallet,
+      });
+
+      let device: IDBDevice | undefined;
+      if (isHw) {
+        device = await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+          walletId: focusedWallet,
+        });
+      }
+
+      return {
+        wallet,
+        device,
+      };
+    } catch (error) {
+      // wallet may be removed
+      console.error(error);
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async buildAccountSelectorAccountsListData({
+    focusedWallet,
+    othersNetworkId,
+    linkedNetworkId,
+    deriveType,
+  }: {
+    focusedWallet: IAccountSelectorFocusedWallet;
+    othersNetworkId?: string;
+    linkedNetworkId?: string;
+    deriveType: IAccountDeriveTypes;
+  }) {
+    defaultLogger.accountSelector.perf.buildAccountSelectorAccountsListData({
+      focusedWallet,
+      othersNetworkId,
+      linkedNetworkId,
+      deriveType,
+    });
+
+    const sectionData = await this.getAccountSelectorAccountsListSectionData({
+      focusedWallet,
+      othersNetworkId,
+      linkedNetworkId,
+      deriveType,
+    });
+
+    const focusedWalletInfo = await this.getFocusedWalletInfo({
+      focusedWallet,
+    });
+
+    const accountsForValuesQuery: {
+      accountId: string;
+    }[] = [];
+    let accountsCount = 0;
+
+    sectionData?.forEach?.((s) => {
+      s?.data?.forEach?.((account) => {
+        accountsCount += 1;
+        accountsForValuesQuery.push({
+          accountId: account.id,
+        });
+      });
+    });
+
+    const accountsValue =
+      await this.backgroundApi.serviceAccountProfile.getAccountsValue({
+        accounts: accountsForValuesQuery,
+      });
+
+    return {
+      sectionData,
+      focusedWalletInfo,
+      accountsCount,
+      accountsValue,
+    };
   }
 }
 

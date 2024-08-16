@@ -25,6 +25,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -58,6 +59,20 @@ function OthersWalletItem({
   );
 }
 
+export function AccountSelectorWalletListSideBarPerfTest({
+  num,
+}: IWalletListProps) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const actions = useAccountSelectorActions(); // make render twice first time
+  const { selectedAccount } = useSelectedAccount({ num }); // make render twice first time
+
+  defaultLogger.accountSelector.perf.renderWalletListSideBar({
+    selectedAccount: {} as any,
+    walletsCount: 0,
+  });
+  return null;
+}
+
 export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   const { serviceAccount } = backgroundApiProxy;
   const { bottom } = useSafeAreaInsets();
@@ -72,18 +87,26 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     setResult,
     run: reloadWallets,
   } = usePromiseResult(
-    () =>
+    async () => {
+      defaultLogger.accountSelector.perf.buildWalletListSideBarData();
       // serviceAccount.getHDAndHWWallets({
-      serviceAccount.getWallets({
+      const r = await serviceAccount.getWallets({
         nestedHiddenWallets: true,
         ignoreEmptySingletonWalletAccounts: true,
-      }),
+      });
+      return r;
+    },
     [serviceAccount],
     {
       checkIsFocused: false,
     },
   );
   const wallets = walletsResult?.wallets ?? emptyArray;
+
+  defaultLogger.accountSelector.perf.renderWalletListSideBar({
+    selectedAccount,
+    walletsCount: wallets?.length ?? 0,
+  });
 
   useEffect(() => {
     const walletCount = wallets.length;
@@ -143,6 +166,9 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     return layouts;
   }, [wallets, CELL_HEIGHT]);
 
+  const { md } = useMedia();
+
+  const isShowCloseButton = md && !platformEnv.isNativeIOS;
   return (
     <Stack
       testID="account-selector-wallet-list"
@@ -155,7 +181,7 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
       borderRightColor="$neutral3"
     >
       {/* Close action */}
-      {platformEnv.isExtension || platformEnv.isNativeAndroid ? (
+      {isShowCloseButton ? (
         <XStack py="$4" justifyContent="center">
           <Page.Close>
             <HeaderIconButton icon="CrossedLargeOutline" />

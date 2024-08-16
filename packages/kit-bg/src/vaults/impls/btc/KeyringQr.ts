@@ -1,4 +1,5 @@
 import { Psbt } from 'bitcoinjs-lib';
+import { isEqual } from 'lodash';
 
 import {
   convertBtcForkXpub,
@@ -6,6 +7,7 @@ import {
   getBtcForkNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { buildPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import { verifyBtcSignedPsbtMatched } from '@onekeyhq/core/src/chains/btc/sdkBtc/verify';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
@@ -38,6 +40,19 @@ import type {
 
 export class KeyringQr extends KeyringQrBase {
   override coreApi = coreChainApi.btc.hd;
+
+  override async verifySignedTxMatched({
+    unsignedPsbt,
+    signedPsbt,
+  }: {
+    unsignedPsbt: Psbt | undefined;
+    signedPsbt: Psbt | undefined;
+  }): Promise<void> {
+    return verifyBtcSignedPsbtMatched({
+      unsignedPsbt,
+      signedPsbt,
+    });
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   override getChildPathTemplates(
@@ -81,6 +96,7 @@ export class KeyringQr extends KeyringQrBase {
       throw new Error('addressEncoding not found');
     }
 
+    let unsignedPsbt: Psbt | undefined;
     const signedTx = await this.baseSignByQrcode(params, {
       signRequestUrBuilder: async ({
         path,
@@ -89,7 +105,7 @@ export class KeyringQr extends KeyringQrBase {
         requestId,
         xfp,
       }) => {
-        const psbt = await buildPsbt({
+        unsignedPsbt = await buildPsbt({
           network: getBtcForkNetwork(networkInfo.networkChainCode),
           unsignedTx,
           btcExtraInfo,
@@ -125,9 +141,10 @@ export class KeyringQr extends KeyringQrBase {
           },
           // Promise.resolve(),
         });
+
         const sdk = getAirGapSdk();
         // sdk.btc.generateSignRequest  signMessage
-        return sdk.btc.generatePSBT(psbt.toBuffer());
+        return sdk.btc.generatePSBT(unsignedPsbt.toBuffer());
       },
       signedResultBuilder: async ({ signatureUr }) => {
         const sdk = getAirGapSdk();
@@ -135,10 +152,19 @@ export class KeyringQr extends KeyringQrBase {
         // const sig = sdk.btc.parseSignature(ur);
         // **** sign psbt
         const psbtHex = sdk.btc.parsePSBT(checkIsDefined(signatureUr));
-        const psbt = Psbt.fromHex(psbtHex);
+        const signedPsbt = Psbt.fromHex(psbtHex, {
+          network,
+          maximumFeeRate: network.maximumFeeRate,
+        });
+
+        await this.verifySignedTxMatched({
+          unsignedPsbt,
+          signedPsbt,
+        });
+
         // TODO extension serializes Error?
         const { rawTx, txid } = await this.coreApi.extractPsbtToSignedTx({
-          psbt,
+          psbt: signedPsbt,
         });
         return Promise.resolve({
           txid,

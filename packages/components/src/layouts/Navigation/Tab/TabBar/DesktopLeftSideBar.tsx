@@ -111,7 +111,7 @@ function DownloadButton(props: IXStackProps) {
       <SizableText size="$bodyMdMedium" flex={1}>
         {intl.formatMessage({ id: ETranslations.global_download })}
       </SizableText>
-      <XStack space="$1" alignItems="center">
+      <XStack gap="$1" alignItems="center">
         <Icon name="AppleBrand" size="$5" y={-2} color="$iconSubdued" />
         <Icon name="GooglePlayBrand" size="$4.5" color="$iconSubdued" />
         <Icon name="ChromeBrand" size="$4.5" color="$iconSubdued" />
@@ -223,16 +223,36 @@ export function DesktopLeftSideBar({
           h="$10"
         />
       ) : null}
-      <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
-        <OneKeyLogo />
-        <YStack flex={1} p="$3">
-          {tabs}
-
-          <Stack mt="auto">
-            <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
-            <DownloadButton />
-          </Stack>
-        </YStack>
+      <YStack
+        position="relative"
+        flex={1}
+        testID="Desktop-AppSideBar-Content-Container"
+      >
+        <MotiView
+          animate={{ left: isCollapse ? -sidebarWidth : 0 }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: sidebarWidth,
+            bottom: 0,
+          }}
+          transition={{
+            duration: 200,
+            type: 'timing',
+          }}
+        >
+          <YStack flex={1}>
+            <OneKeyLogo />
+            <YStack flex={1} p="$3">
+              {tabs}
+              <Stack mt="auto">
+                <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
+                <DownloadButton />
+              </Stack>
+            </YStack>
+          </YStack>
+        </MotiView>
       </YStack>
     </MotiView>
   );

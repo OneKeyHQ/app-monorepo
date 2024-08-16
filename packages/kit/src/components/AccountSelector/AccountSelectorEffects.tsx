@@ -139,7 +139,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
             });
           }
         },
-        100,
+        150,
         {
           leading: false,
           trailing: true,

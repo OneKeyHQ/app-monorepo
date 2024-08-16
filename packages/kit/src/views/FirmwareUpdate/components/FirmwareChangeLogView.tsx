@@ -77,7 +77,7 @@ function ChangeLogSection({
   }, [collapse]);
   return (
     <Stack>
-      <XStack space="$3" py="$2" ai="center" onPress={onDropDownPressed}>
+      <XStack gap="$3" py="$2" ai="center" onPress={onDropDownPressed}>
         <Icon name={icon} size="$5" />
         <Stack flex={1}>
           <SizableText size="$bodyLgMedium">{title}</SizableText>

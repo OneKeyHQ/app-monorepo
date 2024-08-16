@@ -1,127 +1,99 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import debounce from 'lodash/debounce';
+
 import type {
   IListViewProps,
   IListViewRef,
   IStackProps,
 } from '@onekeyhq/components';
 import { useTabScrollViewRef } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
   const scrollViewRef = useTabScrollViewRef();
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
-
-  const isBindEvent = useRef(false);
-  const getListView = useCallback(
-    () =>
-      (
-        listViewRef.current as unknown as {
+  const listViewInstanceRef = useRef<HTMLDivElement | undefined>(undefined);
+  const getListView = useCallback(() => {
+    if (!listViewInstanceRef.current) {
+      const current =
+        (
+          listViewRef.current as {
+            getCurrent?: () => typeof listViewRef.current;
+          }
+        )?.getCurrent?.() || listViewRef.current;
+      listViewInstanceRef.current = (
+        current as unknown as {
           _listRef?: { _scrollRef: HTMLDivElement };
         }
-      )?._listRef?._scrollRef,
-    [],
-  );
+      )?._listRef?._scrollRef;
+    }
+    return listViewInstanceRef.current;
+  }, []);
+
   const onLayout = useCallback(() => {
-    if (isBindEvent.current) {
-      return;
-    }
-    const MoveEventName = platformEnv.isWebTouchable ? 'touchmove' : 'wheel';
-    isBindEvent.current = true;
-    if (inTabList && !platformEnv.isNative) {
-      let direction = 0;
-      const scrollView = scrollViewRef?.current as unknown as HTMLElement;
-      // const listView = getListView();
-      // const onListViewScroll = () => {
-      //   if (!listView) {
-      //     return;
-      //   }
-      //   const { scrollTop } = listView;
-      //   if (scrollTop === 0) {
-      //     listView.style.overflowY = direction < 0 ? 'scroll' : 'hidden';
-      //   }
-      // };
+    const scrollView = scrollViewRef?.current as unknown as HTMLElement;
+    let prevListScrollTop = 0;
+    const isNearBottom = () =>
+      scrollView.scrollTop + scrollView.clientHeight >= scrollView.scrollHeight;
 
-      let prevOverFlowY = 'hidden';
-      let prevScrollPos = 0;
-      const onMoveScroll = (event: any) => {
-        if (platformEnv.isWebTouchable) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          const currentScrollPos = event.changedTouches[0].clientY;
-          direction = currentScrollPos - prevScrollPos;
-          prevScrollPos = currentScrollPos;
-        } else {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          direction = event.wheelDelta;
-        }
-        const listView = getListView();
-        if (listView) {
-          const {
-            scrollTop: scrollViewScrollTop,
-            scrollHeight,
-            clientHeight,
-          } = scrollView;
-          const { scrollTop } = listView;
-          const isNearBottom =
-            scrollViewScrollTop + clientHeight >= scrollHeight;
-          // console.log(scrollTop, isNearBottom, direction);
-          if (scrollTop === 0 && isNearBottom) {
-            listView.style.overflowY = direction < 0 ? 'scroll' : 'hidden';
-            if (
-              prevOverFlowY === 'hidden' &&
-              listView.style.overflowY === 'scroll'
-            ) {
-              listView.scrollTo({
-                top: Math.abs(direction),
-                behavior: 'smooth',
-              });
-            }
-            prevOverFlowY = listView.style.overflowY;
-          }
-        }
-      };
-
-      const onScroll = () => {
-        const { scrollTop, scrollHeight, clientHeight } = scrollView;
-        const isNearBottom = scrollTop + clientHeight >= scrollHeight;
-        const listView = getListView();
-        if (listView) {
-          if (isNearBottom) {
-            listView.style.overflowY = 'scroll';
-          } else {
-            listView.style.overflowY = 'hidden';
-            setTimeout(() => {
-              if (listView) {
-                listView.scrollTop = 0;
-              }
-            }, 10);
-          }
-        }
-      };
-
+    const onListViewScroll = () => {
       const listView = getListView();
-      scrollView?.addEventListener('scroll', onScroll);
-      // listView?.addEventListener('scroll', onListViewScroll);
-      listView?.addEventListener(MoveEventName, onMoveScroll as any);
-      return () => {
-        scrollView?.removeEventListener('scroll', onScroll);
-        // listView?.removeEventListener('scroll', onListViewScroll);
-        listView?.removeEventListener(MoveEventName, onMoveScroll as any);
-      };
-    }
-  }, [scrollViewRef, inTabList, getListView]);
+      if (listView && !isNearBottom()) {
+        const scrollTop = listView.scrollTop;
+        if (prevListScrollTop <= scrollTop) {
+          listView.scrollTop = 0;
+          scrollView.scrollTop += scrollTop;
+        }
+        prevListScrollTop = scrollTop;
+      }
+    };
+
+    let prevScrollTop = 0;
+    const onScroll = () => {
+      const scrollTop = scrollView.scrollTop;
+      if (scrollTop < prevScrollTop) {
+        const listView = getListView();
+        if (listView) {
+          listView.scrollTop = 0;
+        }
+      }
+      prevScrollTop = scrollTop;
+    };
+
+    const onWheel = debounce(
+      (event: { deltaY: number; stopPropagation: () => void }) => {
+        event.stopPropagation();
+        if (isNearBottom()) {
+          return;
+        }
+        const listView = getListView();
+        const direction = event.deltaY;
+        if (listView?.scrollTop === 0 && direction < 0) {
+          scrollView.scrollTop += Math.max(direction, -40);
+        }
+      },
+      5,
+    );
+    const listView = getListView();
+    scrollView?.addEventListener('scroll', onScroll);
+    listView?.addEventListener('scroll', onListViewScroll);
+    listView?.addEventListener('wheel', onWheel as any);
+    return () => {
+      scrollView?.removeEventListener('scroll', onScroll);
+      listView?.removeEventListener('scroll', onListViewScroll);
+      listView?.removeEventListener('wheel', onWheel as any);
+    };
+  }, [getListView, scrollViewRef]);
 
   const listViewProps = useMemo(
     () =>
-      platformEnv.isNative
-        ? {}
-        : ({
-            style: inTabList
-              ? ({
-                  overflowY: 'hidden',
-                } as IStackProps['style'])
-              : undefined,
-          } as IListViewProps<T>),
+      ({
+        style: inTabList
+          ? ({
+              minHeight: 100,
+            } as IStackProps['style'])
+          : undefined,
+      } as IListViewProps<T>),
     [inTabList],
   );
   return useMemo(

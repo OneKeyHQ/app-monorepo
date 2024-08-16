@@ -5,6 +5,7 @@ import { AnimatePresence } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 
 import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
 

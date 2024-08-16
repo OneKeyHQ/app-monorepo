@@ -1,0 +1,17 @@
+diff --git a/node_modules/@tamagui/accordion/dist/cjs/Accordion.native.js b/node_modules/@tamagui/accordion/dist/cjs/Accordion.native.js
+index a75a2ce..8aa1377 100644
+--- a/node_modules/@tamagui/accordion/dist/cjs/Accordion.native.js
++++ b/node_modules/@tamagui/accordion/dist/cjs/Accordion.native.js
+@@ -410,7 +410,12 @@ var AccordionTriggerFrame = (0, import_web2.styled)(import_collapsible.Collapsib
+   }, [
+     itemContext.open
+   ]);
++  const isOpenRef = React.useRef(itemContext.open);
++  isOpenRef.current = itemContext.open;
+   var onLayout = (0, import_web.useEvent)(function(param) {
++    if (!isOpenRef.current.open) { 
++      setHeight(0);
++    }
+     var nativeEvent = param.nativeEvent;
+     nativeEvent.layout.height && setHeight(nativeEvent.layout.height);
+   });

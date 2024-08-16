@@ -29,7 +29,9 @@ export const {
   initialValue: {
     enabled: !!platformEnv.isDev || !!platformEnv.isE2E,
     settings: {
-      showDevOverlayWindow: !!platformEnv.isE2E ? true : false,
+      enableTestEndpoint: !!platformEnv.isDev || !!platformEnv.isE2E,
+      // TODO: 待验证
+      // showDevOverlayWindow: !!platformEnv.isE2E ? true : false,
     },
   },
 });

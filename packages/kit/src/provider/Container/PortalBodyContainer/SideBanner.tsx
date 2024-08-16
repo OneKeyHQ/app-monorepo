@@ -12,7 +12,6 @@ import {
   Stack,
   useMedia,
 } from '@onekeyhq/components';
-import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import SidebarBannerImage from '@onekeyhq/kit/assets/sidebar-banner.png';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -23,13 +22,12 @@ import type { GestureResponderEvent } from 'react-native';
 
 function BasicSidebarBanner() {
   const intl = useIntl();
-  const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
   const { isFirstVisit, tourVisited } = useSpotlight(
     ESpotlightTour.oneKeyProBanner,
   );
 
   const openUrl = useCallback(() => {
-    openUrlExternal('https://onekey.so/products/onekey-pro-hardware-wallet/');
+    openUrlExternal('https://bit.ly/3LNVKAT');
   }, []);
 
   const onTourVisited = useCallback(
@@ -40,8 +38,7 @@ function BasicSidebarBanner() {
     [tourVisited],
   );
 
-  const isShown = isFirstVisit && !isCollapse;
-  return isShown ? (
+  return isFirstVisit ? (
     <Stack
       borderRadius="$2"
       borderCurve="continuous"

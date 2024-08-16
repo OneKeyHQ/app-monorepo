@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { getAddressFromAccountOrAddress } from 'aptos';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, sortBy } from 'lodash';
 
 import type { IEncodedTxNear } from '@onekeyhq/core/src/chains/near/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -10,7 +10,10 @@ import {
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  CanNotSendZeroAmountError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -408,7 +411,11 @@ export default class Vault extends VaultBase {
         return action;
       }),
     );
-    return actions;
+
+    return sortBy(
+      actions,
+      (action) => action.type === EDecodedTxActionType.UNKNOWN,
+    );
   }
 
   override async buildUnsignedTx(
@@ -521,5 +528,20 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async validateSendAmount({
+    isNative: isNativeToken,
+    amount,
+  }: {
+    amount: string;
+    tokenBalance: string;
+    isNative?: boolean;
+  }): Promise<boolean> {
+    if (!isNativeToken && new BigNumber(amount).isZero()) {
+      throw new CanNotSendZeroAmountError();
+    }
+
+    return true;
   }
 }

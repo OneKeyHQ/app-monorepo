@@ -4,6 +4,7 @@ import {
   Icon,
   SizableText,
   Skeleton,
+  View,
   XStack,
   YStack,
   useMedia,
@@ -125,7 +126,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
         flex={1}
         py="$2"
         px="$3"
-        space="$2"
+        gap="$2"
         bg="$bgApp"
         alignItems="center"
         userSelect="none"
@@ -144,7 +145,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
               }
         }
         focusable={!triggerDisabled}
-        focusStyle={
+        focusVisibleStyle={
           triggerDisabled
             ? undefined
             : {
@@ -177,7 +178,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
 
 export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const {
-    activeAccount: { account, indexedAccount },
+    activeAccount: { account, indexedAccount, wallet },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num, linkNetwork: true });
 
@@ -200,7 +201,7 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
         bg: '$bgActive',
       }}
       focusable
-      focusStyle={{
+      focusVisibleStyle={{
         outlineWidth: 2,
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
@@ -216,9 +217,14 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
       />
       {media.gtMd ? (
         <>
-          <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>
-            {account?.name ?? ''}
-          </SizableText>
+          <View pl="$2" pr="$1" minWidth={0} maxWidth="$24">
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {wallet?.name}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" numberOfLines={1}>
+              {account?.name}
+            </SizableText>
+          </View>
           <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
         </>
       ) : null}

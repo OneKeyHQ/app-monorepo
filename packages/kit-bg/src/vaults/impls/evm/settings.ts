@@ -68,6 +68,7 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
+  qrAccountEnabled: true,
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,
@@ -100,10 +101,13 @@ const settings: IVaultSettings = {
 
   maxSendFeeUpRatio: {
     [networkIdMap.fevm]: 1.1,
+    [networkIdMap.flare]: 1.1,
     [networkIdMap.mantle]: 1.2,
     [networkIdMap.mantapacific]: 1.2,
     [networkIdMap.blast]: 1.2,
   },
+
+  customRpcEnabled: true,
 };
 
 export default Object.freeze(settings);

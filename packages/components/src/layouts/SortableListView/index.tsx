@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useCallback } from 'react';
 import type { ForwardedRef } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
@@ -9,11 +9,16 @@ import DraggableFlatList, {
 } from 'react-native-draggable-flatlist';
 import { withStaticProperties } from 'tamagui';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { StackStyleProps } from '@tamagui/web/types/types';
+import type { StackStyle } from '@tamagui/web/types/types';
 import type { StyleProp, ViewStyle } from 'react-native';
 import type {
+  DragEndParams,
   DraggableFlatListProps,
   RenderItem,
 } from 'react-native-draggable-flatlist';
@@ -34,7 +39,7 @@ export type ISortableListViewProps<T> = Omit<
   | 'ListHeaderComponentStyle'
   | 'ListFooterComponentStyle'
 > &
-  StackStyleProps & {
+  StackStyle & {
     data: T[];
     keyExtractor: (item: T, index: number) => string;
     renderItem: RenderItem<T>;
@@ -44,11 +49,11 @@ export type ISortableListViewProps<T> = Omit<
     ) => { length: number; offset: number; index: number };
 
     enabled?: boolean;
-    containerStyle?: StackStyleProps;
-    contentContainerStyle?: StackStyleProps;
-    columnWrapperStyle?: StackStyleProps;
-    ListHeaderComponentStyle?: StackStyleProps;
-    ListFooterComponentStyle?: StackStyleProps;
+    containerStyle?: StackStyle;
+    contentContainerStyle?: StackStyle;
+    columnWrapperStyle?: StackStyle;
+    ListHeaderComponentStyle?: StackStyle;
+    ListFooterComponentStyle?: StackStyle;
   };
 
 function BaseSortableListView<T>(
@@ -62,6 +67,8 @@ function BaseSortableListView<T>(
     columnWrapperStyle,
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
+    onDragBegin,
+    onDragEnd,
     ...props
   }: ISortableListViewProps<T>,
   ref: ForwardedRef<ISortableListViewRef<T>> | undefined,
@@ -102,12 +109,30 @@ function BaseSortableListView<T>(
       resolveValues: 'auto',
     },
   );
-  const activeDistance = platformEnv.isNativeAndroid ? 5 : 5;
+  const activeDistance = platformEnv.isNative ? 10 : 1;
+
+  const handleDragBegin = useCallback(
+    (index: number) => {
+      appEventBus.emit(EAppEventBusNames.onDragBeginInListView, undefined);
+      onDragBegin?.(index);
+    },
+    [onDragBegin],
+  );
+  const handleDragEnd = useCallback(
+    (params: DragEndParams<any>) => {
+      onDragEnd?.(params);
+      appEventBus.emit(EAppEventBusNames.onDragEndInListView, undefined);
+    },
+    [onDragEnd],
+  );
+
   return (
     <DraggableFlatList<T>
       ref={ref}
       style={style as StyleProp<ViewStyle>}
-      activationDistance={enabled ? activeDistance : 100000}
+      onDragBegin={handleDragBegin}
+      onDragEnd={handleDragEnd}
+      activationDistance={enabled ? activeDistance : 100_000}
       containerStyle={[{ flex: 1 }, rawContainerStyle]}
       columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
       ListHeaderComponentStyle={listHeaderStyle}

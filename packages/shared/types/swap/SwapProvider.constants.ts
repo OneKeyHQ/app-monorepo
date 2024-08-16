@@ -27,8 +27,6 @@ export const swapSlippage = 50;
 
 export const swapSlippageDecimal = 2;
 
-export const networkTransactionExplorerReplaceStr = '{transaction}';
-
 export const swapTokenCatchMapMaxCount = 30;
 
 export const swapApproveResetValue = '0';
@@ -369,6 +367,42 @@ export const swapDefaultSetTokens: Record<
       'decimals': 6,
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/xrp--0/tokens/native.png',
+      'isNative': true,
+    },
+  },
+  'kaspa--kaspa': {
+    fromToken: {
+      'networkId': 'kaspa--kaspa',
+      'contractAddress': '',
+      'name': 'Kaspa',
+      'symbol': 'KAS',
+      'decimals': 8,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/kaspa--kaspa/tokens/native.png',
+      'isNative': true,
+    },
+  },
+  'evm--1030': {
+    fromToken: {
+      'networkId': 'evm--1030',
+      'contractAddress': '',
+      'name': 'Conflux eSpace',
+      'symbol': 'CFX',
+      'decimals': 18,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--1030/tokens/native.png',
+      'isNative': true,
+    },
+  },
+  'near--0': {
+    fromToken: {
+      'networkId': 'near--0',
+      'contractAddress': '',
+      'name': 'Near',
+      'symbol': 'NEAR',
+      'decimals': 24,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/near--0/tokens/native.png',
       'isNative': true,
     },
   },

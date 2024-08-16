@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
+import type { ISizableTextProps, IXStackProps } from '@onekeyhq/components';
 import {
   Badge,
   Icon,
@@ -20,22 +20,34 @@ type IProps = {
   isAllNetworks?: boolean;
   withNetwork?: boolean;
   networkId: string | undefined;
-} & ISizableTextProps;
+  textProps?: ISizableTextProps;
+} & IXStackProps;
 
 function TokenNameView(props: IProps) {
-  const { name, isNative, isAllNetworks, withNetwork, networkId, ...rest } =
-    props;
+  const {
+    name,
+    isNative,
+    isAllNetworks,
+    withNetwork,
+    networkId,
+    textProps,
+    ...rest
+  } = props;
   const intl = useIntl();
 
   const { network } = useAccountData({ networkId });
 
   const content = useMemo(
     () => (
-      <XStack alignItems="center" space="$1" flex={1}>
-        <SizableText numberOfLines={1} {...rest}>
+      <XStack alignItems="center" gap="$1" {...rest}>
+        <SizableText minWidth={0} numberOfLines={1} {...textProps}>
           {name}
         </SizableText>
-        {withNetwork && network ? <Badge>{network.name}</Badge> : null}
+        {withNetwork && network ? (
+          <Badge flexShrink={1}>
+            <Badge.Text numberOfLines={1}>{network.name}</Badge.Text>
+          </Badge>
+        ) : null}
         {isNative && !isAllNetworks ? (
           <Tooltip
             renderContent={intl.formatMessage({
@@ -53,7 +65,16 @@ function TokenNameView(props: IProps) {
         ) : null}
       </XStack>
     ),
-    [rest, name, withNetwork, network, isNative, isAllNetworks, intl],
+    [
+      rest,
+      textProps,
+      name,
+      withNetwork,
+      network,
+      isNative,
+      isAllNetworks,
+      intl,
+    ],
   );
   return content;
 }

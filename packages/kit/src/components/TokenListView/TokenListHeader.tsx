@@ -44,6 +44,9 @@ function TokenListHeader({
     <Stack testID="Wallet-Token-List-Header">
       <ListToolToolBar
         searchProps={{
+          placeholder: intl.formatMessage({
+            id: ETranslations.global_search_asset,
+          }),
           onChangeText: debounce(
             (text) => updateSearchKey(text),
             SEARCH_DEBOUNCE_INTERVAL,
@@ -58,6 +61,9 @@ function TokenListHeader({
             <>
               {media.md ? (
                 <IconButton
+                  title={intl.formatMessage({
+                    id: ETranslations.manage_token_custom_token_title,
+                  })}
                   variant="tertiary"
                   icon="SliderHorOutline"
                   onPress={onManageToken}
@@ -80,11 +86,11 @@ function TokenListHeader({
       />
 
       {tableLayout ? (
-        <XStack px="$5" py="$2" space="$3">
+        <XStack px="$5" py="$2" gap="$3">
           <XStack
             flexGrow={1}
             flexBasis={0}
-            space={89}
+            gap={89}
             spaceDirection="horizontal"
           >
             <SizableText

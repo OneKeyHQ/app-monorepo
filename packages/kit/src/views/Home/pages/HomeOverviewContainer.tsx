@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Icon,
@@ -12,13 +12,11 @@ import {
 import type { IDialogInstance } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  POLLING_DEBOUNCE_INTERVAL,
-  POLLING_INTERVAL_FOR_TOTAL_VALUE,
-} from '@onekeyhq/shared/src/consts/walletConsts';
-import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
@@ -46,37 +44,14 @@ function HomeOverviewContainer() {
   const [isRefreshingNftList, setIsRefreshingNftList] = useState(false);
   const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
 
+  const listRefreshKey = useRef('');
+
   const [accountWorth] = useAccountWorthAtom();
   const [overviewState] = useAccountOverviewStateAtom();
   const { updateAccountOverviewState, updateAccountWorth } =
     useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
-
-  const { run, result: overview } = usePromiseResult(
-    async () => {
-      if (!account || !network) return;
-      if (network.isAllNetworks) return;
-      await backgroundApiProxy.serviceAccountProfile.abortFetchAccountDetails();
-      const r =
-        await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
-          networkId: network.id,
-          accountId: account.id,
-          withNetWorth: true,
-          withNonce: false,
-        });
-      updateAccountOverviewState({
-        initialized: true,
-        isRefreshing: false,
-      });
-      return r;
-    },
-    [account, network, updateAccountOverviewState],
-    {
-      debounced: POLLING_DEBOUNCE_INTERVAL,
-      pollingInterval: POLLING_INTERVAL_FOR_TOTAL_VALUE,
-    },
-  );
 
   const { result: vaultSettings } = usePromiseResult(async () => {
     if (!network) return;
@@ -94,7 +69,9 @@ function HomeOverviewContainer() {
       });
       if (network.isAllNetworks) {
         updateAccountWorth({
+          accountId: account.id,
           worth: '0',
+          initialized: false,
         });
       }
     }
@@ -111,10 +88,25 @@ function HomeOverviewContainer() {
     const fn = ({
       isRefreshing,
       type,
+      accountId,
+      networkId,
     }: {
       isRefreshing: boolean;
       type: EHomeTab;
+      accountId: string;
+      networkId: string;
     }) => {
+      const key = `${accountId}-${networkId}`;
+      if (
+        !isRefreshing &&
+        listRefreshKey.current &&
+        listRefreshKey.current !== key
+      ) {
+        return;
+      }
+
+      listRefreshKey.current = key;
+
       if (type === EHomeTab.TOKENS) {
         setIsRefreshingTokenList(isRefreshing);
       } else if (type === EHomeTab.NFT) {
@@ -130,15 +122,77 @@ function HomeOverviewContainer() {
     };
   }, []);
 
+  useEffect(() => {
+    if (
+      account &&
+      network &&
+      accountWorth.initialized &&
+      account.id === accountWorth.accountId
+    ) {
+      if (
+        (accountUtils.isOthersAccount({ accountId: account.id }) &&
+          !network.isAllNetworks &&
+          account.createAtNetwork === network.id) ||
+        (!accountUtils.isOthersAccount({ accountId: account.id }) &&
+          network.isAllNetworks)
+      ) {
+        const accountValueId = accountUtils.isOthersAccount({
+          accountId: account.id,
+        })
+          ? account.id
+          : (account.indexedAccountId as string);
+
+        void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+          accountId: accountValueId,
+          value: accountWorth.worth,
+          currency: settings.currencyInfo.id,
+        });
+      }
+    }
+  }, [
+    account,
+    accountWorth.accountId,
+    accountWorth.initialized,
+    accountWorth.worth,
+    network,
+    settings.currencyInfo.id,
+    wallet,
+  ]);
+
   const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
 
   const handleRefreshWorth = useCallback(() => {
     if (isRefreshingWorth) return;
-    void run();
     setIsRefreshingWorth(true);
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-  }, [isRefreshingWorth, run]);
+  }, [isRefreshingWorth]);
+
+  const isLoading =
+    isRefreshingWorth ||
+    isRefreshingTokenList ||
+    isRefreshingNftList ||
+    isRefreshingHistoryList;
+
+  const refreshButton = useMemo(() => {
+    if (platformEnv.isNative) {
+      return isLoading ? (
+        <IconButton
+          icon="RefreshCcwOutline"
+          variant="tertiary"
+          loading={isLoading}
+        />
+      ) : undefined;
+    }
+    return platformEnv.isNative ? undefined : (
+      <IconButton
+        icon="RefreshCcwOutline"
+        variant="tertiary"
+        loading={isLoading}
+        onPress={handleRefreshWorth}
+      />
+    );
+  }, [handleRefreshWorth, isLoading]);
 
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
@@ -147,11 +201,9 @@ function HomeOverviewContainer() {
       </Stack>
     );
 
-  const balanceString = network?.isAllNetworks
-    ? accountWorth.worth ?? '0'
-    : overview?.netWorth ?? '0';
+  const balanceString = accountWorth.worth ?? '0';
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
-    { length: 25, size: '$headingXl' },
+    { length: 17, size: '$headingXl' },
     { length: 13, size: '$heading4xl' },
   ];
   const defaultBalanceSize = '$heading5xl';
@@ -180,7 +232,7 @@ function HomeOverviewContainer() {
   );
 
   return (
-    <XStack alignItems="center" space="$3">
+    <XStack alignItems="center" gap="$3">
       {vaultSettings?.hasFrozenBalance ? (
         <XStack
           flexShrink={1}
@@ -197,7 +249,7 @@ function HomeOverviewContainer() {
           pressStyle={{
             bg: '$bgActive',
           }}
-          focusStyle={{
+          focusVisibleStyle={{
             outlineColor: '$focusRing',
             outlineWidth: 2,
             outlineOffset: 0,
@@ -227,17 +279,7 @@ function HomeOverviewContainer() {
       ) : (
         basicTextElement
       )}
-      <IconButton
-        icon="RefreshCcwOutline"
-        variant="tertiary"
-        loading={
-          isRefreshingWorth ||
-          isRefreshingTokenList ||
-          isRefreshingNftList ||
-          isRefreshingHistoryList
-        }
-        onPress={handleRefreshWorth}
-      />
+      {refreshButton}
     </XStack>
   );
 }

@@ -32,6 +32,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -280,6 +281,16 @@ export default class Vault extends VaultBase {
           symbol: network.symbol,
         });
       }
+      // put native token first
+      sends.sort((a, b) => {
+        if (a.isNative && !b.isNative) {
+          return -1;
+        }
+        if (!a.isNative && b.isNative) {
+          return 1;
+        }
+        return 0;
+      });
       actions = [
         {
           type: EDecodedTxActionType.ASSET_TRANSFER,
@@ -394,8 +405,10 @@ export default class Vault extends VaultBase {
     return result;
   }
 
-  override async getAccountXpub(): Promise<string | undefined> {
-    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+  override async getXpubFromAccount(
+    networkAccount: INetworkAccount,
+  ): Promise<string | undefined> {
+    const dbAccount = networkAccount as IDBUtxoAccount;
     const stakeAddress = dbAccount.addresses?.['2/0'];
     return stakeAddress;
   }

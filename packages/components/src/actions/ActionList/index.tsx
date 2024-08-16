@@ -74,7 +74,7 @@ export function ActionListItem({
         hoverStyle: { bg: '$bgHover' },
         pressStyle: { bg: '$bgActive' },
         // focusable: true,
-        // focusStyle: {
+        // focusVisibleStyle: {
         //   outlineColor: '$focusRing',
         //   outlineStyle: 'solid',
         //   outlineWidth: 2,
@@ -224,7 +224,9 @@ function BasicActionList({
 }
 
 const showActionList = (
-  props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'>,
+  props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'> & {
+    onClose?: () => void;
+  },
 ) => {
   const ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
@@ -235,6 +237,9 @@ const showActionList = (
       onOpenChange={(isOpen) => {
         props.onOpenChange?.(isOpen);
         if (!isOpen) {
+          setTimeout(() => {
+            props.onClose?.();
+          });
           // delay the destruction of the reference to allow for the completion of the animation transition.
           setTimeout(() => {
             ref.destroy();

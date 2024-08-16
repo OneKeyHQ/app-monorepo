@@ -63,7 +63,7 @@ function ProcessingDialogContent({
       <Stack
         py="$2.5"
         px="$5"
-        space="$5"
+        gap="$5"
         flex={1}
         alignItems="center"
         justifyContent="center"
@@ -85,7 +85,7 @@ function ProcessingDialogContent({
           ) : null}
 
           {/* <SizableText mb="$4">Adding Accounts</SizableText> */}
-          {!isDone ? (
+          {!isFlowEnded ? (
             <Progress
               mt="$4"
               w="100%"

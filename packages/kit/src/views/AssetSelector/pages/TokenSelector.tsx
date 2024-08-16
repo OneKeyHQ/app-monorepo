@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,37 +9,37 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
-  useSearchKeyAtom,
   useTokenListActions,
-  withTokenListProvider,
+  useTokenSelectorSearchKeyAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EAssetSelectorRoutes,
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { useAccountData } from '../../../hooks/useAccountData';
+import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
 
+const num = 0;
+
 function TokenSelector() {
   const intl = useIntl();
   const {
-    refreshTokenList,
-    refreshTokenListMap,
-    updateSearchKey,
-    updateTokenListState,
-    updateSearchTokenState,
-    refreshSearchTokenList,
+    updateTokenSelectorSearchKey,
+    updateTokenSelectorSearchTokenState,
+    refreshTokenSelectorSearchTokenList,
     updateCreateAccountState,
   } = useTokenListActions().current;
 
@@ -50,182 +50,150 @@ function TokenSelector() {
 
   const navigation = useAppNavigation();
 
+  const { createAddress } = useAccountSelectorCreateAddress();
+
   const {
+    title,
     networkId,
     accountId,
-    tokens,
     closeAfterSelect = true,
     onSelect,
-    tokenListState,
     searchAll,
     isAllNetworks,
+    searchPlaceholder,
+    footerTipText,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
 
-  const [searchKey] = useSearchKeyAtom();
+  const [searchKey] = useTokenSelectorSearchKeyAtom();
 
   const handleTokenOnPress = useCallback(
     async (token: IAccountToken) => {
-      const networkAccounts =
-        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-          {
-            networkIds: [token.networkId ?? ''],
-            indexedAccountId: account?.indexedAccountId ?? '',
-          },
-        );
-
-      const networkAccount = networkAccounts[0];
-
-      if (networkAccount.account) {
-        void onSelect?.({
-          ...token,
-          accountId: networkAccount.account.id,
-        });
-      } else if (account) {
-        updateCreateAccountState({
-          isCreating: true,
-          token,
-        });
-        const walletId = accountUtils.getWalletIdFromAccountId({
-          accountId: account.id,
-        });
-        try {
-          const resp =
-            await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
-              walletId,
-              indexedAccountId: account?.indexedAccountId,
-              deriveType: 'default',
+      if (network?.isAllNetworks) {
+        let vaultSettings: IVaultSettings | undefined;
+        if (token.networkId) {
+          vaultSettings =
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
               networkId: token.networkId,
             });
+        }
 
-          updateCreateAccountState({
-            isCreatingAccount: false,
-            token: null,
-          });
+        let accounts: IAllNetworkAccountInfo[] = [];
 
-          if (resp) {
+        try {
+          if (
+            (token.accountId || account?.id) &&
+            (token.networkId || network?.id)
+          ) {
+            const params = token.accountId
+              ? {
+                  accountId: token.accountId ?? '',
+                  networkId: token.networkId ?? '',
+                }
+              : {
+                  accountId: account?.id ?? '',
+                  networkId: network?.id ?? '',
+                };
+            const { accountsInfo } =
+              await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+                ...params,
+                includingNonExistingAccount: true,
+                deriveType: token.accountId ? 'default' : undefined,
+              });
+            accounts = accountsInfo;
+          }
+        } catch {
+          // pass
+        }
+
+        const matchedAccount = accounts.find((item) =>
+          token.accountId
+            ? item.accountId === token.accountId
+            : true && item.networkId === token.networkId,
+        );
+
+        if (
+          vaultSettings?.mergeDeriveAssetsEnabled ||
+          matchedAccount?.accountId
+        ) {
+          if (matchedAccount?.accountId) {
             void onSelect?.({
               ...token,
-              accountId: resp.accounts[0].id,
+              accountId: matchedAccount.accountId,
+            });
+          } else {
+            void onSelect?.(token);
+          }
+        } else if (account) {
+          updateCreateAccountState({
+            isCreating: true,
+            token,
+          });
+          const walletId = accountUtils.getWalletIdFromAccountId({
+            accountId: account.id,
+          });
+          try {
+            const resp = await createAddress({
+              num: 0,
+              account: {
+                walletId,
+                networkId: token.networkId,
+                indexedAccountId: account.indexedAccountId,
+                deriveType: 'default',
+              },
+            });
+
+            updateCreateAccountState({
+              isCreatingAccount: false,
+              token: null,
+            });
+
+            if (resp) {
+              void onSelect?.({
+                ...token,
+                accountId: resp.accounts[0]?.id,
+              });
+            }
+          } catch (e) {
+            updateCreateAccountState({
+              isCreatingAccount: false,
+              token: null,
             });
           }
-        } catch (e) {
-          updateCreateAccountState({
-            isCreatingAccount: false,
-            token: null,
-          });
         }
+      } else {
+        void onSelect?.(token);
       }
 
       if (closeAfterSelect) {
         navigation.pop();
       }
     },
-    [account, closeAfterSelect, navigation, onSelect, updateCreateAccountState],
+    [
+      account,
+      closeAfterSelect,
+      createAddress,
+      navigation,
+      network?.id,
+      network?.isAllNetworks,
+      onSelect,
+      updateCreateAccountState,
+    ],
   );
 
-  const fetchAccountTokens = useCallback(async () => {
-    updateTokenListState({ initialized: false, isRefreshing: true });
-
-    const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-      accountId,
-      networkId,
-      mergeTokens: true,
-      flag: 'token-selector',
-    });
-    const { allTokens } = r;
-    if (!allTokens) {
-      updateTokenListState({ isRefreshing: false });
-      throw new Error('allTokens not found from fetchAccountTokensWithMemo ');
-    }
-
-    refreshTokenList({ keys: allTokens.keys, tokens: allTokens.data });
-    refreshTokenListMap({
-      tokens: allTokens.map,
-    });
-    updateTokenListState({ initialized: true, isRefreshing: false });
-  }, [
-    accountId,
-    networkId,
-    refreshTokenList,
-    refreshTokenListMap,
-    updateTokenListState,
-  ]);
-
-  useEffect(() => {
-    // use route params token
-    const updateTokenList = async () => {
-      if (tokens && tokens.data.length) {
-        refreshTokenList({ tokens: tokens.data, keys: tokens.keys });
-        refreshTokenListMap({
-          tokens: tokens.map,
-        });
-        updateTokenListState({ initialized: true, isRefreshing: false });
-      } else if (!network?.isAllNetworks && !tokenListState?.isRefreshing) {
-        void fetchAccountTokens();
-      }
-    };
-
-    void updateTokenList();
-  }, [
-    fetchAccountTokens,
-    network?.isAllNetworks,
-    networkId,
-    refreshTokenList,
-    refreshTokenListMap,
-    tokenListState?.isRefreshing,
-    tokens,
-    updateTokenListState,
-  ]);
-
-  useEffect(() => {
-    const updateTokenList = async ({
-      tokens: tokensFromOut,
-      keys,
-      map,
-      merge,
-    }: {
-      tokens: IAccountToken[];
-      keys: string;
-      map: Record<string, ITokenFiat>;
-      merge?: boolean;
-    }) => {
-      const mergeDeriveAssetsEnabled = (
-        await backgroundApiProxy.serviceNetwork.getVaultSettings({
-          networkId: tokensFromOut[0].networkId ?? '',
-        })
-      ).mergeDeriveAssetsEnabled;
-
-      updateTokenListState({ initialized: true, isRefreshing: false });
-      refreshTokenList({
-        tokens: tokensFromOut,
-        keys,
-        merge,
-        mergeDerive: mergeDeriveAssetsEnabled,
-      });
-      refreshTokenListMap({
-        tokens: map,
-        merge,
-        mergeDerive: mergeDeriveAssetsEnabled,
-      });
-    };
-    appEventBus.on(EAppEventBusNames.TokenListUpdate, updateTokenList);
-    return () => {
-      appEventBus.off(EAppEventBusNames.TokenListUpdate, updateTokenList);
-    };
-  }, [refreshTokenList, refreshTokenListMap, updateTokenListState]);
-
   const debounceUpdateSearchKey = useDebouncedCallback(
-    updateSearchKey,
+    updateTokenSelectorSearchKey,
     searchAll ? 1000 : 200,
   );
 
   const headerSearchBarOptions = useMemo(
     () => ({
-      placeholder: intl.formatMessage({
-        id: ETranslations.send_token_selector_search_placeholder,
-      }),
+      placeholder:
+        searchPlaceholder ??
+        intl.formatMessage({
+          id: ETranslations.send_token_selector_search_placeholder,
+        }),
       onChangeText: ({
         nativeEvent,
       }: {
@@ -234,12 +202,12 @@ function TokenSelector() {
         debounceUpdateSearchKey(nativeEvent.text);
       },
     }),
-    [debounceUpdateSearchKey, intl],
+    [debounceUpdateSearchKey, intl, searchPlaceholder],
   );
 
   const searchTokensBySearchKey = useCallback(
     async (keywords: string) => {
-      updateSearchTokenState({ isSearching: true });
+      updateTokenSelectorSearchTokenState({ isSearching: true });
       await backgroundApiProxy.serviceToken.abortSearchTokens();
       try {
         const result = await backgroundApiProxy.serviceToken.searchTokens({
@@ -247,37 +215,49 @@ function TokenSelector() {
           networkId,
           keywords,
         });
-        refreshSearchTokenList({ tokens: result });
+        refreshTokenSelectorSearchTokenList({ tokens: result });
       } catch (e) {
         console.log(e);
       }
-      updateSearchTokenState({ isSearching: false });
+      updateTokenSelectorSearchTokenState({ isSearching: false });
     },
-    [accountId, networkId, refreshSearchTokenList, updateSearchTokenState],
+    [
+      accountId,
+      networkId,
+      refreshTokenSelectorSearchTokenList,
+      updateTokenSelectorSearchTokenState,
+    ],
   );
 
   useEffect(() => {
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
       void searchTokensBySearchKey(searchKey);
     } else {
-      updateSearchTokenState({ isSearching: false });
-      refreshSearchTokenList({ tokens: [] });
+      updateTokenSelectorSearchTokenState({ isSearching: false });
+      refreshTokenSelectorSearchTokenList({ tokens: [] });
       void backgroundApiProxy.serviceToken.abortSearchTokens();
     }
   }, [
-    refreshSearchTokenList,
+    refreshTokenSelectorSearchTokenList,
     searchAll,
     searchKey,
     searchTokensBySearchKey,
-    updateSearchTokenState,
+    updateTokenSelectorSearchTokenState,
   ]);
 
   return (
-    <Page>
+    <Page
+      safeAreaEnabled={false}
+      onClose={() => updateTokenSelectorSearchKey('')}
+      onUnmounted={() => updateTokenSelectorSearchKey('')}
+    >
       <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.global_select_crypto,
-        })}
+        title={
+          title ??
+          intl.formatMessage({
+            id: ETranslations.global_select_crypto,
+          })
+        }
         headerSearchBarOptions={headerSearchBarOptions}
       />
       <Page.Body>
@@ -287,13 +267,25 @@ function TokenSelector() {
           isAllNetworks={isAllNetworks ?? network?.isAllNetworks}
           withNetwork={isAllNetworks ?? network?.isAllNetworks}
           searchAll={searchAll}
-          isTokenSelectorLayout
+          isTokenSelector
+          footerTipText={footerTipText}
         />
       </Page.Body>
     </Page>
   );
 }
 
-const TokenSelectorWithProvider = memo(withTokenListProvider(TokenSelector));
-
-export default TokenSelectorWithProvider;
+export default function TokenSelectorModal() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[num]}
+    >
+      <HomeTokenListProviderMirror>
+        <TokenSelector />
+      </HomeTokenListProviderMirror>
+    </AccountSelectorProviderMirror>
+  );
+}

@@ -77,7 +77,7 @@ function ActionsGroup({ items }: IActionsProp) {
             pressStyle={{
               bg: item.primary ? '$bgPrimaryActive' : '$bgStrongActive',
             }}
-            focusStyle={{
+            focusVisibleStyle={{
               outlineColor: '$focusRing',
               outlineStyle: 'solid',
               outlineWidth: 2,
@@ -190,19 +190,6 @@ export function GetStarted({
     <Page safeAreaEnabled>
       <Page.Header headerShown={false} />
       <Page.Body>
-        {showCloseButton ? (
-          <Page.Close>
-            <IconButton
-              icon="CrossedLargeOutline"
-              position="absolute"
-              variant="tertiary"
-              left="$5"
-              top="$5"
-              p="$4"
-              zIndex={1}
-            />
-          </Page.Close>
-        ) : null}
         <Stack flex={1}>
           <ThemeableStack
             fullscreen
@@ -257,7 +244,7 @@ export function GetStarted({
         <Stack
           py="$6"
           px="$5"
-          space="$2.5"
+          gap="$2.5"
           $gtMd={{
             maxWidth: '$96',
           }}
@@ -352,12 +339,26 @@ export function GetStarted({
             },
           )}
         </SizableText>
+        {showCloseButton ? (
+          <View position="absolute" left="$5" top="$5">
+            <Page.Close>
+              <IconButton icon="CrossedLargeOutline" variant="tertiary" />
+            </Page.Close>
+          </View>
+        ) : null}
       </Page.Body>
     </Page>
   );
 }
 
 export default GetStarted;
+
+export const openOnBoardingFromExt = () => {
+  if (platformEnv.isExtension && typeof window !== 'undefined') {
+    return window.location.hash.includes('fromExt=true');
+  }
+  return false;
+};
 
 export const useToOnBoardingPage = () => {
   const navigation = useAppNavigation();
@@ -377,7 +378,10 @@ export const useToOnBoardingPage = () => {
               EModalRoutes.OnboardingModal,
               EOnboardingPages.GetStarted,
             ],
-            params,
+            params: {
+              ...params,
+              fromExt: true,
+            },
           });
         } else {
           navigation[isFullModal ? 'pushFullModal' : 'pushModal'](

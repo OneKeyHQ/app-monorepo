@@ -107,9 +107,9 @@ function ListFooterComponent({
 function SkeletonList() {
   return Array.from({ length: 5 }).map((_, index) => (
     <ListItem key={index}>
-      <XStack alignItems="center" space="$3">
+      <XStack alignItems="center" gap="$3">
         <Skeleton width="$10" height="$10" radius="round" />
-        <YStack space="$2">
+        <YStack gap="$2">
           <Skeleton w={120} h={12} borderRadius="$3" />
           <Skeleton w={80} h={12} borderRadius="$3" />
         </YStack>
@@ -150,8 +150,8 @@ function TokenManagerList({
   searchValue: string;
   searchResult: ICustomTokenItem[] | null;
 }) {
+  const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
-
   if (isLoadingRemoteData || !dataSource) {
     return <SkeletonList />;
   }
@@ -180,7 +180,7 @@ function TokenManagerList({
             isAllNetworks
           />
           <YStack flex={1}>
-            <XStack space="$2">
+            <XStack gap="$2">
               <SizableText size="$bodyLgMedium" color="$text">
                 {item.symbol}
               </SizableText>
@@ -194,6 +194,13 @@ function TokenManagerList({
           </YStack>
           <ListItem.IconButton
             disabled={!!(checkTokenExistInTokenList(item) && item.isNative)}
+            title={
+              checkTokenExistInTokenList(item) && item.isNative
+                ? intl.formatMessage({
+                    id: ETranslations.manage_token_native_token_cannot_removed,
+                  })
+                : undefined
+            }
             icon={
               checkTokenExistInTokenList(item)
                 ? 'MinusCircleOutline'
@@ -228,6 +235,7 @@ function TokenManagerList({
           isLoading={isLoadingRemoteData || !!isLoadingLocalData}
         />
       }
+      keyboardDismissMode="on-drag"
     />
   );
 }

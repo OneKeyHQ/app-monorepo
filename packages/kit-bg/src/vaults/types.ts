@@ -19,6 +19,7 @@ import type {
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
   IFeeInfoUnit,
@@ -50,6 +51,7 @@ import type {
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -128,6 +130,7 @@ export type IVaultSettings = {
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
+  qrAccountEnabled?: boolean;
   publicKeyExportEnabled?: boolean;
 
   supportExportedSecretKeys?: ECoreApiExportedSecretKeyType[];
@@ -135,6 +138,9 @@ export type IVaultSettings = {
   dappInteractionEnabled?: boolean;
 
   softwareAccountDisabled?: boolean;
+
+  supportedDeviceTypes?: IDeviceType[];
+
   addressBookDisabled?: boolean;
   copyAddressDisabled?: boolean;
 
@@ -212,7 +218,9 @@ export type IVaultSettings = {
   preCheckDappTxFeeInfoRequired?: boolean;
 
   activateTokenRequired?: boolean;
+  customRpcEnabled?: boolean;
   mergeDeriveAssetsEnabled?: boolean;
+  sendZeroWithZeroTokenBalanceDisabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -450,6 +458,11 @@ export interface IBroadcastTransactionParams {
   accountAddress: string;
   signedTx: ISignedTxPro;
   signature?: string;
+}
+
+export interface IBroadcastTransactionByCustomRpcParams
+  extends IBroadcastTransactionParams {
+  customRpcInfo: IDBCustomRpc;
 }
 
 export interface IPreCheckFeeInfoParams {

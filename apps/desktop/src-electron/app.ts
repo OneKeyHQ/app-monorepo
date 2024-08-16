@@ -25,9 +25,10 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type { IPrefType } from '@onekeyhq/shared/types/desktop';
+import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
+import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess, { restartBridge } from './process';
@@ -74,75 +75,168 @@ function showMainWindow() {
   mainWindow.focus();
 }
 
-const template = [
-  // { role: 'appMenu' },
-  ...(isMac
-    ? [
+const initMenu = () => {
+  const template = [
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              {
+                role: 'about',
+                label: i18nText(ETranslations.menu_about_onekey_wallet),
+              },
+              { type: 'separator' },
+              {
+                label: i18nText(ETranslations.menu_check_for_updates),
+                click: () => {
+                  if (mainWindow) {
+                    mainWindow.webContents.send(
+                      ipcMessageKeys.CHECK_FOR_UPDATES,
+                    );
+                  }
+                },
+              },
+              { type: 'separator' },
+              {
+                label: i18nText(ETranslations.menu_preferences),
+                accelerator: 'CmdOrCtrl+,',
+                click: () => {
+                  if (mainWindow) {
+                    mainWindow.webContents.send(
+                      ipcMessageKeys.APP_OPEN_SETTINGS,
+                    );
+                  }
+                },
+              },
+              { type: 'separator' },
+              {
+                label: i18nText(ETranslations.menu_lock_now),
+                click: () => {
+                  if (mainWindow) {
+                    mainWindow.webContents.send(ipcMessageKeys.APP_LOCK_NOW);
+                  }
+                },
+              },
+              { type: 'separator' },
+              {
+                role: 'hide',
+                accelerator: 'Alt+CmdOrCtrl+H',
+                label: i18nText(ETranslations.menu_hide_onekey_wallet),
+              },
+              { role: 'unhide', label: i18nText(ETranslations.menu_show_all) },
+              { type: 'separator' },
+              {
+                role: 'quit',
+                label: i18nText(ETranslations.menu_quit_onekey_wallet),
+              },
+            ],
+          },
+        ]
+      : []),
+    {
+      label: i18nText(ETranslations.global_edit),
+      submenu: [
+        { role: 'undo', label: i18nText(ETranslations.menu_undo) },
+        { role: 'redo', label: i18nText(ETranslations.menu_redo) },
+        { type: 'separator' },
+        { role: 'cut', label: i18nText(ETranslations.menu_cut) },
+        { role: 'copy', label: i18nText(ETranslations.global_copy) },
+        { role: 'paste', label: i18nText(ETranslations.menu_paste) },
+        { type: 'separator' },
         {
-          label: app.name,
-          submenu: [
-            { role: 'about' },
-            { type: 'separator' },
-            { role: 'services' },
-            { type: 'separator' },
-            { role: 'hide' },
-            { role: 'hideOthers' },
-            { role: 'unhide' },
-            { type: 'separator' },
-            { role: 'quit' },
-          ],
+          role: 'delete',
+          label: i18nText(ETranslations.global_delete),
         },
-      ]
-    : []),
-  { role: 'editMenu' },
-  // remove `Reload`, 'Force reload' and 'Toggle Developer Tools' from `View` menu
-  isDev || store.getDevTools()
-    ? { role: 'viewMenu' }
-    : {
-        label: 'View',
-        submenu: [
-          { role: 'resetZoom' },
-          { role: 'zoomIn' },
-          { role: 'zoomOut' },
-          { type: 'separator' },
-          { role: 'togglefullscreen' },
-        ],
-      },
-  {
-    label: 'Window',
-    submenu: [
-      { role: 'minimize' },
-      { role: 'zoom' },
-      ...(isMac
-        ? [
-            { type: 'separator' },
-            { role: 'front' },
-            { type: 'separator' },
-            { role: 'window' },
-            {
-              label: 'OneKey',
-              click: showMainWindow,
-              accelerator: 'CmdOrCtrl+O',
-            },
-          ]
-        : [{ role: 'close' }]),
-    ],
-  },
-  {
-    role: 'help',
-    submenu: [
-      {
-        label: 'Learn More',
-        click: async () => {
-          await shell.openExternal('https://onekey.so');
+        {
+          role: 'selectAll',
+          label: i18nText(ETranslations.menu_select_all),
         },
-      },
-    ],
-  },
-];
+      ],
+    },
+    {
+      label: i18nText(ETranslations.menu_view),
+      submenu: [
+        ...(isDev || store.getDevTools()
+          ? [
+              { role: 'reload' },
+              { role: 'forceReload' },
+              { role: 'toggleDevTools' },
+              { type: 'separator' },
+            ]
+          : []),
+        { role: 'resetZoom', label: i18nText(ETranslations.menu_actual_size) },
+        { role: 'zoomIn', label: i18nText(ETranslations.menu_zoom_in) },
+        { role: 'zoomOut', label: i18nText(ETranslations.menu_zoom_out) },
+        { type: 'separator' },
+        {
+          role: 'togglefullscreen',
+          label: i18nText(ETranslations.menu_toggle_full_screen),
+        },
+      ],
+    },
+    {
+      label: i18nText(ETranslations.menu_window),
+      submenu: [
+        { role: 'minimize', label: i18nText(ETranslations.menu_minimize) },
+        { role: 'zoom', label: i18nText(ETranslations.menu_zoom) },
+        ...(isMac
+          ? [
+              { type: 'separator' },
+              {
+                role: 'front',
+                label: i18nText(ETranslations.menu_bring_all_to_front),
+              },
+              { type: 'separator' },
+              { role: 'window', label: i18nText(ETranslations.menu_window) },
+            ]
+          : []),
+      ],
+    },
+    {
+      role: 'help',
+      label: i18nText(ETranslations.menu_help),
+      submenu: [
+        {
+          label: i18nText(ETranslations.menu_visit_help_center),
+          click: async () => {
+            await shell.openExternal('https://help.onekey.so');
+          },
+        },
+        { type: 'separator' },
+        {
+          label: i18nText(ETranslations.menu_official_website),
+          click: async () => {
+            await shell.openExternal('https://onekey.so');
+          },
+        },
+        {
+          label: 'Github',
+          click: async () => {
+            await shell.openExternal(
+              'https://github.com/OneKeyHQ/app-monorepo',
+            );
+          },
+        },
+        {
+          label: 'X',
+          click: async () => {
+            await shell.openExternal('https://x.com/onekeyhq');
+          },
+        },
+      ],
+    },
+  ];
+  const menu = Menu.buildFromTemplate(template as any);
+  Menu.setApplicationMenu(menu);
+};
 
-const menu = Menu.buildFromTemplate(template as any);
-Menu.setApplicationMenu(menu);
+const refreshMenu = () => {
+  setTimeout(async () => {
+    await initLocale();
+    initMenu();
+  }, 50);
+};
 
 const emitter = new EventEmitter();
 let isAppReady = false;
@@ -185,12 +279,6 @@ function handleDeepLinkUrl(
   }
 }
 
-function clearWebData() {
-  return session.defaultSession.clearStorageData({
-    storages: ['cookies'],
-  });
-}
-
 function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
   if (systemIdleInterval) {
     clearInterval(systemIdleInterval);
@@ -223,6 +311,8 @@ const getBackgroundColor = (key: string) =>
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 function createMainWindow() {
+  initMenu();
+
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   const ratio = 16 / 9;
@@ -358,6 +448,14 @@ function createMainWindow() {
   });
 
   ipcMain.on(
+    ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS,
+    (event, prefType: IMediaType) => {
+      const result = systemPreferences?.getMediaAccessStatus?.(prefType);
+      event.returnValue = result;
+    },
+  );
+
+  ipcMain.on(
     ipcMessageKeys.APP_OPEN_PREFERENCES,
     (_event, prefType: IPrefType) => {
       const platform = os.type();
@@ -415,12 +513,9 @@ function createMainWindow() {
     };
   });
 
-  ipcMain.on(ipcMessageKeys.APP_OPEN_DEV_TOOLS, () => {
-    store.setDevTools(true);
-    setTimeout(() => {
-      void app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
-      app.exit(0);
-    }, 10);
+  ipcMain.on(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, (event, isOpen) => {
+    store.setDevTools(isOpen);
+    refreshMenu();
   });
 
   ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
@@ -474,6 +569,11 @@ function createMainWindow() {
     logger.debug('restoreMainWindow receive');
     showMainWindow();
     event.reply(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, true);
+  });
+
+  ipcMain.on(ipcMessageKeys.APP_CHANGE_LANGUAGE, (event, lang: string) => {
+    store.setLanguage(lang);
+    refreshMenu();
   });
 
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
@@ -692,6 +792,8 @@ if (!singleInstance && !process.mas) {
 
   app.name = APP_NAME;
   app.on('ready', async () => {
+    const locale = await initLocale();
+    logger.info('locale >>>> ', locale);
     if (!mainWindow) {
       mainWindow = createMainWindow();
     }

@@ -341,7 +341,7 @@ const DesktopWebView = forwardRef(
           ref={initWebviewByRef}
           preload={preloadJsUrl}
           src={src}
-          partition="webview"
+          partition="persist:onekey"
           style={{
             'width': '100%',
             'height': '100%',

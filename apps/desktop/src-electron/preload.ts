@@ -5,6 +5,7 @@ import { verify } from 'openpgp';
 
 import type {
   IDesktopAppState,
+  IMediaType,
   IPrefType,
 } from '@onekeyhq/shared/types/desktop';
 
@@ -35,13 +36,17 @@ export type IDesktopAPI = {
   reload: () => void;
   ready: () => void;
   focus: () => void;
+  getMediaAccessStatus: (
+    prefType: IMediaType,
+  ) => 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
   openPreferences: (prefType: IPrefType) => void;
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   canPromptTouchID: () => boolean;
   getEnvPath: () => { [key: string]: string };
-  openDevTools: () => void;
+  changeDevTools: (isOpen: boolean) => void;
   changeTheme: (theme: string) => void;
+  changeLanguage: (theme: string) => void;
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
   secureGetItemAsync: (key: string) => Promise<string | null>;
@@ -135,6 +140,9 @@ const validChannels = [
   ipcMessageKeys.UPDATE_ERROR,
   ipcMessageKeys.UPDATE_DOWNLOADING,
   ipcMessageKeys.UPDATE_DOWNLOADED,
+  ipcMessageKeys.CHECK_FOR_UPDATES,
+  ipcMessageKeys.APP_OPEN_SETTINGS,
+  ipcMessageKeys.APP_LOCK_NOW,
   ipcMessageKeys.TOUCH_UPDATE_RES_SUCCESS,
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
 ];
@@ -185,12 +193,18 @@ const desktopApi = {
       ipcRenderer.removeListener(ipcMessageKeys.APP_STATE, handler);
     };
   },
+  getMediaAccessStatus: (prefType: IMediaType) =>
+    ipcRenderer.sendSync(ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS, prefType),
   openPreferences: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFERENCES),
   toggleMaximizeWindow: () =>
     ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
-  openDevTools: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_DEV_TOOLS),
+  changeDevTools: (isOpen: boolean) =>
+    ipcRenderer.send(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, isOpen),
   changeTheme: (theme: string) =>
     ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme),
+  changeLanguage: (lang: string) => {
+    ipcRenderer.send(ipcMessageKeys.APP_CHANGE_LANGUAGE, lang);
+  },
   canPromptTouchID: () =>
     ipcRenderer.sendSync(ipcMessageKeys.TOUCH_ID_CAN_PROMPT) as boolean,
   getEnvPath: () =>
@@ -246,7 +260,6 @@ const desktopApi = {
   restore: () => {
     ipcRenderer.send(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW);
   },
-
   startServer: (port: number, cb: (data: string, success: boolean) => void) => {
     ipcRenderer.on(ipcMessageKeys.SERVER_START_RES, (_, arg) => {
       const { data, success } = arg;

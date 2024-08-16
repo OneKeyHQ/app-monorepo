@@ -29,6 +29,8 @@ export enum EOneKeyErrorClassNames {
   OneKeyErrorAirGapAccountNotFound = 'OneKeyErrorAirGapAccountNotFound',
   OneKeyErrorScanQrCodeCancel = 'OneKeyErrorScanQrCodeCancel',
   SecureQRCodeDialogCancel = 'SecureQRCodeDialogCancel',
+  FirmwareUpdateExit = 'FirmwareUpdateExit',
+  FirmwareUpdateTasksClear = 'FirmwareUpdateTasksClear',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

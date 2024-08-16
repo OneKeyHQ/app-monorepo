@@ -37,6 +37,8 @@ export default class ServiceBase {
 
   _currentNetworkId: string | undefined;
 
+  _currentAccountId: string | undefined;
+
   getClient = memoizee(
     async (endpointName: EServiceEndpointEnum) => {
       const existingClient = clients[endpointName];
@@ -51,14 +53,14 @@ export default class ServiceBase {
         platformEnv.isDev && process.env.ONEKEY_PROXY
           ? {
               baseURL: platformEnv.isExtension ? 'http://localhost:3180' : '/',
-              timeout: 60 * 1000,
+              timeout: 30 * 1000,
               headers: {
                 'X-OneKey-Dev-Proxy': endpoint,
               },
             }
           : {
               baseURL: endpoint,
-              timeout: 60 * 1000,
+              timeout: 30 * 1000,
             };
       const client = axios.create(options);
       clients[endpointName] = client;
@@ -86,7 +88,14 @@ export default class ServiceBase {
   }
 
   @backgroundMethod()
-  public async updateCurrentNetworkId({ networkId }: { networkId: string }) {
+  public async updateCurrentAccount({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
     this._currentNetworkId = networkId;
+    this._currentAccountId = accountId;
   }
 }

@@ -28,10 +28,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { TokenManagerList } from '../components/TokenManager/TokenManagerList';
-import {
-  useAccountInfoForManageToken,
-  useCheckAccountExist,
-} from '../hooks/useAddToken';
+import { useAccountInfoForManageToken } from '../hooks/useAddToken';
 import { useTokenManagement } from '../hooks/useTokenManagement';
 import { useTokenSearch } from '../hooks/useTokenSearch';
 
@@ -76,6 +73,7 @@ function TokenManagerModal() {
   } = useTokenSearch({
     walletId,
     networkId,
+    accountId,
   });
 
   const dataSource = useMemo(() => {

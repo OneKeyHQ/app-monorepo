@@ -23,4 +23,17 @@ export class DappScene extends BaseScene {
   }) {
     return params;
   }
+
+  @LogToServer()
+  @LogToLocal()
+  public dappUse(params: {
+    dappName: string;
+    dappDomain: string;
+    action: 'ConnectWallet' | 'SendTxn';
+    network?: string;
+    walletAddress?: string;
+    failReason?: string;
+  }) {
+    return params;
+  }
 }

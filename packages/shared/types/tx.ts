@@ -105,6 +105,7 @@ export type IDecodedTx = {
 
   networkId: string;
   accountId: string;
+  networkLogoURI?: string;
   xpub?: string;
 
   feeInfo?: IFeeInfoUnit;

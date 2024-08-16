@@ -59,7 +59,16 @@ class ServiceToken extends ServiceBase {
   public async fetchAccountTokens(
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
-    const { mergeTokens, flag, accountId, isAllNetworks, ...rest } = params;
+    const {
+      mergeTokens,
+      flag,
+      accountId,
+      isAllNetworks,
+      isManualRefresh,
+      allNetworksAccountId,
+      allNetworksNetworkId,
+      ...rest
+    } = params;
     const { networkId, contractList = [] } = rest;
     if (
       isAllNetworks &&
@@ -70,20 +79,11 @@ class ServiceToken extends ServiceBase {
         networkId: this._currentNetworkId,
       };
 
-    if (
-      [getNetworkIdsMap().eth, getNetworkIdsMap().sepolia].includes(networkId)
-    ) {
-      // Add native/matic token address to the contract list, due to the fact that lack of native/matic staking entry page
-      const maticAddress =
-        networkId === getNetworkIdsMap().eth ? EthereumMatic : SepoliaMatic;
-      rest.contractList = ['', maticAddress, ...contractList];
-    }
-
     const accountParams = {
       accountId,
       networkId,
     };
-    const [xpub, accountAddress, customTokens, hiddenTokens] =
+    const [xpub, accountAddress, customTokens, hiddenTokens, vaultSettings] =
       await Promise.all([
         this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
         this.backgroundApi.serviceAccount.getAccountAddressForApi(
@@ -91,6 +91,7 @@ class ServiceToken extends ServiceBase {
         ),
         this.backgroundApi.serviceCustomToken.getCustomTokens(accountParams),
         this.backgroundApi.serviceCustomToken.getHiddenTokens(accountParams),
+        this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
       ]);
 
     if (!accountAddress && !xpub) {
@@ -121,6 +122,8 @@ class ServiceToken extends ServiceBase {
         ...rest,
         accountAddress,
         xpub,
+        isAllNetwork: isAllNetworks,
+        isForceRefresh: isManualRefresh,
       },
       {
         signal: controller.signal,
@@ -144,6 +147,7 @@ class ServiceToken extends ServiceBase {
           ...token,
           accountId,
           networkId,
+          mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
         }));
       }
       resp.data.data.allTokens = allTokens;
@@ -153,6 +157,7 @@ class ServiceToken extends ServiceBase {
       ...token,
       accountId,
       networkId,
+      mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
     }));
 
     resp.data.data.riskTokens.data = resp.data.data.riskTokens.data.map(
@@ -160,6 +165,7 @@ class ServiceToken extends ServiceBase {
         ...token,
         accountId,
         networkId,
+        mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
       }),
     );
 
@@ -168,9 +174,18 @@ class ServiceToken extends ServiceBase {
         ...token,
         accountId,
         networkId,
+        mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
       }));
 
-    resp.data.data.networkId = this._currentNetworkId;
+    resp.data.data.accountId = accountId;
+    resp.data.data.networkId = networkId;
+
+    resp.data.data.isSameAllNetworksAccountData = !!(
+      allNetworksAccountId &&
+      allNetworksNetworkId &&
+      allNetworksAccountId === this._currentAccountId &&
+      allNetworksNetworkId === this._currentNetworkId
+    );
 
     return resp.data.data;
   }

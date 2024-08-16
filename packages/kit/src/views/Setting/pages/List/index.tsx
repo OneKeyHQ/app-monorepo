@@ -17,7 +17,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useWebAuthActions } from '@onekeyhq/kit/src/components/BiologyAuthComponent/hooks/useWebAuthActions';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAppUpdatePersistAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import {
   DISCORD_URL,
   GITHUB_URL,
@@ -68,6 +72,7 @@ const SocialButton: FC<ISocialButtonProps> = ({ icon, url, text }) => {
 const SocialButtonGroup = () => {
   const intl = useIntl();
   const { copyText } = useClipboard();
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
   const versionString = intl.formatMessage(
     {
       id: ETranslations.settings_version_versionnum,
@@ -86,7 +91,7 @@ const SocialButtonGroup = () => {
   return (
     <YStack>
       <XStack justifyContent="center">
-        <XStack space="$3" paddingVertical="$3" my="$3">
+        <XStack gap="$3" paddingVertical="$3" my="$3">
           <SocialButton
             icon="OnekeyBrand"
             url={ONEKEY_URL}
@@ -111,15 +116,22 @@ const SocialButtonGroup = () => {
           />
         </XStack>
       </XStack>
-      <XStack justifyContent="center" py="$4" testID="setting-version">
-        <SizableText
-          selectable={false}
-          color="$textSubdued"
-          onPress={handlePress}
-        >
+      <YStack
+        jc="center"
+        py="$4"
+        ai="center"
+        userSelect="none"
+        testID="setting-version"
+      >
+        <SizableText color="$textSubdued" onPress={handlePress}>
           {versionString}
         </SizableText>
-      </XStack>
+        {appUpdateInfo.status === EAppUpdateStatus.done ? (
+          <SizableText color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
+          </SizableText>
+        ) : null}
+      </YStack>
     </YStack>
   );
 };

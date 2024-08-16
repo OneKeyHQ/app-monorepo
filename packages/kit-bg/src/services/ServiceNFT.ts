@@ -38,7 +38,15 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountNFTs(params: IFetchAccountNFTsParams) {
-    const { accountId, networkId, isAllNetworks, ...rest } = params;
+    const {
+      accountId,
+      networkId,
+      isAllNetworks,
+      allNetworksAccountId,
+      allNetworksNetworkId,
+      isManualRefresh,
+      ...rest
+    } = params;
 
     if (
       isAllNetworks &&
@@ -71,7 +79,17 @@ class ServiceNFT extends ServiceBase {
       data: IFetchAccountNFTsResp;
     }>(
       `/wallet/v1/account/nft/list?${qs.stringify(
-        omitBy({ networkId, accountAddress, xpub, ...rest }, isNil),
+        omitBy(
+          {
+            networkId,
+            accountAddress,
+            xpub,
+            isAllNetwork: isAllNetworks,
+            isForceRefresh: isManualRefresh,
+            ...rest,
+          },
+          isNil,
+        ),
       )}`,
       {
         signal: controller.signal,
@@ -89,6 +107,13 @@ class ServiceNFT extends ServiceBase {
     }));
 
     resp.data.data.networkId = this._currentNetworkId;
+
+    resp.data.data.isSameAllNetworksAccountData = !!(
+      allNetworksAccountId &&
+      allNetworksNetworkId &&
+      allNetworksAccountId === this._currentAccountId &&
+      allNetworksNetworkId === this._currentNetworkId
+    );
 
     return resp.data.data;
   }

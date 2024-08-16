@@ -132,6 +132,7 @@ function NFTListView(props: IProps) {
   const contentContainerStyle = useMemo(
     () => ({
       pb: '$6',
+      px: '$2.5',
     }),
     [],
   );
@@ -152,8 +153,6 @@ function NFTListView(props: IProps) {
       contentContainerStyle={contentContainerStyle}
       numColumns={numColumns}
       data={filteredNfts}
-      py="$3"
-      px="$2.5"
       renderItem={handleRenderItem}
       ListHeaderComponent={<NFTListHeader filteredNfts={filteredNfts} />}
       ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}

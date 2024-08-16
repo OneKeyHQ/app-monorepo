@@ -10,9 +10,11 @@ export type IToken = {
   sendAddress?: string;
 
   // for all networks
+  order?: number;
   networkId?: string;
   accountId?: string;
   allNetworkAccountId?: string;
+  mergeAssets?: boolean;
 };
 
 export type ITokenFiat = {
@@ -43,6 +45,10 @@ export type IFetchAccountTokensParams = {
   hiddenTokens?: string[];
   flag?: string;
   isAllNetworks?: boolean;
+  isManualRefresh?: boolean;
+
+  allNetworksAccountId?: string;
+  allNetworksNetworkId?: string;
 };
 
 export type ITokenData = {
@@ -57,7 +63,9 @@ export type IFetchAccountTokensResp = {
   tokens: ITokenData;
   riskTokens: ITokenData;
   smallBalanceTokens: ITokenData;
+  accountId?: string;
   networkId?: string;
+  isSameAllNetworksAccountData?: boolean;
 };
 
 export type IFetchTokenDetailParams = {

@@ -78,10 +78,10 @@ type IProps = {
   replaceTxOriginalFeeInfo?: IFeeInfoUnit;
 };
 
-const DEFAULT_GAS_LIMIT_MIN = 21000;
-const DEFAULT_GAS_LIMIT_MAX = 15000000;
+const DEFAULT_GAS_LIMIT_MIN = 21_000;
+const DEFAULT_GAS_LIMIT_MAX = 15_000_000;
 const DEFAULT_FEER_ATE_MIN = 0;
-const DEFAULT_FEE_RATE_MAX = 1000000; // shared cross multi-networks
+const DEFAULT_FEE_RATE_MAX = 1_000_000; // shared cross multi-networks
 
 const getPresetIndex = (
   sendSelectedFee: IProps['sendSelectedFee'],
@@ -121,7 +121,7 @@ function FeeInfoItem({
       <SizableText size="$bodyMd" color="$textSubdued">
         {label}
       </SizableText>
-      <XStack alignItems="center" space="$1">
+      <XStack alignItems="center" gap="$1">
         {!isNil(nativeValue) ? (
           <NumberSizeableText
             formatter="balance"
@@ -756,7 +756,7 @@ function FeeEditor(props: IProps) {
     if (customFee.gasEIP1559) {
       return (
         <Form form={form}>
-          <YStack space="$5">
+          <YStack gap="$5">
             <Form.Field
               label={intl.formatMessage({
                 id: ETranslations.transaction_max_base_fee,
@@ -855,7 +855,7 @@ function FeeEditor(props: IProps) {
     if (customFee.gas) {
       return (
         <Form form={form}>
-          <YStack space="$5">
+          <YStack gap="$5">
             <Form.Field
               label={intl.formatMessage(
                 {
@@ -1206,7 +1206,7 @@ function FeeEditor(props: IProps) {
             $gtMd={
               {
                 size: 'medium',
-              } as IButtonProps
+              } as any
             }
             onPress={handleApplyFeeInfo}
           >
@@ -1301,7 +1301,7 @@ function FeeEditor(props: IProps) {
   return (
     <>
       <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$72">
-        <Stack space="$5">
+        <Stack gap="$5">
           {renderFeeTypeSelector()}
           {renderFeeEditorForm()}
         </Stack>

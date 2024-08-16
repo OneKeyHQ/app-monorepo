@@ -25,15 +25,12 @@ import {
   INDEX_PLACEHOLDER,
   SEPERATOR,
 } from '../engine/engineConsts';
-import { CoreSDKLoader } from '../hardware/instance';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
-import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
-import type { SearchDevice } from '@onekeyfe/hd-core';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -417,7 +414,11 @@ function getAccountCompatibleNetwork({
   account: IDBAccount;
   networkId: string | undefined;
 }) {
-  let accountNetworkId = networkId;
+  let accountNetworkId = networkId || account.createAtNetwork;
+
+  if (networkUtils.isAllNetwork({ networkId: accountNetworkId })) {
+    return accountNetworkId;
+  }
 
   if (networkId) {
     const activeNetworkImpl = networkUtils.getNetworkImpl({
@@ -447,6 +448,7 @@ function getAccountCompatibleNetwork({
     }
   }
 
+  // recheck chainId available
   if (
     accountNetworkId &&
     !networkUtils.parseNetworkId({ networkId: accountNetworkId }).chainId
@@ -469,6 +471,11 @@ function isOthersWallet({ walletId }: { walletId: string }) {
     walletId === WALLET_TYPE_EXTERNAL ||
     walletId === WALLET_TYPE_IMPORTED
   );
+}
+
+function isOthersAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isOthersWallet({ walletId });
 }
 
 function buildHwWalletId({
@@ -644,25 +651,9 @@ function formatUtxoPath(path: string): string {
   return newPath;
 }
 
+// buildDeviceName() move to deviceUtils.buildDeviceName()
 function buildDeviceDbId() {
   return generateUUID();
-}
-
-async function buildDeviceName({
-  device,
-  features,
-}: {
-  device?: SearchDevice;
-  features: IOneKeyDeviceFeatures;
-}) {
-  const { getDeviceUUID } = await CoreSDKLoader();
-  // const deviceType =
-  //   device?.deviceType ||
-  //   (await deviceUtils.getDeviceTypeFromFeatures({ features }));
-  const deviceUUID = device?.uuid || getDeviceUUID(features);
-  return (
-    features.label ?? features.ble_name ?? `OneKey ${deviceUUID.slice(-4)}`
-  );
 }
 
 function buildUtxoAddressRelPath({
@@ -730,11 +721,11 @@ export default {
   isAccountCompatibleWithNetwork,
   getAccountCompatibleNetwork,
   isOthersWallet,
+  isOthersAccount,
   isUrlAccountFn,
   buildBtcToLnPath,
   buildLnToBtcPath,
   buildLightningAccountId,
-  buildDeviceName,
   buildDeviceDbId,
   getWalletConnectMergedNetwork,
   formatUtxoPath,

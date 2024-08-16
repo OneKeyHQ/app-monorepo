@@ -38,6 +38,10 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
+import type {
   IEstimateFeeParams,
   IFeeInfoUnit,
 } from '@onekeyhq/shared/types/fee';
@@ -80,6 +84,7 @@ import type {
   IDBWalletType,
 } from '../../dbs/local/types';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
@@ -94,6 +99,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { MessageDescriptor } from 'react-intl';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
@@ -107,6 +113,12 @@ if (platformEnv.isExtensionUi) {
 
 export abstract class VaultBaseChainOnly extends VaultContext {
   coreApi: CoreChainApiBase | undefined;
+
+  async getXpubFromAccount(
+    networkAccount: INetworkAccount,
+  ): Promise<string | undefined> {
+    return (networkAccount as IDBUtxoAccount).xpub;
+  }
 
   // Methods not related to a single account, but implementation.
 
@@ -258,6 +270,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   }): Promise<IResolveNameResp | null> {
     return null;
   }
+
+  async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    throw new NotImplemented();
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -309,10 +327,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
+  async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    throw new NotImplemented();
+  }
+
   async validateSendAmount(params: {
     amount: string;
     tokenBalance: string;
     to: string;
+    isNative?: boolean;
   }) {
     return Promise.resolve(true);
   }
@@ -395,7 +420,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     // must include accountId here, so that two account wont share same tx history
     const historyId = accountUtils.buildLocalHistoryId({
-      networkId: this.networkId,
+      networkId,
       txid,
       accountAddress,
       xpub,
@@ -428,6 +453,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     let accountId = originAccountId;
     let networkId = originNetworkId;
     let accountAddress = originAccountAddress;
+
     if (originNetworkId === getNetworkIdsMap().onekeyall) {
       const allNetworkAccount = allNetworkHistoryExtraItems?.find(
         (i) => i.networkId === onChainHistoryTx.networkId,
@@ -886,7 +912,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async getAccountXpub(): Promise<string | undefined> {
-    return ((await this.getAccount()) as IDBUtxoAccount).xpub;
+    const networkAccount = await this.getAccount();
+    return this.getXpubFromAccount(networkAccount);
   }
 
   async fillTokensDetails({
@@ -932,5 +959,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async activateToken(params: { token: IAccountToken }): Promise<boolean> {
     throw new NotImplemented();
+  }
+
+  async getAddressType({ address }: { address: string }): Promise<{
+    typeKey?: MessageDescriptor['id'];
+    type?: string;
+  }> {
+    return Promise.resolve({});
   }
 }

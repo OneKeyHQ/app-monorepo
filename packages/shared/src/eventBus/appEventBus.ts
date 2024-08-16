@@ -40,6 +40,7 @@ export enum EAppEventBusNames {
   ShowQrcode = 'ShowQrcode',
   RealmInit = 'RealmInit',
   V4RealmInit = 'V4RealmInit',
+  SyncDeviceLabelToWalletName = 'SyncDeviceLabelToWalletName',
   BatchCreateAccount = 'BatchCreateAccount',
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
@@ -59,6 +60,10 @@ export enum EAppEventBusNames {
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
   AccountDataUpdate = 'AccountDataUpdate',
+  onDragBeginInListView = 'onDragBeginInListView',
+  onDragEndInListView = 'onDragEndInListView',
+  SidePanel_BgToUI = 'SidePanel_BgToUI',
+  SidePanel_UIToBg = 'SidePanel_UIToBg',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -120,6 +125,12 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;
+  [EAppEventBusNames.SyncDeviceLabelToWalletName]: {
+    walletId: string;
+    dbDeviceId: string;
+    label: string;
+    walletName: string | undefined;
+  };
   [EAppEventBusNames.BatchCreateAccount]: {
     totalCount: number;
     createdCount: number;
@@ -162,8 +173,24 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
     type: EHomeTab;
+    accountId: string;
+    networkId: string;
   };
   [EAppEventBusNames.AccountDataUpdate]: undefined;
+  [EAppEventBusNames.onDragBeginInListView]: undefined;
+  [EAppEventBusNames.onDragEndInListView]: undefined;
+  [EAppEventBusNames.SidePanel_BgToUI]: {
+    type: 'pushModal';
+    payload: {
+      modalParams: any;
+    };
+  };
+  [EAppEventBusNames.SidePanel_UIToBg]: {
+    type: 'dappRejectId';
+    payload: {
+      rejectId: number | string;
+    };
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

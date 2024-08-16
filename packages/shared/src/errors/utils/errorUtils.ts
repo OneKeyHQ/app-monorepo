@@ -200,6 +200,8 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       EOneKeyErrorClassNames.PasswordPromptDialogCancel,
       EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
       EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+      EOneKeyErrorClassNames.FirmwareUpdateExit,
+      EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
       EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
     ].includes(err?.className)
   ) {
@@ -244,9 +246,13 @@ function isErrorByClassName({
   className,
 }: {
   error: unknown;
-  className: EOneKeyErrorClassNames;
+  className: EOneKeyErrorClassNames | EOneKeyErrorClassNames[];
 }): boolean {
-  return Boolean((error as IOneKeyError)?.className === className && className);
+  const classNames: EOneKeyErrorClassNames[] = (
+    [] as EOneKeyErrorClassNames[]
+  ).concat(className);
+  const errorClassName = (error as IOneKeyError)?.className;
+  return Boolean(errorClassName && classNames.includes(errorClassName));
 }
 
 export default {

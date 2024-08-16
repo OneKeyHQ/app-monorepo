@@ -6,7 +6,11 @@ import { isEmpty, isNil } from 'lodash';
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  InvalidAccount,
+  ManageTokenInsufficientBalanceError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import type {
@@ -398,7 +402,7 @@ export default class VaultAptos extends VaultBase {
       const decimals = unsignedTx.transfersInfo[0].tokenInfo?.decimals ?? 0;
       const amount = new BigNumber(nativeAmountInfo.maxSendAmount ?? '0')
         .shiftedBy(decimals)
-        .toFixed(0);
+        .toFixed(0, BigNumber.ROUND_FLOOR);
 
       const [to] = encodedTx.arguments || [];
       encodedTx.arguments = [to, amount];
@@ -510,25 +514,39 @@ export default class VaultAptos extends VaultBase {
     token: IAccountToken;
   }): Promise<boolean> {
     const { token } = params;
+    if (token.address === APTOS_NATIVE_COIN) {
+      return true;
+    }
     const account = await this.getAccount();
-    const coin = await getAccountCoinResource(
-      this.client,
-      account.address,
-      token.address,
-    );
+    let coin;
+    try {
+      coin = await getAccountCoinResource(
+        this.client,
+        account.address,
+        token.address,
+      );
+    } catch (e) {
+      if (e instanceof InvalidAccount) {
+        throw new ManageTokenInsufficientBalanceError({
+          info: {
+            token: 'APT',
+          },
+        });
+      }
+    }
     if (coin) {
       return true;
     }
     const unsignedTx = await this.buildUnsignedTx({
       encodedTx: generateRegisterToken(token.address),
     });
-    const signedTx =
-      await this.backgroundApi.serviceSend.signAndSendTransaction({
+    const [signedTx] =
+      await this.backgroundApi.serviceSend.batchSignAndSendTransaction({
         accountId: this.accountId,
         networkId: this.networkId,
-        unsignedTx,
-        signOnly: false,
+        unsignedTxs: [unsignedTx],
+        transferPayload: undefined,
       });
-    return !!signedTx.txid;
+    return !!signedTx.signedTx.txid;
   }
 }

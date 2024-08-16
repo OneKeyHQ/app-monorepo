@@ -106,6 +106,7 @@ export class PasswordPromptDialogCancel extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordPromptDialogCancel',
+        defaultKey: ETranslations.global_cancel,
       }),
     );
   }
@@ -257,6 +258,30 @@ export class InvalidAddress extends OneKeyError {
       }),
     );
   }
+}
+
+export class FirmwareUpdateExit extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateExit',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.FirmwareUpdateExit;
+}
+
+export class FirmwareUpdateTasksClear extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateTasksClear',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.FirmwareUpdateTasksClear;
 }
 
 export class InvalidAccount extends OneKeyError {
@@ -805,6 +830,31 @@ export class ConvertTxError extends OneKeyError {
       normalizeErrorProps(props, {
         defaultMessage: 'ConvertTxError',
         defaultKey: ETranslations.feedback_transaction_ckb_error_convert,
+      }),
+    );
+  }
+}
+
+export class CanNotSendZeroAmountError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'CanNotSendZeroAmountError',
+        defaultKey: ETranslations.send_cannot_send_amount_zero,
+      }),
+    );
+  }
+}
+
+export type IManageTokenInsufficientBalanceErrorInfo = {
+  token: string;
+};
+export class ManageTokenInsufficientBalanceError extends OneKeyError<IManageTokenInsufficientBalanceErrorInfo> {
+  constructor(props?: IOneKeyError<IManageTokenInsufficientBalanceErrorInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ManageTokenInsufficientBalanceError',
+        defaultKey: ETranslations.manage_token_account_no_found,
       }),
     );
   }

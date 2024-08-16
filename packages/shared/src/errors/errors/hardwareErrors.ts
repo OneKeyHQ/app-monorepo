@@ -1,6 +1,6 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { get } from 'lodash';
+import { get, uniq } from 'lodash';
 
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { ETranslations } from '../../locale';
@@ -381,6 +381,19 @@ export class BleAlreadyConnectedError extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleAlreadyConnected;
 }
 
+export class BleCharacteristicNotifyChangeFailure extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BleCharacteristicNotifyChangeFailure',
+        defaultKey: ETranslations.feedback_bluetooth_issue,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.BleCharacteristicNotifyChangeFailure;
+}
+
 export class OpenBlindSign extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -400,6 +413,19 @@ export class ForbiddenKeyPathError extends OneKeyHardwareError {
       normalizeErrorProps(props, {
         defaultMessage: 'ForbiddenKeyPath',
         defaultKey: ETranslations.feedback_forbidden_key_path_error,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.RuntimeError;
+}
+
+export class StringOverflowError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'StringOverflowError',
+        defaultKey: ETranslations.global_hardware_name_input_max,
       }),
     );
   }
@@ -766,12 +792,12 @@ export class UnknownHardwareError extends OneKeyHardwareError {
     EOneKeyErrorClassNames.UnknownHardwareError;
 
   constructor(props?: IOneKeyErrorHardwareProps) {
-    const message = [
+    const message = uniq([
       props?.payload?.error,
       props?.payload?.message, // use device raw error message as UnknownHardwareError message
       props?.message,
       props?.payload?.code,
-    ]
+    ])
       .filter(Boolean)
       .join(' : ');
     super(

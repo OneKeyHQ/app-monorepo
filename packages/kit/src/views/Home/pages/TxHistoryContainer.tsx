@@ -16,6 +16,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 // import { sortHistoryTxsByTime } from '@onekeyhq/shared/src/utils/historyUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -85,27 +86,37 @@ function TxHistoryListContainer(props: ITabPageProps) {
     [account, navigation, network],
   );
 
+  const isManualRefresh = useRef(false);
   const { run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.HISTORY,
+        accountId: account.id,
+        networkId: network.id,
       });
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
         networkId: network.id,
+        isManualRefresh: isManualRefresh.current,
       });
       setHistoryState({
         initialized: true,
         isRefreshing: false,
       });
       setIsHeaderRefreshing(false);
-      setHistoryData(r);
+      setHistoryData(r.txs);
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.HISTORY,
+        accountId: account.id,
+        networkId: network.id,
       });
+      if (r.pendingTxsUpdated) {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      }
+      isManualRefresh.current = false;
     },
     [account, network, setIsHeaderRefreshing],
     {
@@ -135,6 +146,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
   useEffect(() => {
     const refresh = () => {
       if (isFocused) {
+        isManualRefresh.current = true;
         void run();
       }
     };

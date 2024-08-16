@@ -37,6 +37,7 @@ export function WalletListItem({
   };
   let walletName = wallet?.name;
   let selected = focusedWallet === wallet?.id;
+  let shouldOnPress = true;
   let onPress = () => wallet?.id && onWalletPress(wallet?.id);
   let onLongPress = () => wallet?.id && onWalletLongPress?.(wallet?.id);
   if (isOthers) {
@@ -62,8 +63,12 @@ export function WalletListItem({
     <Pressable
       delayLongPress={200}
       pointerEvents={platformEnv.isNative ? 'box-only' : 'box-none'}
-      onPress={onPress}
-      onLongPress={platformEnv.isNative ? onLongPress : undefined}
+      {...(platformEnv.isNative
+        ? {
+            onPress,
+            onLongPress,
+          }
+        : undefined)}
     >
       <Stack
         role="button"
@@ -85,13 +90,46 @@ export function WalletListItem({
               },
             })}
         focusable
-        focusStyle={{
+        focusVisibleStyle={{
           outlineWidth: 2,
           outlineColor: '$focusRing',
           outlineStyle: 'solid',
         }}
-        onPress={onPress}
-        onPressIn={platformEnv.isNative ? undefined : onLongPress}
+        {...(!platformEnv.isNative
+          ? {
+              onPress: () => {
+                if (shouldOnPress) {
+                  onPress();
+                }
+              },
+              onMouseMove: (e: {
+                nativeEvent: {
+                  which: number;
+                  movementX: number;
+                  movementY: number;
+                };
+              }) => {
+                if (e?.nativeEvent?.which !== 1) {
+                  return;
+                }
+                if (
+                  Math.abs(e.nativeEvent.movementX) +
+                    Math.abs(e.nativeEvent.movementY) ===
+                  0
+                ) {
+                  return;
+                }
+                if (!shouldOnPress) {
+                  return;
+                }
+                onLongPress();
+                shouldOnPress = false;
+              },
+              onPressIn: () => {
+                shouldOnPress = true;
+              },
+            }
+          : undefined)}
         {...rest}
       >
         {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
@@ -102,6 +140,7 @@ export function WalletListItem({
             mt="$1"
             size="$bodySm"
             color={selected ? '$text' : '$textSubdued'}
+            textAlign="center"
           >
             {i18nWalletName}
           </SizableText>
@@ -126,7 +165,7 @@ export function WalletListItem({
         borderRadius="$3"
         borderWidth={1}
         borderColor="$borderSubdued"
-        space="$3"
+        gap="$3"
         borderCurve="continuous"
       >
         {responsiveComponent}

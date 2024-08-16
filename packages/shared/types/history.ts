@@ -133,6 +133,8 @@ export type IFetchAccountHistoryParams = {
   accountId: string;
   networkId: string;
   tokenIdOnNetwork?: string;
+  isAllNetworks?: boolean;
+  isManualRefresh?: boolean;
 };
 
 export type IOnChainHistoryTxToken = {
@@ -185,4 +187,5 @@ export type IAllNetworkHistoryExtraItem = {
   networkId: string;
   accountId: string;
   accountAddress: string;
+  accountXpub?: string;
 };

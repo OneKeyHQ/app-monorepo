@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -13,7 +13,10 @@ export const useWalletAddress = ({
 }: {
   activeAccount: IAccountSelectorActiveAccountInfo;
 }) => {
-  const { account, indexedAccount, wallet, network } = activeAccount;
+  const { account, indexedAccount, network } = activeAccount;
+  const activeAccountRef = useRef(activeAccount);
+  activeAccountRef.current = activeAccount;
+
   const appNavigation = useAppNavigation();
   const isEnable =
     network &&
@@ -21,18 +24,18 @@ export const useWalletAddress = ({
     indexedAccount !== undefined;
 
   const handleWalletAddress = useCallback(() => {
-    if (!indexedAccount || !wallet) {
+    console.log(activeAccountRef.current);
+    if (!indexedAccount) {
       return;
     }
     appNavigation.pushModal(EModalRoutes.WalletAddress, {
       screen: EModalWalletAddressRoutes.WalletAddress,
       params: {
         accountId: account?.id,
-        indexedAccountId: indexedAccount?.id,
-        walletId: wallet?.id,
+        indexedAccountId: indexedAccount.id,
       },
     });
-  }, [appNavigation, account, indexedAccount, wallet]);
+  }, [appNavigation, account, indexedAccount]);
 
   return {
     isEnable,

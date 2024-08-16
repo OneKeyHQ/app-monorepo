@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/shared/types/setting';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
+import { currencyPersistAtom } from '../states/jotai/atoms';
 import {
   settingsLastActivityAtom,
   settingsPersistAtom,
@@ -182,6 +183,14 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async fetchCurrencyList() {
+    const currencyItems = await this._getCurrencyList();
+    await currencyPersistAtom.set({
+      currencyItems,
+    });
+  }
+
+  @backgroundMethod()
   public async setCurrency(currencyInfo: { id: string; symbol: string }) {
     const currentSettings = await settingsPersistAtom.get();
     if (isEqual(currentSettings.currencyInfo, currencyInfo)) {
@@ -222,6 +231,12 @@ class ServiceSetting extends ServiceBase {
     if (values.signatureRecord) {
       // clear signature record
       await this.backgroundApi.serviceSignature.deleteAllSignatureRecords();
+    }
+    if (values.customToken) {
+      await this.backgroundApi.simpleDb.customTokens.clearRawData();
+    }
+    if (values.customRpc) {
+      await this.backgroundApi.simpleDb.customRpc.clearRawData();
     }
   }
 
@@ -300,7 +315,7 @@ class ServiceSetting extends ServiceBase {
 
     if (platformEnv.isDev && tbtc) {
       config.push({
-        num: 10000,
+        num: 10_000,
         title: 'Test Bitcoin',
         icon: tbtc?.logoURI,
         defaultNetworkId: getNetworkIdsMap().tbtc,

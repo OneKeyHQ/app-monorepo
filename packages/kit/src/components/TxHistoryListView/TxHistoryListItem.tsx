@@ -41,7 +41,7 @@ function TxHistoryListItem(props: IProps) {
         pb="$3"
       >
         {canCancelTx ? (
-          <XStack space="$3">
+          <XStack gap="$3">
             <Button
               size="small"
               variant="primary"
@@ -87,6 +87,7 @@ function TxHistoryListItem(props: IProps) {
   return (
     <TxHistoryListItemErrorBoundary>
       <TxActionsListView
+        key={historyTx.id}
         replaceType={historyTx.replacedType}
         decodedTx={historyTx.decodedTx}
         tableLayout={tableLayout}

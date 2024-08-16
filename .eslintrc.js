@@ -45,6 +45,7 @@ const jsRules = {
   ],
   // 'no-console': [isDev ? 'warn' : 'off'],
   'radix': 'error',
+  'unicorn/numeric-separators-style': 'error',
 };
 const restrictedImportsPatterns = [
   {
@@ -166,7 +167,14 @@ const tsRules = {
 const resolveExtensions = (platform) =>
   ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 module.exports = {
-  plugins: ['spellcheck', 'import-path', 'use-effect-no-deps', 'ban'],
+  plugins: [
+    'spellcheck',
+    'import-path',
+    'use-effect-no-deps',
+    'ban',
+    'unicorn',
+    'props-checker',
+  ],
   settings: {
     'import/extensions': [
       ...resolveExtensions('web'),
@@ -229,6 +237,22 @@ module.exports = {
         ],
         'skipIfMatch': ['http://[^s]*'],
         'minLength': 3,
+      },
+    ],
+    'props-checker/validator': [
+      'error',
+      {
+        props: [
+          {
+            propName: 'onPress',
+            components: [
+              { component: 'Stack', dependOn: 'pressStyle' },
+              { component: 'XStack', dependOn: 'pressStyle' },
+              { component: 'YStack', dependOn: 'pressStyle' },
+            ],
+          },
+          { propName: 'accessible', components: ['TextInput'] },
+        ],
       },
     ],
   },
