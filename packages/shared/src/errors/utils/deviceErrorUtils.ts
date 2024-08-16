@@ -257,6 +257,7 @@ export function isHardwareInterruptErrorByCode({
       HardwareErrorCode.NewFirmwareForceUpdate,
       HardwareErrorCode.BridgeNotInstalled,
       HardwareErrorCode.BridgeTimeoutError,
+      HardwareErrorCode.DeviceUnexpectedBootloaderMode,
     ],
   });
 }

@@ -20,9 +20,10 @@ export function ErrorToastContainer() {
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
       const message = p.message;
-      const toastId = isFilterErrorCode(p.errorCode)
+      let toastId = isFilterErrorCode(p.errorCode)
         ? String(p.errorCode)
         : undefined;
+      toastId = toastId || message;
       const actions = isRequestIdMessage(message) ? (
         <Button
           size="small"
