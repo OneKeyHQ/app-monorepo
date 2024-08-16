@@ -85,7 +85,7 @@ function BaseSectionList<T>(
     estimatedItemSize = 0,
     estimatedSectionHeaderSize = '$9',
     estimatedSectionFooterSize = 0,
-    estimatedSectionSeparatorSize = '$5',
+    estimatedSectionSeparatorSize = 20,
     ...restProps
   }: ISectionListProps<T>,
   parentRef: ForwardedRef<IListViewRef<T>>,
@@ -280,8 +280,9 @@ function BaseSectionList<T>(
       getItemType={getItemType}
       keyExtractor={platformEnv.isNative ? reloadKeyExtractor : undefined}
       estimatedItemSize={platformEnv.isNative ? estimatedItemSize : undefined}
-      // getItemLayout={getItemLayout}
       overrideItemLayout={platformEnv.isNative ? overrideItemLayout : undefined}
+      // will enable `getItemLayout` in next version
+      // getItemLayout={getItemLayout}
       {...restProps}
     />
   );
