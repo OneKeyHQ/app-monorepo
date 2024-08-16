@@ -7,7 +7,7 @@ import {
   useRef,
 } from 'react';
 
-import { getTokenValue, withStaticProperties } from 'tamagui';
+import { withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -16,7 +16,6 @@ import { ListView } from '../ListView/list';
 
 import type { ISizableTextProps, IStackProps } from '../../primitives';
 import type { IListViewProps, IListViewRef } from '../ListView/list';
-import type { Tokens } from '@tamagui/web/types/types';
 import type { ListRenderItem } from 'react-native';
 
 type ISectionRenderInfo = (info: {
@@ -26,7 +25,7 @@ type ISectionRenderInfo = (info: {
 
 export type ISectionListProps<T> = Omit<
   IListViewProps<T>,
-  'data' | 'renderItem' | 'overrideItemLayout'
+  'data' | 'renderItem'
 > & {
   sections: Array<{
     data?: any[];
@@ -40,9 +39,6 @@ export type ISectionListProps<T> = Omit<
   renderSectionFooter?: ISectionRenderInfo;
   SectionSeparatorComponent?: ReactNode;
   stickySectionHeadersEnabled?: boolean;
-  estimatedSectionHeaderSize?: number | `$${keyof Tokens['size']}`;
-  estimatedSectionFooterSize?: number | `$${keyof Tokens['size']}`;
-  estimatedSectionSeparatorSize?: number | `$${keyof Tokens['size']}`;
 };
 
 type IScrollToLocationParams = {
@@ -82,10 +78,7 @@ function BaseSectionList<T>(
     SectionSeparatorComponent = <Stack h="$5" />,
     stickySectionHeadersEnabled = false,
     keyExtractor,
-    estimatedItemSize = 0,
-    estimatedSectionHeaderSize = '$9',
-    estimatedSectionFooterSize = 0,
-    estimatedSectionSeparatorSize = 20,
+    estimatedItemSize,
     ...restProps
   }: ISectionListProps<T>,
   parentRef: ForwardedRef<IListViewRef<T>>,
@@ -220,56 +213,6 @@ function BaseSectionList<T>(
     },
     [keyExtractor],
   );
-  const getTokenSizeNumber = useCallback(
-    (token?: number | `$${keyof Tokens['size']}`) => {
-      if (typeof token === 'undefined') {
-        return undefined;
-      }
-      return typeof token === 'number'
-        ? token
-        : (getTokenValue(token) as number);
-    },
-    [],
-  );
-  const tokenSizeNumberList = useMemo(
-    () => ({
-      [ESectionLayoutType.Header]: getTokenSizeNumber(
-        estimatedSectionHeaderSize,
-      ),
-      [ESectionLayoutType.Item]: getTokenSizeNumber(estimatedItemSize),
-      [ESectionLayoutType.Footer]: getTokenSizeNumber(
-        estimatedSectionFooterSize,
-      ),
-      [ESectionLayoutType.SectionSeparator]: getTokenSizeNumber(
-        estimatedSectionSeparatorSize,
-      ),
-    }),
-    [
-      getTokenSizeNumber,
-      estimatedSectionHeaderSize,
-      estimatedItemSize,
-      estimatedSectionFooterSize,
-      estimatedSectionSeparatorSize,
-    ],
-  );
-  const overrideItemLayout = useCallback(
-    (layout: { span?: number; size?: number }, item: T) => {
-      layout.size = tokenSizeNumberList[(item as ISectionLayoutItem).type] ?? 0;
-    },
-    [tokenSizeNumberList],
-  );
-  const layoutList = useMemo(() => {
-    let offset = 0;
-    return reloadSections.map((item, index) => {
-      const size = tokenSizeNumberList[item.type] ?? 0;
-      offset += size;
-      return { offset, length: size, index };
-    });
-  }, [reloadSections, tokenSizeNumberList]);
-  const getItemLayout = useCallback(
-    (_: ArrayLike<T> | null | undefined, index: number) => layoutList[index],
-    [layoutList],
-  );
   return (
     <ListView
       ref={ref}
@@ -280,9 +223,6 @@ function BaseSectionList<T>(
       getItemType={getItemType}
       keyExtractor={platformEnv.isNative ? reloadKeyExtractor : undefined}
       estimatedItemSize={platformEnv.isNative ? estimatedItemSize : undefined}
-      overrideItemLayout={platformEnv.isNative ? overrideItemLayout : undefined}
-      // will enable `getItemLayout` in next version
-      // getItemLayout={getItemLayout}
       {...restProps}
     />
   );
