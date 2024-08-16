@@ -3,6 +3,7 @@ import type {
   MutableRefObject,
   PropsWithChildren,
   ReactElement,
+  ReactNode,
   RefObject,
 } from 'react';
 import {
@@ -21,6 +22,7 @@ import {
   Button,
   EPortalContainerConstantName,
   Portal,
+  SizableText,
   Stack,
   View,
   XStack,
@@ -203,7 +205,7 @@ function SpotlightContent({
   return null;
 }
 
-export function Spotlight({
+export function SpotlightView({
   children,
   replaceChildren,
   content,
@@ -294,3 +296,24 @@ export const useSpotlight = (tourName: ESpotlightTour) => {
     [times, tourVisited],
   );
 };
+
+export function Spotlight(props: {
+  isVisible?: boolean;
+  message: string;
+  tourName: ESpotlightTour;
+  children: ReactNode;
+}) {
+  const { isVisible = true, tourName, message, children } = props;
+  const { isFirstVisit, tourVisited } = useSpotlight(tourName);
+  const visible = isFirstVisit && isVisible;
+
+  return (
+    <SpotlightView
+      visible={visible}
+      content={<SizableText size="$bodyMd">{message}</SizableText>}
+      onConfirm={tourVisited}
+    >
+      {children}
+    </SpotlightView>
+  );
+}

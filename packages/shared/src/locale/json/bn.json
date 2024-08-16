@@ -1418,6 +1418,7 @@
   "slippage_tolerance.warning_message_1": "উচ্চ স্লিপেজ সহনশীলতা আপনার সম্পত্তির ক্ষতি ঘটাতে পারে।",
   "slippage_tolerance.warning_message_2": "{number}% এর নিচে স্লিপেজ হলে ট্রেড ব্যর্থ হতে পারে।",
   "speed_up_cancellation": "বাতিল করার গতি বাড়ান",
+  "spotlight.enable_account_asset_message": "যদি ব্যালেন্স অনুপস্থিত থাকে, তবে হোমপেজের \"নেটওয়ার্ক\" এ যান এবং প্রথমে \"সমস্ত নেটওয়ার্ক\" নির্বাচন করুন।",
   "spotlight.enable_network_message": "আপনি যদি 'সমস্ত নেটওয়ার্ক' এর অধীনে কোন সম্পদ দেখতে না পান, তবে হারানো নেটওয়ার্ক যোগ করতে এখানে ক্লিক করুন।",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",

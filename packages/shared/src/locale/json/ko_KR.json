@@ -1418,6 +1418,7 @@
   "slippage_tolerance.warning_message_1": "높은 슬리피지 허용치는 자산 손실을 초래할 수 있습니다.",
   "slippage_tolerance.warning_message_2": "{number}% 미만의 슬리피지는 거래 실패를 초래할 수 있습니다.",
   "speed_up_cancellation": "취소를 빠르게 진행하세요",
+  "spotlight.enable_account_asset_message": "잔액이 없는 경우, 홈페이지에서 \"네트워크\"를 선택하고 먼저 \"모든 네트워크\"를 선택하십시오.",
   "spotlight.enable_network_message": "'모든 네트워크' 아래에 자산이 나열되어 있지 않다면, 여기를 클릭하여 누락된 네트워크를 추가하세요.",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",

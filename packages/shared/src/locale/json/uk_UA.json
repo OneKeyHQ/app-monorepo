@@ -1418,6 +1418,7 @@
   "slippage_tolerance.warning_message_1": "Висока толерантність до прослідування може призвести до втрати вашого активу.",
   "slippage_tolerance.warning_message_2": "Слизь менше {number}% може спричинити невдачу угоди.",
   "speed_up_cancellation": "Пришвидшити скасування",
+  "spotlight.enable_account_asset_message": "Якщо баланси відсутні, перейдіть до розділу \"Мережі\" на головній сторінці та спочатку виберіть \"Всі мережі\".",
   "spotlight.enable_network_message": "Якщо ви не бачите жодних активів у списку 'Всі мережі', натисніть тут, щоб додати відсутню мережу.",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",

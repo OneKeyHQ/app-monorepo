@@ -1418,6 +1418,7 @@
   "slippage_tolerance.warning_message_1": "Toleransi slippage yang tinggi dapat menyebabkan kerugian aset Anda.",
   "slippage_tolerance.warning_message_2": "Slippage di bawah {number}% dapat menyebabkan kegagalan perdagangan.",
   "speed_up_cancellation": "Percepat pembatalan",
+  "spotlight.enable_account_asset_message": "Jika saldo tidak ada, pergi ke \"Jaringan\" di halaman utama dan pilih \"Semua jaringan\" terlebih dahulu.",
   "spotlight.enable_network_message": "Jika Anda tidak melihat aset apa pun terdaftar di bawah 'Semua Jaringan,' klik di sini untuk menambahkan jaringan yang hilang.",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",

@@ -1418,6 +1418,7 @@
   "slippage_tolerance.warning_message_1": "Eine hohe Toleranz für Slippage kann zu einem Verlust Ihrer Vermögenswerte führen.",
   "slippage_tolerance.warning_message_2": "Ein Slippage unter {number}% kann zu Handelsausfällen führen.",
   "speed_up_cancellation": "Stornierung beschleunigen",
+  "spotlight.enable_account_asset_message": "Wenn Guthaben fehlen, gehen Sie auf der Startseite zu \"Netzwerke\" und wählen Sie zuerst \"Alle Netzwerke\" aus.",
   "spotlight.enable_network_message": "Wenn Sie unter 'Alle Netzwerke' keine Vermögenswerte aufgelistet sehen, klicken Sie hier, um das fehlende Netzwerk hinzuzufügen.",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",

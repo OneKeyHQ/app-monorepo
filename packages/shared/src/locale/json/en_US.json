@@ -1418,6 +1418,7 @@
   "slippage_tolerance.warning_message_1": "High slippage tolerance may cause your asset loss.",
   "slippage_tolerance.warning_message_2": "Slippage under {number}% may cause trade failure.",
   "speed_up_cancellation": "Speed up cancellation",
+  "spotlight.enable_account_asset_message": "If balances are missing, go to \"Networks\" on the homepage and select \"All networks\" first.",
   "spotlight.enable_network_message": "If you don’t see any assets listed under ‘All Networks,’ click here to add the missing network.",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",

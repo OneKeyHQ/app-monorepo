@@ -1418,6 +1418,7 @@
   "slippage_tolerance.warning_message_1": "Высокая толерантность к скольжению может привести к потере вашего активов.",
   "slippage_tolerance.warning_message_2": "Скольжение менее {number}% может привести к сбою в торговле.",
   "speed_up_cancellation": "Ускорьте отмену",
+  "spotlight.enable_account_asset_message": "Если балансы отсутствуют, перейдите в раздел \"Сети\" на главной странице и сначала выберите \"Все сети\".",
   "spotlight.enable_network_message": "Если вы не видите никаких активов, перечисленных в разделе «Все сети», нажмите здесь, чтобы добавить отсутствующую сеть.",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",

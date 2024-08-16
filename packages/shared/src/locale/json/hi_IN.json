@@ -1418,6 +1418,7 @@
   "slippage_tolerance.warning_message_1": "उच्च स्लिपेज सहनशीलता आपके संपत्ति की हानि का कारण बन सकती है।",
   "slippage_tolerance.warning_message_2": "{number}% से कम स्लिपेज व्यापार विफलता का कारण बन सकता है।",
   "speed_up_cancellation": "रद्दीकरण को तेज करें",
+  "spotlight.enable_account_asset_message": "यदि बैलेंस गायब हैं, तो होमपेज पर \"नेटवर्क\" पर जाएं और पहले \"सभी नेटवर्क\" का चयन करें।",
   "spotlight.enable_network_message": "यदि आप 'सभी नेटवर्क' के तहत किसी संपत्ति को सूचीबद्ध नहीं देखते हैं, तो यहां क्लिक करके गुम नेटवर्क को जोड़ें।",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",

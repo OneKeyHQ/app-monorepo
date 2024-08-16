@@ -1418,6 +1418,7 @@
   "slippage_tolerance.warning_message_1": "高滑点容忍度可能会导致您的资产损失。",
   "slippage_tolerance.warning_message_2": "滑点低于{number}%可能会导致交易失败。",
   "speed_up_cancellation": "加速取消",
+  "spotlight.enable_account_asset_message": "如果余额缺失，请先在主页上选择“网络”，然后选择“所有网络”。",
   "spotlight.enable_network_message": "如果你在「所有网络」下没有看到任何资产，请点击这里添加缺失的网络。",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",

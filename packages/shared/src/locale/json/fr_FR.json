@@ -1418,6 +1418,7 @@
   "slippage_tolerance.warning_message_1": "Une tolérance élevée au glissement peut entraîner la perte de votre actif.",
   "slippage_tolerance.warning_message_2": "Un glissement de moins de {number}% peut entraîner un échec de la transaction.",
   "speed_up_cancellation": "Accélérez l'annulation",
+  "spotlight.enable_account_asset_message": "Si des soldes sont manquants, allez à \"Réseaux\" sur la page d'accueil et sélectionnez d'abord \"Tous les réseaux\".",
   "spotlight.enable_network_message": "Si vous ne voyez aucun actif répertorié sous 'Tous les réseaux', cliquez ici pour ajouter le réseau manquant.",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",
