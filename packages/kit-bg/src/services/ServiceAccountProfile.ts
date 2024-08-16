@@ -28,6 +28,7 @@ import type {
 } from '@onekeyhq/shared/types/proxy';
 
 import simpleDb from '../dbs/simple/simpleDb';
+import { activeAccountValueAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -418,6 +419,8 @@ class ServiceAccountProfile extends ServiceBase {
     value: string;
     currency: string;
   }) {
+    await activeAccountValueAtom.set(params);
+
     await simpleDb.accountValue.updateAccountValue(params);
   }
 

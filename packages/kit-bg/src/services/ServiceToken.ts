@@ -79,15 +79,6 @@ class ServiceToken extends ServiceBase {
         networkId: this._currentNetworkId,
       };
 
-    if (
-      [getNetworkIdsMap().eth, getNetworkIdsMap().sepolia].includes(networkId)
-    ) {
-      // Add native/matic token address to the contract list, due to the fact that lack of native/matic staking entry page
-      const maticAddress =
-        networkId === getNetworkIdsMap().eth ? EthereumMatic : SepoliaMatic;
-      rest.contractList = ['', maticAddress, ...contractList];
-    }
-
     const accountParams = {
       accountId,
       networkId,
