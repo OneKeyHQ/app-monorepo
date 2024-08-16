@@ -92,7 +92,7 @@ class ServiceToken extends ServiceBase {
       accountId,
       networkId,
     };
-    const [xpub, accountAddress, customTokens, hiddenTokens] =
+    const [xpub, accountAddress, customTokens, hiddenTokens, vaultSettings] =
       await Promise.all([
         this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
         this.backgroundApi.serviceAccount.getAccountAddressForApi(
@@ -100,6 +100,7 @@ class ServiceToken extends ServiceBase {
         ),
         this.backgroundApi.serviceCustomToken.getCustomTokens(accountParams),
         this.backgroundApi.serviceCustomToken.getHiddenTokens(accountParams),
+        this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
       ]);
 
     if (!accountAddress && !xpub) {
@@ -155,6 +156,7 @@ class ServiceToken extends ServiceBase {
           ...token,
           accountId,
           networkId,
+          mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
         }));
       }
       resp.data.data.allTokens = allTokens;
@@ -164,6 +166,7 @@ class ServiceToken extends ServiceBase {
       ...token,
       accountId,
       networkId,
+      mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
     }));
 
     resp.data.data.riskTokens.data = resp.data.data.riskTokens.data.map(
@@ -171,6 +174,7 @@ class ServiceToken extends ServiceBase {
         ...token,
         accountId,
         networkId,
+        mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
       }),
     );
 
@@ -179,6 +183,7 @@ class ServiceToken extends ServiceBase {
         ...token,
         accountId,
         networkId,
+        mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
       }));
 
     resp.data.data.accountId = accountId;
