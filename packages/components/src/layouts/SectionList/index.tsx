@@ -26,7 +26,7 @@ type ISectionRenderInfo = (info: {
 
 export type ISectionListProps<T> = Omit<
   IListViewProps<T>,
-  'data' | 'renderItem'
+  'data' | 'renderItem' | 'overrideItemLayout'
 > & {
   sections: Array<{
     data?: any[];
