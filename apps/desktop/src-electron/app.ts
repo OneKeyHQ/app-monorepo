@@ -98,7 +98,7 @@ const initMenu = () => {
                 },
               },
               { type: 'separator' },
-              {
+              !process.mas && {
                 label: i18nText(ETranslations.menu_preferences),
                 accelerator: 'CmdOrCtrl+,',
                 click: () => {
