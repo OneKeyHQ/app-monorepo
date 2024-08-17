@@ -87,7 +87,7 @@ const initMenu = () => {
                 label: i18nText(ETranslations.menu_about_onekey_wallet),
               },
               { type: 'separator' },
-              {
+              !process.mas && {
                 label: i18nText(ETranslations.menu_check_for_updates),
                 click: () => {
                   if (mainWindow) {
@@ -132,7 +132,7 @@ const initMenu = () => {
               },
             ],
           },
-        ]
+        ].filter(Boolean)
       : []),
     {
       label: i18nText(ETranslations.global_edit),
