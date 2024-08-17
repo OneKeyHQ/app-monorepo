@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { isEqual } from 'lodash';
+import { isEqual, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -9,7 +9,6 @@ import type {
   ISortableSectionListRef,
 } from '@onekeyhq/components';
 import {
-  ActionList,
   Icon,
   IconButton,
   SizableText,
@@ -19,14 +18,6 @@ import {
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
-import type {
-  IDBAccount,
-  IDBDevice,
-  IDBIndexedAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
@@ -39,6 +30,14 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
+import type {
+  IDBAccount,
+  IDBDevice,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -173,6 +172,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     () => listDataResult?.sectionData || [],
     [listDataResult?.sectionData],
   );
+  const sectionDataRef = useRef(sectionData);
+  sectionDataRef.current = sectionData;
   const accountsValue = useMemo(
     () => listDataResult?.accountsValue || [],
     [listDataResult?.accountsValue],
@@ -208,31 +209,41 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     }
   }, [focusedWalletInfo]);
 
-  const [headerHeight, setHeaderHeight] = useState(0);
-  const headerHeightRef = useRef(headerHeight);
-  headerHeightRef.current = headerHeight;
+  const headerHeightRef = useRef(0);
 
-  const layoutList = useMemo(() => {
-    let offset = 0;
-    const layouts: { offset: number; length: number; index: number }[] = [];
-    offset += headerHeight;
-    sectionData?.forEach?.((section, sectionIndex) => {
-      if (sectionIndex !== 0) {
-        layouts.push({ offset, length: 0, index: layouts.length });
-        offset += 0;
+  // Change the getItemLayout of SectionList to ref calculation, instead of state calculation, to avoid redraws
+  const getItemLayout = useCallback(
+    (item: ArrayLike<unknown> | undefined | null, index: number) => {
+      const getLayoutList = () => {
+        let offset = 0;
+        const layouts: { offset: number; length: number; index: number }[] = [];
+        offset += headerHeightRef?.current ?? 0;
+        sectionDataRef?.current?.forEach?.((section, sectionIndex) => {
+          if (sectionIndex !== 0) {
+            layouts.push({ offset, length: 0, index: layouts.length });
+            offset += 0;
+          }
+          layouts.push({ offset, length: 0, index: layouts.length });
+          offset += 0;
+          section.data.forEach(() => {
+            layouts.push({ offset, length: 56, index: layouts.length });
+            offset += 56;
+          });
+          const footerHeight = 56;
+          layouts.push({ offset, length: footerHeight, index: layouts.length });
+          offset += footerHeight;
+        });
+        return layouts;
+      };
+
+      if (index === -1) {
+        return { index, offset: 0, length: 0 };
       }
-      layouts.push({ offset, length: 0, index: layouts.length });
-      offset += 0;
-      section.data.forEach(() => {
-        layouts.push({ offset, length: 56, index: layouts.length });
-        offset += 56;
-      });
-      const footerHeight = 56;
-      layouts.push({ offset, length: footerHeight, index: layouts.length });
-      offset += footerHeight;
-    });
-    return layouts;
-  }, [sectionData, headerHeight]);
+
+      return getLayoutList()[index];
+    },
+    [],
+  );
 
   const [listViewLayout, setListViewLayout] = useState<LayoutRectangle>({
     x: 0,
@@ -257,7 +268,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     if (headerHeightRef.current === e.nativeEvent.layout.height) {
       return;
     }
-    setHeaderHeight(e.nativeEvent.layout.height);
+    headerHeightRef.current = e.nativeEvent.layout.height;
   }, []);
   const handleLayoutCache = useRef<{
     [key in 'container' | 'header' | 'list']?: () => void;
@@ -391,7 +402,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   //   }
   // }, [scrollToLocation, sectionData]);
 
-  const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
 
   const buildSubTitleInfo = useCallback(
@@ -557,12 +567,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             enabled={editMode}
             onDragEnd={onDragEnd}
             initialScrollIndex={initialScrollIndex}
-            getItemLayout={(item, index) => {
-              if (index === -1) {
-                return { index, offset: 0, length: 0 };
-              }
-              return layoutList[index];
-            }}
+            getItemLayout={getItemLayout}
             keyExtractor={(item) =>
               `${editable ? '1' : '0'}_${
                 (item as IDBIndexedAccount | IDBAccount).id
@@ -570,7 +575,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             }
             ListEmptyComponent={<EmptyView />}
             contentContainerStyle={{ pb: '$3' }}
-            extraData={[selectedAccount.indexedAccountId, editMode, remember]}
+            extraData={[selectedAccount.indexedAccountId, editMode]}
             // {...(wallet?.type !== 'others' && {
             //   ListHeaderComponent: (
             //     <WalletOptions editMode={editMode} wallet={wallet} />
@@ -602,59 +607,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               <>
                 {/* If better performance is needed,  */
                 /*  a header component should be extracted and data updates should be subscribed to through context" */}
-                {section.title ? (
-                  <SortableSectionList.SectionHeader title={section.title}>
-                    {section.isHiddenWalletData && editMode ? (
-                      <ActionList
-                        title={section.title}
-                        renderTrigger={
-                          <IconButton
-                            icon="DotHorOutline"
-                            variant="tertiary"
-                            ml="$2"
-                          />
-                        }
-                        sections={[
-                          {
-                            items: [
-                              {
-                                icon: remember
-                                  ? 'CheckboxSolid'
-                                  : 'SuqarePlaceholderOutline',
-                                ...(remember && {
-                                  iconProps: {
-                                    color: '$iconActive',
-                                  },
-                                }),
-                                label: 'Remember',
-                                onPress: () => setIsRemember(!remember),
-                              },
-                            ],
-                          },
-                          {
-                            items: [
-                              {
-                                icon: 'PencilOutline',
-                                label: intl.formatMessage({
-                                  id: ETranslations.global_rename,
-                                }),
-                                onPress: () => alert('edit 1112'),
-                              },
-                              {
-                                destructive: true,
-                                icon: 'DeleteOutline',
-                                label: intl.formatMessage({
-                                  id: ETranslations.global_remove,
-                                }),
-                                onPress: () => alert('edit 3332'),
-                              },
-                            ],
-                          },
-                        ]}
-                      />
-                    ) : null}
-                  </SortableSectionList.SectionHeader>
-                ) : null}
                 <EmptyNoAccountsView section={section} />
               </>
             )}
@@ -904,6 +856,44 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       editMode,
       editable,
       focusedWalletInfo,
+      getItemLayout,
+      handleAddExternalAccount,
+      handleImportPrivatekeyAccount,
+      handleImportWatchingAccount,
+      handleLayoutCacheSet,
+      handleLayoutForContainer,
+      handleLayoutForHeader,
+      handleLayoutForSectionList,
+      initialScrollIndex,
+      intl,
+      isEditableRouteParams,
+      isOthersUniversal,
+      linkNetwork,
+      linkedNetworkId,
+      listViewLayout.height,
+      navigation,
+      num,
+      onDragEnd,
+      renderAccountValue,
+      sectionData,
+      selectedAccount.deriveType,
+      selectedAccount.indexedAccountId,
+      selectedAccount?.networkId,
+      selectedAccount.othersWalletAccountId,
+      serviceAccount,
+    ],
+  );
+
+  // Used to find out which deps cause redraws by binary search
+  const sectionListMemoMock = useMemo(() => {
+    noop([
+      accountsCount,
+      accountsValue,
+      actions,
+      buildSubTitleInfo,
+      editMode, // toggle editMode
+      editable,
+      focusedWalletInfo,
       handleAddExternalAccount,
       handleLayoutForHeader,
       handleLayoutForContainer,
@@ -915,28 +905,55 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       intl,
       isEditableRouteParams,
       isOthersUniversal,
-      layoutList,
-      linkNetwork,
-      linkedNetworkId,
-      listViewLayout.height,
-      navigation,
-      num,
-      onDragEnd,
-      remember,
-      renderAccountValue,
-      sectionData,
-      selectedAccount.deriveType,
-      selectedAccount.indexedAccountId,
-      selectedAccount?.networkId,
-      selectedAccount.othersWalletAccountId,
-      serviceAccount,
-    ],
-  );
-
-  const SectionListMemoMock = useCallback(() => {
-    defaultLogger.accountSelector.perf.renderAccountsSectionListMock();
+      // linkNetwork,
+      // linkedNetworkId,
+      // listViewLayout.height,
+      // navigation,
+      // num,
+      // onDragEnd,
+      // renderAccountValue,
+      // sectionData,
+      // selectedAccount.deriveType,
+      // selectedAccount.indexedAccountId,
+      // selectedAccount?.networkId,
+      // selectedAccount.othersWalletAccountId,
+      // serviceAccount,
+    ]);
+    defaultLogger.accountSelector.perf.render_Accounts_SectionList_Mock();
     return null;
-  }, []);
+  }, [
+    accountsCount,
+    accountsValue,
+    actions,
+    buildSubTitleInfo,
+    editMode,
+    editable,
+    focusedWalletInfo,
+    handleAddExternalAccount,
+    handleLayoutForHeader,
+    handleLayoutForContainer,
+    handleLayoutForSectionList,
+    handleLayoutCacheSet,
+    handleImportPrivatekeyAccount,
+    handleImportWatchingAccount,
+    initialScrollIndex,
+    intl,
+    isEditableRouteParams,
+    isOthersUniversal,
+    // linkNetwork,
+    // linkedNetworkId,
+    // listViewLayout.height,
+    // navigation,
+    // num,
+    // onDragEnd,
+    // renderAccountValue,
+    // sectionData,
+    // selectedAccount.deriveType,
+    // selectedAccount.indexedAccountId,
+    // selectedAccount?.networkId,
+    // selectedAccount.othersWalletAccountId,
+    // serviceAccount,
+  ]);
 
   return (
     <Stack flex={1} pb={bottom} testID="account-selector-accountList">
@@ -958,8 +975,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         })}
       />
       {sectionListMemo}
+      {sectionListMemoMock}
       {/* <DelayedRender delay={1000}>
-        <SectionListMemoMock />
       </DelayedRender> */}
     </Stack>
   );

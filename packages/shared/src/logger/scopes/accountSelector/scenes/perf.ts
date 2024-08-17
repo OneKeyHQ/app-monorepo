@@ -84,7 +84,7 @@ export class AccountSelectorPerfScene extends BaseScene {
   }
 
   @LogToConsole()
-  public renderAccountsSectionListMock() {
+  public render_Accounts_SectionList_Mock() {
     return [true];
   }
 
