@@ -98,10 +98,11 @@ const initMenu = () => {
                 },
               },
               { type: 'separator' },
-              !process.mas && {
+              {
                 label: i18nText(ETranslations.menu_preferences),
                 accelerator: 'CmdOrCtrl+,',
                 click: () => {
+                  showMainWindow();
                   if (mainWindow) {
                     mainWindow.webContents.send(
                       ipcMessageKeys.APP_OPEN_SETTINGS,
@@ -113,6 +114,7 @@ const initMenu = () => {
               {
                 label: i18nText(ETranslations.menu_lock_now),
                 click: () => {
+                  showMainWindow();
                   if (mainWindow) {
                     mainWindow.webContents.send(ipcMessageKeys.APP_LOCK_NOW);
                   }
