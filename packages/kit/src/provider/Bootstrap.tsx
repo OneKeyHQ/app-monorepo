@@ -1,6 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { CommonActions } from '@react-navigation/routers';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -29,72 +28,89 @@ const useDesktopEvents = platformEnv.isDesktop
       const intl = useIntl();
       const navigation = useAppNavigation();
       const onLock = useOnLockCallback();
+      const useOnLockRef = useRef(onLock);
+      useOnLockRef.current = onLock;
+
       const { checkForUpdates, toUpdatePreviewPage } = useAppUpdateInfoCallback(
         false,
         false,
       );
       const isCheckingUpdate = useRef(false);
-      useEffect(() => {
-        if (platformEnv.isDesktop) {
-          window.desktopApi.on('update/checkForUpdates', async () => {
-            defaultLogger.update.app.log('checkForUpdates');
-            if (isCheckingUpdate.current) {
+
+      const onCheckUpdate = useCallback(async () => {
+        defaultLogger.update.app.log('checkForUpdates');
+        if (isCheckingUpdate.current) {
+          return;
+        }
+        isCheckingUpdate.current = true;
+        const { isNeedUpdate, response } = await checkForUpdates();
+        if (isNeedUpdate || response === undefined) {
+          toUpdatePreviewPage(true, response);
+        } else {
+          Dialog.confirm({
+            title: intl.formatMessage({
+              id: ETranslations.update_app_update,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.update_app_up_to_date,
+            }),
+            onClose: () => {
+              isCheckingUpdate.current = false;
+            },
+          });
+        }
+      }, [checkForUpdates, intl, toUpdatePreviewPage]);
+
+      const onCheckUpdateRef = useRef(onCheckUpdate);
+      onCheckUpdateRef.current = onCheckUpdate;
+
+      const openSettings = useCallback(() => {
+        const openSettingPage = () => {
+          navigation.pushModal(EModalRoutes.SettingModal, {
+            screen: EModalSettingRoutes.SettingListModal,
+          });
+        };
+        const routeState = rootNavigationRef.current?.getRootState();
+        if (routeState) {
+          const route = routeState.routes[routeState.routes.length - 1];
+          if (
+            route &&
+            (route.params as { screen: string })?.screen ===
+              EModalRoutes.SettingModal
+          ) {
+            if (route.name === ERootRoutes.Modal) {
+              const routeLength =
+                route.state?.routes?.[0]?.state?.routes.length || 1;
+              for (let i = 0; i < routeLength; i += 1)
+                setTimeout(() => {
+                  rootNavigationRef.current?.goBack();
+                }, 10);
               return;
             }
-            isCheckingUpdate.current = true;
-            const { isNeedUpdate, response } = await checkForUpdates();
-            if (isNeedUpdate || response === undefined) {
-              toUpdatePreviewPage(true, response);
-            } else {
-              Dialog.confirm({
-                title: intl.formatMessage({
-                  id: ETranslations.update_app_update,
-                }),
-                description: intl.formatMessage({
-                  id: ETranslations.update_app_up_to_date,
-                }),
-                onClose: () => {
-                  isCheckingUpdate.current = false;
-                },
-              });
-            }
+          }
+        }
+        openSettingPage();
+      }, [navigation]);
+
+      const openSettingsRef = useRef(openSettings);
+      openSettingsRef.current = openSettings;
+
+      useEffect(() => {
+        if (platformEnv.isDesktop) {
+          window.desktopApi.on('update/checkForUpdates', () => {
+            void onCheckUpdateRef.current();
           });
 
           const debounceOpenSettings = debounce(() => {
-            const openSettingPage = () => {
-              navigation.pushModal(EModalRoutes.SettingModal, {
-                screen: EModalSettingRoutes.SettingListModal,
-              });
-            };
-            const routeState = rootNavigationRef.current?.getRootState();
-            if (routeState) {
-              const route = routeState.routes[routeState.routes.length - 1];
-              if (
-                route &&
-                (route.params as { screen: string })?.screen ===
-                  EModalRoutes.SettingModal
-              ) {
-                if (route.name === ERootRoutes.Modal) {
-                  const routeLength =
-                    route.state?.routes?.[0]?.state?.routes.length || 1;
-                  for (let i = 0; i < routeLength; i += 1)
-                    setTimeout(() => {
-                      rootNavigationRef.current?.goBack();
-                    }, 10);
-                  return;
-                }
-              }
-            }
-            openSettingPage();
-          }, 200);
-
+            openSettingsRef.current();
+          }, 250);
           window.desktopApi.on('app/openSettings', debounceOpenSettings);
 
           window.desktopApi.on('app/lockNow', () => {
-            void onLock();
+            void useOnLockRef.current();
           });
         }
-      }, [checkForUpdates, intl, navigation, onLock, toUpdatePreviewPage]);
+      }, []);
     }
   : () => undefined;
 
