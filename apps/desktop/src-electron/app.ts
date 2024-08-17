@@ -90,6 +90,7 @@ const initMenu = () => {
               !process.mas && {
                 label: i18nText(ETranslations.menu_check_for_updates),
                 click: () => {
+                  showMainWindow();
                   if (mainWindow) {
                     mainWindow.webContents.send(
                       ipcMessageKeys.CHECK_FOR_UPDATES,
