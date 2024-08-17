@@ -188,8 +188,13 @@ const initMenu = () => {
                 label: i18nText(ETranslations.menu_bring_all_to_front),
               },
               { type: 'separator' },
-              { role: 'window', label: i18nText(ETranslations.menu_window) },
-            ]
+              !process.mas && {
+                label: i18nText(ETranslations.menu_window),
+                click: () => {
+                  showMainWindow();
+                },
+              },
+            ].filter(Boolean)
           : []),
       ],
     },
@@ -228,7 +233,9 @@ const initMenu = () => {
     },
   ];
   const menu = Menu.buildFromTemplate(template as any);
-  Menu.setApplicationMenu(menu);
+  if (mainWindow) {
+    Menu.setApplicationMenu(menu);
+  }
 };
 
 const refreshMenu = () => {
@@ -311,8 +318,6 @@ const getBackgroundColor = (key: string) =>
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 function createMainWindow() {
-  initMenu();
-
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   const ratio = 16 / 9;
@@ -796,6 +801,7 @@ if (!singleInstance && !process.mas) {
     logger.info('locale >>>> ', locale);
     if (!mainWindow) {
       mainWindow = createMainWindow();
+      initMenu();
     }
     void initChildProcess();
   });
