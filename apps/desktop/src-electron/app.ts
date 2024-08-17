@@ -233,9 +233,7 @@ const initMenu = () => {
     },
   ];
   const menu = Menu.buildFromTemplate(template as any);
-  if (mainWindow) {
-    Menu.setApplicationMenu(menu);
-  }
+  Menu.setApplicationMenu(menu);
 };
 
 const refreshMenu = () => {
