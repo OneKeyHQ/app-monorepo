@@ -90,6 +90,7 @@ const initMenu = () => {
               !process.mas && {
                 label: i18nText(ETranslations.menu_check_for_updates),
                 click: () => {
+                  showMainWindow();
                   if (mainWindow) {
                     mainWindow.webContents.send(
                       ipcMessageKeys.CHECK_FOR_UPDATES,
@@ -102,10 +103,13 @@ const initMenu = () => {
                 label: i18nText(ETranslations.menu_preferences),
                 accelerator: 'CmdOrCtrl+,',
                 click: () => {
+                  const visible = !!mainWindow?.isVisible();
+                  logger.info('APP_OPEN_SETTINGS visible >>>> ', visible);
                   showMainWindow();
                   if (mainWindow) {
                     mainWindow.webContents.send(
                       ipcMessageKeys.APP_OPEN_SETTINGS,
+                      visible,
                     );
                   }
                 },
