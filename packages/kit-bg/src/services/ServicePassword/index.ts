@@ -591,7 +591,10 @@ export default class ServicePassword extends ServiceBase {
       return;
     }
     //
-    await this.clearCachedPassword();
+    if (!platformEnv.isExtension) {
+      // biology auth need cache password to unlock app on ext platform
+      await this.clearCachedPassword();
+    }
     if (manual) {
       await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
     }
