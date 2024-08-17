@@ -64,33 +64,41 @@ const useDesktopEvents = platformEnv.isDesktop
       const onCheckUpdateRef = useRef(onCheckUpdate);
       onCheckUpdateRef.current = onCheckUpdate;
 
-      const openSettings = useCallback(() => {
-        const openSettingPage = () => {
-          navigation.pushModal(EModalRoutes.SettingModal, {
-            screen: EModalSettingRoutes.SettingListModal,
-          });
-        };
-        const routeState = rootNavigationRef.current?.getRootState();
-        if (routeState) {
-          const route = routeState.routes[routeState.routes.length - 1];
-          if (
-            route &&
-            (route.params as { screen: string })?.screen ===
-              EModalRoutes.SettingModal
-          ) {
-            if (route.name === ERootRoutes.Modal) {
-              const routeLength =
-                route.state?.routes?.[0]?.state?.routes.length || 1;
-              for (let i = 0; i < routeLength; i += 1)
-                setTimeout(() => {
-                  rootNavigationRef.current?.goBack();
-                }, 10);
-              return;
+      const openSettings = useCallback(
+        (isMainWindowVisible: boolean) => {
+          const openSettingPage = () => {
+            navigation.pushModal(EModalRoutes.SettingModal, {
+              screen: EModalSettingRoutes.SettingListModal,
+            });
+          };
+
+          // close Settings page When MainWindow is visible
+          if (isMainWindowVisible) {
+            const routeState = rootNavigationRef.current?.getRootState();
+            if (routeState) {
+              const route = routeState.routes[routeState.routes.length - 1];
+              if (
+                route &&
+                (route.params as { screen: string })?.screen ===
+                  EModalRoutes.SettingModal
+              ) {
+                if (route.name === ERootRoutes.Modal) {
+                  const routeLength =
+                    route.state?.routes?.[0]?.state?.routes.length || 1;
+                  for (let i = 0; i < routeLength; i += 1)
+                    setTimeout(() => {
+                      rootNavigationRef.current?.goBack();
+                    }, 10);
+                  return;
+                }
+              }
             }
           }
-        }
-        openSettingPage();
-      }, [navigation]);
+
+          openSettingPage();
+        },
+        [navigation],
+      );
 
       const openSettingsRef = useRef(openSettings);
       openSettingsRef.current = openSettings;
@@ -101,8 +109,8 @@ const useDesktopEvents = platformEnv.isDesktop
             void onCheckUpdateRef.current();
           });
 
-          const debounceOpenSettings = debounce(() => {
-            openSettingsRef.current();
+          const debounceOpenSettings = debounce((isVisible: boolean) => {
+            openSettingsRef.current(isVisible);
           }, 250);
           window.desktopApi.on('app/openSettings', debounceOpenSettings);
 
