@@ -110,7 +110,7 @@ class ServiceAppUpdate extends ServiceBase {
       await this.notifyFailed({
         message: 'Download timed out, please check your internet connection.',
       });
-    }, timerUtils.getTimeDurationMs({ minute: 5 }));
+    }, timerUtils.getTimeDurationMs({ minute: 30 }));
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.downloading,

@@ -87,7 +87,7 @@ const initMenu = () => {
                 label: i18nText(ETranslations.menu_about_onekey_wallet),
               },
               { type: 'separator' },
-              {
+              !process.mas && {
                 label: i18nText(ETranslations.menu_check_for_updates),
                 click: () => {
                   if (mainWindow) {
@@ -102,6 +102,7 @@ const initMenu = () => {
                 label: i18nText(ETranslations.menu_preferences),
                 accelerator: 'CmdOrCtrl+,',
                 click: () => {
+                  showMainWindow();
                   if (mainWindow) {
                     mainWindow.webContents.send(
                       ipcMessageKeys.APP_OPEN_SETTINGS,
@@ -113,6 +114,7 @@ const initMenu = () => {
               {
                 label: i18nText(ETranslations.menu_lock_now),
                 click: () => {
+                  showMainWindow();
                   if (mainWindow) {
                     mainWindow.webContents.send(ipcMessageKeys.APP_LOCK_NOW);
                   }
@@ -130,7 +132,7 @@ const initMenu = () => {
                 role: 'quit',
                 label: i18nText(ETranslations.menu_quit_onekey_wallet),
               },
-            ],
+            ].filter(Boolean),
           },
         ]
       : []),
@@ -188,7 +190,12 @@ const initMenu = () => {
                 label: i18nText(ETranslations.menu_bring_all_to_front),
               },
               { type: 'separator' },
-              { role: 'window', label: i18nText(ETranslations.menu_window) },
+              {
+                label: i18nText(ETranslations.menu_window),
+                click: () => {
+                  showMainWindow();
+                },
+              },
             ]
           : []),
       ],
@@ -311,8 +318,6 @@ const getBackgroundColor = (key: string) =>
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 function createMainWindow() {
-  initMenu();
-
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   const ratio = 16 / 9;
@@ -796,6 +801,7 @@ if (!singleInstance && !process.mas) {
     logger.info('locale >>>> ', locale);
     if (!mainWindow) {
       mainWindow = createMainWindow();
+      initMenu();
     }
     void initChildProcess();
   });
