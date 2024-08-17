@@ -15,6 +15,7 @@ import InAppNotification from './Container/InAppNotification';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
+import { AppStateUpdaterExt } from './Container/AppStateLockContainer/components/AppStateUpdaterExt'
 
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
@@ -46,6 +47,7 @@ export function KitProvider() {
           <WebViewWebEmbedProvider />
           <LastActivityTracker />
           <SystemLocaleTracker />
+          <AppStateUpdaterExt />
           <InAppNotification />
         </ThemeProvider>
       </GestureHandlerRootView>
