@@ -188,13 +188,13 @@ const initMenu = () => {
                 label: i18nText(ETranslations.menu_bring_all_to_front),
               },
               { type: 'separator' },
-              !process.mas && {
+              {
                 label: i18nText(ETranslations.menu_window),
                 click: () => {
                   showMainWindow();
                 },
               },
-            ].filter(Boolean)
+            ]
           : []),
       ],
     },
