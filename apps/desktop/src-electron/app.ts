@@ -130,9 +130,9 @@ const initMenu = () => {
                 role: 'quit',
                 label: i18nText(ETranslations.menu_quit_onekey_wallet),
               },
-            ],
+            ].filter(Boolean),
           },
-        ].filter(Boolean)
+        ]
       : []),
     {
       label: i18nText(ETranslations.global_edit),
