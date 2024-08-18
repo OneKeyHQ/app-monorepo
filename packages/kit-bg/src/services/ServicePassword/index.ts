@@ -73,6 +73,39 @@ export default class ServicePassword extends ServiceBase {
     return Promise.resolve(encodeSensitiveText({ text }));
   }
 
+  private extConnectionNum = 0;
+
+  async cleanCachedPasswordWhenAllInactive() {
+    if (!platformEnv.isExtensionBackground) {
+      return 
+    }
+    if (this.extConnectionNum <= 0) {
+      this.extConnectionNum = 0;
+      await this.clearCachedPassword()
+    }
+  }
+
+  addExtPopupCloseListener() {
+    if (!platformEnv.isExtensionBackground) {
+      return 
+    }
+    try {
+      chrome.runtime.onConnect.addListener((port) => {
+        // onekey@EXT_PORT_UI_TO_BG/ONEKEY_SIDE_PANEL is constant in extension-bridge-hosted
+        const invalidPortsNames =['ONEKEY_SIDE_PANEL', "onekey@EXT_PORT_UI_TO_BG"]
+        if (invalidPortsNames.includes(port.name)) {
+          this.extConnectionNum += 1;
+          port.onDisconnect.addListener(() => {
+            this.extConnectionNum -= 1;
+            setTimeout(() => this.cleanCachedPasswordWhenAllInactive(), 1000)
+          });
+        }
+      })
+    } catch (error) {
+      console.error("failed to listen runtime onConnect/onDisconnect" ,error)
+    }
+  }
+
   @backgroundMethod()
   async decryptMnemonicFromDbCredential(
     password: string,
