@@ -87,7 +87,7 @@ export function AmountInput({
 
     return (
       <Input
-        keyboardType={platformEnv.isNative ? 'numeric' : 'decimal-pad'}
+        keyboardType="decimal-pad"
         height="$14"
         fontSize={getFontSize('$heading3xl')}
         fontWeight="600"
