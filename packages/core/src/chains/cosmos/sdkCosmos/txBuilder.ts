@@ -1,5 +1,13 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { hexToBytes } from '@noble/hashes/utils';
+import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
+import { MsgVote } from 'cosmjs-types/cosmos/gov/v1beta1/tx';
+import {
+  MsgBeginRedelegate,
+  MsgDelegate,
+  MsgUndelegate,
+} from 'cosmjs-types/cosmos/staking/v1beta1/tx';
 import { SignMode } from 'cosmjs-types/cosmos/tx/signing/v1beta1/signing';
 import {
   AuthInfo,
@@ -8,7 +16,9 @@ import {
   TxBody,
   TxRaw,
 } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
+import { MsgExecuteContract } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
 import { Any } from 'cosmjs-types/google/protobuf/any';
+import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
 import Long from 'long';
 
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -19,14 +29,9 @@ import {
   sortedJsonByKeyStringify,
 } from './wrapper/utils';
 
+import type { ICosmosStdMsg } from './amino/types';
 import type { ICosmosProtoMsgsOrWithAminoMsgs } from './ITxMsgBuilder';
 import type { TransactionWrapper } from './wrapper';
-import { ICosmosStdMsg } from './amino/types';
-import { MsgBeginRedelegate, MsgDelegate, MsgUndelegate } from 'cosmjs-types/cosmos/staking/v1beta1/tx';
-import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
-import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
-import { MsgVote } from 'cosmjs-types/cosmos/gov/v1beta1/tx';
-import { MsgExecuteContract } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
 
 export interface ICosmosTxBuilder {
   makeTxWrapper(
@@ -87,69 +92,99 @@ function getConverter(msgType: string) {
   const converter = {
     'cosmos-sdk/MsgSend': (msg: ICosmosStdMsg) => ({
       typeUrl: '/cosmos.bank.v1beta1.MsgSend',
-      value: Buffer.from(MsgSend.encode(MsgSend.fromPartial({
-        fromAddress: msg.value.from_address,
-        toAddress: msg.value.to_address,
-        amount: msg.value.amount,
-      })).finish()).toString('hex'),
+      value: Buffer.from(
+        MsgSend.encode(
+          MsgSend.fromPartial({
+            fromAddress: msg.value.from_address,
+            toAddress: msg.value.to_address,
+            amount: msg.value.amount,
+          }),
+        ).finish(),
+      ).toString('hex'),
     }),
     'cosmos-sdk/MsgTransfer': (msg: ICosmosStdMsg) => ({
       typeUrl: '/ibc.applications.transfer.v1.MsgTransfer',
-      value: Buffer.from(MsgTransfer.encode(MsgTransfer.fromPartial({
-        sourcePort: msg.value.source_port,
-        sourceChannel: msg.value.source_channel,
-        token: msg.value.token,
-        sender: msg.value.sender,
-        receiver: msg.value.receiver,
-        timeoutHeight: msg.value.timeout_height ? {
-          revisionHeight: msg.value.timeout_height.revision_height,
-          revisionNumber: msg.value.timeout_height.revision_number,
-        } : undefined,
-        timeoutTimestamp: msg.value.timeout_timestamp,
-        memo: msg.value.memo,
-      })).finish()).toString('hex'),
+      value: Buffer.from(
+        MsgTransfer.encode(
+          MsgTransfer.fromPartial({
+            sourcePort: msg.value.source_port,
+            sourceChannel: msg.value.source_channel,
+            token: msg.value.token,
+            sender: msg.value.sender,
+            receiver: msg.value.receiver,
+            timeoutHeight: msg.value.timeout_height
+              ? {
+                  revisionHeight: msg.value.timeout_height.revision_height,
+                  revisionNumber: msg.value.timeout_height.revision_number,
+                }
+              : undefined,
+            timeoutTimestamp: msg.value.timeout_timestamp,
+            memo: msg.value.memo,
+          }),
+        ).finish(),
+      ).toString('hex'),
     }),
     'cosmos-sdk/MsgDelegate': (msg: ICosmosStdMsg) => ({
       typeUrl: '/cosmos.staking.v1beta1.MsgDelegate',
-      value: Buffer.from(MsgDelegate.encode(MsgDelegate.fromPartial({
-        delegatorAddress: msg.value.delegator_address,
-        validatorAddress: msg.value.validator_address,
-        amount: msg.value.amount,
-      })).finish()).toString('hex'),
+      value: Buffer.from(
+        MsgDelegate.encode(
+          MsgDelegate.fromPartial({
+            delegatorAddress: msg.value.delegator_address,
+            validatorAddress: msg.value.validator_address,
+            amount: msg.value.amount,
+          }),
+        ).finish(),
+      ).toString('hex'),
     }),
     'cosmos-sdk/MsgUndelegate': (msg: ICosmosStdMsg) => ({
       typeUrl: '/cosmos.staking.v1beta1.MsgUndelegate',
-      value: Buffer.from(MsgUndelegate.encode(MsgUndelegate.fromPartial({
-        delegatorAddress: msg.value.delegator_address,
-        validatorAddress: msg.value.validator_address,
-        amount: msg.value.amount,
-      })).finish()).toString('hex'),
+      value: Buffer.from(
+        MsgUndelegate.encode(
+          MsgUndelegate.fromPartial({
+            delegatorAddress: msg.value.delegator_address,
+            validatorAddress: msg.value.validator_address,
+            amount: msg.value.amount,
+          }),
+        ).finish(),
+      ).toString('hex'),
     }),
     'cosmos-sdk/MsgBeginRedelegate': (msg: ICosmosStdMsg) => ({
       typeUrl: '/cosmos.staking.v1beta1.MsgBeginRedelegate',
-      value: Buffer.from(MsgBeginRedelegate.encode(MsgBeginRedelegate.fromPartial({
-        delegatorAddress: msg.value.delegator_address,
-        validatorSrcAddress: msg.value.validator_src_address,
-        validatorDstAddress: msg.value.validator_dst_address,
-        amount: msg.value.amount,
-      })).finish()).toString('hex'),
+      value: Buffer.from(
+        MsgBeginRedelegate.encode(
+          MsgBeginRedelegate.fromPartial({
+            delegatorAddress: msg.value.delegator_address,
+            validatorSrcAddress: msg.value.validator_src_address,
+            validatorDstAddress: msg.value.validator_dst_address,
+            amount: msg.value.amount,
+          }),
+        ).finish(),
+      ).toString('hex'),
     }),
     'cosmos-sdk/MsgVote': (msg: ICosmosStdMsg) => ({
       typeUrl: '/cosmos.gov.v1beta1.MsgVote',
-      value: Buffer.from(MsgVote.encode(MsgVote.fromPartial({
-        proposalId: msg.value.proposal_id,
-        voter: msg.value.voter,
-        option: msg.value.option,
-      })).finish()).toString('hex'),
+      value: Buffer.from(
+        MsgVote.encode(
+          MsgVote.fromPartial({
+            proposalId: msg.value.proposal_id,
+            voter: msg.value.voter,
+            option: msg.value.option,
+          }),
+        ).finish(),
+      ).toString('hex'),
     }),
     'wasm/MsgExecuteContract': (msg: ICosmosStdMsg) => ({
       typeUrl: '/cosmwasm.wasm.v1.MsgExecuteContract',
-      value: Buffer.from(MsgExecuteContract.encode(MsgExecuteContract.fromPartial({
-        sender: msg.value.sender,
-        contract: msg.value.contract,
-        msg: msg.value.msg,
-        funds: msg.value.funds,
-      })).finish()).toString('hex'),
+      value: Buffer.from(
+        MsgExecuteContract.encode(
+          MsgExecuteContract.fromPartial({
+            sender: msg.value.sender,
+            contract: msg.value.contract,
+            msg: msg.value.msg,
+            funds: msg.value.funds,
+          }),
+        ).finish(),
+      ).toString('hex'),
     }),
   };
   return converter[msgType as keyof typeof converter];
@@ -193,7 +228,9 @@ export const serializeSignedTx = ({
     const content = getAminoSignDoc(signDoc);
     let msgs = signDoc.msg?.protoMsgs;
     if (!msgs) {
-      msgs = content.msgs.map((msg) => convertAminoMsgToDirect(msg)).filter((msg) => msg.value);
+      msgs = content.msgs
+        .map((msg) => convertAminoMsgToDirect(msg))
+        .filter((msg) => msg.value);
     }
 
     const pubKeyAny = Any.fromPartial({
