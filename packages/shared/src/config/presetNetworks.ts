@@ -2426,7 +2426,7 @@ const ton: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-const scdo:IServerNetwork = {
+const scdo: IServerNetwork = {
   'chainId': '541',
   'code': 'scdo',
   'decimals': 8,
