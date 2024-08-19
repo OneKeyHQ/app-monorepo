@@ -65,12 +65,9 @@ const countLeadingZeroDecimals = (x: BigNumber) => {
   return counts > 0 ? counts : 0;
 };
 
-
 const stripTrailingZero = (x: string, decimalSymbol: string) =>
   x.replace(
-    decimalSymbol === '.'
-      ? /(\.[0-9]*[1-9])0+$|\.0*$/
-      : /(,[0-9]*[1-9])0+$|,0*$/,
+    new RegExp(`(\\${decimalSymbol}[0-9]*[1-9])0+$|\\${decimalSymbol}0*$`),
     '$1',
   );
 
