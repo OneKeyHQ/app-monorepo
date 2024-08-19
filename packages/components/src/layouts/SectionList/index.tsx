@@ -278,11 +278,15 @@ function BaseSectionList<T>(
       ListHeaderComponent={ListHeaderComponent}
       stickyHeaderIndices={reloadStickyHeaderIndices}
       getItemType={getItemType}
-      keyExtractor={platformEnv.isNative ? reloadKeyExtractor : undefined}
-      estimatedItemSize={platformEnv.isNative ? estimatedItemSize : undefined}
-      overrideItemLayout={platformEnv.isNative ? overrideItemLayout : undefined}
-      // will enable `getItemLayout` in next version
-      // getItemLayout={getItemLayout}
+      keyExtractor={reloadKeyExtractor}
+      estimatedItemSize={estimatedItemSize}
+      {...(platformEnv.isNative
+        ? {
+            overrideItemLayout,
+          }
+        : {
+            getItemLayout,
+          })}
       {...restProps}
     />
   );

@@ -22,5 +22,5 @@ export type IAddressBookSectionListProps = {
   }) => ReactElement | null;
   keyExtractor?: (item: unknown, index: number) => string;
   showsVerticalScrollIndicator?: boolean;
-  estimatedItemSize?: number;
+  estimatedItemSize: number;
 };

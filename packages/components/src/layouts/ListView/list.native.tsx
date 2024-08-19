@@ -37,7 +37,7 @@ type IListViewProps<T> = Omit<
       Average height of your cell
       See https://shopify.github.io/flash-list/docs/estimated-item-size/#how-to-calculate
     */
-    estimatedItemSize?: number | `$${keyof Tokens['size']}`;
+    estimatedItemSize: number | `$${keyof Tokens['size']}`;
   };
 
 function BaseListView<T>(
