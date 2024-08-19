@@ -88,9 +88,11 @@ export function AppStateLockContainer({
             passwordVerifyContainer={
               <Suspense>
                 <PasswordVerifyContainer
+                  name='lock'
                   onLayout={handleLayout}
                   onVerifyRes={async (data) => {
-                    if (data) {
+                    // isExt support lock without password
+                    if (data || platformEnv.isExtension) {
                       await handleUnlock();
                     }
                   }}

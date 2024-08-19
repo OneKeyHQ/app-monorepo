@@ -68,6 +68,8 @@ export default class ServicePassword extends ServiceBase {
 
   private securitySession?: IPasswordSecuritySession;
 
+  private extCheckLockStatusTimer?: ReturnType<typeof setInterval>;
+
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
     return Promise.resolve(encodeSensitiveText({ text }));
@@ -590,15 +592,12 @@ export default class ServicePassword extends ServiceBase {
     if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
       return;
     }
-    //
-    if (!platformEnv.isExtension) {
-      // biology auth need cache password to unlock app on ext platform
-      await this.clearCachedPassword();
-    }
+    await this.clearCachedPassword()
     if (manual) {
       await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
     }
     await passwordAtom.set((v) => ({ ...v, unLock: false }));
+    console.log('lockApp');
   }
 
   @backgroundMethod()
@@ -628,6 +627,18 @@ export default class ServicePassword extends ServiceBase {
     const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
     if (idleDuration >= appLockDuration) {
       await this.lockApp({ manual: false });
+    }
+  }
+
+  @backgroundMethod()
+  async addExtIntervalCheckLockStatusListener() {
+    if (platformEnv.isExtensionBackground && !this.extCheckLockStatusTimer) {
+      this.extCheckLockStatusTimer = setInterval(() => {
+        // skip check lock status when ext ui open
+        if (this.backgroundApi.bridgeExtBg && !checkExtUIOpen(this.backgroundApi.bridgeExtBg)) {
+          this.checkLockStatus()
+        };
+      }, 1000 * 30);
     }
   }
 
