@@ -114,10 +114,7 @@ function getConverter(msgType: string) {
       value: Buffer.from(MsgDelegate.encode(MsgDelegate.fromPartial({
         delegatorAddress: msg.value.delegator_address,
         validatorAddress: msg.value.validator_address,
-        amount: {
-          amount: msg.value.amount.amount,
-          denom: msg.value.amount.denom,
-        },
+        amount: msg.value.amount,
       })).finish()).toString('hex'),
     }),
     'cosmos-sdk/MsgUndelegate': (msg: ICosmosStdMsg) => ({
