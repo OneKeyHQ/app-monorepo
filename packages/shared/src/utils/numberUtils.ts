@@ -94,7 +94,7 @@ const formatLocalNumber = (
         minimumFractionDigits: digits,
       })
     : '';
-
+ 
   const plus = Number(formatDecimal[0] || 0);
 
   const integer = `${integerPart === '-0' ? '-' : ''}${formatNumber(
@@ -204,7 +204,7 @@ export const formatPriceChange: IFormatNumberFunc = (value, options) => {
   }
   if (val.eq(0)) {
     return {
-      formattedValue: '0.00',
+      formattedValue: formatLocalNumber('0', 2, true, true),
       meta: { value, isZero: true, symbol: '%', ...options },
     };
   }
@@ -223,13 +223,13 @@ export const formatValue: IFormatNumberFunc = (value, options) => {
   }
   if (val.eq(0)) {
     return {
-      formattedValue: '0.00',
+      formattedValue: formatLocalNumber('0', 2, true, true),
       meta: { value, currency, isZero: true, ...options },
     };
   }
   if (val.lt(0.01)) {
     return {
-      formattedValue: '0.01',
+      formattedValue: formatLocalNumber('0.01', 2, true),
       meta: { value, leading: '< ', currency, ...options },
     };
   }
@@ -325,9 +325,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     if (isNegativeNumber) {
       strings.push('-');
     }
-    strings.push(
-      formatNumber(0, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-    );
+    strings.push(formatLocalNumber('0', 1, true, true));
     strings.push({ value: leadingZeros, type: 'sub' });
     strings.push(formattedValue.slice(leadingZeros + 2 + startsNumberIndex));
   } else {
