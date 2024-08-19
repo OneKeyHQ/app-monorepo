@@ -1,7 +1,7 @@
 import platformEnv from '../platformEnv';
 
 const getInstance = async () => {
-  if (platformEnv.isDev || platformEnv.isE2E) {
+  if (platformEnv.isDev) {
     return null;
   }
   const Crashlytics = await import('@react-native-firebase/crashlytics');
