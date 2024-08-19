@@ -68,6 +68,11 @@ export function WalletDetailsHeader({
           testID="AccountSelectorModal-EditButton"
           variant="tertiary"
           onPress={onEditButtonPress}
+          {...(editMode && {
+            color: '$textInteractive',
+            icon: 'CheckLargeOutline',
+            iconColor: '$iconSuccess',
+          })}
         >
           {editMode
             ? intl.formatMessage({ id: ETranslations.global_done })

@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 
-import { getFontSize } from '@onekeyhq/components';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { SizableText } from '../../primitives';
+import { getFontSize } from '../../utils';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { FontSizeTokens } from 'tamagui';

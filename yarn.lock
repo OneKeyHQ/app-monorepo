@@ -6084,6 +6084,7 @@ __metadata:
     eslint-plugin-jest: "npm:^27.1.7"
     eslint-plugin-jsx-a11y: "npm:^6.6.1"
     eslint-plugin-prettier: "npm:^4.2.1"
+    eslint-plugin-props-checker: "npm:^1.1.0"
     eslint-plugin-react: "npm:^7.31.11"
     eslint-plugin-react-hooks: "npm:^4.6.0"
     eslint-plugin-spellcheck: "npm:^0.0.20"
@@ -19973,6 +19974,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"eslint-plugin-props-checker@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "eslint-plugin-props-checker@npm:1.1.0"
+  dependencies:
+    requireindex: "npm:^1.2.0"
+  peerDependencies:
+    eslint: ">=7"
+  checksum: 10/309c92b5be4cec627abd3ed689137953a9905c8d3f4d97334a2a37d6ba3d1bc5b0b27a91a617076dafdfd3b57cd0f1b1241e144ef74ea77081f688de5495e91b
+  languageName: node
+  linkType: hard
+
 "eslint-plugin-react-hooks@npm:^4.6.0":
   version: 4.6.0
   resolution: "eslint-plugin-react-hooks@npm:4.6.0"
@@ -31508,7 +31520,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"requireindex@npm:~1.2.0":
+"requireindex@npm:^1.2.0, requireindex@npm:~1.2.0":
   version: 1.2.0
   resolution: "requireindex@npm:1.2.0"
   checksum: 10/266d1cb31f6cbc4b6cf2e898f5bbc45581f7919bcf61bba5c45d0adb69b722b9ff5a13727be3350cde4520d7cd37f39df45d58a29854baaa4552cd6b05ae4a1a

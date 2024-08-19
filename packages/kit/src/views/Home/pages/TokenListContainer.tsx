@@ -38,6 +38,7 @@ import {
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
   sortTokensByFiatValue,
+  sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
@@ -305,18 +306,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
   const isAllNetworkManualRefresh = useRef(false);
 
   const updateAllNetworkData = useThrottledCallback(() => {
-    refreshTokenListMap({
-      tokens: tokenListRef.current.map,
-      merge: true,
-      mergeDerive: true,
-    });
-
-    refreshSmallBalanceTokenListMap({
-      tokens: tokenListRef.current.map,
-      merge: true,
-      mergeDerive: true,
-    });
-
     refreshTokenList({
       keys: tokenListRef.current.keys,
       tokens: tokenListRef.current.tokens,
@@ -326,11 +315,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       split: true,
     });
 
-    refreshRiskyTokenListMap({
-      tokens: riskyTokenListRef.current.map,
-      merge: true,
-      mergeDerive: true,
-    });
     refreshRiskyTokenList({
       keys: riskyTokenListRef.current.keys,
       riskyTokens: riskyTokenListRef.current.tokens,
@@ -341,9 +325,11 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
     tokenListRef.current.tokens = [];
     tokenListRef.current.keys = '';
+    tokenListRef.current.map = {};
 
     riskyTokenListRef.current.tokens = [];
     riskyTokenListRef.current.keys = '';
+    riskyTokenListRef.current.map = {};
   }, 1000);
 
   const handleAllNetworkRequests = useCallback(
@@ -404,9 +390,13 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
         tokenListRef.current.keys = `${tokenListRef.current.keys}_${r.tokens.keys}`;
 
-        tokenListRef.current.map = {
+        const mergedMap = {
           ...r.tokens.map,
           ...r.smallBalanceTokens.map,
+        };
+
+        tokenListRef.current.map = {
+          ...mergedMap,
           ...tokenListRef.current.map,
         };
 
@@ -419,6 +409,24 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           ...r.riskTokens.map,
           ...riskyTokenListRef.current.map,
         };
+
+        refreshTokenListMap({
+          tokens: mergedMap,
+          merge: true,
+          mergeDerive: mergeDeriveAssetsEnabled,
+        });
+
+        refreshSmallBalanceTokenListMap({
+          tokens: mergedMap,
+          merge: true,
+          mergeDerive: mergeDeriveAssetsEnabled,
+        });
+
+        refreshRiskyTokenListMap({
+          tokens: r.riskTokens.map,
+          merge: true,
+          mergeDerive: mergeDeriveAssetsEnabled,
+        });
 
         if (r.allTokens) {
           refreshAllTokenListMap({
@@ -452,6 +460,9 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       network?.id,
       refreshAllTokenList,
       refreshAllTokenListMap,
+      refreshRiskyTokenListMap,
+      refreshSmallBalanceTokenListMap,
+      refreshTokenListMap,
       updateAccountOverviewState,
       updateAccountWorth,
       updateAllNetworkData,
@@ -657,13 +668,28 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         ...smallBalanceTokenListMap,
       };
 
-      const mergedTokens = sortTokensByFiatValue({
+      let mergedTokens = sortTokensByFiatValue({
         tokens: [
           ...tokenList.tokens,
           ...smallBalanceTokenList.smallBalanceTokens,
         ],
         map: mergeTokenListMap,
       });
+
+      const index = mergedTokens.findIndex((token) =>
+        new BigNumber(mergeTokenListMap[token.$key]?.fiatValue ?? 0).isZero(),
+      );
+
+      if (index > -1) {
+        const tokensWithBalance = mergedTokens.slice(0, index);
+        let tokensWithZeroBalance = mergedTokens.slice(index);
+
+        tokensWithZeroBalance = sortTokensByOrder({
+          tokens: tokensWithZeroBalance,
+        });
+
+        mergedTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
+      }
 
       tokenList.tokens = mergedTokens.slice(0, TOKEN_LIST_HIGH_VALUE_MAX);
 

@@ -7,6 +7,7 @@ import type { ISelectItem, ISelectProps } from '@onekeyhq/components';
 import {
   Form,
   Icon,
+  IconButton,
   Select,
   SizableText,
   Stack,
@@ -32,6 +33,8 @@ import {
   useAccountSelectorStorageReadyAtom,
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector';
+
+import type { GestureResponderEvent } from 'react-native';
 
 type IDeriveTypeSelectorTriggerPropsBase = {
   renderTrigger?: ISelectProps<ISelectItem>['renderTrigger'];
@@ -199,9 +202,11 @@ export function DeriveTypeSelectorTrigger({
 function DeriveTypeSelectorTriggerIconRenderer({
   label,
   autoShowLabel,
+  onPress,
 }: {
   label?: string | undefined;
   autoShowLabel?: boolean;
+  onPress?: (event: GestureResponderEvent) => void;
 }) {
   const media = useMedia();
   const hitSlop = platformEnv.isNative
@@ -233,6 +238,7 @@ function DeriveTypeSelectorTriggerIconRenderer({
         outlineStyle: 'solid',
       }}
       hitSlop={hitSlop}
+      onPress={onPress}
       focusable
     >
       <Icon name="BranchesOutline" color="$iconSubdued" size="$4.5" />
@@ -248,8 +254,12 @@ function DeriveTypeSelectorTriggerIconRenderer({
 export function DeriveTypeSelectorTriggerForHome({ num }: { num: number }) {
   return (
     <DeriveTypeSelectorTrigger
-      renderTrigger={({ label }) => (
-        <DeriveTypeSelectorTriggerIconRenderer label={label} autoShowLabel />
+      renderTrigger={({ label, onPress }) => (
+        <DeriveTypeSelectorTriggerIconRenderer
+          label={label}
+          autoShowLabel
+          onPress={onPress}
+        />
       )}
       num={num}
     />
@@ -259,8 +269,13 @@ export function DeriveTypeSelectorTriggerForHome({ num }: { num: number }) {
 export function DeriveTypeSelectorTriggerForDapp({ num }: { num: number }) {
   return (
     <DeriveTypeSelectorTrigger
-      renderTrigger={({ label }) => (
-        <DeriveTypeSelectorTriggerIconRenderer label={label} />
+      placement="bottom-end"
+      renderTrigger={({ label, onPress }) => (
+        <IconButton
+          onPress={onPress}
+          icon="BranchesOutline"
+          variant="tertiary"
+        />
       )}
       num={num}
     />

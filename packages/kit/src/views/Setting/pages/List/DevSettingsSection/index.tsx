@@ -108,7 +108,9 @@ export const DevSettingsSection = () => {
       title: '关闭开发者模式',
       onConfirm: () => {
         void backgroundApiProxy.serviceDevSetting.switchDevMode(false);
-        window?.desktopApi.changeDevTools(false);
+        if (platformEnv.isDesktop) {
+          window?.desktopApi.changeDevTools(false);
+        }
       },
     });
   }, []);

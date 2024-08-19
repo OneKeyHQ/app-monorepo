@@ -1418,6 +1418,7 @@
   "slippage_tolerance.warning_message_1": "Una tolleranza di slittamento elevata può causare la perdita del tuo asset.",
   "slippage_tolerance.warning_message_2": "Uno slittamento inferiore al {number}% può causare il fallimento del commercio.",
   "speed_up_cancellation": "Accelerare la cancellazione",
+  "spotlight.enable_account_asset_message": "Se mancano dei saldi, vai su \"Networks\" nella homepage e seleziona prima \"Tutti i network\".",
   "spotlight.enable_network_message": "Se non vedi alcuna risorsa elencata sotto 'Tutte le reti', clicca qui per aggiungere la rete mancante.",
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",

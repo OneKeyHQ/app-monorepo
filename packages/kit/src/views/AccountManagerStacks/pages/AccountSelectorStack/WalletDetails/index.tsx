@@ -435,9 +435,11 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
   const renderAccountValue = useCallback(
     ({
+      index,
       accountValue,
       subTitleInfo,
     }: {
+      index: number;
       accountValue:
         | {
             accountId: string;
@@ -453,6 +455,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         <>
           {accountValue && accountValue.currency ? (
             <AccountValue
+              showSpotlight={index === 0}
               accountId={accountValue.accountId}
               currency={accountValue.currency}
               value={accountValue.value ?? ''}
@@ -596,11 +599,13 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               </>
             )}
             renderItem={({
+              index,
               item,
               drag,
               dragProps,
               section,
             }: {
+              index: number;
               item: IDBIndexedAccount | IDBAccount;
               section: IAccountSelectorAccountsListSectionData;
               drag?: () => void;
@@ -678,6 +683,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 avatarNetworkId = selectedAccount?.networkId;
               }
 
+              const canConfirmAccountSelectPress =
+                !editMode && !shouldShowCreateAddressButton;
+
               return (
                 <ListItem
                   key={item.id}
@@ -700,7 +708,11 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                       }
                       secondary={
                         <XStack alignItems="center">
-                          {renderAccountValue({ accountValue, subTitleInfo })}
+                          {renderAccountValue({
+                            index,
+                            accountValue,
+                            subTitleInfo,
+                          })}
                           <AccountAddress
                             num={num}
                             linkedNetworkId={subTitleInfo.linkedNetworkId}
@@ -723,39 +735,41 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                     ) : null
                   }
                   {...(!editMode && {
-                    onPress: async () => {
-                      // show CreateAddress Button here, disabled confirmAccountSelect()
-                      if (shouldShowCreateAddressButton) {
-                        return;
-                      }
-                      if (isOthersUniversal) {
-                        let autoChangeToAccountMatchedNetworkId =
-                          avatarNetworkId;
-                        if (
-                          selectedAccount?.networkId &&
-                          networkUtils.isAllNetwork({
-                            networkId: selectedAccount?.networkId,
-                          })
-                        ) {
-                          autoChangeToAccountMatchedNetworkId =
-                            selectedAccount?.networkId;
+                    onPress: canConfirmAccountSelectPress
+                      ? async () => {
+                          // show CreateAddress Button here, disabled confirmAccountSelect()
+                          if (shouldShowCreateAddressButton) {
+                            return;
+                          }
+                          if (isOthersUniversal) {
+                            let autoChangeToAccountMatchedNetworkId =
+                              avatarNetworkId;
+                            if (
+                              selectedAccount?.networkId &&
+                              networkUtils.isAllNetwork({
+                                networkId: selectedAccount?.networkId,
+                              })
+                            ) {
+                              autoChangeToAccountMatchedNetworkId =
+                                selectedAccount?.networkId;
+                            }
+                            await actions.current.confirmAccountSelect({
+                              num,
+                              indexedAccount: undefined,
+                              othersWalletAccount: account,
+                              autoChangeToAccountMatchedNetworkId,
+                            });
+                          } else if (focusedWalletInfo) {
+                            await actions.current.confirmAccountSelect({
+                              num,
+                              indexedAccount,
+                              othersWalletAccount: undefined,
+                              autoChangeToAccountMatchedNetworkId: undefined,
+                            });
+                          }
+                          navigation.popStack();
                         }
-                        await actions.current.confirmAccountSelect({
-                          num,
-                          indexedAccount: undefined,
-                          othersWalletAccount: account,
-                          autoChangeToAccountMatchedNetworkId,
-                        });
-                      } else if (focusedWalletInfo) {
-                        await actions.current.confirmAccountSelect({
-                          num,
-                          indexedAccount,
-                          othersWalletAccount: undefined,
-                          autoChangeToAccountMatchedNetworkId: undefined,
-                        });
-                      }
-                      navigation.popStack();
-                    },
+                      : undefined,
                     checkMark: (() => {
                       // show CreateAddress Button here, hide checkMark
                       if (shouldShowCreateAddressButton) {

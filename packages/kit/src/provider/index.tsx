@@ -12,6 +12,7 @@ import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 import { Bootstrap } from './Bootstrap';
 import { Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
+import { StateActiveContainer } from './Container/StateActiveContainer';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
@@ -46,6 +47,7 @@ export function KitProvider() {
           <WebViewWebEmbedProvider />
           <LastActivityTracker />
           <SystemLocaleTracker />
+          <StateActiveContainer />
           <InAppNotification />
         </ThemeProvider>
       </GestureHandlerRootView>
