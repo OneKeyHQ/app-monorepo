@@ -325,7 +325,9 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     if (isNegativeNumber) {
       strings.push('-');
     }
-    strings.push('0.0');
+    strings.push(
+      formatNumber(0, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+    );
     strings.push({ value: leadingZeros, type: 'sub' });
     strings.push(formattedValue.slice(leadingZeros + 2 + startsNumberIndex));
   } else {
