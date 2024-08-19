@@ -11,11 +11,11 @@ import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 
 import { Bootstrap } from './Bootstrap';
 import { Container } from './Container';
+import { AppStateUpdaterExt } from './Container/AppStateLockContainer/components/AppStateUpdaterExt';
 import InAppNotification from './Container/InAppNotification';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
-import { AppStateUpdaterExt } from './Container/AppStateLockContainer/components/AppStateUpdaterExt'
 
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
