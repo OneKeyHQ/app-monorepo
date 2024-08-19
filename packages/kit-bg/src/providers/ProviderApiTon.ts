@@ -24,7 +24,7 @@ import type {
   SignDataRequest,
   SignProofRequest,
   TransactionRequest,
-} from '@onekeyfe/cross-inpage-provider-ton/dist/types';
+} from '@onekeyfe/cross-inpage-provider-ton';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 enum ENetwork {
