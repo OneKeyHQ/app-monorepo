@@ -311,8 +311,13 @@ const init = ({ mainWindow, store }: IDependencies) => {
     });
   });
 
+  let isDownloading = false;
   ipcMain.on(ipcMessageKeys.UPDATE_DOWNLOAD, async () => {
-    logger.info('auto-updater', 'Download requested');
+    logger.info('auto-updater', 'Download requested', isDownloading);
+    if (isDownloading) {
+      return;
+    }
+    isDownloading = true;
     mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADING, {
       percent: 0,
       bytesPerSecond: 0,
@@ -352,6 +357,9 @@ const init = ({ mainWindow, store }: IDependencies) => {
           err: {},
           isNetworkError: false,
         });
+      })
+      .finally(() => {
+        isDownloading = false;
       });
   });
 
