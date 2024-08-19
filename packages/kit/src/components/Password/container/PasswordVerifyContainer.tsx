@@ -26,6 +26,7 @@ import type { LayoutChangeEvent } from 'react-native';
 interface IPasswordVerifyProps {
   onVerifyRes: (password: string) => void;
   onLayout?: (e: LayoutChangeEvent) => void;
+  name?: 'lock';
 }
 
 interface IPasswordVerifyForm {
@@ -35,14 +36,19 @@ interface IPasswordVerifyForm {
 const PasswordVerifyContainer = ({
   onVerifyRes,
   onLayout,
+  name,
 }: IPasswordVerifyProps) => {
   const intl = useIntl();
   const [{ authType, isEnable }] = usePasswordBiologyAuthInfoAtom();
-  const { verifiedPasswordWebAuth } = useWebAuthActions();
+  const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
   const [hasCachedPassword, setHasCachedPassword] = useState(false);
   const [hasSecurePassword, setHasSecurePassword] = useState(false);
+
+  const isExtLockAndNoCachePassword = Boolean(
+    platformEnv.isExtension && name === 'lock' && !hasCachedPassword,
+  );
 
   useEffect(() => {
     if (webAuthCredentialId && isBiologyAuthSwitchOn) {
@@ -69,16 +75,23 @@ const PasswordVerifyContainer = ({
 
   const isBiologyAuthEnable = useMemo(
     // both webAuth or biologyAuth are enabled
-    () =>
-      isBiologyAuthSwitchOn &&
-      ((isEnable && hasSecurePassword) ||
-        (!!webAuthCredentialId && !!hasCachedPassword)),
+    () => {
+      if (isExtLockAndNoCachePassword) {
+        return isBiologyAuthSwitchOn && !!webAuthCredentialId;
+      }
+      return (
+        isBiologyAuthSwitchOn &&
+        ((isEnable && hasSecurePassword) ||
+          (!!webAuthCredentialId && !!hasCachedPassword))
+      );
+    },
     [
       hasCachedPassword,
       hasSecurePassword,
       isEnable,
       webAuthCredentialId,
       isBiologyAuthSwitchOn,
+      isExtLockAndNoCachePassword,
     ],
   );
   const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
@@ -88,6 +101,56 @@ const PasswordVerifyContainer = ({
       passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
     }));
   }, [setPasswordAtom]);
+
+  const onBiologyAuthenticateExtLockAndNoCachePassword =
+    useCallback(async () => {
+      if (
+        passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
+        passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
+      ) {
+        return;
+      }
+      setPasswordAtom((v) => ({
+        ...v,
+        passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFYING },
+      }));
+      try {
+        const result = await checkWebAuth();
+        if (result) {
+          setPasswordAtom((v) => ({
+            ...v,
+            passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
+          }));
+          onVerifyRes('');
+        } else {
+          setPasswordAtom((v) => ({
+            ...v,
+            passwordVerifyStatus: {
+              value: EPasswordVerifyStatus.ERROR,
+              message: intl.formatMessage({
+                id: ETranslations.auth_error_password_incorrect,
+              }),
+            },
+          }));
+        }
+      } catch {
+        setPasswordAtom((v) => ({
+          ...v,
+          passwordVerifyStatus: {
+            value: EPasswordVerifyStatus.ERROR,
+            message: intl.formatMessage({
+              id: ETranslations.auth_error_password_incorrect,
+            }),
+          },
+        }));
+      }
+    }, [
+      checkWebAuth,
+      passwordVerifyStatus,
+      onVerifyRes,
+      intl,
+      setPasswordAtom,
+    ]);
 
   const onBiologyAuthenticate = useCallback(async () => {
     if (
@@ -206,7 +269,11 @@ const PasswordVerifyContainer = ({
           }));
         }}
         status={passwordVerifyStatus}
-        onBiologyAuth={onBiologyAuthenticate}
+        onBiologyAuth={
+          isExtLockAndNoCachePassword
+            ? onBiologyAuthenticateExtLockAndNoCachePassword
+            : onBiologyAuthenticate
+        }
         onInputPasswordAuth={onInputPasswordAuthenticate}
         isEnable={isBiologyAuthEnable}
         authType={isEnable ? authType : [AuthenticationType.FINGERPRINT]}
