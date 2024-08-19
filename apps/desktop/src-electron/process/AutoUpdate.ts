@@ -8,6 +8,7 @@ import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
+import { getAppCacheDir } from 'electron-updater/out/AppAdapter';
 import { readCleartextMessage, readKey } from 'openpgp';
 
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
@@ -23,6 +24,8 @@ import type { IInstallUpdateParams, IVerifyUpdateParams } from '../preload';
 
 const isLinux = process.platform === 'linux';
 
+const cacheDir = getAppCacheDir();
+logger.info('auto-updater', 'Cache dir: ', cacheDir);
 interface ILatestVersion {
   version: string;
   releaseDate: string;
@@ -311,7 +314,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     });
   });
 
-  ipcMain.on(ipcMessageKeys.UPDATE_DOWNLOAD, () => {
+  ipcMain.on(ipcMessageKeys.UPDATE_DOWNLOAD, async () => {
     logger.info('auto-updater', 'Download requested');
     mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADING, {
       percent: 0,
@@ -321,6 +324,19 @@ const init = ({ mainWindow, store }: IDependencies) => {
     });
     if (updateCancellationToken) {
       updateCancellationToken.cancel();
+    }
+    logger.info('auto-updater', 'Cache dir: ', cacheDir);
+    try {
+      if (autoUpdater.downloadedUpdateHelper) {
+        logger.info(
+          'auto-updater',
+          autoUpdater.downloadedUpdateHelper.cacheDir,
+        );
+        await autoUpdater.downloadedUpdateHelper.clear();
+        logger.info('auto-updater', 'clearing cache: ');
+      }
+    } catch (error) {
+      logger.info('auto-updater', 'Error clearing cache: ', error);
     }
     updateCancellationToken = new CancellationToken();
     autoUpdater
@@ -372,15 +388,13 @@ const init = ({ mainWindow, store }: IDependencies) => {
         .then((selection) => {
           if (selection.response === 0) {
             logger.info('auto-update', 'button[0] was clicked');
-            setImmediate(() => {
-              app.removeAllListeners('window-all-closed');
-              mainWindow.removeAllListeners('close');
-              for (const window of BrowserWindow.getAllWindows()) {
-                window.close();
-                window.destroy();
-              }
-              autoUpdater.quitAndInstall(false);
-            });
+            app.removeAllListeners('window-all-closed');
+            mainWindow.removeAllListeners('close');
+            for (const window of BrowserWindow.getAllWindows()) {
+              window.close();
+              window.destroy();
+            }
+            autoUpdater.quitAndInstall(false);
           }
           logger.info('auto-update', 'button[1] was clicked');
         });
