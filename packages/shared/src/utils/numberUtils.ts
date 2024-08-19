@@ -2,10 +2,12 @@ import BigNumber from 'bignumber.js';
 
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
-import { appLocale } from '../locale/appLocale';
+import { appLocale, fallbackAppLocaleIntl } from '../locale/appLocale';
 import platformEnv from '../platformEnv';
 
 import hexUtils from './hexUtils';
+
+import type { FormatNumberOptions } from '@formatjs/intl';
 
 const toBigIntHex = (value: BigNumber): string => {
   let hexStr = value.integerValue().toString(16);
@@ -66,6 +68,13 @@ const countLeadingZeroDecimals = (x: BigNumber) => {
 const stripTrailingZero = (x: string) =>
   x.replace(/(\.[0-9]*[1-9])0+$|\.0*$/, '$1');
 
+const formatNumber = (value: number, options?: FormatNumberOptions) => {
+  // Bengali number formatting falls back to default 'en' style.
+  if (['bn'].includes(appLocale.intl.locale)) {
+    return fallbackAppLocaleIntl.formatNumber(value, options);
+  }
+  return appLocale.intl.formatNumber(value, options);
+};
 const formatLocalNumber = (
   value: BigNumber | string,
   digits = 2,
@@ -80,7 +89,7 @@ const formatLocalNumber = (
   const decimal = decimalPart ? `.${decimalPart}` : '';
 
   const formatDecimal = decimal
-    ? appLocale.intl.formatNumber(Number.parseFloat(decimal), {
+    ? formatNumber(Number.parseFloat(decimal), {
         maximumFractionDigits: digits,
         minimumFractionDigits: digits,
       })
@@ -88,9 +97,7 @@ const formatLocalNumber = (
 
   const plus = Number(formatDecimal[0] || 0);
 
-  const integer = `${
-    integerPart === '-0' ? '-' : ''
-  }${appLocale.intl.formatNumber(
+  const integer = `${integerPart === '-0' ? '-' : ''}${formatNumber(
     new BigNumber(integerPart).plus(plus).toFixed() as any,
   )}`;
   const result = `${integer}${formatDecimal ? formatDecimal.slice(1) : ''}`;
