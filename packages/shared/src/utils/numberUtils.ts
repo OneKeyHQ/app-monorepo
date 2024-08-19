@@ -324,7 +324,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     if (isNegativeNumber) {
       strings.push('-');
     }
-    strings.push(formatLocalNumber('0', 1, true, true));
+    strings.push(formatLocalNumber('0', 1, false, true));
     strings.push({ value: leadingZeros, type: 'sub' });
     strings.push(formattedValue.slice(leadingZeros + 2 + startsNumberIndex));
   } else {
