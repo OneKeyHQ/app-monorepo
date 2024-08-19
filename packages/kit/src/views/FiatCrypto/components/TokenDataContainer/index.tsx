@@ -1,17 +1,12 @@
 import type { PropsWithChildren } from 'react';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
 
 import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+  useSmallBalanceTokenListAtom,
+  useSmallBalanceTokenListMapAtom,
+  useTokenListAtom,
+  useTokenListMapAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -101,40 +96,39 @@ export function TokenDataContainer({
   initialTokens: IAccountToken[];
   initialMap: Record<string, ITokenFiat>;
 }>) {
-  const [accountTokensMap, setAccountTokensMap] = useState<
-    Record<string, IAccountToken>
-  >(() => buildAccountTokenMap({ tokens: initialTokens }));
-  const [tokenFiatMap, setTokenFiatMap] =
-    useState<Record<string, ITokenFiat>>(initialMap);
-  const updateTokenList = useCallback(
-    ({ map, tokens }: IUpdateTokenListParams) => {
-      setTokenFiatMap((prev) => ({ ...prev, ...map }));
-      setAccountTokensMap((lastTokensMap) =>
-        buildAccountTokenMap({ tokens, lastResult: lastTokensMap }),
-      );
-    },
-    [],
-  );
+  const [tokenList] = useTokenListAtom();
+  const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
+  const [tokenListMap] = useTokenListMapAtom();
+  const [smallBalanceTokenListMap] = useSmallBalanceTokenListMapAtom();
 
   const context = useMemo<ITokenDataContextTypes>(
     () => ({
-      tokensMap: accountTokensMap,
-      fiatMap: tokenFiatMap,
+      tokensMap: buildAccountTokenMap({
+        tokens: initialTokens.concat([
+          ...tokenList.tokens,
+          ...smallBalanceTokenList.smallBalanceTokens,
+        ]),
+      }),
+      fiatMap: {
+        ...initialMap,
+        ...tokenListMap,
+        ...smallBalanceTokenListMap,
+      },
       networkId,
       accountId,
     }),
-    [accountTokensMap, tokenFiatMap, networkId, accountId],
+    [
+      initialTokens,
+      tokenList.tokens,
+      smallBalanceTokenList.smallBalanceTokens,
+      initialMap,
+      tokenListMap,
+      smallBalanceTokenListMap,
+      networkId,
+      accountId,
+    ],
   );
 
-  useEffect(() => {
-    if (!networkUtils.isAllNetwork({ networkId })) {
-      return;
-    }
-    appEventBus.on(EAppEventBusNames.TokenListUpdate, updateTokenList);
-    return () => {
-      appEventBus.off(EAppEventBusNames.TokenListUpdate, updateTokenList);
-    };
-  }, [updateTokenList, networkId]);
   return (
     <TokenDataContext.Provider value={context}>
       {children}

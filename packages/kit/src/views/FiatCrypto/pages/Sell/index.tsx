@@ -13,6 +13,7 @@ import SellOrBuy from '../../components/SellOrBuy';
 import { TokenDataContainer } from '../../components/TokenDataContainer';
 
 import type { RouteProp } from '@react-navigation/core';
+import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 const SellPage = () => {
   const route =
@@ -29,19 +30,21 @@ const SellPage = () => {
       }}
       enabledNum={[0]}
     >
-      <TokenDataContainer
-        initialMap={map}
-        initialTokens={tokens}
-        networkId={networkId}
-        accountId={accountId}
-      >
-        <SellOrBuy
-          title={intl.formatMessage({ id: ETranslations.global_sell })}
-          type="sell"
+      <HomeTokenListProviderMirror>
+        <TokenDataContainer
+          initialMap={map}
+          initialTokens={tokens}
           networkId={networkId}
           accountId={accountId}
-        />
-      </TokenDataContainer>
+        >
+          <SellOrBuy
+            title={intl.formatMessage({ id: ETranslations.global_sell })}
+            type="sell"
+            networkId={networkId}
+            accountId={accountId}
+          />
+        </TokenDataContainer>
+      </HomeTokenListProviderMirror>
     </AccountSelectorProviderMirror>
   );
 };
