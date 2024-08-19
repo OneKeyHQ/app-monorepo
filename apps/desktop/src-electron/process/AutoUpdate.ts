@@ -322,7 +322,6 @@ const init = ({ mainWindow, store }: IDependencies) => {
     if (updateCancellationToken) {
       updateCancellationToken.cancel();
     }
-    logger.info('auto-updater', 'Cache dir: ', cacheDir);
     try {
       // @ts-ignore
       if (autoUpdater.downloadedUpdateHelper) {
