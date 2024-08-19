@@ -65,8 +65,14 @@ const countLeadingZeroDecimals = (x: BigNumber) => {
   return counts > 0 ? counts : 0;
 };
 
-const stripTrailingZero = (x: string) =>
-  x.replace(/(\.[0-9]*[1-9])0+$|\.0*$/, '$1');
+
+const stripTrailingZero = (x: string, decimalSymbol: string) =>
+  x.replace(
+    decimalSymbol === '.'
+      ? /(\.[0-9]*[1-9])0+$|\.0*$/
+      : /(,[0-9]*[1-9])0+$|,0*$/,
+    '$1',
+  );
 
 const formatNumber = (value: number, options?: FormatNumberOptions) => {
   // Bengali number formatting falls back to default 'en' style.
@@ -99,8 +105,9 @@ const formatLocalNumber = (
   const integer = `${integerPart === '-0' ? '-' : ''}${formatNumber(
     new BigNumber(integerPart).plus(plus).toFixed() as any,
   )}`;
+  const decimalSymbol = formatDecimal ? formatDecimal[1] : '.';
   const result = `${integer}${formatDecimal ? formatDecimal.slice(1) : ''}`;
-  return keepTrailingZeros ? stripTrailingZero(result) : result;
+  return keepTrailingZeros ? stripTrailingZero(result, decimalSymbol) : result;
 };
 
 export type IFormatNumberFunc = (
