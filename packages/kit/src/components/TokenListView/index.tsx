@@ -1,9 +1,16 @@
+import { useEffect, useState } from 'react';
+
 import {
   ListView,
   SizableText,
   Stack,
   renderNestedScrollView,
 } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
@@ -104,10 +111,24 @@ function TokenListView(props: IProps) {
       inTabList,
     });
 
+  const [isInRequest, setIsInRequest] = useState(false);
+  useEffect(() => {
+    if (!platformEnv.isNativeAndroid) {
+      return;
+    }
+    const fn = ({ isRefreshing }: { isRefreshing: boolean }) => {
+      setIsInRequest(isRefreshing);
+    };
+    appEventBus.on(EAppEventBusNames.TabListStateUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.TabListStateUpdate, fn);
+    };
+  }, []);
   if (
     (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
     (!isTokenSelector && searchTokenState.isSearching) ||
-    (!tokenListState.initialized && tokenListState.isRefreshing)
+    (!tokenListState.initialized && tokenListState.isRefreshing) ||
+    (platformEnv.isNativeAndroid && isInRequest)
   ) {
     return <ListLoading isTokenSelectorView={!tableLayout} />;
   }
