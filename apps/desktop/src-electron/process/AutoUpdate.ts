@@ -372,13 +372,15 @@ const init = ({ mainWindow, store }: IDependencies) => {
         .then((selection) => {
           if (selection.response === 0) {
             logger.info('auto-update', 'button[0] was clicked');
-            app.removeAllListeners('window-all-closed');
-            mainWindow.removeAllListeners('close');
-            for (const window of BrowserWindow.getAllWindows()) {
-              window.close();
-              window.destroy();
-            }
-            autoUpdater.quitAndInstall(false);
+            setImmediate(() => {
+              app.removeAllListeners('window-all-closed');
+              mainWindow.removeAllListeners('close');
+              for (const window of BrowserWindow.getAllWindows()) {
+                window.close();
+                window.destroy();
+              }
+              autoUpdater.quitAndInstall(false);
+            })
           }
           logger.info('auto-update', 'button[1] was clicked');
         });
