@@ -380,7 +380,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
                 window.destroy();
               }
               autoUpdater.quitAndInstall(false);
-            })
+            });
           }
           logger.info('auto-update', 'button[1] was clicked');
         });
