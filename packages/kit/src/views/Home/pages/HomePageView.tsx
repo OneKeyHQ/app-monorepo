@@ -4,11 +4,7 @@ import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
 import { Empty, Page, Stack, Tab, YStack } from '@onekeyhq/components';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
-import {
-  IMPL_SCDO,
-  getEnabledNFTNetworkIds,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -96,7 +92,6 @@ export function HomePageView({
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
   const isRequiredValidation = vaultSettings?.validationRequired;
   const enabledOnClassicOnly = vaultSettings?.enabledOnClassicOnly;
-  const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
 
   const tabs = useMemo(
     () =>
@@ -170,30 +165,6 @@ export function HomePageView({
       );
     }
 
-    if (softwareAccountDisabled && wallet?.type === WALLET_TYPE_HD && account) {
-      const deviceType = {
-        [IMPL_SCDO]: `Classic 1s, Pro, ${intl.formatMessage({
-          id: ETranslations.faq_watched_account,
-        })}`,
-      }[account.impl];
-      return (
-        <YStack height="100%">
-          <HomeSelector createAddressDisabled padding="$5" />
-          <Stack flex={1} justifyContent="center">
-            <Empty
-              icon="GlobusOutline"
-              title={intl.formatMessage(
-                { id: ETranslations.selected_network_only_supports_device },
-                {
-                  deviceType,
-                },
-              )}
-            />
-          </Stack>
-        </YStack>
-      );
-    }
-
     if (!account) {
       return (
         <YStack height="100%">
@@ -228,8 +199,6 @@ export function HomePageView({
 
     return <>{renderTabs()}</>;
   }, [
-    softwareAccountDisabled,
-    wallet?.type,
     enabledOnClassicOnly,
     device?.deviceType,
     account,
