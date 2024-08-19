@@ -1,7 +1,8 @@
-import { forwardRef, useCallback } from 'react';
+import { forwardRef, useCallback, useMemo } from 'react';
 import type { ForwardedRef } from 'react';
 
 import { useStyle } from '@tamagui/core';
+import _ from 'lodash';
 // eslint-disable-next-line spellcheck/spell-checker
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import {
@@ -35,6 +36,7 @@ function DragCellRendererComponent<T>({
   getItemLayout,
   contentContainerStyle,
   data,
+  stickyHeaderIndices = [],
 }: {
   item: T;
   index: number;
@@ -44,27 +46,56 @@ function DragCellRendererComponent<T>({
   getItemLayout: ISortableListViewProps<T>['getItemLayout'];
   contentContainerStyle: Record<string, unknown>;
   data: T[];
+  stickyHeaderIndices: number[];
 }) {
   const id = keyExtractor?.(item, index);
+  const layout = getItemLayout?.(data, index);
+  const paddingTop =
+    contentContainerStyle?.paddingTop ?? contentContainerStyle?.paddingVertical;
+  const findIsStickyIndex = (i: number) =>
+    stickyHeaderIndices.findIndex((x) => x === i) !== -1;
+  const isSticky = findIsStickyIndex(index);
+  const nextIsSticky = findIsStickyIndex(index + 1);
+  const lastStickyLayout = getItemLayout(
+    data,
+    Math.max(
+      0,
+      _.findLastIndex(data.slice(0, index), (__, _lastStickyIndex) =>
+        findIsStickyIndex(_lastStickyIndex),
+      ),
+    ),
+  );
   return (
     <Draggable draggableId={`${id}`} index={index} isDragDisabled={!enabled}>
       {(provided) => {
-        const layout = getItemLayout?.(data, index);
-        const paddingTop =
-          contentContainerStyle?.paddingTop ??
-          contentContainerStyle?.paddingVertical;
         const dragHandleProps = (provided.dragHandleProps ?? {}) as Record<
           string,
           any
         >;
+
         return (
           <>
+            {stickyHeaderIndices.length > 0 && !isSticky && nextIsSticky ? (
+              <div
+                style={
+                  layout
+                    ? {
+                        height:
+                          layout.offset +
+                          layout.length -
+                          lastStickyLayout.offset -
+                          lastStickyLayout.length,
+                      }
+                    : {}
+                }
+              />
+            ) : null}
             <div
               ref={provided.innerRef}
               {...provided.draggableProps}
               style={{
                 ...provided.draggableProps.style,
-                ...(item.type !== 'sectionHeader'
+                ...(!isSticky
                   ? {
                       position: 'absolute',
                       top:
@@ -88,22 +119,6 @@ function DragCellRendererComponent<T>({
                 isActive: false,
               })}
             </div>
-            {item.type === 'sectionFooter' ? (
-              <div
-                style={{
-                  height:
-                    layout.offset -
-                    getItemLayout(
-                      data,
-                      data
-                        .slice(0, index)
-                        .findLastIndex(
-                          (_item) => _item.type === 'sectionHeader',
-                        ),
-                    ).offset,
-                }}
-              />
-            ) : null}
           </>
         );
       }}
@@ -121,6 +136,8 @@ function BaseSortableListView<T>(
     keyExtractor,
     getItemLayout,
     contentContainerStyle = {},
+    stickyHeaderIndices,
+    ListHeaderComponent,
     ...restProps
   }: ISortableListViewProps<T>,
   ref: ForwardedRef<ISortableListViewRef<T>> | undefined,
@@ -158,6 +175,14 @@ function BaseSortableListView<T>(
     },
   );
 
+  const reallyStickyHeaderIndices = useMemo(
+    () =>
+      (stickyHeaderIndices ?? []).map((index) =>
+        ListHeaderComponent ? index - 1 : index,
+      ),
+    [stickyHeaderIndices, ListHeaderComponent],
+  );
+
   const reloadCellRendererComponent = useCallback(
     (props: CellRendererProps<T>) => (
       <DragCellRendererComponent
@@ -168,9 +193,11 @@ function BaseSortableListView<T>(
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         data={data}
+        stickyHeaderIndices={reallyStickyHeaderIndices}
       />
     ),
     [
+      reallyStickyHeaderIndices,
       enabled,
       getItemLayout,
       keyExtractor,
@@ -218,8 +245,11 @@ function BaseSortableListView<T>(
       >
         {(provided) => (
           <ListView
+            // @ts-ignore
             ref={(_ref) => {
-              if (ref) {
+              if (typeof ref === 'function') {
+                ref(_ref);
+              } else if (ref && 'current' in ref) {
                 ref.current = _ref;
               }
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -231,6 +261,8 @@ function BaseSortableListView<T>(
             CellRendererComponent={reloadCellRendererComponent}
             getItemLayout={getItemLayout}
             keyExtractor={keyExtractor}
+            stickyHeaderIndices={stickyHeaderIndices}
+            ListHeaderComponent={ListHeaderComponent}
             {...restProps}
           />
         )}
@@ -238,6 +270,8 @@ function BaseSortableListView<T>(
     </DragDropContext>
   );
 }
+
+export { ISortableListViewProps, ISortableListViewRef };
 
 export const SortableListView = withStaticProperties(
   forwardRef(BaseSortableListView) as typeof BaseSortableListView,

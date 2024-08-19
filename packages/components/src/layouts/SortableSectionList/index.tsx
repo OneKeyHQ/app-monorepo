@@ -248,7 +248,7 @@ function BaseSortableSectionList<T>(
       const layoutItem = item as ISectionLayoutItem;
       if (layoutItem.type === ESectionLayoutType.Item && keyExtractor) {
         return `${layoutItem.type}_${layoutItem.sectionIndex}_${keyExtractor(
-          layoutItem.value,
+          layoutItem.value as T,
           index,
         )}`;
       }
