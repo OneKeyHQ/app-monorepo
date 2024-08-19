@@ -16,6 +16,7 @@ import type {
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
+  ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
@@ -34,6 +35,7 @@ import type VaultBtc from './Vault';
 import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
 import type {
   IPrepareHardwareAccountsParams,
+  ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
 import type { RefTransaction } from '@onekeyfe/hd-core';
@@ -262,8 +264,28 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
-  async signMessage(): Promise<string[]> {
-    throw new NotImplemented();
+  async signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+    const network = await this.getNetwork();
+    const coinName = await this.coreApi.getCoinName({ network });
+    const dbAccount = await this.vault.getAccount();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const sdk = await this.getHardwareSDKInstance();
+    const result = await Promise.all(
+      params.messages.map(async ({ message }) => {
+        const response = await sdk.btcSignMessage(connectId, deviceId, {
+          ...params.deviceParams?.deviceCommonParams,
+          path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
+          coin: coinName,
+          messageHex: Buffer.from(message).toString('hex'),
+        });
+        if (!response.success) {
+          throw convertDeviceError(response.payload);
+        }
+        return { message, signature: response.payload.signature };
+      }),
+    );
+    return result.map((ret) => ret.signature);
   }
 
   override async prepareAccounts(
