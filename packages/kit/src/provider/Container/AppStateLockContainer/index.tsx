@@ -88,7 +88,7 @@ export function AppStateLockContainer({
             passwordVerifyContainer={
               <Suspense>
                 <PasswordVerifyContainer
-                  name='lock'
+                  name="lock"
                   onLayout={handleLayout}
                   onVerifyRes={async (data) => {
                     // isExt support lock without password

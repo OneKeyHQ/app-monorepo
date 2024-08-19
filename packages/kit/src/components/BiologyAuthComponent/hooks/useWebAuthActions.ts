@@ -51,7 +51,7 @@ export const useWebAuthActions = () => {
   const checkWebAuth = useCallback(async () => {
     const cred = await verifiedWebAuth(credId);
     return cred?.id === credId;
-  }, [])
+  }, [credId]);
 
   return { setWebAuthEnable, verifiedPasswordWebAuth, checkWebAuth };
 };

@@ -592,7 +592,7 @@ export default class ServicePassword extends ServiceBase {
     if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
       return;
     }
-    await this.clearCachedPassword()
+    await this.clearCachedPassword();
     if (manual) {
       await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
     }
@@ -635,9 +635,12 @@ export default class ServicePassword extends ServiceBase {
     if (platformEnv.isExtensionBackground && !this.extCheckLockStatusTimer) {
       this.extCheckLockStatusTimer = setInterval(() => {
         // skip check lock status when ext ui open
-        if (this.backgroundApi.bridgeExtBg && !checkExtUIOpen(this.backgroundApi.bridgeExtBg)) {
-          this.checkLockStatus()
-        };
+        if (
+          this.backgroundApi.bridgeExtBg &&
+          !checkExtUIOpen(this.backgroundApi.bridgeExtBg)
+        ) {
+          void this.checkLockStatus();
+        }
       }, 1000 * 30);
     }
   }
