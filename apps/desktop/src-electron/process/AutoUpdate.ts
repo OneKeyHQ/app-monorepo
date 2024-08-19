@@ -8,7 +8,6 @@ import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
-import { getAppCacheDir } from 'electron-updater/out/AppAdapter';
 import { readCleartextMessage, readKey } from 'openpgp';
 
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
@@ -24,8 +23,6 @@ import type { IInstallUpdateParams, IVerifyUpdateParams } from '../preload';
 
 const isLinux = process.platform === 'linux';
 
-const cacheDir = getAppCacheDir();
-logger.info('auto-updater', 'Cache dir: ', cacheDir);
 interface ILatestVersion {
   version: string;
   releaseDate: string;
@@ -327,13 +324,16 @@ const init = ({ mainWindow, store }: IDependencies) => {
     }
     logger.info('auto-updater', 'Cache dir: ', cacheDir);
     try {
+      // @ts-ignore
       if (autoUpdater.downloadedUpdateHelper) {
         logger.info(
           'auto-updater',
+          // @ts-ignore
           autoUpdater.downloadedUpdateHelper.cacheDir,
         );
+        // @ts-ignore
         await autoUpdater.downloadedUpdateHelper.clear();
-        logger.info('auto-updater', 'clearing cache: ');
+        logger.info('auto-updater', 'clearing cache');
       }
     } catch (error) {
       logger.info('auto-updater', 'Error clearing cache: ', error);
