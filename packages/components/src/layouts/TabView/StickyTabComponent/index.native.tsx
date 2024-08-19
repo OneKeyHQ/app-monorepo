@@ -50,6 +50,7 @@ export const TabComponent = (
   }, [stickyConfig.data, onRefreshCallBack]);
   const onPageChange = useCallback(
     ({ nativeEvent: { index } }: { nativeEvent: { index: number } }) => {
+      setIsRefreshing(false);
       stickyConfig.data.forEach((_item, _index) => {
         _item.refreshingFocusedRef.current?.setFocused(_index === index);
       });
