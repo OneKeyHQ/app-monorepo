@@ -5,7 +5,7 @@ import type { ResolvedIntlConfig } from '@formatjs/intl';
 import type { IntlShape } from 'react-intl';
 
 export const fallbackAppLocaleIntl = createIntl({
-  locale: 'en',
+  locale: 'en-US',
 });
 
 class AppLocale {
