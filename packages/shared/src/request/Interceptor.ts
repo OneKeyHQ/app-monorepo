@@ -50,6 +50,12 @@ export async function checkRequestIsOneKeyDomain({
 
 export const HEADER_REQUEST_ID_KEY = normalizeHeaderKey('X-Onekey-Request-ID');
 
+// Be consistent with backend platform definition
+// https://onekeyhq.atlassian.net/wiki/spaces/ONEKEY/pages/390266887#%E5%85%AC%E5%85%B1%E5%8F%82%E6%95%B0
+export const headerPlatform = [platformEnv.appPlatform, platformEnv.appChannel]
+  .filter(Boolean)
+  .join('-');
+
 export async function getRequestHeaders() {
   const settings = await settingsPersistAtom.get();
 
@@ -62,12 +68,6 @@ export async function getRequestHeaders() {
   if (theme === 'system') {
     theme = Appearance.getColorScheme() ?? defaultColorScheme;
   }
-
-  // Be consistent with backend platform definition
-  // https://onekeyhq.atlassian.net/wiki/spaces/ONEKEY/pages/390266887#%E5%85%AC%E5%85%B1%E5%8F%82%E6%95%B0
-  const platform = platformEnv.appPlatform;
-  const channel = platformEnv.appChannel;
-  const headerPlatform = [platform, channel].filter(Boolean).join('-');
 
   const requestId = generateUUID();
   return {
