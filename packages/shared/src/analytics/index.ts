@@ -1,6 +1,7 @@
 import Axios from 'axios';
 
 import platformEnv from '../platformEnv';
+import { headerPlatform } from '../request/Interceptor';
 
 import { getDeviceInfo } from './deviceInfo';
 
@@ -54,6 +55,7 @@ class Analytics {
   private async lazyDeviceInfo() {
     if (!this.deviceInfo) {
       this.deviceInfo = await getDeviceInfo();
+      this.deviceInfo.platform = headerPlatform;
       this.deviceInfo.appBuildNumber = platformEnv.buildNumber;
       this.deviceInfo.appVersion = platformEnv.version;
     }
