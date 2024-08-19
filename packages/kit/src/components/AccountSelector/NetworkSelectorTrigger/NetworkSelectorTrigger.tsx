@@ -117,7 +117,13 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
       onPress={showChainSelector}
     >
       <NetworkAvatar networkId={network?.id} size="$5" />
-      <SizableText pl="$2" size="$bodyMd" flexShrink={1} numberOfLines={1}>
+      <SizableText
+        testID="account-network-trigger-button-text"
+        pl="$2"
+        size="$bodyMd"
+        flexShrink={1}
+        numberOfLines={1}
+      >
         {network?.isAllNetworks
           ? intl.formatMessage({ id: ETranslations.global_all_networks })
           : network?.name}
