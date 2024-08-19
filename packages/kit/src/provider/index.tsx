@@ -12,10 +12,10 @@ import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 import { Bootstrap } from './Bootstrap';
 import { Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
+import { StateActiveContainer } from './Container/StateActiveContainer';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
-import { AppStateUpdaterExt } from './Container/AppStateLockContainer/components/AppStateUpdaterExt'
 
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
@@ -47,7 +47,7 @@ export function KitProvider() {
           <WebViewWebEmbedProvider />
           <LastActivityTracker />
           <SystemLocaleTracker />
-          <AppStateUpdaterExt />
+          <StateActiveContainer />
           <InAppNotification />
         </ThemeProvider>
       </GestureHandlerRootView>

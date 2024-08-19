@@ -6,7 +6,6 @@ import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 
 import { AppStateSignal } from '../AppStateSignal';
 
-
 const AppStateUpdaterContent = () => {
   const handler = useCallback(() => {
     if (AppStateSignal.instance.isOff()) {
