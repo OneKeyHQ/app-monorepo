@@ -65,7 +65,7 @@ class Analytics {
     eventName: string,
     eventProps?: Record<string, any>,
   ) {
-    if (platformEnv.isDev) {
+    if (platformEnv.isDev || platformEnv.isE2E) {
       return;
     }
     const event = {
@@ -88,7 +88,7 @@ class Analytics {
   }
 
   private async requestUserProfile(attributes: Record<string, any>) {
-    if (platformEnv.isDev) {
+    if (platformEnv.isDev || platformEnv.isE2E) {
       return;
     }
     const axios = this.lazyAxios();

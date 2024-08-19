@@ -6,7 +6,6 @@ import { useDebouncedCallback } from 'use-debounce';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
-  NumberSizeableText,
   Page,
   SearchBar,
   SectionList,
