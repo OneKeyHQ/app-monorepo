@@ -9,6 +9,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import SellOrBuy from '../../components/SellOrBuy';
 import { TokenDataContainer } from '../../components/TokenDataContainer';
 
@@ -29,19 +30,21 @@ const SellPage = () => {
       }}
       enabledNum={[0]}
     >
-      <TokenDataContainer
-        initialMap={map}
-        initialTokens={tokens}
-        networkId={networkId}
-        accountId={accountId}
-      >
-        <SellOrBuy
-          title={intl.formatMessage({ id: ETranslations.global_sell })}
-          type="sell"
+      <HomeTokenListProviderMirror>
+        <TokenDataContainer
+          initialMap={map}
+          initialTokens={tokens}
           networkId={networkId}
           accountId={accountId}
-        />
-      </TokenDataContainer>
+        >
+          <SellOrBuy
+            title={intl.formatMessage({ id: ETranslations.global_sell })}
+            type="sell"
+            networkId={networkId}
+            accountId={accountId}
+          />
+        </TokenDataContainer>
+      </HomeTokenListProviderMirror>
     </AccountSelectorProviderMirror>
   );
 };
