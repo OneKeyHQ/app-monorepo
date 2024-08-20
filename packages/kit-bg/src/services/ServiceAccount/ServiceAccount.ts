@@ -64,7 +64,6 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
-import simpleDb from '../../dbs/simple/simpleDb';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -1120,20 +1119,19 @@ class ServiceAccount extends ServiceBase {
     accounts = await Promise.all(
       accounts.map(async (account) => {
         const { id: accountId } = account;
-        const accountNetworkId = accountUtils.getAccountCompatibleNetwork({
-          account,
-          networkId: activeNetworkId || '',
-        });
-
-        if (accountNetworkId) {
-          try {
+        try {
+          const accountNetworkId = accountUtils.getAccountCompatibleNetwork({
+            account,
+            networkId: activeNetworkId || '',
+          });
+          if (accountNetworkId) {
             return await this.getAccount({
               accountId,
               networkId: accountNetworkId,
             });
-          } catch (e) {
-            return account;
           }
+        } catch (e) {
+          //
         }
         return account;
       }),
