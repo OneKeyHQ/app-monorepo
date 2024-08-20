@@ -32,6 +32,7 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
 
   const onLayout = useCallback(() => {
     const scrollView = scrollViewRef?.current as unknown as HTMLElement;
+    scrollView.style.overflow = 'hidden';
     let prevListScrollTop = 0;
     const isNearBottom = () =>
       scrollView.scrollTop + scrollView.clientHeight >= scrollView.scrollHeight;
@@ -63,24 +64,25 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
     const onWheel = debounce(
       (event: { deltaY: number; stopPropagation: () => void }) => {
         event.stopPropagation();
-        if (isNearBottom()) {
-          return;
-        }
         const listView = getListView();
         const direction = event.deltaY;
-        if (listView?.scrollTop === 0 && direction < 0) {
-          scrollView.scrollTop += Math.max(direction, -40);
+        if ((isNearBottom() && direction > 0) || listView?.scrollTop > 0) {
+          listView.scrollTop += event.deltaY;
+          return;
+        }
+        if (listView?.scrollTop === 0) {
+          scrollView.scrollTop += direction;
         }
       },
       5,
     );
     const listView = getListView();
-    scrollView?.addEventListener('scroll', onScroll);
-    listView?.addEventListener('scroll', onListViewScroll);
+    // scrollView?.addEventListener('scroll', onScroll);
+    // listView?.addEventListener('scroll', onListViewScroll);
     listView?.addEventListener('wheel', onWheel as any);
     return () => {
-      scrollView?.removeEventListener('scroll', onScroll);
-      listView?.removeEventListener('scroll', onListViewScroll);
+      // scrollView?.removeEventListener('scroll', onScroll);
+      // listView?.removeEventListener('scroll', onListViewScroll);
       listView?.removeEventListener('wheel', onWheel as any);
     };
   }, [getListView, scrollViewRef]);
@@ -91,6 +93,7 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
         style: inTabList
           ? ({
               minHeight: 100,
+              overflow: 'hidden',
             } as IStackProps['style'])
           : undefined,
       } as IListViewProps<T>),
