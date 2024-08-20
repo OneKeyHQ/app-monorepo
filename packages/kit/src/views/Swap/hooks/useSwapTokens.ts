@@ -108,6 +108,9 @@ export function useSwapInit(params?: ISwapInitParams) {
   }, [setSwapNetworks, swapNetworks.length]);
 
   const syncDefaultSelectedToken = useCallback(async () => {
+    if (!!fromTokenRef.current || !!toTokenRef.current) {
+      return;
+    }
     if (
       (params?.importFromToken &&
         swapNetworksRef.current.find(
@@ -128,9 +131,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       !swapNetworksRef.current.length ||
       (params?.importNetworkId &&
         swapAddressInfoRef.current?.networkId &&
-        params?.importNetworkId !== swapAddressInfoRef.current?.networkId) ||
-      !!fromTokenRef.current ||
-      !!toTokenRef.current
+        params?.importNetworkId !== swapAddressInfoRef.current?.networkId)
     ) {
       return;
     }
