@@ -362,13 +362,13 @@ class ProviderApiBtc extends ProviderApiBase {
       });
     }
 
-    if (accountUtils.isHwAccount({ accountId })) {
-      throw web3Errors.provider.custom({
-        code: 4003,
-        message:
-          'Partially signed bitcoin transactions is not supported on hardware.',
-      });
-    }
+    // if (accountUtils.isHwAccount({ accountId })) {
+    //   throw web3Errors.provider.custom({
+    //     code: 4003,
+    //     message:
+    //       'Partially signed bitcoin transactions is not supported on hardware.',
+    //   });
+    // }
 
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
