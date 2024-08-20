@@ -46,6 +46,7 @@ const useDesktopEvents = platformEnv.isDesktop
         const { isNeedUpdate, response } = await checkForUpdates();
         if (isNeedUpdate || response === undefined) {
           toUpdatePreviewPage(true, response);
+          isCheckingUpdate.current = false;
         } else {
           Dialog.confirm({
             title: intl.formatMessage({
@@ -104,8 +105,8 @@ const useDesktopEvents = platformEnv.isDesktop
       openSettingsRef.current = openSettings;
 
       useEffect(() => {
-        if (platformEnv.isDesktop) {
-          window.desktopApi.on('update/checkForUpdates', () => {
+        if (platformEnv.isDesktop) {update/checkForUpdates
+          window.desktopApi.on('', () => {
             void onCheckUpdateRef.current();
           });
 
