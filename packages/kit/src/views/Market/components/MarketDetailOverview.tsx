@@ -47,12 +47,14 @@ function OverviewPriceChange({
 }
 
 export function Overview24PriceChange({
+  name,
   symbol,
   currentPrice,
   low,
   high,
   lastUpdated,
 }: {
+  name: string;
   symbol: string;
   currentPrice: string;
   low: number;
@@ -62,11 +64,12 @@ export function Overview24PriceChange({
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
-  const price = useTokenPrice(
+  const price = useTokenPrice({
+    name,
     symbol,
-    currentPrice,
-    new Date(lastUpdated).getTime(),
-  );
+    price: currentPrice,
+    lastUpdated: new Date(lastUpdated).getTime(),
+  });
   const lowPrice = Math.min(Number(low), Number(price));
   const highPrice = Math.max(Number(high), Number(price));
   const priceChange = useMemo(() => {
@@ -85,7 +88,9 @@ export function Overview24PriceChange({
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.market_24h_price_range })}
       </SizableText>
-      {priceChange !== undefined ? <Progress value={1} height="$1" /> : null}
+      {priceChange !== undefined ? (
+        <Progress value={priceChange} height="$1" />
+      ) : null}
       <XStack jc="space-between">
         <XStack gap="$1">
           <SizableText color="$textSubdued" size="$bodyMd">
@@ -256,6 +261,7 @@ function OverviewMarketVOL({
 
 export function MarketDetailOverview({
   token: {
+    name,
     symbol,
     detailPlatforms,
     stats: {
@@ -310,6 +316,7 @@ export function MarketDetailOverview({
           </OverviewPriceChange>
         </XStack>
         <Overview24PriceChange
+          name={name}
           symbol={symbol}
           currentPrice={currentPrice}
           low={low24h}

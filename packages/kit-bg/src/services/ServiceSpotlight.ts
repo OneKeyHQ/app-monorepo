@@ -35,6 +35,7 @@ class ServiceSpotlight extends ServiceBase {
       data: {
         [ESpotlightTour.createAllNetworks]: 0,
         [ESpotlightTour.oneKeyProBanner]: 0,
+        [ESpotlightTour.allNetworkAccountValue]: 0,
       },
     });
   }

@@ -38,6 +38,7 @@ import {
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
   sortTokensByFiatValue,
+  sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
@@ -245,15 +246,12 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
               tokens: mergedTokens,
             });
           }
-          appEventBus.emit(EAppEventBusNames.TokenListUpdate, {
-            tokens: mergedTokens,
-            keys: r.allTokens.keys,
-            map: r.allTokens.map,
-          });
+
           updateTokenListState({
             initialized: true,
             isRefreshing: false,
           });
+
           appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
             isRefreshing: false,
             type: EHomeTab.TOKENS,
@@ -439,12 +437,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
             map: r.allTokens.map,
             merge: true,
             mergeDerive: mergeDeriveAssetsEnabled,
-          });
-          appEventBus.emit(EAppEventBusNames.TokenListUpdate, {
-            tokens: r.allTokens.data,
-            keys: r.allTokens.keys,
-            map: r.allTokens.map,
-            merge: true,
           });
         }
 
@@ -667,13 +659,28 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         ...smallBalanceTokenListMap,
       };
 
-      const mergedTokens = sortTokensByFiatValue({
+      let mergedTokens = sortTokensByFiatValue({
         tokens: [
           ...tokenList.tokens,
           ...smallBalanceTokenList.smallBalanceTokens,
         ],
         map: mergeTokenListMap,
       });
+
+      const index = mergedTokens.findIndex((token) =>
+        new BigNumber(mergeTokenListMap[token.$key]?.fiatValue ?? 0).isZero(),
+      );
+
+      if (index > -1) {
+        const tokensWithBalance = mergedTokens.slice(0, index);
+        let tokensWithZeroBalance = mergedTokens.slice(index);
+
+        tokensWithZeroBalance = sortTokensByOrder({
+          tokens: tokensWithZeroBalance,
+        });
+
+        mergedTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
+      }
 
       tokenList.tokens = mergedTokens.slice(0, TOKEN_LIST_HIGH_VALUE_MAX);
 

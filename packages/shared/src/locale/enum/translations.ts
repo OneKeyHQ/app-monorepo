@@ -1419,6 +1419,7 @@ export enum ETranslations {
   slippage_tolerance_warning_message_1 = 'slippage_tolerance.warning_message_1',
   slippage_tolerance_warning_message_2 = 'slippage_tolerance.warning_message_2',
   speed_up_cancellation = 'speed_up_cancellation',
+  spotlight_enable_account_asset_message = 'spotlight.enable_account_asset_message',
   spotlight_enable_network_message = 'spotlight.enable_network_message',
   swap_account_from_address = 'swap_account.from_address',
   swap_account_to_address = 'swap_account.to_address',
