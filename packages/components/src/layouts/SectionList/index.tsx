@@ -85,7 +85,7 @@ function BaseSectionList<T>(
     estimatedItemSize = 0,
     estimatedSectionHeaderSize = '$9',
     estimatedSectionFooterSize = 0,
-    estimatedSectionSeparatorSize = 20,
+    estimatedSectionSeparatorSize = '$5',
     ...restProps
   }: ISectionListProps<T>,
   parentRef: ForwardedRef<IListViewRef<T>>,
@@ -227,7 +227,7 @@ function BaseSectionList<T>(
       }
       return typeof token === 'number'
         ? token
-        : (getTokenValue(token) as number);
+        : (getTokenValue(token) as number, 'size');
     },
     [],
   );

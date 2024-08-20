@@ -82,7 +82,7 @@ function BaseListView<T>(
     }
     return typeof estimatedItemSize === 'number'
       ? estimatedItemSize
-      : (getTokenValue(estimatedItemSize) as number);
+      : (getTokenValue(estimatedItemSize) as number, 'size');
   }, [estimatedItemSize]);
   return (
     // FlashList doesn't support the style, so we have to wrap it,
