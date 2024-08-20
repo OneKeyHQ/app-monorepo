@@ -103,7 +103,7 @@ export const useTokenPrice = ({
   return useMemo(
     () => marketTokenPriceEvent.getTokenPrice(tokenName, tokenSymbol),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tokenName, count],
+    [tokenName, tokenSymbol, count],
   );
 };
 
