@@ -455,6 +455,21 @@ class ServiceNetwork extends ServiceBase {
     return deriveInfo?.value as IAccountDeriveTypes | undefined;
   }
 
+  async getDeriveInfoByAddressEncoding({
+    networkId,
+    encoding,
+  }: {
+    networkId: string;
+    encoding: EAddressEncodings;
+  }) {
+    const items = await this.getDeriveInfoItemsOfNetwork({ networkId });
+    const deriveInfo = items.find(
+      (item) => item.item.addressEncoding === encoding,
+    );
+
+    return deriveInfo;
+  }
+
   async getAccountImportingDeriveTypes({
     networkId,
     input,

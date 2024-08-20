@@ -1118,26 +1118,14 @@ export default class VaultBtc extends VaultBase {
 
   override async getAddressType({ address }: { address: string }) {
     const { encoding, isValid } = await this.validateAddress(address);
-    if (isValid) {
-      let type = '';
-      switch (encoding) {
-        case EAddressEncodings.P2SH_P2WPKH:
-          type = 'Nested SegWit';
-          break;
-        case EAddressEncodings.P2TR:
-          type = 'Taproot';
-          break;
-        case EAddressEncodings.P2WPKH:
-          type = 'Native SegWit';
-          break;
-        case EAddressEncodings.P2PKH:
-          type = 'Legacy';
-          break;
-        default:
-          type = '';
-      }
+    if (isValid && encoding) {
+      const deriveInfo =
+        await this.backgroundApi.serviceNetwork.getDeriveInfoByAddressEncoding({
+          networkId: this.networkId,
+          encoding,
+        });
       return {
-        type,
+        type: deriveInfo?.label,
       };
     }
 
