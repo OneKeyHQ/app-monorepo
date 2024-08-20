@@ -18,16 +18,16 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EAddressEncodings } from '../../../types';
 
-import type {
-  Bip32Derivation,
-  TapBip32Derivation,
-} from 'bip174/src/lib/interfaces';
 import type { ICoreApiSignBtcExtraInfo, IUnsignedTxPro } from '../../../types';
 import type {
   IBtcForkNetwork,
   IBtcForkTransactionMixin,
   IEncodedTxBtc,
 } from '../types';
+import type {
+  Bip32Derivation,
+  TapBip32Derivation,
+} from 'bip174/src/lib/interfaces';
 
 export function formatPsbtHex(psbtHex: string) {
   let formatData = '';
