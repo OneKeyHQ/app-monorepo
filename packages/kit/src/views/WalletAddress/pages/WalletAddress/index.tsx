@@ -253,7 +253,12 @@ const WalletAddressContent = ({
   const [searchText, setSearchText] = useState('');
   const { bottom } = useSafeAreaInsets();
 
-  const networkFuseSearch = useFuseSearch(mainnetItems);
+  const networksToSearch = useMemo<IServerNetwork[]>(
+    () => [...mainnetItems, ...testnetItems],
+    [mainnetItems, testnetItems],
+  );
+
+  const networkFuseSearch = useFuseSearch(networksToSearch);
   const sections = useMemo<ISectionItem[]>(() => {
     const searchTextTrim = searchText.trim();
     if (searchTextTrim) {
@@ -266,15 +271,25 @@ const WalletAddressContent = ({
             },
           ];
     }
-    const data = mainnetItems.reduce((result, item) => {
-      const char = item.name[0].toUpperCase();
-      if (!result[char]) {
-        result[char] = [];
-      }
-      result[char].push(item);
 
-      return result;
-    }, {} as Record<string, IServerNetwork[]>);
+    const frequentlyUsedNetworksSet = new Set(
+      frequentlyUsedNetworks.map((o) => o.id),
+    );
+    const filterFrequentlyUsedNetworks = (inputs: IServerNetwork[]) =>
+      inputs.filter((o) => !frequentlyUsedNetworksSet.has(o.id));
+
+    const data = filterFrequentlyUsedNetworks(mainnetItems).reduce(
+      (result, item) => {
+        const char = item.name[0].toUpperCase();
+        if (!result[char]) {
+          result[char] = [];
+        }
+        result[char].push(item);
+
+        return result;
+      },
+      {} as Record<string, IServerNetwork[]>,
+    );
     const sectionList = Object.entries(data)
       .map(([key, value]) => ({ title: key, data: value }))
       .sort((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
@@ -287,7 +302,7 @@ const WalletAddressContent = ({
         title: intl.formatMessage({
           id: ETranslations.global_testnet,
         }),
-        data: testnetItems,
+        data: filterFrequentlyUsedNetworks(testnetItems),
       });
     }
     return _sections;
