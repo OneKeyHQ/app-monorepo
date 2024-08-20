@@ -29,8 +29,6 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     // The direct call to backgroundApi is used here
     // This is a special case and direct access to backgroundApi is not recommended elsewhere.
     const sdk =
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
       await global?.$backgroundApiProxy?.backgroundApi?.serviceHardware?.getSDKInstance?.();
     return (sdk as typeof HardwareSDK) ?? HardwareSDK;
   }
