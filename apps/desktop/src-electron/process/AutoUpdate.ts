@@ -311,8 +311,13 @@ const init = ({ mainWindow, store }: IDependencies) => {
     });
   });
 
-  ipcMain.on(ipcMessageKeys.UPDATE_DOWNLOAD, () => {
-    logger.info('auto-updater', 'Download requested');
+  let isDownloading = false;
+  ipcMain.on(ipcMessageKeys.UPDATE_DOWNLOAD, async () => {
+    logger.info('auto-updater', 'Download requested', isDownloading);
+    if (isDownloading) {
+      return;
+    }
+    isDownloading = true;
     mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADING, {
       percent: 0,
       bytesPerSecond: 0,
@@ -321,6 +326,21 @@ const init = ({ mainWindow, store }: IDependencies) => {
     });
     if (updateCancellationToken) {
       updateCancellationToken.cancel();
+    }
+    try {
+      // @ts-ignore
+      if (autoUpdater.downloadedUpdateHelper) {
+        logger.info(
+          'auto-updater',
+          // @ts-ignore
+          autoUpdater.downloadedUpdateHelper.cacheDir,
+        );
+        // @ts-ignore
+        await autoUpdater.downloadedUpdateHelper.clear();
+        logger.info('auto-updater', 'clearing cache');
+      }
+    } catch (error) {
+      logger.info('auto-updater', 'Error clearing cache: ', error);
     }
     updateCancellationToken = new CancellationToken();
     autoUpdater
@@ -337,6 +357,9 @@ const init = ({ mainWindow, store }: IDependencies) => {
           err: {},
           isNetworkError: false,
         });
+      })
+      .finally(() => {
+        isDownloading = false;
       });
   });
 

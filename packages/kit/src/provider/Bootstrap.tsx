@@ -46,6 +46,7 @@ const useDesktopEvents = platformEnv.isDesktop
         const { isNeedUpdate, response } = await checkForUpdates();
         if (isNeedUpdate || response === undefined) {
           toUpdatePreviewPage(true, response);
+          isCheckingUpdate.current = false;
         } else {
           Dialog.confirm({
             title: intl.formatMessage({
