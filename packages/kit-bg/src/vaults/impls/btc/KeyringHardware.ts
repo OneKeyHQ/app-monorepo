@@ -6,10 +6,7 @@ import * as BitcoinJS from 'bitcoinjs-lib';
 import {
   checkBtcAddressIsUsed,
   getBtcForkNetwork,
-  isNativeSegwitPath,
-  isTaprootAddress,
   isTaprootPath,
-  scriptPkToAddress,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type {
   IBtcInput,
@@ -22,10 +19,7 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import {
-  AddressNotSupportSignMethodError,
-  NotImplemented,
-} from '@onekeyhq/shared/src/errors';
+import { AddressNotSupportSignMethodError } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -214,7 +208,10 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const networkInfo = await this.getCoreApiNetworkInfo();
     const btcNetwork = getBtcForkNetwork(networkInfo.networkChainCode);
-    const psbt = BitcoinJS.Psbt.fromHex(psbtHex, { network: btcNetwork });
+    const psbt = BitcoinJS.Psbt.fromHex(psbtHex, {
+      network: btcNetwork,
+      maximumFeeRate: btcNetwork.maximumFeeRate,
+    });
     for (let i = 0, len = inputsToSign.length; i < len; i += 1) {
       const input = inputsToSign[i];
       psbt.updateInput(input.index, {
@@ -232,9 +229,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     for (let i = 0, len = psbt.txOutputs.length; i < len; i += 1) {
       const output = psbt.txOutputs[i];
       try {
-        const address = scriptPkToAddress(output.script, btcNetwork);
         // If the address is the change address
-        if (address === dbAccount.address && len > 1) {
+        if (output.address === dbAccount.address && len > 1) {
           psbt.updateOutput(i, {
             tapInternalKey: Buffer.from(
               checkIsDefined(dbAccount.pub),
