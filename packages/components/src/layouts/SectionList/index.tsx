@@ -227,7 +227,7 @@ function BaseSectionList<T>(
       }
       return typeof token === 'number'
         ? token
-        : (getTokenValue(token) as number, 'size');
+        : (getTokenValue(token, 'size') as number);
     },
     [],
   );

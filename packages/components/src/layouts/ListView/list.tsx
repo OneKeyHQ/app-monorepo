@@ -105,7 +105,7 @@ function BaseListView<T>(
     }
     return typeof estimatedItemSize === 'number'
       ? estimatedItemSize
-      : (getTokenValue(estimatedItemSize) as number, 'size');
+      : (getTokenValue(estimatedItemSize, 'size') as number);
   }, [estimatedItemSize]);
 
   const getItemLayout = useMemo(() => {
