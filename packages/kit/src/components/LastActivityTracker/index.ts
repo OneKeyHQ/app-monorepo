@@ -1,40 +1,56 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { AppState } from 'react-native';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import {
-  useDevSettingsPersistAtom,
   usePasswordAtom,
   usePasswordPersistAtom,
-  useSettingsPersistAtom,
   useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { analytics } from '@onekeyhq/shared/src/analytics';
+import { analyticLogEvent } from '@onekeyhq/shared/src/analytics/firebase';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 const LastActivityTracker = () => {
   const [{ enableSystemIdleLock, appLockDuration }] = usePasswordPersistAtom();
-  const [settings] = useSettingsPersistAtom();
-  const [devSettings] = useDevSettingsPersistAtom();
   const [{ unLock }] = usePasswordAtom();
   const [supportSystemIdle] = useSystemIdleLockSupport();
-  const instanceIdRef = useRef(settings.instanceId);
 
   useEffect(() => {
-    analytics.init({
-      instanceId: instanceIdRef.current,
-      baseURL: buildServiceEndpoint({
-        serviceName: EServiceEndpointEnum.Utility,
-        env: devSettings.settings?.enableTestEndpoint ? 'test' : 'prod',
-      }),
-    });
+    setTimeout(async () => {
+      const instanceId =
+        await backgroundApiProxy.serviceSetting.getInstanceId();
+      const devSettings =
+        await backgroundApiProxy.serviceDevSetting.getDevSetting();
+      analytics.init({
+        instanceId,
+        baseURL: buildServiceEndpoint({
+          serviceName: EServiceEndpointEnum.Utility,
+          env:
+            devSettings.enabled && devSettings.settings?.enableTestEndpoint
+              ? 'test'
+              : 'prod',
+        }),
+      });
+      analyticLogEvent('initialized', {
+        instanceId,
+        platform: platformEnv.symbol,
+        distribution: platformEnv.appChannel,
+      });
+      setAttributes({
+        instanceId,
+        platform: platformEnv.symbol || '',
+        appChannel: platformEnv.appChannel || '',
+      });
+    }, 0);
     defaultLogger.app.page.appStart();
-  }, [devSettings.settings?.enableTestEndpoint]);
+  }, []);
 
   const refresh = useCallback(() => {
     if (AppState.currentState === 'active') {
