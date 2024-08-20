@@ -39,10 +39,14 @@ export function useBackupEntryStatus() {
     try {
       await backgroundApiProxy.serviceCloudBackup.loginIfNeeded(true);
     } catch (e) {
-      Toast.error({
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        title: `google auth failed ${e}`,
-      });
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      const message = `${e?.message ?? e}`;
+      if (!message.endsWith('Sign in action canceled')) {
+        Toast.error({
+          title: `google auth failed ${message}`,
+        });
+      }
       throw e;
     }
   }, [intl]);
