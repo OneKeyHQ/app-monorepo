@@ -246,15 +246,12 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
               tokens: mergedTokens,
             });
           }
-          appEventBus.emit(EAppEventBusNames.TokenListUpdate, {
-            tokens: mergedTokens,
-            keys: r.allTokens.keys,
-            map: r.allTokens.map,
-          });
+
           updateTokenListState({
             initialized: true,
             isRefreshing: false,
           });
+
           appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
             isRefreshing: false,
             type: EHomeTab.TOKENS,
@@ -440,12 +437,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
             map: r.allTokens.map,
             merge: true,
             mergeDerive: mergeDeriveAssetsEnabled,
-          });
-          appEventBus.emit(EAppEventBusNames.TokenListUpdate, {
-            tokens: r.allTokens.data,
-            keys: r.allTokens.keys,
-            map: r.allTokens.map,
-            merge: true,
           });
         }
 

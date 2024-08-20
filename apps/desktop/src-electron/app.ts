@@ -67,12 +67,17 @@ export type IDesktopOpenUrlEventData = {
   platform?: string;
 };
 
-function showMainWindow() {
-  if (!mainWindow) {
-    return;
+const getSafelyMainWindow = () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    return mainWindow;
   }
-  mainWindow.show();
-  mainWindow.focus();
+  return undefined;
+};
+
+function showMainWindow() {
+  const safelyMainWindow = getSafelyMainWindow();
+  safelyMainWindow?.show();
+  safelyMainWindow?.focus();
 }
 
 const initMenu = () => {
@@ -91,11 +96,10 @@ const initMenu = () => {
                 label: i18nText(ETranslations.menu_check_for_updates),
                 click: () => {
                   showMainWindow();
-                  if (mainWindow) {
-                    mainWindow.webContents.send(
-                      ipcMessageKeys.CHECK_FOR_UPDATES,
-                    );
-                  }
+                  const safelyMainWindow = getSafelyMainWindow();
+                  safelyMainWindow?.webContents.send(
+                    ipcMessageKeys.CHECK_FOR_UPDATES,
+                  );
                 },
               },
               { type: 'separator' },
@@ -103,15 +107,14 @@ const initMenu = () => {
                 label: i18nText(ETranslations.menu_preferences),
                 accelerator: 'CmdOrCtrl+,',
                 click: () => {
-                  const visible = !!mainWindow?.isVisible();
+                  const safelyMainWindow = getSafelyMainWindow();
+                  const visible = !!safelyMainWindow?.isVisible();
                   logger.info('APP_OPEN_SETTINGS visible >>>> ', visible);
                   showMainWindow();
-                  if (mainWindow) {
-                    mainWindow.webContents.send(
-                      ipcMessageKeys.APP_OPEN_SETTINGS,
-                      visible,
-                    );
-                  }
+                  safelyMainWindow?.webContents.send(
+                    ipcMessageKeys.APP_OPEN_SETTINGS,
+                    visible,
+                  );
                 },
               },
               { type: 'separator' },
@@ -119,8 +122,11 @@ const initMenu = () => {
                 label: i18nText(ETranslations.menu_lock_now),
                 click: () => {
                   showMainWindow();
-                  if (mainWindow) {
-                    mainWindow.webContents.send(ipcMessageKeys.APP_LOCK_NOW);
+                  const safelyMainWindow = getSafelyMainWindow();
+                  if (safelyMainWindow) {
+                    safelyMainWindow.webContents.send(
+                      ipcMessageKeys.APP_LOCK_NOW,
+                    );
                   }
                 },
               },
@@ -268,15 +274,17 @@ function handleDeepLinkUrl(
 
   const sendEventData = () => {
     isAppReady = true;
-    if (mainWindow) {
+
+    const safelyMainWindow = getSafelyMainWindow();
+    if (safelyMainWindow) {
       showMainWindow();
       if (process.env.NODE_ENV !== 'production') {
-        mainWindow.webContents.send(
+        safelyMainWindow?.webContents.send(
           ipcMessageKeys.OPEN_DEEP_LINK_URL,
           eventData,
         );
       }
-      mainWindow.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, eventData);
+      mainWindow?.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, eventData);
     }
   };
   if (isAppReady && mainWindow) {
@@ -360,13 +368,18 @@ function createMainWindow() {
     ...savedWinBounds,
   });
 
+  const getSafelyBrowserWindow = () => {
+    if (browserWindow && !browserWindow.isDestroyed()) {
+      return browserWindow;
+    }
+    return undefined;
+  };
+
   if (isMac) {
     browserWindow.once('ready-to-show', () => {
       showMainWindow();
     });
   }
-
-  // browserWindow.setAspectRatio(ratio);
 
   if (isDev) {
     browserWindow.webContents.openDevTools();
@@ -395,12 +408,16 @@ function createMainWindow() {
     if (!isMac) {
       showMainWindow();
     }
-    browserWindow.webContents.send(ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS, {
-      resourcesPath: (global as any).resourcesPath,
-      staticPath: `file://${staticPath}`,
-      preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
-      sdkConnectSrc,
-    });
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.webContents.send(
+      ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS,
+      {
+        resourcesPath: (global as any).resourcesPath,
+        staticPath: `file://${staticPath}`,
+        preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
+        sdkConnectSrc,
+      },
+    );
   });
 
   browserWindow.on('resize', () => {
@@ -453,7 +470,8 @@ function createMainWindow() {
     quitOrMinimizeApp();
   });
   ipcMain.on(ipcMessageKeys.APP_RELOAD, () => {
-    browserWindow.reload();
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.reload();
   });
 
   ipcMain.on(
@@ -485,12 +503,13 @@ function createMainWindow() {
   );
 
   ipcMain.on(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW, () => {
-    if (browserWindow.isMaximized()) {
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    if (safelyBrowserWindow?.isMaximized()) {
       // Restore the original window size
-      browserWindow.unmaximize();
+      safelyBrowserWindow?.unmaximize();
     } else {
       // Maximized window
-      browserWindow.maximize();
+      safelyBrowserWindow?.maximize();
     }
   });
 
@@ -528,8 +547,9 @@ function createMainWindow() {
   });
 
   ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
+    const safelyBrowserWindow = getSafelyBrowserWindow();
     store.setTheme(themeKey);
-    browserWindow.setBackgroundColor(getBackgroundColor(themeKey));
+    safelyBrowserWindow?.setBackgroundColor(getBackgroundColor(themeKey));
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
@@ -607,31 +627,41 @@ function createMainWindow() {
 
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
-    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, undefined);
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, undefined);
     registerShortcuts((event) => {
-      browserWindow.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
+      const w = getSafelyBrowserWindow();
+      w?.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
     });
   });
 
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('leave-full-screen', () => {
-    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, undefined);
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, undefined);
   });
 
   browserWindow.on('focus', () => {
-    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, 'active');
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, 'active');
     registerShortcuts((event) => {
-      browserWindow.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
+      const w = getSafelyBrowserWindow();
+      w?.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
     });
   });
 
   browserWindow.on('blur', () => {
-    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, 'blur');
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, 'blur');
     unregisterShortcuts();
   });
 
   browserWindow.on('hide', () => {
-    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, 'background');
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.webContents.send(
+      ipcMessageKeys.APP_STATE,
+      'background',
+    );
   });
 
   app.on('login', (event, webContents, request, authInfo, callback) => {
@@ -643,7 +673,8 @@ function createMainWindow() {
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
       contents.setWindowOpenHandler((handleDetails) => {
-        mainWindow?.webContents.send(
+        const safelyMainWindow = getSafelyMainWindow();
+        safelyMainWindow?.webContents.send(
           ipcMessageKeys.WEBVIEW_NEW_WINDOW,
           handleDetails,
         );
@@ -731,12 +762,14 @@ function createMainWindow() {
         callback(url);
       },
     );
-    browserWindow.webContents.on(
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.webContents.on(
       'did-fail-load',
       (_, __, ___, validatedURL) => {
         const redirectPath = validatedURL.replace(`${PROTOCOL}://`, '');
         if (validatedURL.startsWith(PROTOCOL) && !redirectPath.includes('.')) {
-          void browserWindow.loadURL(src);
+          const w = getSafelyBrowserWindow();
+          void w?.loadURL(src);
         }
       },
     );
@@ -747,9 +780,10 @@ function createMainWindow() {
     // hide() instead of close() on MAC
     if (isMac) {
       event.preventDefault();
-      if (!browserWindow.isDestroyed()) {
-        browserWindow.blur();
-        browserWindow.hide(); // hide window only
+      const safelyBrowserWindow = getSafelyBrowserWindow();
+      if (safelyBrowserWindow) {
+        safelyBrowserWindow.blur();
+        safelyBrowserWindow.hide(); // hide window only
         // browserWindow.minimize(); // hide window and minimize to Docker
       }
     }
@@ -771,9 +805,8 @@ function quitOrMinimizeApp(event?: Event) {
   if (isMac) {
     // **** renderer app will reload after minimize, and keytar not working.
     event?.preventDefault();
-    if (!mainWindow?.isDestroyed()) {
-      mainWindow?.hide();
-    }
+    const safelyMainWindow = getSafelyMainWindow();
+    safelyMainWindow?.hide();
     // ****
     // app.quit();
   } else {
@@ -785,8 +818,11 @@ if (!singleInstance && !process.mas) {
   quitOrMinimizeApp();
 } else {
   app.on('second-instance', (e, argv) => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
+    const safelyMainWindow = getSafelyMainWindow();
+    if (safelyMainWindow) {
+      if (safelyMainWindow.isMinimized()) {
+        safelyMainWindow.restore();
+      }
       showMainWindow();
 
       // Protocol handler for win32

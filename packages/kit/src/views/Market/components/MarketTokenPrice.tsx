@@ -15,33 +15,50 @@ class MarketTokenPriceEvent {
 
   private priceChangedListenerMap = new Map<string, (() => void)[]>();
 
-  public updateTokenPrice(
-    tokenName: string,
-    tokenPrice: string,
-    tokenLastUpdated: number,
-  ) {
+  private buildKey(name: string, symbol: string) {
+    return `${name}-${symbol}`;
+  }
+
+  public updateTokenPrice({
+    name: tokenName,
+    symbol: tokenSymbol,
+    price: tokenPrice,
+    lastUpdated: tokenLastUpdated,
+  }: {
+    name: string;
+    symbol: string;
+    price: string;
+    lastUpdated: number;
+  }) {
+    const cacheKey = this.buildKey(tokenName, tokenSymbol);
     const { lastUpdated = 0 } = this.tokenPriceMap.get(tokenName) || {};
     if (tokenLastUpdated > lastUpdated) {
-      this.tokenPriceMap.set(tokenName, {
+      this.tokenPriceMap.set(cacheKey, {
         price: tokenPrice,
         lastUpdated: tokenLastUpdated,
       });
-      (this.priceChangedListenerMap.get(tokenName) || []).forEach((i) => i());
+      (this.priceChangedListenerMap.get(cacheKey) || []).forEach((i) => i());
     }
   }
 
-  public getTokenPrice(tokenName: string) {
-    return this.tokenPriceMap.get(tokenName)?.price || '-';
+  public getTokenPrice(tokenName: string, tokenSymbol: string) {
+    const cacheKey = this.buildKey(tokenName, tokenSymbol);
+    return this.tokenPriceMap.get(cacheKey)?.price || '-';
   }
 
-  public onPriceChange(tokenName: string, callback: () => void) {
-    const listeners = this.priceChangedListenerMap.get(tokenName) || [];
+  public onPriceChange(
+    tokenName: string,
+    tokenSymbol: string,
+    callback: () => void,
+  ) {
+    const cacheKey = this.buildKey(tokenName, tokenSymbol);
+    const listeners = this.priceChangedListenerMap.get(cacheKey) || [];
     listeners.push(callback);
-    this.priceChangedListenerMap.set(tokenName, listeners);
+    this.priceChangedListenerMap.set(cacheKey, listeners);
     return () => {
-      const callbacks = this.priceChangedListenerMap.get(tokenName) || [];
+      const callbacks = this.priceChangedListenerMap.get(cacheKey) || [];
       this.priceChangedListenerMap.set(
-        tokenName,
+        cacheKey,
         callbacks.filter((i) => i !== callback),
       );
     };
@@ -50,56 +67,71 @@ class MarketTokenPriceEvent {
 
 const marketTokenPriceEvent = new MarketTokenPriceEvent();
 
-export const useTokenPrice = (
-  tokenName: string,
-  tokenPrice: string,
-  tokenLastUpdated: number,
-) => {
+export const useTokenPrice = ({
+  name: tokenName,
+  symbol: tokenSymbol,
+  price: tokenPrice,
+  lastUpdated: tokenLastUpdated,
+}: {
+  name: string;
+  symbol: string;
+  price: string;
+  lastUpdated: number;
+}) => {
   const [count, setCount] = useState(0);
 
   useMemo(() => {
-    marketTokenPriceEvent.updateTokenPrice(
-      tokenName,
-      tokenPrice,
-      tokenLastUpdated,
-    );
-  }, [tokenLastUpdated, tokenName, tokenPrice]);
+    marketTokenPriceEvent.updateTokenPrice({
+      name: tokenName,
+      symbol: tokenSymbol,
+      price: tokenPrice,
+      lastUpdated: tokenLastUpdated,
+    });
+  }, [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
 
   useLayoutEffect(() => {
     const removeListener = marketTokenPriceEvent.onPriceChange(
       tokenName,
+      tokenSymbol,
       () => {
         setCount((i) => i + 1);
       },
     );
     return removeListener;
-  }, [tokenLastUpdated, tokenName, tokenPrice]);
+  }, [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
 
   return useMemo(
-    () => marketTokenPriceEvent.getTokenPrice(tokenName),
+    () => marketTokenPriceEvent.getTokenPrice(tokenName, tokenSymbol),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tokenName, count],
+    [tokenName, tokenSymbol, count],
   );
 };
 
 export function MarketTokenPrice({
   price,
   tokenName,
-  lastUpdate,
+  tokenSymbol,
+  lastUpdated,
   size,
 }: {
   price: string;
+  tokenSymbol: string;
   tokenName: string;
-  lastUpdate?: string;
+  lastUpdated?: string;
   size: ISizableTextProps['size'];
 }) {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
-  const date = useMemo(
-    () => (lastUpdate ? new Date(lastUpdate).getTime() : Date.now()),
-    [lastUpdate],
+  const lastUpdateDate = useMemo(
+    () => (lastUpdated ? new Date(lastUpdated).getTime() : Date.now()),
+    [lastUpdated],
   );
-  const tokenPrice = useTokenPrice(tokenName, price, date);
+  const tokenPrice = useTokenPrice({
+    name: tokenName,
+    price,
+    symbol: tokenSymbol,
+    lastUpdated: lastUpdateDate,
+  });
   return (
     <NumberSizeableText
       userSelect="none"
