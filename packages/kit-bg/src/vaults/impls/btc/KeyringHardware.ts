@@ -186,6 +186,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (!psbtHex || !inputsToSign) {
       throw new Error('invalid psbt');
     }
+
+    const dbAccount = (await this.vault.getAccount()) as IDBUtxoAccount;
+    if (!isTaprootPath(dbAccount.path)) {
+      throw new AddressNotSupportSignMethodError();
+    }
+
     const network = await this.getNetwork();
     const coinName = await this.coreApi.getCoinName({ network });
     const sdk = await this.getHardwareSDKInstance();
@@ -193,7 +199,6 @@ export class KeyringHardware extends KeyringHardwareBase {
       params.deviceParams,
     );
     const { connectId, deviceId } = dbDevice;
-    const dbAccount = (await this.vault.getAccount()) as IDBUtxoAccount;
     // get fingerprint from device
     const pubkeyResult = await convertDeviceResponse(() =>
       sdk.btcGetPublicKey(connectId, deviceId, {
@@ -202,8 +207,6 @@ export class KeyringHardware extends KeyringHardwareBase {
         showOnOneKey: false,
       }),
     );
-
-    console.log('======>>>>> btcGetPublicKey response: ', pubkeyResult);
 
     const fingerprint = Number(pubkeyResult.root_fingerprint || 0)
       .toString(16)
@@ -228,12 +231,15 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     for (let i = 0, len = psbt.txOutputs.length; i < len; i += 1) {
       const output = psbt.txOutputs[i];
-      console.log('====>>>: ', output);
       try {
         const address = scriptPkToAddress(output.script, btcNetwork);
         // If the address is the change address
-        if (address === dbAccount.address) {
+        if (address === dbAccount.address && len > 1) {
           psbt.updateOutput(i, {
+            tapInternalKey: Buffer.from(
+              checkIsDefined(dbAccount.pub),
+              'hex',
+            ).subarray(1, 33),
             tapBip32Derivation: [
               {
                 masterFingerprint: Buffer.from(fingerprint, 'hex'),
@@ -252,15 +258,15 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
     }
 
-    const response = await convertDeviceResponse(() => {
+    const response = await convertDeviceResponse(() =>
       sdk.btcSignPsbt(connectId, deviceId, {
         ...deviceCommonParams,
         psbt: psbt.toHex(),
         coin: coinName?.toLowerCase(),
-      });
-    });
+      }),
+    );
 
-    const signedPsbt = response.signedPsbt;
+    const signedPsbt = response.psbt;
 
     return {
       encodedTx: unsignedTx.encodedTx,
@@ -281,11 +287,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       params.messages.map(async ({ message, type }) => {
         const dAppSignType = (type as 'ecdsa' | 'bip322-simple') || undefined;
 
-        if (
-          dAppSignType === 'bip322-simple' &&
-          !isTaprootPath(dbAccount.path) &&
-          !isNativeSegwitPath(dbAccount.path)
-        ) {
+        if (dAppSignType && !isTaprootPath(dbAccount.path)) {
           throw new AddressNotSupportSignMethodError();
         }
 
