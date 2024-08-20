@@ -62,7 +62,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const prevTxids = Array.from(new Set(inputs.map((i) => i.txid))).filter(
       Boolean,
     );
-    const prevTxs = await vault.collectTxs(prevTxids);
+    const prevTxs = await vault.collectTxsByApi(prevTxids);
     const sdk = await this.getHardwareSDKInstance();
 
     const { connectId, deviceId } = dbDevice;

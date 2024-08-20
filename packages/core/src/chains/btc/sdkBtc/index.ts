@@ -286,6 +286,7 @@ export function validateBtcXprvt({
   };
 }
 
+// validateBtcAddress
 export function validateBtcAddress({
   network,
   address,
