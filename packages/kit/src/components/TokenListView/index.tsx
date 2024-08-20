@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import {
   ListView,
+  NestedScrollView,
   SizableText,
   Stack,
   renderNestedScrollView,
@@ -130,7 +131,11 @@ function TokenListView(props: IProps) {
     (!tokenListState.initialized && tokenListState.isRefreshing) ||
     (platformEnv.isNativeAndroid && isInRequest)
   ) {
-    return <ListLoading isTokenSelectorView={!tableLayout} />;
+    return (
+      <NestedScrollView style={{ flex: 1 }}>
+        <ListLoading isTokenSelectorView={!tableLayout} />
+      </NestedScrollView>
+    );
   }
 
   return (
