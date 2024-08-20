@@ -59,6 +59,7 @@ const settings: IVaultSettings = {
     },
   },
   hasFrozenBalance: true,
+  withNote: true,
 };
 
 export default Object.freeze(settings);
