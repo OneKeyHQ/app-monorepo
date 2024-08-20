@@ -61,7 +61,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     jotaiBgSync.setBackgroundApi(this as any);
     this.allAtoms = jotaiInit();
     if (process.env.NODE_ENV !== 'production') {
-      global.$backgroundApi = this;
+      global.$$backgroundApi = this as any;
     }
     // this.startDemoNowTimeUpdateInterval();
     appEventBus.registerBroadcastMethods(

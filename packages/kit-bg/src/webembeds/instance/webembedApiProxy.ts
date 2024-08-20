@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, max-classes-per-file */
-
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -50,12 +47,12 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       method,
       params,
     };
-    return backgroundApiProxy.serviceDApp.callWebEmbedApiProxy(message);
+    return global.$backgroundApiProxy.serviceDApp.callWebEmbedApiProxy(message);
   }
 
   async isSDKReady(): Promise<boolean> {
     const isWebEmbedApiReady =
-      await backgroundApiProxy.serviceDApp.isWebEmbedApiReady();
+      await global.$backgroundApiProxy.serviceDApp.isWebEmbedApiReady();
     return Promise.resolve(!!isWebEmbedApiReady);
   }
 
