@@ -687,6 +687,7 @@ function BatchCreateAccountPreviewPage({
           columns={columns as any}
           TableEmptyComponent={
             <Stack
+              testID="batch-create-account-preview-loading-icon"
               py="$20"
               flexDirection="column"
               justifyContent="center"
