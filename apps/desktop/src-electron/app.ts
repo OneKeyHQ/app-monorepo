@@ -76,11 +76,8 @@ const getSafelyMainWindow = () => {
 
 function showMainWindow() {
   const safelyMainWindow = getSafelyMainWindow();
-  if (!mainWindow) {
-    return;
-  }
-  mainWindow.show();
-  mainWindow.focus();
+  safelyMainWindow?.show();
+  safelyMainWindow?.focus();
 }
 
 const initMenu = () => {
@@ -114,12 +111,10 @@ const initMenu = () => {
                   const visible = !!safelyMainWindow?.isVisible();
                   logger.info('APP_OPEN_SETTINGS visible >>>> ', visible);
                   showMainWindow();
-                  if (safelyMainWindow) {
-                    safelyMainWindow.webContents.send(
-                      ipcMessageKeys.APP_OPEN_SETTINGS,
-                      visible,
-                    );
-                  }
+                  safelyMainWindow?.webContents.send(
+                    ipcMessageKeys.APP_OPEN_SETTINGS,
+                    visible,
+                  );
                 },
               },
               { type: 'separator' },
