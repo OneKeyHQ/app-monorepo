@@ -6,6 +6,9 @@ import * as BitcoinJS from 'bitcoinjs-lib';
 import {
   checkBtcAddressIsUsed,
   getBtcForkNetwork,
+  isNativeSegwitPath,
+  isTaprootAddress,
+  isTaprootPath,
   scriptPkToAddress,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type {
@@ -19,7 +22,10 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  AddressNotSupportSignMethodError,
+  NotImplemented,
+} from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -272,12 +278,23 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = deviceParams.dbDevice;
     const sdk = await this.getHardwareSDKInstance();
     const result = await Promise.all(
-      params.messages.map(async ({ message }) => {
+      params.messages.map(async ({ message, type }) => {
+        const dAppSignType = (type as 'ecdsa' | 'bip322-simple') || undefined;
+
+        if (
+          dAppSignType === 'bip322-simple' &&
+          !isTaprootPath(dbAccount.path) &&
+          !isNativeSegwitPath(dbAccount.path)
+        ) {
+          throw new AddressNotSupportSignMethodError();
+        }
+
         const response = await sdk.btcSignMessage(connectId, deviceId, {
           ...params.deviceParams?.deviceCommonParams,
           path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
           coin: coinName,
           messageHex: Buffer.from(message).toString('hex'),
+          dAppSignType,
         });
         if (!response.success) {
           throw convertDeviceError(response.payload);
