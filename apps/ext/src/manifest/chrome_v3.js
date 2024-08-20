@@ -120,8 +120,6 @@ module.exports = {
     'clipboardWrite',
     'clipboardRead',
     'notifications',
-    // 'activeTab',
-    // 'webRequest',
     'idle',
     'sidePanel',
     'contextMenus',
