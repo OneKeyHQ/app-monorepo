@@ -1,4 +1,12 @@
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
+import type {
+  ErrorEvent,
+  TimeoutEvent,
+  ExceptionEvent,
+  DoneEvent,
+  MessageEvent,
+  CloseEvent,
+} from '@onekeyhq/shared/src/eventSource';
 
 export enum EProtocolOfExchange {
   SWAP = 'Swap',
@@ -118,6 +126,14 @@ export interface IFetchTokenDetailParams {
 }
 
 // quote
+
+export type ISwapQuoteEvent =
+  | ErrorEvent
+  | TimeoutEvent
+  | ExceptionEvent
+  | DoneEvent
+  | MessageEvent
+  | CloseEvent;
 
 export enum ESwapApproveTransactionStatus {
   PENDING = 'pending',

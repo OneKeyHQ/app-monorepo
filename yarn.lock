@@ -6112,7 +6112,6 @@ __metadata:
     react-native-draggable-flatlist: "npm:4.0.1"
     react-native-flipper: "npm:0.201.0"
     react-native-reanimated: "npm:3.6.1"
-    react-native-sse: "npm:^1.2.1"
     react-native-web: "npm:0.18.12"
     react-refresh: "npm:^0.14.0"
     react-render-tracker: "npm:^0.7.6"
@@ -30492,13 +30491,6 @@ __metadata:
     react-native-svg:
       optional: false
   checksum: 10/219319ec63a99bb8351e4a2684ace3380dff8de316a59d57d2e5c08c7c59898ecb9a353ced4b0d8fe85ac55f15e2ac83db00f3b6e08e1276231dd6b5c5093532
-  languageName: node
-  linkType: hard
-
-"react-native-sse@npm:^1.2.1":
-  version: 1.2.1
-  resolution: "react-native-sse@npm:1.2.1"
-  checksum: 10/ac3203a2deeb296bc564186033717a0d4e40f00f6484d44941b3fe99547c9a067f5277151f92a40698ed5edf5eb2aa324c6307f77b659559bb8225a5788f7c6c
   languageName: node
   linkType: hard
 

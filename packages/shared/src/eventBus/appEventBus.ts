@@ -12,6 +12,15 @@ import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
+import {
+  DoneEvent,
+  MessageEvent,
+  ErrorEvent,
+  CloseEvent,
+  TimeoutEvent,
+  ExceptionEvent,
+} from '../eventSource';
+import { ISwapQuoteEvent } from '../../types/swap/types';
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -64,6 +73,7 @@ export enum EAppEventBusNames {
   onDragEndInListView = 'onDragEndInListView',
   SidePanel_BgToUI = 'SidePanel_BgToUI',
   SidePanel_UIToBg = 'SidePanel_UIToBg',
+  SwapQuoteEvent = 'SwapQuoteEvent',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -190,6 +200,10 @@ export interface IAppEventBusPayload {
     payload: {
       rejectId: number | string;
     };
+  };
+  [EAppEventBusNames.SwapQuoteEvent]: {
+    type: 'message' | 'done' | 'error' | 'close';
+    event: ISwapQuoteEvent;
   };
 }
 

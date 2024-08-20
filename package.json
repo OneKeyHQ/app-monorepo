@@ -109,7 +109,6 @@
     "react-native": "0.73.7",
     "react-native-draggable-flatlist": "4.0.1",
     "react-native-reanimated": "3.6.1",
-    "react-native-sse": "^1.2.1",
     "react-native-web": "0.18.12",
     "react-render-tracker": "^0.7.6",
     "sonner": "^1.4.41",

@@ -24,6 +24,7 @@ import type {
   IFetchTokensParams,
   ISwapAlertState,
   ISwapApproveTransaction,
+  ISwapQuoteEvent,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -62,6 +63,10 @@ import {
   swapTokenFetchingAtom,
   swapTokenMapAtom,
 } from './atoms';
+import {
+  appEventBus,
+  EAppEventBusNames,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private quoteInterval: ReturnType<typeof setTimeout> | undefined;
@@ -230,7 +235,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), true);
         }
-        const res = await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
+        const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
           fromToken,
           toToken,
           fromTokenAmount,
@@ -240,16 +245,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           blockNumber,
           accountId,
         });
-        // if (!loadingDelayEnable) {
-        //   set(swapQuoteFetchingAtom(), false);
-        //   set(swapQuoteListAtom(), res);
-        // } else {
-        //   set(swapSilenceQuoteLoading(), true);
-        //   setTimeout(() => {
-        //     set(swapSilenceQuoteLoading(), false);
-        //     set(swapQuoteListAtom(), res);
-        //   }, 800);
-        // }
+        if (!loadingDelayEnable) {
+          set(swapQuoteFetchingAtom(), false);
+          set(swapQuoteListAtom(), res);
+        } else {
+          set(swapSilenceQuoteLoading(), true);
+          setTimeout(() => {
+            set(swapSilenceQuoteLoading(), false);
+            set(swapQuoteListAtom(), res);
+          }, 800);
+        }
       } catch (e: any) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (e?.cause !== ESwapFetchCancelCause.SWAP_QUOTE_CANCEL) {
@@ -259,6 +264,80 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       } finally {
         set(swapQuoteActionLockAtom(), false);
+        if (enableInterval) {
+          this.quoteIntervalCount += 1;
+          if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
+            void this.recoverQuoteInterval.call(set, address, accountId, true);
+          }
+        }
+      }
+    },
+  );
+
+  quoteEventHandler = contextAtomMethod(
+    (
+      get,
+      set,
+      event: {
+        event: ISwapQuoteEvent;
+        type: 'done' | 'close' | 'error' | 'message';
+      },
+    ) => {
+      console.log('swap__quote_event_handler---------', event);
+      if (event.type === 'done') {
+        void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
+      }
+    },
+  );
+
+  runQuoteEvent = contextAtomMethod(
+    async (
+      get,
+      set,
+      fromToken: ISwapToken,
+      toToken: ISwapToken,
+      fromTokenAmount: string,
+      slippagePercentage: number,
+      autoSlippage?: boolean,
+      address?: string,
+      accountId?: string,
+      blockNumber?: number,
+    ) => {
+      console.log('swap__run_event');
+      const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
+      if (shouldRefreshQuote) {
+        this.cleanQuoteInterval();
+        set(swapQuoteActionLockAtom(), false);
+        return;
+      }
+      console.log('swap__run_event_1');
+      await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
+      let enableInterval = true;
+      try {
+        console.log('swap__run_event_2');
+        set(swapQuoteFetchingAtom(), true);
+        await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
+          fromToken,
+          toToken,
+          fromTokenAmount,
+          userAddress: address,
+          slippagePercentage,
+          autoSlippage,
+          blockNumber,
+          accountId,
+        });
+        console.log('swap__run_event_3');
+        set(swapQuoteFetchingAtom(), false);
+        // set(swapQuoteListAtom(), res);
+      } catch (e: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (e?.cause !== ESwapFetchCancelCause.SWAP_QUOTE_CANCEL) {
+          set(swapQuoteFetchingAtom(), false);
+        } else {
+          enableInterval = false;
+        }
+      } finally {
+        // set(swapQuoteActionLockAtom(), false);
         // if (enableInterval) {
         //   this.quoteIntervalCount += 1;
         //   if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
@@ -293,7 +372,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         !Number.isNaN(fromTokenAmountNumber) &&
         fromTokenAmountNumber > 0
       ) {
-        void this.runQuote.call(
+        void this.runQuoteEvent.call(
           set,
           fromToken,
           toToken,
@@ -302,11 +381,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           slippageItem.key === ESwapSlippageSegmentKey.AUTO,
           address,
           accountId,
-          false,
           blockNumber,
         );
       } else {
-        await backgroundApiProxy.serviceSwap.cancelFetchQuotes();
         set(swapQuoteFetchingAtom(), false);
         set(swapQuoteListAtom(), []);
         set(swapQuoteActionLockAtom(), false);
@@ -454,6 +531,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       this.quoteInterval = undefined;
     }
     void backgroundApiProxy.serviceSwap.cancelFetchQuotes();
+    void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
   };
 
   cleanApprovingInterval = () => {
@@ -816,7 +894,7 @@ export const useSwapActions = () => {
   const approvingStateAction = actions.approvingStateAction.use();
   const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 300);
   const tokenListFetchAction = actions.tokenListFetchAction.use();
-
+  const quoteEventHandler = actions.quoteEventHandler.use();
   const loadSwapSelectTokenDetail = debounce(
     actions.loadSwapSelectTokenDetail.use(),
     200,
@@ -839,5 +917,6 @@ export const useSwapActions = () => {
     checkSwapWarning,
     loadSwapSelectTokenDetail,
     getQuoteIntervalCount,
+    quoteEventHandler,
   });
 };
