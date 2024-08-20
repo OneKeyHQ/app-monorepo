@@ -1,9 +1,11 @@
 /* eslint-disable no-var,vars-on-top */
+import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { LocalDbBase } from '@onekeyhq/kit-bg/src/dbs/local/LocalDbBase';
-import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
 import type { IOffscreenApi } from '@onekeyhq/kit-bg/src/offscreens/instance/IOffscreenApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
 import type { IWebembedApi } from '@onekeyhq/kit-bg/src/webembeds/instance/IWebembedApi';
+import type { DefaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   ETranslations,
   ETranslationsMock,
