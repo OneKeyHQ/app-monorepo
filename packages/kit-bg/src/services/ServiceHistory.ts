@@ -245,6 +245,14 @@ class ServiceHistory extends ServiceBase {
       (tx) => tx.id,
     );
 
+    for (let i = 0; i < result.length; i += 1) {
+      const tx = result[i];
+      const network = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId: tx.decodedTx.networkId,
+      });
+      tx.decodedTx.networkLogoURI = network.logoURI;
+    }
+
     return {
       txs: result,
       pendingTxsUpdated:
@@ -294,13 +302,15 @@ class ServiceHistory extends ServiceBase {
     onChainHistoryTxs: IAccountHistoryTx[];
     confirmedTxs: IAccountHistoryTx[];
   }) {
-    const vaultSettings =
-      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    const [vaultSettings, network] = await Promise.all([
+      this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+      this.backgroundApi.serviceNetwork.getNetwork({ networkId }),
+    ]);
 
     // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
     let confirmedTxsToSave: IAccountHistoryTx[] = [];
     let confirmedTxsToRemove: IAccountHistoryTx[] = [];
-    if (!vaultSettings.saveConfirmedTxsEnabled) {
+    if (!vaultSettings.saveConfirmedTxsEnabled && network.backendIndex) {
       confirmedTxsToSave = confirmedTxs.filter(
         (tx) =>
           !onChainHistoryTxs.find(
@@ -316,7 +326,15 @@ class ServiceHistory extends ServiceBase {
     }
     // If some chains require saving all confirmed transactions, save all confirmed transactions without filtering
     else {
-      confirmedTxsToSave = confirmedTxs;
+      confirmedTxsToSave = confirmedTxs.map((tx) => {
+        const onChainHistoryTx = onChainHistoryTxs.find(
+          (item) => item.id === tx.id,
+        );
+        if (onChainHistoryTx) {
+          return onChainHistoryTx;
+        }
+        return tx;
+      });
     }
 
     await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(

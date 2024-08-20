@@ -135,7 +135,7 @@ const font = createFont({
 const animations = createAnimations({
   '50ms': {
     type: 'timing',
-    duration: 100,
+    duration: 50,
   },
   '100ms': {
     type: 'timing',

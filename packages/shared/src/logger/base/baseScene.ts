@@ -1,1 +1,5 @@
-export abstract class BaseScene {}
+export abstract class BaseScene {
+  mockBaseSceneMethod() {
+    return '';
+  }
+}

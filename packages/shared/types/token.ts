@@ -10,9 +10,11 @@ export type IToken = {
   sendAddress?: string;
 
   // for all networks
+  order?: number;
   networkId?: string;
   accountId?: string;
   allNetworkAccountId?: string;
+  mergeAssets?: boolean;
 };
 
 export type ITokenFiat = {
