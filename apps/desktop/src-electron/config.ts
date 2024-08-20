@@ -22,7 +22,7 @@ export const ipcMessageKeys = {
   UPDATE_ERROR: 'update/error',
   UPDATE_DOWNLOADING: 'update/downloading',
   UPDATE_DOWNLOADED: 'update/downloaded',
-  CHECK_FOR_UPDATES: 'update/checkForUpdates',
+  CHECK_FOR_UPDATES: ''update/checkForUpdates,
   TOUCH_UPDATE_RES_SUCCESS: 'touch/update-res-success',
   TOUCH_UPDATE_PROGRESS: 'touch/update-progress',
 
