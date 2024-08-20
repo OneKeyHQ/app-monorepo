@@ -2,6 +2,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Divider,
+  ESwitchSize,
   Page,
   SectionList,
   SizableText,
@@ -34,6 +35,7 @@ const SettingProtectionModal = () => {
             })}
           >
             <Switch
+              size={ESwitchSize.small}
               value={settings.tokenRiskReminder}
               onChange={async (value) => {
                 setSettings((v) => ({ ...v, tokenRiskReminder: !!value }));
@@ -57,6 +59,7 @@ const SettingProtectionModal = () => {
             })}
           >
             <Switch
+              size={ESwitchSize.small}
               value={!settings.protectCreateTransaction}
               onChange={async (value) => {
                 await backgroundApiProxy.serviceSetting.setProtectCreateTransaction(
@@ -71,6 +74,7 @@ const SettingProtectionModal = () => {
             })}
           >
             <Switch
+              size={ESwitchSize.small}
               value={!settings.protectCreateOrRemoveWallet}
               onChange={async (value) => {
                 await backgroundApiProxy.serviceSetting.setProtectCreateOrRemoveWallet(

@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Divider,
+  ESwitchSize,
   Page,
   SizableText,
   Stack,
@@ -36,6 +37,7 @@ const EnableSystemIdleTimeItem = () => {
         })}
       >
         <Switch
+          size={ESwitchSize.small}
           disabled={!supportSystemIdle}
           value={supportSystemIdle ? enableSystemIdleLock : false}
           onChange={async (checked) => {

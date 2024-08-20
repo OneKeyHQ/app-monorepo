@@ -9,6 +9,7 @@ import {
   Badge,
   Dialog,
   Divider,
+  ESwitchSize,
   Empty,
   Form,
   IconButton,
@@ -388,6 +389,7 @@ function CustomRPC() {
           renderItem={({ item }) => (
             <ListItem testID="CustomRpcItemContainer">
               <Switch
+                size={ESwitchSize.small}
                 value={item.enabled}
                 onChange={() => onToggleCustomRpcEnabledState(item)}
               />
