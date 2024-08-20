@@ -9,11 +9,11 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import SellOrBuy from '../../components/SellOrBuy';
 import { TokenDataContainer } from '../../components/TokenDataContainer';
 
 import type { RouteProp } from '@react-navigation/core';
-import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 const SellPage = () => {
   const route =
