@@ -1049,7 +1049,7 @@ export default class VaultBtc extends VaultBase {
     networkAccount: INetworkAccount,
   ): Promise<string | undefined> {
     const account = networkAccount as IDBUtxoAccount;
-    return account.xpubSegwit ?? account.xpub;
+    return account.xpubSegwit || account.xpub;
   }
 
   override async buildEstimateFeeParams() {
