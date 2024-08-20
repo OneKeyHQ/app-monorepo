@@ -105,7 +105,7 @@ const useDesktopEvents = platformEnv.isDesktop
       openSettingsRef.current = openSettings;
 
       useEffect(() => {
-        if (platformEnv.isDesktop) {update/checkForUpdates
+        if (platformEnv.isDesktop) {
           window.desktopApi.on('', () => {
             void onCheckUpdateRef.current();
           });
