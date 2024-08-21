@@ -27,6 +27,8 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { getEndpoints } from '../endpoints';
 
 import ServiceBase from './ServiceBase';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
@@ -136,7 +138,18 @@ class ServiceDiscovery extends ServiceBase {
         alert: '',
       } as IHostSecurity;
     }
-    return this._checkUrlSecurity(url);
+    try {
+      const result = await this._checkUrlSecurity(url);
+      return result
+    } catch (e) {
+      return {
+        host: url,
+        level: EHostSecurityLevel.Medium,
+        attackTypes: [],
+        phishingSite: false,
+        alert: appLocale.intl.formatMessage({ id: ETranslations.feedback_risk_detection_timed_out }),
+      } as IHostSecurity;
+    }
   }
 
   _checkUrlSecurity = memoizee(
@@ -148,6 +161,7 @@ class ServiceDiscovery extends ServiceBase {
           params: {
             url,
           },
+          timeout: 5000
         },
       );
       return res.data.data;
