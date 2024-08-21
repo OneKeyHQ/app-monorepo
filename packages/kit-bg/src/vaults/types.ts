@@ -192,6 +192,7 @@ export type IVaultSettings = {
 
   // algo
   withNote?: boolean;
+  noteMaxLength?: number;
 
   enabledOnClassicOnly?: boolean;
 

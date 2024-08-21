@@ -1274,6 +1274,7 @@
   "send.label_transferred": "โอนย้าย",
   "send.label_wallet_name": "ชื่อกระเป๋าเงิน / ชื่อบัญชี",
   "send.max": "สูงสุด",
+  "send.memo_up_to_length": "สูงสุด {number} ตัวอักษร",
   "send.nft_does_not_exist": "NFT ไม่มีอยู่",
   "send.no_route_found": "ไม่พบเส้นทาง",
   "send.no_token_message": "ไม่พบโทเค็นที่ที่อยู่นี้",
