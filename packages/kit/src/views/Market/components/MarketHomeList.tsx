@@ -360,8 +360,9 @@ function BasicMarketHomeList({
                 <MarketTokenPrice
                   size="$bodyLgMedium"
                   price={String(item[mdColumnKeys[0]])}
-                  tokenName={item.symbol}
-                  lastUpdate={item.lastUpdated}
+                  tokenName={item.name}
+                  tokenSymbol={item.symbol}
+                  lastUpdated={item.lastUpdated}
                 />
               ) : (
                 <NumberSizeableText
@@ -624,8 +625,9 @@ function BasicMarketHomeList({
                 <MarketTokenPrice
                   size="$bodyMd"
                   price={price}
-                  tokenName={record.symbol}
-                  lastUpdate={record.lastUpdated}
+                  tokenName={record.name}
+                  tokenSymbol={record.symbol}
+                  lastUpdated={record.lastUpdated}
                 />
               ),
               renderSkeleton: () => <Skeleton w="$20" h="$3" />,
