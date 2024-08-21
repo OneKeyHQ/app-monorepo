@@ -1274,6 +1274,7 @@
   "send.label_transferred": "Übertragen",
   "send.label_wallet_name": "Geldbörsenname / Kontoname",
   "send.max": "Max",
+  "send.memo_up_to_length": "Bis zu {number} Zeichen",
   "send.nft_does_not_exist": "NFT existiert nicht.",
   "send.no_route_found": "Keine Route gefunden.",
   "send.no_token_message": "Unter dieser Adresse wurden keine Tokens gefunden",

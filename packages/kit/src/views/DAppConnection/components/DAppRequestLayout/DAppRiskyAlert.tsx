@@ -88,17 +88,20 @@ function DAppRiskyAlert({
       type={riskStyle.type as IAlertType}
       title={urlSecurityInfo?.alert ?? ''}
       icon={riskStyle.alertIcon as IKeyOfIcons}
-      action={urlSecurityInfo?.detail ? {
-        primary: intl.formatMessage({ id: ETranslations.global_details }),
-        onPrimaryPress: () => {
-          Dialog.show({
-            title: origin,
-            renderContent: DialogContent,
-            showFooter: false,
-          });
-          },
-        }
-      : undefined}
+      action={
+        urlSecurityInfo?.detail
+          ? {
+              primary: intl.formatMessage({ id: ETranslations.global_details }),
+              onPrimaryPress: () => {
+                Dialog.show({
+                  title: origin,
+                  renderContent: DialogContent,
+                  showFooter: false,
+                });
+              },
+            }
+          : undefined
+      }
       borderTopWidth={0}
     />
   );
