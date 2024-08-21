@@ -45,19 +45,11 @@ export class DappScene extends BaseScene {
     screens: any[];
     params?: any;
   }) {
-    try {
-      return JSON.stringify(params);
-    } catch (e) {
-      return params;
-    }
+    return params;
   }
 
   @LogToLocal({ level: 'info' })
   public dappRequest(params: { request: IJsBridgeMessagePayload }) {
-    try {
-      return JSON.stringify(params);
-    } catch (e) {
-      return params;
-    }
+    return params;
   }
 }
