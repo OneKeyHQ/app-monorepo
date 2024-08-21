@@ -42,7 +42,7 @@ export function useBackupEntryStatus() {
       // @ts-ignore
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       const message = `${e?.message ?? e}`;
-      if (!message.endsWith('Sign in action canceled')) {
+      if (!message.endsWith('Sign in action cancelled')) {
         Toast.error({
           title: `google auth failed ${message}`,
         });

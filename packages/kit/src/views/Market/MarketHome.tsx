@@ -141,25 +141,39 @@ function MarketHome() {
     });
     console.log('选中', index, index === 0 ? 1 : 0);
   }, []);
+  const renderTabContainer = useCallback(() => {
+    if (!tabConfig.length) {
+      return (
+        <Stack flex={1} ai="center" jc="center">
+          <Spinner size="large" />
+        </Stack>
+      );
+    }
+    if (platformEnv.isNativeAndroid) {
+      return (
+        <Tab
+          disableRefresh
+          initialHeaderHeight={0}
+          data={tabConfig}
+          onSelectedPageIndex={handleSelectedPageIndex}
+        />
+      );
+    }
+    return (
+      <Tab.Page
+        data={tabConfig}
+        contentItemWidth={CONTENT_ITEM_WIDTH}
+        contentWidth={screenWidth}
+        headerProps={headerProps}
+        onSelectedPageIndex={handleSelectedPageIndex}
+        windowSize={3}
+      />
+    );
+  }, [handleSelectedPageIndex, headerProps, tabConfig, screenWidth]);
   return (
     <Page>
       {gtMd ? <MarketHomeHeader /> : <MDMarketHomeHeader />}
-      <Page.Body>
-        {tabConfig.length ? (
-          <Tab.Page
-            data={tabConfig}
-            contentItemWidth={CONTENT_ITEM_WIDTH}
-            contentWidth={screenWidth}
-            headerProps={headerProps}
-            onSelectedPageIndex={handleSelectedPageIndex}
-            windowSize={3}
-          />
-        ) : (
-          <Stack flex={1} ai="center" jc="center">
-            <Spinner size="large" />
-          </Stack>
-        )}
-      </Page.Body>
+      <Page.Body>{renderTabContainer()}</Page.Body>
     </Page>
   );
 }
