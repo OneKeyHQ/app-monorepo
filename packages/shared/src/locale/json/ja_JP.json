@@ -501,7 +501,7 @@
   "feedback.polkadot_supported_recover_phrases_type": "このネットワークのアドレスを作成できるのは、12/24ワードのリカバリーフレーズがあるウォレットだけです",
   "feedback.remove": "削除されました",
   "feedback.request_failed": "リクエストに失敗しました",
-  "feedback.risk_detection_timed_out": "リスク検出情報の取得がタイムアウトしました。",
+  "feedback.risk_detection_timed_out": "リスク検出情報の取得に失敗しました。",
   "feedback.sol_sign_unupported_message": "Solanaメッセージの署名はまだサポートされていません",
   "feedback.transaction_ckb_error_convert": "トランザクションの変換に失敗しました、もう一度お試しください。",
   "feedback.transaction_ckb_error_less": "取引後の残高は{miniAmount}未満になってはなりません。",

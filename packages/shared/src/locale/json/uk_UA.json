@@ -501,7 +501,7 @@
   "feedback.polkadot_supported_recover_phrases_type": "Тільки гаманці з фразами відновлення на 12/24 слова можуть створювати адреси для цієї мережі",
   "feedback.remove": "Видалено",
   "feedback.request_failed": "Запит не вдався",
-  "feedback.risk_detection_timed_out": "Час очікування отримання інформації про виявлення ризику минув.",
+  "feedback.risk_detection_timed_out": "Не вдалося отримати інформацію про виявлення ризику.",
   "feedback.sol_sign_unupported_message": "Підписання повідомлень Solana поки що не підтримується",
   "feedback.transaction_ckb_error_convert": "Не вдалося конвертувати транзакцію, будь ласка, спробуйте ще раз.",
   "feedback.transaction_ckb_error_less": "Баланс після транзакції не повинен бути менше, ніж {miniAmount}.",

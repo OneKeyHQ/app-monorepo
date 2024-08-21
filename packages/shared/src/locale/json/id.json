@@ -501,7 +501,7 @@
   "feedback.polkadot_supported_recover_phrases_type": "Hanya dompet dengan frasa pemulihan 12/24 kata yang dapat membuat alamat untuk jaringan ini",
   "feedback.remove": "Dihapus",
   "feedback.request_failed": "Permintaan gagal",
-  "feedback.risk_detection_timed_out": "Waktu pengambilan informasi deteksi risiko habis.",
+  "feedback.risk_detection_timed_out": "Pengambilan informasi deteksi risiko gagal.",
   "feedback.sol_sign_unupported_message": "Penandatanganan pesan Solana belum didukung",
   "feedback.transaction_ckb_error_convert": "Gagal mengubah transaksi, silakan coba lagi.",
   "feedback.transaction_ckb_error_less": "Saldo setelah transaksi tidak boleh kurang dari {miniAmount}.",

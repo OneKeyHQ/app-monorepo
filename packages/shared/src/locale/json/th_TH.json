@@ -501,7 +501,7 @@
   "feedback.polkadot_supported_recover_phrases_type": "เฉพาะกระเป๋าสตางค์ที่มี recovery phrase 12/24 คำเท่านั้นที่สามารถสร้างที่อยู่สำหรับเครือข่ายนี้",
   "feedback.remove": "ถูกนำออก",
   "feedback.request_failed": "การร้องขอล้มเหลว",
-  "feedback.risk_detection_timed_out": "การดึงข้อมูลการตรวจจับความเสี่ยงหมดเวลา",
+  "feedback.risk_detection_timed_out": "การดึงข้อมูลการตรวจจับความเสี่ยงล้มเหลว",
   "feedback.sol_sign_unupported_message": "ยังไม่รองรับการลงชื่อในข้อความ Solana ในขณะนี้",
   "feedback.transaction_ckb_error_convert": "การแปลงธุรกรรมล้มเหลว โปรดลองอีกครั้ง",
   "feedback.transaction_ckb_error_less": "ยอดเงินหลังจากทำธุรกรรมต้องไม่น้อยกว่า {miniAmount}.",

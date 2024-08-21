@@ -501,7 +501,7 @@
   "feedback.polkadot_supported_recover_phrases_type": "Seuls les portefeuilles avec des phrases de récupération de 12/24 mots peuvent créer des adresses pour ce réseau",
   "feedback.remove": "Supprimé",
   "feedback.request_failed": "La demande a échoué",
-  "feedback.risk_detection_timed_out": "La récupération des informations de détection de risque a expiré.",
+  "feedback.risk_detection_timed_out": "La récupération des informations de détection de risque a échoué.",
   "feedback.sol_sign_unupported_message": "La signature de message Solana n'est pas encore prise en charge",
   "feedback.transaction_ckb_error_convert": "Échec de la conversion de la transaction, veuillez réessayer.",
   "feedback.transaction_ckb_error_less": "Le solde après la transaction ne doit pas être inférieur à {miniAmount}.",

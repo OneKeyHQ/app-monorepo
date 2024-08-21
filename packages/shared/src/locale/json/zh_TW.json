@@ -501,7 +501,7 @@
   "feedback.polkadot_supported_recover_phrases_type": "只有 12/24 個助記詞的錢包才能為此網絡創建地址",
   "feedback.remove": "已移除",
   "feedback.request_failed": "請求失敗",
-  "feedback.risk_detection_timed_out": "風險偵測資訊檢索逾時",
+  "feedback.risk_detection_timed_out": "風險檢測資訊檢索失敗",
   "feedback.sol_sign_unupported_message": "尚未支援簽署 Solana 訊息",
   "feedback.transaction_ckb_error_convert": "轉換交易失敗，請再試一次。",
   "feedback.transaction_ckb_error_less": "交易後的餘額不能少於 {miniAmount}。",

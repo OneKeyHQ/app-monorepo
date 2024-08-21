@@ -501,7 +501,7 @@
   "feedback.polkadot_supported_recover_phrases_type": "केवल वही वॉलेट इस नेटवर्क के लिए पते बना सकते हैं जिनमें 12/24-शब्दी वसूली वाक्यांश होते हैं",
   "feedback.remove": "हटाया गया",
   "feedback.request_failed": "अनुरोध विफल रहा",
-  "feedback.risk_detection_timed_out": "जोखिम का पता लगाने की जानकारी पुनः प्राप्ति का समय समाप्त हो गया।",
+  "feedback.risk_detection_timed_out": "जोखिम पहचान सूचना पुनर्प्राप्ति विफल रही.",
   "feedback.sol_sign_unupported_message": "Solana संदेश हस्ताक्षरित करना अभी समर्थित नहीं है",
   "feedback.transaction_ckb_error_convert": "लेन-देन को बदलने में विफल, कृपया पुनः प्रयास करें।",
   "feedback.transaction_ckb_error_less": "लेन-देन के बाद शेष राशि {miniAmount} से कम नहीं होनी चाहिए।",

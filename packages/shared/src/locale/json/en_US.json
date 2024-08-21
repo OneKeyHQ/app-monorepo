@@ -501,7 +501,7 @@
   "feedback.polkadot_supported_recover_phrases_type": "Only wallets with 12/24-word recovery phrases can create addresses for this network",
   "feedback.remove": "Removed",
   "feedback.request_failed": "Request failed",
-  "feedback.risk_detection_timed_out": "Risk detection information retrieval timed out.",
+  "feedback.risk_detection_timed_out": "Risk detection information retrieval failed.",
   "feedback.sol_sign_unupported_message": "Signing Solana message is not supported yet",
   "feedback.transaction_ckb_error_convert": "Failed to convert transaction, please try again.",
   "feedback.transaction_ckb_error_less": "The balance after the transaction must not be less than {miniAmount}.",

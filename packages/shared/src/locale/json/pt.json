@@ -501,7 +501,7 @@
   "feedback.polkadot_supported_recover_phrases_type": "Apenas carteiras com frases de recuperação de 12/24 palavras podem criar endereços para esta rede",
   "feedback.remove": "Removido",
   "feedback.request_failed": "Solicitação falhou",
-  "feedback.risk_detection_timed_out": "Tempo limite para recuperação de informações de detecção de risco expirou.",
+  "feedback.risk_detection_timed_out": "Falha na recuperação de informações de detecção de risco.",
   "feedback.sol_sign_unupported_message": "A assinatura de mensagens Solana ainda não é suportada",
   "feedback.transaction_ckb_error_convert": "Falha ao converter a transação, por favor tente novamente.",
   "feedback.transaction_ckb_error_less": "O saldo após a transação não deve ser inferior a {miniAmount}.",

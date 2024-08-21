@@ -501,7 +501,7 @@
   "feedback.polkadot_supported_recover_phrases_type": "Nur Wallets mit 12/24-Wörter-Wiederherstellungsphrasen können Adressen für dieses Netzwerk erstellen",
   "feedback.remove": "Entfernt",
   "feedback.request_failed": "Anfrage fehlgeschlagen",
-  "feedback.risk_detection_timed_out": "Die Informationsabfrage zur Risikoerkennung ist abgelaufen.",
+  "feedback.risk_detection_timed_out": "Informationen zur Risikoerkennung konnten nicht abgerufen werden.",
   "feedback.sol_sign_unupported_message": "Die Unterzeichnung von Solana-Nachrichten wird noch nicht unterstützt",
   "feedback.transaction_ckb_error_convert": "Die Transaktion konnte nicht umgewandelt werden, bitte versuchen Sie es erneut.",
   "feedback.transaction_ckb_error_less": "Das Guthaben nach der Transaktion darf nicht weniger als {miniAmount} betragen.",

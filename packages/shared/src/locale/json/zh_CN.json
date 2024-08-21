@@ -501,7 +501,7 @@
   "feedback.polkadot_supported_recover_phrases_type": "只有 12/24 个助记词的钱包才能为此网络创建地址",
   "feedback.remove": "已移除",
   "feedback.request_failed": "请求失败",
-  "feedback.risk_detection_timed_out": "风险检测信息获取超时",
+  "feedback.risk_detection_timed_out": "风险检测信息获取失败",
   "feedback.sol_sign_unupported_message": "暂不支持签署 Solana 消息",
   "feedback.transaction_ckb_error_convert": "转换交易失败，请再试一次。",
   "feedback.transaction_ckb_error_less": "交易后的余额必须不少于 {miniAmount}。",

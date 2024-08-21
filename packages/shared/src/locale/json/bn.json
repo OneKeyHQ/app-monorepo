@@ -501,7 +501,7 @@
   "feedback.polkadot_supported_recover_phrases_type": "শুধুমাত্র 12/24-শব্দের পুনরুদ্ধার বাক্যাংশ সহ মানিব্যাগগুলি এই নেটওয়ার্কের জন্য ঠিকানা তৈরি করতে পারে",
   "feedback.remove": "অপসারিত",
   "feedback.request_failed": "অনুরোধ ব্যর্থ হয়েছে",
-  "feedback.risk_detection_timed_out": "ঝুঁকি সনাক্তকরণ তথ্য পুনরুদ্ধারের সময় শেষ।",
+  "feedback.risk_detection_timed_out": "ঝুঁকি সনাক্তকরণ তথ্য পুনরুদ্ধার ব্যর্থ হয়েছে.",
   "feedback.sol_sign_unupported_message": "Solana বার্তা স্বাক্ষর করা এখনও সমর্থিত হয়নি",
   "feedback.transaction_ckb_error_convert": "লেনদেন রূপান্তর ব্যর্থ হয়েছে, দয়া করে আবার চেষ্টা করুন।",
   "feedback.transaction_ckb_error_less": "লেনদেনের পরে বাকি টাকা {miniAmount} এর চেয়ে কম হওয়া উচিত নয়।",
