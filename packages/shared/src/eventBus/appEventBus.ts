@@ -10,17 +10,12 @@ import platformEnv from '../platformEnv';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
+import type {
+  IFetchQuotesParams,
+  ISwapQuoteEvent,
+} from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
-import {
-  DoneEvent,
-  MessageEvent,
-  ErrorEvent,
-  CloseEvent,
-  TimeoutEvent,
-  ExceptionEvent,
-} from '../eventSource';
-import { ISwapQuoteEvent } from '../../types/swap/types';
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -202,8 +197,10 @@ export interface IAppEventBusPayload {
     };
   };
   [EAppEventBusNames.SwapQuoteEvent]: {
-    type: 'message' | 'done' | 'error' | 'close';
+    type: 'message' | 'done' | 'error' | 'close' | 'open';
     event: ISwapQuoteEvent;
+    params: IFetchQuotesParams;
+    accountId?: string;
   };
 }
 

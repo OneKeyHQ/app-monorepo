@@ -1,50 +1,57 @@
-export type BuiltInEventType = 'open' | 'message' | 'error' | 'done' | 'close';
-export type EventType<E extends string = never> = E | BuiltInEventType;
+export type IEventSourceBuiltInEventType =
+  | 'open'
+  | 'message'
+  | 'error'
+  | 'done'
+  | 'close';
+export type IEventSourceType<E extends string = never> =
+  | E
+  | IEventSourceBuiltInEventType;
 
-export interface MessageEvent {
+export interface IEventSourceMessageEvent {
   type: 'message';
   data: string | null;
   lastEventId: string | null;
   url: string;
 }
 
-export interface OpenEvent {
+export interface IEventSourceOpenEvent {
   type: 'open';
 }
 
-export interface DoneEvent {
+export interface IEventSourceDoneEvent {
   type: 'done';
 }
 
-export interface CloseEvent {
+export interface IEventSourceCloseEvent {
   type: 'close';
 }
 
-export interface TimeoutEvent {
+export interface IEventSourceTimeoutEvent {
   type: 'timeout';
 }
 
-export interface ErrorEvent {
+export interface IEventSourceErrorEvent {
   type: 'error';
   message: string;
   xhrState: number;
   xhrStatus: number;
 }
 
-export interface CustomEvent<E extends string> {
+export interface IEventSourceCustomEvent<E extends string> {
   type: E;
   data: string | null;
   lastEventId: string | null;
   url: string;
 }
 
-export interface ExceptionEvent {
+export interface IEventSourceExceptionEvent {
   type: 'exception';
   message: string;
   error: Error;
 }
 
-export interface EventSourceOptions {
+export interface IEventSourceOptions {
   method?: string;
   timeout?: number;
   timeoutBeforeConnection?: number;
@@ -56,37 +63,51 @@ export interface EventSourceOptions {
   lineEndingCharacter?: string;
 }
 
-type BuiltInEventMap = {
-  'message': MessageEvent;
-  'open': OpenEvent;
-  'done': DoneEvent;
-  'close': CloseEvent;
-  'error': ErrorEvent | TimeoutEvent | ExceptionEvent;
+type IEventSourceBuiltInEventMap = {
+  'message': IEventSourceMessageEvent;
+  'open': IEventSourceOpenEvent;
+  'done': IEventSourceDoneEvent;
+  'close': IEventSourceCloseEvent;
+  'error':
+    | IEventSourceErrorEvent
+    | IEventSourceTimeoutEvent
+    | IEventSourceExceptionEvent;
 };
 
-export type EventSourceEvent<
+export type IEventSourceEvent<
   E extends T,
   T extends string = any,
-> = E extends BuiltInEventType ? BuiltInEventMap[E] : CustomEvent<E>;
-export type EventSourceListener<
+> = E extends IEventSourceBuiltInEventType
+  ? IEventSourceBuiltInEventMap[E]
+  : IEventSourceCustomEvent<E>;
+export type IEventSourceListener<
   E extends string = never,
-  T extends EventType<E> = EventType<E>,
-> = (event: EventSourceEvent<T>) => void;
+  T extends IEventSourceType<E> = IEventSourceType<E>,
+> = (event: IEventSourceEvent<T>) => void;
 
 declare class EventSource<E extends string = never> {
-  constructor(url: URL | string, options?: EventSourceOptions);
+  constructor(url: URL | string, options?: IEventSourceOptions);
+
   open(): void;
+
   close(): void;
-  addEventListener<T extends EventType<E>>(
+
+  addEventListener<T extends IEventSourceType<E>>(
     type: T,
-    listener: EventSourceListener<E, T>,
+    listener: IEventSourceListener<E, T>,
   ): void;
-  removeEventListener<T extends EventType<E>>(
+
+  removeEventListener<T extends IEventSourceType<E>>(
     type: T,
-    listener: EventSourceListener<E, T>,
+    listener: IEventSourceListener<E, T>,
   ): void;
-  removeAllEventListeners<T extends EventType<E>>(type?: T): void;
-  dispatch<T extends EventType<E>>(type: T, data: EventSourceEvent<T>): void;
+
+  removeAllEventListeners<T extends IEventSourceType<E>>(type?: T): void;
+
+  dispatch<T extends IEventSourceType<E>>(
+    type: T,
+    data: IEventSourceEvent<T>,
+  ): void;
 }
 
 export default EventSource;

@@ -1,11 +1,12 @@
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type {
-  ErrorEvent,
-  TimeoutEvent,
-  ExceptionEvent,
-  DoneEvent,
-  MessageEvent,
-  CloseEvent,
+  IEventSourceCloseEvent,
+  IEventSourceDoneEvent,
+  IEventSourceErrorEvent,
+  IEventSourceExceptionEvent,
+  IEventSourceMessageEvent,
+  IEventSourceOpenEvent,
+  IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
 export enum EProtocolOfExchange {
@@ -125,15 +126,22 @@ export interface IFetchTokenDetailParams {
   withCheckInscription?: boolean;
 }
 
+export interface ISwapAutoSlippageSuggestedValue {
+  value: number;
+  from: string;
+  to: string;
+}
+
 // quote
 
 export type ISwapQuoteEvent =
-  | ErrorEvent
-  | TimeoutEvent
-  | ExceptionEvent
-  | DoneEvent
-  | MessageEvent
-  | CloseEvent;
+  | IEventSourceErrorEvent
+  | IEventSourceTimeoutEvent
+  | IEventSourceExceptionEvent
+  | IEventSourceDoneEvent
+  | IEventSourceMessageEvent
+  | IEventSourceCloseEvent
+  | IEventSourceOpenEvent;
 
 export enum ESwapApproveTransactionStatus {
   PENDING = 'pending',
@@ -281,6 +289,23 @@ export interface ISwapAlertState {
   cb?: () => void;
   cbLabel?: string;
 }
+
+export interface ISwapQuoteEventAutoSlippage {
+  autoSuggestedSlippage: number;
+  fromNetworkId: string;
+  toNetworkId: string;
+  fromTokenAddress: string;
+  toTokenAddress: string;
+}
+
+export interface ISwapQuoteEventQuoteResult {
+  data: IFetchQuoteResult[];
+  totalQuoteCount: number;
+}
+
+export type ISwapQuoteEventData =
+  | ISwapQuoteEventAutoSlippage
+  | ISwapQuoteEventQuoteResult;
 
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {

@@ -6,6 +6,7 @@ import { debounce } from 'lodash';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
+import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -21,10 +22,14 @@ import {
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  IFetchQuotesParams,
   IFetchTokensParams,
   ISwapAlertState,
   ISwapApproveTransaction,
   ISwapQuoteEvent,
+  ISwapQuoteEventAutoSlippage,
+  ISwapQuoteEventData,
+  ISwapQuoteEventQuoteResult,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -43,6 +48,7 @@ import {
   contextAtomMethod,
   rateDifferenceAtom,
   swapAlertsAtom,
+  swapAutoSlippageSuggestedValueAtom,
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
   swapManualSelectQuoteProvidersAtom,
@@ -63,10 +69,6 @@ import {
   swapTokenFetchingAtom,
   swapTokenMapAtom,
 } from './atoms';
-import {
-  appEventBus,
-  EAppEventBusNames,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private quoteInterval: ReturnType<typeof setTimeout> | undefined;
@@ -280,12 +282,135 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       event: {
         event: ISwapQuoteEvent;
-        type: 'done' | 'close' | 'error' | 'message';
+        type: 'done' | 'close' | 'error' | 'message' | 'open';
+        params: IFetchQuotesParams;
+        accountId?: string;
       },
     ) => {
-      console.log('swap__quote_event_handler---------', event);
-      if (event.type === 'done') {
-        void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
+      switch (event.type) {
+        case 'open': {
+          console.log('swap__quote_event_handler---------open');
+          set(swapQuoteListAtom(), []);
+          break;
+        }
+        case 'message': {
+          console.log('swap__quote_event_handler-------meesage--', event);
+          const { data } = event.event as IEventSourceMessageEvent;
+          if (data) {
+            const dataJson = JSON.parse(data) as ISwapQuoteEventData;
+            const autoSlippageData = dataJson as ISwapQuoteEventAutoSlippage;
+            if (autoSlippageData?.autoSuggestedSlippage) {
+              const {
+                autoSuggestedSlippage,
+                fromNetworkId,
+                fromTokenAddress,
+                toNetworkId,
+                toTokenAddress,
+              } = autoSlippageData;
+              const quoteResult = get(swapQuoteListAtom());
+              const quoteUpdateSlippage = quoteResult.map((quotRes) => {
+                if (
+                  quotRes.fromTokenInfo.networkId === fromNetworkId &&
+                  quotRes.fromTokenInfo.contractAddress === fromTokenAddress &&
+                  quotRes.toTokenInfo.networkId === toNetworkId &&
+                  quotRes.toTokenInfo.contractAddress === toTokenAddress &&
+                  !quotRes.autoSuggestedSlippage
+                ) {
+                  return {
+                    ...quotRes,
+                    autoSuggestedSlippage,
+                  };
+                }
+                return quotRes;
+              });
+              set(swapQuoteListAtom(), [...quoteUpdateSlippage]);
+              set(swapAutoSlippageSuggestedValueAtom(), {
+                value: autoSuggestedSlippage,
+                from: `${fromNetworkId}-${fromTokenAddress}`,
+                to: `${toNetworkId}-${toTokenAddress}`,
+              });
+            } else {
+              set(swapQuoteFetchingAtom(), false);
+              const quoteResultData = dataJson as ISwapQuoteEventQuoteResult;
+              const swapAutoSlippageSuggestedValue = get(
+                swapAutoSlippageSuggestedValueAtom(),
+              );
+              if (quoteResultData.data?.length) {
+                const quoteResultsUpdateSlippage = quoteResultData.data.map(
+                  (quote) => {
+                    if (
+                      `${quote.fromTokenInfo.networkId}-${quote.fromTokenInfo.contractAddress}` ===
+                        swapAutoSlippageSuggestedValue?.from &&
+                      `${quote.toTokenInfo.networkId}-${quote.toTokenInfo.contractAddress}` ===
+                        swapAutoSlippageSuggestedValue?.to &&
+                      swapAutoSlippageSuggestedValue.value &&
+                      !quote.autoSuggestedSlippage
+                    ) {
+                      return {
+                        ...quote,
+                        autoSuggestedSlippage:
+                          swapAutoSlippageSuggestedValue.value,
+                      };
+                    }
+                    return quote;
+                  },
+                );
+                const currentQuoteList = get(swapQuoteListAtom());
+                let newQuoteList = currentQuoteList.map((oldQuoteRes) => {
+                  const newUpdateQuoteRes = quoteResultsUpdateSlippage.find(
+                    (quote) =>
+                      quote.info.provider === oldQuoteRes.info.provider &&
+                      quote.info.providerName === oldQuoteRes.info.providerName,
+                  );
+                  if (newUpdateQuoteRes) {
+                    return newUpdateQuoteRes;
+                  }
+                  return oldQuoteRes;
+                });
+                const newAddQuoteRes = quoteResultsUpdateSlippage.filter(
+                  (quote) =>
+                    !currentQuoteList.find(
+                      (oldQuoteRes) =>
+                        quote.info.provider === oldQuoteRes.info.provider &&
+                        quote.info.providerName ===
+                          oldQuoteRes.info.providerName,
+                    ),
+                );
+                newQuoteList = [...newQuoteList, ...newAddQuoteRes];
+                set(swapQuoteListAtom(), [...newQuoteList]);
+              } else if (quoteResultData.totalQuoteCount === 0) {
+                set(swapQuoteListAtom(), []);
+              }
+            }
+          }
+          break;
+        }
+        case 'done':
+          console.log('swap__quote_event_handler---------done');
+          this.quoteIntervalCount += 1;
+          if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
+            void this.recoverQuoteInterval.call(
+              set,
+              event.params.userAddress,
+              event.accountId,
+              true,
+            );
+          }
+          this.closeQuoteEvent();
+          break;
+        case 'error': {
+          console.log('swap__quote_event_handler---------error', event);
+          // todo error toast
+          this.closeQuoteEvent();
+          break;
+        }
+        case 'close': {
+          console.log('swap__quote_event_handler---------close');
+          set(swapQuoteFetchingAtom(), false);
+          set(swapQuoteActionLockAtom(), false);
+          break;
+        }
+        default:
       }
     },
   );
@@ -303,48 +428,24 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       blockNumber?: number,
     ) => {
-      console.log('swap__run_event');
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       if (shouldRefreshQuote) {
         this.cleanQuoteInterval();
         set(swapQuoteActionLockAtom(), false);
         return;
       }
-      console.log('swap__run_event_1');
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
-      let enableInterval = true;
-      try {
-        console.log('swap__run_event_2');
-        set(swapQuoteFetchingAtom(), true);
-        await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
-          fromToken,
-          toToken,
-          fromTokenAmount,
-          userAddress: address,
-          slippagePercentage,
-          autoSlippage,
-          blockNumber,
-          accountId,
-        });
-        console.log('swap__run_event_3');
-        set(swapQuoteFetchingAtom(), false);
-        // set(swapQuoteListAtom(), res);
-      } catch (e: any) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (e?.cause !== ESwapFetchCancelCause.SWAP_QUOTE_CANCEL) {
-          set(swapQuoteFetchingAtom(), false);
-        } else {
-          enableInterval = false;
-        }
-      } finally {
-        // set(swapQuoteActionLockAtom(), false);
-        // if (enableInterval) {
-        //   this.quoteIntervalCount += 1;
-        //   if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
-        //     void this.recoverQuoteInterval.call(set, address, accountId, true);
-        //   }
-        // }
-      }
+      set(swapQuoteFetchingAtom(), true);
+      await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
+        fromToken,
+        toToken,
+        fromTokenAmount,
+        userAddress: address,
+        slippagePercentage,
+        autoSlippage,
+        blockNumber,
+        accountId,
+      });
     },
   );
 
@@ -358,6 +459,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       set(swapQuoteActionLockAtom(), true);
       this.cleanQuoteInterval();
+      this.closeQuoteEvent();
       this.quoteIntervalCount = 0;
       set(swapBuildTxFetchingAtom(), false);
       set(swapShouldRefreshQuoteAtom(), false);
@@ -483,6 +585,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (swapQuoteActionLock) {
         return;
       }
+      this.closeQuoteEvent();
       this.cleanQuoteInterval();
       if (!unResetCount) {
         this.quoteIntervalCount = 0;
@@ -531,6 +634,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       this.quoteInterval = undefined;
     }
     void backgroundApiProxy.serviceSwap.cancelFetchQuotes();
+  };
+
+  closeQuoteEvent = () => {
     void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
   };
 

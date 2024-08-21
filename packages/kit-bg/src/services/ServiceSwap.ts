@@ -1,20 +1,19 @@
 import axios from 'axios';
-import EventSource, {
-  DoneEvent,
-  MessageEvent,
-  ErrorEvent,
-  CloseEvent,
-  TimeoutEvent,
-  ExceptionEvent,
-} from '@onekeyhq/shared/src/eventSource';
 import { has } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import EventSource from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
@@ -49,11 +48,6 @@ import {
 import { inAppNotificationAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
-import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
-import {
-  appEventBus,
-  EAppEventBusNames,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
@@ -377,11 +371,7 @@ export default class ServiceSwap extends ServiceBase {
     autoSlippage,
     blockNumber,
     accountId,
-  }: // onMessage,
-  // onDone,
-  // onError,
-  // onClose,
-  {
+  }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
     fromTokenAmount: string;
@@ -390,12 +380,8 @@ export default class ServiceSwap extends ServiceBase {
     autoSlippage?: boolean;
     blockNumber?: number;
     accountId?: string;
-    // onMessage: (event: MessageEvent) => void;
-    // onDone: (event: DoneEvent) => void;
-    // onError: (event: ErrorEvent | TimeoutEvent | ExceptionEvent) => void;
-    // onClose: (event: CloseEvent) => void;
   }) {
-    await this.cancelFetchQuoteEvents();
+    // await this.cancelFetchQuoteEvents();
     const params: IFetchQuotesParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -432,10 +418,21 @@ export default class ServiceSwap extends ServiceBase {
       timeout: swapQuoteEventTimeout,
     });
 
+    this._quoteEventSource.addEventListener('open', (event) => {
+      appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+        type: 'open',
+        event,
+        params,
+        accountId,
+      });
+    });
+
     this._quoteEventSource.addEventListener('message', (event) => {
       appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
         type: 'message',
         event,
+        params,
+        accountId,
       });
     });
 
@@ -443,6 +440,8 @@ export default class ServiceSwap extends ServiceBase {
       appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
         type: 'done',
         event,
+        params,
+        accountId,
       });
     });
 
@@ -450,6 +449,8 @@ export default class ServiceSwap extends ServiceBase {
       appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
         type: 'close',
         event,
+        params,
+        accountId,
       });
     });
 
@@ -457,6 +458,8 @@ export default class ServiceSwap extends ServiceBase {
       appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
         type: 'error',
         event,
+        params,
+        accountId,
       });
     });
   }
