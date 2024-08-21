@@ -50,9 +50,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { Spotlight } from '../../../../../components/Spotlight';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 import { AccountAddress } from './AccountAddress';
@@ -453,18 +455,25 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
       return (
         <>
-          {accountValue && accountValue.currency ? (
-            <AccountValue
-              showSpotlight={index === 0}
-              accountId={accountValue.accountId}
-              currency={accountValue.currency}
-              value={accountValue.value ?? ''}
-            />
-          ) : (
-            <SizableText size="$bodyMd" color="$textDisabled">
-              --
-            </SizableText>
-          )}
+          <Spotlight
+            isVisible={index === 0}
+            message={intl.formatMessage({
+              id: ETranslations.spotlight_enable_account_asset_message,
+            })}
+            tourName={ESpotlightTour.allNetworkAccountValue}
+          >
+            {accountValue && accountValue.currency ? (
+              <AccountValue
+                accountId={accountValue.accountId}
+                currency={accountValue.currency}
+                value={accountValue.value ?? ''}
+              />
+            ) : (
+              <SizableText size="$bodyMd" color="$textDisabled">
+                --
+              </SizableText>
+            )}
+          </Spotlight>
           {subTitleInfo.address ? (
             <Stack
               mx="$1.5"
