@@ -423,7 +423,7 @@ export default class Vault extends VaultBase {
           ...utxo,
           scriptPubKey: utxo.scriptPublicKey?.scriptPublicKey ?? '',
           scriptPublicKeyVersion: utxo.scriptPublicKey?.version ?? 0,
-          satoshis: new BigNumber(utxo.value).toNumber(),
+          satoshis: utxo.value,
           blockDaaScore: new BigNumber(utxo.confirmations).toNumber(),
         }));
       } catch (e) {

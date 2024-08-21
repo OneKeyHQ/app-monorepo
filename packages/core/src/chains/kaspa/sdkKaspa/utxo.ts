@@ -1,7 +1,7 @@
 import { BigNumber } from 'bignumber.js';
 
-import { LowerTransactionAmountError } from '@onekeyhq/shared/src/errors';
 import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
+import { LowerTransactionAmountError } from '@onekeyhq/shared/src/errors';
 
 import { CONFIRMATION_COUNT } from './constant';
 import { UnspentOutput } from './types';
@@ -33,7 +33,7 @@ function formatUtxo(entries: IKaspaUTXOResponse[]): IKaspaUnspentOutputInfo[] {
       vout: index,
       scriptPubKey: scriptPublicKey.scriptPublicKey,
       scriptPublicKeyVersion: scriptPublicKey.version ?? 0,
-      satoshis: +amount,
+      satoshis: Array.isArray(amount) ? amount[0] : amount,
       blockDaaScore: parseInt(blockDaaScore, 10),
     };
     result.push(item);

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Transaction } from '@onekeyfe/kaspacore-lib';
+import { Transaction } from '@onekeyfe/kaspa-core-lib';
 
 import {
   EKaspaSignType,

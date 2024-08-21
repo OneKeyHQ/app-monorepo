@@ -1,4 +1,4 @@
-import { Transaction } from '@onekeyfe/kaspacore-lib';
+import { Transaction } from '@onekeyfe/kaspa-core-lib';
 
 export interface IKaspaUnspentOutputInfo {
   txid: string;

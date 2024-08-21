@@ -1,6 +1,7 @@
 import { hexToBytes } from '@noble/hashes/utils';
-import { Transaction, Address } from '@onekeyfe/kaspacore-lib';
+import { Address, Transaction } from '@onekeyfe/kaspa-core-lib';
 import BigNumber from 'bignumber.js';
+
 import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 
 import { RestAPIClient } from './clientRestApi';
@@ -14,7 +15,7 @@ import type {
   IKaspaSubmitTransactionRequest,
   IKaspaUnspentOutputInfo,
 } from './types';
-import type { PublicKey } from '@onekeyfe/kaspacore-lib';
+import type { PublicKey } from '@onekeyfe/kaspa-core-lib';
 
 jest.setTimeout(3 * 60 * 1000);
 
@@ -115,7 +116,7 @@ describe('Kaspa transaction Tests', () => {
   );
 
   it.skip('kaspa transaction UTXO (on network)', async () => {
-    let sendAmount = '100000';
+    const sendAmount = '100000';
     let utxos: IKaspaUnspentOutputInfo[] = [];
     try {
       const confirmUTXOs = await queryConfirmUTXOs(client, from);
@@ -146,19 +147,6 @@ describe('Kaspa transaction Tests', () => {
     });
 
     const submitTransaction = submitTransactionFromString(rawTx);
-
-    process.stdout.write(
-      `transaction json: ${JSON.stringify(
-        submitTransaction,
-        (key, value) => {
-          if (typeof value === 'bigint') {
-            return value.toString();
-          }
-          return value;
-        },
-        2,
-      )}\n`,
-    );
 
     process.stdout.write(
       `transaction json: ${JSON.stringify(submitTransaction)}\n`,
@@ -261,7 +249,7 @@ describe('Kaspa transaction Tests', () => {
     checkTransactionResult({
       submitTransaction,
       originOutputs: utxos,
-      sendAmount: sendAmount,
+      sendAmount,
       feeAmount: transaction.getFee(),
       from,
       to,
