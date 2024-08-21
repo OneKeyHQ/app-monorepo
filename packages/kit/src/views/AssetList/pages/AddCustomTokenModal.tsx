@@ -327,6 +327,7 @@ function AddCustomTokenModal() {
         {hasExistAccount ? undefined : (
           <Stack
             p="$5"
+            minHeight={90}
             $gtMd={{
               flexDirection: 'row',
               alignItems: 'center',
