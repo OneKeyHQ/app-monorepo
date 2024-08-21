@@ -17,8 +17,7 @@ export enum ENetworkStatus {
   LISTED = 'LISTED',
 }
 
-export const SIDE_PANEL_PORT_NAME = 'ONEKEY_SIDE_PANEL';
-export const EXT_POP_UP_PORT_NAME = 'onekey@EXT_PORT_UI_TO_BG';
+export const EXT_UI_TO_BG_PORT_NAME = 'onekey@EXT_PORT_UI_TO_BG';
 
 export interface INetworkFeeInfo {
   code: string;
