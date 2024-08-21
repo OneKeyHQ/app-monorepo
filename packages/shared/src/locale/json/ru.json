@@ -1274,6 +1274,7 @@
   "send.label_transferred": "Переведено",
   "send.label_wallet_name": "Название кошелька / Название счета",
   "send.max": "Макс",
+  "send.memo_up_to_length": "До {number} символов",
   "send.nft_does_not_exist": "NFT не существует.",
   "send.no_route_found": "Маршрут не найден.",
   "send.no_token_message": "По этому адресу токены не найдены",

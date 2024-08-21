@@ -26,6 +26,7 @@ export const TabComponent = (
     tabContentContainerStyle,
     style,
     onRefresh: onRefreshCallBack,
+    initialHeaderHeight = 209,
   }: ITabProps,
   // fix missing forwardRef warnings.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -79,7 +80,7 @@ export const TabComponent = (
       ? color.replace(/#(.{6})(.{2})/, '#$2$1')
       : color;
   }, []);
-  const [headerHeight, setHeaderHeight] = useState(209);
+  const [headerHeight, setHeaderHeight] = useState(initialHeaderHeight);
   const values = useMemo(
     () => data.map((item) => ({ name: item.title, label: item.title })),
     [data],

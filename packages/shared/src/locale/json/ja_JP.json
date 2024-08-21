@@ -1274,6 +1274,7 @@
   "send.label_transferred": "転送済み",
   "send.label_wallet_name": "ウォレット名 / アカウント名",
   "send.max": "最大",
+  "send.memo_up_to_length": "最大{number}文字",
   "send.nft_does_not_exist": "NFTは存在しません。",
   "send.no_route_found": "ルートが見つかりません。",
   "send.no_token_message": "このアドレスでトークンが見つかりませんでした",
