@@ -15,6 +15,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -32,7 +33,11 @@ import { KeyringWatching } from './KeyringWatching';
 import {
   decodePayload,
   encodeJettonPayload,
+  getAccountVersion,
   getJettonData,
+  getWalletContractClass,
+  getWalletContractInstance,
+  serializeUnsignedTransaction,
 } from './sdkTon/utils';
 import settings from './settings';
 
@@ -323,5 +328,35 @@ export default class Vault extends VaultBase {
     const { result } = await this.baseValidateGeneralInput(params);
     result.deriveInfoItems = Object.values(settings.accountDeriveInfo);
     return result;
+  }
+
+  override async buildEstimateFeeParams(params: {
+    encodedTx: IEncodedTx | undefined;
+  }): Promise<{
+    encodedTx: IEncodedTx | undefined;
+    estimateFeeParams?: IEstimateFeeParams;
+  }> {
+    const encodedTx = params.encodedTx as IEncodedTxTon;
+    const account = await this.getAccount();
+    const version = getAccountVersion(account.id);
+    const serializeUnsignedTx = await serializeUnsignedTransaction({
+      version,
+      encodedTx,
+      backgroundApi: this.backgroundApi,
+    });
+    return {
+      encodedTx: {
+        body: Buffer.from(await serializeUnsignedTx.body.toBoc(false)).toString(
+          'base64',
+        ),
+        ignore_chksig: true,
+        init_code: Buffer.from(
+          await serializeUnsignedTx.code.toBoc(false),
+        ).toString('base64'),
+        init_data: Buffer.from(
+          await serializeUnsignedTx.data.toBoc(false),
+        ).toString('base64'),
+      } as unknown as IEncodedTx,
+    };
   }
 }

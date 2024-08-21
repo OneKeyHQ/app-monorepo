@@ -123,6 +123,8 @@ export interface IWallet extends IV4R2 {
     dummySignature?: boolean,
     expireAt?: number,
   ): {
+    data: Cell;
+    code: Cell;
     address: Address;
     signature: Uint8Array;
     signingMessage: Cell;
