@@ -136,6 +136,7 @@ function SendDataInputContainer() {
       memoMaxLength,
       numericOnlyMemo,
       displayNoteForm,
+      noteMaxLength,
     ] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
@@ -202,6 +203,7 @@ function SendDataInputContainer() {
         vs.memoMaxLength,
         vs.numericOnlyMemo,
         vs.withNote,
+        vs.noteMaxLength,
       ];
     },
     [
@@ -904,33 +906,44 @@ function SendDataInputContainer() {
 
   const renderNoteForm = useCallback(() => {
     if (!displayNoteForm) return null;
+    const maxLength = noteMaxLength ?? 512;
     return (
-      <>
-        <XStack pt="$5" />
-        <Form.Field
-          label={intl.formatMessage({
+      <Form.Field
+        label={intl.formatMessage({
+          id: ETranslations.global_Note,
+        })}
+        labelAddon={
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.form_optional_indicator,
+            })}
+          </SizableText>
+        }
+        name="note"
+        rules={{
+          maxLength: {
+            value: maxLength,
+            message: intl.formatMessage(
+              {
+                id: ETranslations.send_memo_up_to_length,
+              },
+              {
+                number: maxLength,
+              },
+            ),
+          },
+        }}
+      >
+        <TextArea
+          numberOfLines={2}
+          size={media.gtMd ? 'medium' : 'large'}
+          placeholder={intl.formatMessage({
             id: ETranslations.global_Note,
           })}
-          labelAddon={
-            <SizableText size="$bodyMdMedium" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.form_optional_indicator,
-              })}
-            </SizableText>
-          }
-          name="note"
-        >
-          <TextArea
-            numberOfLines={2}
-            size={media.gtMd ? 'medium' : 'large'}
-            placeholder={intl.formatMessage({
-              id: ETranslations.global_Note,
-            })}
-          />
-        </Form.Field>
-      </>
+        />
+      </Form.Field>
     );
-  }, [displayNoteForm, intl, media.gtMd]);
+  }, [displayNoteForm, intl, media.gtMd, noteMaxLength]);
 
   const renderDataInput = useCallback(() => {
     if (isNFT) {
