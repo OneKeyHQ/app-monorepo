@@ -470,6 +470,13 @@ class ProviderApiBtc extends ProviderApiBase {
       isBtcWalletProvider: options.isBtcWalletProvider,
     });
 
+    // Check for change address:
+    // 1. More than one output
+    // 2. Not all output addresses are the same as the current account address
+    // This often happens in BRC-20 transfer transactions
+    const hasChangeAddress =
+      decodedPsbt.outputInfos.length > 1 &&
+      !(decodedPsbt.outputInfos ?? []).every((v) => v.address === address);
     const resp =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
@@ -484,9 +491,11 @@ class ProviderApiBtc extends ProviderApiBase {
           outputs: (decodedPsbt.outputInfos ?? []).map((v) => ({
             ...v,
             value: new BigNumber(v.value).toFixed(),
-            payload: {
-              isChange: v.address === address,
-            },
+            payload: hasChangeAddress
+              ? {
+                  isChange: v.address === address,
+                }
+              : undefined,
           })),
           inputsForCoinSelect: [],
           outputsForCoinSelect: [],

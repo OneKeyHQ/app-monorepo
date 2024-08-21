@@ -1274,6 +1274,7 @@
   "send.label_transferred": "Перенесено",
   "send.label_wallet_name": "Назва гаманця / Назва рахунку",
   "send.max": "Макс",
+  "send.memo_up_to_length": "До {number} символів",
   "send.nft_does_not_exist": "NFT не існує.",
   "send.no_route_found": "Маршрут не знайдено.",
   "send.no_token_message": "Жодних токенів не знайдено за цією адресою",

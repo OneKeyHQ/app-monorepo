@@ -1,7 +1,4 @@
-import {
-  EXT_POP_UP_PORT_NAME,
-  SIDE_PANEL_PORT_NAME,
-} from '@onekeyhq/shared/types';
+import { EXT_UI_TO_BG_PORT_NAME } from '@onekeyhq/shared/types';
 
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
@@ -9,9 +6,7 @@ const checkExtUIOpen = (bridgeExtBg: JsBridgeExtBackground) => {
   const currentExtOrigin = chrome.runtime.getURL('');
   const { ports } = bridgeExtBg;
   const oneKeyUIPort = Object.values(ports).filter(
-    (port) =>
-      port.name === SIDE_PANEL_PORT_NAME || port.name === EXT_POP_UP_PORT_NAME,
-    // onekey@EXT_PORT_UI_TO_BG/ONEKEY_SIDE_PANEL is constant in extension-bridge-hosted
+    (port) => port.name === EXT_UI_TO_BG_PORT_NAME,
   );
   if (
     oneKeyUIPort.length > 0 &&
