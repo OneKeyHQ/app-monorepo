@@ -262,15 +262,19 @@ function SendDataInputContainer() {
     amountBN = amountBN.isNaN() ? new BigNumber(0) : amountBN;
 
     const tokenPrice = tokenDetails?.price;
+    const tokenDecimals = tokenDetails?.info.decimals;
 
-    if (isNil(tokenPrice))
+    if (isNil(tokenPrice) || isNil(tokenDecimals))
       return {
         amount: '0',
         originalAmount: '0',
       };
 
     if (isUseFiat) {
-      const originalAmount = amountBN.dividedBy(tokenPrice).toFixed();
+      const originalAmount = amountBN
+        .dividedBy(tokenPrice)
+        .decimalPlaces(tokenDecimals, BigNumber.ROUND_CEIL)
+        .toFixed();
       return {
         amount: getFormattedNumber(originalAmount, { decimal: 4 }) ?? '0',
         originalAmount,
@@ -282,7 +286,7 @@ function SendDataInputContainer() {
       originalAmount,
       amount: getFormattedNumber(originalAmount, { decimal: 4 }) ?? '0',
     };
-  }, [amount, isUseFiat, tokenDetails?.price]);
+  }, [amount, isUseFiat, tokenDetails?.info.decimals, tokenDetails?.price]);
 
   const {
     result: { displayAmountFormItem } = { displayAmountFormItem: false },
