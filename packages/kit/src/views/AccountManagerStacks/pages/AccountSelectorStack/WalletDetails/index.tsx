@@ -453,10 +453,12 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     }) => {
       if (linkNetwork) return null;
 
+      const shouldShowSpotlight = !isOthersUniversal && index === 0;
+
       return (
         <>
           <Spotlight
-            isVisible={index === 0}
+            isVisible={shouldShowSpotlight}
             message={intl.formatMessage({
               id: ETranslations.spotlight_enable_account_asset_message,
             })}
@@ -486,7 +488,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         </>
       );
     },
-    [linkNetwork],
+    [linkNetwork, isOthersUniversal, intl],
   );
 
   const sectionListMemo = useMemo(

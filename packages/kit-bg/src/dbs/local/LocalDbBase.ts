@@ -67,6 +67,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -77,6 +78,7 @@ import type {
   IDBCredentialBase,
   IDBDevice,
   IDBDeviceSettings,
+  IDBEnsureAccountNameNotDuplicateParams,
   IDBExternalAccount,
   IDBGetWalletsParams,
   IDBIndexedAccount,
@@ -94,7 +96,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -2554,6 +2555,40 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async ensureAccountNameNotDuplicate(
+    params: IDBEnsureAccountNameNotDuplicateParams,
+  ): Promise<void> {
+    const db = await this.readyDb;
+    const { walletId, name, selfAccountOrIndexedAccountId } = params;
+    let currentAccounts: IDBIndexedAccount[] | IDBAccount[] = [];
+    const isOthersWallet = accountUtils.isOthersWallet({ walletId });
+    if (!isOthersWallet) {
+      try {
+        ({ accounts: currentAccounts } = await this.getIndexedAccounts({
+          walletId,
+        }));
+      } catch (error) {
+        //
+      }
+    }
+    if (isOthersWallet) {
+      try {
+        ({ accounts: currentAccounts } =
+          await this.getSingletonAccountsOfWallet({
+            walletId: walletId as IDBWalletIdSingleton,
+          }));
+      } catch (error) {
+        //
+      }
+    }
+    const duplicatedNameAccount = currentAccounts.find(
+      (item) => item.name === name && item.id !== selfAccountOrIndexedAccountId,
+    );
+    if (duplicatedNameAccount) {
+      throw new RenameDuplicateNameError();
+    }
+  }
+
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
     const db = await this.readyDb;
 
@@ -2561,42 +2596,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       const id = params.indexedAccountId ?? params.accountId;
       if (params.indexedAccountId && params.accountId) {
         throw new Error(
-          'setAccountName ERROR: indexedAccountId and accountId should not be set at the same time',
+          'ensureAccountNameNotDuplicate ERROR: indexedAccountId and accountId should not be set at the same time',
         );
       }
       if (id) {
         const walletId = accountUtils.getWalletIdFromAccountId({
           accountId: id,
         });
-        if (walletId) {
-          let currentAccounts: IDBIndexedAccount[] | IDBAccount[] = [];
-
-          if (params.indexedAccountId) {
-            try {
-              ({ accounts: currentAccounts } = await this.getIndexedAccounts({
-                walletId,
-              }));
-            } catch (error) {
-              //
-            }
-          }
-          if (params.accountId) {
-            try {
-              ({ accounts: currentAccounts } =
-                await this.getSingletonAccountsOfWallet({
-                  walletId: walletId as IDBWalletIdSingleton,
-                }));
-            } catch (error) {
-              //
-            }
-          }
-          const duplicatedNameAccount = currentAccounts.find(
-            (item) => item.name === params.name && item.id !== id,
-          );
-          if (duplicatedNameAccount) {
-            throw new RenameDuplicateNameError();
-          }
-        }
+        await this.ensureAccountNameNotDuplicate({
+          walletId,
+          name: params.name,
+          selfAccountOrIndexedAccountId: id,
+        });
       }
     }
 

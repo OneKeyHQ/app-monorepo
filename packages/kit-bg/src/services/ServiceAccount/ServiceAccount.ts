@@ -64,7 +64,6 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
-import simpleDb from '../../dbs/simple/simpleDb';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -75,6 +74,7 @@ import type {
   IDBCreateHwWalletParamsBase,
   IDBCreateQRWalletParams,
   IDBDevice,
+  IDBEnsureAccountNameNotDuplicateParams,
   IDBExternalAccount,
   IDBGetWalletsParams,
   IDBIndexedAccount,
@@ -973,12 +973,14 @@ class ServiceAccount extends ServiceBase {
     networkId,
     deriveType,
     name,
+    shouldCheckDuplicateName,
     isUrlAccount,
     skipAddIfNotEqualToAddress,
   }: {
     input: string;
     networkId: string;
     name?: string;
+    shouldCheckDuplicateName?: boolean;
     deriveType?: IAccountDeriveTypes;
     isUrlAccount?: boolean;
     skipAddIfNotEqualToAddress?: string;
@@ -991,6 +993,13 @@ class ServiceAccount extends ServiceBase {
       throw new Error(
         'addWatchingAccount ERROR: networkId should not be all networks',
       );
+    }
+
+    if (name && shouldCheckDuplicateName) {
+      await localDb.ensureAccountNameNotDuplicate({
+        name,
+        walletId: WALLET_TYPE_WATCHING,
+      });
     }
 
     // /evm/0x63ac73816EeB38514DaE6c46008baf55f1c59C9e
@@ -1487,6 +1496,13 @@ class ServiceAccount extends ServiceBase {
     const result = await localDb.addHDNextIndexedAccount({ walletId });
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     return result;
+  }
+
+  @backgroundMethod()
+  async ensureAccountNameNotDuplicate(
+    params: IDBEnsureAccountNameNotDuplicateParams,
+  ) {
+    return localDb.ensureAccountNameNotDuplicate(params);
   }
 
   @backgroundMethod()
