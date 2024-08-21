@@ -26,7 +26,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import type { IPasswordSecuritySession } from '@onekeyhq/shared/types/password';
+import {
+  EPasswordVerifyStatus,
+  type IPasswordSecuritySession,
+} from '@onekeyhq/shared/types/password';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
@@ -577,8 +580,20 @@ export default class ServicePassword extends ServiceBase {
   // lock ---------------------------
   @backgroundMethod()
   async unLockApp() {
-    await passwordAtom.set((v) => ({ ...v, unLock: true }));
-    await passwordPersistAtom.set((v) => ({ ...v, manualLocking: false }));
+    await passwordAtom.set((v) => ({
+      ...v,
+      unLock: true,
+      manualLocking: false,
+    }));
+  }
+
+  @backgroundMethod()
+  async resetPasswordStatus() {
+    await passwordAtom.set((v) => ({
+      ...v,
+      passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
+      manualLocking: false,
+    }));
   }
 
   @backgroundMethod()
@@ -594,10 +609,9 @@ export default class ServicePassword extends ServiceBase {
     }
     await this.clearCachedPassword();
     if (manual) {
-      await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
+      await passwordAtom.set((v) => ({ ...v, manualLocking: true }));
     }
     await passwordAtom.set((v) => ({ ...v, unLock: false }));
-    console.log('lockApp');
   }
 
   @backgroundMethod()

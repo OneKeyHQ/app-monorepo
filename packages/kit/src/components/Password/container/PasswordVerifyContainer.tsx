@@ -95,12 +95,18 @@ const PasswordVerifyContainer = ({
     ],
   );
   const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
+  const resetPasswordStatus = useCallback(() => {
+    void backgroundApiProxy.servicePassword.resetPasswordStatus();
+  }, []);
   useEffect(() => {
     setPasswordAtom((v) => ({
       ...v,
       passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
     }));
-  }, [setPasswordAtom]);
+    return () => {
+      resetPasswordStatus();
+    };
+  }, [setPasswordAtom, resetPasswordStatus]);
 
   const onBiologyAuthenticateExtLockAndNoCachePassword =
     useCallback(async () => {
