@@ -327,7 +327,6 @@ function AddCustomTokenModal() {
         {hasExistAccount ? undefined : (
           <Stack
             p="$5"
-            minHeight={90}
             $gtMd={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -339,7 +338,6 @@ function AddCustomTokenModal() {
               $gtMd={{
                 ml: 'auto',
               }}
-              flex={1}
               justifyContent="space-between"
             >
               <XStack alignItems="center" gap="$2">
