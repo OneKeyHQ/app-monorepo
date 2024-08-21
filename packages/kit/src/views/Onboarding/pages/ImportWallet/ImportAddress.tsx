@@ -355,7 +355,7 @@ function ImportAddress() {
                 {validateResult &&
                 !validateResult?.isValid &&
                 inputTextDebounced ? (
-                  <SizableText color="$textCritical">
+                  <SizableText size="$bodyMd" color="$textCritical">
                     {intl.formatMessage({
                       id: ETranslations.form_public_key_error_invalid,
                     })}

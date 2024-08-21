@@ -756,10 +756,14 @@ class ServiceAccount extends ServiceBase {
     input,
     networkId,
     deriveType,
+    name,
+    shouldCheckDuplicateName,
   }: {
     input: string;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
+    name?: string;
+    shouldCheckDuplicateName?: boolean;
   }) {
     ensureSensitiveTextEncoded(input);
     const walletId = WALLET_TYPE_IMPORTED;
@@ -772,6 +776,8 @@ class ServiceAccount extends ServiceBase {
       credential: privateKey,
       networkId,
       deriveType,
+      name,
+      shouldCheckDuplicateName,
     });
   }
 
@@ -782,9 +788,11 @@ class ServiceAccount extends ServiceBase {
     networkId,
     deriveType,
     name,
+    shouldCheckDuplicateName,
     skipAddIfNotEqualToAddress,
   }: {
     name?: string;
+    shouldCheckDuplicateName?: boolean;
     credential: string;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
@@ -800,6 +808,14 @@ class ServiceAccount extends ServiceBase {
       );
     }
     const walletId = WALLET_TYPE_IMPORTED;
+
+    if (shouldCheckDuplicateName && name) {
+      await localDb.ensureAccountNameNotDuplicate({
+        name,
+        walletId,
+      });
+    }
+
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,
       walletId,
@@ -994,11 +1010,12 @@ class ServiceAccount extends ServiceBase {
         'addWatchingAccount ERROR: networkId should not be all networks',
       );
     }
+    const walletId = WALLET_TYPE_WATCHING;
 
     if (name && shouldCheckDuplicateName) {
       await localDb.ensureAccountNameNotDuplicate({
         name,
-        walletId: WALLET_TYPE_WATCHING,
+        walletId,
       });
     }
 
@@ -1007,8 +1024,6 @@ class ServiceAccount extends ServiceBase {
       // eslint-disable-next-line no-param-reassign
       networkId = getNetworkIdsMap().eth;
     }
-
-    const walletId = WALLET_TYPE_WATCHING;
 
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
