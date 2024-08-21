@@ -12,6 +12,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import settings from '../vaults/impls/dot/settings';
@@ -230,6 +231,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: SignerPayloadJSON,
   ): Promise<ISignerResult> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this.findAccount(
       request,
       params.address,
@@ -261,6 +263,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: SignerPayloadRaw,
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this.findAccount(
       request,
       params.address,

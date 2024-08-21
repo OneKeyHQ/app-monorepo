@@ -1,6 +1,8 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../decorators';
 
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+
 export enum EEnterMethod {
   banner = 'banner',
   dashboard = 'dashboard',
@@ -34,6 +36,20 @@ export class DappScene extends BaseScene {
     walletAddress?: string;
     failReason?: string;
   }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public dappOpenModal(params: {
+    request: IJsBridgeMessagePayload;
+    screens: any[];
+    params?: any;
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public dappRequest(params: { request: IJsBridgeMessagePayload }) {
     return params;
   }
 }

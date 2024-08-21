@@ -17,6 +17,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -239,6 +240,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       signOptions?: any;
     },
   ): Promise<any> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const txWrapper = TransactionWrapper.fromAminoSignDoc(
       params.signDoc,
       undefined,
@@ -309,6 +311,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       signOptions?: any;
     },
   ): Promise<any> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const networkId = this.convertCosmosChainId(params.signDoc.chainId);
     if (!networkId) throw new Error('Invalid chainId');
 
@@ -383,6 +386,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       mode: string;
     },
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const networkId = this.convertCosmosChainId(params.chainId);
     if (!networkId) throw new Error('Invalid chainId');
 
@@ -411,6 +415,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     },
   ) {
     return this.signMessageSemaphore.runExclusive(async () => {
+      defaultLogger.discovery.dapp.dappRequest({ request });
       const paramsData = {
         data: params.data,
         signer: params.signer,
@@ -452,6 +457,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       data: string;
     },
   ): Promise<any> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const txInfo = await this.signArbitraryMessage(request, params);
 
     const [signerInfo] = txInfo.authInfo.signerInfos;
@@ -487,6 +493,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
     },
   ): Promise<any> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const txInfo = await this.signArbitraryMessage(request, params);
 
     const [signerInfo] = txInfo.authInfo.signerInfos;

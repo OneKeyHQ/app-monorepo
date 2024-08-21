@@ -7,6 +7,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { getPublicKey } from '../vaults/impls/near/utils';
 
@@ -164,6 +165,7 @@ class ProviderApiNear extends ProviderApiBase {
       send: boolean;
     },
   ): Promise<{ transactionHashes: string[] }> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { transactions } = params;
     const transactionHashes: string[] = [];
 

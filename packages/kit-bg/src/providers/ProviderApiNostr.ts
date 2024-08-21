@@ -10,6 +10,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -114,6 +115,7 @@ class ProviderApiNostr extends ProviderApiBase {
   public async signEvent(
     request: IJsBridgeMessagePayload,
   ): Promise<INostrEvent> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const params = (request.data as IJsonRpcRequest)?.params as {
       event: INostrEvent;
     };
@@ -171,6 +173,7 @@ class ProviderApiNostr extends ProviderApiBase {
 
   @providerApiMethod()
   public async encrypt(request: IJsBridgeMessagePayload): Promise<string> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId, walletId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
@@ -232,6 +235,7 @@ class ProviderApiNostr extends ProviderApiBase {
 
   @providerApiMethod()
   public async decrypt(request: IJsBridgeMessagePayload): Promise<string> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const result = await this.decryptMutex.runExclusive(() =>
       this.decryptRequest(request),
     );
@@ -292,6 +296,7 @@ class ProviderApiNostr extends ProviderApiBase {
 
   @providerApiMethod()
   public async signSchnorr(request: IJsBridgeMessagePayload): Promise<string> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId, walletId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
