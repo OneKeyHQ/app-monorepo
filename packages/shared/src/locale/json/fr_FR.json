@@ -1274,6 +1274,7 @@
   "send.label_transferred": "Transféré",
   "send.label_wallet_name": "Nom du portefeuille / Nom du compte",
   "send.max": "Max",
+  "send.memo_up_to_length": "Jusqu'à {number} caractères",
   "send.nft_does_not_exist": "Le NFT n'existe pas.",
   "send.no_route_found": "Aucun itinéraire trouvé.",
   "send.no_token_message": "Aucun jeton n'a été trouvé à cette adresse",

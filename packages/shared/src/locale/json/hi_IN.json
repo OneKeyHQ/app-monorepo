@@ -1274,6 +1274,7 @@
   "send.label_transferred": "स्थानांतरित",
   "send.label_wallet_name": "वॉलेट नाम / खाता नाम",
   "send.max": "अधिकतम",
+  "send.memo_up_to_length": "{number} वर्ण तक",
   "send.nft_does_not_exist": "NFT मौजूद नहीं है।",
   "send.no_route_found": "कोई मार्ग नहीं मिला।",
   "send.no_token_message": "इस पते पर कोई टोकन नहीं मिले",

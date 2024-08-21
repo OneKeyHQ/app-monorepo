@@ -1274,6 +1274,7 @@
   "send.label_transferred": "Đã chuyển",
   "send.label_wallet_name": "Tên ví / Tên tài khoản",
   "send.max": "Tối đa",
+  "send.memo_up_to_length": "Tối đa {number} ký tự",
   "send.nft_does_not_exist": "NFT không tồn tại.",
   "send.no_route_found": "Không tìm thấy tuyến đường.",
   "send.no_token_message": "Không tìm thấy token nào tại địa chỉ này",

@@ -9,6 +9,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -27,8 +29,6 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { getEndpoints } from '../endpoints';
 
 import ServiceBase from './ServiceBase';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
@@ -140,14 +140,16 @@ class ServiceDiscovery extends ServiceBase {
     }
     try {
       const result = await this._checkUrlSecurity(url);
-      return result
+      return result;
     } catch (e) {
       return {
         host: url,
         level: EHostSecurityLevel.Medium,
         attackTypes: [],
         phishingSite: false,
-        alert: appLocale.intl.formatMessage({ id: ETranslations.feedback_risk_detection_timed_out }),
+        alert: appLocale.intl.formatMessage({
+          id: ETranslations.feedback_risk_detection_timed_out,
+        }),
       } as IHostSecurity;
     }
   }
@@ -161,7 +163,7 @@ class ServiceDiscovery extends ServiceBase {
           params: {
             url,
           },
-          timeout: 5000
+          timeout: 5000,
         },
       );
       return res.data.data;

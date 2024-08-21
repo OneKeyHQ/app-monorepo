@@ -1274,6 +1274,7 @@
   "send.label_transferred": "Ditransfer",
   "send.label_wallet_name": "Nama Dompet / Nama Akun",
   "send.max": "Maksimum",
+  "send.memo_up_to_length": "Hingga {number} karakter",
   "send.nft_does_not_exist": "NFT tidak ada.",
   "send.no_route_found": "Tidak ada rute yang ditemukan.",
   "send.no_token_message": "Tidak ada token yang ditemukan di alamat ini",

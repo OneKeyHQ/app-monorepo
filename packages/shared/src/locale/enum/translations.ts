@@ -1275,6 +1275,7 @@ export enum ETranslations {
   send_label_transferred = 'send.label_transferred',
   send_label_wallet_name = 'send.label_wallet_name',
   send_max = 'send.max',
+  send_memo_up_to_length = 'send.memo_up_to_length',
   send_nft_does_not_exist = 'send.nft_does_not_exist',
   send_no_route_found = 'send.no_route_found',
   send_no_token_message = 'send.no_token_message',

@@ -60,6 +60,7 @@ const settings: IVaultSettings = {
   },
   hasFrozenBalance: true,
   withNote: true,
+  noteMaxLength: 512,
 };
 
 export default Object.freeze(settings);
