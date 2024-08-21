@@ -338,7 +338,6 @@ function AddCustomTokenModal() {
               $gtMd={{
                 ml: 'auto',
               }}
-              flex={1}
               justifyContent="space-between"
             >
               <XStack alignItems="center" gap="$2">
