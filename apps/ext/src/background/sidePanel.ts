@@ -5,11 +5,14 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
+import {
+  EXT_POP_UP_PORT_NAME,
+  SIDE_PANEL_PORT_NAME,
+} from '@onekeyhq/shared/types';
 
-const PORT_NAME = 'ONEKEY_SIDE_PANEL';
 export const setupSidePanelPortInBg = () => {
   chrome.runtime.onConnect.addListener((port) => {
-    if (port.name === PORT_NAME) {
+    if (port.name === SIDE_PANEL_PORT_NAME) {
       // reset side panel default path after 6 seconds
       //  to avoid the side panel being stuck in a modal on every time it opens.
 
@@ -22,10 +25,10 @@ export const setupSidePanelPortInBg = () => {
       let dappRejectId: string | number | undefined;
       const closeSidePanel = () => {
         sidePanelState.isOpen = false;
+        const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
         if (dappRejectId) {
-          const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
           void backgroundApiProxy.servicePromise.rejectCallback({
             id: dappRejectId,
             error: new Error(
@@ -33,6 +36,7 @@ export const setupSidePanelPortInBg = () => {
             ),
           });
         }
+        void backgroundApiProxy.servicePassword.resetPasswordStatus();
       };
 
       port.onMessage.addListener(
@@ -56,6 +60,14 @@ export const setupSidePanelPortInBg = () => {
 
       appEventBus.on(EAppEventBusNames.SidePanel_BgToUI, (params) => {
         port.postMessage(params);
+      });
+    }
+    if (port.name === EXT_POP_UP_PORT_NAME) {
+      port.onDisconnect.addListener(() => {
+        const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+        void backgroundApiProxy.servicePassword.resetPasswordStatus();
       });
     }
   });
