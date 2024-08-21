@@ -9,6 +9,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -106,6 +107,7 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: { message: string },
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
@@ -131,6 +133,7 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: { message: string[] },
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { message: txsToBeSigned } = params;
 
     if (
@@ -156,6 +159,7 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: { message: string; options?: ISolanaSendOptions },
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { message } = params;
 
     if (!isString(message)) {
@@ -189,6 +193,7 @@ class ProviderApiSolana extends ProviderApiBase {
       display?: 'hex' | 'utf8';
     },
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { message, display = 'utf8' } = params;
 
     const { accountInfo: { accountId, networkId, address } = {} } = (
@@ -221,6 +226,7 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params?: { onlyIfTrusted: boolean },
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { onlyIfTrusted = false } = params || {};
 
     let publicKey = (await this._getConnectedAccountsPublicKey(request))[0];
