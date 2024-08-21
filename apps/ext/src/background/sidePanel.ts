@@ -74,7 +74,7 @@ export const setupSidePanelPortInBg = () => {
 };
 
 export const setupSidePanelPortInUI = () => {
-  const port = chrome.runtime.connect({ name: PORT_NAME });
+  const port = chrome.runtime.connect({ name: SIDE_PANEL_PORT_NAME });
   port.onMessage.addListener(
     ({
       type,
