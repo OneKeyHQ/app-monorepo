@@ -88,7 +88,7 @@ function DAppRiskyAlert({
       type={riskStyle.type as IAlertType}
       title={urlSecurityInfo?.alert ?? ''}
       icon={riskStyle.alertIcon as IKeyOfIcons}
-      action={{
+      action={urlSecurityInfo?.detail ? {
         primary: intl.formatMessage({ id: ETranslations.global_details }),
         onPrimaryPress: () => {
           Dialog.show({
@@ -96,8 +96,9 @@ function DAppRiskyAlert({
             renderContent: DialogContent,
             showFooter: false,
           });
-        },
-      }}
+          },
+        }
+      : undefined}
       borderTopWidth={0}
     />
   );
