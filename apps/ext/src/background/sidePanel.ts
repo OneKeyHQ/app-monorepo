@@ -5,11 +5,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
-import {
-  EXT_POP_UP_PORT_NAME,
-  SIDE_PANEL_PORT_NAME,
-} from '@onekeyhq/shared/types';
 
+const SIDE_PANEL_PORT_NAME = 'ONEKEY_SIDE_PANEL';
 export const setupSidePanelPortInBg = () => {
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name === SIDE_PANEL_PORT_NAME) {
@@ -36,7 +33,6 @@ export const setupSidePanelPortInBg = () => {
             ),
           });
         }
-        void backgroundApiProxy.servicePassword.resetPasswordStatus();
       };
 
       port.onMessage.addListener(
@@ -60,14 +56,6 @@ export const setupSidePanelPortInBg = () => {
 
       appEventBus.on(EAppEventBusNames.SidePanel_BgToUI, (params) => {
         port.postMessage(params);
-      });
-    }
-    if (port.name === EXT_POP_UP_PORT_NAME) {
-      port.onDisconnect.addListener(() => {
-        const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
-        void backgroundApiProxy.servicePassword.resetPasswordStatus();
       });
     }
   });
