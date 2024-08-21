@@ -154,7 +154,7 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('Invalid transferInfo.to params');
     }
-    const { from, to, amount, tokenInfo } = transferInfo;
+    const { from, to, amount, tokenInfo, note } = transferInfo;
 
     if (!tokenInfo) {
       throw new Error(
@@ -163,6 +163,7 @@ export default class Vault extends VaultBase {
     }
 
     const suggestedParams = await this._getSuggestedParams();
+    const txNote = note ? new Uint8Array(Buffer.from(note)) : undefined;
     if (tokenInfo.isNative) {
       return sdkAlgo.makePaymentTxnWithSuggestedParamsFromObject({
         amount: BigInt(
@@ -171,6 +172,7 @@ export default class Vault extends VaultBase {
         from,
         to,
         suggestedParams,
+        note: txNote,
       });
     }
 
@@ -182,6 +184,7 @@ export default class Vault extends VaultBase {
       from,
       to,
       suggestedParams,
+      note: txNote,
     });
   }
 
@@ -232,7 +235,7 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: {
-        note: trim(notes.join(' ')),
+        note: notes.join(' '),
         groupId,
       },
       encodedTx,
