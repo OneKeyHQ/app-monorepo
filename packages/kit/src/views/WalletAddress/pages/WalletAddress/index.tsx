@@ -345,6 +345,7 @@ const WalletAddressContent = ({
         />
       </Stack>
       <SectionList
+        estimatedItemSize={60}
         stickySectionHeadersEnabled
         sections={sections}
         renderSectionHeader={renderSectionHeader}
