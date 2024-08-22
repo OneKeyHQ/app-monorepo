@@ -16,6 +16,8 @@ const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 29;
 const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 52;
 
 export function encodeVarInt(number: number) {
+  // eslint-disable-next-line spellcheck/spell-checker
+  // Here, we follow the implementation of the js demo provided by dnx. We must follow this method to calculate the correct value (if we use bignumber to calculate, the result will be incorrect when the value exceeds a certain value). The dnx demo has modified the biginteger, and we have implemented it with a patch.
   let numberBI = new BigInteger(number);
   let out = '';
   while (numberBI.compare(0x80) >= 0) {
