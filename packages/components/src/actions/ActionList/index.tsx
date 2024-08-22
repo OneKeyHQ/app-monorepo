@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { type GestureResponderEvent } from 'react-native';
@@ -121,7 +121,7 @@ export interface IActionListProps
     // TODO use cloneElement to override onClose props
     handleActionListClose: () => void;
     handleActionListOpen: () => void;
-  }) => React.ReactNode;
+  }) => React.ReactNode | Promise<React.ReactNode>;
 }
 
 const useDefaultOpen = (defaultOpen: boolean) => {
@@ -156,6 +156,8 @@ function BasicActionList({
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
+  const [asyncItems, setAsyncItems] = useState<ReactNode>(null);
+
   const handleOpenStatusChange = useCallback(
     (openStatus: boolean) => {
       setOpenStatus(openStatus);
@@ -169,6 +171,18 @@ function BasicActionList({
   const handleActionListClose = useCallback(() => {
     handleOpenStatusChange(false);
   }, [handleOpenStatusChange]);
+
+  useEffect(() => {
+    if (renderItems && isOpen) {
+      void (async () => {
+        const asyncItemsToRender = await renderItems({
+          handleActionListClose,
+          handleActionListOpen,
+        });
+        setAsyncItems(asyncItemsToRender);
+      })();
+    }
+  }, [handleActionListClose, handleActionListOpen, isOpen, renderItems]);
 
   const renderActionListItem = (item: IActionListItemProps) => (
     <ActionListItem
@@ -204,10 +218,7 @@ function BasicActionList({
               {section.items.map(renderActionListItem)}
             </YStack>
           ))}
-
-          {renderItems
-            ? renderItems({ handleActionListClose, handleActionListOpen })
-            : null}
+          {asyncItems}
         </YStack>
       }
       floatingPanelProps={{
