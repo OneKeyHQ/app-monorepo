@@ -613,12 +613,14 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               index,
               item,
               drag,
+              dragProps,
               section,
             }: {
               index: number;
               item: IDBIndexedAccount | IDBAccount;
               section: IAccountSelectorAccountsListSectionData;
               drag?: () => void;
+              dragProps?: Record<string, any>;
             }) => {
               const account = isOthersUniversal
                 ? (item as IDBAccount)
@@ -732,16 +734,17 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                       }
                     />
                   )}
-                  // childrenBefore={
-                  //   editMode ? (
-                  //     <ListItem.IconButton
-                  //       mr="$1"
-                  //       cursor="move"
-                  //       icon="DragOutline"
-                  //       onPressIn={drag}
-                  //     />
-                  //   ) : null
-                  // }
+                  childrenBefore={
+                    editMode ? (
+                      <ListItem.IconButton
+                        mr="$1"
+                        cursor="move"
+                        icon="DragOutline"
+                        onPressIn={drag}
+                        dataSet={dragProps}
+                      />
+                    ) : null
+                  }
                   {...(!editMode && {
                     onPress: canConfirmAccountSelectPress
                       ? async () => {

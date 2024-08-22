@@ -1792,6 +1792,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@babel/runtime@npm:^7.15.4":
+  version: 7.25.0
+  resolution: "@babel/runtime@npm:7.25.0"
+  dependencies:
+    regenerator-runtime: "npm:^0.14.0"
+  checksum: 10/6870e9e0e9125075b3aeba49a266f442b10820bfc693019eb6c1785c5a0edbe927e98b8238662cdcdba17842107c040386c3b69f39a0a3b217f9d00ffe685b27
+  languageName: node
+  linkType: hard
+
 "@babel/runtime@npm:^7.23.4":
   version: 7.24.4
   resolution: "@babel/runtime@npm:7.24.4"
@@ -6027,6 +6036,7 @@ __metadata:
     "@types/memoizee": "npm:^0.4.10"
     "@types/punycode": "npm:^2"
     "@types/react": "npm:^18.2.29"
+    "@types/react-beautiful-dnd": "npm:13.1.8"
     "@types/react-dom": "npm:~18.3.0"
     "@types/web": "npm:0.0.151"
     "@typescript-eslint/eslint-plugin": "npm:^5.46.1"
@@ -6104,6 +6114,7 @@ __metadata:
     progress-bar-webpack-plugin: "npm:^2.1.0"
     punycode: "npm:^2.3.1"
     react: "npm:18.2.0"
+    react-beautiful-dnd: "npm:13.1.1"
     react-dev-utils: "npm:^12.0.1"
     react-dom: "npm:18.2.0"
     react-mobile-cropper: "npm:^0.10.0"
@@ -11954,7 +11965,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/hoist-non-react-statics@npm:^3.3.1":
+"@types/hoist-non-react-statics@npm:^3.3.0, @types/hoist-non-react-statics@npm:^3.3.1":
   version: 3.3.5
   resolution: "@types/hoist-non-react-statics@npm:3.3.5"
   dependencies:
@@ -12295,6 +12306,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/react-beautiful-dnd@npm:13.1.8":
+  version: 13.1.8
+  resolution: "@types/react-beautiful-dnd@npm:13.1.8"
+  dependencies:
+    "@types/react": "npm:*"
+  checksum: 10/cb8a182ed0ea6f680c7c343fcb4e54237437ca90dc88c2a70f4a203ec8ad0740e389e3ab7772c8cc1479f05e5a046bccbc33d54055b94e0fe5b22be030ab23d2
+  languageName: node
+  linkType: hard
+
 "@types/react-dom@npm:~18.3.0":
   version: 18.3.0
   resolution: "@types/react-dom@npm:18.3.0"
@@ -12311,6 +12331,18 @@ __metadata:
     "@types/react": "npm:*"
     react-native: "npm:*"
   checksum: 10/bd8011a7f5f214e9bd58be9cdcab90b9a39529f9d39b39356bb55bad47d764c5919ad1fb2d358f1acf276dc88ed75fd2ac5cf6a6a6eb1176cec2580f21babfe0
+  languageName: node
+  linkType: hard
+
+"@types/react-redux@npm:^7.1.20":
+  version: 7.1.33
+  resolution: "@types/react-redux@npm:7.1.33"
+  dependencies:
+    "@types/hoist-non-react-statics": "npm:^3.3.0"
+    "@types/react": "npm:*"
+    hoist-non-react-statics: "npm:^3.3.0"
+    redux: "npm:^4.0.0"
+  checksum: 10/65f4e0a3f0e532bbbe44ae6522d1fce91bfcb3bacc90904c35d3f819e77932cc489b6945988acb4a2320f6e78c57dd1c149556aa241a68efc51de15a2cd73fc0
   languageName: node
   linkType: hard
 
@@ -17412,6 +17444,15 @@ __metadata:
   version: 2.0.0
   resolution: "crypto-random-string@npm:2.0.0"
   checksum: 10/0283879f55e7c16fdceacc181f87a0a65c53bc16ffe1d58b9d19a6277adcd71900d02bb2c4843dd55e78c51e30e89b0fec618a7f170ebcc95b33182c28f05fd6
+  languageName: node
+  linkType: hard
+
+"css-box-model@npm:^1.2.0":
+  version: 1.2.1
+  resolution: "css-box-model@npm:1.2.1"
+  dependencies:
+    tiny-invariant: "npm:^1.0.6"
+  checksum: 10/54778883733e59058b5de983cf442b9db6c1494543d4d84a3defd05b51b991a1865f59e4ae424e733af2aa1fdb6e0bd905cb73db0e7e548fbd89853859fedc81
   languageName: node
   linkType: hard
 
@@ -29758,6 +29799,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"raf-schd@npm:^4.0.2":
+  version: 4.0.3
+  resolution: "raf-schd@npm:4.0.3"
+  checksum: 10/45514041c5ad31fa96aef3bb3c572a843b92da2f2cd1cb4a47c9ad58e48761d3a4126e18daa32b2bfa0bc2551a42d8f324a0e40e536cb656969929602b4e8b58
+  languageName: node
+  linkType: hard
+
 "randombytes@npm:^2.0.0, randombytes@npm:^2.0.1, randombytes@npm:^2.0.5, randombytes@npm:^2.1.0":
   version: 2.1.0
   resolution: "randombytes@npm:2.1.0"
@@ -29829,6 +29877,24 @@ __metadata:
   peerDependencies:
     react: ">=16.8"
   checksum: 10/3f7cb29368011fc9a14cb8a248d289dea228ead3e7c53c34ff3c1540246a2f6e8fe6af2dded9cafe5253e09fea5d11d25d71684a09fb2000190897d51deb2818
+  languageName: node
+  linkType: hard
+
+"react-beautiful-dnd@npm:13.1.1":
+  version: 13.1.1
+  resolution: "react-beautiful-dnd@npm:13.1.1"
+  dependencies:
+    "@babel/runtime": "npm:^7.9.2"
+    css-box-model: "npm:^1.2.0"
+    memoize-one: "npm:^5.1.1"
+    raf-schd: "npm:^4.0.2"
+    react-redux: "npm:^7.2.0"
+    redux: "npm:^4.0.4"
+    use-memo-one: "npm:^1.1.1"
+  peerDependencies:
+    react: ^16.8.5 || ^17.0.0 || ^18.0.0
+    react-dom: ^16.8.5 || ^17.0.0 || ^18.0.0
+  checksum: 10/2de8162a74f7fc78294e5a928b92d3fff02c579d137a25d53b1ab4313abeb108709bb7281512f7f94d18257de3122b8c85cb5a8375113cb8657088b1a9bda65b
   languageName: node
   linkType: hard
 
@@ -30000,7 +30066,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-is@npm:^17.0.1":
+"react-is@npm:^17.0.1, react-is@npm:^17.0.2":
   version: 17.0.2
   resolution: "react-is@npm:17.0.2"
   checksum: 10/73b36281e58eeb27c9cc6031301b6ae19ecdc9f18ae2d518bdb39b0ac564e65c5779405d623f1df9abf378a13858b79442480244bd579968afc1faf9a2ce5e05
@@ -30837,6 +30903,27 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-redux@npm:^7.2.0":
+  version: 7.2.9
+  resolution: "react-redux@npm:7.2.9"
+  dependencies:
+    "@babel/runtime": "npm:^7.15.4"
+    "@types/react-redux": "npm:^7.1.20"
+    hoist-non-react-statics: "npm:^3.3.2"
+    loose-envify: "npm:^1.4.0"
+    prop-types: "npm:^15.7.2"
+    react-is: "npm:^17.0.2"
+  peerDependencies:
+    react: ^16.8.3 || ^17 || ^18
+  peerDependenciesMeta:
+    react-dom:
+      optional: true
+    react-native:
+      optional: true
+  checksum: 10/1c3018bd2601e6d18339281867910b583dcbb3d8856403086e08c00abf0dfe467a94c0d1356bafa8cdf107bf1e2c9899a28486e4778e85c8bc4dfed2076b116f
+  languageName: node
+  linkType: hard
+
 "react-redux@npm:^8.0.5":
   version: 8.1.3
   resolution: "react-redux@npm:8.1.3"
@@ -31207,7 +31294,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"redux@npm:^4.0.0, redux@npm:^4.2.1":
+"redux@npm:^4.0.0, redux@npm:^4.0.4, redux@npm:^4.2.1":
   version: 4.2.1
   resolution: "redux@npm:4.2.1"
   dependencies:
@@ -34190,6 +34277,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"tiny-invariant@npm:^1.0.6":
+  version: 1.3.3
+  resolution: "tiny-invariant@npm:1.3.3"
+  checksum: 10/5e185c8cc2266967984ce3b352a4e57cb89dad5a8abb0dea21468a6ecaa67cd5bb47a3b7a85d08041008644af4f667fb8b6575ba38ba5fb00b3b5068306e59fe
+  languageName: node
+  linkType: hard
+
 "tiny-secp256k1@npm:^1.1.1, tiny-secp256k1@npm:^1.1.3":
   version: 1.1.6
   resolution: "tiny-secp256k1@npm:1.1.6"
@@ -35193,6 +35287,15 @@ __metadata:
   peerDependencies:
     react: ">=16.8"
   checksum: 10/620969d85763b65aca5f9b601c31eb476a8f7602cfccfb3c0f9dc60ff3b863e04dd64360ada255e15606771513de33b25e4631607d702605b26630f61381b3d4
+  languageName: node
+  linkType: hard
+
+"use-memo-one@npm:^1.1.1":
+  version: 1.1.3
+  resolution: "use-memo-one@npm:1.1.3"
+  peerDependencies:
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0
+  checksum: 10/8f08eba26d69406b61bb4b8dacdd5a92bd6aef5b53d346dfe87954f7330ee10ecabc937cc7854635155d46053828e85c10b5a5aff7a04720e6a97b9f42999bac
   languageName: node
   linkType: hard
 
