@@ -298,10 +298,12 @@ export const EditableChainSelectorContent = ({
       item,
       section,
       drag,
+      dragProps,
     }: {
       item: IServerNetwork;
       section: IEditableChainSelectorSection;
       drag?: () => void;
+      dragProps?: Record<string, any>;
     }) => (
       <EditableListItem
         item={item}
@@ -309,6 +311,7 @@ export const EditableChainSelectorContent = ({
         isDisabled={section.unavailable}
         isEditable={section.editable}
         drag={drag}
+        dragProps={dragProps}
       />
     ),
     [],
@@ -367,7 +370,7 @@ export const EditableChainSelectorContent = ({
               }}
               initialScrollIndex={initialScrollIndex}
               dragItemOverflowHitSlop={dragItemOverflowHitSlop}
-              getItemLayout={(item, index) => {
+              getItemLayout={(_, index) => {
                 if (index === -1) {
                   return { index, offset: 0, length: 0 };
                 }
