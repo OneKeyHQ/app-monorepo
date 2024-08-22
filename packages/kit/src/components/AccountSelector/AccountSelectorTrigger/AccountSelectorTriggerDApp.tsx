@@ -97,9 +97,21 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
         );
       }
       return (
-        <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-          {`${walletName} / ${accountName}`}
-        </SizableText>
+        <XStack>
+          <XStack maxWidth="$40">
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {walletName}
+            </SizableText>
+          </XStack>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            /
+          </SizableText>
+          <XStack maxWidth="$40">
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {accountName}
+            </SizableText>
+          </XStack>
+        </XStack>
       );
     }, [isLoading, accountName, walletName]);
     const renderAddressText = useCallback(() => {
