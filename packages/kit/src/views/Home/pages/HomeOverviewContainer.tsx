@@ -129,18 +129,22 @@ function HomeOverviewContainer() {
       accountWorth.initialized &&
       account.id === accountWorth.accountId
     ) {
-      if (
-        (accountUtils.isOthersAccount({ accountId: account.id }) &&
-          !network.isAllNetworks &&
-          account.createAtNetwork === network.id) ||
-        (!accountUtils.isOthersAccount({ accountId: account.id }) &&
-          network.isAllNetworks)
+      if (accountUtils.isOthersAccount({ accountId: account.id })) {
+        if (!network.isAllNetworks && account.createAtNetwork !== network.id)
+          return;
+
+        const accountValueId = account.id;
+
+        void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+          accountId: accountValueId,
+          value: accountWorth.createAtNetworkWorth,
+          currency: settings.currencyInfo.id,
+        });
+      } else if (
+        !accountUtils.isOthersAccount({ accountId: account.id }) &&
+        network.isAllNetworks
       ) {
-        const accountValueId = accountUtils.isOthersAccount({
-          accountId: account.id,
-        })
-          ? account.id
-          : (account.indexedAccountId as string);
+        const accountValueId = account.indexedAccountId as string;
 
         void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
           accountId: accountValueId,
@@ -152,6 +156,7 @@ function HomeOverviewContainer() {
   }, [
     account,
     accountWorth.accountId,
+    accountWorth.createAtNetworkWorth,
     accountWorth.initialized,
     accountWorth.worth,
     network,
