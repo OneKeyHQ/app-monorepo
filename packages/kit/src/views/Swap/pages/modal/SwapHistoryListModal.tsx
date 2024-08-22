@@ -4,6 +4,8 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  ActionList,
+  Button,
   Dialog,
   Empty,
   Heading,
@@ -15,7 +17,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -120,22 +121,78 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
   const onDeleteHistory = useCallback(() => {
     // dialog
     if (!swapTxHistoryList?.length) return;
-    Dialog.confirm({
+    Dialog.show({
+      description: intl.formatMessage({
+        id: ETranslations.swap_history_all_history_content,
+      }),
       title: intl.formatMessage({
-        id: ETranslations.swap_history_detail_delete_title,
+        id: ETranslations.swap_history_all_history_title,
       }),
       onConfirm: () => {
         void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems();
       },
       onConfirmText: intl.formatMessage({
-        id: ETranslations.swap_history_detail_delete_confirm,
+        id: ETranslations.global_clear,
       }),
+      onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
   }, [intl, swapTxHistoryList?.length]);
 
+  const onDeletePendingHistory = useCallback(() => {
+    // dialog
+    if (
+      !swapTxHistoryList?.some(
+        (item) => item.status === ESwapTxHistoryStatus.PENDING,
+      )
+    )
+      return;
+    Dialog.show({
+      description: intl.formatMessage({
+        id: ETranslations.swap_history_pending_history_content,
+      }),
+      title: intl.formatMessage({
+        id: ETranslations.swap_history_pending_history_title,
+      }),
+      onConfirm: () => {
+        void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems([
+          ESwapTxHistoryStatus.PENDING,
+        ]);
+      },
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_clear,
+      }),
+      onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
+    });
+  }, [intl, swapTxHistoryList]);
+
   const deleteButton = useCallback(
-    () => <HeaderIconButton onPress={onDeleteHistory} icon="DeleteOutline" />,
-    [onDeleteHistory],
+    () => (
+      <ActionList
+        title={intl.formatMessage({
+          id: ETranslations.global_clear,
+        })}
+        items={[
+          {
+            label: intl.formatMessage({
+              id: ETranslations.swap_history_pending_history,
+            }),
+            onPress: onDeletePendingHistory,
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.swap_history_all_history,
+            }),
+            onPress: onDeleteHistory,
+          },
+        ]}
+        renderTrigger={
+          <Button variant="tertiary">
+            {intl.formatMessage({ id: ETranslations.global_clear })}
+          </Button>
+        }
+      />
+    ),
+    [intl, onDeleteHistory, onDeletePendingHistory],
   );
 
   const renderItem = useCallback(
