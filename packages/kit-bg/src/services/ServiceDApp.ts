@@ -17,6 +17,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import {
@@ -121,6 +122,11 @@ class ServiceDApp extends ServiceBase {
     params?: any;
     fullScreen?: boolean;
   }) {
+    defaultLogger.discovery.dapp.dappOpenModal({
+      request,
+      screens,
+      params,
+    });
     // Try to open an existing window anyway in the extension
     this.tryOpenExistingExtensionWindow();
 
