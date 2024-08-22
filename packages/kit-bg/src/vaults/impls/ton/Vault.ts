@@ -107,7 +107,7 @@ export default class Vault extends VaultBase {
           transfer.tokenInfo?.symbol &&
           network.symbol !== transfer.tokenInfo.symbol
         ) {
-          const fwdFee = TonWeb.utils.toNano('0.01').toString();
+          const fwdFee = ''; // when use forward_payload, need to set fwdFee
           msg.amount = TonWeb.utils.toNano('0.05').toString();
           const jettonAddress = transfer.tokenInfo.address;
           const { payload } = await encodeJettonPayload({
