@@ -25,41 +25,76 @@ type IStakingListItemProps = {
 const StakingAprAd = ({
   aprValue,
   onPress,
+  oldOnPress,
 }: {
   aprValue: string | number;
   onPress: () => void;
+  oldOnPress: () => void;
 }) => {
   const intl = useIntl();
   return (
-    <ListItem
-      drillIn
-      onPress={onPress}
-      py="$3"
-      px="$5"
-      mx="$0"
-      bg="$bgSuccessSubdued"
-      hoverStyle={{ bg: '$bgSuccess' }}
-      pressStyle={{ bg: '$bgSuccess' }}
-      borderTopWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderSubdued"
-      borderRadius="$0"
-    >
-      <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
-        <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
-      </Stack>
-      <ListItem.Text
-        flex={1}
-        primary={intl.formatMessage({ id: ETranslations.earn_stake_and_earn })}
-        secondary={intl.formatMessage(
-          { id: ETranslations.earn_up_to_number_in_annual_rewards },
-          { number: `${aprValue}%` },
-        )}
-        secondaryTextProps={{
-          size: '$bodyMdMedium',
-          color: '$textSuccess',
-        }}
-      />
-    </ListItem>
+    <>
+      <ListItem
+        drillIn
+        onPress={onPress}
+        py="$3"
+        px="$5"
+        mx="$0"
+        bg="$bgSuccessSubdued"
+        hoverStyle={{ bg: '$bgSuccess' }}
+        pressStyle={{ bg: '$bgSuccess' }}
+        borderTopWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderRadius="$0"
+      >
+        <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
+          <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
+        </Stack>
+        <ListItem.Text
+          flex={1}
+          primary={intl.formatMessage({
+            id: ETranslations.earn_stake_and_earn,
+          })}
+          secondary={intl.formatMessage(
+            { id: ETranslations.earn_up_to_number_in_annual_rewards },
+            { number: `${aprValue}%` },
+          )}
+          secondaryTextProps={{
+            size: '$bodyMdMedium',
+            color: '$textSuccess',
+          }}
+        />
+      </ListItem>
+      <ListItem
+        drillIn
+        onPress={oldOnPress}
+        py="$3"
+        px="$5"
+        mx="$0"
+        bg="$bgSuccessSubdued"
+        hoverStyle={{ bg: '$bgSuccess' }}
+        pressStyle={{ bg: '$bgSuccess' }}
+        borderTopWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderRadius="$0"
+      >
+        <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
+          <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
+        </Stack>
+        <ListItem.Text
+          flex={1}
+          primary="旧版入口"
+          secondary={intl.formatMessage(
+            { id: ETranslations.earn_up_to_number_in_annual_rewards },
+            { number: `${aprValue}%` },
+          )}
+          secondaryTextProps={{
+            size: '$bodyMdMedium',
+            color: '$textSuccess',
+          }}
+        />
+      </ListItem>
+    </>
   );
 };
 
@@ -71,6 +106,12 @@ const MaticStakingAprAd = ({ networkId, accountId }: IStakingListItemProps) => {
   );
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.EarnTokenDetail,
+      params: { networkId, accountId },
+    });
+  }, [navigation, networkId, accountId]);
+  const oldOnPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.MaticLidoOverview,
       params: { networkId, accountId },
     });
@@ -79,7 +120,13 @@ const MaticStakingAprAd = ({ networkId, accountId }: IStakingListItemProps) => {
     return null;
   }
   const aprValue = result[0].apr;
-  return <StakingAprAd aprValue={aprValue} onPress={onPress} />;
+  return (
+    <StakingAprAd
+      aprValue={aprValue}
+      onPress={onPress}
+      oldOnPress={oldOnPress}
+    />
+  );
 };
 
 const EthStakingListItem = ({
@@ -91,7 +138,14 @@ const EthStakingListItem = ({
     () => backgroundApiProxy.serviceStaking.getApr('eth'),
     [],
   );
+
   const onPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.EarnTokenDetail,
+      params: { networkId, accountId },
+    });
+  }, [navigation, networkId, accountId]);
+  const oldOnPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.EthLidoOverview,
       params: { networkId, accountId },
@@ -101,7 +155,13 @@ const EthStakingListItem = ({
     return null;
   }
   const aprValue = result[0].apr;
-  return <StakingAprAd aprValue={aprValue} onPress={onPress} />;
+  return (
+    <StakingAprAd
+      aprValue={aprValue}
+      onPress={onPress}
+      oldOnPress={oldOnPress}
+    />
+  );
 };
 
 export const StakingApr = ({
