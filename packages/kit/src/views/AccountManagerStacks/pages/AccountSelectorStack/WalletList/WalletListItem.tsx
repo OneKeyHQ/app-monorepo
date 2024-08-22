@@ -37,7 +37,6 @@ export function WalletListItem({
   };
   let walletName = wallet?.name;
   let selected = focusedWallet === wallet?.id;
-  let shouldOnPress = true;
   let onPress = () => wallet?.id && onWalletPress(wallet?.id);
   let onLongPress = () => wallet?.id && onWalletLongPress?.(wallet?.id);
   if (isOthers) {
@@ -97,37 +96,7 @@ export function WalletListItem({
         }}
         {...(!platformEnv.isNative
           ? {
-              onPress: () => {
-                if (shouldOnPress) {
-                  onPress();
-                }
-              },
-              onMouseMove: (e: {
-                nativeEvent: {
-                  which: number;
-                  movementX: number;
-                  movementY: number;
-                };
-              }) => {
-                if (e?.nativeEvent?.which !== 1) {
-                  return;
-                }
-                if (
-                  Math.abs(e.nativeEvent.movementX) +
-                    Math.abs(e.nativeEvent.movementY) ===
-                  0
-                ) {
-                  return;
-                }
-                if (!shouldOnPress) {
-                  return;
-                }
-                onLongPress();
-                shouldOnPress = false;
-              },
-              onPressIn: () => {
-                shouldOnPress = true;
-              },
+              onPress,
             }
           : undefined)}
         {...rest}

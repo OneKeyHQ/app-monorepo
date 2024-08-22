@@ -228,7 +228,7 @@ function ModalNavigator({
           justifyContent: 'center',
           alignItems: 'center',
         }}
-        onPressIn={handleBackdropClick}
+        onPress={handleBackdropClick}
       >
         {currentRouteIndex <= 1 ? (
           <YStack
@@ -244,7 +244,7 @@ function ModalNavigator({
         ) : null}
 
         <Stack
-          onPressIn={stopPropagation}
+          onPress={stopPropagation}
           testID="APP-Modal-Screen"
           className="app-region-no-drag"
           bg="$bgApp"
