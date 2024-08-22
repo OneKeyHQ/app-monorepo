@@ -90,7 +90,7 @@ export function AboutDeviceInfo({
   const throttledGetFeaturesWithoutCache = useCallback(
     (params: { connectId: string }) => {
       const now = Date.now();
-      const throttleTime = timerUtils.getTimeDurationMs({ seconds: 30 });
+      const throttleTime = timerUtils.getTimeDurationMs({ seconds: 5 });
       if (now - lastFetchTime < throttleTime) {
         return null;
       }

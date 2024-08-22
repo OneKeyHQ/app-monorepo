@@ -9,6 +9,7 @@ import {
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
   sortTokensByFiatValue,
+  sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -208,6 +209,23 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             tokens: newTokens,
             map: mergedTokenListMap,
           });
+
+          const index = newTokens.findIndex((token) =>
+            new BigNumber(
+              mergedTokenListMap[token.$key]?.fiatValue ?? 0,
+            ).isZero(),
+          );
+
+          if (index > -1) {
+            const tokensWithBalance = newTokens.slice(0, index);
+            let tokensWithZeroBalance = newTokens.slice(index);
+
+            tokensWithZeroBalance = sortTokensByOrder({
+              tokens: tokensWithZeroBalance,
+            });
+
+            newTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
+          }
 
           if (split) {
             const highValueTokens = newTokens.slice(

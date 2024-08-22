@@ -593,7 +593,9 @@ class ServiceAccountSelector extends ServiceBase {
         title: title ?? '',
         data: accounts,
         walletId,
-        emptyText: 'No accounts',
+        emptyText: appLocale.intl.formatMessage({
+          id: ETranslations.no_account,
+        }),
       };
     };
     if (focusedWallet === '$$others') {
@@ -629,6 +631,8 @@ class ServiceAccountSelector extends ServiceBase {
       ];
     }
     const walletId = focusedWallet;
+
+    // make sure wallet exists
     try {
       await serviceAccount.getWallet({ walletId });
     } catch (error) {
@@ -645,12 +649,16 @@ class ServiceAccountSelector extends ServiceBase {
       });
       if (linkedNetworkId) {
         accounts = accounts
-          .filter((account) =>
-            accountUtils.isAccountCompatibleWithNetwork({
-              account,
-              networkId: linkedNetworkId,
-            }),
-          )
+          .filter((account) => {
+            try {
+              return accountUtils.isAccountCompatibleWithNetwork({
+                account,
+                networkId: linkedNetworkId,
+              });
+            } catch (error) {
+              return false;
+            }
+          })
           .filter(Boolean);
       }
       return [
@@ -759,28 +767,48 @@ class ServiceAccountSelector extends ServiceBase {
       deriveType,
     });
 
-    const focusedWalletInfo = await this.getFocusedWalletInfo({
-      focusedWallet,
-    });
+    let focusedWalletInfo:
+      | {
+          wallet: IDBWallet;
+          device: IDBDevice | undefined;
+        }
+      | undefined;
+    try {
+      focusedWalletInfo = await this.getFocusedWalletInfo({
+        focusedWallet,
+      });
+    } catch (error) {
+      //
+    }
 
-    const accountsForValuesQuery: {
-      accountId: string;
-    }[] = [];
     let accountsCount = 0;
+    let accountsValue: {
+      accountId: string;
+      value: string | undefined;
+      currency: string | undefined;
+    }[] = [];
 
-    sectionData?.forEach?.((s) => {
-      s?.data?.forEach?.((account) => {
-        accountsCount += 1;
-        accountsForValuesQuery.push({
-          accountId: account.id,
+    try {
+      const accountsForValuesQuery: {
+        accountId: string;
+      }[] = [];
+
+      sectionData?.forEach?.((s) => {
+        s?.data?.forEach?.((account) => {
+          accountsCount += 1;
+          accountsForValuesQuery.push({
+            accountId: account.id,
+          });
         });
       });
-    });
 
-    const accountsValue =
-      await this.backgroundApi.serviceAccountProfile.getAccountsValue({
-        accounts: accountsForValuesQuery,
-      });
+      accountsValue =
+        await this.backgroundApi.serviceAccountProfile.getAccountsValue({
+          accounts: accountsForValuesQuery,
+        });
+    } catch (error) {
+      //
+    }
 
     return {
       sectionData,

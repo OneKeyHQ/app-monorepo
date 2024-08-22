@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -7,6 +7,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import type {
   ICheckedState,
   IPageScreenProps,
+  ISelectRenderTriggerProps,
   ISizableTextProps,
 } from '@onekeyhq/components';
 import {
@@ -36,6 +37,7 @@ import {
 import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IBatchBuildAccountsAdvancedFlowParams,
@@ -70,6 +72,30 @@ import { showBatchCreateAccountProcessingDialog } from './ProcessingDialog';
 
 import type { IBatchCreateAccountFormValues } from './BatchCreateAccountFormBase';
 
+function DeriveTypeTrigger({ onPress }: ISelectRenderTriggerProps) {
+  return (
+    <XStack
+      role="button"
+      userSelect="none"
+      alignItems="center"
+      px="$2"
+      py="$2"
+      borderRadius="$full"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      onPress={onPress}
+    >
+      <Icon name="BranchesOutline" color="$iconSubdued" size="$6" />
+    </XStack>
+  );
+}
+
+const MemoDeriveTypeTrigger = memo(DeriveTypeTrigger);
+
 function BatchCreateAccountPreviewPage({
   walletId,
   defaultNetworkId,
@@ -83,6 +109,7 @@ function BatchCreateAccountPreviewPage({
   defaultCount: string;
   defaultIsAdvancedMode?: boolean;
 }) {
+  const [, setEditMode] = useAccountSelectorEditModeAtom();
   const { result: networkIdsCompatibleAccount } = usePromiseResult(
     async () => {
       const { networkIdsCompatible } =
@@ -135,28 +162,6 @@ function BatchCreateAccountPreviewPage({
   >();
   const [deriveTypeItems, setDeriveTypeItems] =
     useState<IAccountDeriveInfoItems[]>();
-
-  const deriveTypeTrigger = useMemo(
-    () => (
-      <XStack
-        role="button"
-        userSelect="none"
-        alignItems="center"
-        px="$2"
-        py="$2"
-        borderRadius="$full"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-      >
-        <Icon name="BranchesOutline" color="$iconSubdued" size="$6" />
-      </XStack>
-    ),
-    [],
-  );
 
   const showPopoverDeriveTypeInfo = useMemo(
     () =>
@@ -418,7 +423,7 @@ function BatchCreateAccountPreviewPage({
                 </Stack>
               </Stack>
             }
-            renderTrigger={deriveTypeTrigger}
+            renderTrigger={<MemoDeriveTypeTrigger />}
           />
         ) : null}
 
@@ -436,7 +441,7 @@ function BatchCreateAccountPreviewPage({
           defaultTriggerInputProps={{
             size: media.gtMd ? 'medium' : 'large',
           }}
-          renderTrigger={({ label }) => deriveTypeTrigger}
+          renderTrigger={DeriveTypeTrigger}
         />
 
         <ControlledNetworkSelectorTrigger
@@ -476,7 +481,6 @@ function BatchCreateAccountPreviewPage({
       currentDeriveTypeInfo,
       deriveType,
       deriveTypeItems,
-      deriveTypeTrigger,
       intl,
       media.gtMd,
       networkId,
@@ -752,17 +756,22 @@ function BatchCreateAccountPreviewPage({
             });
             await timerUtils.wait(600);
 
-            await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
-              isAdvancedMode
-                ? {
-                    mode: 'advanced',
-                    params: checkIsDefined(advancedParams),
-                  }
-                : {
-                    mode: 'normal',
-                    params: checkIsDefined(normalParams),
-                  },
-            );
+            const result =
+              await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
+                isAdvancedMode
+                  ? {
+                      mode: 'advanced',
+                      params: checkIsDefined(advancedParams),
+                    }
+                  : {
+                      mode: 'normal',
+                      params: checkIsDefined(normalParams),
+                    },
+              );
+
+            if (result?.accountsForCreate) {
+              setEditMode(false);
+            }
           }}
         >
           <Stack

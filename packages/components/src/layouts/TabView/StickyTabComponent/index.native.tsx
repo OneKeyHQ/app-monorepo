@@ -26,6 +26,7 @@ export const TabComponent = (
     tabContentContainerStyle,
     style,
     onRefresh: onRefreshCallBack,
+    initialHeaderHeight = 209,
   }: ITabProps,
   // fix missing forwardRef warnings.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -45,13 +46,14 @@ export const TabComponent = (
   const onRefresh = useCallback(() => {
     stickyConfig.data[
       lastIndex.current
-    ].refreshingFocusedRef.current?.setIsRefreshing(true, true);
+    ]?.refreshingFocusedRef?.current?.setIsRefreshing(true, true);
     onRefreshCallBack?.();
   }, [stickyConfig.data, onRefreshCallBack]);
   const onPageChange = useCallback(
     ({ nativeEvent: { index } }: { nativeEvent: { index: number } }) => {
+      setIsRefreshing(false);
       stickyConfig.data.forEach((_item, _index) => {
-        _item.refreshingFocusedRef.current?.setFocused(_index === index);
+        _item?.refreshingFocusedRef?.current?.setFocused(_index === index);
       });
       stickyConfig.data[index].freezeRef.current?.setFreeze(false);
       onSelectedPageIndex?.(index);
@@ -78,7 +80,7 @@ export const TabComponent = (
       ? color.replace(/#(.{6})(.{2})/, '#$2$1')
       : color;
   }, []);
-  const [headerHeight, setHeaderHeight] = useState(209);
+  const [headerHeight, setHeaderHeight] = useState(initialHeaderHeight);
   const values = useMemo(
     () => data.map((item) => ({ name: item.title, label: item.title })),
     [data],

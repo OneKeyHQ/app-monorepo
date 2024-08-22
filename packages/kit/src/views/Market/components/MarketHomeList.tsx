@@ -62,6 +62,7 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { MarketMore } from './MarketMore';
 import { MarketStar } from './MarketStar';
 import { MarketTokenIcon } from './MarketTokenIcon';
+import { MarketTokenPrice } from './MarketTokenPrice';
 import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
@@ -355,16 +356,26 @@ function BasicMarketHomeList({
               </YStack>
             </XStack>
             <XStack ai="center" gap="$5">
-              <NumberSizeableText
-                userSelect="none"
-                flexShrink={1}
-                numberOfLines={1}
-                size="$bodyLgMedium"
-                formatter={mdColumnKeys[0] === 'price' ? 'price' : 'marketCap'}
-                formatterOptions={{ currency }}
-              >
-                {item[mdColumnKeys[0]] as string}
-              </NumberSizeableText>
+              {mdColumnKeys[0] === 'price' ? (
+                <MarketTokenPrice
+                  size="$bodyLgMedium"
+                  price={String(item[mdColumnKeys[0]])}
+                  tokenName={item.name}
+                  tokenSymbol={item.symbol}
+                  lastUpdated={item.lastUpdated}
+                />
+              ) : (
+                <NumberSizeableText
+                  userSelect="none"
+                  flexShrink={1}
+                  numberOfLines={1}
+                  size="$bodyLgMedium"
+                  formatter="marketCap"
+                  formatterOptions={{ currency }}
+                >
+                  {item[mdColumnKeys[0]] as string}
+                </NumberSizeableText>
+              )}
               {item[mdColumnKeys[1]] ? (
                 <XStack
                   width="$20"
@@ -401,11 +412,14 @@ function BasicMarketHomeList({
 
   const renderSelectTrigger = useCallback(
     ({ label }: { label?: string }) => (
-      <XStack ai="center" gap="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {label}
-        </SizableText>
-        <Icon name="ChevronDownSmallSolid" size="$4" />
+      <XStack ai="center" gap="$2">
+        <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
+        <XStack ai="center" gap="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {label}
+          </SizableText>
+          <Icon name="ChevronDownSmallSolid" size="$4" />
+        </XStack>
       </XStack>
     ),
     [],
@@ -607,15 +621,14 @@ function BasicMarketHomeList({
                 flexGrow: 1,
                 flexBasis: 0,
               },
-              render: (price: string) => (
-                <NumberSizeableText
-                  userSelect="none"
+              render: (price: string, record: IMarketToken) => (
+                <MarketTokenPrice
                   size="$bodyMd"
-                  formatter="price"
-                  formatterOptions={{ currency }}
-                >
-                  {price || '-'}
-                </NumberSizeableText>
+                  price={price}
+                  tokenName={record.name}
+                  tokenSymbol={record.symbol}
+                  lastUpdated={record.lastUpdated}
+                />
               ),
               renderSkeleton: () => <Skeleton w="$20" h="$3" />,
             },
@@ -862,16 +875,13 @@ function BasicMarketHomeList({
           borderBottomColor="$borderSubdued"
         >
           <XStack h="$11" ai="center" justifyContent="space-between">
-            <XStack ai="center" gap="$2">
-              <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
-              <Select
-                items={selectOptions}
-                title={intl.formatMessage({ id: ETranslations.market_sort_by })}
-                value={mdSortByType}
-                onChange={handleMdSortByTypeChange}
-                renderTrigger={renderSelectTrigger}
-              />
-            </XStack>
+            <Select
+              items={selectOptions}
+              title={intl.formatMessage({ id: ETranslations.market_sort_by })}
+              value={mdSortByType}
+              onChange={handleMdSortByTypeChange}
+              renderTrigger={renderSelectTrigger}
+            />
             {/* <Popover
               title="Settings"
               renderTrigger={

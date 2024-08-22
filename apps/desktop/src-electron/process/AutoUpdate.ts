@@ -50,7 +50,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   let isManualCheck = false;
   let latestVersion: ILatestVersion = {} as ILatestVersion;
-  let updateCancellationToken: CancellationToken;
+  let updateCancellationToken: CancellationToken | undefined;
   const updateSettings = store.getUpdateSettings();
 
   autoUpdater.autoDownload = false;
@@ -311,24 +311,55 @@ const init = ({ mainWindow, store }: IDependencies) => {
     });
   });
 
-  ipcMain.on(ipcMessageKeys.UPDATE_DOWNLOAD, () => {
-    logger.info('auto-updater', 'Download requested');
+  let isDownloading = false;
+  ipcMain.on(ipcMessageKeys.UPDATE_DOWNLOAD, async () => {
+    logger.info('auto-updater', 'Download requested', isDownloading);
+    if (isDownloading) {
+      return;
+    }
+    isDownloading = true;
     mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADING, {
       percent: 0,
       bytesPerSecond: 0,
       total: 0,
       transferred: 0,
     });
+    if (updateCancellationToken) {
+      updateCancellationToken.cancel();
+    }
+    try {
+      // @ts-ignore
+      if (autoUpdater.downloadedUpdateHelper) {
+        logger.info(
+          'auto-updater',
+          // @ts-ignore
+          autoUpdater.downloadedUpdateHelper.cacheDir,
+        );
+        // @ts-ignore
+        await autoUpdater.downloadedUpdateHelper.clear();
+        logger.info('auto-updater', 'clearing cache');
+      }
+    } catch (error) {
+      logger.info('auto-updater', 'Error clearing cache: ', error);
+    }
     updateCancellationToken = new CancellationToken();
     autoUpdater
       .downloadUpdate(updateCancellationToken)
       .then(() => logger.info('auto-updater', 'Update downloaded'))
-      .catch(() => {
-        logger.info('auto-updater', 'Update cancelled');
+      .catch((e: { code: string; message: string }) => {
+        logger.info('auto-updater', 'Update cancelled', e);
+        // CancellationError
+        // node_modules/electron-updater/node_modules/builder-util-runtime/out/CancellationToken.js 104L
+        if (e.message === 'cancelled') {
+          return;
+        }
         mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
           err: {},
           isNetworkError: false,
         });
+      })
+      .finally(() => {
+        isDownloading = false;
       });
   });
 

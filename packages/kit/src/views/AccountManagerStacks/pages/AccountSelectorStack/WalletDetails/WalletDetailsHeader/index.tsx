@@ -1,12 +1,16 @@
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Button, XStack } from '@onekeyhq/components';
+import { DeriveTypeSelectorTriggerForDapp } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useAccountSelectorContextDataAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WalletRemoveButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRemove';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AboutDevice } from './AboutDevice';
 
@@ -15,6 +19,7 @@ import type { IWalletDetailsProps } from '..';
 type IWalletDetailsHeaderProps = {
   editable?: boolean;
   editMode: boolean;
+  linkedNetworkId?: string;
   onEditButtonPress?: () => void;
 } & IListItemProps &
   Partial<IWalletDetailsProps>;
@@ -25,8 +30,11 @@ export function WalletDetailsHeader({
   editable,
   editMode,
   onEditButtonPress,
+  linkedNetworkId,
+  num,
   ...rest
 }: IWalletDetailsHeaderProps) {
+  const [accountSelectorContextData] = useAccountSelectorContextDataAtom();
   const intl = useIntl();
   const showAboutDevice =
     accountUtils.isHwWallet({ walletId: wallet?.id }) &&
@@ -60,11 +68,22 @@ export function WalletDetailsHeader({
           testID="AccountSelectorModal-EditButton"
           variant="tertiary"
           onPress={onEditButtonPress}
+          {...(editMode && {
+            color: '$textInteractive',
+            icon: 'CheckLargeOutline',
+            iconColor: '$iconSuccess',
+          })}
         >
           {editMode
             ? intl.formatMessage({ id: ETranslations.global_done })
             : intl.formatMessage({ id: ETranslations.global_edit })}
         </Button>
+      ) : null}
+      {linkedNetworkId &&
+      !isNil(num) &&
+      accountSelectorContextData?.sceneName ===
+        EAccountSelectorSceneName.discover ? (
+        <DeriveTypeSelectorTriggerForDapp num={num} />
       ) : null}
     </ListItem>
   );
