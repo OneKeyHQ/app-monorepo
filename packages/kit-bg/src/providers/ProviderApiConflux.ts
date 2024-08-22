@@ -11,6 +11,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -189,7 +190,7 @@ class ProviderApiConflux extends ProviderApiBase {
 
   @providerApiMethod()
   async cfx_requestAccounts(request: IJsBridgeMessagePayload) {
-    console.log('ProviderApiConflux.cfx_requestAccounts', request);
+    defaultLogger.discovery.dapp.dappRequest({ request });
 
     const accounts = await this.cfx_accounts(request);
     if (accounts && accounts.length) {
@@ -205,7 +206,7 @@ class ProviderApiConflux extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     transaction: IEncodedTxCfx,
   ) {
-    console.log('cfx_sendTransaction', request, transaction);
+    defaultLogger.discovery.dapp.dappRequest({ request });
 
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
@@ -232,6 +233,7 @@ class ProviderApiConflux extends ProviderApiBase {
 
   @providerApiMethod()
   cfx_signTypedData_v4(request: IJsBridgeMessagePayload, ...messages: any[]) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     return this._showSignMessageModal(request, {
       type: EMessageTypesEth.TYPED_DATA_V4,
       message: messages[1],
@@ -246,6 +248,7 @@ class ProviderApiConflux extends ProviderApiBase {
 
   @providerApiMethod()
   async personal_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const message = messages[0];
 
     return this._showSignMessageModal(request, {
@@ -257,6 +260,7 @@ class ProviderApiConflux extends ProviderApiBase {
 
   @providerApiMethod()
   cfx_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     return this._showSignMessageModal(request, {
       type: EMessageTypesEth.ETH_SIGN,
       message: messages[1],

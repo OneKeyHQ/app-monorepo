@@ -23,7 +23,7 @@ export function MarketDetailLinks({
 }) {
   const intl = useIntl();
   return (
-    <NestedScrollView>
+    <NestedScrollView contentContainerStyle={{ minHeight: '101%' }}>
       <YStack px="$5" $gtMd={{ pr: 0 }}>
         <YStack py="$5" gap="$2">
           <SizableText size="$headingSm" color="$textSubdued">
