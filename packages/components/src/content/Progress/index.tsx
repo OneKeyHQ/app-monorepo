@@ -10,35 +10,23 @@ export type IProgressProps = {
   size?: 'small' | 'medium';
 } & Omit<TMProgressProps, 'size'>;
 
-const useProgressValue = platformEnv.isNative
-  ? (value: number | null | undefined) => {
-      // Fix the issue where the progress bar shows 100% when the value is 0
-      const [val, setVal] = useState(platformEnv.isNative ? undefined : value);
-      useEffect(() => {
-        setTimeout(() => {
-          setVal(!value || value < 0.1 ? 0.1 : value);
-        }, 10);
-      }, [value]);
-      return val;
-    }
-  : (value: number | null | undefined) => value;
-
-export const Progress = ({ size, value, ...props }: IProgressProps) => {
-  const val = useProgressValue(value);
-
+// https://github.com/tamagui/tamagui/issues/2753
+// https://github.com/tamagui/tamagui/issues/2847
+// Enabling animation on Native platforms causes the progress bar to fail initial rendering
+export function Progress({ size, ...props }: IProgressProps) {
   return (
     <TMProgress
       backgroundColor="$neutral5"
-      value={val}
       h={size === 'medium' ? '$1' : '$0.5'}
       max={100}
+      animation={platformEnv.isNative ? null : undefined}
       {...props}
     >
       <TMProgress.Indicator
-        animation="quick"
+        animation={platformEnv.isNative ? null : 'quick'}
         backgroundColor="$bgPrimary"
         borderRadius="$full"
       />
     </TMProgress>
   );
-};
+}
