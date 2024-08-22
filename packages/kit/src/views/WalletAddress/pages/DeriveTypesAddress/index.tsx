@@ -231,7 +231,7 @@ const DeriveTypesAddress = ({
   );
   return (
     <Stack flex={1}>
-      <ListView data={items} renderItem={renderItem} />
+      <ListView data={items} estimatedItemSize={60} renderItem={renderItem} />
     </Stack>
   );
 };
