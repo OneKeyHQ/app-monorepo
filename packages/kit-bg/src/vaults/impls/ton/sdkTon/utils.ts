@@ -146,13 +146,15 @@ export function getWalletContractInstance({
   version,
   publicKey,
   backgroundApi,
+  networkId,
 }: {
   version: string;
   publicKey: string;
   backgroundApi: IBackgroundApi;
+  networkId: string;
 }) {
   const Contract = getWalletContractClass(version);
-  return new Contract(new Provider(backgroundApi), {
+  return new Contract(new Provider({backgroundApi, networkId}), {
     publicKey: bufferUtils.hexToBytes(publicKey),
   });
 }
@@ -161,13 +163,18 @@ export async function serializeUnsignedTransaction({
   version,
   encodedTx,
   backgroundApi,
+  networkId,
 }: {
   version: string;
   encodedTx: IEncodedTxTon;
   backgroundApi: IBackgroundApi;
+  networkId: string;
 }) {
   const Contract = getWalletContractClass(version);
-  const contract = new Contract(new Provider(backgroundApi), {
+  const contract = new Contract(new Provider({
+    backgroundApi,
+    networkId,
+  }), {
     address: encodedTx.fromAddress,
   }) as unknown as IWallet;
   return contract.createTransferMessages(
@@ -210,26 +217,18 @@ export interface IJettonTransferBodyParams {
 
 export async function encodeJettonPayload({
   backgroundApi,
-  address,
-  masterAddress,
   params,
+  networkId,
+  jettonAddress,
 }: {
   backgroundApi: IBackgroundApi;
   address: string;
-  masterAddress: string;
+  jettonAddress: string;
   params: IJettonTransferBodyParams;
+  networkId: string;
 }) {
-  const jettonMinter = new TonWeb.token.jetton.JettonMinter(
-    new Provider(backgroundApi),
-    {
-      address: masterAddress,
-    } as any,
-  );
-  const jettonAddress = await jettonMinter.getJettonWalletAddress(
-    new TonWeb.Address(address),
-  );
   const jettonWallet = new TonWeb.token.jetton.JettonWallet(
-    new Provider(backgroundApi),
+    new Provider({backgroundApi, networkId}),
     {
       address: jettonAddress,
     },
@@ -246,19 +245,20 @@ export async function encodeJettonPayload({
   } as unknown as TransferBodyParams);
   return {
     payload: Buffer.from(await body.toBoc()).toString('hex'),
-    jettonAddress: jettonAddress.toString(true, true, true),
   };
 }
 
 export async function getJettonData({
   backgroundApi,
+  networkId,
   address,
 }: {
   backgroundApi: IBackgroundApi;
+  networkId: string;
   address: string;
 }) {
   const jettonWallet = new TonWeb.token.jetton.JettonWallet(
-    new Provider(backgroundApi),
+    new Provider({backgroundApi, networkId}),
     {
       address,
     } as any,

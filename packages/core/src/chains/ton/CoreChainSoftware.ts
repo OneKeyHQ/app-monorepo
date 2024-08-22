@@ -77,7 +77,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       stateInit: getStateInitFromEncodedTx(encodedTx),
     });
     const txid = '';
-    const rawTx = Buffer.from(await signedTx.toBoc()).toString('hex');
+    const rawTx = Buffer.from(await signedTx.toBoc(false)).toString('base64');
     return {
       encodedTx,
       txid,

@@ -109,10 +109,12 @@ export default class Vault extends VaultBase {
         ) {
           const fwdFee = TonWeb.utils.toNano('0.01').toString();
           msg.amount = TonWeb.utils.toNano('0.05').toString();
-          const { payload, jettonAddress } = await encodeJettonPayload({
+          const jettonAddress = transfer.tokenInfo.address;
+          const { payload } = await encodeJettonPayload({
             backgroundApi: this.backgroundApi,
+            networkId: network.id,
             address: fromAddress,
-            masterAddress: transfer.tokenInfo.address,
+            jettonAddress,
             params: {
               tokenAmount: amount,
               forwardAmount: fwdFee,
@@ -124,7 +126,7 @@ export default class Vault extends VaultBase {
           msg.toAddress = jettonAddress;
           msg.jetton = {
             amount,
-            jettonMasterAddress: transfer.tokenInfo.address,
+            jettonMasterAddress: transfer.tokenInfo.uniqueKey ?? '',
             fwdFee,
           };
         }
@@ -157,6 +159,7 @@ export default class Vault extends VaultBase {
             amount = decodedPayload.jetton.amount;
             const jettonData = await getJettonData({
               backgroundApi: this.backgroundApi,
+              networkId: network.id,
               address: from,
             }).catch((e) => {
               console.error(e);
@@ -249,6 +252,19 @@ export default class Vault extends VaultBase {
     if (params.nonceInfo) {
       encodedTx.sequenceNo = params.nonceInfo.nonce;
     }
+
+    if (encodedTx.sequenceNo === 0 && !encodedTx.messages[0].stateInit) {
+      const account = await this.getAccount();
+      const wallet = getWalletContractInstance({
+        version: getAccountVersion(account.id),
+        publicKey: account.pub ?? '',
+        backgroundApi: this.backgroundApi,
+        networkId: this.networkId,
+      });
+      const stateInit = await wallet.createStateInit();
+      encodedTx.messages[0].stateInit = Buffer.from(await stateInit.stateInit.toBoc()).toString('hex');
+    }
+
     const expireAt = Math.floor(Date.now() / 1000) + 60 * 3;
     if (!encodedTx.expireAt) {
       encodedTx.expireAt = expireAt;
@@ -343,6 +359,7 @@ export default class Vault extends VaultBase {
       version,
       encodedTx,
       backgroundApi: this.backgroundApi,
+      networkId: this.networkId,
     });
     return {
       encodedTx: {
@@ -350,12 +367,12 @@ export default class Vault extends VaultBase {
           'base64',
         ),
         ignore_chksig: true,
-        init_code: Buffer.from(
+        init_code: serializeUnsignedTx.code ? Buffer.from(
           await serializeUnsignedTx.code.toBoc(false),
-        ).toString('base64'),
-        init_data: Buffer.from(
+        ).toString('base64') : undefined,
+        init_data: serializeUnsignedTx.data ? Buffer.from(
           await serializeUnsignedTx.data.toBoc(false),
-        ).toString('base64'),
+        ).toString('base64') : undefined,
       } as unknown as IEncodedTx,
     };
   }

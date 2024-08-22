@@ -106,6 +106,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       version,
       encodedTx,
       backgroundApi: this.vault.backgroundApi,
+      networkId: this.vault.networkId,
     });
     if (encodedTx.messages.length !== 1) {
       throw new OneKeyInternalError('Unsupported message count');

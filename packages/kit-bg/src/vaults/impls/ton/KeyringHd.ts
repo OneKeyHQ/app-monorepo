@@ -44,6 +44,7 @@ export class KeyringHd extends KeyringHdBase {
       version,
       encodedTx,
       backgroundApi: this.vault.backgroundApi,
+      networkId: this.vault.networkId,
     });
     params.unsignedTx.rawTxUnsigned = hexUtils.hexlify(
       await serializeUnsignedTx.signingMessage.toBoc(),
