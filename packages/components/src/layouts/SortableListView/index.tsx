@@ -1,8 +1,11 @@
-import { forwardRef, useCallback } from 'react';
+import { forwardRef, useCallback, useMemo } from 'react';
 import type { ForwardedRef } from 'react';
 
-import { usePropsAndStyle, useStyle } from '@tamagui/core';
-import DraggableFlatList, {
+import { useStyle } from '@tamagui/core';
+import _ from 'lodash';
+// eslint-disable-next-line spellcheck/spell-checker
+import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
+import {
   OpacityDecorator,
   ScaleDecorator,
   ShadowDecorator,
@@ -13,138 +16,262 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { StackStyle } from '@tamagui/web/types/types';
-import type { StyleProp, ViewStyle } from 'react-native';
+import { ListView } from '../ListView';
+
+import type { ISortableListViewProps, ISortableListViewRef } from './types';
+import type { DragStart, DropResult } from 'react-beautiful-dnd';
 import type {
-  DragEndParams,
-  DraggableFlatListProps,
-  RenderItem,
-} from 'react-native-draggable-flatlist';
-import type { FlatList } from 'react-native-gesture-handler';
+  CellRendererProps,
+  ListRenderItem,
+  ListRenderItemInfo,
+} from 'react-native';
 
-export type ISortableListViewRef<T> = FlatList<T>;
+function DragCellRendererComponent<T>({
+  item,
+  index,
+  renderItem,
+  enabled,
+  keyExtractor,
+  getItemLayout,
+  contentContainerStyle,
+  data,
+  stickyHeaderIndices = [],
+}: {
+  item: T;
+  index: number;
+  renderItem: ISortableListViewProps<T>['renderItem'];
+  enabled: boolean;
+  keyExtractor: ISortableListViewProps<T>['keyExtractor'];
+  getItemLayout: ISortableListViewProps<T>['getItemLayout'];
+  contentContainerStyle: Record<string, unknown>;
+  data: T[];
+  stickyHeaderIndices: number[];
+}) {
+  const id = keyExtractor?.(item, index);
+  const layout = getItemLayout?.(data, index);
+  const paddingTop =
+    contentContainerStyle?.paddingTop ?? contentContainerStyle?.paddingVertical;
+  const findIsStickyIndex = (i: number) =>
+    stickyHeaderIndices.findIndex((x) => x === i) !== -1;
+  const isSticky = findIsStickyIndex(index);
+  const nextIsSticky = findIsStickyIndex(index + 1);
+  const lastStickyLayout = getItemLayout(
+    data,
+    Math.max(
+      0,
+      _.findLastIndex(data.slice(0, index), (__, _lastStickyIndex) =>
+        findIsStickyIndex(_lastStickyIndex),
+      ),
+    ),
+  );
+  return (
+    <Draggable draggableId={`${id}`} index={index} isDragDisabled={!enabled}>
+      {(provided) => {
+        const dragHandleProps = (provided.dragHandleProps ?? {}) as Record<
+          string,
+          any
+        >;
 
-export type ISortableListViewProps<T> = Omit<
-  DraggableFlatListProps<T>,
-  | 'data'
-  | 'renderItem'
-  | 'CellRendererComponent'
-  | 'keyExtractor'
-  | 'getItemLayout'
-  | 'containerStyle'
-  | 'contentContainerStyle'
-  | 'columnWrapperStyle'
-  | 'ListHeaderComponentStyle'
-  | 'ListFooterComponentStyle'
-> &
-  StackStyle & {
-    data: T[];
-    keyExtractor: (item: T, index: number) => string;
-    renderItem: RenderItem<T>;
-    getItemLayout: (
-      item: ArrayLike<T> | undefined | null,
-      index: number,
-    ) => { length: number; offset: number; index: number };
-
-    enabled?: boolean;
-    containerStyle?: StackStyle;
-    contentContainerStyle?: StackStyle;
-    columnWrapperStyle?: StackStyle;
-    ListHeaderComponentStyle?: StackStyle;
-    ListFooterComponentStyle?: StackStyle;
-  };
+        return (
+          <>
+            {stickyHeaderIndices.length > 0 && !isSticky && nextIsSticky ? (
+              <div
+                style={
+                  layout
+                    ? {
+                        height:
+                          layout.offset +
+                          layout.length -
+                          lastStickyLayout.offset -
+                          lastStickyLayout.length,
+                      }
+                    : {}
+                }
+              />
+            ) : null}
+            <div
+              ref={provided.innerRef}
+              {...provided.draggableProps}
+              style={{
+                ...provided.draggableProps.style,
+                ...(!isSticky
+                  ? {
+                      position: 'absolute',
+                      top:
+                        (layout?.offset ?? 0) +
+                        (paddingTop ? parseInt(paddingTop as string, 10) : 0),
+                      height: layout?.length,
+                      width: '100%',
+                    }
+                  : {}),
+              }}
+            >
+              {renderItem({
+                item,
+                drag: () => {},
+                dragProps: Object.keys(dragHandleProps).reduce((acc, key) => {
+                  const reloadKey = key.replace(/^data-/, '');
+                  acc[reloadKey] = dragHandleProps[key];
+                  return acc;
+                }, {} as Record<string, any>),
+                getIndex: () => 0,
+                isActive: false,
+              })}
+            </div>
+          </>
+        );
+      }}
+    </Draggable>
+  );
+}
 
 function BaseSortableListView<T>(
   {
     data,
-    keyExtractor,
     renderItem,
     enabled = true,
-    containerStyle = {},
-    contentContainerStyle = {},
-    columnWrapperStyle,
-    ListHeaderComponentStyle = {},
-    ListFooterComponentStyle = {},
     onDragBegin,
     onDragEnd,
-    ...props
+    keyExtractor,
+    getItemLayout,
+    contentContainerStyle = {},
+    stickyHeaderIndices,
+    ListHeaderComponent,
+    ...restProps
   }: ISortableListViewProps<T>,
   ref: ForwardedRef<ISortableListViewRef<T>> | undefined,
 ) {
-  const [restProps, style] = usePropsAndStyle(props, {
-    resolveValues: 'auto',
-  });
-  const rawContainerStyle = useStyle(
-    containerStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
-  const rawContentContainerStyle = useStyle(
-    contentContainerStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
-
-  const columnStyle = useStyle(
-    (columnWrapperStyle || {}) as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
-
-  const listHeaderStyle = useStyle(
-    ListHeaderComponentStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
-
-  const listFooterStyle = useStyle(
-    ListFooterComponentStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
-  const activeDistance = platformEnv.isNative ? 10 : 1;
-
-  const handleDragBegin = useCallback(
-    (index: number) => {
+  const reloadOnDragStart = useCallback(
+    (params: DragStart) => {
       appEventBus.emit(EAppEventBusNames.onDragBeginInListView, undefined);
-      onDragBegin?.(index);
+      onDragBegin?.(params.source.index);
     },
     [onDragBegin],
   );
-  const handleDragEnd = useCallback(
-    (params: DragEndParams<any>) => {
-      onDragEnd?.(params);
+  const reloadOnDragEnd = useCallback(
+    (params: DropResult) => {
       appEventBus.emit(EAppEventBusNames.onDragEndInListView, undefined);
+      if (!params.destination) {
+        return;
+      }
+      const reloadData = [...data];
+      const sourceItem = reloadData[params.source.index];
+      reloadData.splice(params.source.index, 1);
+      reloadData.splice(params.destination.index, 0, sourceItem);
+      onDragEnd?.({
+        data: reloadData,
+        from: params.source.index,
+        to: params.destination.index,
+      });
     },
-    [onDragEnd],
+    [onDragEnd, data],
+  );
+
+  const rawContentContainerStyle = useStyle(
+    contentContainerStyle as Record<string, unknown>,
+    {
+      resolveValues: 'value',
+    },
+  );
+
+  const reallyStickyHeaderIndices = useMemo(
+    () =>
+      (stickyHeaderIndices ?? []).map((index) =>
+        ListHeaderComponent ? index - 1 : index,
+      ),
+    [stickyHeaderIndices, ListHeaderComponent],
+  );
+
+  const reloadCellRendererComponent = useCallback(
+    (props: CellRendererProps<T>) => (
+      <DragCellRendererComponent
+        {...props}
+        enabled={enabled}
+        getItemLayout={getItemLayout}
+        contentContainerStyle={rawContentContainerStyle}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        data={data}
+        stickyHeaderIndices={reallyStickyHeaderIndices}
+      />
+    ),
+    [
+      reallyStickyHeaderIndices,
+      enabled,
+      getItemLayout,
+      keyExtractor,
+      data,
+      renderItem,
+      rawContentContainerStyle,
+    ],
+  );
+
+  const reloadRenderItem = useCallback(
+    (props: ListRenderItemInfo<T>) =>
+      renderItem({
+        ...props,
+        getIndex: () => props.index,
+        drag: () => {},
+        dragProps: {},
+        isActive: false,
+      }),
+    [renderItem],
   );
 
   return (
-    <DraggableFlatList<T>
-      ref={ref}
-      style={style as StyleProp<ViewStyle>}
-      onDragBegin={handleDragBegin}
-      onDragEnd={handleDragEnd}
-      activationDistance={enabled ? activeDistance : 100_000}
-      containerStyle={[{ flex: 1 }, rawContainerStyle]}
-      columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
-      ListHeaderComponentStyle={listHeaderStyle}
-      ListFooterComponentStyle={listFooterStyle}
-      contentContainerStyle={rawContentContainerStyle}
-      data={data}
-      keyExtractor={keyExtractor}
-      renderItem={renderItem}
-      {...restProps}
-    />
+    <DragDropContext
+      onDragStart={reloadOnDragStart}
+      onDragEnd={reloadOnDragEnd}
+    >
+      <Droppable
+        droppableId="droppable"
+        mode="virtual"
+        renderClone={(provided, snapshot, rubric) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+          >
+            {renderItem({
+              item: data[rubric.source.index],
+              drag: () => {},
+              dragProps: {},
+              getIndex: () => rubric.source.index,
+              isActive: true,
+            })}
+          </div>
+        )}
+      >
+        {(provided) => (
+          <ListView
+            // @ts-ignore
+            ref={(_ref) => {
+              if (typeof ref === 'function') {
+                ref(_ref);
+              } else if (ref && 'current' in ref) {
+                ref.current = _ref;
+              }
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              provided.innerRef(_ref?._listRef?._scrollRef);
+            }}
+            data={data}
+            contentContainerStyle={rawContentContainerStyle}
+            renderItem={reloadRenderItem as ListRenderItem<T>}
+            CellRendererComponent={reloadCellRendererComponent}
+            getItemLayout={getItemLayout}
+            keyExtractor={keyExtractor}
+            stickyHeaderIndices={stickyHeaderIndices}
+            ListHeaderComponent={ListHeaderComponent}
+            {...restProps}
+          />
+        )}
+      </Droppable>
+    </DragDropContext>
   );
 }
+
+export { ISortableListViewProps, ISortableListViewRef };
 
 export const SortableListView = withStaticProperties(
   forwardRef(BaseSortableListView) as typeof BaseSortableListView,
