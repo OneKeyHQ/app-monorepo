@@ -126,9 +126,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             pt: '$5',
           }}
         >
-          {pageType !== EPageType.modal ? (
-            <SwapHeaderContainer pageType={pageType} />
-          ) : null}
+          {pageType !== EPageType.modal ? <SwapHeaderContainer /> : null}
           <SwapQuoteInput
             onSelectToken={onSelectToken}
             selectLoading={fetchLoading}

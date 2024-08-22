@@ -2,36 +2,14 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  Dialog,
-  EPageType,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { Badge, Dialog, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
-interface ISwapHeaderContainerProps {
-  pageType?: EPageType.modal;
-}
-
-const SwapHeaderContainer = ({ pageType }: ISwapHeaderContainerProps) => {
+const SwapHeaderContainer = () => {
   const intl = useIntl();
-  const headerRight = useCallback(
-    () => (
-      <SwapHeaderRightActionContainer
-        storeName={
-          pageType === EPageType.modal
-            ? EJotaiContextStoreNames.swapModal
-            : EJotaiContextStoreNames.swap
-        }
-      />
-    ),
-    [pageType],
-  );
+  const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
 
   const onSwapLimit = useCallback(() => {
     Dialog.confirm({

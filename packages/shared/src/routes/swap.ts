@@ -32,10 +32,10 @@ export type IModalSwapParamList = {
     storeName: EJotaiContextStoreNames;
   };
   [EModalSwapRoutes.SwapProviderSelect]: { storeName: EJotaiContextStoreNames };
-  [EModalSwapRoutes.SwapHistoryList]: { storeName: EJotaiContextStoreNames };
+  [EModalSwapRoutes.SwapHistoryList]: undefined;
   [EModalSwapRoutes.SwapHistoryDetail]: {
     txHistory: ISwapTxHistory;
-    storeName: EJotaiContextStoreNames;
+    // storeName: EJotaiContextStoreNames;
   };
   [EModalSwapRoutes.SwapToAnotherAddress]: {
     address?: string;

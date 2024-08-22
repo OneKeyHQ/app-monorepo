@@ -7,22 +7,13 @@ import {
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  type EJotaiContextStoreNames,
-  useInAppNotificationAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
-import { SwapProviderMirror } from '../SwapProviderMirror';
-
-const SwapHeaderRightActionContainer = ({
-  storeName,
-}: {
-  storeName: EJotaiContextStoreNames;
-}) => {
+const SwapHeaderRightActionContainer = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
@@ -38,11 +29,8 @@ const SwapHeaderRightActionContainer = ({
   const onOpenHistoryListModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
-      params: {
-        storeName,
-      },
     });
-  }, [navigation, storeName]);
+  }, [navigation]);
   return (
     <HeaderButtonGroup>
       {swapPendingStatusList.length > 0 ? (
@@ -67,14 +55,4 @@ const SwapHeaderRightActionContainer = ({
   );
 };
 
-const SwapHeaderRightActionContainerWithProvider = ({
-  storeName,
-}: {
-  storeName: EJotaiContextStoreNames;
-}) => (
-  <SwapProviderMirror storeName={storeName}>
-    <SwapHeaderRightActionContainer storeName={storeName} />
-  </SwapProviderMirror>
-);
-
-export default SwapHeaderRightActionContainerWithProvider;
+export default SwapHeaderRightActionContainer;
