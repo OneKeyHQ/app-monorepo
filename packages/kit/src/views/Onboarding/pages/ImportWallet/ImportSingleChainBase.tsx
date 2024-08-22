@@ -26,6 +26,7 @@ import type {
   IValidateGeneralInputParams,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
@@ -35,6 +36,7 @@ type IFormValues = {
   networkId?: string;
   input?: string;
   deriveType?: IAccountDeriveTypes;
+  accountName?: string;
 };
 
 export const fixInputImportSingleChain = (text: string) => trim(text);
@@ -78,7 +80,10 @@ export function ImportSingleChainBase({
           : getNetworkIdsMap().btc,
       input: '',
       deriveType: undefined,
+      accountName: '',
     },
+    mode: 'onChange',
+    reValidateMode: 'onBlur',
   });
 
   const { setValue, control } = form;
@@ -89,7 +94,27 @@ export function ImportSingleChainBase({
   const networkIdText = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'input' });
   const inputTextDebounced = useDebounce(inputText, 600);
+
+  const accountName = useFormWatch({ control, name: 'accountName' });
+  const accountNameDebounced = useDebounce(accountName?.trim() || '', 600);
+
   const validateFn = useCallback(async () => {
+    if (accountNameDebounced) {
+      try {
+        await backgroundApiProxy.serviceAccount.ensureAccountNameNotDuplicate({
+          name: accountNameDebounced,
+          walletId: WALLET_TYPE_IMPORTED,
+        });
+        form.clearErrors('accountName');
+      } catch (error) {
+        form.setError('accountName', {
+          message: (error as Error)?.message,
+        });
+      }
+    } else {
+      form.clearErrors('accountName');
+    }
+
     setValue('deriveType', undefined);
     if (inputTextDebounced && networkIdText) {
       const input =
@@ -118,7 +143,9 @@ export function ImportSingleChainBase({
       setValidateResult(undefined);
     }
   }, [
+    accountNameDebounced,
     clearText,
+    form,
     inputTextDebounced,
     networkIdText,
     setValue,
@@ -175,6 +202,13 @@ export function ImportSingleChainBase({
               ]}
             />
           </Form.Field>
+
+          {validateResult && !validateResult?.isValid && inputTextDebounced ? (
+            <SizableText size="$bodyMd" color="$textCritical">
+              {invalidMessage}
+            </SizableText>
+          ) : null}
+
           {validateResult?.deriveInfoItems ? (
             <Form.Field
               label={intl.formatMessage({ id: ETranslations.derivation_path })}
@@ -183,7 +217,7 @@ export function ImportSingleChainBase({
               <DeriveTypeSelectorFormInput
                 networkId={form.getValues().networkId || ''}
                 enabledItems={validateResult?.deriveInfoItems || []}
-                renderTrigger={({ label }) => (
+                renderTrigger={({ label, onPress }) => (
                   <Stack
                     userSelect="none"
                     flexDirection="row"
@@ -204,6 +238,7 @@ export function ImportSingleChainBase({
                     pressStyle={{
                       bg: '$bgActive',
                     }}
+                    onPress={onPress}
                   >
                     <SizableText flex={1}>{label}</SizableText>
                     <Icon
@@ -216,17 +251,28 @@ export function ImportSingleChainBase({
               />
             </Form.Field>
           ) : null}
-        </Form>
 
-        {validateResult && !validateResult?.isValid && inputTextDebounced ? (
-          <SizableText color="$textCritical">{invalidMessage}</SizableText>
-        ) : null}
+          <Form.Field
+            label={intl.formatMessage({
+              id: ETranslations.form_enter_account_name,
+            })}
+            name="accountName"
+          >
+            <Input
+              placeholder={intl.formatMessage({
+                id: ETranslations.form_enter_account_name_placeholder,
+              })}
+            />
+          </Form.Field>
+        </Form>
 
         {children}
       </Page.Body>
       <Page.Footer
         confirmButtonProps={{
-          disabled: !validateResult?.isValid,
+          disabled:
+            !validateResult?.isValid ||
+            !!Object.values(form.formState.errors).length,
         }}
         onConfirm={async () => onConfirm(form)}
       />

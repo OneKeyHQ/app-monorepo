@@ -22,6 +22,7 @@ import {
 import type {
   ICoreApiSignAccount,
   ICoreApiSignBtcExtraInfo,
+  IEncodedTx,
   ISignedTxPro,
   ITxInput,
   ITxInputToSign,
@@ -149,7 +150,7 @@ export default class VaultBtc extends VaultBase {
     const utxoTo =
       outputs.length > 1
         ? outputs
-            .filter((output) => !output.payload?.isCharge && output.address)
+            .filter((output) => !output.payload?.isChange && output.address)
             .map((output) => ({
               address: output.address,
               balance: new BigNumber(output.value)
@@ -570,7 +571,7 @@ export default class VaultBtc extends VaultBase {
           payload: address
             ? undefined
             : {
-                isCharge: true,
+                isChange: true,
                 bip44Path: getBIP44Path(account, account.address),
               },
         };
@@ -816,7 +817,8 @@ export default class VaultBtc extends VaultBase {
     },
   );
 
-  async collectTxs(txids: string[]): Promise<{
+  // collectTxs by blockbook api or proxy api
+  async collectTxsByApi(txids: string[]): Promise<{
     [txid: string]: string; // rawTx string
   }> {
     try {
@@ -968,7 +970,9 @@ export default class VaultBtc extends VaultBase {
       ),
     );
 
-    const nonWitnessPrevTxs = await this.collectTxs(nonWitnessInputPrevTxids);
+    const nonWitnessPrevTxs = await this.collectTxsByApi(
+      nonWitnessInputPrevTxids,
+    );
 
     return [inputAddressesEncodings, nonWitnessPrevTxs];
   }
@@ -1048,7 +1052,7 @@ export default class VaultBtc extends VaultBase {
     networkAccount: INetworkAccount,
   ): Promise<string | undefined> {
     const account = networkAccount as IDBUtxoAccount;
-    return account.xpubSegwit ?? account.xpub;
+    return account.xpubSegwit || account.xpub;
   }
 
   override async buildEstimateFeeParams() {
@@ -1117,29 +1121,29 @@ export default class VaultBtc extends VaultBase {
 
   override async getAddressType({ address }: { address: string }) {
     const { encoding, isValid } = await this.validateAddress(address);
-    if (isValid) {
-      let type = '';
-      switch (encoding) {
-        case EAddressEncodings.P2SH_P2WPKH:
-          type = 'Nested SegWit';
-          break;
-        case EAddressEncodings.P2TR:
-          type = 'Taproot';
-          break;
-        case EAddressEncodings.P2WPKH:
-          type = 'Native SegWit';
-          break;
-        case EAddressEncodings.P2PKH:
-          type = 'Legacy';
-          break;
-        default:
-          type = '';
-      }
+    if (isValid && encoding) {
+      const deriveInfo =
+        await this.backgroundApi.serviceNetwork.getDeriveInfoByAddressEncoding({
+          networkId: this.networkId,
+          encoding,
+        });
       return {
-        type,
+        type: deriveInfo?.label,
       };
     }
 
     return {};
+  }
+
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTxBtc;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTxBtc> {
+    const { encodedTx } = params;
+    if (encodedTx.psbtHex && Array.isArray(encodedTx.inputsToSign)) {
+      // @ts-expect-error
+      return '';
+    }
+    return encodedTx;
   }
 }

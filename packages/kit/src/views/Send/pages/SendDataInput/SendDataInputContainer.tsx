@@ -135,6 +135,8 @@ function SendDataInputContainer() {
       displayPaymentIdForm,
       memoMaxLength,
       numericOnlyMemo,
+      displayNoteForm,
+      noteMaxLength,
     ] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
@@ -200,6 +202,8 @@ function SendDataInputContainer() {
         vs.withPaymentId,
         vs.memoMaxLength,
         vs.numericOnlyMemo,
+        vs.withNote,
+        vs.noteMaxLength,
       ];
     },
     [
@@ -241,6 +245,7 @@ function SendDataInputContainer() {
       nftAmount: sendAmount || '1',
       memo: '',
       paymentId: '',
+      note: '',
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -257,15 +262,19 @@ function SendDataInputContainer() {
     amountBN = amountBN.isNaN() ? new BigNumber(0) : amountBN;
 
     const tokenPrice = tokenDetails?.price;
+    const tokenDecimals = tokenDetails?.info.decimals;
 
-    if (isNil(tokenPrice))
+    if (isNil(tokenPrice) || isNil(tokenDecimals))
       return {
         amount: '0',
         originalAmount: '0',
       };
 
     if (isUseFiat) {
-      const originalAmount = amountBN.dividedBy(tokenPrice).toFixed();
+      const originalAmount = amountBN
+        .dividedBy(tokenPrice)
+        .decimalPlaces(tokenDecimals, BigNumber.ROUND_CEIL)
+        .toFixed();
       return {
         amount: getFormattedNumber(originalAmount, { decimal: 4 }) ?? '0',
         originalAmount,
@@ -277,7 +286,7 @@ function SendDataInputContainer() {
       originalAmount,
       amount: getFormattedNumber(originalAmount, { decimal: 4 }) ?? '0',
     };
-  }, [amount, isUseFiat, tokenDetails?.price]);
+  }, [amount, isUseFiat, tokenDetails?.info.decimals, tokenDetails?.price]);
 
   const {
     result: { displayAmountFormItem } = { displayAmountFormItem: false },
@@ -430,6 +439,7 @@ function SendDataInputContainer() {
 
           const memoValue = form.getValues('memo');
           const paymentIdValue = form.getValues('paymentId');
+          const noteValue = form.getValues('note');
           const transfersInfo: ITransferInfo[] = [
             {
               from: account.address,
@@ -446,6 +456,7 @@ function SendDataInputContainer() {
               tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
               memo: memoValue,
               paymentId: paymentIdValue,
+              note: noteValue,
             },
           ];
 
@@ -897,6 +908,47 @@ function SendDataInputContainer() {
     );
   }, [displayPaymentIdForm, intl, media.gtMd]);
 
+  const renderNoteForm = useCallback(() => {
+    if (!displayNoteForm) return null;
+    const maxLength = noteMaxLength ?? 512;
+    return (
+      <Form.Field
+        label={intl.formatMessage({
+          id: ETranslations.global_Note,
+        })}
+        labelAddon={
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.form_optional_indicator,
+            })}
+          </SizableText>
+        }
+        name="note"
+        rules={{
+          maxLength: {
+            value: maxLength,
+            message: intl.formatMessage(
+              {
+                id: ETranslations.send_memo_up_to_length,
+              },
+              {
+                number: maxLength,
+              },
+            ),
+          },
+        }}
+      >
+        <TextArea
+          numberOfLines={2}
+          size={media.gtMd ? 'medium' : 'large'}
+          placeholder={intl.formatMessage({
+            id: ETranslations.global_Note,
+          })}
+        />
+      </Form.Field>
+    );
+  }, [displayNoteForm, intl, media.gtMd, noteMaxLength]);
+
   const renderDataInput = useCallback(() => {
     if (isNFT) {
       return renderNFTDataInputForm();
@@ -907,6 +959,7 @@ function SendDataInputContainer() {
           {renderTokenDataInputForm()}
           {renderMemoForm()}
           {renderPaymentIdForm()}
+          {renderNoteForm()}
         </>
       );
     }
@@ -918,6 +971,7 @@ function SendDataInputContainer() {
     renderTokenDataInputForm,
     renderMemoForm,
     renderPaymentIdForm,
+    renderNoteForm,
   ]);
 
   useEffect(() => {

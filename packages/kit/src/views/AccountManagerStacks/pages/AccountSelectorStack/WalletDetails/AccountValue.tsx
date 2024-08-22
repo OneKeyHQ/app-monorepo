@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -9,16 +11,16 @@ function AccountValue(accountValue: {
   value: string;
 }) {
   const [activeAccountValue] = useActiveAccountValueAtom();
+  const isActiveAccount =
+    activeAccountValue?.accountId === accountValue?.accountId;
 
   const { currency, value } = useMemo(() => {
-    if (
-      activeAccountValue &&
-      activeAccountValue?.accountId === accountValue?.accountId
-    ) {
+    if (activeAccountValue && isActiveAccount) {
       return activeAccountValue;
     }
     return accountValue;
-  }, [accountValue, activeAccountValue]);
+  }, [accountValue, activeAccountValue, isActiveAccount]);
+  const intl = useIntl();
 
   return (
     <Currency

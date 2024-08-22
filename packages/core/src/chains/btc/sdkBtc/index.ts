@@ -135,6 +135,8 @@ export const loadOPReturn = (
 
 export const isTaprootPath = (pathPrefix: string) =>
   pathPrefix.startsWith(`m/86'/`);
+export const isNativeSegwitPath = (pathPrefix: string) =>
+  pathPrefix.startsWith(`m/84'/`);
 
 // eslint-disable-next-line spellcheck/spell-checker
 // Taproot addresses start with 'bc1p' on mainnet
@@ -142,6 +144,9 @@ export const isTaprootPath = (pathPrefix: string) =>
 // Taproot addresses start with 'tb1p' on testnet
 export const isTaprootAddress = (address: string): boolean =>
   address.startsWith('bc1p') || address.startsWith('tb1p');
+
+export const isNativeSegwitAddress = (address: string): boolean =>
+  address.startsWith('bc1q') || address.startsWith('tb1q');
 
 export function scriptPkToAddress(
   scriptPk: string | Buffer,
@@ -286,6 +291,7 @@ export function validateBtcXprvt({
   };
 }
 
+// validateBtcAddress
 export function validateBtcAddress({
   network,
   address,

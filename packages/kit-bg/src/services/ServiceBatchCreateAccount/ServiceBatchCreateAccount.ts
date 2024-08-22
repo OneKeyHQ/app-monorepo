@@ -444,6 +444,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
             // **** PIN\passphrase cancel
             HardwareErrorCode.PinCancelled,
             HardwareErrorCode.ActionCancelled,
+            HardwareErrorCode.DeviceInterruptedFromOutside, // cancel PIN from app
+            HardwareErrorCode.DeviceInterruptedFromUser, // cancel PIN from app
           ],
         })
       ) {

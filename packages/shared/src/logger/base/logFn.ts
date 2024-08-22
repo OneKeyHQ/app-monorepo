@@ -1,7 +1,6 @@
 import { analytics } from '../../analytics';
 import platformEnv from '../../platformEnv';
 import { formatTime } from '../../utils/dateUtils';
-import timerUtils from '../../utils/timerUtils';
 import { getLoggerExtension } from '../extensions';
 import { defaultLoggerConfig } from '../loggerConfig';
 

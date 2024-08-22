@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { forEach, uniqBy } from 'lodash';
+import { forEach, isNil, uniqBy } from 'lodash';
 
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
@@ -119,6 +119,22 @@ export function sortTokensByFiatValue({
   });
 }
 
+export function sortTokensByOrder({ tokens }: { tokens: IAccountToken[] }) {
+  return tokens.sort((a, b) => {
+    if (!isNil(a.order) && !isNil(b.order)) {
+      return new BigNumber(a.order).comparedTo(b.order);
+    }
+    if (isNil(a.order) && !isNil(b.order)) {
+      return 1;
+    }
+    if (!isNil(a.order) && isNil(b.order)) {
+      return -1;
+    }
+
+    return 0;
+  });
+}
+
 export function mergeDeriveTokenListMap({
   sourceMap,
   targetMap,
@@ -216,7 +232,9 @@ export function mergeDeriveTokenList({
       const keyArr = token.$key.split('_');
       const mergedDeriveKey = `${keyArr[0]}_${keyArr[keyArr.length - 1]}`;
 
-      if (!newTokens.find((item) => item.$key === mergedDeriveKey)) {
+      if (!token.mergeAssets) {
+        newTokens.push(token);
+      } else if (!newTokens.find((item) => item.$key === mergedDeriveKey)) {
         newTokens.push({
           ...token,
           $key: mergedDeriveKey,

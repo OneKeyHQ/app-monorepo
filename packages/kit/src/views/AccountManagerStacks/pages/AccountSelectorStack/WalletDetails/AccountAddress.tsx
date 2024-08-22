@@ -17,23 +17,26 @@ export function AccountAddress({
 }) {
   const { activeAccount } = useActiveAccount({ num });
   const intl = useIntl();
+  // const noAddressMessage = intl.formatMessage(
+  //   { id: ETranslations.global_no_network_address },
+  //   {
+  //     network:
+  //       linkedNetworkId === activeAccount?.network?.id
+  //         ? activeAccount?.network?.shortname || ''
+  //         : '',
+  //     //   network: '11',
+  //   },
+  // );
+  const noAddressMessage = intl.formatMessage({
+    id: ETranslations.wallet_no_address,
+  });
+
   return address || isEmptyAddress ? (
     <SizableText
       size="$bodyMd"
       color={isEmptyAddress ? '$textCaution' : '$textSubdued'}
     >
-      {isEmptyAddress && linkedNetworkId
-        ? intl.formatMessage(
-            { id: ETranslations.global_no_network_address },
-            {
-              network:
-                linkedNetworkId === activeAccount?.network?.id
-                  ? activeAccount?.network?.shortname || ''
-                  : '',
-              //   network: '11',
-            },
-          )
-        : address}
+      {isEmptyAddress && linkedNetworkId ? noAddressMessage : address}
     </SizableText>
   ) : null;
 }
