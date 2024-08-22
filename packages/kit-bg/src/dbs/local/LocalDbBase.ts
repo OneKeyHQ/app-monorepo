@@ -67,6 +67,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -94,7 +95,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -2333,9 +2333,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId,
   }: {
     walletId: IDBWalletIdSingleton;
-  }) {
+  }): Promise<{
+    accounts: IDBAccount[];
+  }> {
     const db = await this.readyDb;
-    const wallet = await this.getWallet({ walletId });
+    const wallet = await this.getWalletSafe({ walletId });
+    if (!wallet) {
+      return { accounts: [] };
+    }
     const { records: accounts } = await db.getAllRecords({
       name: ELocalDBStoreNames.Account,
       ids: wallet.accounts, // filter by ids for better performance
