@@ -48,7 +48,10 @@ class ProviderApiTon extends ProviderApiBase {
       let params;
       try {
         if (accounts && accounts.length > 0) {
-          params = await this._getAccountResponse(accounts[0].account);
+          params = await this._getAccountResponse(
+            accounts[0].account,
+            accounts[0].accountInfo?.networkId ?? '',
+          );
         }
       } catch {
         // ignore
@@ -95,7 +98,10 @@ class ProviderApiTon extends ProviderApiBase {
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
       accounts = await this.getAccountsInfo(request);
     }
-    return this._getAccountResponse(accounts[0].account);
+    return this._getAccountResponse(
+      accounts[0].account,
+      accounts[0].accountInfo?.networkId ?? '',
+    );
   }
 
   @providerApiMethod()
@@ -123,7 +129,10 @@ class ProviderApiTon extends ProviderApiBase {
     };
   }
 
-  private async _getAccountResponse(account: INetworkAccount) {
+  private async _getAccountResponse(
+    account: INetworkAccount,
+    networkId: string,
+  ) {
     const version = getAccountVersion(account.id);
     if (!account.pub) {
       throw new Error('Invalid account');
@@ -132,6 +141,7 @@ class ProviderApiTon extends ProviderApiBase {
       version,
       publicKey: account.pub,
       backgroundApi: this.backgroundApi,
+      networkId,
     });
     const deploy = await wallet.createStateInit();
     return {

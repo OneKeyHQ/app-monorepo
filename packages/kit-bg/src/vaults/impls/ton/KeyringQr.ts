@@ -32,4 +32,9 @@ export class KeyringQr extends KeyringQrBase {
   ): Promise<IDBAccount[]> {
     throw new NotImplemented();
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  override verifySignedTxMatched(...args: any[]): Promise<void> {
+    throw new NotImplemented();
+  }
 }

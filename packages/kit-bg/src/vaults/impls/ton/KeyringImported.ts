@@ -44,6 +44,7 @@ export class KeyringImported extends KeyringImportedBase {
       version,
       encodedTx,
       backgroundApi: this.vault.backgroundApi,
+      networkId: this.vault.networkId,
     });
     params.unsignedTx.rawTxUnsigned = hexUtils.hexlify(
       await serializeUnsignedTx.signingMessage.toBoc(),
@@ -57,7 +58,6 @@ export class KeyringImported extends KeyringImportedBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    // throw new NotImplemented();
     return this.baseSignMessage(params);
   }
 }

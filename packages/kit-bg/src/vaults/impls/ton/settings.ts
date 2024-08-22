@@ -14,7 +14,7 @@ import type {
 } from '../../types';
 
 export type IAccountDeriveInfoMapTon = IAccountDeriveInfoMapBase & {
-  v3R2?: IAccountDeriveInfo;
+  v5?: IAccountDeriveInfo;
 };
 
 const accountDeriveInfo: IAccountDeriveInfoMapTon = {
@@ -25,14 +25,6 @@ const accountDeriveInfo: IAccountDeriveInfoMapTon = {
     coinType: COINTYPE_TON,
     addressEncoding: EAddressEncodings.V4R2,
     idSuffix: EAddressEncodings.V4R2,
-  },
-  v3R2: {
-    namePrefix: '',
-    label: EAddressEncodings.V3R2,
-    template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
-    coinType: COINTYPE_TON,
-    addressEncoding: EAddressEncodings.V3R2,
-    idSuffix: EAddressEncodings.V3R2,
   },
 };
 
