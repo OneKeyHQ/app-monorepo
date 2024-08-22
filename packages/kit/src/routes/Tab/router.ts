@@ -81,7 +81,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           ? {
               name: ETabRoutes.Earn,
               tabBarIcon: (focused?: boolean) =>
-                focused ? 'ChartColumnar3Solid' : 'ChartColumnar3Outline',
+                focused ? 'CoinsSolid' : 'CoinsOutline',
               translationId: ETranslationsMock.global_earn,
               freezeOnBlur: Boolean(params?.freezeOnBlur),
               rewrite: '/earn',
