@@ -9,9 +9,6 @@ export type IProgressProps = {
 } & Omit<TMProgressProps, 'size'>;
 
 const DEFAULT_MAX = 100;
-// https://github.com/tamagui/tamagui/issues/2753
-// https://github.com/tamagui/tamagui/issues/2847
-// Enabling animation on Native platforms causes the progress bar to fail initial rendering
 export function Progress({
   size,
   value,
@@ -26,6 +23,9 @@ export function Progress({
       {...props}
     >
       <TMProgress.Indicator
+        // https://github.com/tamagui/tamagui/issues/2753
+        // https://github.com/tamagui/tamagui/issues/2847
+        // Enabling animation on Native platforms causes the progress bar to fail initial rendering
         animation={platformEnv.isNative ? null : 'quick'}
         backgroundColor="$bgPrimary"
         borderRadius="$full"
