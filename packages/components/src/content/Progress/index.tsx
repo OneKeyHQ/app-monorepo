@@ -23,7 +23,6 @@ export function Progress({
       h={size === 'medium' ? '$1' : '$0.5'}
       value={Number(value) > DEFAULT_MAX ? DEFAULT_MAX : value}
       max={DEFAULT_MAX}
-      animation={platformEnv.isNative ? null : undefined}
       {...props}
     >
       <TMProgress.Indicator
