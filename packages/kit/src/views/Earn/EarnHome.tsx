@@ -1,10 +1,12 @@
-import { Page } from '@onekeyhq/components';
+import { Page, SizableText } from '@onekeyhq/components';
 
 export default function EarnHome() {
   return (
     <Page>
       <Page.Header title="11" />
-      <Page.Body>123</Page.Body>
+      <Page.Body>
+        <SizableText>123</SizableText>
+      </Page.Body>
     </Page>
   );
 }
