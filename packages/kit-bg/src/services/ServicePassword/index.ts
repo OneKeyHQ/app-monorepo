@@ -26,7 +26,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import type { IPasswordSecuritySession } from '@onekeyhq/shared/types/password';
+import {
+  EPasswordVerifyStatus,
+  type IPasswordSecuritySession,
+} from '@onekeyhq/shared/types/password';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
@@ -67,6 +70,8 @@ export default class ServicePassword extends ServiceBase {
   private passwordPromptTimeout: NodeJS.Timeout | null = null;
 
   private securitySession?: IPasswordSecuritySession;
+
+  private extCheckLockStatusTimer?: ReturnType<typeof setInterval>;
 
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
@@ -575,8 +580,20 @@ export default class ServicePassword extends ServiceBase {
   // lock ---------------------------
   @backgroundMethod()
   async unLockApp() {
-    await passwordAtom.set((v) => ({ ...v, unLock: true }));
-    await passwordPersistAtom.set((v) => ({ ...v, manualLocking: false }));
+    await passwordAtom.set((v) => ({
+      ...v,
+      unLock: true,
+      manualLocking: false,
+    }));
+  }
+
+  @backgroundMethod()
+  async resetPasswordStatus() {
+    await passwordAtom.set((v) => ({
+      ...v,
+      passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
+      manualLocking: false,
+    }));
   }
 
   @backgroundMethod()
@@ -590,10 +607,9 @@ export default class ServicePassword extends ServiceBase {
     if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
       return;
     }
-    //
     await this.clearCachedPassword();
     if (manual) {
-      await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
+      await passwordAtom.set((v) => ({ ...v, manualLocking: true }));
     }
     await passwordAtom.set((v) => ({ ...v, unLock: false }));
   }
@@ -625,6 +641,21 @@ export default class ServicePassword extends ServiceBase {
     const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
     if (idleDuration >= appLockDuration) {
       await this.lockApp({ manual: false });
+    }
+  }
+
+  @backgroundMethod()
+  async addExtIntervalCheckLockStatusListener() {
+    if (platformEnv.isExtensionBackground && !this.extCheckLockStatusTimer) {
+      this.extCheckLockStatusTimer = setInterval(() => {
+        // skip check lock status when ext ui open
+        if (
+          this.backgroundApi.bridgeExtBg &&
+          !checkExtUIOpen(this.backgroundApi.bridgeExtBg)
+        ) {
+          void this.checkLockStatus();
+        }
+      }, 1000 * 30);
     }
   }
 

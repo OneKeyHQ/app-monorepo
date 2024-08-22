@@ -88,8 +88,9 @@ function TokenDetailHeader({
           <MarketTokenPrice
             size="$heading3xl"
             price={currentPrice}
-            tokenName={symbol}
-            lastUpdate={lastUpdated}
+            tokenName={name}
+            tokenSymbol={symbol}
+            lastUpdated={lastUpdated}
           />
           <MarketStar coingeckoId={coinGeckoId} mr="$-2" size="medium" />
         </XStack>

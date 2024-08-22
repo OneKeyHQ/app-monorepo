@@ -17,6 +17,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -99,6 +100,7 @@ class ProviderApiBtc extends ProviderApiBase {
   @providerApiMethod()
   public async requestAccounts(request: IJsBridgeMessagePayload) {
     return this.semaphore.runExclusive(async () => {
+      defaultLogger.discovery.dapp.dappRequest({ request });
       const accounts = await this.getAccounts(request);
       if (accounts && accounts.length) {
         return accounts;
@@ -155,7 +157,7 @@ class ProviderApiBtc extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISwitchNetworkParams,
   ) {
-    console.log('ProviderApiBtc.switchNetwork');
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const accountsInfo =
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
         request,
@@ -223,6 +225,7 @@ class ProviderApiBtc extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISendBitcoinParams,
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { toAddress, satoshis, feeRate } = params;
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId, address } = {} } =
@@ -279,6 +282,7 @@ class ProviderApiBtc extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISignMessageParams,
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { message, type } = params;
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
@@ -317,6 +321,7 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async pushTx(request: IJsBridgeMessagePayload, params: IPushTxParams) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { rawTx } = params;
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId, address } = {} } =
@@ -352,6 +357,7 @@ class ProviderApiBtc extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISignPsbtParams,
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
 
@@ -362,13 +368,13 @@ class ProviderApiBtc extends ProviderApiBase {
       });
     }
 
-    if (accountUtils.isHwAccount({ accountId })) {
-      throw web3Errors.provider.custom({
-        code: 4003,
-        message:
-          'Partially signed bitcoin transactions is not supported on hardware.',
-      });
-    }
+    // if (accountUtils.isHwAccount({ accountId })) {
+    //   throw web3Errors.provider.custom({
+    //     code: 4003,
+    //     message:
+    //       'Partially signed bitcoin transactions is not supported on hardware.',
+    //   });
+    // }
 
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
@@ -393,6 +399,7 @@ class ProviderApiBtc extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISignPsbtsParams,
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
 
@@ -470,6 +477,13 @@ class ProviderApiBtc extends ProviderApiBase {
       isBtcWalletProvider: options.isBtcWalletProvider,
     });
 
+    // Check for change address:
+    // 1. More than one output
+    // 2. Not all output addresses are the same as the current account address
+    // This often happens in BRC-20 transfer transactions
+    const hasChangeAddress =
+      decodedPsbt.outputInfos.length > 1 &&
+      !(decodedPsbt.outputInfos ?? []).every((v) => v.address === address);
     const resp =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
@@ -484,9 +498,11 @@ class ProviderApiBtc extends ProviderApiBase {
           outputs: (decodedPsbt.outputInfos ?? []).map((v) => ({
             ...v,
             value: new BigNumber(v.value).toFixed(),
-            payload: {
-              isChange: v.address === address,
-            },
+            payload: hasChangeAddress
+              ? {
+                  isChange: v.address === address,
+                }
+              : undefined,
           })),
           inputsForCoinSelect: [],
           outputsForCoinSelect: [],
@@ -521,6 +537,7 @@ class ProviderApiBtc extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IPushPsbtParams,
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId, address } = {} } =
       accountsInfo[0];

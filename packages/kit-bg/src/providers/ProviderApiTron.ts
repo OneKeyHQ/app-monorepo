@@ -9,6 +9,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -166,6 +167,7 @@ class ProviderApiTron extends ProviderApiBase {
 
   @providerApiMethod()
   async tron_requestAccounts(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     console.log('ProviderTron.tron_requestAccounts', request);
     const accounts = await this.tron_accounts(request);
     if (accounts && accounts.length) {
@@ -181,6 +183,7 @@ class ProviderApiTron extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     transaction: any,
   ): Promise<SignedTransaction> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     console.log('tron_signTransaction', request, transaction);
 
     const { accountInfo: { networkId, accountId } = {} } = (

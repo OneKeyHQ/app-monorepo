@@ -6,7 +6,6 @@ import { useDebouncedCallback } from 'use-debounce';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
-  NumberSizeableText,
   Page,
   SearchBar,
   SectionList,
@@ -268,8 +267,9 @@ export function UniversalSearch({
                 <MarketTokenPrice
                   price={String(price)}
                   size="$bodyLgMedium"
-                  lastUpdate={lastUpdated}
-                  tokenName={symbol}
+                  lastUpdated={lastUpdated}
+                  tokenName={name}
+                  tokenSymbol={symbol}
                 />
                 <MarketStar coingeckoId={coingeckoId} ml="$3" />
               </XStack>
