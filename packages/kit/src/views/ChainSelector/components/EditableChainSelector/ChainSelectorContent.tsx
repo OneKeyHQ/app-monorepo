@@ -221,7 +221,7 @@ export const EditableChainSelectorContent = ({
   }, [sections, showAllNetworkHeader]);
 
   const initialScrollIndex = useMemo(() => {
-    if (searchText.trim()) {
+    if (searchText.trim() || tempFrequentlyUsedItems !== frequentlyUsedItems) {
       return undefined;
     }
     let _initialScrollIndex:
@@ -267,6 +267,7 @@ export const EditableChainSelectorContent = ({
       return { sectionIndex: 0, itemIndex: undefined };
     }
     return _initialScrollIndex;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections, networkId, searchText]);
 
   const context = useMemo<IEditableChainSelectorContext>(
