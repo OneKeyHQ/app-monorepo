@@ -1,11 +1,7 @@
 import { type PropsWithChildren, useCallback, useMemo, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
-  Accordion,
-  Heading,
   Icon,
   NumberSizeableText,
   Page,
@@ -24,6 +20,8 @@ import type {
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+
+import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 
 type IStakedValue = {
   value: number;
@@ -520,6 +518,18 @@ export default function EarnTokenDetail({
           console.log('cancel');
         }}
       />
+      {/* <StakingTransactionIndicator
+        accountId={accountId}
+        networkId={networkId}
+        stakeTag="lido-matic"
+        onRefresh={onRefresh}
+        onPress={() =>
+          appNavigation.push(EModalStakingRoutes.MaticLidoHistory, {
+            accountId,
+            networkId,
+          })
+        }
+      /> */}
     </Page>
   );
 }
