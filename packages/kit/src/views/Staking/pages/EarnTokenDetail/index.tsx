@@ -1,11 +1,25 @@
+import { type PropsWithChildren, useCallback, useMemo, useState } from 'react';
+
+import { StyleSheet } from 'react-native';
+
+import type { YStackProps } from '@onekeyhq/components';
 import {
+  Accordion,
+  Heading,
+  Icon,
   NumberSizeableText,
   Page,
   Progress,
   SizableText,
+  Stack,
+  Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+
+import { Token } from '../../../../components/Token';
 
 function StakedValue({
   value = 0,
@@ -18,7 +32,7 @@ function StakedValue({
 }) {
   const totalNumber = stakedNumber + avaliableNumber;
   return (
-    <YStack gap="$6" pb="$8">
+    <YStack gap="$6" pb="$8" px="$5">
       <YStack gap="$2">
         <SizableText size="$headingLg">Staked value</SizableText>
         <NumberSizeableText
@@ -70,15 +84,275 @@ function StakedValue({
   );
 }
 
+function Portfolio({
+  messages = [],
+}: {
+  messages: { tokenId: string; tokenNumber: number; tokenSymbol: string }[];
+}) {
+  return (
+    <YStack pt="$3" pb="$8" gap="$6" px="$5">
+      <SizableText size="$headingLg">Portfolio</SizableText>
+      {messages.length
+        ? messages.map(({ tokenId, tokenNumber }) => (
+            <YStack gap="$3" key={tokenId}>
+              <XStack gap="$1.5">
+                <Token
+                  size="sm"
+                  tokenImageUri="https://uni.onekey-asset.com/static/chain/btc.png"
+                />
+                <NumberSizeableText
+                  size="$bodyLgMedium"
+                  formatter="value"
+                  formatterOptions={{ tokenSymbol: 'ETH' }}
+                >
+                  {tokenNumber}
+                </NumberSizeableText>
+                <XStack gap="$1" ai="center">
+                  <SizableText size="$bodyLg">Withdrawal requested</SizableText>
+                  <Tooltip
+                    placement="top"
+                    renderContent="1"
+                    renderTrigger={<Icon name="InfoCircleOutline" size="$5" />}
+                  />
+                </XStack>
+              </XStack>
+            </YStack>
+          ))
+        : null}
+    </YStack>
+  );
+}
+
+function GridItem({
+  title,
+  children,
+  tooltip,
+  link,
+  ...props
+}: PropsWithChildren<
+  { title: string; tooltip?: string; link?: string } & YStackProps
+>) {
+  const openLink = useCallback(() => {
+    if (link) {
+      openUrlExternal(link);
+    }
+  }, [link]);
+  return (
+    <YStack {...props}>
+      <XStack gap="$1">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {title}
+        </SizableText>
+        {tooltip ? (
+          <Tooltip
+            placement="top"
+            renderContent={tooltip}
+            renderTrigger={
+              <Icon color="$textSubdued" name="InfoCircleOutline" size="$5" />
+            }
+          />
+        ) : null}
+      </XStack>
+      <XStack gap="$1" alignItems="center">
+        <SizableText size="$bodyLgMedium">{children}</SizableText>
+        {link ? (
+          <Stack onPress={openLink} cursor="pointer">
+            <Icon name="OpenOutline" color="$textSubdued" size="$5" />
+          </Stack>
+        ) : null}
+      </XStack>
+    </YStack>
+  );
+}
+
+export function Profit() {
+  const { gtMd } = useMedia();
+  const gridItemStyle = useMemo(
+    () =>
+      gtMd
+        ? {
+            flexGrow: 1,
+            flexBasis: 0,
+            pt: '$6',
+          }
+        : {
+            width: '50%',
+            pt: '$6',
+          },
+    [gtMd],
+  );
+  return (
+    <YStack py="$8" px="$5">
+      <SizableText size="$headingLg">Profit</SizableText>
+      <XStack $md={{ flexWrap: 'wrap' }}>
+        <GridItem title="Rewards (%)" {...gridItemStyle}>
+          <NumberSizeableText
+            formatter="priceChange"
+            formatterOptions={{ tokenSymbol: 'APR' }}
+          >
+            3.67
+          </NumberSizeableText>
+        </GridItem>
+        <GridItem title="24h earnings" {...gridItemStyle}>
+          <NumberSizeableText
+            formatter="priceChange"
+            formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
+          >
+            0.125454
+          </NumberSizeableText>
+        </GridItem>
+        <GridItem title="Reward tokens" {...gridItemStyle}>
+          ETH
+        </GridItem>
+
+        <GridItem title="Update frequency" {...gridItemStyle}>
+          ~1 day
+        </GridItem>
+      </XStack>
+    </YStack>
+  );
+}
+
+export function Provider() {
+  const { gtMd } = useMedia();
+  const gridItemStyle = useMemo(
+    () =>
+      gtMd
+        ? {
+            flexGrow: 1,
+            flexBasis: 0,
+            pt: '$6',
+          }
+        : {
+            width: '50%',
+            pt: '$6',
+          },
+    [gtMd],
+  );
+  return (
+    <YStack py="$8" px="$5">
+      <SizableText size="$headingLg">Provider</SizableText>
+      <XStack $md={{ flexWrap: 'wrap' }}>
+        <GridItem title="Validator" {...gridItemStyle} link="https://1key.so">
+          Everstake
+        </GridItem>
+        <GridItem title="Min. staking" {...gridItemStyle}>
+          <NumberSizeableText
+            formatter="value"
+            formatterOptions={{ tokenSymbol: 'ETH' }}
+          >
+            0.1
+          </NumberSizeableText>
+        </GridItem>
+        <GridItem title="Until next launch" tooltip="1111" {...gridItemStyle}>
+          <SizableText>
+            <NumberSizeableText
+              formatter="value"
+              formatterOptions={{ tokenSymbol: 'ETH' }}
+            >
+              28.1
+            </NumberSizeableText>
+            {' left'}
+          </SizableText>
+        </GridItem>
+      </XStack>
+    </YStack>
+  );
+}
+
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+  const [show, setShow] = useState(false);
+  const onToggle = useCallback(() => setShow((v) => !v), []);
+  return (
+    <YStack>
+      <XStack
+        mb="$2"
+        hoverStyle={{ backgroundColor: '$bgHover' }}
+        pressStyle={{ backgroundColor: '$bgHover' }}
+        borderRadius={12}
+        onPress={onToggle}
+        py="$2"
+      >
+        <XStack flex={1} mx="$5">
+          <XStack flex={1}>
+            <SizableText size="$headingMd">{question}</SizableText>
+          </XStack>
+          <XStack>
+            <Icon
+              name={show ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
+            />
+          </XStack>
+        </XStack>
+      </XStack>
+      <XStack px="$5">
+        {show ? (
+          <SizableText size="$bodyMd" pb="$5">
+            {answer}
+          </SizableText>
+        ) : null}
+      </XStack>
+    </YStack>
+  );
+}
+function FAQ({
+  solutions,
+}: {
+  solutions: { question: string; answer: string }[];
+}) {
+  return (
+    <YStack py="$8" gap="$6">
+      <SizableText size="$headingLg" px="$5">
+        FAQ
+      </SizableText>
+      <YStack>
+        {solutions.map(({ question, answer }, index) => (
+          <FAQItem question={question} answer={answer} key={String(index)} />
+        ))}
+      </YStack>
+    </YStack>
+  );
+}
+
 export default function EarnTokenDetail() {
   return (
     <Page scrollEnabled>
       <Page.Header title="Earn ETH" />
       <Page.Body>
-        <YStack px="$5">
+        <YStack>
           <StakedValue value={100} stakedNumber={1} avaliableNumber={3} />
+          <Portfolio
+            messages={[
+              {
+                tokenId: '',
+                tokenNumber: 3,
+                tokenSymbol: 'ETH',
+              },
+            ]}
+          />
+          <Profit />
+          <Provider />
+          <FAQ
+            solutions={[
+              {
+                question: 'Lido 协议是如何工作的？',
+                answer:
+                  'Lido 为传统 PoS 权益证明所带来的难题提供了一种创新解决方案，有效地降低了进入门槛和将资产锁定在单一协议中的成本。当用户将他们的资产存入 Lido 时，这些代币会通过协议在 Lido 多区块链上进行权益证明。',
+              },
+              {
+                question: '为什么你会收到 stETH？',
+                answer:
+                  '当你向 Lido 存入 ETH 时，你会收到 Lido 的流动性质押代币，即 stETH，它代表了你在 Lido 中对 ETH 的比例索赔。当在 Lido 上运行的验证者获得奖励时，你有资格按照你的质押比例获得奖励，这通常预期每天发生。',
+              },
+              {
+                question: 'Lido 的可能风险是什么？',
+                answer:
+                  '使用 Lido 进行质押存在一定的风险，例如网络或验证器故障可能导致质押资产的损失（罚款），或者 Lido 智能合约的漏洞或错误。尽管该代码已经开源，经过审计并得到广泛关注，但任何加密货币投资都存在风险，需要独立评估。',
+              },
+            ]}
+          />
         </YStack>
       </Page.Body>
+      <Page.Footer onConfirmText="Stake" onCancelText="Withdraw" />
     </Page>
   );
 }
