@@ -38,6 +38,7 @@ import {
 } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -76,7 +77,6 @@ import {
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 
-import { WalletAvatar } from '../../../../components/WalletAvatar';
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
