@@ -300,12 +300,16 @@ export interface ISwapQuoteEventAutoSlippage {
 
 export interface ISwapQuoteEventQuoteResult {
   data: IFetchQuoteResult[];
+}
+
+export interface ISwapQuoteEventInfo {
   totalQuoteCount: number;
 }
 
 export type ISwapQuoteEventData =
   | ISwapQuoteEventAutoSlippage
-  | ISwapQuoteEventQuoteResult;
+  | ISwapQuoteEventQuoteResult
+  | ISwapQuoteEventInfo;
 
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {

@@ -88,6 +88,12 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
+  async removeQuoteEventSourceListeners() {
+    if (this._quoteEventSource) {
+      this._quoteEventSource.removeAllEventListeners();
+    }
+  }
+
   @backgroundMethod()
   async cancelFetchQuoteEvents() {
     if (this._quoteEventSource) {
@@ -381,7 +387,7 @@ export default class ServiceSwap extends ServiceBase {
     blockNumber?: number;
     accountId?: string;
   }) {
-    // await this.cancelFetchQuoteEvents();
+    await this.removeQuoteEventSourceListeners();
     const params: IFetchQuotesParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -410,7 +416,6 @@ export default class ServiceSwap extends ServiceBase {
           })
         : {}),
     };
-    console.log('swap__fetch_quote_events', swapEventUrl, headers);
     this._quoteEventSource = new EventSource(swapEventUrl, {
       headers,
       pollingInterval: 0,

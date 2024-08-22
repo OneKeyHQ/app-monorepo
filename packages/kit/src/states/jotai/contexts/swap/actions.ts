@@ -29,6 +29,7 @@ import type {
   ISwapQuoteEvent,
   ISwapQuoteEventAutoSlippage,
   ISwapQuoteEventData,
+  ISwapQuoteEventInfo,
   ISwapQuoteEventQuoteResult,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -289,12 +290,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       switch (event.type) {
         case 'open': {
-          console.log('swap__quote_event_handler---------open');
           set(swapQuoteListAtom(), []);
           break;
         }
         case 'message': {
-          console.log('swap__quote_event_handler-------meesage--', event);
           const { data } = event.event as IEventSourceMessageEvent;
           if (data) {
             const dataJson = JSON.parse(data) as ISwapQuoteEventData;
@@ -329,8 +328,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 from: `${fromNetworkId}-${fromTokenAddress}`,
                 to: `${toNetworkId}-${toTokenAddress}`,
               });
+            } else if (
+              (dataJson as ISwapQuoteEventInfo).totalQuoteCount ||
+              (dataJson as ISwapQuoteEventInfo).totalQuoteCount === 0
+            ) {
+              const { totalQuoteCount } = dataJson as ISwapQuoteEventInfo;
+              if (totalQuoteCount === 0) {
+                set(swapQuoteListAtom(), []);
+              }
+              // todo totalQuoteCount > 0 display
             } else {
-              set(swapQuoteFetchingAtom(), false);
               const quoteResultData = dataJson as ISwapQuoteEventQuoteResult;
               const swapAutoSlippageSuggestedValue = get(
                 swapAutoSlippageSuggestedValueAtom(),
@@ -378,15 +385,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 );
                 newQuoteList = [...newQuoteList, ...newAddQuoteRes];
                 set(swapQuoteListAtom(), [...newQuoteList]);
-              } else if (quoteResultData.totalQuoteCount === 0) {
-                set(swapQuoteListAtom(), []);
               }
+              set(swapQuoteFetchingAtom(), false);
             }
           }
           break;
         }
-        case 'done':
-          console.log('swap__quote_event_handler---------done');
+        case 'done': {
+          set(swapQuoteActionLockAtom(), false);
           this.quoteIntervalCount += 1;
           if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
             void this.recoverQuoteInterval.call(
@@ -398,14 +404,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           }
           this.closeQuoteEvent();
           break;
+        }
         case 'error': {
-          console.log('swap__quote_event_handler---------error', event);
           // todo error toast
           this.closeQuoteEvent();
           break;
         }
         case 'close': {
-          console.log('swap__quote_event_handler---------close');
           set(swapQuoteFetchingAtom(), false);
           set(swapQuoteActionLockAtom(), false);
           break;
