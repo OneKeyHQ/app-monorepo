@@ -179,7 +179,7 @@ function ConnectByQrCode() {
 
 function ConnectByQrCodeComingSoon() {
   const intl = useIntl();
-  const [showConnectQr, setShowConnectQr] = useState(false);
+  const [showConnectQr, setShowConnectQr] = useState(true);
   if (showConnectQr) {
     return <ConnectByQrCode />;
   }
