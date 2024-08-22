@@ -16,10 +16,12 @@ export {
 export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
   contextAtom<{
     worth: string;
+    createAtNetworkWorth: string;
     accountId: string;
     initialized: boolean;
   }>({
     worth: '0',
+    createAtNetworkWorth: '0',
     accountId: '',
     initialized: false,
   });

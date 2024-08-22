@@ -274,9 +274,7 @@ export const AddressBookListContent = ({
 
   const media = useMedia();
 
-  const estimatedItemSize = useMemo(() => {
-    return media.md ? 80 : 60;
-  }, [media.md]);
+  const estimatedItemSize = useMemo(() => (media.md ? 80 : 60), [media.md]);
 
   return (
     <Stack flex={1}>
