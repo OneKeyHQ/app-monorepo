@@ -74,6 +74,7 @@ import type {
   IDBCreateHwWalletParamsBase,
   IDBCreateQRWalletParams,
   IDBDevice,
+  IDBEnsureAccountNameNotDuplicateParams,
   IDBExternalAccount,
   IDBGetWalletsParams,
   IDBIndexedAccount,
@@ -755,10 +756,14 @@ class ServiceAccount extends ServiceBase {
     input,
     networkId,
     deriveType,
+    name,
+    shouldCheckDuplicateName,
   }: {
     input: string;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
+    name?: string;
+    shouldCheckDuplicateName?: boolean;
   }) {
     ensureSensitiveTextEncoded(input);
     const walletId = WALLET_TYPE_IMPORTED;
@@ -771,6 +776,8 @@ class ServiceAccount extends ServiceBase {
       credential: privateKey,
       networkId,
       deriveType,
+      name,
+      shouldCheckDuplicateName,
     });
   }
 
@@ -781,9 +788,11 @@ class ServiceAccount extends ServiceBase {
     networkId,
     deriveType,
     name,
+    shouldCheckDuplicateName,
     skipAddIfNotEqualToAddress,
   }: {
     name?: string;
+    shouldCheckDuplicateName?: boolean;
     credential: string;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
@@ -799,6 +808,14 @@ class ServiceAccount extends ServiceBase {
       );
     }
     const walletId = WALLET_TYPE_IMPORTED;
+
+    if (shouldCheckDuplicateName && name) {
+      await localDb.ensureAccountNameNotDuplicate({
+        name,
+        walletId,
+      });
+    }
+
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,
       walletId,
@@ -972,12 +989,14 @@ class ServiceAccount extends ServiceBase {
     networkId,
     deriveType,
     name,
+    shouldCheckDuplicateName,
     isUrlAccount,
     skipAddIfNotEqualToAddress,
   }: {
     input: string;
     networkId: string;
     name?: string;
+    shouldCheckDuplicateName?: boolean;
     deriveType?: IAccountDeriveTypes;
     isUrlAccount?: boolean;
     skipAddIfNotEqualToAddress?: string;
@@ -991,14 +1010,20 @@ class ServiceAccount extends ServiceBase {
         'addWatchingAccount ERROR: networkId should not be all networks',
       );
     }
+    const walletId = WALLET_TYPE_WATCHING;
+
+    if (name && shouldCheckDuplicateName) {
+      await localDb.ensureAccountNameNotDuplicate({
+        name,
+        walletId,
+      });
+    }
 
     // /evm/0x63ac73816EeB38514DaE6c46008baf55f1c59C9e
     if (networkId === IMPL_EVM) {
       // eslint-disable-next-line no-param-reassign
       networkId = getNetworkIdsMap().eth;
     }
-
-    const walletId = WALLET_TYPE_WATCHING;
 
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
@@ -1485,6 +1510,13 @@ class ServiceAccount extends ServiceBase {
     const result = await localDb.addHDNextIndexedAccount({ walletId });
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     return result;
+  }
+
+  @backgroundMethod()
+  async ensureAccountNameNotDuplicate(
+    params: IDBEnsureAccountNameNotDuplicateParams,
+  ) {
+    return localDb.ensureAccountNameNotDuplicate(params);
   }
 
   @backgroundMethod()

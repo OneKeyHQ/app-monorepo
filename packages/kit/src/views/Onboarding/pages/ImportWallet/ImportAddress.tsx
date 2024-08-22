@@ -51,6 +51,7 @@ type IFormValues = {
   deriveType?: IAccountDeriveTypes;
   publicKeyValue: string;
   addressValue: IAddressInputValue;
+  accountName?: string;
 };
 
 enum EImportMethod {
@@ -164,6 +165,7 @@ function ImportAddress() {
       deriveType: undefined,
       publicKeyValue: '',
       addressValue: { raw: '', resolved: undefined },
+      accountName: '',
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -177,9 +179,28 @@ function ImportAddress() {
   const networkIdText = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'publicKeyValue' });
   const addressValue = useFormWatch({ control, name: 'addressValue' });
+  const accountName = useFormWatch({ control, name: 'accountName' });
 
   const inputTextDebounced = useDebounce(inputText.trim(), 600);
+  const accountNameDebounced = useDebounce(accountName?.trim() || '', 600);
+
   const validateFn = useCallback(async () => {
+    if (accountNameDebounced) {
+      try {
+        await backgroundApiProxy.serviceAccount.ensureAccountNameNotDuplicate({
+          name: accountNameDebounced,
+          walletId: WALLET_TYPE_WATCHING,
+        });
+        form.clearErrors('accountName');
+      } catch (error) {
+        form.setError('accountName', {
+          message: (error as Error)?.message,
+        });
+      }
+    } else {
+      form.clearErrors('accountName');
+    }
+
     setValue('deriveType', undefined);
     if (inputTextDebounced && networkIdText) {
       const input =
@@ -210,11 +231,13 @@ function ImportAddress() {
       setValidateResult(undefined);
     }
   }, [
-    clearText,
+    accountNameDebounced,
+    setValue,
     inputTextDebounced,
     networkIdText,
-    setValue,
+    form,
     networksResp.publicKeyExportEnabled,
+    clearText,
   ]);
 
   useEffect(() => {
@@ -233,6 +256,9 @@ function ImportAddress() {
   const deriveTypeValue = form.watch('deriveType');
 
   const isEnable = useMemo(() => {
+    if (Object.values(form.formState.errors).length) {
+      return false;
+    }
     if (method === EImportMethod.Address) {
       return !addressValue.pending && form.formState.isValid;
     }
@@ -265,6 +291,7 @@ function ImportAddress() {
               networkIds={networksResp.networkIds}
             />
           </Form.Field>
+
           {isKeyExportEnabled ? (
             <SegmentControl
               fullWidth
@@ -328,7 +355,7 @@ function ImportAddress() {
                 {validateResult &&
                 !validateResult?.isValid &&
                 inputTextDebounced ? (
-                  <SizableText color="$textCritical">
+                  <SizableText size="$bodyMd" color="$textCritical">
                     {intl.formatMessage({
                       id: ETranslations.form_public_key_error_invalid,
                     })}
@@ -360,6 +387,19 @@ function ImportAddress() {
               </Form.Field>
             </>
           ) : null}
+
+          <Form.Field
+            label={intl.formatMessage({
+              id: ETranslations.form_enter_account_name,
+            })}
+            name="accountName"
+          >
+            <Input
+              placeholder={intl.formatMessage({
+                id: ETranslations.form_enter_account_name_placeholder,
+              })}
+            />
+          </Form.Field>
         </Form>
         <Tutorials
           list={[
@@ -375,7 +415,7 @@ function ImportAddress() {
         />
         {process.env.NODE_ENV !== 'production' ? (
           <>
-            <SizableText>deriveType: {deriveTypeValue}</SizableText>
+            <SizableText>DEV-ONLY deriveType: {deriveTypeValue}</SizableText>
           </>
         ) : null}
       </Page.Body>
@@ -385,15 +425,25 @@ function ImportAddress() {
         }}
         onConfirm={async () => {
           await form.handleSubmit(async (values) => {
-            const data = isPublicKeyImport
+            const data: {
+              name?: string;
+              input: string;
+              networkId: string;
+              deriveType?: IAccountDeriveTypes;
+              shouldCheckDuplicateName?: boolean;
+            } = isPublicKeyImport
               ? {
+                  name: values.accountName,
                   input: values.publicKeyValue ?? '',
                   networkId: values.networkId ?? '',
                   deriveType: values.deriveType,
+                  shouldCheckDuplicateName: true,
                 }
               : {
+                  name: values.accountName,
                   input: values.addressValue.resolved ?? '',
                   networkId: values.networkId ?? '',
+                  shouldCheckDuplicateName: true,
                 };
             const r =
               await backgroundApiProxy.serviceAccount.addWatchingAccount(data);

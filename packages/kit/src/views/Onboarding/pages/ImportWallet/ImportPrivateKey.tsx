@@ -75,6 +75,8 @@ function ImportPrivateKey() {
           input,
           deriveType: values.deriveType,
           networkId: values.networkId,
+          name: values.accountName,
+          shouldCheckDuplicateName: true,
         });
         console.log(r, values);
         // global.success
