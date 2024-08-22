@@ -22,6 +22,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -51,6 +52,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -511,20 +513,29 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     }) => {
       if (linkNetwork) return null;
 
+      const shouldShowSpotlight = !isOthersUniversal && index === 0;
+
       return (
         <>
-          {accountValue && accountValue.currency ? (
-            <AccountValue
-              showSpotlight={index === 0}
-              accountId={accountValue.accountId}
-              currency={accountValue.currency}
-              value={accountValue.value ?? ''}
-            />
-          ) : (
-            <SizableText size="$bodyMd" color="$textDisabled">
-              --
-            </SizableText>
-          )}
+          <Spotlight
+            isVisible={shouldShowSpotlight}
+            message={intl.formatMessage({
+              id: ETranslations.spotlight_enable_account_asset_message,
+            })}
+            tourName={ESpotlightTour.allNetworkAccountValue}
+          >
+            {accountValue && accountValue.currency ? (
+              <AccountValue
+                accountId={accountValue.accountId}
+                currency={accountValue.currency}
+                value={accountValue.value ?? ''}
+              />
+            ) : (
+              <SizableText size="$bodyMd" color="$textDisabled">
+                --
+              </SizableText>
+            )}
+          </Spotlight>
           {subTitleInfo.address ? (
             <Stack
               mx="$1.5"
@@ -537,7 +548,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         </>
       );
     },
-    [linkNetwork],
+    [linkNetwork, isOthersUniversal, intl],
   );
 
   // useCallback cause re-render when unmount, but useMemo not
