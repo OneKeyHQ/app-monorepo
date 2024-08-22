@@ -36,7 +36,6 @@ import {
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { getSwapHistoryStatusTextProps } from '../../utils/utils';
-import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -382,17 +381,4 @@ const SwapHistoryDetailModal = () => {
   );
 };
 
-const SwapHistoryDetailModalWithProvider = () => {
-  const route =
-    useRoute<
-      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryDetail>
-    >();
-  const { storeName } = route.params;
-  return (
-    <SwapProviderMirror storeName={storeName}>
-      <SwapHistoryDetailModal />
-    </SwapProviderMirror>
-  );
-};
-
-export default SwapHistoryDetailModalWithProvider;
+export default SwapHistoryDetailModal;
