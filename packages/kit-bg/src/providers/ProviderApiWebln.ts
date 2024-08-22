@@ -7,6 +7,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -74,6 +75,7 @@ class ProviderApiWebln extends ProviderApiBase {
   // WEBLN API
   @providerApiMethod()
   public async enable(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     try {
       const accountsInfo = await this._getAccountsInfo(request);
       if (accountsInfo.length > 0) {
@@ -110,6 +112,7 @@ class ProviderApiWebln extends ProviderApiBase {
 
   @providerApiMethod()
   public async makeInvoice(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
@@ -139,6 +142,7 @@ class ProviderApiWebln extends ProviderApiBase {
 
   @providerApiMethod()
   public async sendPayment(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
@@ -170,6 +174,7 @@ class ProviderApiWebln extends ProviderApiBase {
 
   @providerApiMethod()
   public async signMessage(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
@@ -200,6 +205,7 @@ class ProviderApiWebln extends ProviderApiBase {
 
   @providerApiMethod()
   public async verifyMessage(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
@@ -228,6 +234,7 @@ class ProviderApiWebln extends ProviderApiBase {
 
   @providerApiMethod()
   public async lnurl(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
