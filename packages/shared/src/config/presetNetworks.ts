@@ -2405,8 +2405,30 @@ const ckb: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const ton: IServerNetwork = {
+  'chainId': '607',
+  'code': 'ton',
+  'decimals': 9,
+  'id': 'ton--mainnet',
+  'impl': 'ton',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/ton.png',
+  'name': 'Toncoin',
+  'shortcode': 'ton',
+  'shortname': 'ton',
+  'symbol': 'TON',
+  'feeMeta': {
+    'code': 'TON',
+    'decimals': 9,
+    'symbol': 'TON',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
+  ton,
 ];
 
 export const presetNetworksMap = {
