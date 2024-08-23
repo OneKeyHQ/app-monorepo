@@ -5653,14 +5653,7 @@ __metadata:
 "@onekeyfe/hd-ble-sdk@npm:1.0.10-alpha.1":
   version: 1.0.10-alpha.1
   resolution: "@onekeyfe/hd-ble-sdk@npm:1.0.10-alpha.1"
-"@onekeyfe/hd-ble-sdk@npm:1.0.10-alpha.1":
-  version: 1.0.10-alpha.1
-  resolution: "@onekeyfe/hd-ble-sdk@npm:1.0.10-alpha.1"
   dependencies:
-    "@onekeyfe/hd-core": "npm:^1.0.10-alpha.1"
-    "@onekeyfe/hd-shared": "npm:^1.0.10-alpha.1"
-    "@onekeyfe/hd-transport-react-native": "npm:^1.0.10-alpha.1"
-  checksum: 10/37015947f37e68266e93f3249ae20f978d5603aa2f856c6d303c4be57e176eac9b5c2ec8dd58736463033a9650cc3fb504b7038a8bc50a58fbac4792b91b3a3b
     "@onekeyfe/hd-core": "npm:^1.0.10-alpha.1"
     "@onekeyfe/hd-shared": "npm:^1.0.10-alpha.1"
     "@onekeyfe/hd-transport-react-native": "npm:^1.0.10-alpha.1"
@@ -5674,8 +5667,6 @@ __metadata:
   dependencies:
     "@onekeyfe/hd-shared": "npm:^1.0.10-alpha.1"
     "@onekeyfe/hd-transport": "npm:^1.0.10-alpha.1"
-    "@onekeyfe/hd-shared": "npm:^1.0.10-alpha.1"
-    "@onekeyfe/hd-transport": "npm:^1.0.10-alpha.1"
     axios: "npm:^0.27.2"
     bignumber.js: "npm:^9.0.2"
     bytebuffer: "npm:^5.0.1"
@@ -5685,7 +5676,6 @@ __metadata:
   peerDependencies:
     "@noble/hashes": ^1.1.3
     ripple-keypairs: ^1.1.4
-  checksum: 10/b91996e39084331206e8913e9c051fddd3cc46278988afc8b029cc265bda37111a86fdbe62b995c29a9e7196dfde1799d0e00b5d3fe933cbf20035d75170f87b
   checksum: 10/b91996e39084331206e8913e9c051fddd3cc46278988afc8b029cc265bda37111a86fdbe62b995c29a9e7196dfde1799d0e00b5d3fe933cbf20035d75170f87b
   languageName: node
   linkType: hard
@@ -5764,7 +5754,6 @@ __metadata:
     long: "npm:^4.0.0"
     protobufjs: "npm:^6.11.2"
   checksum: 10/92d384cd8993c2ad3a04a7a9a9d6ac3c43c5d9000dfc0c7e732ea39e165bab0e16c4520bc4008d874ee38bcec1a97deded3664a7fe3e243e31008ce2c1f8cd39
-  checksum: 10/92d384cd8993c2ad3a04a7a9a9d6ac3c43c5d9000dfc0c7e732ea39e165bab0e16c4520bc4008d874ee38bcec1a97deded3664a7fe3e243e31008ce2c1f8cd39
   languageName: node
   linkType: hard
 
@@ -5784,11 +5773,6 @@ __metadata:
   resolution: "@onekeyfe/hd-web-sdk@npm:1.0.10-alpha.1"
   dependencies:
     "@onekeyfe/cross-inpage-provider-core": "npm:^0.0.17"
-    "@onekeyfe/hd-core": "npm:^1.0.10-alpha.1"
-    "@onekeyfe/hd-shared": "npm:^1.0.10-alpha.1"
-    "@onekeyfe/hd-transport-http": "npm:^1.0.10-alpha.1"
-    "@onekeyfe/hd-transport-webusb": "npm:^1.0.10-alpha.1"
-  checksum: 10/7db2ca5bf88d7c6e1e13cd88739c9f8419985898e05e835dc2ddc991f2cd2c8ad4ccff07cf3be29c3bc8e1415e72738e0c4da67da95fff57072610f51fa95d75
     "@onekeyfe/hd-core": "npm:^1.0.10-alpha.1"
     "@onekeyfe/hd-shared": "npm:^1.0.10-alpha.1"
     "@onekeyfe/hd-transport-http": "npm:^1.0.10-alpha.1"
