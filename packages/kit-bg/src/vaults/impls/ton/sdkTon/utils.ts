@@ -154,7 +154,7 @@ export function getWalletContractInstance({
   networkId: string;
 }) {
   const Contract = getWalletContractClass(version);
-  return new Contract(new Provider({ backgroundApi, networkId }), {
+  return new Contract(new Provider({  backgroundApi, networkId  }), {
     publicKey: bufferUtils.hexToBytes(publicKey),
   });
 }
@@ -172,19 +172,22 @@ export async function serializeUnsignedTransaction({
 }) {
   const Contract = getWalletContractClass(version);
   const contract = new Contract(
+    
     new Provider({
-      backgroundApi,
-      networkId,
-    }),
+        backgroundApi,
+        networkId,
+      }),
+   
     {
-      address: encodedTx.fromAddress,
-    },
+        address: encodedTx.from,
+      },
+  ,
   ) as unknown as IWallet;
   return contract.createTransferMessages(
     new Uint8Array(64),
-    encodedTx.sequenceNo,
+    encodedTx.sequenceNo || 0,
     encodedTx.messages.map((message) => ({
-      toAddress: message.toAddress,
+      toAddress: message.address,
       amount: message.amount,
       payload:
         typeof message.payload === 'string'
@@ -197,7 +200,7 @@ export async function serializeUnsignedTransaction({
           : message.stateInit,
     })),
     true,
-    encodedTx.expireAt,
+    encodedTx.validUntil,
   );
 }
 
