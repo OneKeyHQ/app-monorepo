@@ -4,6 +4,7 @@ import type {
   EMessageTypesBtc,
   EMessageTypesCommon,
   EMessageTypesEth,
+  EMessageTypesTon,
 } from '@onekeyhq/shared/types/message';
 
 import type { ISignMessageRequest } from '../chains/aptos/types';
@@ -23,6 +24,18 @@ export type IUnsignedMessageAptos = {
   type: EMessageTypesAptos;
   message: string;
   payload?: ISignMessageRequest;
+};
+
+export type IUnsignedMessageTon = {
+  type: EMessageTypesTon;
+  message: string;
+  payload: {
+    isProof?: boolean;
+    schemaCrc?: number;
+    timestamp: number;
+    appDomain?: string;
+    address?: string;
+  };
 };
 
 export type IUnsignedMessageAda = {
@@ -57,5 +70,6 @@ export type IUnsignedMessage =
   | IUnsignedMessageEth
   | IUnsignedMessageBtc
   | IUnsignedMessageAptos
+  | IUnsignedMessageTon
   | IUnsignedMessageAda
   | IUnsignedMessageCfx;

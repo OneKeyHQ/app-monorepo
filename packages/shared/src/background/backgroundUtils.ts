@@ -31,6 +31,7 @@ import {
   IMPL_STC,
   IMPL_SUI,
   IMPL_TBTC,
+  IMPL_TON,
   IMPL_TRON,
 } from '../engine/engineConsts';
 import { NotAutoPrintError } from '../errors';
@@ -296,6 +297,7 @@ export const scopeNetworks: Record<
   'tron': [IMPL_TRON],
   'algo': [IMPL_ALGO],
   'sui': [IMPL_SUI],
+  'ton': [IMPL_TON],
   'cardano': [IMPL_ADA],
   'cosmos': [IMPL_COSMOS],
   'polkadot': [IMPL_DOT],
@@ -318,6 +320,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.tron,
   IInjectedProviderNames.algo,
   IInjectedProviderNames.sui,
+  IInjectedProviderNames.ton,
   IInjectedProviderNames.cardano,
   IInjectedProviderNames.cosmos,
   IInjectedProviderNames.polkadot,
