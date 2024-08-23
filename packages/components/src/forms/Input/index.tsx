@@ -23,7 +23,6 @@ import { useSelectionColor } from '../../hooks';
 import { Icon } from '../../primitives';
 
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
-import { PasteInput } from './PasteInput';
 import { getSharedInputStyles } from './sharedStyles';
 
 import type { IGroupProps, IKeyOfIcons } from '../../primitives';
@@ -48,8 +47,9 @@ export type IInputProps = {
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
   containerProps?: IGroupProps;
+  // not support on Native
   // https://github.com/facebook/react-native/pull/45425
-  // Add onPaste into TextInput on React-Native PR
+  // About to add to React-Native.
   onPaste?: () => void;
   onChangeText?: ((text: string) => string | void) | undefined;
 } & Omit<ITMInputProps, 'size' | 'onChangeText'> & {
@@ -201,11 +201,6 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
     [onFocus, selectTextOnFocus],
   );
 
-  const InputComponent = useMemo(
-    () => (onPaste ? PasteInput : TMInput),
-    [onPaste],
-  );
-
   return (
     <Group
       orientation="horizontal"
@@ -236,7 +231,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
 
       {/* input */}
       <Group.Item>
-        <InputComponent
+        <TMInput
           unstyled
           ref={inputRef}
           flex={1}
