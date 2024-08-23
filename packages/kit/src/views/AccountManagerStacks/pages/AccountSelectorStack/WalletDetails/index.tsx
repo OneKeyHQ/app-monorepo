@@ -481,9 +481,14 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       <Stack
         flex={1}
         // TODO performance
-        onLayout={(e) =>
-          handleLayoutCacheSet('container', () => handleLayoutForContainer(e))
-        }
+        onLayout={(e) => {
+          const {
+            nativeEvent: { layout },
+          } = e;
+          handleLayoutCacheSet('container', () =>
+            handleLayoutForContainer({ nativeEvent: { layout } }),
+          );
+        }}
       >
         {(() => {
           defaultLogger.accountSelector.perf.renderAccountsSectionList({
@@ -496,9 +501,14 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           <SectionList
             ref={listRef}
             // TODO performance
-            onLayout={(e) =>
-              handleLayoutCacheSet('list', () => handleLayoutForSectionList(e))
-            }
+            onLayout={(e) => {
+              const {
+                nativeEvent: { layout },
+              } = e;
+              handleLayoutCacheSet('list', () =>
+                handleLayoutForSectionList({ nativeEvent: { layout } }),
+              );
+            }}
             estimatedItemSize={60}
             initialScrollIndex={initialScrollIndex}
             getItemLayout={getItemLayout}
@@ -519,11 +529,14 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               isOthersUniversal ? null : (
                 <Stack
                   // TODO performance
-                  onLayout={(e) =>
+                  onLayout={(e) => {
+                    const {
+                      nativeEvent: { layout },
+                    } = e;
                     handleLayoutCacheSet('header', () =>
-                      handleLayoutForHeader(e),
-                    )
-                  }
+                      handleLayoutForHeader({ nativeEvent: { layout } }),
+                    );
+                  }}
                 >
                   <WalletOptions
                     wallet={focusedWalletInfo?.wallet}
