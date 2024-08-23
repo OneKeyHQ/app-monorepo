@@ -72,7 +72,7 @@ module.exports = async () => {
       'packages/core/src/chains/doge',
       'packages/core/src/chains/dot',
       'packages/core/src/chains/fil',
-      'packages/core/src/chains/kaspa',
+      // 'packages/core/src/chains/kaspa',
       'packages/core/src/chains/ltc',
       'packages/core/src/chains/near',
       'packages/core/src/chains/nexa',

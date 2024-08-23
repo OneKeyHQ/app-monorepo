@@ -423,7 +423,7 @@ export default class Vault extends VaultBase {
           ...utxo,
           scriptPubKey: utxo.scriptPublicKey?.scriptPublicKey ?? '',
           scriptPublicKeyVersion: utxo.scriptPublicKey?.version ?? 0,
-          satoshis: new BigNumber(utxo.value).toNumber(),
+          satoshis: utxo.value,
           blockDaaScore: new BigNumber(utxo.confirmations).toNumber(),
         }));
       } catch (e) {
@@ -452,7 +452,7 @@ export default class Vault extends VaultBase {
   }) {
     let { utxoIds, utxos, mass } = selectUTXOs(
       confirmUtxos,
-      new BigNumber(amountValue).toNumber(),
+      new BigNumber(amountValue),
       priority,
     );
 
@@ -473,7 +473,7 @@ export default class Vault extends VaultBase {
     ) {
       const newSelectUtxo = selectUTXOs(
         confirmUtxos,
-        new BigNumber(amountValue).plus(mass).plus(DUST_AMOUNT).toNumber(),
+        new BigNumber(amountValue).plus(mass).plus(DUST_AMOUNT),
       );
       utxoIds = newSelectUtxo.utxoIds;
       utxos = newSelectUtxo.utxos;
