@@ -1660,7 +1660,7 @@
   "update.install_and_restart": "安裝並重新啟動",
   "update.install_now": "立即安裝",
   "update.installation_failed": "安裝失敗",
-  "update.installation_package_possibly_compromised": "安裝包可能已被破壞",
+  "update.installation_package_possibly_compromised": "安裝包校驗未通過",
   "update.installing": "正在安裝...",
   "update.insufficient_battery_power": "電池電量不足",
   "update.insufficient_battery_power_desc": "連接的硬體裝置電池電量不足，無法繼續升級，請先為裝置充電，然後再重試。",

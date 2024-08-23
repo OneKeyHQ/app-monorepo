@@ -1660,7 +1660,7 @@
   "update.install_and_restart": "Instale e reinicie",
   "update.install_now": "Instale agora",
   "update.installation_failed": "Falha na instalação",
-  "update.installation_package_possibly_compromised": "Pacote de instalação possivelmente comprometido",
+  "update.installation_package_possibly_compromised": "Falha na verificação do pacote de instalação.",
   "update.installing": "Instalando...",
   "update.insufficient_battery_power": "Energia da bateria insuficiente",
   "update.insufficient_battery_power_desc": "O dispositivo de hardware conectado tem bateria insuficiente e não pode prosseguir com a atualização. Por favor, carregue o dispositivo antes de tentar novamente.",
