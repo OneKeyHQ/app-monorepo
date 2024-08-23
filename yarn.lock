@@ -6272,6 +6272,7 @@ __metadata:
     react-refresh: "npm:^0.14.0"
     react-render-tracker: "npm:^0.7.6"
     rimraf: "npm:^5.0.5"
+    rlp: "npm:^3.0.0"
     semver: "npm:7.5.4"
     sonner: "npm:^1.4.41"
     stream-browserify: "npm:^3.0.0"
@@ -32201,6 +32202,15 @@ __metadata:
   bin:
     rlp: bin/rlp
   checksum: 10/cf1919a2dc99f336191b3363b76299db567c192b7ee3c6f5c722728c34f65577883c9c88eeb7a1bfcbc26693c8a4f1fb0662e79ee86f0c98dd258d6987303498
+  languageName: node
+  linkType: hard
+
+"rlp@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "rlp@npm:3.0.0"
+  bin:
+    rlp: bin/rlp
+  checksum: 10/c85549fa5368ef029707d02f0937c0c503b69fb330c5941508c9eef537a4f179fbeecd17149aeb795d430ed5249b68d7c66383a9863068712a191d388786cfc1
   languageName: node
   linkType: hard
 
