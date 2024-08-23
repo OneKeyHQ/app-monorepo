@@ -154,7 +154,7 @@ export function getWalletContractInstance({
   networkId: string;
 }) {
   const Contract = getWalletContractClass(version);
-  return new Contract(new Provider({backgroundApi, networkId}), {
+  return new Contract(new Provider({ backgroundApi, networkId }), {
     publicKey: bufferUtils.hexToBytes(publicKey),
   });
 }
@@ -171,12 +171,15 @@ export async function serializeUnsignedTransaction({
   networkId: string;
 }) {
   const Contract = getWalletContractClass(version);
-  const contract = new Contract(new Provider({
-    backgroundApi,
-    networkId,
-  }), {
-    address: encodedTx.fromAddress,
-  }) as unknown as IWallet;
+  const contract = new Contract(
+    new Provider({
+      backgroundApi,
+      networkId,
+    }),
+    {
+      address: encodedTx.fromAddress,
+    },
+  ) as unknown as IWallet;
   return contract.createTransferMessages(
     new Uint8Array(64),
     encodedTx.sequenceNo,
@@ -228,7 +231,7 @@ export async function encodeJettonPayload({
   networkId: string;
 }) {
   const jettonWallet = new TonWeb.token.jetton.JettonWallet(
-    new Provider({backgroundApi, networkId}),
+    new Provider({ backgroundApi, networkId }),
     {
       address: jettonAddress,
     },
@@ -258,7 +261,7 @@ export async function getJettonData({
   address: string;
 }) {
   const jettonWallet = new TonWeb.token.jetton.JettonWallet(
-    new Provider({backgroundApi, networkId}),
+    new Provider({ backgroundApi, networkId }),
     {
       address,
     } as any,
