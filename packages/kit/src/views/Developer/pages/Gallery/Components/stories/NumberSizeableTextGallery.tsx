@@ -247,6 +247,12 @@ const NumberSizeableTextGallery = () => (
               formatter="value"
               formatterOptions={{ currency: '$' }}
             >
+              0
+            </NumberSizeableText>
+            <NumberSizeableText
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
+            >
               0.009
             </NumberSizeableText>
             <SizableText>

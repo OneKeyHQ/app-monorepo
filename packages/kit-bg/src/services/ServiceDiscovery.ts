@@ -9,6 +9,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -136,7 +138,20 @@ class ServiceDiscovery extends ServiceBase {
         alert: '',
       } as IHostSecurity;
     }
-    return this._checkUrlSecurity(url);
+    try {
+      const result = await this._checkUrlSecurity(url);
+      return result;
+    } catch (e) {
+      return {
+        host: url,
+        level: EHostSecurityLevel.Medium,
+        attackTypes: [],
+        phishingSite: false,
+        alert: appLocale.intl.formatMessage({
+          id: ETranslations.feedback_risk_detection_timed_out,
+        }),
+      } as IHostSecurity;
+    }
   }
 
   _checkUrlSecurity = memoizee(
@@ -148,6 +163,7 @@ class ServiceDiscovery extends ServiceBase {
           params: {
             url,
           },
+          timeout: 5000,
         },
       );
       return res.data.data;

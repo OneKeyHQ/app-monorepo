@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,7 +28,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import { Spotlight, useSpotlight } from '../Spotlight';
+import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -38,31 +38,26 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const { activeAccount } = useActiveAccount({ num });
   const [isFocus, setIsFocus] = useState(false);
   const { handleWalletAddress, isEnable } = useWalletAddress({ activeAccount });
-  const { isFirstVisit, tourVisited } = useSpotlight(
-    ESpotlightTour.createAllNetworks,
-  );
+  // const { isFirstVisit, tourVisited } = useSpotlight(
+  //   ESpotlightTour.createAllNetworks,
+  // );
   useListenTabFocusState(
     ETabRoutes.Home,
     async (focus: boolean, hideByModal: boolean) => {
-      setIsFocus(focus && !hideByModal);
+      setIsFocus(!hideByModal);
     },
   );
   if (!isEnable) {
     return null;
   }
 
-  const visible = isFirstVisit && isFocus;
   return (
     <Spotlight
-      visible={visible && !platformEnv.isE2E}
-      content={
-        <SizableText size="$bodyMd">
-          {intl.formatMessage({
-            id: ETranslations.spotlight_enable_network_message,
-          })}
-        </SizableText>
-      }
-      onConfirm={tourVisited}
+      isVisible={isFocus && !platformEnv.isE2E}
+      message={intl.formatMessage({
+        id: ETranslations.spotlight_enable_network_message,
+      })}
+      tourName={ESpotlightTour.createAllNetworks}
     >
       <IconButton
         title={intl.formatMessage({ id: ETranslations.global_copy_address })}
@@ -73,6 +68,30 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       />
     </Spotlight>
   );
+
+  // const visible = isFirstVisit && isFocus;
+  // console.log('AllNetworkAccountSelector____visible', visible);
+  // return (
+  //   <SpotlightView
+  //     visible={visible}
+  //     content={
+  //       <SizableText size="$bodyMd">
+  //         {intl.formatMessage({
+  //           id: ETranslations.spotlight_enable_network_message,
+  //         })}
+  //       </SizableText>
+  //     }
+  //     onConfirm={tourVisited}
+  //   >
+  //     <IconButton
+  //       title={intl.formatMessage({ id: ETranslations.global_copy_address })}
+  //       variant="tertiary"
+  //       icon="Copy3Outline"
+  //       size="small"
+  //       onPress={handleWalletAddress}
+  //     />
+  //   </SpotlightView>
+  // );
 };
 
 export function AccountSelectorActiveAccountHome({ num }: { num: number }) {

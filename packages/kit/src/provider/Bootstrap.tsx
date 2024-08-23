@@ -1,6 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { CommonActions } from '@react-navigation/routers';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -29,43 +28,53 @@ const useDesktopEvents = platformEnv.isDesktop
       const intl = useIntl();
       const navigation = useAppNavigation();
       const onLock = useOnLockCallback();
+      const useOnLockRef = useRef(onLock);
+      useOnLockRef.current = onLock;
+
       const { checkForUpdates, toUpdatePreviewPage } = useAppUpdateInfoCallback(
         false,
         false,
       );
       const isCheckingUpdate = useRef(false);
-      useEffect(() => {
-        if (platformEnv.isDesktop) {
-          window.desktopApi.on('update/checkForUpdates', async () => {
-            defaultLogger.update.app.log('checkForUpdates');
-            if (isCheckingUpdate.current) {
-              return;
-            }
-            isCheckingUpdate.current = true;
-            const { isNeedUpdate, response } = await checkForUpdates();
-            if (isNeedUpdate || response === undefined) {
-              toUpdatePreviewPage(true, response);
-            } else {
-              Dialog.confirm({
-                title: intl.formatMessage({
-                  id: ETranslations.update_app_update,
-                }),
-                description: intl.formatMessage({
-                  id: ETranslations.update_app_up_to_date,
-                }),
-                onClose: () => {
-                  isCheckingUpdate.current = false;
-                },
-              });
-            }
-          });
 
-          const debounceOpenSettings = debounce(() => {
-            const openSettingPage = () => {
-              navigation.pushModal(EModalRoutes.SettingModal, {
-                screen: EModalSettingRoutes.SettingListModal,
-              });
-            };
+      const onCheckUpdate = useCallback(async () => {
+        defaultLogger.update.app.log('checkForUpdates');
+        if (isCheckingUpdate.current) {
+          return;
+        }
+        isCheckingUpdate.current = true;
+        const { isNeedUpdate, response } = await checkForUpdates();
+        if (isNeedUpdate || response === undefined) {
+          toUpdatePreviewPage(true, response);
+          isCheckingUpdate.current = false;
+        } else {
+          Dialog.confirm({
+            title: intl.formatMessage({
+              id: ETranslations.update_app_update,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.update_app_up_to_date,
+            }),
+            onClose: () => {
+              isCheckingUpdate.current = false;
+            },
+          });
+        }
+      }, [checkForUpdates, intl, toUpdatePreviewPage]);
+
+      const onCheckUpdateRef = useRef(onCheckUpdate);
+      onCheckUpdateRef.current = onCheckUpdate;
+
+      const openSettings = useCallback(
+        (isMainWindowVisible: boolean) => {
+          const openSettingPage = () => {
+            navigation.pushModal(EModalRoutes.SettingModal, {
+              screen: EModalSettingRoutes.SettingListModal,
+            });
+          };
+
+          // close Settings page When MainWindow is visible
+          if (isMainWindowVisible) {
             const routeState = rootNavigationRef.current?.getRootState();
             if (routeState) {
               const route = routeState.routes[routeState.routes.length - 1];
@@ -85,16 +94,32 @@ const useDesktopEvents = platformEnv.isDesktop
                 }
               }
             }
-            openSettingPage();
-          }, 200);
+          }
 
+          openSettingPage();
+        },
+        [navigation],
+      );
+
+      const openSettingsRef = useRef(openSettings);
+      openSettingsRef.current = openSettings;
+
+      useEffect(() => {
+        if (platformEnv.isDesktop) {
+          window.desktopApi.on('update/checkForUpdates', () => {
+            void onCheckUpdateRef.current();
+          });
+
+          const debounceOpenSettings = debounce((isVisible: boolean) => {
+            openSettingsRef.current(isVisible);
+          }, 250);
           window.desktopApi.on('app/openSettings', debounceOpenSettings);
 
           window.desktopApi.on('app/lockNow', () => {
-            void onLock();
+            void useOnLockRef.current();
           });
         }
-      }, [checkForUpdates, intl, navigation, onLock, toUpdatePreviewPage]);
+      }, []);
     }
   : () => undefined;
 

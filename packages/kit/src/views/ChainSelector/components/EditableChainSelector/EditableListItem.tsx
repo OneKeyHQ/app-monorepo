@@ -18,6 +18,7 @@ type IEditableListItemProps = {
   isDisabled?: boolean;
   isEditable?: boolean;
   drag?: () => void;
+  dragProps?: Record<string, any>;
 };
 
 const EditableListItemPinOrNot = ({ item }: { item: IServerNetworkMatch }) => {
@@ -69,6 +70,7 @@ const EditableListItemPinOrNot = ({ item }: { item: IServerNetworkMatch }) => {
 export const EditableListItem = ({
   item,
   drag,
+  dragProps,
   isDisabled,
   isDraggable,
   isEditable = true,
@@ -116,6 +118,7 @@ export const EditableListItem = ({
             cursor="move"
             icon="DragOutline"
             onPressIn={drag}
+            dataSet={dragProps}
           />
         </XStack>
       ) : null}

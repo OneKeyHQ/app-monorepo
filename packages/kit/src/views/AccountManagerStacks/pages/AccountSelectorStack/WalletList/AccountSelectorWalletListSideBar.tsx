@@ -150,13 +150,9 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   const layoutList = useMemo(() => {
     let offset = 0;
     const layouts: { offset: number; length: number; index: number }[] = [];
-    wallets?.forEach?.((wallet, index) => {
-      if (index !== 0) {
-        offset += 12;
-      }
+    wallets?.forEach?.((wallet) => {
       const hiddenWalletsLength = wallet?.hiddenWallets?.length ?? 0;
-      const height =
-        (1 + hiddenWalletsLength) * CELL_HEIGHT + hiddenWalletsLength * 12;
+      const height = (1 + hiddenWalletsLength) * (CELL_HEIGHT + 12);
       layouts.push({ offset, length: height, index: layouts.length });
       offset += height;
       if (hiddenWalletsLength > 0) {
@@ -225,14 +221,14 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
           });
         }}
         extraData={selectedAccount.focusedWallet}
-        renderItem={({ item, drag }) => {
+        renderItem={({ item, drag, dragProps }) => {
           let badge: number | string | undefined;
           if (accountUtils.isQrWallet({ walletId: item.id })) {
             badge = 'QR';
           }
 
           return (
-            <Stack mb="$3">
+            <Stack pb="$3" dataSet={dragProps}>
               <WalletListItem
                 key={item.id}
                 wallet={item}

@@ -474,6 +474,7 @@ export class NotInBootLoaderMode extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NotInBootLoaderMode',
+        defaultKey: ETranslations.update_device_in_bootloader_mode,
       }),
     );
 

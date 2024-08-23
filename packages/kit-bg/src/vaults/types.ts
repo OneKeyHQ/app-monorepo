@@ -187,7 +187,12 @@ export type IVaultSettings = {
   memoMaxLength?: number;
   numericOnlyMemo?: boolean;
 
+  // dnx
   withPaymentId?: boolean;
+
+  // algo
+  withNote?: boolean;
+  noteMaxLength?: number;
 
   enabledOnClassicOnly?: boolean;
 
@@ -367,6 +372,8 @@ export type ITransferInfo = {
   lightningAddress?: string;
 
   paymentId?: string; // Dynex chain paymentId
+
+  note?: string; // Algo chain note
 };
 
 export type IApproveInfo = {

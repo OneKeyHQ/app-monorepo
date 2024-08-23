@@ -206,6 +206,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           accountId: account.id,
           initialized: true,
           worth: accountWorth.toFixed(),
+          createAtNetworkWorth: accountWorth.toFixed(),
           merge: false,
         });
 
@@ -246,15 +247,12 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
               tokens: mergedTokens,
             });
           }
-          appEventBus.emit(EAppEventBusNames.TokenListUpdate, {
-            tokens: mergedTokens,
-            keys: r.allTokens.keys,
-            map: r.allTokens.map,
-          });
+
           updateTokenListState({
             initialized: true,
             isRefreshing: false,
           });
+
           appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
             isRefreshing: false,
             type: EHomeTab.TOKENS,
@@ -355,6 +353,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
         let accountWorth = new BigNumber(0);
+        let createAtNetworkWorth = new BigNumber(0);
         accountWorth = accountWorth
           .plus(r.tokens.fiatValue ?? '0')
           .plus(r.riskTokens.fiatValue ?? '0')
@@ -370,10 +369,21 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           initialized: true,
         });
 
+        if (
+          account?.id &&
+          (!accountUtils.isOthersAccount({ accountId: account.id }) ||
+            (accountUtils.isOthersAccount({ accountId: account.id }) &&
+              account?.createAtNetwork &&
+              account.createAtNetwork === networkId))
+        ) {
+          createAtNetworkWorth = accountWorth;
+        }
+
         updateAccountWorth({
           accountId: account?.id ?? '',
           initialized: true,
           worth: accountWorth.toFixed(),
+          createAtNetworkWorth: createAtNetworkWorth.toFixed(),
           merge: true,
         });
 
@@ -441,12 +451,6 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
             merge: true,
             mergeDerive: mergeDeriveAssetsEnabled,
           });
-          appEventBus.emit(EAppEventBusNames.TokenListUpdate, {
-            tokens: r.allTokens.data,
-            keys: r.allTokens.keys,
-            map: r.allTokens.map,
-            merge: true,
-          });
         }
 
         updateAllNetworkData();
@@ -456,6 +460,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       return r;
     },
     [
+      account?.createAtNetwork,
       account?.id,
       network?.id,
       refreshAllTokenList,
@@ -602,6 +607,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       [key: string]: ITokenFiat;
     } = {};
     let accountWorth = new BigNumber(0);
+    let createAtNetworkWorth = new BigNumber(0);
     let smallBalanceTokensFiatValue = new BigNumber(0);
 
     if (allNetworksResult) {
@@ -661,6 +667,19 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
           .plus(r.tokens.fiatValue ?? '0')
           .plus(r.riskTokens.fiatValue ?? '0')
           .plus(r.smallBalanceTokens.fiatValue ?? '0');
+
+        if (
+          account?.id &&
+          (!accountUtils.isOthersAccount({ accountId: account.id }) ||
+            (accountUtils.isOthersAccount({ accountId: account.id }) &&
+              account?.createAtNetwork &&
+              account.createAtNetwork === r.networkId))
+        ) {
+          createAtNetworkWorth = createAtNetworkWorth
+            .plus(r.tokens.fiatValue ?? '0')
+            .plus(r.riskTokens.fiatValue ?? '0')
+            .plus(r.smallBalanceTokens.fiatValue ?? '0');
+        }
       }
 
       const mergeTokenListMap = {
@@ -713,6 +732,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         accountId: account?.id ?? '',
         initialized: true,
         worth: accountWorth.toFixed(),
+        createAtNetworkWorth: createAtNetworkWorth.toFixed(),
       });
 
       refreshTokenList(tokenList);
@@ -735,6 +755,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       });
     }
   }, [
+    account?.createAtNetwork,
     account?.id,
     allNetworksResult,
     refreshRiskyTokenList,
