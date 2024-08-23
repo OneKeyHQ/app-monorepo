@@ -219,6 +219,9 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
         <TMInput
           unstyled
           ref={inputRef}
+          onPasted={() => {
+            console.log('123123');
+          }}
           flex={1}
           // @ts-expect-error
           pointerEvents={readonly ? 'none' : 'auto'}
