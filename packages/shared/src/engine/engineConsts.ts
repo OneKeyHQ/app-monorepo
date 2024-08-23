@@ -102,6 +102,9 @@ const COINTYPE_DNX = '29538';
 const IMPL_CKB = 'nervos';
 const COINTYPE_CKB = '309';
 
+const IMPL_SCDO = 'scdo';
+const COINTYPE_SCDO = '541';
+
 const IMPL_ALLNETWORKS = 'onekeyall';
 const COINTYPE_ALLNETWORKS = '0000';
 
@@ -240,6 +243,7 @@ export {
   COINTYPE_NEURAI,
   COINTYPE_DNX,
   COINTYPE_CKB,
+  COINTYPE_SCDO,
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
@@ -270,6 +274,7 @@ export {
   IMPL_NEURAI,
   IMPL_DNX,
   IMPL_CKB,
+  IMPL_SCDO,
   INDEX_PLACEHOLDER,
   SEPERATOR,
   getSupportedImpls,
