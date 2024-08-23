@@ -239,6 +239,8 @@ module.exports = {
           /jetton/i,
           /Nano/i,
           /Bounceable/i,
+          /scdo/i,
+          /faq/i,
         ],
         'skipIfMatch': ['http://[^s]*'],
         'minLength': 3,
