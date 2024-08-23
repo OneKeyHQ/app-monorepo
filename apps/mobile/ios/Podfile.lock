@@ -1122,6 +1122,10 @@ PODS:
     - React-Core
   - react-native-netinfo (9.5.0):
     - React-Core
+  - react-native-paste-input (0.8.0):
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
+    - React-Core
   - react-native-randombytes (3.6.1):
     - React-Core
   - react-native-restart (0.0.27):
@@ -1130,7 +1134,7 @@ PODS:
     - React-Core
   - react-native-slider (4.4.3):
     - React-Core
-  - react-native-tab-page-view (1.0.11):
+  - react-native-tab-page-view (1.0.14):
     - JXCategoryView (~> 1.6.1)
     - JXPagingView/Pager (~> 2.1.2)
     - React
@@ -1477,6 +1481,7 @@ DEPENDENCIES:
   - react-native-metrix (from `../../../node_modules/react-native-metrix`)
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
+  - "react-native-paste-input (from `../../../node_modules/@mattermost/react-native-paste-input`)"
   - react-native-randombytes (from `../../../node_modules/react-native-randombytes`)
   - react-native-restart (from `../../../node_modules/react-native-restart`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
@@ -1694,6 +1699,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-mmkv"
   react-native-netinfo:
     :path: "../../../node_modules/@react-native-community/netinfo"
+  react-native-paste-input:
+    :path: "../../../node_modules/@mattermost/react-native-paste-input"
   react-native-randombytes:
     :path: "../../../node_modules/react-native-randombytes"
   react-native-restart:
@@ -1888,11 +1895,12 @@ SPEC CHECKSUMS:
   react-native-metrix: dd791bfe9f9acfeb6bdd07da19747136ac977a4d
   react-native-mmkv: 9ae7ca3977e8ef48dbf7f066974eb844c20b5fd7
   react-native-netinfo: 48c5f79a84fbc3ba1d28a8b0d04adeda72885fa8
+  react-native-paste-input: cd9084eefa66562c3dacef71a400d43ee0b28f21
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-restart: 7595693413fe3ca15893702f2c8306c62a708162
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
-  react-native-tab-page-view: 1110d6898e66f6135035286de4bfa87a79e96a7b
+  react-native-tab-page-view: e624dca7419a6a3f1bd38ffd49ffbfb036fb0418
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
   react-native-video: dc3118548cf8864a83f57df4345cf6c692402e8f
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c

@@ -23,6 +23,7 @@ import { useSelectionColor } from '../../hooks';
 import { Icon } from '../../primitives';
 
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
+import { PasteInput } from './PasteInput';
 import { getSharedInputStyles } from './sharedStyles';
 
 import type { IGroupProps, IKeyOfIcons } from '../../primitives';
@@ -198,6 +199,11 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
     [onFocus, selectTextOnFocus],
   );
 
+  const InputComponent = useMemo(
+    () => (onPaste ? PasteInput : TMInput),
+    [onPaste],
+  );
+
   return (
     <Group
       orientation="horizontal"
@@ -228,12 +234,13 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
 
       {/* input */}
       <Group.Item>
-        <TMInput
+        <InputComponent
           unstyled
           ref={inputRef}
           flex={1}
           // @ts-expect-error
           pointerEvents={readonly ? 'none' : 'auto'}
+          onPaste={onPaste}
           /* 
           use height instead of lineHeight because of a RN issue while render TextInput on iOS
           https://github.com/facebook/react-native/issues/28012
