@@ -747,4 +747,6 @@ module.exports = [
   'changelly',
   'Changelly',
   'onekeyall',
+  'payin',
+  'payout',
 ];
