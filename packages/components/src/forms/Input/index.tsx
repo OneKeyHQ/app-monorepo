@@ -47,6 +47,12 @@ export type IInputProps = {
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
   containerProps?: IGroupProps;
+  // not support on Native
+  // https://github.com/facebook/react-native/pull/45425
+  // About to add to React-Native.
+  //
+  // https://github.com/Expensify/App/pull/47203/files#diff-9bdb475c2552cf81e4b3cdf2496ef5f779fd501613ac89c1252538b008722abc
+  onPaste?: () => void;
   onChangeText?: ((text: string) => string | void) | undefined;
 } & Omit<ITMInputProps, 'size' | 'onChangeText'> & {
     /** Web only */
@@ -128,6 +134,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
     onFocus,
     value,
     displayAsMaskWhenEmptyValue,
+    onPaste,
     ...props
   } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -142,6 +149,16 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
   const inputRef: RefObject<TextInput> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus);
   const readOnlyStyle = useReadOnlyStyle(readonly);
+
+  useEffect(() => {
+    if (!platformEnv.isNative && inputRef.current && onPaste) {
+      const inputElement = inputRef.current as unknown as HTMLInputElement;
+      inputElement.addEventListener('paste', onPaste);
+      return () => {
+        inputElement.removeEventListener('paste', onPaste);
+      };
+    }
+  }, [onPaste]);
 
   useImperativeHandle(ref, () => ({
     focus: () => {

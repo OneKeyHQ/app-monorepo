@@ -586,7 +586,7 @@
   "global.bootloader": "Bootloader",
   "global.browser": "Браузер",
   "global.bulk_accounts_advance": "Аванс",
-  "global.bulk_accounts_loading": "{amount} адреси додано",
+  "global.bulk_accounts_loading": "{amount} адрес(и) додано",
   "global.bulk_accounts_loading_error": "Масове додавання облікових записів було скасовано",
   "global.bulk_accounts_loading_subtitle": "({amount} рахунків)",
   "global.bulk_accounts_page_number": "Номер сторінки",

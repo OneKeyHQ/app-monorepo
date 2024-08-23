@@ -30,7 +30,12 @@ export function useClipboard() {
 
   const clearText = useCallback(() => {
     void setStringAsync('');
-  }, []);
+    Toast.success({
+      title: intl.formatMessage({
+        id: ETranslations.feedback_pasted_and_cleared,
+      }),
+    });
+  }, [intl]);
 
   return useMemo(
     () => ({ copyText, clearText, getClipboard }),

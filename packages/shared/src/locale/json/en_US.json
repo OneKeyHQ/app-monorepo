@@ -586,7 +586,7 @@
   "global.bootloader": "Bootloader",
   "global.browser": "Browser",
   "global.bulk_accounts_advance": "Advance",
-  "global.bulk_accounts_loading": "{amount} addresses added",
+  "global.bulk_accounts_loading": "{amount} address(es) added",
   "global.bulk_accounts_loading_error": "Bulk add accounts have been canceled",
   "global.bulk_accounts_loading_subtitle": "({amount} accounts)",
   "global.bulk_accounts_page_number": "Page number",

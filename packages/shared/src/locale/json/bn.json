@@ -586,7 +586,7 @@
   "global.bootloader": "Bootloader",
   "global.browser": "ব্রাউজার",
   "global.bulk_accounts_advance": "অগ্রসর হন",
-  "global.bulk_accounts_loading": "{amount} ঠিকানা যোগ করা হয়েছে",
+  "global.bulk_accounts_loading": "{amount} ঠিকানা(গুলি) যোগ করা হয়েছে",
   "global.bulk_accounts_loading_error": "বাল্ক অ্যাড অ্যাকাউন্টগুলি বাতিল করা হয়েছে",
   "global.bulk_accounts_loading_subtitle": "({amount} অ্যাকাউন্টস)",
   "global.bulk_accounts_page_number": "পৃষ্ঠা নম্বর",

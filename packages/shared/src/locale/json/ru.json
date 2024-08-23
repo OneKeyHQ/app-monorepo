@@ -586,7 +586,7 @@
   "global.bootloader": "Bootloader",
   "global.browser": "Браузер",
   "global.bulk_accounts_advance": "Продвигаться",
-  "global.bulk_accounts_loading": "Добавлено {amount} адресов",
+  "global.bulk_accounts_loading": "{amount} адрес(а) добавлен(ы)",
   "global.bulk_accounts_loading_error": "Массовое добавление аккаунтов было отменено",
   "global.bulk_accounts_loading_subtitle": "({amount} аккаунтов)",
   "global.bulk_accounts_page_number": "Номер страницы",
