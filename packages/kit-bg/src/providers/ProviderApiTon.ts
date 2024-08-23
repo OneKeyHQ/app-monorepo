@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EMessageTypesTon } from '@onekeyhq/shared/types/message';
 
 import {
   getAccountVersion,
@@ -212,6 +213,7 @@ class ProviderApiTon extends ProviderApiBase {
       networkId: account?.accountInfo?.networkId ?? '',
       accountId: account?.account.id ?? '',
       unsignedMessage: {
+        type: EMessageTypesTon.SIGN_DATA,
         message: Buffer.from(params.cell, 'base64').toString('hex'),
         payload: {
           schemaCrc: params.schema_crc,
@@ -241,6 +243,7 @@ class ProviderApiTon extends ProviderApiBase {
       networkId: account?.accountInfo?.networkId ?? '',
       accountId: account?.account.id ?? '',
       unsignedMessage: {
+        type: EMessageTypesTon.SIGN_PROOF,
         message: params.payload,
         payload: {
           isProof: true,

@@ -4,6 +4,7 @@ import type {
   EMessageTypesBtc,
   EMessageTypesCommon,
   EMessageTypesEth,
+  EMessageTypesTon,
 } from '@onekeyhq/shared/types/message';
 
 import type { ISignMessageRequest } from '../chains/aptos/types';
@@ -26,6 +27,7 @@ export type IUnsignedMessageAptos = {
 };
 
 export type IUnsignedMessageTon = {
+  type: EMessageTypesTon;
   message: string;
   payload: {
     isProof?: boolean;
