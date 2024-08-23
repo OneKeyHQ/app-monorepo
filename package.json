@@ -57,7 +57,6 @@
     "@onekeyfe/cross-inpage-provider-core": "2.1.2",
     "@onekeyfe/cross-inpage-provider-errors": "2.1.2",
     "@onekeyfe/cross-inpage-provider-injected": "2.1.2",
-    "@onekeyfe/cross-inpage-provider-ton": "2.1.2",
     "@onekeyfe/cross-inpage-provider-types": "2.1.2",
     "@onekeyfe/extension-bridge-hosted": "2.1.2",
     "@onekeyfe/hd-ble-sdk": "1.0.10-alpha.1",

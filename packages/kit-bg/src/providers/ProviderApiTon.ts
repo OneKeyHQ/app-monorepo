@@ -20,12 +20,12 @@ import {
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   SignDataRequest,
   SignProofRequest,
   TransactionRequest,
-} from '@onekeyfe/cross-inpage-provider-ton';
-import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+} from '@onekeyfe/onekey-ton-provider';
 
 enum ENetwork {
   Mainnet = '-239',
