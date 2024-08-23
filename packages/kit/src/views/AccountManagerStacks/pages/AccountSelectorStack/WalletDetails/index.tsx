@@ -11,8 +11,8 @@ import type {
 import {
   Icon,
   IconButton,
+  SectionList,
   SizableText,
-  SortableSectionList,
   Stack,
   XStack,
   useSafeAreaInsets,
@@ -202,16 +202,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     };
   }, [reloadAccounts]);
 
-  useEffect(() => {
-    // @ts-ignore
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (listRef?.current?._listRef?._hasDoneInitialScroll) {
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      listRef.current._listRef._hasDoneInitialScroll = false;
-    }
-  }, [focusedWalletInfo]);
-
   const headerHeightRef = useRef(0);
 
   // Change the getItemLayout of SectionList to ref calculation, instead of state calculation, to avoid redraws
@@ -229,10 +219,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           layouts.push({ offset, length: 0, index: layouts.length });
           offset += 0;
           section.data.forEach(() => {
-            layouts.push({ offset, length: 56, index: layouts.length });
-            offset += 56;
+            layouts.push({ offset, length: 60, index: layouts.length });
+            offset += 60;
           });
-          const footerHeight = 56;
+          const footerHeight = 60;
           layouts.push({ offset, length: footerHeight, index: layouts.length });
           offset += footerHeight;
         });
@@ -319,7 +309,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       ) {
         return undefined;
       }
-      return { sectionIndex: 0, itemIndex: Math.max(itemIndex, 0) };
+      return Math.max(itemIndex + 1, 0);
     }
   }, [
     isOthersUniversal,
@@ -328,72 +318,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     selectedAccount.indexedAccountId,
     selectedAccount.othersWalletAccountId,
   ]);
-
-  const onDragEnd = useCallback(
-    async (result: {
-      sections: {
-        data?: any[];
-      }[];
-      from?: { sectionIndex: number; itemIndex: number };
-      to?: { sectionIndex: number; itemIndex: number };
-    }) => {
-      const sectionIndex = result?.from?.sectionIndex;
-      if (!sectionData) {
-        return;
-      }
-      if (
-        sectionIndex === undefined ||
-        sectionIndex !== result?.to?.sectionIndex
-      ) {
-        return;
-      }
-
-      const fromIndex = result?.from?.itemIndex;
-      let toIndex = result?.to?.itemIndex;
-      if (fromIndex === undefined || toIndex === undefined) {
-        return;
-      }
-
-      if (toIndex > fromIndex) {
-        toIndex += 1;
-      }
-      const sectionDataList = sectionData[sectionIndex].data;
-      if (
-        sectionIndex === sectionData.length - 1 &&
-        toIndex === sectionDataList.length - 1
-      ) {
-        return;
-      }
-      setListDataResult((v) => {
-        const newValue = {
-          focusedWalletInfo: undefined,
-          accountsCount: 0,
-          accountsValue: [],
-          ...v,
-          sectionData:
-            result.sections as IAccountSelectorAccountsListSectionData[],
-        };
-        return newValue;
-      });
-
-      if (isOthersUniversal) {
-        await serviceAccount.insertAccountOrder({
-          targetAccountId: sectionDataList?.[fromIndex]?.id,
-          startAccountId: sectionDataList?.[toIndex - 1]?.id,
-          endAccountId: sectionDataList?.[toIndex]?.id,
-          emitEvent: true,
-        });
-      } else {
-        await serviceAccount.insertIndexedAccountOrder({
-          targetIndexedAccountId: sectionDataList?.[fromIndex]?.id,
-          startIndexedAccountId: sectionDataList?.[toIndex - 1]?.id,
-          endIndexedAccountId: sectionDataList?.[toIndex]?.id,
-          emitEvent: true,
-        });
-      }
-    },
-    [isOthersUniversal, serviceAccount, sectionData, setListDataResult],
-  );
 
   // const scrollToTop = useCallback(() => {
   //   if (sectionData?.length) {
@@ -570,14 +494,13 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           return null;
         })()}
         {listViewLayout.height ? (
-          <SortableSectionList
+          <SectionList
             ref={listRef}
             // TODO performance
             onLayout={(e) =>
               handleLayoutCacheSet('list', () => handleLayoutForSectionList(e))
             }
-            enabled={editMode}
-            onDragEnd={onDragEnd}
+            estimatedItemSize={60}
             initialScrollIndex={initialScrollIndex}
             getItemLayout={getItemLayout}
             keyExtractor={(item) =>
@@ -623,17 +546,14 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               </>
             )}
             renderItem={({
+              index,
               item,
-              drag,
-              dragProps,
               section,
               index,
             }: {
               item: IDBIndexedAccount | IDBAccount;
               section: IAccountSelectorAccountsListSectionData;
               index: number;
-              drag?: () => void;
-              dragProps?: Record<string, any>;
             }) => {
               const account = isOthersUniversal
                 ? (item as IDBAccount)
@@ -748,17 +668,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                       }
                     />
                   )}
-                  childrenBefore={
-                    editMode ? (
-                      <ListItem.IconButton
-                        mr="$1"
-                        cursor="move"
-                        icon="DragOutline"
-                        onPressIn={drag}
-                        dataSet={dragProps}
-                      />
-                    ) : null
-                  }
                   {...(!editMode && {
                     onPress: canConfirmAccountSelectPress
                       ? async () => {
@@ -895,7 +804,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       listViewLayout.height,
       navigation,
       num,
-      onDragEnd,
       renderAccountValue,
       sectionData,
       selectedAccount.deriveType,
