@@ -47,6 +47,10 @@ export const swapHistoryStateFetchInterval = timerUtils.getTimeDurationMs({
 
 export const swapHistoryStateFetchRiceIntervalCount = 10;
 
+export const swapQuoteEventTimeout = timerUtils.getTimeDurationMs({
+  minute: 5,
+});
+
 export const swapNetworksCommonCount = 8;
 export const swapNetworksCommonCountMD = 5;
 
