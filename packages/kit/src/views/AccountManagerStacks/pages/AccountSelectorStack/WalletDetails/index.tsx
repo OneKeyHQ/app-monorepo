@@ -622,14 +622,12 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               </>
             )}
             renderItem={({
-              index,
               item,
               drag,
               dragProps,
               section,
               index,
             }: {
-              index: number;
               item: IDBIndexedAccount | IDBAccount;
               section: IAccountSelectorAccountsListSectionData;
               index: number;
