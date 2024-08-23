@@ -31,10 +31,10 @@ import {
   EModalRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { Layout } from './utils/Layout';
 
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { UseFormReturn } from 'react-hook-form';
 
 const CustomFooter = ({
