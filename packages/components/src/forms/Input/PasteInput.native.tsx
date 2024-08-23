@@ -51,5 +51,6 @@ export const PasteInput = InputFrame.styleable<
   const composedRefs = useComposedRefs(forwardedRef, ref);
   const props = useInputProps(propsIn, composedRefs);
   // @ts-expect-error
-  return <InputFrame {...props} />;
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  return <InputFrame multiline={false} {...props} />;
 });
