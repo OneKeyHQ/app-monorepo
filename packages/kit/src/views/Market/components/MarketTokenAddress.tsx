@@ -11,8 +11,10 @@ import {
   Stack,
   XStack,
   useClipboard,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
@@ -49,9 +51,13 @@ export function MarketTokenAddress({
       overrideIsFocused: () => false,
     },
   );
+  const dialog = useDialogInstance();
   const handleOpenUrl = useCallback(async () => {
+    if (platformEnv.isNative) {
+      await dialog.close();
+    }
     void openExplorerAddressUrl({ networkId, address });
-  }, [networkId, address]);
+  }, [dialog, networkId, address]);
   const renderIcon = useCallback(() => {
     if (uri) {
       return (

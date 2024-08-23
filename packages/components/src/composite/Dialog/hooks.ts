@@ -10,9 +10,9 @@ export const useDialogInstance: () => IDialogInstance = () => {
   const getForm = useCallback(() => dialogInstance.ref.current, []);
   return useMemo(
     () => ({
-      close: dialogInstance?.close,
+      close: () => dialogInstance?.close(),
       getForm,
     }),
-    [dialogInstance?.close, getForm],
+    [dialogInstance, getForm],
   );
 };
