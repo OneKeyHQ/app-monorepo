@@ -15,12 +15,7 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
   const listViewInstanceRef = useRef<HTMLDivElement | undefined>(undefined);
   const getListView = useCallback(() => {
     if (!listViewInstanceRef.current) {
-      const current =
-        (
-          listViewRef.current as {
-            getCurrent?: () => typeof listViewRef.current;
-          }
-        )?.getCurrent?.() || listViewRef.current;
+      const current = listViewRef.current;
       listViewInstanceRef.current = (
         current as unknown as {
           _listRef?: { _scrollRef: HTMLDivElement };
