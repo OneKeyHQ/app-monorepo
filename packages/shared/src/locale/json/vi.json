@@ -586,7 +586,7 @@
   "global.bootloader": "Bootloader",
   "global.browser": "Trình duyệt",
   "global.bulk_accounts_advance": "Tiến bộ",
-  "global.bulk_accounts_loading": "Đã thêm {amount} địa chỉ",
+  "global.bulk_accounts_loading": "{amount} địa chỉ đã được thêm",
   "global.bulk_accounts_loading_error": "Đã hủy thêm tài khoản số lượng lớn",
   "global.bulk_accounts_loading_subtitle": "({amount} tài khoản)",
   "global.bulk_accounts_page_number": "Số trang",

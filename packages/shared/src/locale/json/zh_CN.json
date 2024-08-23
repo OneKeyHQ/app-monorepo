@@ -586,7 +586,7 @@
   "global.bootloader": "Bootloader",
   "global.browser": "浏览器",
   "global.bulk_accounts_advance": "高级",
-  "global.bulk_accounts_loading": "添加了 {amount} 个地址",
+  "global.bulk_accounts_loading": "{amount} 个地址已添加",
   "global.bulk_accounts_loading_error": "批量添加账户已被取消",
   "global.bulk_accounts_loading_subtitle": "({amount} 个账户)",
   "global.bulk_accounts_page_number": "页码",
