@@ -14,6 +14,7 @@ import type {
   ESwapRateDifferenceUnit,
   IFetchQuoteResult,
   ISwapAlertState,
+  ISwapAutoSlippageSuggestedValue,
   ISwapNetwork,
   ISwapSlippageSegmentItem,
   ISwapToken,
@@ -278,6 +279,11 @@ export const {
   atom: swapSlippagePercentageModeAtom,
   use: useSwapSlippagePercentageModeAtom,
 } = contextAtom<ESwapSlippageSegmentKey>(ESwapSlippageSegmentKey.AUTO);
+
+export const {
+  atom: swapAutoSlippageSuggestedValueAtom,
+  use: useSwapAutoSlippageSuggestedValueAtom,
+} = contextAtom<ISwapAutoSlippageSuggestedValue | undefined>(undefined);
 
 export const {
   atom: swapSlippagePercentageCustomValueAtom,

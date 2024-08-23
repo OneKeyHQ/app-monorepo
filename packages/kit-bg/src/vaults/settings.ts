@@ -24,6 +24,7 @@ import {
   IMPL_SOL,
   IMPL_SUI,
   IMPL_TBTC,
+  IMPL_TON,
   IMPL_TRON,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -89,6 +90,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_ADA]: () => import('./impls/ada/settings'),
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
     [IMPL_DOT]: () => import('./impls/dot/settings'),
+    [IMPL_TON]: () => import('./impls/ton/settings'),
     [IMPL_NEXA]: () => import('./impls/nexa/settings'),
     [IMPL_SUI]: () => import('./impls/sui/settings'),
     [IMPL_KASPA]: () => import('./impls/kaspa/settings'),

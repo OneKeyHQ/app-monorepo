@@ -38,6 +38,9 @@ const COINTYPE_TRON = '195';
 const IMPL_APTOS = 'aptos';
 const COINTYPE_APTOS = '637';
 
+const IMPL_TON = 'ton';
+const COINTYPE_TON = '607';
+
 const IMPL_DOGE = 'doge';
 const COINTYPE_DOGE = '3';
 export const COINNAME_DOGE = 'DOGE';
@@ -228,6 +231,7 @@ export {
   COINTYPE_SOL,
   COINTYPE_STC,
   COINTYPE_SUI,
+  COINTYPE_TON,
   COINTYPE_TBTC,
   COINTYPE_TRON,
   COINTYPE_XMR,
@@ -257,6 +261,7 @@ export {
   IMPL_SOL,
   IMPL_STC,
   IMPL_SUI,
+  IMPL_TON,
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XMR,

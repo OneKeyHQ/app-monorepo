@@ -1,5 +1,5 @@
-import { PublicKey } from '@kaspa/core-lib';
 import { bytesToHex } from '@noble/hashes/utils';
+import { PublicKey } from '@onekeyfe/kaspa-core-lib';
 
 import { tweakPublicKey } from '@onekeyhq/core/src/secret/bip340';
 
