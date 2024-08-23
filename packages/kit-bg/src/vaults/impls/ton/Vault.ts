@@ -110,7 +110,9 @@ export default class Vault extends VaultBase {
           const fwdFee = ''; // when use forward_payload, need to set fwdFee
           msg.amount = TonWeb.utils.toNano('0.05').toString();
           const jettonAddress = transfer.tokenInfo.address;
-          const jettonMasterAddress = new TonWeb.utils.Address(transfer.tokenInfo.uniqueKey!).toString(true, true, true);
+          const jettonMasterAddress = new TonWeb.utils.Address(
+            transfer.tokenInfo.uniqueKey!,
+          ).toString(true, true, true);
           const { payload } = await encodeJettonPayload({
             backgroundApi: this.backgroundApi,
             networkId: network.id,
@@ -263,7 +265,9 @@ export default class Vault extends VaultBase {
         networkId: this.networkId,
       });
       const stateInit = await wallet.createStateInit();
-      encodedTx.messages[0].stateInit = Buffer.from(await stateInit.stateInit.toBoc()).toString('hex');
+      encodedTx.messages[0].stateInit = Buffer.from(
+        await stateInit.stateInit.toBoc(),
+      ).toString('hex');
     }
 
     const expireAt = Math.floor(Date.now() / 1000) + 60 * 3;
@@ -368,12 +372,16 @@ export default class Vault extends VaultBase {
           'base64',
         ),
         ignore_chksig: true,
-        init_code: serializeUnsignedTx.code ? Buffer.from(
-          await serializeUnsignedTx.code.toBoc(false),
-        ).toString('base64') : undefined,
-        init_data: serializeUnsignedTx.data ? Buffer.from(
-          await serializeUnsignedTx.data.toBoc(false),
-        ).toString('base64') : undefined,
+        init_code: serializeUnsignedTx.code
+          ? Buffer.from(await serializeUnsignedTx.code.toBoc(false)).toString(
+              'base64',
+            )
+          : undefined,
+        init_data: serializeUnsignedTx.data
+          ? Buffer.from(await serializeUnsignedTx.data.toBoc(false)).toString(
+              'base64',
+            )
+          : undefined,
       } as unknown as IEncodedTx,
     };
   }

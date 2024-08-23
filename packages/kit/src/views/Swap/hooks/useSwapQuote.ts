@@ -5,6 +5,10 @@ import { useIntl } from 'react-intl';
 import { EPageType, usePageType } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ESwapApproveTransactionStatus,
@@ -26,10 +30,6 @@ import {
 import { truncateDecimalPlaces } from '../utils/utils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
-import {
-  appEventBus,
-  EAppEventBusNames,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 export function useSwapQuote() {
   const intl = useIntl();
