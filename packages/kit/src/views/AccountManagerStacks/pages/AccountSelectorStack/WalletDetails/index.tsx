@@ -65,6 +65,7 @@ import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { WalletOptions } from './WalletOptions';
 
 import type { LayoutChangeEvent, LayoutRectangle } from 'react-native';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export interface IWalletDetailsProps {
   num: number;
@@ -518,7 +519,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       return (
         <>
           <Spotlight
-            isVisible={shouldShowSpotlight}
+            isVisible={shouldShowSpotlight && !platformEnv.isE2E}
             message={intl.formatMessage({
               id: ETranslations.spotlight_enable_account_asset_message,
             })}
