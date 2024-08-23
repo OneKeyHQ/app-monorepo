@@ -300,7 +300,6 @@ export const scopeNetworks: Record<
   'sui': [IMPL_SUI],
   'ton': [IMPL_TON],
   'scdo': [IMPL_SCDO],
-  'ton': undefined,
   'cardano': [IMPL_ADA],
   'cosmos': [IMPL_COSMOS],
   'polkadot': [IMPL_DOT],
