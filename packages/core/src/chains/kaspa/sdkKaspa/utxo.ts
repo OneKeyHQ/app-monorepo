@@ -1,5 +1,6 @@
 import { BigNumber } from 'bignumber.js';
 
+import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 import { LowerTransactionAmountError } from '@onekeyhq/shared/src/errors';
 
 import { CONFIRMATION_COUNT } from './constant';
@@ -12,7 +13,7 @@ function sortUXTO(utxos: IKaspaUnspentOutputInfo[]) {
   return utxos.sort(
     (a: IKaspaUnspentOutputInfo, b: IKaspaUnspentOutputInfo): number =>
       a.blockDaaScore - b.blockDaaScore ||
-      b.satoshis - a.satoshis ||
+      new BigNumber(b.satoshis).minus(a.satoshis).toNumber() ||
       a.txid.localeCompare(b.txid) ||
       a.vout - b.vout,
   );
@@ -32,7 +33,7 @@ function formatUtxo(entries: IKaspaUTXOResponse[]): IKaspaUnspentOutputInfo[] {
       vout: index,
       scriptPubKey: scriptPublicKey.scriptPublicKey,
       scriptPublicKeyVersion: scriptPublicKey.version ?? 0,
-      satoshis: +amount,
+      satoshis: Array.isArray(amount) ? amount[0] : amount,
       blockDaaScore: parseInt(blockDaaScore, 10),
     };
     result.push(item);
@@ -60,7 +61,7 @@ export async function queryConfirmUTXOs(
 
 export function selectUTXOs(
   confirmUtxos: IKaspaUnspentOutputInfo[],
-  txAmount: number,
+  txAmount: BigNumber,
   prioritys?: { satoshis: boolean },
 ): {
   utxoIds: string[];
@@ -72,7 +73,7 @@ export function selectUTXOs(
 
   const selectedUtxos: IKaspaUnspentOutputInfo[] = [];
   const utxoIds: string[] = [];
-  let totalVal = 0;
+  let totalVal = new BigNumber(0);
   let mass = 0;
 
   for (const info of sortedUtxos) {
@@ -81,12 +82,18 @@ export function selectUTXOs(
     utxoIds.push(utxo.id);
     selectedUtxos.push(info);
     mass += utxo.mass;
-    totalVal += utxo.satoshis;
+    totalVal = totalVal.plus(utxo.satoshis);
     // }
-    if (totalVal >= txAmount) break;
+    if (totalVal.isGreaterThanOrEqualTo(txAmount)) break;
   }
 
-  if (totalVal < txAmount) throw new LowerTransactionAmountError();
+  if (totalVal.isLessThan(txAmount)) throw new LowerTransactionAmountError();
+
+  // Uint64 overflow
+  if (totalVal.isGreaterThan(MAX_UINT64_VALUE)) {
+    // utxo amount is too large
+    throw new Error('utxo amount is too large');
+  }
 
   return {
     utxoIds,

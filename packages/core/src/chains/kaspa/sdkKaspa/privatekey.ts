@@ -1,5 +1,5 @@
-import { PrivateKey } from '@kaspa/core-lib';
 import { bytesToHex } from '@noble/hashes/utils';
+import { PrivateKey } from '@onekeyfe/kaspa-core-lib';
 
 import { tapTweakHash } from '@onekeyhq/core/src/secret/bip340';
 

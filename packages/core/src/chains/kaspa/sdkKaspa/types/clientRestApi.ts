@@ -41,7 +41,7 @@ export interface IKaspaTransactionInput {
 }
 
 export interface IKaspaTransactionOutput {
-  amount: number | bigint;
+  amount: string;
   scriptPublicKey: IKaspaScriptPublicKey;
 }
 
