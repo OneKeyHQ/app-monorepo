@@ -20,7 +20,7 @@ export type IImageFallbackProps = PropsWithChildren<
 export type IImageLoadingProps = IImageFallbackProps;
 
 export type IImageSkeletonProps = Omit<IImageFallbackProps, 'children'>;
-
+export type IImageSourcePropType = ImageProps['source'];
 export type IImageSourceProps = Omit<
   ImageProps,
   'width' | 'height' | 'source' | 'borderRadius' | 'size'
@@ -28,7 +28,7 @@ export type IImageSourceProps = Omit<
   circular?: boolean;
   delayMs?: number;
   src?: string;
-  source?: ImageProps['source'];
+  source?: IImageSourcePropType;
   size?: StackStyle['width'];
 } & StackStyle;
 export type IImageProps = PropsWithChildren<IImageSourceProps>;

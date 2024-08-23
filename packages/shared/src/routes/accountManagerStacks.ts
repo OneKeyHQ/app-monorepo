@@ -1,6 +1,7 @@
 import type { IAccountSelectorRouteParams } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IDBAccount,
+  IDBDevice,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
@@ -9,6 +10,7 @@ export enum EAccountManagerStacksRoutes {
   ExportPrivateKeysPage = 'ExportPrivateKeysPage',
   BatchCreateAccountForm = 'BatchCreateAccountForm',
   BatchCreateAccountPreview = 'BatchCreateAccountPreview',
+  HardwareHomeScreenModal = 'HardwareHomeScreenModal',
 }
 
 export type IAccountSelectorRouteParamsExtraConfig = {
@@ -36,5 +38,8 @@ export type IAccountManagerStacksParamList = {
     networkId: string;
     from: string;
     count: string;
+  };
+  [EAccountManagerStacksRoutes.HardwareHomeScreenModal]: {
+    device: IDBDevice;
   };
 };
