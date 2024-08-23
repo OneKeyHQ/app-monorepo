@@ -34,6 +34,7 @@ import {
 
 import { Layout } from './utils/Layout';
 
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { UseFormReturn } from 'react-hook-form';
 
 const CustomFooter = ({
@@ -199,6 +200,25 @@ const DialogGallery = () => (
         title: 'Variants',
         element: (
           <YStack gap="$2">
+            <Button
+              onPress={async () => {
+                const d = Dialog.show({
+                  title: 'Lorem ipsum',
+                  icon: 'PlaceholderOutline',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  tone: 'default',
+                });
+                // not working
+                // await d.close();
+
+                // working, should wait Dialog open animation done
+                await timerUtils.wait(350);
+                await d.close();
+              }}
+            >
+              ShowAndCloseDialog
+            </Button>
             <Button
               onPress={() =>
                 Dialog.show({

@@ -57,6 +57,7 @@ import {
   OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -188,7 +189,7 @@ function ConnectByQrCode() {
               },
             });
           } catch (error) {
-            errorUtils.toastIfError(error);
+            errorToastUtils.toastIfError(error);
             throw error;
           }
         }}
@@ -301,12 +302,14 @@ function ConnectByUSBOrBLE({
           }),
         ]);
       } catch (error) {
-        errorUtils.toastIfError(error);
+        errorToastUtils.toastIfError(error);
         navigation.pop();
         throw error;
       } finally {
+        const connectId = device.connectId || '';
         await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-          connectId: device.connectId || '',
+          connectId,
+          hardClose: true,
         });
       }
     },

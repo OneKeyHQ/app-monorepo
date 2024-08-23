@@ -61,12 +61,12 @@ export class V4RealmDBAgent
     recordId: string,
   ) {
     checkIsDefined(storeName);
-    console.log('realmdb _getObjectRecordById ', { storeName, recordId });
+    // console.log('realmdb _getObjectRecordById ', { storeName, recordId });
     const object = this.realm.objectForPrimaryKey<IV4RealmDBSchemaMap[T]>(
       storeName,
       recordId as any,
     );
-    console.log('realmdb _getObjectRecordById ', object);
+    // console.log('realmdb _getObjectRecordById ', object);
     return object;
   }
 

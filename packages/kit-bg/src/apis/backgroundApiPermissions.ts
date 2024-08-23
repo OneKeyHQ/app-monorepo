@@ -6,16 +6,24 @@ import type {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
-const PRIVATE_WHITE_LIST_ORIGIN = [
-  'https://onekey.so',
-  'http://localhost:3008', // iOS simulator DEV localhost for web-embed
-  'http://localhost:8081', // iOS simulator DEV localhost for web-embed
-  'null', // Android DEV localhost for web-embed. url like file://
+export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
+  // iOS/Android origin in PRD for web-embed (local storage file).
+  //    url like file:///.../index.html
+  // - native:   new URL().origin return    "null"
+  // - web:      new URL().origin return    "file://"
+  'null',
+  'file://',
+
   ...(platformEnv.isDev
     ? [
-        // origin allowed in DEV
+        // iOS simulator DEV localhost for web-embed (localhost)
+        'http://localhost:3008',
+        'http://localhost:8081',
+
+        // real iOS Device web-embed origin allowed in DEV (LAN ip)
         'http://192.168.31.215:3008',
         'http://192.168.31.204:3008',
+        'http://192.168.31.205:3008',
         'http://192.168.31.96:3008',
         'http://192.168.50.36:3008',
         'http://192.168.124.2:3008',
@@ -24,29 +32,41 @@ const PRIVATE_WHITE_LIST_ORIGIN = [
     : []),
 ].filter(Boolean);
 
-export function isPrivateAllowedOrigin(origin?: string) {
+export const PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN = [
+  'https://onekey.so',
+  ...WEB_EMBED_API_WHITE_LIST_ORIGIN,
+].filter(Boolean);
+
+export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
+  'wallet_connectToWalletConnect',
+  'wallet_getConnectWalletInfo',
+  'wallet_sendSiteMetadata',
+  'wallet_scanQrcode',
+  'wallet_detectRiskLevel',
+  'wallet_closeCurrentBrowserTab',
+  'wallet_addBrowserUrlToRiskWhiteList',
+  'btc_requestAccount',
+  'btc_signTransaction',
+];
+
+// white list method which can be called from any origin
+//      so these method should NOT return sensitive data
+export function isProviderApiPrivateAllowedMethod(method?: string) {
   return (
-    origin &&
-    (origin?.endsWith('.onekey.so') ||
-      PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
+    method && PROVIDER_API_PRIVATE_WHITE_LIST_METHOD.includes(method || '')
   );
 }
 
-export function isPrivateAllowedMethod(method?: string) {
+export function isProviderApiPrivateAllowedOrigin(origin?: string) {
   return (
-    method &&
-    [
-      'wallet_connectToWalletConnect',
-      'wallet_getConnectWalletInfo',
-      'wallet_sendSiteMetadata',
-      'wallet_scanQrcode',
-      'wallet_detectRiskLevel',
-      'wallet_closeCurrentBrowserTab',
-      'wallet_addBrowserUrlToRiskWhiteList',
-      'btc_requestAccount',
-      'btc_signTransaction',
-    ].includes(method || '')
+    origin &&
+    (origin?.endsWith('.onekey.so') ||
+      PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
   );
+}
+
+export function isWebEmbedApiAllowedOrigin(origin?: string) {
+  return origin && WEB_EMBED_API_WHITE_LIST_ORIGIN.includes(origin);
 }
 
 export function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {

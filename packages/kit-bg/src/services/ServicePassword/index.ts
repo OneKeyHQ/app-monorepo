@@ -22,6 +22,7 @@ import {
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -494,7 +495,9 @@ export default class ServicePassword extends ServiceBase {
       accountUtils.isImportedWallet({ walletId })
       // || isPasswordSet // Do not prompt password for external,watching account action
     ) {
+      defaultLogger.account.accountCreatePerf.ignoreDurationBegin();
       ({ password } = await this.promptPasswordVerify({ reason }));
+      defaultLogger.account.accountCreatePerf.ignoreDurationEnd();
     }
     return {
       password,

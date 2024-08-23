@@ -23,7 +23,7 @@ import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
 import { useBackHandler, useSheetZIndex } from '../../hooks';
-import { Stack } from '../../primitives';
+import { Spinner, Stack } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
@@ -51,6 +51,7 @@ import type {
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
+import type { IColorTokens } from '../../types';
 
 export * from './hooks';
 export type {
@@ -466,6 +467,40 @@ const dialogCancel = (props: IDialogCancelProps) =>
     showCancelButton: true,
   });
 
+export function DialogLoadingView({
+  children,
+  bg,
+}: {
+  children?: any;
+  bg?: IColorTokens;
+}) {
+  return (
+    <Stack
+      borderRadius="$3"
+      p="$5"
+      bg={bg ?? '$bgSubdued'}
+      borderCurve="continuous"
+    >
+      <Spinner size="large" />
+      {children}
+    </Stack>
+  );
+}
+
+function dialogLoading(props: { title: string }) {
+  return dialogShow({
+    ...props,
+    dismissOnOverlayPress: false,
+    // disableSwipeGesture: true,
+    disableDrag: true,
+    showExitButton: false,
+    showFooter: false,
+    showConfirmButton: false,
+    showCancelButton: false,
+    renderContent: <DialogLoadingView />,
+  });
+}
+
 export const Dialog = {
   Header: SetDialogHeader,
   Title: DialogTitle,
@@ -475,7 +510,9 @@ export const Dialog = {
   Footer: FooterAction,
   Form: DialogForm,
   FormField: Form.Field,
+  Loading: DialogLoadingView,
   show: dialogShow,
   confirm: dialogConfirm,
   cancel: dialogCancel,
+  loading: dialogLoading,
 };

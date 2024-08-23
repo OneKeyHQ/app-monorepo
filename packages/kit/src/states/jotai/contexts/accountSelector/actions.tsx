@@ -615,6 +615,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         skipDeviceCancel,
         hideCheckingDeviceLoading,
       } = params;
+      defaultLogger.account.batchCreatePerf.addDefaultNetworkAccounts({
+        wallet,
+        indexedAccount,
+      });
       const selectedAccount = this.getSelectedAccount.call(set, {
         num: 0,
       });

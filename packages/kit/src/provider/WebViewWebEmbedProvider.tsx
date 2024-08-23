@@ -5,7 +5,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
-import { WebViewWebEmbed } from '../components/WebViewWebEmbed';
+import { WebViewWebEmbedSingleton } from '../components/WebViewWebEmbed';
 
 function BasicWebViewWebEmbedProvider() {
   const [isShow, setIsShow] = useState(false);
@@ -14,7 +14,7 @@ function BasicWebViewWebEmbedProvider() {
       setIsShow(true);
     });
   }, []);
-  return isShow ? <WebViewWebEmbed /> : null;
+  return isShow ? <WebViewWebEmbedSingleton /> : null;
 }
 
 export const WebViewWebEmbedProvider = memo(BasicWebViewWebEmbedProvider);
