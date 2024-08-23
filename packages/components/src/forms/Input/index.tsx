@@ -47,6 +47,7 @@ export type IInputProps = {
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
   containerProps?: IGroupProps;
+  onPaste?: () => void;
   onChangeText?: ((text: string) => string | void) | undefined;
 } & Omit<ITMInputProps, 'size' | 'onChangeText'> & {
     /** Web only */
@@ -128,6 +129,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
     onFocus,
     value,
     displayAsMaskWhenEmptyValue,
+    onPaste,
     ...props
   } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -142,6 +144,16 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
   const inputRef: RefObject<TextInput> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus);
   const readOnlyStyle = useReadOnlyStyle(readonly);
+
+  useEffect(() => {
+    if (!platformEnv.isNative && inputRef.current && onPaste) {
+      const inputElement = inputRef.current as unknown as HTMLInputElement;
+      inputElement.addEventListener('paste', onPaste);
+      return () => {
+        inputElement.removeEventListener('paste', onPaste);
+      };
+    }
+  }, [onPaste]);
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -219,9 +231,6 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
         <TMInput
           unstyled
           ref={inputRef}
-          onPasted={() => {
-            console.log('123123');
-          }}
           flex={1}
           // @ts-expect-error
           pointerEvents={readonly ? 'none' : 'auto'}
