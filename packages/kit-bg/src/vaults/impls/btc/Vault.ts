@@ -117,7 +117,11 @@ export default class VaultBtc extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
     const { swapInfo } = unsignedTx;
-    const { inputs, outputs } = encodedTx;
+    const { inputs, outputs, inputsToSign, psbtHex } = encodedTx;
+
+    if (psbtHex && Array.isArray(inputsToSign)) {
+      return this.buildDecodedPsbtTx(params);
+    }
 
     const network = await this.getNetwork();
     const account = await this.getAccount();
@@ -289,25 +293,148 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
-  // async buildPsbtDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-  //   const { unsignedTx } = params;
-  //   const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
-  //   const { inputs, outputs, psbtHex, inputsToSign } = encodedTx;
+  async buildDecodedPsbtTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
+    const { inputs, outputs, inputsToSign } = encodedTx;
 
-  //   const network = await this.getNetwork();
-  //   const account = await this.getAccount();
-  //   const nativeToken = await this.backgroundApi.serviceToken.getToken({
-  //     networkId: this.networkId,
-  //     tokenIdOnNetwork: '',
-  //     accountAddress: account.address,
-  //   });
+    if (
+      !inputsToSign ||
+      (Array.isArray(inputsToSign) && !inputsToSign.length)
+    ) {
+      throw new OneKeyInternalError('inputsToSign is empty');
+    }
 
-  //   if (!nativeToken) {
-  //     throw new OneKeyInternalError('Native token not found');
-  //   }
+    const network = await this.getNetwork();
+    const account = await this.getAccount();
+    const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
+      networkId: this.networkId,
+      tokenIdOnNetwork: '',
+    });
 
-  //   const actions: IDecodedTxAction[] = [];
-  // }
+    if (!nativeToken) {
+      throw new OneKeyInternalError('Native token not found');
+    }
+
+    const { allUtxoList } = await this._collectUTXOsInfoByApi();
+
+    const utxoFrom: {
+      address: string;
+      balance: string;
+      balanceValue: string;
+      symbol: string;
+      isMine: boolean;
+    }[] = [];
+
+    inputsToSign.forEach((inputToSign) => {
+      const index = inputToSign.index;
+      const input = inputs[index];
+      const existUtxo = allUtxoList?.find(
+        (i) => i.txid === input.txid && i.vout === input.vout,
+      );
+      if (existUtxo) {
+        utxoFrom.push({
+          address: input.address,
+          balance: new BigNumber(input.value)
+            .shiftedBy(-network.decimals)
+            .toFixed(),
+          balanceValue: input.value,
+          symbol: network.symbol,
+          isMine: true,
+        });
+      }
+    });
+
+    const originalUtxoTo = outputs.map((output) => ({
+      address: output.address,
+      balance: new BigNumber(output.value)
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      balanceValue: output.value,
+      symbol: network.symbol,
+      isMine: output.address === account.address,
+    }));
+
+    const utxoTo =
+      outputs.length > 1
+        ? outputs
+            .filter((output) => !output.payload?.isChange && output.address)
+            .map((output) => ({
+              address: output.address,
+              balance: new BigNumber(output.value)
+                .shiftedBy(-network.decimals)
+                .toFixed(),
+              balanceValue: output.value,
+              symbol: network.symbol,
+              isMine: output.address === account.address,
+            }))
+        : outputs.map((output) => ({
+            address: output.address,
+            balance: new BigNumber(output.value)
+              .shiftedBy(-network.decimals)
+              .toFixed(),
+            balanceValue: output.value,
+            symbol: network.symbol,
+            isMine: output.address === account.address,
+          }));
+
+    let sendNativeTokenAmountBN = new BigNumber(0);
+    let sendNativeTokenAmountValueBN = new BigNumber(0);
+    const actions: IDecodedTxAction[] = [
+      {
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from: utxoFrom.length ? utxoFrom[0].address : inputs[0].address,
+          to: utxoTo[0].address,
+          sends: utxoTo.map((utxo) => ({
+            from: account.address,
+            to: utxo.address,
+            isNative: true,
+            tokenIdOnNetwork: '',
+            name: nativeToken.name,
+            icon: nativeToken.logoURI ?? '',
+            amount: utxo.balance,
+            amountValue: utxo.balanceValue,
+            symbol: network.symbol,
+          })),
+          receives: [],
+          utxoFrom,
+          utxoTo: originalUtxoTo,
+        },
+      },
+    ];
+    const shouldCalculateNativeTokenAmount = utxoFrom.length > 1;
+    utxoTo.forEach((utxo) => {
+      if (!utxo.isMine && shouldCalculateNativeTokenAmount) {
+        sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(utxo.balance);
+        sendNativeTokenAmountValueBN = sendNativeTokenAmountValueBN.plus(
+          utxo.balanceValue,
+        );
+      }
+    });
+
+    const totalFeeInNative = new BigNumber(encodedTx.fee)
+      .shiftedBy(-1 * network.feeMeta.decimals)
+      .toFixed();
+
+    return {
+      txid: '',
+      owner: account.address,
+      signer: account.address,
+      nonce: 0,
+      actions,
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      xpub: (account as IDBUtxoAccount).xpub,
+      extraInfo: null,
+      encodedTx,
+      totalFeeInNative,
+      nativeAmount: sendNativeTokenAmountBN.toFixed(),
+      nativeAmountValue: sendNativeTokenAmountValueBN.toFixed(),
+    };
+  }
 
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
@@ -854,7 +981,7 @@ export default class VaultBtc extends VaultBase {
           );
         const withCheckInscription =
           checkInscriptionProtectionEnabled && inscriptionProtection;
-        const { utxoList, frozenUtxoList } =
+        const { utxoList, frozenUtxoList, allUtxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
             accountId: this.accountId,
@@ -869,7 +996,7 @@ export default class VaultBtc extends VaultBase {
             }),
           );
         }
-        return { utxoList, frozenUtxoList };
+        return { utxoList, frozenUtxoList, allUtxoList };
       } catch (e) {
         throw new OneKeyInternalError(
           appLocale.intl.formatMessage({
