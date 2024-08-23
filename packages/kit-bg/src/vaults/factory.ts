@@ -31,6 +31,7 @@ import {
   IMPL_SOL,
   IMPL_SUI,
   IMPL_TBTC,
+  IMPL_TON,
   IMPL_TRON,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -116,6 +117,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_ADA]: () => import('./impls/ada/Vault') as any,
     [IMPL_XRP]: () => import('./impls/xrp/Vault') as any,
     [IMPL_DOT]: () => import('./impls/dot/Vault') as any,
+    [IMPL_TON]: () => import('./impls/ton/Vault') as any,
     [IMPL_NEXA]: () => import('./impls/nexa/Vault') as any,
     [IMPL_SUI]: () => import('./impls/sui/Vault') as any,
     [IMPL_KASPA]: () => import('./impls/kaspa/Vault') as any,

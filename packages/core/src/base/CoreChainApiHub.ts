@@ -22,6 +22,7 @@ import CoreChainNostr from '../chains/nostr';
 import CoreChainSol from '../chains/sol';
 // import CoreChainStc from '../chains/stc';
 import CoreChainSui from '../chains/sui';
+import CoreChainTon from '../chains/ton';
 import CoreChainTron from '../chains/tron';
 // import CoreChainXmr from '../chains/xmr';
 import CoreChainXrp from '../chains/xrp';
@@ -48,6 +49,8 @@ export class CoreChainApiHub {
   algo = new CoreChainAlgo();
 
   aptos = new CoreChainAptos();
+
+  ton = new CoreChainTon();
 
   cfx = new CoreChainCfx();
 
