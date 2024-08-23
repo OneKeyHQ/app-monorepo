@@ -769,6 +769,29 @@ export default class ServiceSwap extends ServiceBase {
           )
         : [],
     }));
+    void this.backgroundApi.serviceApp.showToast({
+      method: 'success',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.settings_clear_successful,
+      }),
+    });
+  }
+
+  @backgroundMethod()
+  async cleanOneSwapHistory(txId: string) {
+    await this.backgroundApi.simpleDb.swapHistory.deleteOneSwapHistory(txId);
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: pre.swapHistoryPendingList.filter(
+        (item) => item.txInfo.txId !== txId,
+      ),
+    }));
+    void this.backgroundApi.serviceApp.showToast({
+      method: 'success',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.settings_clear_successful,
+      }),
+    });
   }
 
   @backgroundMethod()

@@ -1660,7 +1660,7 @@
   "update.install_and_restart": "Installez et redémarrez",
   "update.install_now": "Installez maintenant",
   "update.installation_failed": "L'installation a échoué",
-  "update.installation_package_possibly_compromised": "Le paquet d'installation est peut-être compromis",
+  "update.installation_package_possibly_compromised": "La vérification du package d'installation a échoué.",
   "update.installing": "Installation en cours...",
   "update.insufficient_battery_power": "Batterie insuffisante",
   "update.insufficient_battery_power_desc": "Le périphérique matériel connecté a une batterie insuffisante et ne peut pas procéder à la mise à niveau. Veuillez charger l'appareil avant de réessayer.",

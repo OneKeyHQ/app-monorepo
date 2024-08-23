@@ -1660,7 +1660,7 @@
   "update.install_and_restart": "설치하고 재시작하십시오",
   "update.install_now": "지금 설치하세요",
   "update.installation_failed": "설치 실패",
-  "update.installation_package_possibly_compromised": "설치 패키지가 손상되었을 가능성이 있습니다",
+  "update.installation_package_possibly_compromised": "설치 패키지 검증에 실패했습니다.",
   "update.installing": "설치 중...",
   "update.insufficient_battery_power": "배터리 전원 부족",
   "update.insufficient_battery_power_desc": "연결된 하드웨어 장치의 배터리 용량이 부족하여 업그레이드를 진행할 수 없습니다. 다시 시도하기 전에 장치를 충전해 주세요.",

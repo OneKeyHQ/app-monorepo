@@ -1660,7 +1660,7 @@
   "update.install_and_restart": "安装并重新启动",
   "update.install_now": "立即安装",
   "update.installation_failed": "安装失败",
-  "update.installation_package_possibly_compromised": "安装包可能已被篡改",
+  "update.installation_package_possibly_compromised": "安装包校验未通过",
   "update.installing": "正在安装...",
   "update.insufficient_battery_power": "电池电量不足",
   "update.insufficient_battery_power_desc": "连接的硬件设备电量不足，无法进行升级，请先为设备充电，然后再试一次。",
