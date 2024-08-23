@@ -56,6 +56,7 @@ export type INetworkShortCode =
   | 'blast'
   | 'opbnb'
   | 'fevm'
+  | 'holesky'
   | 'flare';
 
 const checkErrors: string[] = [];

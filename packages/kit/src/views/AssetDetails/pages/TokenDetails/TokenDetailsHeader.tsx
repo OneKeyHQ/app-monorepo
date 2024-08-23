@@ -16,6 +16,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
+import { AssetProtocols } from '@onekeyhq/kit/src/views/Staking/components/AssetProtocols';
 import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -214,7 +215,11 @@ function TokenDetailsHeader(props: IProps) {
         accountId={accountId}
         tokenAddress={tokenInfo.address}
       />
-
+      <AssetProtocols
+        networkId={networkId}
+        accountId={accountId}
+        tokenAddress={tokenInfo.address}
+      />
       {/* History */}
       <Divider mb="$3" />
     </>

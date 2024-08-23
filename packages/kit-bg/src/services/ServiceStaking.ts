@@ -1,3 +1,4 @@
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -13,8 +14,13 @@ import type {
   ILidoHistoryItem,
   ILidoMaticOverview,
   IServerEvmTransaction,
+  IStakeBaseParams,
+  IStakeProtocolDetails,
+  IStakeProtocolListItem,
   IStakeTag,
 } from '@onekeyhq/shared/types/staking';
+
+import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
@@ -312,6 +318,83 @@ class ServiceStaking extends ServiceBase {
       (o) => o.stakingInfo && o.stakingInfo.tags.includes(stakeTag),
     );
     return stakingTxs;
+  }
+
+  @backgroundMethod()
+  async buildStakeTransaction(params: IStakeBaseParams) {
+    const { networkId, accountId, ...rest } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const acc = await vault.getAccount();
+    const resp = await client.post<{
+      data: IEncodedTx;
+    }>(`/earn/v1/stake`, {
+      accountAddress: acc.address,
+      publicKey: acc.pub,
+      networkId,
+      ...rest,
+    });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async buildUnstakeTransaction(params: IStakeBaseParams) {
+    const { networkId, accountId, ...rest } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+
+    const resp = await client.post<{
+      data: IEncodedTx;
+    }>(`/earn/v1/unstake`, { accountAddress, networkId, ...rest });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async getProtocolDetails(params: {
+    accountId: string;
+    networkId: string;
+    symbol: string;
+    provider: string;
+  }) {
+    const { networkId, accountId, ...rest } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    const resp = await client.get<{ data: IStakeProtocolDetails }>(
+      '/earn/v1/stake-protocol',
+      { params: { accountAddress, networkId, ...rest } },
+    );
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async getProtocolList(params: {
+    networkId: string;
+    accountId: string;
+    symbol: string;
+  }) {
+    const { networkId, accountId, symbol } = params;
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const protocolListResp = await client.get<{
+      data: { protocols: IStakeProtocolListItem[] };
+    }>('/earn/v1/stake-protocols', {
+      params: { accountAddress, symbol: symbol.toUpperCase() },
+    });
+    let protocols = protocolListResp.data.data.protocols;
+    protocols = protocols.filter((o) => o.network.networkId === networkId);
+    return protocols;
   }
 }
 
