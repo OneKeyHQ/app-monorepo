@@ -12,9 +12,11 @@ import ProviderApiNostr from './ProviderApiNostr';
 import ProviderApiPolkadot from './ProviderApiPolkadot';
 import ProviderApiPrivate from './ProviderApiPrivate';
 // import ProviderApiPrivateExternalAccount from './ProviderApiPrivateExternalAccount';
+import ProviderApiScdo from './ProviderApiScdo';
 import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
 import ProviderApiSui from './ProviderApiSui';
+import ProviderApiTon from './ProviderApiTon';
 import ProviderApiTron from './ProviderApiTron';
 import ProviderApiWebln from './ProviderApiWebln';
 
@@ -58,6 +60,12 @@ function createBackgroundProviders({
       backgroundApi,
     }),
     [IInjectedProviderNames.sui]: new ProviderApiSui({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.ton]: new ProviderApiTon({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.scdo]: new ProviderApiScdo({
       backgroundApi,
     }),
     [IInjectedProviderNames.cardano]: new ProviderApiCardano({

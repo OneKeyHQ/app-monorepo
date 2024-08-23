@@ -6,13 +6,20 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import EventSource from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   swapHistoryStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
+  swapQuoteEventTimeout,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxParams,
@@ -48,6 +55,8 @@ export default class ServiceSwap extends ServiceBase {
 
   private _tokenListAbortController?: AbortController;
 
+  private _quoteEventSource?: EventSource;
+
   private _tokenDetailAbortControllerMap: Record<
     ESwapDirectionType,
     AbortController | undefined
@@ -76,6 +85,20 @@ export default class ServiceSwap extends ServiceBase {
     if (this._tokenListAbortController) {
       this._tokenListAbortController.abort();
       this._tokenListAbortController = undefined;
+    }
+  }
+
+  async removeQuoteEventSourceListeners() {
+    if (this._quoteEventSource) {
+      this._quoteEventSource.removeAllEventListeners();
+    }
+  }
+
+  @backgroundMethod()
+  async cancelFetchQuoteEvents() {
+    if (this._quoteEventSource) {
+      this._quoteEventSource.close();
+      this._quoteEventSource = undefined;
     }
   }
 
@@ -342,6 +365,108 @@ export default class ServiceSwap extends ServiceBase {
         toTokenInfo: toToken,
       },
     ]; //  no support providers
+  }
+
+  @backgroundMethod()
+  async fetchQuotesEvents({
+    fromToken,
+    toToken,
+    fromTokenAmount,
+    userAddress,
+    slippagePercentage,
+    autoSlippage,
+    blockNumber,
+    accountId,
+  }: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+    fromTokenAmount: string;
+    userAddress?: string;
+    slippagePercentage: number;
+    autoSlippage?: boolean;
+    blockNumber?: number;
+    accountId?: string;
+  }) {
+    await this.removeQuoteEventSourceListeners();
+    const params: IFetchQuotesParams = {
+      fromTokenAddress: fromToken.contractAddress,
+      toTokenAddress: toToken.contractAddress,
+      fromTokenAmount,
+      fromNetworkId: fromToken.networkId,
+      toNetworkId: toToken.networkId,
+      protocol: EProtocolOfExchange.SWAP,
+      userAddress,
+      slippagePercentage,
+      autoSlippage,
+      blockNumber,
+    };
+    const swapEventUrl = (
+      await this.getClient(EServiceEndpointEnum.Swap)
+    ).getUri({
+      url: '/swap/v1/quote/events',
+      params,
+    });
+
+    let headers = await getRequestHeaders();
+    headers = {
+      ...headers,
+      ...(accountId
+        ? await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          })
+        : {}),
+    };
+    this._quoteEventSource = new EventSource(swapEventUrl, {
+      headers,
+      pollingInterval: 0,
+      timeoutBeforeConnection: 0,
+      timeout: swapQuoteEventTimeout,
+    });
+
+    this._quoteEventSource.addEventListener('open', (event) => {
+      appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+        type: 'open',
+        event,
+        params,
+        accountId,
+      });
+    });
+
+    this._quoteEventSource.addEventListener('message', (event) => {
+      appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+        type: 'message',
+        event,
+        params,
+        accountId,
+      });
+    });
+
+    this._quoteEventSource.addEventListener('done', (event) => {
+      appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+        type: 'done',
+        event,
+        params,
+        accountId,
+      });
+    });
+
+    this._quoteEventSource.addEventListener('close', (event) => {
+      appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+        type: 'close',
+        event,
+        params,
+        accountId,
+      });
+    });
+
+    this._quoteEventSource.addEventListener('error', (event) => {
+      appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+        type: 'error',
+        event,
+        params,
+        accountId,
+      });
+    });
   }
 
   @backgroundMethod()

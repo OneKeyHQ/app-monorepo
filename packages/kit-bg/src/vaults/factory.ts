@@ -28,9 +28,11 @@ import {
   IMPL_NEURAI,
   IMPL_NEXA,
   IMPL_NOSTR,
+  IMPL_SCDO,
   IMPL_SOL,
   IMPL_SUI,
   IMPL_TBTC,
+  IMPL_TON,
   IMPL_TRON,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -116,12 +118,14 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_ADA]: () => import('./impls/ada/Vault') as any,
     [IMPL_XRP]: () => import('./impls/xrp/Vault') as any,
     [IMPL_DOT]: () => import('./impls/dot/Vault') as any,
+    [IMPL_TON]: () => import('./impls/ton/Vault') as any,
     [IMPL_NEXA]: () => import('./impls/nexa/Vault') as any,
     [IMPL_SUI]: () => import('./impls/sui/Vault') as any,
     [IMPL_KASPA]: () => import('./impls/kaspa/Vault') as any,
     [IMPL_APTOS]: () => import('./impls/aptos/Vault') as any,
     [IMPL_DNX]: () => import('./impls/dnx/Vault') as any,
     [IMPL_ALLNETWORKS]: () => import('./impls/all/Vault') as any,
+    [IMPL_SCDO]: () => import('./impls/scdo/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {
