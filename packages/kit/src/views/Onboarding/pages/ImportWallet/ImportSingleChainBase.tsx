@@ -133,7 +133,6 @@ export function ImportSingleChainBase({
         setValidateResult(result);
         console.log('validateGeneralInputOfImporting result', result);
         // TODO: need to replaced by https://github.com/mattermost/react-native-paste-input
-        clearText();
       } catch (error) {
         setValidateResult({
           isValid: false,
@@ -144,7 +143,6 @@ export function ImportSingleChainBase({
     }
   }, [
     accountNameDebounced,
-    clearText,
     form,
     inputTextDebounced,
     networkIdText,
@@ -188,6 +186,7 @@ export function ImportSingleChainBase({
               placeholder={inputPlaceholder}
               size={media.gtMd ? 'medium' : 'large'}
               testID={inputTestID}
+              onPaste={clearText}
               addOns={[
                 {
                   iconName: 'ScanOutline',
