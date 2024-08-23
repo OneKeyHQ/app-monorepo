@@ -2659,5 +2659,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   algo,
   sui,
   ckb,
+  scdo,
   ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
 ]);
