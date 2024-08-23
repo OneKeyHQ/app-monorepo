@@ -31,26 +31,18 @@ import {
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { getSwapHistoryStatusTextProps } from '../../utils/utils';
-import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 
 const SwapHistoryDetailModal = () => {
-  // const navigation =
-  //   useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const route =
     useRoute<
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryDetail>
     >();
   const intl = useIntl();
   const { txHistory } = route.params ?? {};
-  // const { swapAgainUseHistoryItem } = useSwapTxHistoryActions();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { formatDate } = useFormatDate();
-  // const onSwapAgain = useCallback(() => {
-  //   swapAgainUseHistoryItem(txHistory);
-  //   navigation.popStack();
-  // }, [navigation, swapAgainUseHistoryItem, txHistory]);
 
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
@@ -363,17 +355,4 @@ const SwapHistoryDetailModal = () => {
   );
 };
 
-const SwapHistoryDetailModalWithProvider = () => {
-  const route =
-    useRoute<
-      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryDetail>
-    >();
-  const { storeName } = route.params;
-  return (
-    <SwapProviderMirror storeName={storeName}>
-      <SwapHistoryDetailModal />
-    </SwapProviderMirror>
-  );
-};
-
-export default SwapHistoryDetailModalWithProvider;
+export default SwapHistoryDetailModal;
