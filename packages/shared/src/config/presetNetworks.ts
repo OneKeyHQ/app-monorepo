@@ -2426,6 +2426,27 @@ const ton: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const scdo: IServerNetwork = {
+  'chainId': '541',
+  'code': 'scdo',
+  'decimals': 8,
+  'id': 'scdo--net1',
+  'impl': 'scdo',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/scdo.png',
+  'name': 'SCDO',
+  'shortcode': 'scdo',
+  'shortname': 'scdo',
+  'symbol': 'SCDO',
+  'feeMeta': {
+    'code': 'scdo',
+    'decimals': 8,
+    'symbol': 'SCDO',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
   ton,
@@ -2534,6 +2555,7 @@ export const presetNetworksMap = {
   sui,
   ckb,
   tatom,
+  scdo,
 };
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => [
@@ -2637,5 +2659,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   algo,
   sui,
   ckb,
+  scdo,
   ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
 ]);

@@ -28,6 +28,7 @@ import {
   IMPL_NEURAI,
   IMPL_NEXA,
   IMPL_NOSTR,
+  IMPL_SCDO,
   IMPL_SOL,
   IMPL_SUI,
   IMPL_TBTC,
@@ -124,6 +125,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_APTOS]: () => import('./impls/aptos/Vault') as any,
     [IMPL_DNX]: () => import('./impls/dnx/Vault') as any,
     [IMPL_ALLNETWORKS]: () => import('./impls/all/Vault') as any,
+    [IMPL_SCDO]: () => import('./impls/scdo/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {
