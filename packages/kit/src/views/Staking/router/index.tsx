@@ -43,6 +43,23 @@ const EarnTokenDetail = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/EarnTokenDetail'),
 );
 
+const UniversalProtocolDetails = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/Staking/pages/UniversalProtocolDetails'),
+);
+
+const UniversalWithdraw = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/UniversalWithdraw'),
+);
+
+const UniversalStake = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/UniversalStake'),
+);
+
+const AssetProtocolList = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/AssetProtocolList'),
+);
+
 export const StakingModalRouter: IModalFlowNavigatorConfig<
   EModalStakingRoutes,
   IModalStakingParamList
@@ -86,5 +103,21 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.EarnTokenDetail,
     component: EarnTokenDetail,
+  },
+  {
+    name: EModalStakingRoutes.UniversalProtocolDetails,
+    component: UniversalProtocolDetails,
+  },
+  {
+    name: EModalStakingRoutes.UniversalStake,
+    component: UniversalStake,
+  },
+  {
+    name: EModalStakingRoutes.UniversalWithdraw,
+    component: UniversalWithdraw,
+  },
+  {
+    name: EModalStakingRoutes.AssetProtocolList,
+    component: AssetProtocolList,
   },
 ];

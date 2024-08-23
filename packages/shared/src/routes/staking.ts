@@ -1,4 +1,7 @@
-import type { ILidoMaticRequest } from '../../types/staking';
+import type {
+  ILidoMaticRequest,
+  IStakeProtocolDetails,
+} from '../../types/staking';
 import type { IToken } from '../../types/token';
 
 export enum EModalStakingRoutes {
@@ -12,6 +15,11 @@ export enum EModalStakingRoutes {
   MaticLidoHistory = 'MaticLidoHistory',
   MaticLidoClaim = 'MaticLidoClaim',
   EarnTokenDetail = 'EarnTokenDetail',
+  //
+  UniversalStake = 'UniversalStake',
+  UniversalWithdraw = 'UniversalWithdraw',
+  UniversalProtocolDetails = 'UniversalProtocolDetails',
+  AssetProtocolList = 'AssetProtocolList',
 }
 
 type IBaseRouteParams = {
@@ -59,5 +67,32 @@ export type IModalStakingParamList = {
   [EModalStakingRoutes.MaticLidoClaim]: IBaseRouteParams & {
     requests: ILidoMaticRequest[];
     token: IToken;
+  };
+  [EModalStakingRoutes.UniversalProtocolDetails]: IBaseRouteParams & {
+    symbol: string;
+    provider: string;
+    details?: IStakeProtocolDetails;
+  };
+  [EModalStakingRoutes.UniversalStake]: IBaseRouteParams & {
+    price: string;
+    balance: string;
+    token: IToken;
+    apr?: number;
+    minTransactionFee?: string;
+    symbol: string;
+    provider: string;
+    details: IStakeProtocolDetails;
+  };
+  [EModalStakingRoutes.UniversalWithdraw]: IBaseRouteParams & {
+    balance: string;
+    price: string;
+    token: IToken;
+    rate?: string;
+    symbol: string;
+    provider: string;
+    details: IStakeProtocolDetails;
+  };
+  [EModalStakingRoutes.AssetProtocolList]: IBaseRouteParams & {
+    symbol: string;
   };
 };

@@ -25,11 +25,9 @@ type IStakingListItemProps = {
 const StakingAprAd = ({
   aprValue,
   onPress,
-  oldOnPress,
 }: {
   aprValue: string | number;
   onPress: () => void;
-  oldOnPress: () => void;
 }) => {
   const intl = useIntl();
   return (
@@ -65,40 +63,14 @@ const StakingAprAd = ({
           }}
         />
       </ListItem>
-      <ListItem
-        drillIn
-        onPress={oldOnPress}
-        py="$3"
-        px="$5"
-        mx="$0"
-        bg="$bgSuccessSubdued"
-        hoverStyle={{ bg: '$bgSuccess' }}
-        pressStyle={{ bg: '$bgSuccess' }}
-        borderTopWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        borderRadius="$0"
-      >
-        <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
-          <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
-        </Stack>
-        <ListItem.Text
-          flex={1}
-          primary="旧版入口"
-          secondary={intl.formatMessage(
-            { id: ETranslations.earn_up_to_number_in_annual_rewards },
-            { number: `${aprValue}%` },
-          )}
-          secondaryTextProps={{
-            size: '$bodyMdMedium',
-            color: '$textSuccess',
-          }}
-        />
-      </ListItem>
     </>
   );
 };
 
-const MaticStakingAprAd = ({ networkId, accountId }: IStakingListItemProps) => {
+const MaticStakingListItem = ({
+  networkId,
+  accountId,
+}: IStakingListItemProps) => {
   const navigation = useAppNavigation();
   const { result } = usePromiseResult(
     () => backgroundApiProxy.serviceStaking.getApr('matic'),
@@ -110,23 +82,11 @@ const MaticStakingAprAd = ({ networkId, accountId }: IStakingListItemProps) => {
       params: { networkId, accountId },
     });
   }, [navigation, networkId, accountId]);
-  const oldOnPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.MaticLidoOverview,
-      params: { networkId, accountId },
-    });
-  }, [navigation, networkId, accountId]);
   if (!result) {
     return null;
   }
   const aprValue = result[0].apr;
-  return (
-    <StakingAprAd
-      aprValue={aprValue}
-      onPress={onPress}
-      oldOnPress={oldOnPress}
-    />
-  );
+  return <StakingAprAd aprValue={aprValue} onPress={onPress} />;
 };
 
 const EthStakingListItem = ({
@@ -141,12 +101,6 @@ const EthStakingListItem = ({
 
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.EarnTokenDetail,
-      params: { networkId, accountId },
-    });
-  }, [navigation, networkId, accountId]);
-  const oldOnPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.EthLidoOverview,
       params: { networkId, accountId },
     });
@@ -155,13 +109,7 @@ const EthStakingListItem = ({
     return null;
   }
   const aprValue = result[0].apr;
-  return (
-    <StakingAprAd
-      aprValue={aprValue}
-      onPress={onPress}
-      oldOnPress={oldOnPress}
-    />
-  );
+  return <StakingAprAd aprValue={aprValue} onPress={onPress} />;
 };
 
 export const StakingApr = ({
@@ -170,7 +118,11 @@ export const StakingApr = ({
   tokenAddress,
 }: IStakingListItemProps) => {
   if (
-    [getNetworkIdsMap().eth, getNetworkIdsMap().sepolia].includes(networkId) &&
+    [
+      getNetworkIdsMap().eth,
+      getNetworkIdsMap().sepolia,
+      getNetworkIdsMap().holesky,
+    ].includes(networkId) &&
     !tokenAddress
   ) {
     return (
@@ -188,7 +140,7 @@ export const StakingApr = ({
       tokenAddress.toLowerCase() === SepoliaMatic)
   ) {
     return (
-      <MaticStakingAprAd
+      <MaticStakingListItem
         networkId={networkId}
         accountId={accountId}
         tokenAddress={tokenAddress}

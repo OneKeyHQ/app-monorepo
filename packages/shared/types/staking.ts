@@ -79,3 +79,52 @@ export type ILidoHistoryItem = {
   txHash: string;
   timestamp: number;
 };
+
+export type IStakeProviderInfo = {
+  name: string;
+  logoURI: string;
+  website: string;
+  apr: string;
+  poolFee: string;
+  totalStaked: string;
+  minStakeAmount: string;
+  maxStakeAmount: string;
+  isNative: string;
+  nextLaunchLeft?: string;
+};
+
+export type IStakeBaseParams = {
+  accountId: string;
+  networkId: string;
+  amount: string;
+  symbol: string;
+  provider: string;
+};
+
+export type IStakeProtocolDetails = {
+  staked: string;
+  stakedFiatValue: string;
+  available: string;
+  earnings24h?: string;
+  provider: IStakeProviderInfo;
+  token: {
+    balance: string;
+    balanceParsed: string;
+    fiatValue: string;
+    price: string;
+    price24h: string;
+    info: IToken;
+  };
+  updateFrequency: string;
+  rewardToken: string;
+};
+
+export type IStakeProtocolListItem = {
+  provider: IStakeProviderInfo;
+  network: {
+    networkId: string;
+    name: string;
+    logoURI: string;
+  };
+  isEarning: boolean;
+};
