@@ -1551,7 +1551,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
     const context = await this.getContext();
     // const serialNo = features.onekey_serial ?? features.serial_no ?? '';
-    const deviceType = device.deviceType || getDeviceType(features);
+    const deviceType =
+      device.deviceType || deviceUtils.getDeviceTypeFromFeatures({ features });
     const avatar: IAvatarInfo = {
       img: deviceType,
     };
