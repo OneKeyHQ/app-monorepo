@@ -17,11 +17,7 @@ export const analyticLogEvent = (
     [key: string]: any;
   },
 ) => {
-  if (
-    !platformEnv.isProduction ||
-    !firebaseConfig.apiKey ||
-    platformEnv.isExtension
-  ) {
+  if (!platformEnv.isProduction || !firebaseConfig.apiKey) {
     return;
   }
   return logEvent(getAnalyticsInstance(), eventName, eventParams);
