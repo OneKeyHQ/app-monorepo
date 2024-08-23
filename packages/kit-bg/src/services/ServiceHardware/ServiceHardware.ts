@@ -163,15 +163,15 @@ class ServiceHardware extends ServiceBase {
         version: version5,
       } = require('@onekeyfe/hd-web-sdk/package.json');
       const allVersions = {
+        HARDWARE_SDK_VERSION,
         version1,
         version2,
         version3,
         version4,
         version5,
-        HARDWARE_SDK_VERSION,
       };
       const versions = uniq(Object.values(allVersions));
-      if (versions.length > 1) {
+      if (versions.length > 1 || !HARDWARE_SDK_VERSION) {
         throw new Error(
           `Hardware SDK versions not equal: ${JSON.stringify(allVersions)}`,
         );

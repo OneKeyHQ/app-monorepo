@@ -5,7 +5,9 @@ import type { EServiceEndpointEnum, IEndpointEnv } from '../../types/endpoint';
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
   process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so';
 
-export const HARDWARE_SDK_VERSION = '1.0.10-alpha.1'; // 0.3.43     1.0.0-alpha.2
+export const HARDWARE_SDK_VERSION: string =
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  require('@onekeyfe/hd-core/package.json').version as string;
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
