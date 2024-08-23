@@ -293,7 +293,7 @@ export const useSpotlight = (tourName: ESpotlightTour) => {
 };
 
 export function Spotlight(props: {
-  containerProps: ISpotlightProps['containerProps'];
+  containerProps?: ISpotlightProps['containerProps'];
   isVisible?: boolean;
   message: string;
   tourName: ESpotlightTour;
