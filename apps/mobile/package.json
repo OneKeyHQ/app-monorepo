@@ -30,7 +30,6 @@
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
-    "@mattermost/react-native-paste-input": "^0.8.0",
     "@onekeyfe/react-native-animated-charts": "1.0.0",
     "@onekeyfe/react-native-ble-plx": "3.0.0",
     "@onekeyfe/react-native-lite-card": "1.0.9",
