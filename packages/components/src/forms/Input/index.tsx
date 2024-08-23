@@ -48,6 +48,8 @@ export type IInputProps = {
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
   containerProps?: IGroupProps;
+  // https://github.com/facebook/react-native/pull/45425
+  // Add onPaste into TextInput on React-Native PR
   onPaste?: () => void;
   onChangeText?: ((text: string) => string | void) | undefined;
 } & Omit<ITMInputProps, 'size' | 'onChangeText'> & {
