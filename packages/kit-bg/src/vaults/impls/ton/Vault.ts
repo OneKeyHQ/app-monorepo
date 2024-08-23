@@ -110,6 +110,7 @@ export default class Vault extends VaultBase {
           const fwdFee = ''; // when use forward_payload, need to set fwdFee
           msg.amount = TonWeb.utils.toNano('0.05').toString();
           const jettonAddress = transfer.tokenInfo.address;
+          const jettonMasterAddress = new TonWeb.utils.Address(transfer.tokenInfo.uniqueKey!).toString(true, true, true);
           const { payload } = await encodeJettonPayload({
             backgroundApi: this.backgroundApi,
             networkId: network.id,
@@ -126,7 +127,7 @@ export default class Vault extends VaultBase {
           msg.toAddress = jettonAddress;
           msg.jetton = {
             amount,
-            jettonMasterAddress: transfer.tokenInfo.uniqueKey ?? '',
+            jettonMasterAddress,
             fwdFee,
           };
         }
@@ -173,7 +174,7 @@ export default class Vault extends VaultBase {
             accountId: this.accountId,
             tokenIdOnNetwork: tokenAddress,
           });
-          if (decodedPayload.jetton && token) {
+          if (token) {
             amount = new BigNumber(amount).shiftedBy(-token.decimals).toFixed();
           }
           return this.buildTxTransferAssetAction({

@@ -113,7 +113,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
     const msg = encodedTx.messages[0];
     const versionMap = {
-      [TonWeb.Wallets.all.v4R2.name]: TonWalletVersion.V4R2,
+      v4R2: TonWalletVersion.V4R2,
     };
     const hwParams: CommonParams & TonSignMessageParams = {
       path: account.path,
@@ -124,12 +124,14 @@ export class KeyringHardware extends KeyringHardwareBase {
       expireAt: encodedTx.expireAt || 0,
       comment: msg.payload,
       mode: msg.sendMode,
-      walletVersion: versionMap[version],
+      walletVersion: versionMap[version as keyof typeof versionMap],
     };
     if (msg.jetton?.amount) {
       hwParams.jettonAmount = Number(msg.jetton.amount);
       hwParams.jettonMasterAddress = msg.jetton.jettonMasterAddress;
-      hwParams.fwdFee = Number(msg.jetton.fwdFee);
+      if (msg.jetton.fwdFee) {
+        hwParams.fwdFee = Number(msg.jetton.fwdFee);
+      }
       hwParams.comment = undefined;
     }
     const result = await convertDeviceResponse(async () => {
@@ -143,15 +145,32 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (!result.signature) {
       throw new OneKeyInternalError('Failed to sign message');
     }
+    const res = bufferUtils.hexToBytes(result.signature);
+    const signature = res.subarray(0, 64);
+    let signingMessage = serializeUnsignedTx.signingMessage;
+    const signingMessageHexFromHw = Buffer.from(res.subarray(64)).toString(
+      'hex',
+    );
+    const signingMessageHex = Buffer.from(
+      await signingMessage.toBoc(),
+    ).toString('hex');
+    if (signingMessageHexFromHw !== signingMessageHex) {
+      console.warn(
+        'signingMessage mismatch',
+        signingMessageHexFromHw,
+        signingMessageHex,
+      );
+      signingMessage = TonWeb.boc.Cell.oneFromBoc(signingMessageHexFromHw);
+    }
     const signedTx = serializeSignedTx({
       fromAddress: encodedTx.fromAddress,
-      signingMessage: serializeUnsignedTx.signingMessage,
-      signature: bufferUtils.hexToBytes(result.signature),
+      signingMessage,
+      signature,
       stateInit: getStateInitFromEncodedTx(encodedTx),
     });
     return {
       txid: '',
-      rawTx: Buffer.from(await signedTx.toBoc()).toString('base64'),
+      rawTx: Buffer.from(await signedTx.toBoc(false)).toString('base64'),
       encodedTx,
     };
   }
