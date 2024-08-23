@@ -482,12 +482,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         flex={1}
         // TODO performance
         onLayout={(e) => {
-          const {
-            nativeEvent: { layout },
-          } = e;
-          handleLayoutCacheSet('container', () =>
-            handleLayoutForContainer({ nativeEvent: { layout } }),
-          );
+          e?.persist?.();
+          handleLayoutCacheSet('container', () => handleLayoutForContainer(e));
         }}
       >
         {(() => {
@@ -502,12 +498,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             ref={listRef}
             // TODO performance
             onLayout={(e) => {
-              const {
-                nativeEvent: { layout },
-              } = e;
-              handleLayoutCacheSet('list', () =>
-                handleLayoutForSectionList({ nativeEvent: { layout } }),
-              );
+              e?.persist?.();
+              handleLayoutCacheSet('list', () => handleLayoutForSectionList(e));
             }}
             estimatedItemSize={60}
             initialScrollIndex={initialScrollIndex}
@@ -530,11 +522,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                 <Stack
                   // TODO performance
                   onLayout={(e) => {
-                    const {
-                      nativeEvent: { layout },
-                    } = e;
+                    e?.persist?.();
                     handleLayoutCacheSet('header', () =>
-                      handleLayoutForHeader({ nativeEvent: { layout } }),
+                      handleLayoutForHeader(e),
                     );
                   }}
                 >
