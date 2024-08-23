@@ -4385,23 +4385,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@kaspa/core-lib@npm:^1.6.5":
-  version: 1.6.5
-  resolution: "@kaspa/core-lib@npm:1.6.5"
-  dependencies:
-    blake2b-wasm: "npm:^2.1.0"
-    bn.js: "npm:=4.11.8"
-    bs58: "npm:^4.0.1"
-    buffer-compare: "npm:=1.1.1"
-    elliptic: "npm:^6.5.3"
-    inherits: "npm:=2.0.1"
-    lodash: "npm:^4.17.20"
-    secp256k1-wasm: "npm:>=2.0.0"
-    url: "npm:*"
-  checksum: 10/4c89ada7de776fcad348a248f28aa966ebea80eb4511e2cf179ca5cfbc66eb7d6483551295e980bcaef1cab4afabbb3cfc8254949069bcdff1b62b8890456cbd
-  languageName: node
-  linkType: hard
-
 "@keystonehq/alias-sampling@npm:^0.1.1":
   version: 0.1.2
   resolution: "@keystonehq/alias-sampling@npm:0.1.2"
@@ -5333,6 +5316,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@noble/hashes@npm:1.1.5":
+  version: 1.1.5
+  resolution: "@noble/hashes@npm:1.1.5"
+  checksum: 10/21dba8e059927d9d50772660e2e50f1c0b1dd9699958fcf337d04d795dd37ddf42fe5c815e32c3ec77600b1d055c287ba10e3d24902d788bd7289851cce3260b
+  languageName: node
+  linkType: hard
+
 "@noble/hashes@npm:1.3.1":
   version: 1.3.1
   resolution: "@noble/hashes@npm:1.3.1"
@@ -5704,6 +5694,23 @@ __metadata:
     "@onekeyfe/onekey-webln-provider": "npm:2.1.1"
     web3: "npm:^1.7.3"
   checksum: 10/67d60098a78ba8ea7159de76aa347e3efedffbb56cca1598fafa663cae38b59bf1b1584e1b02b34b6683b0e320b6ba091c6f224a103ddcc067f40df64d54007c
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/kaspa-core-lib@npm:^1.0.0-alpha.3":
+  version: 1.0.0-alpha.3
+  resolution: "@onekeyfe/kaspa-core-lib@npm:1.0.0-alpha.3"
+  dependencies:
+    "@noble/hashes": "npm:1.1.5"
+    "@noble/secp256k1": "npm:1.7.1"
+    bn.js: "npm:=4.11.8"
+    bs58: "npm:^4.0.1"
+    buffer-compare: "npm:=1.1.1"
+    elliptic: "npm:^6.5.3"
+    inherits: "npm:=2.0.1"
+    lodash: "npm:^4.17.20"
+    url: "npm:*"
+  checksum: 10/ddd7013ab93ac7c6545e275ca5a88297e68ae367274a68cebdb108b42e3b5f67c9bfd71eda2e90f4857405baa17c74cd3e6528a7a5eb306e97bcf6323219486f
   languageName: node
   linkType: hard
 
@@ -6206,7 +6213,6 @@ __metadata:
     "@conflux-dev/conflux-address-js": "npm:^1.3.16"
     "@glif/filecoin-address": "npm:^2.0.43"
     "@glif/filecoin-message": "npm:^2.0.44"
-    "@kaspa/core-lib": "npm:^1.6.5"
     "@magiceden-oss/open_creator_protocol": "npm:^0.3.2"
     "@metaplex-foundation/mpl-token-metadata": "npm:^2.7.0"
     "@mymonero/mymonero-app-bridge": "npm:^3.0.0"
@@ -6214,6 +6220,7 @@ __metadata:
     "@noble/secp256k1": "npm:1.7.1"
     "@onekeyfe/cardano-coin-selection": "npm:1.0.0"
     "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.0"
+    "@onekeyfe/kaspa-core-lib": "npm:^1.0.0-alpha.3"
     "@solana/spl-token": "npm:^0.4.8"
     "@solana/web3.js": "npm:^1.87.7"
     "@starcoin/starcoin": "npm:^2.3.7"
@@ -15313,7 +15320,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"blake2b-wasm@npm:^2.1.0, blake2b-wasm@npm:^2.4.0":
+"blake2b-wasm@npm:^2.4.0":
   version: 2.4.0
   resolution: "blake2b-wasm@npm:2.4.0"
   dependencies:
@@ -32120,13 +32127,6 @@ __metadata:
   version: 3.0.1
   resolution: "scrypt-js@npm:3.0.1"
   checksum: 10/2f8aa72b7f76a6f9c446bbec5670f80d47497bccce98474203d89b5667717223eeb04a50492ae685ed7adc5a060fc2d8f9fd988f8f7ebdaf3341967f3aeff116
-  languageName: node
-  linkType: hard
-
-"secp256k1-wasm@npm:>=2.0.0":
-  version: 2.0.0
-  resolution: "secp256k1-wasm@npm:2.0.0"
-  checksum: 10/d6ad7a416f9561d20f025fd696524123e9802857b53d7c205e3921dac55c1486786adaa99ba02a26044d8d34137b48e64908d0c5b1f068bd3b626fce823829b1
   languageName: node
   linkType: hard
 
