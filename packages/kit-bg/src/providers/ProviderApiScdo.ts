@@ -24,11 +24,15 @@ class ProviderApiScdo extends ProviderApiBase {
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
-    const data = () => {
+    const data = async ({ origin }: { origin: string }) => {
+      const accounts = await this.scdo_getAccounts({
+        origin,
+        scope: this.providerName,
+      });
       const result = {
         method: 'wallet_events_accountsChanged',
         params: {
-          accounts: { address: 'Your Account Address' },
+          accounts,
         },
       };
       return result;
