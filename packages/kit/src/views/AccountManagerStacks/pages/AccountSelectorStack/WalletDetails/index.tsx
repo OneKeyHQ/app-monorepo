@@ -481,9 +481,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       <Stack
         flex={1}
         // TODO performance
-        onLayout={(e) =>
-          handleLayoutCacheSet('container', () => handleLayoutForContainer(e))
-        }
+        onLayout={(e) => {
+          e?.persist?.();
+          handleLayoutCacheSet('container', () => handleLayoutForContainer(e));
+        }}
       >
         {(() => {
           defaultLogger.accountSelector.perf.renderAccountsSectionList({
@@ -496,9 +497,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           <SectionList
             ref={listRef}
             // TODO performance
-            onLayout={(e) =>
-              handleLayoutCacheSet('list', () => handleLayoutForSectionList(e))
-            }
+            onLayout={(e) => {
+              e?.persist?.();
+              handleLayoutCacheSet('list', () => handleLayoutForSectionList(e));
+            }}
             estimatedItemSize={60}
             initialScrollIndex={initialScrollIndex}
             getItemLayout={getItemLayout}
@@ -519,11 +521,12 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               isOthersUniversal ? null : (
                 <Stack
                   // TODO performance
-                  onLayout={(e) =>
+                  onLayout={(e) => {
+                    e?.persist?.();
                     handleLayoutCacheSet('header', () =>
                       handleLayoutForHeader(e),
-                    )
-                  }
+                    );
+                  }}
                 >
                   <WalletOptions
                     wallet={focusedWalletInfo?.wallet}
