@@ -32,13 +32,13 @@ import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.jso
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
-import { DeviceAvatar } from '@onekeyhq/kit/src/components/DeviceAvatar';
 import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
 } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -130,25 +130,47 @@ function ConnectByQrCode() {
   const { createQrWallet } = useCreateQrWallet();
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const tutorials = [
+    intl.formatMessage({
+      id: ETranslations.onboarding_create_qr_wallet_unlock_device_desc,
+    }),
+    intl.formatMessage({
+      id: ETranslations.onboarding_create_qr_wallet_show_qr_code_desc,
+    }),
+    intl.formatMessage({
+      id: ETranslations.onboarding_create_qr_wallet_scan_qr_code_desc,
+    }),
+  ];
 
   return (
-    <Stack flex={1} alignItems="center" justifyContent="center">
-      <DeviceAvatar deviceType="pro" size={40} />
-      <SizableText textAlign="center" size="$bodyLgMedium" pt="$5" pb="$2">
+    <Stack flex={1} px="$5" alignItems="center" justifyContent="center">
+      <WalletAvatar img="pro" wallet={undefined} badge="QR" />
+      <SizableText textAlign="center" size="$headingMd" py="$5">
         {intl.formatMessage({
           id: ETranslations.onboarding_create_qr_wallet_title,
         })}
       </SizableText>
-      <SizableText
-        textAlign="center"
-        color="$textSubdued"
-        maxWidth="$80"
-        pb="$5"
-      >
-        {intl.formatMessage({
-          id: ETranslations.onboarding_create_qr_wallet_desc,
-        })}
-      </SizableText>
+      <Stack role="list" gap="$3" mb="$5" w="100%" maxWidth="$96">
+        {tutorials.map((tutorial, index) => (
+          <XStack key={index} role="listitem">
+            <Stack
+              w="$6"
+              h="$6"
+              bg="$bgInfo"
+              borderRadius="$full"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <SizableText size="$bodyMd" color="$textInfo">
+                {index + 1}
+              </SizableText>
+            </Stack>
+            <SizableText size="$bodyLg" pl="$3">
+              {tutorial}
+            </SizableText>
+          </XStack>
+        ))}
+      </Stack>
       <Button
         variant="primary"
         $md={
@@ -179,7 +201,7 @@ function ConnectByQrCode() {
 
 function ConnectByQrCodeComingSoon() {
   const intl = useIntl();
-  const [showConnectQr, setShowConnectQr] = useState(false);
+  const [showConnectQr, setShowConnectQr] = useState(true);
   if (showConnectQr) {
     return <ConnectByQrCode />;
   }

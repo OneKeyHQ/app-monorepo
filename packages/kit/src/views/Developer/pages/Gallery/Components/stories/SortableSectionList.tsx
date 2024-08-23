@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   Button,
@@ -45,6 +45,27 @@ const SortableSectionListGallery = () => {
     },
     [sections, setSections],
   );
+  const layoutList = useMemo(() => {
+    let offset = 0;
+    const layouts: { offset: number; length: number; index: number }[] = [];
+    sections.forEach((section, sectionIndex) => {
+      if (sectionIndex !== 0) {
+        layouts.push({ offset, length: 8, index: layouts.length });
+        offset += 8;
+      }
+      const headerHeight = 36;
+      layouts.push({ offset, length: headerHeight, index: layouts.length });
+      offset += headerHeight;
+      section.data.forEach(() => {
+        layouts.push({ offset, length: CELL_HEIGHT, index: layouts.length });
+        offset += CELL_HEIGHT;
+      });
+      const footerHeight = 0;
+      layouts.push({ offset, length: footerHeight, index: layouts.length });
+      offset += footerHeight;
+    });
+    return layouts;
+  }, [sections]);
   return (
     <Page>
       <Page.Header headerRight={headerRight} />
@@ -53,18 +74,14 @@ const SortableSectionListGallery = () => {
         sections={sections}
         enabled={isEditing}
         keyExtractor={(item) => `${(item as { index: number }).index}`}
-        getItemLayout={(_, index) => ({
-          offset: CELL_HEIGHT,
-          length: CELL_HEIGHT * index,
-          index,
-        })}
+        getItemLayout={(valueList, index) => layoutList[index]}
         renderSectionHeader={({ index }) => (
           <SortableSectionList.SectionHeader
             px={0}
             title={`Section ${index}`}
           />
         )}
-        renderItem={({ item, section, drag }) => (
+        renderItem={({ item, section, drag, dragProps }) => (
           <SwipeableCell
             swipeEnabled={!isEditing}
             rightItemList={[
@@ -97,6 +114,7 @@ const SortableSectionListGallery = () => {
                   cursor="move"
                   icon="DragOutline"
                   onPressIn={drag}
+                  dataSet={dragProps}
                 />
               ) : null}
             </ListItem>

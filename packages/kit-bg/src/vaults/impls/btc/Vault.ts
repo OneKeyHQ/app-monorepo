@@ -944,7 +944,8 @@ export default class VaultBtc extends VaultBase {
     },
   );
 
-  async collectTxs(txids: string[]): Promise<{
+  // collectTxs by blockbook api or proxy api
+  async collectTxsByApi(txids: string[]): Promise<{
     [txid: string]: string; // rawTx string
   }> {
     try {
@@ -1096,7 +1097,9 @@ export default class VaultBtc extends VaultBase {
       ),
     );
 
-    const nonWitnessPrevTxs = await this.collectTxs(nonWitnessInputPrevTxids);
+    const nonWitnessPrevTxs = await this.collectTxsByApi(
+      nonWitnessInputPrevTxids,
+    );
 
     return [inputAddressesEncodings, nonWitnessPrevTxs];
   }

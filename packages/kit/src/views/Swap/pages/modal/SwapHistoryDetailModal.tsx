@@ -5,7 +5,10 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
+  Button,
+  Dialog,
   Divider,
   NumberSizeableText,
   Page,
@@ -13,6 +16,8 @@ import {
   Stack,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,26 +36,20 @@ import {
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { getSwapHistoryStatusTextProps } from '../../utils/utils';
-import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 
 const SwapHistoryDetailModal = () => {
-  // const navigation =
-  //   useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const route =
     useRoute<
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryDetail>
     >();
   const intl = useIntl();
   const { txHistory } = route.params ?? {};
-  // const { swapAgainUseHistoryItem } = useSwapTxHistoryActions();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { formatDate } = useFormatDate();
-  // const onSwapAgain = useCallback(() => {
-  //   swapAgainUseHistoryItem(txHistory);
-  //   navigation.popStack();
-  // }, [navigation, swapAgainUseHistoryItem, txHistory]);
 
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
@@ -310,18 +309,6 @@ const SwapHistoryDetailModal = () => {
               />
             ) : null}
           </InfoItemGroup>
-          {/* <XStack justifyContent="space-between" py="$4" mx="$5">
-            <Image
-              resizeMode="contain"
-              w={100}
-              h={28}
-              source={require('../../../../../assets/swap_history_logo.png')}
-            />
-            <SwapTxHistoryViewInBrowser
-              item={txHistory}
-              onViewInBrowser={onViewInBrowser}
-            />
-          </XStack> */}
         </Stack>
       </>
     );
@@ -337,12 +324,43 @@ const SwapHistoryDetailModal = () => {
     txHistory,
   ]);
 
+  const onDeleteOneHistory = useCallback(() => {
+    Dialog.show({
+      description: intl.formatMessage({
+        id: ETranslations.swap_history_detail_clear_content,
+      }),
+      title: intl.formatMessage({
+        id: ETranslations.swap_history_detail_clear_title,
+      }),
+      onConfirm: async () => {
+        await backgroundApiProxy.serviceSwap.cleanOneSwapHistory(
+          txHistory.txInfo.txId,
+        );
+        navigation.pop();
+      },
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_clear,
+      }),
+      onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
+    });
+  }, [intl, navigation, txHistory.txInfo.txId]);
+
+  const headerRight = useCallback(
+    () => (
+      <Button variant="tertiary" onPress={onDeleteOneHistory}>
+        {intl.formatMessage({ id: ETranslations.global_clear })}
+      </Button>
+    ),
+    [intl, onDeleteOneHistory],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
         headerTitle={intl.formatMessage({
           id: ETranslations.swap_history_detail_title,
         })}
+        headerRight={headerRight}
       />
       <Page.Body>{renderSwapHistoryDetails()}</Page.Body>
       {txHistory.swapInfo.supportUrl ? (
@@ -363,17 +381,4 @@ const SwapHistoryDetailModal = () => {
   );
 };
 
-const SwapHistoryDetailModalWithProvider = () => {
-  const route =
-    useRoute<
-      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryDetail>
-    >();
-  const { storeName } = route.params;
-  return (
-    <SwapProviderMirror storeName={storeName}>
-      <SwapHistoryDetailModal />
-    </SwapProviderMirror>
-  );
-};
-
-export default SwapHistoryDetailModalWithProvider;
+export default SwapHistoryDetailModal;

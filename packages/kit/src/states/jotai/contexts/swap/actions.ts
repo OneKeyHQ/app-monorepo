@@ -6,6 +6,7 @@ import { debounce } from 'lodash';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
+import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -21,9 +22,15 @@ import {
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  IFetchQuotesParams,
   IFetchTokensParams,
   ISwapAlertState,
   ISwapApproveTransaction,
+  ISwapQuoteEvent,
+  ISwapQuoteEventAutoSlippage,
+  ISwapQuoteEventData,
+  ISwapQuoteEventInfo,
+  ISwapQuoteEventQuoteResult,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -42,6 +49,7 @@ import {
   contextAtomMethod,
   rateDifferenceAtom,
   swapAlertsAtom,
+  swapAutoSlippageSuggestedValueAtom,
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
   swapManualSelectQuoteProvidersAtom,
@@ -269,6 +277,183 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
+  quoteEventHandler = contextAtomMethod(
+    (
+      get,
+      set,
+      event: {
+        event: ISwapQuoteEvent;
+        type: 'done' | 'close' | 'error' | 'message' | 'open';
+        params: IFetchQuotesParams;
+        accountId?: string;
+      },
+    ) => {
+      switch (event.type) {
+        case 'open': {
+          set(swapQuoteListAtom(), []);
+          break;
+        }
+        case 'message': {
+          const { data } = event.event as IEventSourceMessageEvent;
+          if (data) {
+            const dataJson = JSON.parse(data) as ISwapQuoteEventData;
+            const autoSlippageData = dataJson as ISwapQuoteEventAutoSlippage;
+            if (autoSlippageData?.autoSuggestedSlippage) {
+              const {
+                autoSuggestedSlippage,
+                fromNetworkId,
+                fromTokenAddress,
+                toNetworkId,
+                toTokenAddress,
+              } = autoSlippageData;
+              const quoteResult = get(swapQuoteListAtom());
+              const quoteUpdateSlippage = quoteResult.map((quotRes) => {
+                if (
+                  quotRes.fromTokenInfo.networkId === fromNetworkId &&
+                  quotRes.fromTokenInfo.contractAddress === fromTokenAddress &&
+                  quotRes.toTokenInfo.networkId === toNetworkId &&
+                  quotRes.toTokenInfo.contractAddress === toTokenAddress &&
+                  !quotRes.autoSuggestedSlippage
+                ) {
+                  return {
+                    ...quotRes,
+                    autoSuggestedSlippage,
+                  };
+                }
+                return quotRes;
+              });
+              set(swapQuoteListAtom(), [...quoteUpdateSlippage]);
+              set(swapAutoSlippageSuggestedValueAtom(), {
+                value: autoSuggestedSlippage,
+                from: `${fromNetworkId}-${fromTokenAddress}`,
+                to: `${toNetworkId}-${toTokenAddress}`,
+              });
+            } else if (
+              (dataJson as ISwapQuoteEventInfo).totalQuoteCount ||
+              (dataJson as ISwapQuoteEventInfo).totalQuoteCount === 0
+            ) {
+              const { totalQuoteCount } = dataJson as ISwapQuoteEventInfo;
+              if (totalQuoteCount === 0) {
+                set(swapQuoteListAtom(), []);
+              }
+              // todo totalQuoteCount > 0 display
+            } else {
+              const quoteResultData = dataJson as ISwapQuoteEventQuoteResult;
+              const swapAutoSlippageSuggestedValue = get(
+                swapAutoSlippageSuggestedValueAtom(),
+              );
+              if (quoteResultData.data?.length) {
+                const quoteResultsUpdateSlippage = quoteResultData.data.map(
+                  (quote) => {
+                    if (
+                      `${quote.fromTokenInfo.networkId}-${quote.fromTokenInfo.contractAddress}` ===
+                        swapAutoSlippageSuggestedValue?.from &&
+                      `${quote.toTokenInfo.networkId}-${quote.toTokenInfo.contractAddress}` ===
+                        swapAutoSlippageSuggestedValue?.to &&
+                      swapAutoSlippageSuggestedValue.value &&
+                      !quote.autoSuggestedSlippage
+                    ) {
+                      return {
+                        ...quote,
+                        autoSuggestedSlippage:
+                          swapAutoSlippageSuggestedValue.value,
+                      };
+                    }
+                    return quote;
+                  },
+                );
+                const currentQuoteList = get(swapQuoteListAtom());
+                let newQuoteList = currentQuoteList.map((oldQuoteRes) => {
+                  const newUpdateQuoteRes = quoteResultsUpdateSlippage.find(
+                    (quote) =>
+                      quote.info.provider === oldQuoteRes.info.provider &&
+                      quote.info.providerName === oldQuoteRes.info.providerName,
+                  );
+                  if (newUpdateQuoteRes) {
+                    return newUpdateQuoteRes;
+                  }
+                  return oldQuoteRes;
+                });
+                const newAddQuoteRes = quoteResultsUpdateSlippage.filter(
+                  (quote) =>
+                    !currentQuoteList.find(
+                      (oldQuoteRes) =>
+                        quote.info.provider === oldQuoteRes.info.provider &&
+                        quote.info.providerName ===
+                          oldQuoteRes.info.providerName,
+                    ),
+                );
+                newQuoteList = [...newQuoteList, ...newAddQuoteRes];
+                set(swapQuoteListAtom(), [...newQuoteList]);
+              }
+              set(swapQuoteFetchingAtom(), false);
+            }
+          }
+          break;
+        }
+        case 'done': {
+          set(swapQuoteActionLockAtom(), false);
+          this.quoteIntervalCount += 1;
+          if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
+            void this.recoverQuoteInterval.call(
+              set,
+              event.params.userAddress,
+              event.accountId,
+              true,
+            );
+          }
+          this.closeQuoteEvent();
+          break;
+        }
+        case 'error': {
+          // todo error toast
+          this.closeQuoteEvent();
+          break;
+        }
+        case 'close': {
+          set(swapQuoteFetchingAtom(), false);
+          set(swapQuoteActionLockAtom(), false);
+          break;
+        }
+        default:
+      }
+    },
+  );
+
+  runQuoteEvent = contextAtomMethod(
+    async (
+      get,
+      set,
+      fromToken: ISwapToken,
+      toToken: ISwapToken,
+      fromTokenAmount: string,
+      slippagePercentage: number,
+      autoSlippage?: boolean,
+      address?: string,
+      accountId?: string,
+      blockNumber?: number,
+    ) => {
+      const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
+      if (shouldRefreshQuote) {
+        this.cleanQuoteInterval();
+        set(swapQuoteActionLockAtom(), false);
+        return;
+      }
+      await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
+      set(swapQuoteFetchingAtom(), true);
+      await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
+        fromToken,
+        toToken,
+        fromTokenAmount,
+        userAddress: address,
+        slippagePercentage,
+        autoSlippage,
+        blockNumber,
+        accountId,
+      });
+    },
+  );
+
   quoteAction = contextAtomMethod(
     async (
       get,
@@ -279,6 +464,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       set(swapQuoteActionLockAtom(), true);
       this.cleanQuoteInterval();
+      this.closeQuoteEvent();
       this.quoteIntervalCount = 0;
       set(swapBuildTxFetchingAtom(), false);
       set(swapShouldRefreshQuoteAtom(), false);
@@ -293,7 +479,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         !Number.isNaN(fromTokenAmountNumber) &&
         fromTokenAmountNumber > 0
       ) {
-        void this.runQuote.call(
+        void this.runQuoteEvent.call(
           set,
           fromToken,
           toToken,
@@ -302,11 +488,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           slippageItem.key === ESwapSlippageSegmentKey.AUTO,
           address,
           accountId,
-          false,
           blockNumber,
         );
       } else {
-        await backgroundApiProxy.serviceSwap.cancelFetchQuotes();
         set(swapQuoteFetchingAtom(), false);
         set(swapQuoteListAtom(), []);
         set(swapQuoteActionLockAtom(), false);
@@ -406,6 +590,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (swapQuoteActionLock) {
         return;
       }
+      this.closeQuoteEvent();
       this.cleanQuoteInterval();
       if (!unResetCount) {
         this.quoteIntervalCount = 0;
@@ -454,6 +639,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       this.quoteInterval = undefined;
     }
     void backgroundApiProxy.serviceSwap.cancelFetchQuotes();
+  };
+
+  closeQuoteEvent = () => {
+    void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
   };
 
   cleanApprovingInterval = () => {
@@ -816,7 +1005,7 @@ export const useSwapActions = () => {
   const approvingStateAction = actions.approvingStateAction.use();
   const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 300);
   const tokenListFetchAction = actions.tokenListFetchAction.use();
-
+  const quoteEventHandler = actions.quoteEventHandler.use();
   const loadSwapSelectTokenDetail = debounce(
     actions.loadSwapSelectTokenDetail.use(),
     200,
@@ -839,5 +1028,6 @@ export const useSwapActions = () => {
     checkSwapWarning,
     loadSwapSelectTokenDetail,
     getQuoteIntervalCount,
+    quoteEventHandler,
   });
 };

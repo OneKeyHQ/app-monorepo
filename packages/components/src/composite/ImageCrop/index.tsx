@@ -117,8 +117,8 @@ function BasicImageCrop({
                 cropRect: cropRectRef.current,
                 path: '',
                 size: base64String.length,
-                width: Math.min(imageHeight, height),
-                height: Math.min(imageWidth, width),
+                width: Math.min(imageWidth, width),
+                height: Math.min(imageHeight, height),
                 mime: MINE_TYPE,
               });
             }

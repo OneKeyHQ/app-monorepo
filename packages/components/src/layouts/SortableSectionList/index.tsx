@@ -55,6 +55,7 @@ export type ISortableSectionListProps<T> = Omit<
     section: any;
     index: number;
     drag: () => void;
+    dragProps: Record<string, any> | undefined;
     isActive: boolean;
   }) => ReactNode | null;
   renderSectionHeader?: ISectionRenderInfo;
@@ -195,10 +196,12 @@ function BaseSortableSectionList<T>(
     ({
       item,
       drag,
+      dragProps,
       isActive,
     }: {
       item: T;
       drag: () => void;
+      dragProps?: Record<string, any>;
       isActive: boolean;
     }) => {
       const { type, value, section, index } = item as ISectionLayoutItem;
@@ -218,6 +221,7 @@ function BaseSortableSectionList<T>(
             section,
             index,
             drag,
+            dragProps,
             isActive,
           });
         }
@@ -244,7 +248,7 @@ function BaseSortableSectionList<T>(
       const layoutItem = item as ISectionLayoutItem;
       if (layoutItem.type === ESectionLayoutType.Item && keyExtractor) {
         return `${layoutItem.type}_${layoutItem.sectionIndex}_${keyExtractor(
-          layoutItem.value,
+          layoutItem.value as T,
           index,
         )}`;
       }
