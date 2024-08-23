@@ -20,6 +20,7 @@ import type { IEncodedTxKaspa } from '../chains/kaspa/types';
 import type { IEncodedTxNear } from '../chains/near/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
 import type { IEncodedTxNostr } from '../chains/nostr/types';
+import type { IEncodedTxScdo } from '../chains/scdo/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
 import type { IEncodedTxTon } from '../chains/ton/types';
 import type { IEncodedTxTron } from '../chains/tron/types';
@@ -39,6 +40,7 @@ export type IEncodedTx =
   | IEncodedTxSui
   | IEncodedTxAptos
   | IEncodedTxTon
+  | IEncodedTxScdo
   | IEncodedTxXrp
   | IEncodedTxXmr
   | IEncodedTxTron

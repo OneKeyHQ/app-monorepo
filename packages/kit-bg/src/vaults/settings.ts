@@ -21,6 +21,7 @@ import {
   IMPL_NEURAI,
   IMPL_NEXA,
   IMPL_NOSTR,
+  IMPL_SCDO,
   IMPL_SOL,
   IMPL_SUI,
   IMPL_TBTC,
@@ -97,6 +98,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_APTOS]: () => import('./impls/aptos/settings'),
     [IMPL_DNX]: () => import('./impls/dnx/settings'),
     [IMPL_ALLNETWORKS]: () => import('./impls/all/settings'),
+    [IMPL_SCDO]: () => import('./impls/scdo/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {
