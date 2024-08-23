@@ -19,6 +19,10 @@ const BatchCreateAccountPreview = LazyLoadPage(
   () => import('../pages/BatchCreateAccount/BatchCreateAccountPreview'),
 );
 
+const HardwareHomeScreenModal = LazyLoadPage(
+  () => import('../pages/HardwareHomeScreen/HardwareHomeScreenModal'),
+);
+
 export const AccountManagerStacks: IModalFlowNavigatorConfig<
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList
@@ -38,5 +42,9 @@ export const AccountManagerStacks: IModalFlowNavigatorConfig<
   {
     name: EAccountManagerStacksRoutes.BatchCreateAccountPreview,
     component: BatchCreateAccountPreview,
+  },
+  {
+    name: EAccountManagerStacksRoutes.HardwareHomeScreenModal,
+    component: HardwareHomeScreenModal,
   },
 ];

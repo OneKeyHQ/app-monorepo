@@ -218,8 +218,11 @@ export default class Vault extends VaultBase {
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
 
+    const { swapInfo } = unsignedTx;
+
     let action: IDecodedTxAction = { type: EDecodedTxActionType.UNKNOWN };
     let toAddress = '';
+
     if (encodedTx.raw_data.contract[0].type === 'TransferContract') {
       const actionFromNativeTransfer =
         await this._buildTxTransferNativeTokenAction({
@@ -237,6 +240,13 @@ export default class Vault extends VaultBase {
         action = actionFromContract.action;
         toAddress = actionFromContract.toAddress;
       }
+    }
+
+    if (swapInfo) {
+      action = await this.buildInternalSwapAction({
+        swapInfo,
+        swapToAddress: toAddress,
+      });
     }
 
     const owner = await this.getAccountAddress();

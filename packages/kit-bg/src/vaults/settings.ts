@@ -21,9 +21,11 @@ import {
   IMPL_NEURAI,
   IMPL_NEXA,
   IMPL_NOSTR,
+  IMPL_SCDO,
   IMPL_SOL,
   IMPL_SUI,
   IMPL_TBTC,
+  IMPL_TON,
   IMPL_TRON,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -89,12 +91,14 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_ADA]: () => import('./impls/ada/settings'),
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
     [IMPL_DOT]: () => import('./impls/dot/settings'),
+    [IMPL_TON]: () => import('./impls/ton/settings'),
     [IMPL_NEXA]: () => import('./impls/nexa/settings'),
     [IMPL_SUI]: () => import('./impls/sui/settings'),
     [IMPL_KASPA]: () => import('./impls/kaspa/settings'),
     [IMPL_APTOS]: () => import('./impls/aptos/settings'),
     [IMPL_DNX]: () => import('./impls/dnx/settings'),
     [IMPL_ALLNETWORKS]: () => import('./impls/all/settings'),
+    [IMPL_SCDO]: () => import('./impls/scdo/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

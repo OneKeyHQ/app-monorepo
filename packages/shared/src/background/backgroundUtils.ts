@@ -27,10 +27,12 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_NEAR,
   IMPL_NOSTR,
+  IMPL_SCDO,
   IMPL_SOL,
   IMPL_STC,
   IMPL_SUI,
   IMPL_TBTC,
+  IMPL_TON,
   IMPL_TRON,
 } from '../engine/engineConsts';
 import { NotAutoPrintError } from '../errors';
@@ -296,6 +298,8 @@ export const scopeNetworks: Record<
   'tron': [IMPL_TRON],
   'algo': [IMPL_ALGO],
   'sui': [IMPL_SUI],
+  'ton': [IMPL_TON],
+  'scdo': [IMPL_SCDO],
   'cardano': [IMPL_ADA],
   'cosmos': [IMPL_COSMOS],
   'polkadot': [IMPL_DOT],
@@ -305,7 +309,6 @@ export const scopeNetworks: Record<
   '$private': undefined,
   '$privateExternalAccount': [IMPL_BTC, IMPL_TBTC],
   '$walletConnect': undefined,
-  'scdo': undefined,
 };
 
 export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
@@ -318,6 +321,8 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.tron,
   IInjectedProviderNames.algo,
   IInjectedProviderNames.sui,
+  IInjectedProviderNames.ton,
+  IInjectedProviderNames.scdo,
   IInjectedProviderNames.cardano,
   IInjectedProviderNames.cosmos,
   IInjectedProviderNames.polkadot,

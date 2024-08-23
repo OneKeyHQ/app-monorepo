@@ -204,12 +204,12 @@ export function HomePageView({
     account,
     isRequiredValidation,
     renderTabs,
+    intl,
     accountName,
     network?.name,
     network?.id,
     deriveInfo?.labelKey,
     deriveInfo?.label,
-    intl,
   ]);
 
   const renderHomePage = useCallback(() => {

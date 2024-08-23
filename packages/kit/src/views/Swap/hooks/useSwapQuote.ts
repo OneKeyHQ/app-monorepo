@@ -5,6 +5,10 @@ import { useIntl } from 'react-intl';
 import { EPageType, usePageType } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ESwapApproveTransactionStatus,
@@ -29,8 +33,12 @@ import { useSwapAddressInfo } from './useSwapAccount';
 
 export function useSwapQuote() {
   const intl = useIntl();
-  const { quoteAction, cleanQuoteInterval, recoverQuoteInterval } =
-    useSwapActions().current;
+  const {
+    quoteAction,
+    cleanQuoteInterval,
+    recoverQuoteInterval,
+    quoteEventHandler,
+  } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -152,6 +160,11 @@ export function useSwapQuote() {
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
+      if (pageType !== EPageType.modal && isFocus && !isHiddenModel) {
+        appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+      } else {
+        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+      }
       setTimeout(() => {
         // ext env txId data is undefined when useListenTabFocusState is called
         if (pageType !== EPageType.modal) {
@@ -172,6 +185,16 @@ export function useSwapQuote() {
       }, 100);
     },
   );
+  useEffect(() => {
+    if (pageType === EPageType.modal && isFocused) {
+      appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    }
+    return () => {
+      if (pageType === EPageType.modal) {
+        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+      }
+    };
+  }, [isFocused, pageType, quoteEventHandler]);
 
   useEffect(() => {
     setTimeout(() => {

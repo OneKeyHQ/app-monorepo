@@ -166,7 +166,7 @@ function BaseSectionList<T>(
         viewPosition,
       });
     },
-    getCurrent: () => ref.current,
+    ...ref.current,
   }));
   const renderSectionAndItem = useCallback(
     ({ item }: { item: T }) => {
@@ -267,7 +267,8 @@ function BaseSectionList<T>(
     });
   }, [reloadSections, tokenSizeNumberList]);
   const getItemLayout = useCallback(
-    (_: ArrayLike<T> | null | undefined, index: number) => layoutList[index],
+    (_: ArrayLike<T> | null | undefined, index: number) =>
+      index === -1 ? { index, offset: 0, length: 0 } : layoutList[index],
     [layoutList],
   );
   return (
