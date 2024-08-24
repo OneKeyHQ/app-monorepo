@@ -586,7 +586,7 @@
   "global.bootloader": "Bootloader",
   "global.browser": "Browser",
   "global.bulk_accounts_advance": "Voraus",
-  "global.bulk_accounts_loading": "{amount} Adressen hinzugefügt",
+  "global.bulk_accounts_loading": "{amount} Adresse(n) hinzugefügt",
   "global.bulk_accounts_loading_error": "Massenhafte Kontozugänge wurden abgebrochen",
   "global.bulk_accounts_loading_subtitle": "({amount} Konten)",
   "global.bulk_accounts_page_number": "Seitennummer",

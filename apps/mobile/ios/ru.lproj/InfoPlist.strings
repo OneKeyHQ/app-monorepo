@@ -1,0 +1,17 @@
+/* 
+  InfoPlist.strings
+  OneKeyWallet
+
+  Created by Leon on 2024/3/8.
+  
+*/
+
+"NFCReaderUsageDescription" = "Используйте NFC для чтения сообщений NDEF в приложении.";
+"NSBluetoothAlwaysUsageDescription" = "Используйте Bluetooth для подключения устройств OneKey.";
+"NSBluetoothPeripheralUsageDescription" = "Используйте периферийное устройство Bluetooth для подключения устройств OneKey.";
+"NSCameraUsageDescription" = "Используйте камеру для сканирования QR-кода.";
+"NSFaceIDUsageDescription" = "Используйте Face ID для аутентификации и разблокировки вашего кошелька.";
+"NSMicrophoneUsageDescription" = "Используйте микрофон для записи видео.";
+"NSPhotoLibraryAddUsageDescription" = "Используйте фотогалерею для сохранения изображений QR-кодов.";
+"NSPhotoLibraryUsageDescription" = "Используйте фотогалерею для чтения изображений QR-кодов.";
+"NSLocalNetworkUsageDescription" = "Это приложение сможет обнаруживать и подключаться к устройствам в используемых вами сетях.";

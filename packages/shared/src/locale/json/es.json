@@ -586,7 +586,7 @@
   "global.bootloader": "Bootloader",
   "global.browser": "Navegador",
   "global.bulk_accounts_advance": "Avanzar",
-  "global.bulk_accounts_loading": "{amount} direcciones añadidas",
+  "global.bulk_accounts_loading": "{amount} dirección(es) añadida(s)",
   "global.bulk_accounts_loading_error": "Se han cancelado las cuentas agregadas en masa",
   "global.bulk_accounts_loading_subtitle": "({amount} cuentas)",
   "global.bulk_accounts_page_number": "Número de página",

@@ -586,7 +586,7 @@
   "global.bootloader": "Bootloader",
   "global.browser": "Browser",
   "global.bulk_accounts_advance": "Avanzare",
-  "global.bulk_accounts_loading": "Aggiunti {amount} indirizzi",
+  "global.bulk_accounts_loading": "{amount} indirizzo/i aggiunto/i",
   "global.bulk_accounts_loading_error": "L'aggiunta massiva di account è stata annullata",
   "global.bulk_accounts_loading_subtitle": "({amount} conti)",
   "global.bulk_accounts_page_number": "Numero di pagina",

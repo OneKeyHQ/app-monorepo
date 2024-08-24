@@ -586,7 +586,7 @@
   "global.bootloader": "Bootloader",
   "global.browser": "ब्राउज़र",
   "global.bulk_accounts_advance": "अग्रिम",
-  "global.bulk_accounts_loading": "{amount} पते जोड़े गए",
+  "global.bulk_accounts_loading": "{amount} पता(एं) जोड़े गए",
   "global.bulk_accounts_loading_error": "बल्क में जोड़े गए खाते रद्द कर दिए गए हैं",
   "global.bulk_accounts_loading_subtitle": "({amount} खाते)",
   "global.bulk_accounts_page_number": "पृष्ठ संख्या",
