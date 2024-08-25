@@ -6402,7 +6402,7 @@ __metadata:
     electron-is-dev: "npm:^2.0.0"
     electron-log: "npm:^4.4.8"
     electron-store: "npm:^8.1.0"
-    electron-updater: "npm:6.1.8"
+    electron-updater: "npm:6.3.0"
     esbuild: "npm:0.15.18"
     folderslint: "npm:^1.2.0"
     glob: "npm:^7.2.0"
@@ -16120,16 +16120,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"builder-util-runtime@npm:9.2.3":
-  version: 9.2.3
-  resolution: "builder-util-runtime@npm:9.2.3"
-  dependencies:
-    debug: "npm:^4.3.4"
-    sax: "npm:^1.2.4"
-  checksum: 10/15f9618af1a2224d0ade19fa7dca12f80bc2ceeb4fc89242f2505b44f58d13d3439bb08a5bec865bb0f8e930fa57bd112d9ee9024f22f1654925ffe2bed3925b
-  languageName: node
-  linkType: hard
-
 "builder-util-runtime@npm:9.2.4":
   version: 9.2.4
   resolution: "builder-util-runtime@npm:9.2.4"
@@ -16137,6 +16127,16 @@ __metadata:
     debug: "npm:^4.3.4"
     sax: "npm:^1.2.4"
   checksum: 10/6b4b6518f8859a90cd6b49ff8053134d731438a588496e5f517ec6d12baef3f1a1c74aaa3142f9d4c61979fca1addc3e47432a956c122cfad582b2145a3df077
+  languageName: node
+  linkType: hard
+
+"builder-util-runtime@npm:9.2.5":
+  version: 9.2.5
+  resolution: "builder-util-runtime@npm:9.2.5"
+  dependencies:
+    debug: "npm:^4.3.4"
+    sax: "npm:^1.2.4"
+  checksum: 10/89c1e67c286ad5dd039abd56af91b3fa3d01eb62ce16c07e8d496a06eb0ed9ce015870d83dd919ffa387a32d47f9080923958672fc993154c8a184c6b1a78adc
   languageName: node
   linkType: hard
 
@@ -19091,11 +19091,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-updater@npm:6.1.8":
-  version: 6.1.8
-  resolution: "electron-updater@npm:6.1.8"
+"electron-updater@npm:6.3.0":
+  version: 6.3.0
+  resolution: "electron-updater@npm:6.3.0"
   dependencies:
-    builder-util-runtime: "npm:9.2.3"
+    builder-util-runtime: "npm:9.2.5"
     fs-extra: "npm:^10.1.0"
     js-yaml: "npm:^4.1.0"
     lazy-val: "npm:^1.0.5"
@@ -19103,7 +19103,7 @@ __metadata:
     lodash.isequal: "npm:^4.5.0"
     semver: "npm:^7.3.8"
     tiny-typed-emitter: "npm:^2.1.0"
-  checksum: 10/55783c3e787b59d08156399b614814233089eaff7a298bb8488a9b848e4275e3ccedfa6731fc8633ab89a8dc94fafd282a7a23c6dbf7f20ae844aa2519e78a96
+  checksum: 10/8e18c2098b1995ab82437274c0e9994ec0effae7760719c5460a70f91aea9d642ae3131a3644a0b8f0dfefdbe26d07c91eb74748ac4eb8e2316843d183aed631
   languageName: node
   linkType: hard
 
