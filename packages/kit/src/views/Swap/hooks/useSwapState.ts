@@ -25,6 +25,7 @@ import {
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteFetchingAtom,
+  useSwapQuoteIntervalCountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -98,9 +99,9 @@ export function useSwapActionState() {
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const { getQuoteIntervalCount } = useSwapActions().current;
+  const [quoteIntervalCount] = useSwapQuoteIntervalCountAtom();
   const isRefreshQuote =
-    getQuoteIntervalCount() >= swapQuoteIntervalMaxCount || shouldRefreshQuote;
+    quoteIntervalCount > swapQuoteIntervalMaxCount || shouldRefreshQuote;
   const hasError = alerts.states.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );

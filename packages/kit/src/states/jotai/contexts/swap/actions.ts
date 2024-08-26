@@ -57,6 +57,7 @@ import {
   swapQuoteActionLockAtom,
   swapQuoteCurrentSelectAtom,
   swapQuoteFetchingAtom,
+  swapQuoteIntervalCountAtom,
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
@@ -77,8 +78,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private approvingInterval: ReturnType<typeof setTimeout> | undefined;
 
   private approvingIntervalCount = 0;
-
-  private quoteIntervalCount = 0;
 
   syncNetworksSort = contextAtomMethod(async (get, set, netWorkId: string) => {
     const networks = get(swapNetworks());
@@ -268,10 +267,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       } finally {
         set(swapQuoteActionLockAtom(), false);
         if (enableInterval) {
-          this.quoteIntervalCount += 1;
-          if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
+          const quoteIntervalCount = get(swapQuoteIntervalCountAtom());
+          if (quoteIntervalCount <= swapQuoteIntervalMaxCount) {
             void this.recoverQuoteInterval.call(set, address, accountId, true);
           }
+          set(swapQuoteIntervalCountAtom(), quoteIntervalCount + 1);
         }
       }
     },
@@ -393,8 +393,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         case 'done': {
           set(swapQuoteActionLockAtom(), false);
-          this.quoteIntervalCount += 1;
-          if (this.quoteIntervalCount < swapQuoteIntervalMaxCount) {
+          const quoteIntervalCount = get(swapQuoteIntervalCountAtom());
+          if (quoteIntervalCount <= swapQuoteIntervalMaxCount) {
             void this.recoverQuoteInterval.call(
               set,
               event.params.userAddress,
@@ -402,11 +402,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               true,
             );
           }
+          set(swapQuoteIntervalCountAtom(), quoteIntervalCount + 1);
           this.closeQuoteEvent();
           break;
         }
         case 'error': {
-          // todo error toast
           this.closeQuoteEvent();
           break;
         }
@@ -465,7 +465,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapQuoteActionLockAtom(), true);
       this.cleanQuoteInterval();
       this.closeQuoteEvent();
-      this.quoteIntervalCount = 0;
+      set(swapQuoteIntervalCountAtom(), 0);
       set(swapBuildTxFetchingAtom(), false);
       set(swapShouldRefreshQuoteAtom(), false);
       const fromToken = get(swapSelectFromTokenAtom());
@@ -593,7 +593,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       this.closeQuoteEvent();
       this.cleanQuoteInterval();
       if (!unResetCount) {
-        this.quoteIntervalCount = 0;
+        set(swapQuoteIntervalCountAtom(), 0);
       }
       set(swapBuildTxFetchingAtom(), false);
       set(swapQuoteFetchingAtom(), false);
@@ -651,8 +651,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       this.approvingInterval = undefined;
     }
   };
-
-  getQuoteIntervalCount = () => this.quoteIntervalCount;
 
   checkSwapWarning = contextAtomMethod(
     async (
@@ -1010,8 +1008,7 @@ export const useSwapActions = () => {
     actions.loadSwapSelectTokenDetail.use(),
     200,
   );
-  const { cleanQuoteInterval, cleanApprovingInterval, getQuoteIntervalCount } =
-    actions;
+  const { cleanQuoteInterval, cleanApprovingInterval } = actions;
 
   return useRef({
     selectFromToken,
@@ -1027,7 +1024,6 @@ export const useSwapActions = () => {
     recoverQuoteInterval,
     checkSwapWarning,
     loadSwapSelectTokenDetail,
-    getQuoteIntervalCount,
     quoteEventHandler,
   });
 };

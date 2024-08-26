@@ -6137,6 +6137,7 @@ __metadata:
     "@types/chrome": "npm:^0.0.263"
     "@types/elliptic": "npm:^6.4.16"
     "@types/ethjs-util": "npm:^0.1.2"
+    "@types/event-source-polyfill": "npm:^1"
     "@types/hdkey": "npm:^2.0.3"
     "@types/jest": "npm:^29.5.6"
     "@types/lodash": "npm:^4.17.7"
@@ -6198,6 +6199,7 @@ __metadata:
     eslint-plugin-spellcheck: "npm:^0.0.20"
     eslint-plugin-unicorn: "npm:^55.0.0"
     eslint-plugin-use-effect-no-deps: "npm:^1.1.2"
+    event-source-polyfill: "npm:^1.0.31"
     expiry-map: "npm:^2.0.0"
     expo: "npm:50.0.5"
     fake-indexeddb: "npm:^5.0.0"
@@ -12024,6 +12026,13 @@ __metadata:
   dependencies:
     "@types/node": "npm:*"
   checksum: 10/2459f5a5b9fece5be81f28b98aef5f946e3cf0ecf1d0748cf5d47caf7e5fe729b7ed197fe289f2ba3d2d25f2d11f7925eebc3ba05dd977c29be0606d122cb7f3
+  languageName: node
+  linkType: hard
+
+"@types/event-source-polyfill@npm:^1":
+  version: 1.0.5
+  resolution: "@types/event-source-polyfill@npm:1.0.5"
+  checksum: 10/f506b68710162f2ade1bccbc5691b8c67e5a703e565df2bc0b7b5be2637ba838ef81ec6c10b03248fe4d054386d95a6e827c7aace6e924986c2b9985f77b55de
   languageName: node
   linkType: hard
 
@@ -20758,6 +20767,13 @@ __metadata:
     d: "npm:1"
     es5-ext: "npm:~0.10.14"
   checksum: 10/a7f5ea80029193f4869782d34ef7eb43baa49cd397013add1953491b24588468efbe7e3cc9eb87d53f33397e7aab690fd74c079ec440bf8b12856f6bdb6e9396
+  languageName: node
+  linkType: hard
+
+"event-source-polyfill@npm:^1.0.31":
+  version: 1.0.31
+  resolution: "event-source-polyfill@npm:1.0.31"
+  checksum: 10/901628a2fa1f83a430b657fdde6c86346df37956e208cd765c6761a8bca36c799a2372e37e48bc9e536956ae84a2b742e6ef20f1c5f047f79d8d2b4607bee3b8
   languageName: node
   linkType: hard
 

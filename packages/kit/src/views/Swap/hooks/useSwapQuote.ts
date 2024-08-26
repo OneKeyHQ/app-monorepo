@@ -67,7 +67,9 @@ export function useSwapQuote() {
   if (swapApprovingTxRef.current !== swapApprovingTransaction) {
     swapApprovingTxRef.current = swapApprovingTransaction;
   }
-  const fromAmountDebounce = useDebounce(fromTokenAmount, 500);
+  const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
+    leading: true,
+  });
   const alignmentDecimal = useCallback(() => {
     const checkedDecimal = truncateDecimalPlaces(
       fromAmountDebounce,

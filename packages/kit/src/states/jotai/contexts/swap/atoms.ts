@@ -111,6 +111,11 @@ export const {
 } = contextAtom<boolean>(false);
 
 export const {
+  atom: swapQuoteIntervalCountAtom,
+  use: useSwapQuoteIntervalCountAtom,
+} = contextAtom<number>(0);
+
+export const {
   atom: swapShouldRefreshQuoteAtom,
   use: useSwapShouldRefreshQuoteAtom,
 } = contextAtom<boolean>(false);
