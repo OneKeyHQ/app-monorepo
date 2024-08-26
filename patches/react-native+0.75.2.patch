@@ -31,7 +31,7 @@ index 3e5cf86..565bc8c 100644
      return (
        0 === currentEventTransitionLane &&
 diff --git a/node_modules/react-native/Libraries/Renderer/implementations/ReactFabric-profiling.js b/node_modules/react-native/Libraries/Renderer/implementations/ReactFabric-profiling.js
-index 0f5fab5..7a7012e 100644
+index 0f5fab5..5f2b720 100644
 --- a/node_modules/react-native/Libraries/Renderer/implementations/ReactFabric-profiling.js
 +++ b/node_modules/react-native/Libraries/Renderer/implementations/ReactFabric-profiling.js
 @@ -8015,7 +8015,12 @@ function requestUpdateLane(fiber) {
@@ -48,3 +48,19 @@ index 0f5fab5..7a7012e 100644
    if (null !== fiber)
      return (
        0 === currentEventTransitionLane &&
+diff --git a/node_modules/react-native/ReactAndroid/api/ReactAndroid.api b/node_modules/react-native/ReactAndroid/api/ReactAndroid.api
+index e647de2..6a14ffd 100644
+--- a/node_modules/react-native/ReactAndroid/api/ReactAndroid.api
++++ b/node_modules/react-native/ReactAndroid/api/ReactAndroid.api
+@@ -6459,9 +6459,9 @@ public class com/facebook/react/views/imagehelper/ImageSource {
+ 	public final fun getSize ()D
+ 	public final fun getSource ()Ljava/lang/String;
+ 	public static final fun getTransparentBitmapImageSource (Landroid/content/Context;)Lcom/facebook/react/views/imagehelper/ImageSource;
+-	public final fun getUri ()Landroid/net/Uri;
++	public fun getUri ()Landroid/net/Uri;
+ 	public fun hashCode ()I
+-	public final fun isResource ()Z
++	public fun isResource ()Z
+ }
+ 
+ public final class com/facebook/react/views/imagehelper/ImageSource$Companion {
