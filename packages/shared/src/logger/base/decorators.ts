@@ -1,8 +1,6 @@
-import { isPromiseObject } from '../utils/promiseUtils';
+import { Metadata, NO_LOG_OUTPUT } from '../types';
 
-import { Metadata, NO_LOG_OUTPUT } from './types';
-
-import type { IMethodDecoratorMetadata } from './types';
+import type { IMethodDecoratorMetadata } from '../types';
 
 function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
   return function logMethod(
@@ -14,11 +12,9 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
     if (typeof originalMethod !== 'function') {
       throw new Error('This decorator is only for methods');
     }
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = function (...args: any[]) {
       let result = originalMethod.apply(this, args);
-      if (isPromiseObject(result)) {
-        result = await result;
-      }
+
       if (!Array.isArray(result)) {
         result = [result];
       }

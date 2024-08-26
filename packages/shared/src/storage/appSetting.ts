@@ -9,6 +9,7 @@ export const appSetting = mmkvStorageInstance;
 export enum EAppSettingKey {
   rrt = 'rrt',
   perf_switch = 'perf_switch',
+  onekey_webembed_config = 'onekey_webembed_config',
 }
 
 export interface IAppStorage extends AsyncStorageStatic {

@@ -6,6 +6,7 @@ import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/s
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 
+import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
@@ -58,6 +59,7 @@ export enum EAppEventBusNames {
   TxFeeInfoChanged = 'TxFeeInfoChanged',
   SendConfirmContainerMounted = 'SendConfirmContainerMounted',
   CloseHardwareUiStateDialogManually = 'CloseHardwareUiStateDialogManually',
+  HardCloseHardwareUiStateDialog = 'CloseHardwareUiStateDialog',
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
   TokenListUpdate = 'TokenListUpdate',
@@ -166,6 +168,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.SendConfirmContainerMounted]: undefined;
   [EAppEventBusNames.CloseHardwareUiStateDialogManually]: undefined;
+  [EAppEventBusNames.HardCloseHardwareUiStateDialog]: undefined;
   [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
   [EAppEventBusNames.TokenListUpdate]: {
@@ -266,6 +269,9 @@ class AppEventBus extends CrossEventEmitter {
     payload: IAppEventBusPayload[T],
   ): boolean {
     if (this.shouldEmitToSelf) {
+      defaultLogger.app.eventBus.emitToSelf({
+        eventName: type,
+      });
       this.emitToSelf(type, payload);
     }
     void this.emitToRemote(type, payload);
