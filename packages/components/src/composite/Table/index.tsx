@@ -274,6 +274,14 @@ function HeaderColumn<T>({
   }, [dataIndex, enableSortType, events, onChangeSelectedName, sortOrder]);
   const cursor = enableSortType ? 'pointer' : undefined;
   const showSortIcon = enableSortType && dataIndex === selectedColumnName;
+
+  const textAlign = useMemo(() => {
+    if (align === 'right') {
+      return 'right';
+    }
+    return undefined;
+  }, [align]);
+
   return (
     <Column
       align={align}
@@ -286,7 +294,12 @@ function HeaderColumn<T>({
       cursor={cursor}
       {...columnProps}
     >
-      <SizableText color="$textSubdued" size="$bodySmMedium" {...titleProps}>
+      <SizableText
+        color="$textSubdued"
+        size="$bodySmMedium"
+        textAlign={textAlign}
+        {...titleProps}
+      >
         {title}
       </SizableText>
     </Column>
