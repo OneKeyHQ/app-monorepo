@@ -1,0 +1,16 @@
+diff --git a/node_modules/@tamagui/portal/dist/cjs/GorhomPortal.native.js b/node_modules/@tamagui/portal/dist/cjs/GorhomPortal.native.js
+index 95e7c7c..b675974 100644
+--- a/node_modules/@tamagui/portal/dist/cjs/GorhomPortal.native.js
++++ b/node_modules/@tamagui/portal/dist/cjs/GorhomPortal.native.js
+@@ -174,9 +174,9 @@ var registerHost = function(state, hostName) {
+ }, PortalProviderComponent = function(param) {
+   var _param_rootHostName = param.rootHostName, rootHostName = _param_rootHostName === void 0 ? "root" : _param_rootHostName, _param_shouldAddRootHost = param.shouldAddRootHost, shouldAddRootHost = _param_shouldAddRootHost === void 0 ? !0 : _param_shouldAddRootHost, children = param.children, _useReducer = _sliced_to_array((0, import_react.useReducer)(reducer, INITIAL_STATE), 2), state = _useReducer[0], dispatch = _useReducer[1], transitionDispatch = (0, import_react.useMemo)(function() {
+     var next = function(value) {
+-      (0, import_react.startTransition)(function() {
++      // (0, import_react.startTransition)(function() {
+         dispatch(value);
+-      });
++      // });
+     };
+     return next;
+   }, [
