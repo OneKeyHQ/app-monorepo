@@ -6964,7 +6964,7 @@ __metadata:
     react-native-keyboard-manager: "npm:^6.5.11-1"
     react-native-level-fs: "npm:^3.0.1"
     react-native-metrix: "npm:^0.6.3"
-    react-native-mmkv: "npm:2.10.2"
+    react-native-mmkv: "npm:3.0.0-beta.7"
     react-native-modal: "npm:^13.0.1"
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#feat/support-rn73"
     react-native-network-logger: "npm:^1.16.1"
@@ -31552,13 +31552,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-mmkv@npm:2.10.2":
-  version: 2.10.2
-  resolution: "react-native-mmkv@npm:2.10.2"
+"react-native-mmkv@npm:3.0.0-beta.7":
+  version: 3.0.0-beta.7
+  resolution: "react-native-mmkv@npm:3.0.0-beta.7"
   peerDependencies:
     react: "*"
-    react-native: ">=0.71.0"
-  checksum: 10/0b592b06c02eccfb7edad16efa6ef683ac72bf9db2abbb48540b792176fe9e7a6a64c96741aa1cff596933ce479180f54e273031bb281bb310ae45b11b70df75
+    react-native: "*"
+  checksum: 10/7b153d5d4022acf641c413453b0e5a205e4f330411d146658bc7095c3999b9131f1ceb017753f795ff78bfaa9aaff1aa8b336933ceedf632b56ee8c8d3df05c0
   languageName: node
   linkType: hard
 
