@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
 import { Empty, Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -12,6 +13,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
@@ -92,6 +94,8 @@ export function HomePageView({
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
   const isRequiredValidation = vaultSettings?.validationRequired;
   const enabledOnClassicOnly = vaultSettings?.enabledOnClassicOnly;
+  const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
+  const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
 
   const tabs = useMemo(
     () =>
@@ -165,6 +169,41 @@ export function HomePageView({
       );
     }
 
+    if (softwareAccountDisabled && wallet?.type === WALLET_TYPE_HD && account) {
+      const deviceLabels: Record<IOneKeyDeviceType, string> = {
+        'classic': 'Classic',
+        'classic1s': 'Classic 1S',
+        'mini': 'Mini',
+        'touch': 'Touch',
+        'pro': 'Pro',
+        'unknown': '',
+      };
+      const devices = (supportedDeviceTypes || [])
+        .map((d) => deviceLabels[d])
+        .filter((d) => d);
+      devices.push(
+        intl.formatMessage({
+          id: ETranslations.faq_watched_account,
+        }),
+      );
+      return (
+        <YStack height="100%">
+          <HomeSelector createAddressDisabled padding="$5" />
+          <Stack flex={1} justifyContent="center">
+            <Empty
+              icon="GlobusOutline"
+              title={intl.formatMessage(
+                { id: ETranslations.selected_network_only_supports_device },
+                {
+                  deviceType: devices.join(', '),
+                },
+              )}
+            />
+          </Stack>
+        </YStack>
+      );
+    }
+
     if (!account) {
       return (
         <YStack height="100%">
@@ -201,10 +240,13 @@ export function HomePageView({
   }, [
     enabledOnClassicOnly,
     device?.deviceType,
+    softwareAccountDisabled,
+    wallet?.type,
     account,
     isRequiredValidation,
     renderTabs,
     intl,
+    supportedDeviceTypes,
     accountName,
     network?.name,
     network?.id,
