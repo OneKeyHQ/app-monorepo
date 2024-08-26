@@ -6709,7 +6709,7 @@ __metadata:
     long: "npm:^5.2.1"
     lru-cache: "npm:^10.2.0"
     memoizee: "npm:^0.4.15"
-    metro: "npm:~0.80.8"
+    metro: "npm:0.80.10"
     mipd: "npm:^0.0.7"
     mobile-detect: "npm:^1.4.5"
     natsort: "npm:^2.0.3"
@@ -27335,7 +27335,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"metro@npm:0.80.10, metro@npm:~0.80.8":
+"metro@npm:0.80.10":
   version: 0.80.10
   resolution: "metro@npm:0.80.10"
   dependencies:
