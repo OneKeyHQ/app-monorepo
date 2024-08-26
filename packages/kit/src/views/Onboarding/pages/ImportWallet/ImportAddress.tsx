@@ -44,6 +44,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
+import { MAX_LENGTH_ACCOUNT_NAME } from '../../../../components/RenameDialog/renameConsts';
 import { Tutorials } from '../../components';
 
 type IFormValues = {
@@ -394,6 +395,7 @@ function ImportAddress() {
             name="accountName"
           >
             <Input
+              maxLength={MAX_LENGTH_ACCOUNT_NAME}
               placeholder={intl.formatMessage({
                 id: ETranslations.form_enter_account_name_placeholder,
               })}

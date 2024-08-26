@@ -30,6 +30,8 @@ import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
+import { MAX_LENGTH_ACCOUNT_NAME } from '../../../../components/RenameDialog/renameConsts';
+
 import type { UseFormReturn } from 'react-hook-form';
 
 type IFormValues = {
@@ -258,6 +260,7 @@ export function ImportSingleChainBase({
             name="accountName"
           >
             <Input
+              maxLength={MAX_LENGTH_ACCOUNT_NAME}
               placeholder={intl.formatMessage({
                 id: ETranslations.form_enter_account_name_placeholder,
               })}
