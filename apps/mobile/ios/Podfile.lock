@@ -1886,7 +1886,7 @@ PODS:
   - ReactNativeSecureWindow (0.1.1):
     - ExpoModulesCore
     - ScreenshotPreventing
-  - RealmJS (12.3.0):
+  - RealmJS (12.13.1):
     - React
   - RNCAsyncStorage (1.22.0):
     - React-Core
@@ -1947,7 +1947,7 @@ PODS:
     - TOCropViewController (~> 2.7.4)
   - RNPermissions (4.1.5):
     - React-Core
-  - RNReanimated (3.6.1):
+  - RNReanimated (3.10.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2146,7 +2146,7 @@ DEPENDENCIES:
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - RNImageCropPicker (from `../../../node_modules/react-native-image-crop-picker`)
   - RNPermissions (from `../../../node_modules/react-native-permissions`)
-  - RNReanimated (from `../node_modules/react-native-reanimated`)
+  - RNReanimated (from `../../../node_modules/react-native-reanimated`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
   - RNShare (from `../../../node_modules/react-native-share`)
   - RNSVG (from `../../../node_modules/react-native-svg`)
@@ -2438,7 +2438,7 @@ EXTERNAL SOURCES:
   RNPermissions:
     :path: "../../../node_modules/react-native-permissions"
   RNReanimated:
-    :path: "../node_modules/react-native-reanimated"
+    :path: "../../../node_modules/react-native-reanimated"
   RNScreens:
     :path: "../../../node_modules/react-native-screens"
   RNShare:
@@ -2585,7 +2585,7 @@ SPEC CHECKSUMS:
   ReactNativeCameraKit: 32e04877e57e0eeab26e45817e3fd532e7d302fb
   ReactNativeKeyboardManager: 60292dbac467c49841a7d69588208ec4a4f7b2a2
   ReactNativeSecureWindow: b9dcbfe769995b0e0f499c4558819b440987afb9
-  RealmJS: 4c52a15602e70b64cd9230b0a17a9c12741371f4
+  RealmJS: 325a7b621587dd9945306d4cbfd6b641bc20e2dd
   RNCAsyncStorage: c43e6d71e13bb4748503797784839e0fbbf89d56
   RNDeviceInfo: bf8a32acbcb875f568217285d1793b0e8588c974
   RNFastImage: 5c9c9fed9c076e521b3f509fe79e790418a544e8
@@ -2598,7 +2598,7 @@ SPEC CHECKSUMS:
   RNGestureHandler: 83ce633ccd37ebfdbddb6a205ff5ed0ba0ebfabd
   RNImageCropPicker: 771e2ca319d2cf92e04ebf334ece892ee9a6728f
   RNPermissions: ac5ac3a8f5f63166a4ea5473c73d7e28447e8178
-  RNReanimated: e9c884149a9dbebe1aa47fc38fc28763e88eb22b
+  RNReanimated: 1dfcb4e4a0baf87b64b74facfe5cace4c6717af4
   RNScreens: 34aa4d4c145a1a112c9ebe52524a7bfe5d8dc58d
   RNShare: 0fad69ae2d71de9d1f7b9a43acf876886a6cb99c
   RNSVG: d00c8f91c3cbf6d476451313a18f04d220d4f396

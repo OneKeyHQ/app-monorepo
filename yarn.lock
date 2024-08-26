@@ -1511,17 +1511,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/plugin-transform-object-assign@npm:^7.16.7":
-  version: 7.23.3
-  resolution: "@babel/plugin-transform-object-assign@npm:7.23.3"
-  dependencies:
-    "@babel/helper-plugin-utils": "npm:^7.22.5"
-  peerDependencies:
-    "@babel/core": ^7.0.0-0
-  checksum: 10/17b8da5fe6cabc9f01adae9d57ad5a232a7535007249d737de3a120c73c63c330588ca5592419083d2b55df04c49b193d1ef5dbf071933fea11ac05022fd8716
-  languageName: node
-  linkType: hard
-
 "@babel/plugin-transform-object-rest-spread@npm:^7.12.13, @babel/plugin-transform-object-rest-spread@npm:^7.23.4":
   version: 7.23.4
   resolution: "@babel/plugin-transform-object-rest-spread@npm:7.23.4"
@@ -6697,7 +6686,7 @@ __metadata:
     react-native-copy-asset: "npm:^3.0.2"
     react-native-draggable-flatlist: "npm:4.0.1"
     react-native-flipper: "npm:0.201.0"
-    react-native-reanimated: "npm:~3.10.1"
+    react-native-reanimated: "npm:3.10.1"
     react-native-web: "npm:0.18.12"
     react-refresh: "npm:^0.14.0"
     react-render-tracker: "npm:^0.7.6"
@@ -6981,7 +6970,7 @@ __metadata:
     react-native-network-logger: "npm:^1.16.1"
     react-native-permissions: "npm:^4.1.5"
     react-native-randombytes: "npm:^3.6.1"
-    react-native-reanimated: "npm:3.6.1"
+    react-native-reanimated: "npm:3.10.1"
     react-native-restart: "npm:0.0.27"
     react-native-safe-area-context: "npm:4.7.2"
     react-native-screens: "npm:3.28.0"
@@ -6995,7 +6984,7 @@ __metadata:
     react-native-webview-cleaner: "npm:@onekeyfe/react-native-webview-cleaner@1.0.0"
     react-native-zip-archive: "npm:^6.0.9"
     readable-stream: "npm:^3.6.0"
-    realm: "npm:12.3.0"
+    realm: "npm:12.13.1"
     realm-flipper-plugin-device: "npm:^1.1.0"
     rimraf: "npm:^3"
     stream-http: "npm:^3.2.0"
@@ -9553,6 +9542,13 @@ __metadata:
     react-native-safe-area-context: ">= 3.0.0"
     react-native-screens: ">= 3.0.0"
   checksum: 10/4b45cdccd6b880e1580cc967fe30e506f4b3027e9a67372239d0bdb2f94fdf6f200bf0c53549d9c9d109cd893423e52fa767bc77029b96c5eb5ecb61871e9640
+  languageName: node
+  linkType: hard
+
+"@realm/fetch@npm:^0.1.1":
+  version: 0.1.1
+  resolution: "@realm/fetch@npm:0.1.1"
+  checksum: 10/f69598bdb7678c9e8f430aecbd45e99a2c5ea03795ad10e9d3986786d9ad119c60585293a90f968400ee94f735a26cc835d439d188a23092f495a7daa32a6d28
   languageName: node
   linkType: hard
 
@@ -28751,7 +28747,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-fetch@npm:^2.2.0, node-fetch@npm:^2.6.0, node-fetch@npm:^2.6.1, node-fetch@npm:^2.6.12, node-fetch@npm:^2.6.7, node-fetch@npm:^2.6.9, node-fetch@npm:^2.7.0":
+"node-fetch@npm:^2.2.0, node-fetch@npm:^2.6.0, node-fetch@npm:^2.6.1, node-fetch@npm:^2.6.12, node-fetch@npm:^2.6.7, node-fetch@npm:^2.7.0":
   version: 2.7.0
   resolution: "node-fetch@npm:2.7.0"
   dependencies:
@@ -30420,7 +30416,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prebuild-install@npm:^7.0.1, prebuild-install@npm:^7.1.1":
+"prebuild-install@npm:^7.0.1":
   version: 7.1.1
   resolution: "prebuild-install@npm:7.1.1"
   dependencies:
@@ -30439,6 +30435,28 @@ __metadata:
   bin:
     prebuild-install: bin.js
   checksum: 10/6c70a2f82fbda8903497c560a761b000d861a3e772322c8bed012be0f0a084b5aaca4438a3fad1bd3a24210765f4fae06ddd89ea04dc4c034dde693cc0d9d5f4
+  languageName: node
+  linkType: hard
+
+"prebuild-install@npm:^7.1.2":
+  version: 7.1.2
+  resolution: "prebuild-install@npm:7.1.2"
+  dependencies:
+    detect-libc: "npm:^2.0.0"
+    expand-template: "npm:^2.0.3"
+    github-from-package: "npm:0.0.0"
+    minimist: "npm:^1.2.3"
+    mkdirp-classic: "npm:^0.5.3"
+    napi-build-utils: "npm:^1.0.1"
+    node-abi: "npm:^3.3.0"
+    pump: "npm:^3.0.0"
+    rc: "npm:^1.2.7"
+    simple-get: "npm:^4.0.0"
+    tar-fs: "npm:^2.0.0"
+    tunnel-agent: "npm:^0.6.0"
+  bin:
+    prebuild-install: bin.js
+  checksum: 10/32d5c026cc978dd02762b9ad3c765178aee8383aeac4303fed3cd226eff53100db038d4791b03ae1ebc7d213a7af392d26e32095579cedb8dba1d00ad08ecd46
   languageName: node
   linkType: hard
 
@@ -31620,28 +31638,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-reanimated@npm:3.6.1":
-  version: 3.6.1
-  resolution: "react-native-reanimated@npm:3.6.1"
-  dependencies:
-    "@babel/plugin-transform-object-assign": "npm:^7.16.7"
-    "@babel/preset-typescript": "npm:^7.16.7"
-    convert-source-map: "npm:^2.0.0"
-    invariant: "npm:^2.2.4"
-  peerDependencies:
-    "@babel/core": ^7.0.0-0
-    "@babel/plugin-proposal-nullish-coalescing-operator": ^7.0.0-0
-    "@babel/plugin-proposal-optional-chaining": ^7.0.0-0
-    "@babel/plugin-transform-arrow-functions": ^7.0.0-0
-    "@babel/plugin-transform-shorthand-properties": ^7.0.0-0
-    "@babel/plugin-transform-template-literals": ^7.0.0-0
-    react: "*"
-    react-native: "*"
-  checksum: 10/594a4ace054fdafa02ea2f126aeeda474f32306698b1d7c15ec8495b606b80e9e10a69eef2653d4b7f9cb743d0007ada1ab27e5f3064af1bfcc95291d70bb824
-  languageName: node
-  linkType: hard
-
-"react-native-reanimated@npm:~3.10.1":
+"react-native-reanimated@npm:3.10.1":
   version: 3.10.1
   resolution: "react-native-reanimated@npm:3.10.1"
   dependencies:
@@ -32383,22 +32380,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"realm@npm:12.3.0":
-  version: 12.3.0
-  resolution: "realm@npm:12.3.0"
+"realm@npm:12.13.1":
+  version: 12.13.1
+  resolution: "realm@npm:12.13.1"
   dependencies:
+    "@realm/fetch": "npm:^0.1.1"
     bson: "npm:^4.7.2"
     debug: "npm:^4.3.4"
-    node-fetch: "npm:^2.6.9"
     node-gyp: "npm:latest"
     node-machine-id: "npm:^1.1.12"
-    prebuild-install: "npm:^7.1.1"
+    path-browserify: "npm:^1.0.1"
+    prebuild-install: "npm:^7.1.2"
   peerDependencies:
     react-native: ">=0.71.0"
   peerDependenciesMeta:
     react-native:
       optional: true
-  checksum: 10/f52b8683ad5ee112f98c51f558c0e1808d35d67e9f8f1dbe41a184e532402595a3553b9ae6c00c504b9afbee0c1cbf7b77d450201d05b1e1375c20106b2c1952
+  checksum: 10/e257965bea6e6a8639ff183711e6a7ecc56ca709a9f61a0e921bea3891c423144a135d9d7494888eb9ec79deb58108e2deb335d38c18aefddafcc41741f5769b
   languageName: node
   linkType: hard
 
