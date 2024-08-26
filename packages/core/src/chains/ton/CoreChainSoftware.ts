@@ -9,6 +9,23 @@ import {
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
+import { decrypt } from '../../secret';
+import {
+  ECoreApiExportedSecretKeyType,
+  type ICoreApiGetAddressItem,
+  type ICoreApiGetAddressQueryImportedTon,
+  type ICoreApiGetAddressQueryPublicKey,
+  type ICoreApiGetAddressesQueryHdTon,
+  type ICoreApiGetAddressesResult,
+  type ICoreApiGetExportedSecretKey,
+  type ICoreApiPrivateKeysMap,
+  type ICoreApiSignBasePayload,
+  type ICoreApiSignMsgPayload,
+  type ICoreApiSignTxPayload,
+  type ICurveName,
+  type ISignedTxPro,
+  type IUnsignedMessageTon,
+} from '../../types';
 
 import { genAddressFromPublicKey } from './sdkTon';
 import {
@@ -19,29 +36,24 @@ import {
 } from './sdkTon/tx';
 
 import type { IEncodedTxTon } from './types';
-import type {
-  ICoreApiGetAddressItem,
-  ICoreApiGetAddressQueryImportedTon,
-  ICoreApiGetAddressQueryPublicKey,
-  ICoreApiGetAddressesQueryHdTon,
-  ICoreApiGetAddressesResult,
-  ICoreApiGetExportedSecretKey,
-  ICoreApiPrivateKeysMap,
-  ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
-  ICoreApiSignTxPayload,
-  ICurveName,
-  ISignedTxPro,
-  IUnsignedMessageTon,
-} from '../../types';
 
 const curve: ICurveName = 'ed25519';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
-  override getExportedSecretKey(
+  override async getExportedSecretKey(
     query: ICoreApiGetExportedSecretKey,
   ): Promise<string> {
-    throw new NotImplemented();
+    const { password, keyType } = query;
+
+    const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
+
+    if (!privateKeyRaw) {
+      throw new Error('privateKeyRaw is required');
+    }
+    if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
+      return `0x${decrypt(password, privateKeyRaw).toString('hex')}`;
+    }
+    throw new Error(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
