@@ -332,17 +332,10 @@ index abb2cf6..9b060f8 100644
      toViewController.view.transform = leftTransform;
      [[transitionContext containerView] insertSubview:toViewController.view belowSubview:fromViewController.view];
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-index de7f368..cb49872 100644
+index de7f368..9b2d31f 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-@@ -2,13 +2,13 @@
- #import <React/RCTConversions.h>
- #import <React/RCTFabricComponentsPlugins.h>
- #import <React/RCTImageComponentView.h>
--#import <React/UIView+React.h>
-+#import <React/UIViewReact.h>
- #import <react/renderer/components/image/ImageProps.h>
- #import <react/renderer/components/rnscreens/ComponentDescriptors.h>
+@@ -8,7 +8,7 @@
  #import <react/renderer/components/rnscreens/EventEmitters.h>
  #import <react/renderer/components/rnscreens/Props.h>
  #import <react/renderer/components/rnscreens/RCTComponentViewHelpers.h>
@@ -413,13 +406,12 @@ index de7f368..cb49872 100644
   */
  + (RCTImageSource *)imageSourceFromImageView:(RCTImageView *)view
 diff --git a/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm b/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm
-index e295dcc..8f78dd6 100644
+index e295dcc..e473645 100644
 --- a/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm
 +++ b/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm
 @@ -1,11 +1,22 @@
  #import "RNSFullWindowOverlay.h"
--#import "UIWindow+RNScreens.h"
-+#import "UIWindowRNScreens.h"
+ #import "UIWindow+RNScreens.h"
 +#import <React/RCTUtils.h>
  
  @implementation UIWindow (RNScreens)
