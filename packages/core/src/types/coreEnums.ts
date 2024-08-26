@@ -10,5 +10,10 @@ export enum EAddressEncodings {
   IMPLICIT_ACCOUNT = 'IMPLICIT_ACCOUNT', // Near account
 
   V4R2 = 'v4R2',
+
+  ALPH_P2PKH = 'P2PKH',
+  ALPH_P2MPKH = 'P2MPKH',
+  ALPH_P2SH = 'P2SH',
+  ALPH_P2C = 'P2C',
 }
 // export enum AddressEncodings = EAddressEncodings
