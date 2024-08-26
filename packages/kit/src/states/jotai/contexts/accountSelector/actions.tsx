@@ -923,7 +923,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       await serviceAccount.removeWallet({ walletId });
       set(accountSelectorEditModeAtom(), false);
 
-      await this.autoSelectAccount.call(set, {
+      await this.autoSelectNextAccount.call(set, {
         num,
         triggerBy: 'removeWallet',
       });
@@ -1369,7 +1369,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
-  buildSelectedAccountNew = contextAtomMethod(
+  cloneSelectedAccountNew = contextAtomMethod(
     async (get, set, { num }: { num: number }) => {
       const selectedAccount = this.getSelectedAccount.call(set, { num });
       return cloneDeep(selectedAccount || defaultSelectedAccount());
@@ -1444,7 +1444,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
-  autoSelectAccount = contextAtomMethod(
+  autoSelectNextAccount = contextAtomMethod(
     async (
       get,
       set,
@@ -1478,166 +1478,185 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const selectedAccount = this.getSelectedAccount.call(set, { num });
       const activeAccount = this.getActiveAccount.call(set, { num });
 
+      const isActiveAccountReady = Boolean(
+        activeAccount && activeAccount?.ready && storageReady,
+      );
+      if (!isActiveAccountReady) {
+        return;
+      }
+
       // TODO auto select account from home scene
-      if (activeAccount && activeAccount?.ready && storageReady) {
-        const { network, wallet, indexedAccount, account, dbAccount } =
-          activeAccount;
-        if (
-          !selectedAccount?.focusedWallet ||
-          !network ||
-          !wallet ||
-          (!indexedAccount && !account && !dbAccount)
-        ) {
-          const selectedAccountNew = await this.buildSelectedAccountNew.call(
-            set,
-            {
-              num,
-            },
-          );
-          let selectedWalletId = wallet?.id;
-          let selectedWallet = wallet;
-          let selectedIndexedAccountId = indexedAccount?.id;
-          const hasIndexedAccounts =
-            selectedWalletId &&
-            (accountUtils.isHdWallet({
-              walletId: selectedWalletId,
-            }) ||
-              accountUtils.isHwWallet({
-                walletId: selectedWalletId,
-              })) &&
-            (await serviceAccount.isWalletHasIndexedAccounts({
-              walletId: selectedWalletId,
-            }));
-
-          // auto select hd hw wallet
-          if (!selectedWalletId || !hasIndexedAccounts) {
-            const { wallets } = await serviceAccount.getHDAndHWWallets();
-            for (const wallet0 of wallets) {
-              if (
-                await serviceAccount.isWalletHasIndexedAccounts({
-                  walletId: wallet0.id,
-                })
-              ) {
-                selectedWallet = wallet0;
-                selectedWalletId = selectedWallet?.id;
-                selectedAccountNew.walletId = selectedWalletId;
-                break;
-              }
-            }
-          }
-
-          const isHdWallet = accountUtils.isHdWallet({
+      const { network, wallet, indexedAccount, account, dbAccount } =
+        activeAccount;
+      const isAccountExist = Boolean(indexedAccount || account || dbAccount);
+      if (
+        !selectedAccount?.focusedWallet ||
+        !network ||
+        !wallet ||
+        !isAccountExist
+      ) {
+        const selectedAccountNew = await this.cloneSelectedAccountNew.call(
+          set,
+          {
+            num,
+          },
+        );
+        let selectedWalletId = wallet?.id;
+        let selectedWallet = wallet;
+        let selectedIndexedAccountId = indexedAccount?.id;
+        const hasIndexedAccounts =
+          selectedWalletId &&
+          (accountUtils.isHdWallet({
             walletId: selectedWalletId,
-          });
-          const isHwWallet = accountUtils.isHwWallet({
+          }) ||
+            accountUtils.isHwWallet({
+              walletId: selectedWalletId,
+            })) &&
+          (await serviceAccount.isWalletHasIndexedAccounts({
             walletId: selectedWalletId,
-          });
+          }));
 
-          // auto select hd or hw index account
-          if (selectedWalletId && (isHdWallet || isHwWallet)) {
+        // auto select hd hw wallet
+        if (!selectedWalletId || !hasIndexedAccounts) {
+          const { wallets } = await serviceAccount.getHDAndHWWallets();
+          for (const wallet0 of wallets) {
             if (
-              !indexedAccount ||
-              indexedAccount.walletId !== selectedWalletId
+              await serviceAccount.isWalletHasIndexedAccounts({
+                walletId: wallet0.id,
+              })
             ) {
-              const { accounts: indexedAccounts } =
-                await serviceAccount.getIndexedAccountsOfWallet({
-                  walletId: selectedWalletId,
-                });
-              selectedIndexedAccountId = indexedAccounts?.[0]?.id;
-              selectedAccountNew.indexedAccountId = selectedIndexedAccountId;
-              selectedAccountNew.focusedWallet = selectedWalletId;
-              selectedAccountNew.othersWalletAccountId = undefined;
+              selectedWallet = wallet0;
+              selectedWalletId = selectedWallet?.id;
+              selectedAccountNew.walletId = selectedWalletId;
+              break;
             }
           }
-
-          const isOthers =
-            Boolean(selectedWalletId) && !isHdWallet && !isHwWallet;
-
-          if (isOthers) {
-            selectedAccountNew.focusedWallet = selectedWalletId;
-            selectedAccountNew.walletId = selectedWalletId;
-            selectedAccountNew.indexedAccountId = undefined;
-          }
-
-          // auto select others singleton account
-          if (
-            !selectedAccountNew.indexedAccountId &&
-            !selectedAccountNew.othersWalletAccountId
-          ) {
-            const autoSelectAccountFromOthersWallet = async (
-              singletonWalletId: IDBWalletIdSingleton,
-            ) => {
-              const { accounts } =
-                await serviceAccount.getSingletonAccountsOfWallet({
-                  walletId: singletonWalletId,
-                  activeNetworkId: network?.id || '',
-                });
-              const firstAccount = accounts?.[0];
-              if (firstAccount) {
-                const accountNetworkId =
-                  accountUtils.getAccountCompatibleNetwork({
-                    account: firstAccount,
-                    networkId: network?.id || '',
-                  });
-                selectedAccountNew.focusedWallet = singletonWalletId;
-                selectedAccountNew.networkId = accountNetworkId || network?.id;
-                selectedAccountNew.deriveType = 'default';
-                selectedAccountNew.walletId = singletonWalletId;
-                selectedAccountNew.indexedAccountId = undefined;
-                selectedAccountNew.othersWalletAccountId = firstAccount.id;
-                return true;
-              }
-              return false;
-            };
-            const othersWallets: IDBWalletIdSingleton[] = [
-              WALLET_TYPE_IMPORTED,
-              WALLET_TYPE_WATCHING,
-              WALLET_TYPE_EXTERNAL,
-            ];
-            for (const walletType of othersWallets) {
-              const done = await autoSelectAccountFromOthersWallet(walletType);
-              if (done) {
-                break;
-              }
-            }
-          }
-
-          // TODO auto select network and derive type, check network compatible for others wallet account
-
-          if (selectedAccountNew.walletId) {
-            const finalWallet = await serviceAccount.getWalletSafe({
-              walletId: selectedAccountNew.walletId,
-            });
-            if (!finalWallet) {
-              selectedAccountNew.walletId = undefined;
-              selectedAccountNew.indexedAccountId = undefined;
-              selectedAccountNew.othersWalletAccountId = undefined;
-              selectedAccountNew.focusedWallet = undefined;
-            }
-          }
-
-          await this.updateSelectedAccount.call(set, {
-            num,
-            builder: () => selectedAccountNew,
-          });
-
-          if (selectedAccount.walletId !== selectedAccountNew.walletId) {
-            set(accountSelectorEditModeAtom(), false);
-          }
-        } else if (triggerBy === 'removeWallet') {
-          const selectedAccountNew = await this.buildSelectedAccountNew.call(
-            set,
-            {
-              num,
-            },
-          );
-          // autofix focusedWallet when remove wallet
-          selectedAccountNew.focusedWallet = selectedAccountNew.walletId;
-          await this.updateSelectedAccount.call(set, {
-            num,
-            builder: () => selectedAccountNew,
-          });
         }
+
+        const isHdWallet = accountUtils.isHdWallet({
+          walletId: selectedWalletId,
+        });
+        const isHwWallet = accountUtils.isHwWallet({
+          walletId: selectedWalletId,
+        });
+
+        // auto select hd or hw index account
+        if (selectedWalletId && (isHdWallet || isHwWallet)) {
+          if (!indexedAccount || indexedAccount.walletId !== selectedWalletId) {
+            const { accounts: indexedAccounts } =
+              await serviceAccount.getIndexedAccountsOfWallet({
+                walletId: selectedWalletId,
+              });
+            selectedIndexedAccountId = indexedAccounts?.[0]?.id;
+            selectedAccountNew.indexedAccountId = selectedIndexedAccountId;
+            selectedAccountNew.focusedWallet = selectedWalletId;
+            selectedAccountNew.othersWalletAccountId = undefined;
+          }
+        }
+
+        const isOthers =
+          Boolean(selectedWalletId) && !isHdWallet && !isHwWallet;
+
+        if (isOthers) {
+          selectedAccountNew.focusedWallet = selectedWalletId;
+          selectedAccountNew.walletId = selectedWalletId;
+          selectedAccountNew.indexedAccountId = undefined;
+          // others account may be removed
+          if (!account?.id) {
+            selectedAccountNew.othersWalletAccountId = undefined;
+          }
+        }
+
+        // auto select others singleton account
+        if (
+          !selectedAccountNew.indexedAccountId &&
+          !selectedAccountNew.othersWalletAccountId
+        ) {
+          const autoSelectAccountFromOthersWallet = async (
+            singletonWalletId: IDBWalletIdSingleton,
+          ) => {
+            const { accounts } =
+              await serviceAccount.getSingletonAccountsOfWallet({
+                walletId: singletonWalletId,
+                activeNetworkId: network?.id || '',
+              });
+            const firstAccount = accounts?.[0];
+            if (firstAccount) {
+              const accountNetworkId = accountUtils.getAccountCompatibleNetwork(
+                {
+                  account: firstAccount,
+                  networkId: network?.id || '',
+                },
+              );
+              selectedAccountNew.focusedWallet = singletonWalletId;
+              selectedAccountNew.networkId = accountNetworkId || network?.id;
+              selectedAccountNew.deriveType = 'default';
+              selectedAccountNew.walletId = singletonWalletId;
+              selectedAccountNew.indexedAccountId = undefined;
+              selectedAccountNew.othersWalletAccountId = firstAccount.id;
+              return true;
+            }
+            return false;
+          };
+          const othersWallets: IDBWalletIdSingleton[] = [
+            WALLET_TYPE_IMPORTED,
+            WALLET_TYPE_WATCHING,
+            WALLET_TYPE_EXTERNAL,
+          ];
+          for (const walletType of othersWallets) {
+            const done = await autoSelectAccountFromOthersWallet(walletType);
+            if (done) {
+              break;
+            }
+          }
+        }
+
+        // TODO auto select network and derive type, check network compatible for others wallet account
+
+        if (selectedAccountNew.walletId) {
+          const finalWallet = await serviceAccount.getWalletSafe({
+            walletId: selectedAccountNew.walletId,
+          });
+          if (!finalWallet) {
+            selectedAccountNew.walletId = undefined;
+            selectedAccountNew.indexedAccountId = undefined;
+            selectedAccountNew.othersWalletAccountId = undefined;
+            selectedAccountNew.focusedWallet = undefined;
+          } else if (
+            !selectedAccountNew.othersWalletAccountId &&
+            finalWallet.id &&
+            accountUtils.isOthersWallet({
+              walletId: finalWallet.id,
+            })
+          ) {
+            // reset focused wallet when last others wallet account removed
+            selectedAccountNew.othersWalletAccountId = undefined;
+            selectedAccountNew.focusedWallet = undefined;
+            selectedAccountNew.walletId = undefined;
+          }
+        }
+
+        await this.updateSelectedAccount.call(set, {
+          num,
+          builder: () => selectedAccountNew,
+        });
+
+        if (selectedAccount.walletId !== selectedAccountNew.walletId) {
+          set(accountSelectorEditModeAtom(), false);
+        }
+      } else if (triggerBy === 'removeWallet') {
+        const selectedAccountNew = await this.cloneSelectedAccountNew.call(
+          set,
+          {
+            num,
+          },
+        );
+        // autofix focusedWallet when remove wallet
+        selectedAccountNew.focusedWallet = selectedAccountNew.walletId;
+        await this.updateSelectedAccount.call(set, {
+          num,
+          builder: () => selectedAccountNew,
+        });
       }
     },
   );
@@ -1675,7 +1694,7 @@ export function useAccountSelectorActions() {
   const createHWHiddenWallet = actions.createHWHiddenWallet.use();
   const createHWWalletWithHidden = actions.createHWWalletWithHidden.use();
   const createQrWallet = actions.createQrWallet.use();
-  const autoSelectAccount = actions.autoSelectAccount.use();
+  const autoSelectNextAccount = actions.autoSelectNextAccount.use();
   const autoSelectNetworkOfOthersWalletAccount =
     actions.autoSelectNetworkOfOthersWalletAccount.use();
   const syncFromScene = actions.syncFromScene.use();
@@ -1707,7 +1726,7 @@ export function useAccountSelectorActions() {
     createHWHiddenWallet,
     createHWWalletWithHidden,
     createQrWallet,
-    autoSelectAccount,
+    autoSelectNextAccount,
     autoSelectNetworkOfOthersWalletAccount,
     syncFromScene,
     confirmAccountSelect,
