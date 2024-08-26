@@ -54,7 +54,7 @@ $RNFirebaseAsStaticFramework = true
 #   }
 # }
 # ```
-flipper_config = FlipperConfiguration.disabled
+# flipper_config = FlipperConfiguration.disabled
 # if ENV['NO_FLIPPER'] == '1' then
 #   # Explicitly disabled through environment variables
 #   flipper_config = FlipperConfiguration.disabled
@@ -66,6 +66,7 @@ flipper_config = FlipperConfiguration.disabled
 #     flipper_config = FlipperConfiguration.enabled(["Debug"], { 'Flipper' => podfile_properties['ios.flipper'] })
 #   end
 # end
+$RNFirebaseAnalyticsWithoutAdIdSupport=true
 
 target 'OneKeyWallet' do
   use_expo_modules!
@@ -85,7 +86,7 @@ target 'OneKeyWallet' do
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/..",
     # Note that if you have use_frameworks! enabled, Flipper will not work if enabled
-    :flipper_configuration => flipper_config
+    # :flipper_configuration => flipper_config
   )
 
   post_install do |installer|
