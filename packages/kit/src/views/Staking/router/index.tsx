@@ -60,6 +60,11 @@ const AssetProtocolList = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/AssetProtocolList'),
 );
 
+const UniversalApproveBaseStake = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/Staking/pages/UniversalApproveBaseStake'),
+);
+
 export const StakingModalRouter: IModalFlowNavigatorConfig<
   EModalStakingRoutes,
   IModalStakingParamList
@@ -119,5 +124,9 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.AssetProtocolList,
     component: AssetProtocolList,
+  },
+  {
+    name: EModalStakingRoutes.UniversalApproveBaseStake,
+    component: UniversalApproveBaseStake,
   },
 ];

@@ -45,7 +45,7 @@ const atomChecker: IAssetSupportedChecker = ({ networkId, tokenAddress }) =>
 const solChecker: IAssetSupportedChecker = ({ networkId, tokenAddress }) =>
   networkId === getNetworkIdsMap().sol && !tokenAddress ? 'sol' : undefined;
 
-export const assetChecker: IAssetSupportedChecker = (params) => {
+export const assetCheck: IAssetSupportedChecker = (params) => {
   const checkerList: IAssetSupportedChecker[] = [
     ethChecker,
     maticChecker,

@@ -9,7 +9,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
-import { assetChecker } from './assetCheck';
+import { assetCheck } from './assetCheck';
 
 type IStakingListItemProps = {
   networkId: string;
@@ -81,7 +81,7 @@ export const AssetProtocols = ({
   tokenAddress,
 }: IStakingListItemProps) => {
   const result = useMemo(
-    () => assetChecker({ networkId, tokenAddress }),
+    () => assetCheck({ networkId, tokenAddress }),
     [networkId, tokenAddress],
   );
   if (result) {

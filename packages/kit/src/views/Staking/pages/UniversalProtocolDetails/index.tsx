@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,8 +14,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import { PageFrame } from '../../components/PageFrame';
+import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { UniversalProtocolDetails } from '../../components/UniversalProtocolDetails';
+import { buildActionTag } from '../../utils/const';
 
 const UniversalProtocolDetailsPage = () => {
   const route = useAppRoute<
@@ -24,6 +26,7 @@ const UniversalProtocolDetailsPage = () => {
   >();
   const { accountId, networkId, symbol, provider } = route.params;
   const appNavigation = useAppNavigation();
+  const [stakeLoading, setStakeLoading] = useState(false);
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getProtocolDetails({
@@ -35,8 +38,29 @@ const UniversalProtocolDetailsPage = () => {
     [accountId, networkId, symbol, provider],
     { watchLoading: true },
   );
-  const onStake = useCallback(() => {
+  const onStake = useCallback(async () => {
     if (!result) return;
+    if (result.approveTarget) {
+      setStakeLoading(true);
+      try {
+        const { allowanceParsed } =
+          await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+            accountId,
+            networkId,
+            spenderAddress: result.approveTarget,
+            tokenAddress: result.token.info.address,
+          });
+        appNavigation.push(EModalStakingRoutes.UniversalApproveBaseStake, {
+          accountId,
+          networkId,
+          details: result,
+          currentAllowance: allowanceParsed,
+        });
+      } finally {
+        setStakeLoading(false);
+      }
+      return;
+    }
     appNavigation.push(EModalStakingRoutes.UniversalStake, {
       accountId,
       networkId,
@@ -79,6 +103,7 @@ const UniversalProtocolDetailsPage = () => {
               })}
               confirmButtonProps={{
                 variant: 'primary',
+                loading: stakeLoading,
                 onPress: onStake,
               }}
               onCancelText={intl.formatMessage({
@@ -88,6 +113,14 @@ const UniversalProtocolDetailsPage = () => {
                 onPress: onWithdraw,
               }}
             />
+            {result ? (
+              <StakingTransactionIndicator
+                accountId={accountId}
+                networkId={networkId}
+                stakeTag={buildActionTag(result)}
+                onRefresh={run}
+              />
+            ) : null}
           </Stack>
         </PageFrame>
       </Page.Body>

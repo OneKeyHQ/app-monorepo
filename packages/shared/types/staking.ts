@@ -54,7 +54,8 @@ export type IAprItem = {
 
 export type IAprToken = 'eth' | 'matic';
 
-export type IStakeTag = 'lido-eth' | 'lido-matic';
+// export type IStakeTag = 'lido-eth' | 'lido-matic';
+export type IStakeTag = string;
 
 export enum ELidoLabels {
   Stake = 'Stake',
@@ -117,6 +118,7 @@ export type IStakeProtocolDetails = {
   };
   updateFrequency: string;
   rewardToken: string;
+  approveTarget?: string;
 };
 
 export type IStakeProtocolListItem = {

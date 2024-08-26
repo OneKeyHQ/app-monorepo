@@ -12,9 +12,11 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ELidoLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalStake } from '../../components/UniversalStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
+import { buildActionTag } from '../../utils/const';
 
 const UniversalStakePage = () => {
   const route = useAppRoute<
@@ -31,6 +33,8 @@ const UniversalStakePage = () => {
   const { balanceParsed, price } = token;
   const tokenInfo = token.info;
 
+  const actionTag = buildActionTag(details);
+
   const minAmount = useMemo(() => {
     if (provider.minStakeAmount) return provider.minStakeAmount;
     return BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
@@ -45,6 +49,12 @@ const UniversalStakePage = () => {
         amount,
         symbol: tokenInfo.symbol.toUpperCase(),
         provider: provider.name,
+        stakingInfo: {
+          label: ELidoLabels.Stake,
+          protocol: provider.name,
+          send: { token: tokenInfo, amount },
+          tags: [actionTag],
+        },
         onSuccess: (txs) => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
@@ -57,7 +67,7 @@ const UniversalStakePage = () => {
         },
       });
     },
-    [handleStake, appNavigation, tokenInfo, price, provider],
+    [handleStake, appNavigation, tokenInfo, price, provider, actionTag],
   );
   const intl = useIntl();
   return (

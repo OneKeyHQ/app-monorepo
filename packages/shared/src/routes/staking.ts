@@ -20,6 +20,7 @@ export enum EModalStakingRoutes {
   UniversalWithdraw = 'UniversalWithdraw',
   UniversalProtocolDetails = 'UniversalProtocolDetails',
   AssetProtocolList = 'AssetProtocolList',
+  UniversalApproveBaseStake = 'UniversalApproveBaseStake',
 }
 
 type IBaseRouteParams = {
@@ -82,6 +83,17 @@ export type IModalStakingParamList = {
     symbol: string;
     provider: string;
     details: IStakeProtocolDetails;
+  };
+  [EModalStakingRoutes.UniversalApproveBaseStake]: IBaseRouteParams & {
+    price: string;
+    balance: string;
+    token: IToken;
+    apr?: number;
+    minTransactionFee?: string;
+    symbol: string;
+    provider: string;
+    details: IStakeProtocolDetails;
+    currentAllowance: string;
   };
   [EModalStakingRoutes.UniversalWithdraw]: IBaseRouteParams & {
     balance: string;
