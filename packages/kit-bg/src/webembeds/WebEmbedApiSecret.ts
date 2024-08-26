@@ -7,7 +7,7 @@ import type {
 } from '@onekeyhq/core/src/secret';
 import {
   batchGetPublicKeysAsync,
-  generateRootFingerprintHex,
+  generateRootFingerprintHexAsync,
   mnemonicFromEntropyAsync,
   mnemonicToSeedAsync,
 } from '@onekeyhq/core/src/secret';
@@ -41,10 +41,10 @@ class WebEmbedApiSecret {
     return seed.toString('hex');
   }
 
-  async generateRootFingerprintHex(
+  async generateRootFingerprintHexAsync(
     params: IGenerateRootFingerprintHexAsyncParams,
   ): Promise<string> {
-    return generateRootFingerprintHex(params);
+    return generateRootFingerprintHexAsync(params);
   }
 }
 

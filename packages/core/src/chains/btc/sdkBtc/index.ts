@@ -25,7 +25,7 @@ import type { ISignPsbtParams } from '@onekeyhq/shared/types/ProviderApis/Provid
 import {
   CKDPub,
   ecc,
-  generateRootFingerprintHex,
+  generateRootFingerprintHexAsync,
   secp256k1,
 } from '../../../secret';
 import { EAddressEncodings } from '../../../types';
@@ -495,7 +495,7 @@ export function getBtcXpubSupportedAddressEncodings({
   };
 }
 
-export async function buildBtcXpubSegwit({
+export async function buildBtcXpubSegwitAsync({
   xpub,
   addressEncoding: encoding,
   hdAccountPayload,
@@ -518,7 +518,7 @@ export async function buildBtcXpubSegwit({
     // https://github.com/trezor/blockbook/blob/master/docs/api.md#get-xpub
     if (hdAccountPayload) {
       const { curveName, hdCredential, password, path } = hdAccountPayload;
-      const rootFingerprint = await generateRootFingerprintHex({
+      const rootFingerprint = await generateRootFingerprintHexAsync({
         curveName,
         hdCredential,
         password,
@@ -660,7 +660,7 @@ export async function getAddressFromXpub({
     encoding = supportEncodings[0];
   }
 
-  const xpubSegwit = await buildBtcXpubSegwit({
+  const xpubSegwit = await buildBtcXpubSegwitAsync({
     xpub,
     addressEncoding: encoding,
   });

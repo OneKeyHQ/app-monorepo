@@ -42,7 +42,7 @@ import { slicePathTemplate } from '../../utils';
 
 import {
   btcForkVersionBytesToBuffer,
-  buildBtcXpubSegwit,
+  buildBtcXpubSegwitAsync,
   getAddressFromXpub,
   getBitcoinBip32,
   getBitcoinECPair,
@@ -823,7 +823,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
 
         defaultLogger.account.accountCreatePerf.xpubToSegwit();
         // rebuild xpubSegwit by hd account descriptor
-        xpubSegwit = await buildBtcXpubSegwit({
+        xpubSegwit = await buildBtcXpubSegwitAsync({
           xpub,
           addressEncoding,
           hdAccountPayload: {

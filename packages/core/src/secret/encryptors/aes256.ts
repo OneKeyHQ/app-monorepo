@@ -166,6 +166,7 @@ async function encryptAsync({
 function decrypt(
   password: string,
   data: Buffer | string,
+  // avoid recursive call log output order confusion
   ignoreLogger?: boolean,
 ): Buffer {
   if (!password) {
@@ -292,6 +293,7 @@ function decodeSensitiveText({
 }: {
   encodedText: string;
   key?: string;
+  // avoid recursive call log output order confusion
   ignoreLogger?: boolean;
 }) {
   checkKeyPassedOnExtUi(key);
@@ -323,7 +325,11 @@ function encodeSensitiveText({ text, key }: { text: string; key?: string }) {
   ensureEncodeKeyExists(theKey);
   // text is already encoded
   if (isEncodedSensitiveText(text)) {
-    if (!platformEnv.isExtensionUi && !platformEnv.isNative) {
+    if (
+      !platformEnv.isExtensionUi &&
+      !platformEnv.isNative &&
+      platformEnv.isDev
+    ) {
       // try to decode it to verify if encode by same key
       decodeSensitiveText({ encodedText: text });
     }

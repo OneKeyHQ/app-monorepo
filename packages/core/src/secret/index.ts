@@ -544,11 +544,13 @@ export type IGenerateRootFingerprintHexAsyncParams = {
   hdCredential: IBip39RevealableSeedEncryptHex;
   password: string;
 };
-async function generateRootFingerprintHex(
+export async function generateRootFingerprintHexAsync(
   params: IGenerateRootFingerprintHexAsyncParams,
 ): Promise<string> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.secret.generateRootFingerprintHex(params);
+    return global.$webembedApiProxy.secret.generateRootFingerprintHexAsync(
+      params,
+    );
   }
   const { curveName, hdCredential, password } = params;
   const masterKey = generateMasterKeyFromSeed(
@@ -575,7 +577,6 @@ export {
   encryptVerifyString,
   fixV4VerifyStringToV5,
   generateMasterKeyFromSeed,
-  generateRootFingerprintHex,
   mnemonicFromEntropy,
   N,
   publicFromPrivate,

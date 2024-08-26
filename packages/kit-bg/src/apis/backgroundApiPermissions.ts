@@ -33,6 +33,7 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
 ].filter(Boolean);
 
 export const PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN = [
+  'https://1key.so',
   'https://onekey.so',
   ...WEB_EMBED_API_WHITE_LIST_ORIGIN,
 ].filter(Boolean);

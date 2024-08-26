@@ -6,14 +6,17 @@ export type IWebEmbedConfig = {
   url: string | undefined;
 };
 
-function getWebEmbedConfig(): IWebEmbedConfig {
+function getWebEmbedConfig(): IWebEmbedConfig | undefined {
   // **** start webembed server:
   // yarn app:web-embed
   // **** build webembed html file:
   // yarn app:web-embed:build
 
   const text =
-    appStorage.getSettingString(EAppSettingKey.onekey_webembed_config) || '{}';
+    appStorage.getSettingString(EAppSettingKey.onekey_webembed_config) || '';
+  if (!text) {
+    return undefined;
+  }
   return JSON.parse(text) as IWebEmbedConfig;
   // return {
   //   debug: true,
