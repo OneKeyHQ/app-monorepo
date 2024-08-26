@@ -56,7 +56,7 @@
 - (BOOL)concurrentRootEnabled
 {
   // Switch this bool to turn on and off the concurrent root
-  return true;
+  return YES;
 }
 
 // Linking API
